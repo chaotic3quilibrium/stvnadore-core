@@ -252,15 +252,15 @@ Traditional serialization formats conflate physical timeline instants with civil
 
 ### 3.6 Tripartite Invariant Matrix
 
-| Attribute | `:DateTimeOffset` | `:DateTimeZoned` | `:DateTimeAudited` |
-|:---|:---|:---|:---|
-| **Domain** | Physical Instant | Civil Wall-Clock | Regulatory Audit |
-| **Literal Grammar** | `"YYYY-MM-DDTHH:mm:ss±HH:mm"` | `"YYYY-MM-DDTHH:mm:ss[Zone]"` | `"YYYY-MM-DDTHH:mm:ss±HH:mm[Zone]"` |
-| **UTC Offset** | **Mandatory** | **Prohibited** | **Mandatory** |
-| **Zone Bracket (`[...]`)** | **Prohibited** | **Mandatory** | **Mandatory** |
-| **Offset Verification** | N/A | Derived dynamically | **Validated at Compile Time** |
-| **DST Gap Rejection** | N/A | **Strictly Rejected** | **Strictly Rejected** |
-| **Wire Footprint** | 12 Bytes | 10 Bytes | 14 Bytes |
+| Attribute                  | `:DateTimeOffset`             | `:DateTimeZoned`              | `:DateTimeAudited`                  |
+|:---------------------------|:------------------------------|:------------------------------|:------------------------------------|
+| **Domain**                 | Physical Instant              | Civil Wall-Clock              | Regulatory Audit                    |
+| **Literal Grammar**        | `"YYYY-MM-DDTHH:mm:ss±HH:mm"` | `"YYYY-MM-DDTHH:mm:ss[Zone]"` | `"YYYY-MM-DDTHH:mm:ss±HH:mm[Zone]"` |
+| **UTC Offset**             | **Mandatory**                 | **Prohibited**                | **Mandatory**                       |
+| **Zone Bracket (`[...]`)** | **Prohibited**                | **Mandatory**                 | **Mandatory**                       |
+| **Offset Verification**    | N/A                           | Derived dynamically           | **Validated at Compile Time**       |
+| **DST Gap Rejection**      | N/A                           | **Strictly Rejected**         | **Strictly Rejected**               |
+| **Wire Footprint**         | 12 Bytes                      | 10 Bytes                      | 14 Bytes                            |
 
 ---
 
@@ -299,20 +299,20 @@ If any unused upper bit in the most significant byte is non-zero, decoders rejec
 
 In JSON and traditional serialization formats, map entry and set ordering is undefined. In STVN:
 1. **Positional Determinism:** Encounter order is preserved across lexing, AST construction, binary serialization, and JVM heap mapping.
-2. **Absolute Immutability:** Collection values in the AST ([StvnSet](file:///c:/Projects/Java/stvnadore/ij_stvnadore_core2/src/main/java/org/stvnadore/core/ir/StvnValue.java#L589) and [StvnMap](file:///c:/Projects/Java/stvnadore/ij_stvnadore_core2/src/main/java/org/stvnadore/core/ir/StvnValue.java#L647)) require `SequencedSet` and `SequencedMap` and wrap them in unmodifiable decorators.
+2. **Absolute Immutability:** Collection values in the AST ([StvnSet](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L647) and [StvnMap](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L705)) require `SequencedSet` and `SequencedMap` and wrap them in unmodifiable decorators.
 
 ### 5.2 The 8 Collection Types
 
-| Collection Type | Enclosure Syntax | Constraints & Invariants |
-|:---|:---|:---|
-| **`:Seq( T )`** | `[ v1 v2 ... ]` | Ordered sequence of elements of type `T`. |
-| **`:SeqNonEmpty( T )`** | `[ v1 v2 ... ]` | Ordered sequence requiring size $\ge 1$. |
-| **`:Set( T )`** | `[ v1 v2 ... ]` | Insertion-ordered set. Elements must be unique and `#equatable`. |
-| **`:SetNonEmpty( T )`** | `[ v1 v2 ... ]` | Unique ordered set requiring size $\ge 1$. |
-| **`:Map( K V )`** | `{ [ k1 v1 ] [ k2 v2 ] }` | Associative map. Keys must be unique and `#equatable`. |
-| **`:MapNonEmpty( K V )`** | `{ [ k1 v1 ] [ k2 v2 ] }` | Associative map requiring size $\ge 1$. |
-| **`:MapInv( K V )`** | `{ [ k1 v1 ] [ k2 v2 ] }` | Invertible map. **Dual-Set Invariant:** Keys AND Values must be unique. |
-| **`:MapInvNonEmpty( K V )`** | `{ [ k1 v1 ] [ k2 v2 ] }` | Invertible map requiring size $\ge 1$. |
+| Collection Type              | Enclosure Syntax          | Constraints & Invariants                                                |
+|:-----------------------------|:--------------------------|:------------------------------------------------------------------------|
+| **`:Seq( T )`**              | `[ v1 v2 ... ]`           | Ordered sequence of elements of type `T`.                               |
+| **`:SeqNonEmpty( T )`**      | `[ v1 v2 ... ]`           | Ordered sequence requiring size $\ge 1$.                                |
+| **`:Set( T )`**              | `[ v1 v2 ... ]`           | Insertion-ordered set. Elements must be unique and `#equatable`.        |
+| **`:SetNonEmpty( T )`**      | `[ v1 v2 ... ]`           | Unique ordered set requiring size $\ge 1$.                              |
+| **`:Map( K V )`**            | `{ [ k1 v1 ] [ k2 v2 ] }` | Associative map. Keys must be unique and `#equatable`.                  |
+| **`:MapNonEmpty( K V )`**    | `{ [ k1 v1 ] [ k2 v2 ] }` | Associative map requiring size $\ge 1$.                                 |
+| **`:MapInv( K V )`**         | `{ [ k1 v1 ] [ k2 v2 ] }` | Invertible map. **Dual-Set Invariant:** Keys AND Values must be unique. |
+| **`:MapInvNonEmpty( K V )`** | `{ [ k1 v1 ] [ k2 v2 ] }` | Invertible map requiring size $\ge 1$.                                  |
 
 ### 5.3 Dual-Set Invariant in Invertible Maps (`:MapInv`)
 
@@ -392,7 +392,7 @@ flowchart TB
 
 Java records allow developers to construct illegal instances where an `Optional` field holds a literal `null` reference (`new UserProfile("dev", 30, null)`). In VOP, `null` references do not exist—an optional value is either `#Some value` or `#None`.
 
-[StvnMapper](file:///c:/Projects/Java/stvnadore/ij_stvnadore_core2/src/main/java/org/stvnadore/core/mapper/StvnMapper.java) intercepts this at the serialization boundary, throwing a `MalformedPayloadException` if any record component of type `Optional` holds a `null` reference.
+[StvnMapper](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/mapper/StvnMapper.java) intercepts this at the serialization boundary, throwing a `MalformedPayloadException` if any record component of type `Optional` holds a `null` reference.
 
 ### 7.3 DiagnosticBag Accumulation, Coordinate Spans & Partial AST Recovery
 
@@ -428,22 +428,22 @@ if (result.isRecoveredPartialAst()) {
 
 ### 8.1 Built-in Prelude Nominal Types
 
-The standard library prelude ([StvnPrelude.java](file:///c:/Projects/Java/stvnadore/ij_stvnadore_core2/src/main/java/org/stvnadore/core/stdlib/StvnPrelude.java)) is pre-registered and implicitly available in all STVN contexts:
+The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/stdlib/StvnPrelude.java)) is pre-registered and implicitly available in all STVN contexts:
 
-| Nominal Type | Underlying Type | Applied Constraints / Validation Specification |
-|:---|:---|:---|
-| **`:Uuid`** | `:StringFixed36` | `{ #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }` |
-| **`:Ulid`** | `:StringFixed26` | `{ #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32) |
-| **`:Sha256`** | `:StringFixed64` | `{ #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest) |
-| **`:SemVer`** | `:String` | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`) |
-| **`:Email`** | `:String` | RFC 5322 email address validation |
-| **`:IPv4`** | `:String` | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`) |
-| **`:Port`** | `:Uint16` | `{ #minIncl 1 #maxIncl 65535 }` |
-| **`:Percentage`** | `:Float64` | `{ #minIncl 0.0 #maxIncl 100.0 }` |
-| **`:Probability`** | `:Float64` | `{ #minIncl 0.0 #maxIncl 1.0 }` |
-| **`:Currency`** | `:FloatExact` | Monetary value with exact arbitrary decimal precision |
-| **`:Latitude`** | `:Float64` | `{ #minIncl -90.0 #maxIncl 90.0 }` |
-| **`:Longitude`** | `:Float64` | `{ #minIncl -180.0 #maxIncl 180.0 }` |
+| Nominal Type       | Underlying Type  | Applied Constraints / Validation Specification                                               |
+|:-------------------|:-----------------|:---------------------------------------------------------------------------------------------|
+| **`:Uuid`**        | `:StringFixed36` | `{ #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }` |
+| **`:Ulid`**        | `:StringFixed26` | `{ #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32)                            |
+| **`:Sha256`**      | `:StringFixed64` | `{ #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest)                                |
+| **`:SemVer`**      | `:String`        | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`)               |
+| **`:Email`**       | `:String`        | RFC 5322 email address validation                                                            |
+| **`:IPv4`**        | `:String`        | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`)                                 |
+| **`:Port`**        | `:Uint16`        | `{ #minIncl 1 #maxIncl 65535 }`                                                              |
+| **`:Percentage`**  | `:Float64`       | `{ #minIncl 0.0 #maxIncl 100.0 }`                                                            |
+| **`:Probability`** | `:Float64`       | `{ #minIncl 0.0 #maxIncl 1.0 }`                                                              |
+| **`:Currency`**    | `:FloatExact`    | Monetary value with exact arbitrary decimal precision                                        |
+| **`:Latitude`**    | `:Float64`       | `{ #minIncl -90.0 #maxIncl 90.0 }`                                                           |
+| **`:Longitude`**   | `:Float64`       | `{ #minIncl -180.0 #maxIncl 180.0 }`                                                         |
 
 ### 8.2 Security Considerations: `:Sha256` Adoption and `:Sha1` Excision
 

@@ -2,7 +2,7 @@
 
 **Document ID**: `STVN-SPEC-02`  
 **Status**: Canonical Specification  
-**Version**: 1.0.0  
+**Version**: 1.0.1
 **Compliance**: Mandatory across all STVN repository servers, storage backends, and deployment topologies.
 
 ---
@@ -11,7 +11,7 @@
 
 To eliminate filesystem inode saturation and directory search degradation, physical Content-Addressable Storage (CAS) files are stored using a 2-character directory prefix derived from the 64-character lowercase hexadecimal SHA-256 digest:
 
-$$\text{File Path} = \langle\text{CAS\_ROOT}\rangle \,/\, \text{hash}[0..1] \,/\, \text{hash}[2..63] \text{".stvn\_cas"}$$
+$$\text{File Path} = \langle\text{CAS_ROOT}\rangle \,/\, \text{hash}[0..1] \,/\, \text{hash}[2..63] \text{".stvn_cas"}$$
 
 ### Directory Layout
 ```

@@ -26,7 +26,7 @@ public class StvnIrSnapshotTest {
   @ParameterizedTest(name = "Snapshot Test - {0}")
   @MethodSource("provideFixtureFiles")
   public void testIrSnapshot(String fileName, Path stvnFile) throws IOException {
-    var stvnContent = Files.readString(stvnFile);
+    var stvnContent = Files.readString(stvnFile).replace("\r\n", "\n");
     
     // Compile live STVN content to IR
     var liveIr = StvnCompiler.compile(stvnContent, stvnFile.toString())

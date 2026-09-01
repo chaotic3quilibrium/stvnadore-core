@@ -1,8 +1,8 @@
 # STVN Architectural Specification 03: Binary Encoding & Zero-Trust Verification
 
-**Document ID**: `STVN-SPEC-03`  
-**Status**: Canonical Specification  
-**Version**: 1.0.0  
+**Document ID**: `STVN-SPEC-03`
+**Status**: Canonical Specification
+**Version**: 1.0.1
 **Compliance**: Mandatory across all STVN binary encoders, decoders, zero-copy readers, and wire protocol bindings.
 
 ---
