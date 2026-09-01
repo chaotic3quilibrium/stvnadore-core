@@ -1,0 +1,6 @@
+{
+  :defs {
+    :TypeA :Int32
+    :ConflictType :Int32
+  }
+}

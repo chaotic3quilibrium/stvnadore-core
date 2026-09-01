@@ -1,0 +1,14 @@
+TypeRegistry:
+  - <:type>
+      schema:
+        node: :Tuple(:TypeA:TypeB:ConflictType:ConflictTypeB)
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnInteger(:TypeA): 42
+      - StvnString(:TypeB): "hello"
+      - StvnInteger(:ConflictType): 100
+      - StvnString(:ConflictTypeB): "world"

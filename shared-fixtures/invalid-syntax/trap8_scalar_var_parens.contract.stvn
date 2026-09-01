@@ -1,0 +1,14 @@
+{
+  // trap8_scalar_var_parens.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "Type mismatch: Expected scalar (:Int32), got Tuple (parenthesized product syntax is strictly reserved for :Tuple)"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

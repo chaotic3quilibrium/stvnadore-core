@@ -1,0 +1,69 @@
+{
+  // canonical_scalars.stvn
+  :defs {
+    :IntBit1        :Int1
+    :IntBit7        :Int7
+    :IntBit24       :Int24
+    :IntBit64       :Int64
+    :IntBit128      :Int128
+    :DefaultSigned  :Int
+
+    :UintBit1       :Uint1
+    :UintBit3       :Uint3
+    :UintBit49      :Uint49
+    :UintBit64      :Uint64
+    :UintBit128     :Uint128
+    :DefaultUnsigned :Uint
+
+    :DefaultFloat   :Float
+    :SingleFloat    :Float32
+    :DoubleFloat    :Float64
+    :FinancialValue :FloatExact
+
+    :UnboundedText  :String
+    :BoundedText    :String64
+    :MandatoryText  :StringNonEmpty128
+    :ExactKeyText   :StringFixed16
+
+    :FlagState      :Boolean
+    :ServerState    :Enum [ #INITIALIZING #ACTIVE #DEGRADED #OFFLINE ]
+  }
+
+  :type :Tuple(
+    :Int1 :Int7 :Int24 :Int64 :Int128 :Int
+    :Uint1 :Uint3 :Uint49 :Uint64 :Uint128 :Uint
+    :Float :Float32 :Float64 :FloatExact
+    :String :String64 :StringNonEmpty128 :StringFixed16
+    :Boolean :Boolean :ServerState
+  )
+
+  :body (
+    0
+    -64
+    -8388600
+    -9223372036854775808
+    -170141183460469231731687303715884105728
+    -2147483648
+
+    1
+    7
+    500000000000000
+    18446744073709551615
+    340282366920938463463374607431768211455
+    4294967295
+
+    3.141592653589793
+    1.5
+    -0.00000001
+    12450.75
+
+    "Standard text without manual character limits"
+    "1234567890123456789012345678901234567890123456789012345678901234"
+    "Text requiring at least 1 character and at most 128"
+    "1234567890abcdef"
+
+    #TRUE
+    #FALSE
+    #ACTIVE
+  )
+}

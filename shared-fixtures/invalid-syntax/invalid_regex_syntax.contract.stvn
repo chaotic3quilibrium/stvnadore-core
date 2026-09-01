@@ -1,0 +1,14 @@
+{
+  // invalid_regex_syntax.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation (:BadRegex): Invalid regex pattern: ["
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

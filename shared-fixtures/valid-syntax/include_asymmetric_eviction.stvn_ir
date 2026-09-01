@@ -1,0 +1,12 @@
+TypeRegistry:
+  - <:type>
+      schema:
+        node: :Tuple(:AliasedType:ConflictType)
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnInteger(:AliasedType): 42
+      - StvnString(:ConflictType): "hello"

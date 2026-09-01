@@ -1,0 +1,4 @@
+{
+  :type :MapInvNonEmpty(:String :Int32)
+  :body {}
+}

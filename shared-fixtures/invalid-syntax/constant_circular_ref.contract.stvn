@@ -1,0 +1,14 @@
+{
+  // constant_circular_ref.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #CIRCULAR_REFERENCE
+    "Circular constant definition detected: #CONST_A -> #CONST_B -> #CONST_A"
+    "org.stvnadore.core.validation.StvnTypeResolver$CircularReferenceException"
+  )
+}

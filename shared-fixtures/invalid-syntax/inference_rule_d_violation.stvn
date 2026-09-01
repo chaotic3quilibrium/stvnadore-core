@@ -1,0 +1,7 @@
+{
+  :defs {
+    :Result :Either( :Int32 :Uint32 )
+  }
+  :type :Result
+  :body 42
+}

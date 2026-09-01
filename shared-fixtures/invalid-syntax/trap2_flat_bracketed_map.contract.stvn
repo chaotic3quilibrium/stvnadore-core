@@ -1,0 +1,14 @@
+{
+  // trap2_flat_bracketed_map.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "Type mismatch: Expected string, got integer"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

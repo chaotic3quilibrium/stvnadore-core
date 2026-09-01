@@ -1,0 +1,22 @@
+TypeRegistry:
+  - <:type>
+      schema:
+        node: :Tuple(:Uint8:String:Uint16:Tuple(:Float32:Float32):Seq(:Uint16))
+        constraints:
+          equatable: false (derived from :Tuple(:Float32:Float32))
+          comparable: true (default)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnInteger(:Uint8): 3
+      - StvnString(:String): "api.internal.net"
+      - StvnInteger(:Uint16): 8000
+      - StvnTuple
+          elements:
+            - StvnFloat(:Float32): 12.34
+            - StvnFloat(:Float32): 56.78
+      - StvnSeq
+          elements:
+            - StvnInteger(:Uint16): 80
+            - StvnInteger(:Uint16): 443
+            - StvnInteger(:Uint16): 8080

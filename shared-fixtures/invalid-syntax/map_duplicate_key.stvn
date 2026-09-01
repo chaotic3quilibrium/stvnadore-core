@@ -1,0 +1,10 @@
+{
+  :defs {
+    :Config :Map( :String :Int32 )
+  }
+  :type :Config
+  :body {
+    [ "port" 8080 ]
+    [ "port" 9090 ]
+  }
+}

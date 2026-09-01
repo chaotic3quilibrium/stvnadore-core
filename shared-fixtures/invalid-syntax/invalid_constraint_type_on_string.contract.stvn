@@ -1,0 +1,14 @@
+{
+  // invalid_constraint_type_on_string.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation (:BadString): minIncl is not allowed on :String"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

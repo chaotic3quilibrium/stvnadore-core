@@ -1,0 +1,9 @@
+{
+  :defs {
+    :include [
+      "include_cyclic_indirect_b.stvn_incl"
+    ]
+  }
+  :type :Int32
+  :body 42
+}

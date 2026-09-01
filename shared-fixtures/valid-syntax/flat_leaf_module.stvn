@@ -1,0 +1,17 @@
+{
+  // flat_leaf_module.stvn
+  :defs {
+    :include [ "network_primitives.stvn_inclf" ]
+
+    :NetworkConfig :Tuple( :HostName :Port :Protocol :BitFlag )
+  }
+
+  :type :NetworkConfig
+
+  :body (
+    "gateway.internal"
+    8443
+    #HTTPS
+    1
+  )
+}

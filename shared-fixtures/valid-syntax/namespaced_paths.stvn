@@ -1,0 +1,15 @@
+{
+  // namespaced_paths.stvn
+  :defs {
+    :include [ "network_service.stvn_incl" { :net/http/Status :HttpStatus :net/http/Header :HttpHeader } ]
+
+    :app/v1/Response :Tuple( :HttpStatus :HttpHeader )
+  }
+
+  :type :app/v1/Response
+
+  :body (
+    #net/http/OK
+    ( "Content-Type" "application/stvn" )
+  )
+}

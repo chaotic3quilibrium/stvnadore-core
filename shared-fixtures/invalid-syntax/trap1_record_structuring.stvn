@@ -1,0 +1,7 @@
+{
+  :defs {
+    :User { :name :String :age :Uint32 }
+  }
+  :type :User
+  :body ( "Alice" 30 )
+}

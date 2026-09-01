@@ -1,0 +1,8 @@
+{
+  :defs {
+    :Action :Enum [ #Some #None #Custom ]
+    :Choice :Option( :Action )
+  }
+  :type :Choice
+  :body #Some
+}

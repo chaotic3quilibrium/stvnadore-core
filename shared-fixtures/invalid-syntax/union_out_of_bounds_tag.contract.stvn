@@ -1,0 +1,14 @@
+{
+  // union_out_of_bounds_tag.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_LITERAL
+    "Explicit branch tag #3 overflows union schema constraints. Maximum branch capacity is 2."
+    "org.stvnadore.core.validation.StvnMalformedLiteralException"
+  )
+}

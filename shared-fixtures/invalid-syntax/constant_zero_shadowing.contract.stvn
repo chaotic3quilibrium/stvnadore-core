@@ -1,0 +1,14 @@
+{
+  // constant_zero_shadowing.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "Undeclared value keyword or constant: '#NON_EXISTENT_CONST'. Value keywords in payload position must match an active :Enum variant or a declared constant in :defs."
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

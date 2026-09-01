@@ -1,0 +1,88 @@
+TypeRegistry:
+  - :OptText
+      schema:
+        node: :Option(:String)
+        aliasName: :OptText
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Option(:String)
+  - :EitherResult
+      schema:
+        node: :Either(:Int32:String)
+        aliasName: :EitherResult
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Either(:Int32:String)
+  - :DisjointUnion
+      schema:
+        node: :Union(:Int32:Boolean:Float64:String)
+        aliasName: :DisjointUnion
+        constraints:
+          equatable: false (derived from :Float64)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Union(:Int32:Boolean:Float64:String)
+  - :ProductData
+      schema:
+        node: :Tuple(:Int32:String:Boolean)
+        aliasName: :ProductData
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:Int32:String:Boolean)
+  - <:type>
+      schema:
+        node: :Tuple(:OptText:OptText:OptText:OptText:OptText:EitherResult:EitherResult:EitherResult:EitherResult:EitherResult:DisjointUnion:DisjointUnion:DisjointUnion:DisjointUnion:ProductData)
+        constraints:
+          equatable: false (derived from :DisjointUnion)
+          comparable: true (default)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnOption
+          value: StvnString(:String): "Explicit long option"
+      - StvnOption
+          value: StvnString(:String): "Explicit short option"
+      - StvnOption
+          value: null
+      - StvnOption
+          value: null
+      - StvnOption
+          value: StvnString(:String): "Implicitly wrapped option"
+      - StvnEither
+          isRight: false
+          value: StvnInteger(:Int32): 404
+      - StvnEither
+          isRight: false
+          value: StvnInteger(:Int32): 500
+      - StvnEither
+          isRight: true
+          value: StvnString(:String): "Explicit long right"
+      - StvnEither
+          isRight: true
+          value: StvnString(:String): "Explicit short right"
+      - StvnEither
+          isRight: true
+          value: StvnString(:String): "Implicitly wrapped right"
+      - StvnUnion
+          tagIndex: 0
+          value: StvnInteger(:Int32): 1024
+      - StvnUnion
+          tagIndex: 1
+          value: StvnBoolean(:Boolean): true
+      - StvnUnion
+          tagIndex: 2
+          value: StvnFloat(:Float64): 99.95
+      - StvnUnion
+          tagIndex: 3
+          value: StvnString(:String): "Union payload text"
+      - StvnTuple
+          elements:
+            - StvnInteger(:Int32): 200
+            - StvnString(:String): "OK"
+            - StvnBoolean(:Boolean): true

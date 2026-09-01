@@ -1,0 +1,7 @@
+{
+  :defs {
+    :OverflowInt :Int4294967296
+  }
+  :type :OverflowInt
+  :body 0
+}

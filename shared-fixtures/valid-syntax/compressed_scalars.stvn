@@ -1,0 +1,26 @@
+{
+  // compressed_scalars.stvn
+  :defs {
+    :BoolFlag   :Boolean
+    :OptVal     :Option( :String )
+    :ChoiceVal  :Either( :Int32 :String )
+  }
+
+  :type :Tuple(
+    :BoolFlag
+    :BoolFlag
+    :OptVal
+    :OptVal
+    :ChoiceVal
+    :ChoiceVal
+  )
+
+  :body (
+    #T
+    #F
+    #S "Payload"
+    #N
+    #L -100
+    #R "Success"
+  )
+}

@@ -1,0 +1,21 @@
+TypeRegistry:
+  - :DisjointUnion
+      schema:
+        node: :Union(:Int32:String)
+        aliasName: :DisjointUnion
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Union(:Int32:String)
+  - <:type>
+      schema:
+        node: :Union(:Int32:String)
+        aliasName: :DisjointUnion
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+ValuePayload:
+  StvnUnion
+    tagIndex: 0
+    value: StvnInteger(:Int32): 42

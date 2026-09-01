@@ -1,0 +1,14 @@
+{
+  // set_non_empty_empty_literal.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "Set is marked as non-empty but contains no elements"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

@@ -1,0 +1,7 @@
+{
+  // network_service.stvn_incl
+  :defs {
+    :net/http/Status :Enum [ #net/http/OK #net/http/NotFound #net/http/Error ]
+    :net/http/Header :Tuple( :String :String )
+  }
+}

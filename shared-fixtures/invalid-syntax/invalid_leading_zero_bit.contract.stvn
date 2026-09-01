@@ -1,0 +1,14 @@
+{
+  // invalid_leading_zero_bit.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation: Leading zeros are forbidden in type suffix dimensions: :Int08"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

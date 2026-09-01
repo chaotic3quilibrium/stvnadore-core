@@ -1,0 +1,8 @@
+{
+  :defs {
+    :MyInt { #minIncl 1 } :Int32
+    :BadUnion :Union(:MyInt :MyInt)
+  }
+  :type :BadUnion
+  :body 42
+}

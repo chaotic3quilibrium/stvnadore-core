@@ -1,0 +1,18 @@
+{
+  // fenced_string_nested.stvn
+  :defs {
+    :SchemaName :String
+    :StvnInclf  { #preserveIndent #TRUE } :String
+  }
+  :type :Tuple( :SchemaName :StvnInclf )
+  :body (
+    "schemaName"
+    """->[SHA256-ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad]
+{
+  :defs {
+    :CustomAlias :String
+  }
+}
+    [SHA256-ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad]"""
+  )
+}

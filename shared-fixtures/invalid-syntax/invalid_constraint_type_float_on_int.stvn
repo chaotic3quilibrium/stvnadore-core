@@ -1,0 +1,7 @@
+{
+  :defs {
+    :BadInt {#minIncl 5.0} :Int32
+  }
+  :type :BadInt
+  :body 10
+}

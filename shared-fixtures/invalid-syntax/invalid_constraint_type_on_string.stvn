@@ -1,0 +1,7 @@
+{
+  :defs {
+    :BadString {#minIncl 5} :String
+  }
+  :type :BadString
+  :body "hello"
+}

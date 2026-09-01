@@ -1,0 +1,53 @@
+{
+  // collections_full.stvn
+  :defs {
+    :IntSequence       :Seq( :Int32 )
+    :NonEmptySequence  :SeqNonEmpty( :String )
+
+    :IntSet            :Set( :Int32 )
+    :NonEmptySet       :SetNonEmpty( :String )
+
+    :LookupMap         :Map( :String :Int32 )
+    :NonEmptyMap       :MapNonEmpty( :String :Int32 )
+
+    :BiDirectionalMap  :MapInv( :String :Int32 )
+    :NonEmptyBiMap     :MapInvNonEmpty( :String :Int32 )
+  }
+
+  :type :Tuple(
+    :IntSequence
+    :NonEmptySequence
+    :IntSet
+    :NonEmptySet
+    :LookupMap
+    :NonEmptyMap
+    :BiDirectionalMap
+    :NonEmptyBiMap
+  )
+
+  :body (
+    [ 10 20 30 40 50 ]
+    [ "Alpha" "Beta" "Gamma" ]
+
+    [ 1 2 3 4 5 ]
+    [ "UniqueTagA" "UniqueTagB" ]
+
+    {
+      [ "port"     8080 ]
+      [ "timeout"  30 ]
+      [ "retries"  3 ]
+    }
+    {
+      [ "primaryKey" 1 ]
+    }
+
+    {
+      [ "admin" 0 ]
+      [ "user"  1000 ]
+      [ "guest" 2000 ]
+    }
+    {
+      [ "root" 0 ]
+    }
+  )
+}

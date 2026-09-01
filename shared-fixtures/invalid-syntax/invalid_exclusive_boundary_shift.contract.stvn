@@ -1,0 +1,14 @@
+{
+  // invalid_exclusive_boundary_shift.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation (:ShiftedType): effective range is invalid (minimum 6 is greater than maximum 5)"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

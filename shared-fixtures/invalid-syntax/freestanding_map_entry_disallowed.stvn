@@ -1,0 +1,4 @@
+{
+  :type :MapEntry(:String :Int32)
+  :body [ "key" 42 ]
+}

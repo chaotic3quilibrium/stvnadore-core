@@ -1,0 +1,14 @@
+{
+  // inference_rule_d_violation.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "Ambiguous implicit resolution: Value matches both Left and Right branches of :Either"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

@@ -1,0 +1,10 @@
+{
+  :defs {
+    :include [
+      "shared-fixtures/valid-syntax/module_a.stvn_incl"
+      "shared-fixtures/valid-syntax/module_b.stvn_incl"
+    ]
+  }
+  :type :Boolean
+  :body #TRUE
+}

@@ -1,0 +1,53 @@
+{
+  // prelude_and_temporal.stvn
+  :defs {
+    :EpochSeconds   :TimeEpochS
+    :EpochMillis    :TimeEpochMs
+    :EpochNanos     :TimeEpochNs
+    :OffsetDateTime :DateTimeOffset
+    :ZonedDateTime  :DateTimeZoned
+    :AuditedDateTime :DateTimeAudited
+
+    :IdUuid         :Uuid
+    :IdUlid         :Ulid
+    :HashSha256     :Sha256
+    :VersionSemVer  :SemVer
+    :ContactEmail   :Email
+    :NetworkIPv4    :IPv4
+    :NetworkPort    :Port
+    :RatioPercent   :Percentage
+    :RatioProb      :Probability
+    :MoneyAmount    :Currency
+    :GeoLat         :Latitude
+    :GeoLon         :Longitude
+  }
+
+  :type :Tuple(
+    :EpochSeconds :EpochMillis :EpochNanos :OffsetDateTime :ZonedDateTime :AuditedDateTime
+    :IdUuid :IdUlid :HashSha256 :VersionSemVer :ContactEmail
+    :NetworkIPv4 :NetworkPort :RatioPercent :RatioProb
+    :MoneyAmount :GeoLat :GeoLon
+  )
+
+  :body (
+    1773532800
+    1773532800000
+    1773532800000000000
+    "2026-03-15T08:00:00-05:00"
+    "2026-03-15T08:00:00[America/Chicago]"
+    "2026-03-15T08:00:00-05:00[America/Chicago]"
+
+    "123e4567-e89b-12d3-a456-426614174000"
+    "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    "1.2.3-beta.1"
+    "developer@example.com"
+    "192.168.1.1"
+    8443
+    99.95
+    0.85
+    149.99
+    32.7767
+    -96.7970
+  )
+}

@@ -1,0 +1,7 @@
+{
+  :defs {
+    :Pair :Tuple( :Int32 :String )
+  }
+  :type :Pair
+  :body [ 42 "hello" ]
+}

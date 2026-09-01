@@ -1,0 +1,9 @@
+{
+  :defs {
+    :include [
+      "include_cyclic_three_deep_b.stvn_incl"
+    ]
+  }
+  :type :Int32
+  :body 42
+}

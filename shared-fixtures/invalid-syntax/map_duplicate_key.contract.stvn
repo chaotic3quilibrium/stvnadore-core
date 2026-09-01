@@ -1,0 +1,14 @@
+{
+  // map_duplicate_key.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #COLLECTION_COLLISION
+    "Duplicate map key detected"
+    "org.stvnadore.core.validation.StvnCollectionCollisionException"
+  )
+}

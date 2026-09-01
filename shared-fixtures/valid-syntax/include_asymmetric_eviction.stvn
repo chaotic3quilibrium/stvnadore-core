@@ -1,0 +1,12 @@
+{
+  :defs {
+    :include [
+      "shared-fixtures/valid-syntax/module_asym_a.stvn_incl" {
+        :ConflictType :AliasedType
+      }
+      "shared-fixtures/valid-syntax/module_asym_b.stvn_incl"
+    ]
+  }
+  :type :Tuple( :AliasedType :ConflictType )
+  :body ( 42 "hello" )
+}

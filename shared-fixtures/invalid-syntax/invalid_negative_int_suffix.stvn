@@ -1,0 +1,4 @@
+{
+  :type :Seq(:Int-8)
+  :body [ 0 ]
+}

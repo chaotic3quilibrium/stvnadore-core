@@ -1,0 +1,143 @@
+TypeRegistry:
+  - :IntSequence
+      schema:
+        node: :Seq(:Int32)
+        aliasName: :IntSequence
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Seq(:Int32)
+  - :NonEmptySequence
+      schema:
+        node: :SeqNonEmpty(:String)
+        aliasName: :NonEmptySequence
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :SeqNonEmpty(:String)
+  - :IntSet
+      schema:
+        node: :Set(:Int32)
+        aliasName: :IntSet
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: :Set(:Int32)
+  - :NonEmptySet
+      schema:
+        node: :SetNonEmpty(:String)
+        aliasName: :NonEmptySet
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: :SetNonEmpty(:String)
+  - :LookupMap
+      schema:
+        node: :Map(:String:Int32)
+        aliasName: :LookupMap
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: :Map(:String:Int32)
+  - :NonEmptyMap
+      schema:
+        node: :MapNonEmpty(:String:Int32)
+        aliasName: :NonEmptyMap
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: :MapNonEmpty(:String:Int32)
+  - :BiDirectionalMap
+      schema:
+        node: :MapInv(:String:Int32)
+        aliasName: :BiDirectionalMap
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: :MapInv(:String:Int32)
+  - :NonEmptyBiMap
+      schema:
+        node: :MapInvNonEmpty(:String:Int32)
+        aliasName: :NonEmptyBiMap
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: :MapInvNonEmpty(:String:Int32)
+  - <:type>
+      schema:
+        node: :Tuple(:IntSequence:NonEmptySequence:IntSet:NonEmptySet:LookupMap:NonEmptyMap:BiDirectionalMap:NonEmptyBiMap)
+        constraints:
+          equatable: true (default)
+          comparable: false (derived from :IntSet)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnSeq
+          elements:
+            - StvnInteger(:Int32): 10
+            - StvnInteger(:Int32): 20
+            - StvnInteger(:Int32): 30
+            - StvnInteger(:Int32): 40
+            - StvnInteger(:Int32): 50
+      - StvnSeq
+          isNonEmpty: true
+          elements:
+            - StvnString(:String): "Alpha"
+            - StvnString(:String): "Beta"
+            - StvnString(:String): "Gamma"
+      - StvnSet
+          elements:
+            - StvnInteger(:Int32): 1
+            - StvnInteger(:Int32): 2
+            - StvnInteger(:Int32): 3
+            - StvnInteger(:Int32): 4
+            - StvnInteger(:Int32): 5
+      - StvnSet
+          isNonEmpty: true
+          elements:
+            - StvnString(:String): "UniqueTagA"
+            - StvnString(:String): "UniqueTagB"
+      - StvnMap
+          entries:
+            - pair:
+                key: StvnString(:String): "port"
+                value: StvnInteger(:Int32): 8080
+            - pair:
+                key: StvnString(:String): "timeout"
+                value: StvnInteger(:Int32): 30
+            - pair:
+                key: StvnString(:String): "retries"
+                value: StvnInteger(:Int32): 3
+      - StvnMap
+          isNonEmpty: true
+          entries:
+            - pair:
+                key: StvnString(:String): "primaryKey"
+                value: StvnInteger(:Int32): 1
+      - StvnMap
+          isInvertible: true
+          entries:
+            - pair:
+                key: StvnString(:String): "admin"
+                value: StvnInteger(:Int32): 0
+            - pair:
+                key: StvnString(:String): "user"
+                value: StvnInteger(:Int32): 1000
+            - pair:
+                key: StvnString(:String): "guest"
+                value: StvnInteger(:Int32): 2000
+      - StvnMap
+          isNonEmpty: true
+          isInvertible: true
+          entries:
+            - pair:
+                key: StvnString(:String): "root"
+                value: StvnInteger(:Int32): 0

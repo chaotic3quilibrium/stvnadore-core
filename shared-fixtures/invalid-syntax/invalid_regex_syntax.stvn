@@ -1,0 +1,7 @@
+{
+  :defs {
+    :BadRegex { #regex "[" } :String
+  }
+  :type :BadRegex
+  :body "test"
+}

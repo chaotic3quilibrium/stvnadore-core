@@ -1,0 +1,7 @@
+{
+  :defs {
+    :UnsignedType {#maxIncl 256} :Uint8
+  }
+  :type :UnsignedType
+  :body 10
+}

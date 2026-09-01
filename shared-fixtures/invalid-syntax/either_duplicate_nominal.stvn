@@ -1,0 +1,9 @@
+{
+  :defs {
+    :PayloadA :String
+    :PayloadB :String
+    :Result :Either( :PayloadA :PayloadB )
+  }
+  :type :Result
+  :body "hello"
+}

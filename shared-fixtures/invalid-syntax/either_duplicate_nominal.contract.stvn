@@ -1,0 +1,14 @@
+{
+  // either_duplicate_nominal.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "Ambiguous implicit either: Both sides are identical (:String), explicit #Left or #Right tag is required"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

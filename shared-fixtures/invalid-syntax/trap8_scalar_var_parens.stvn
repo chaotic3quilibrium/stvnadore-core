@@ -1,0 +1,7 @@
+{
+  :defs {
+    :OptInt :Option( :Int32 )
+  }
+  :type :OptInt
+  :body #Some ( 42 )
+}

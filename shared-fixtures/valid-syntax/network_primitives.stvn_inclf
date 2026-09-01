@@ -1,0 +1,10 @@
+{
+  // network_primitives.stvn_inclf
+  :defs {
+    :BitFlag        :Uint1
+    :UnixPermission :Uint3
+    :Port           { #minIncl 1 #maxIncl 65535 } :Uint16
+    :HostName       { #regex "^[a-zA-Z0-9.-]+$" } :StringNonEmpty64
+    :Protocol       :Enum [ #HTTP #HTTPS #TCP #UDP ]
+  }
+}

@@ -1,0 +1,4 @@
+{
+  :type :Seq( :Boolean )
+  :body [ #TRUE #FALSE #T #F ]
+}

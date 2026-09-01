@@ -1,0 +1,14 @@
+{
+  // invalid_negative_unsigned_limit.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation (:UnsignedType): #minIncl value -5 is out of bounds for physical capacity of :Uint32 (0 to 4294967295)"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

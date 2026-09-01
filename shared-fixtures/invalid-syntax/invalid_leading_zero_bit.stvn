@@ -1,0 +1,7 @@
+{
+  :defs {
+    :BadInt :Int08
+  }
+  :type :BadInt
+  :body 42
+}

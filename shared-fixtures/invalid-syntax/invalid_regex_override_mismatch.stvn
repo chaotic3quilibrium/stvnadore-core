@@ -1,0 +1,8 @@
+{
+  :defs {
+    :Parent { #regex "^abc$" } :String
+    :Child { #regex "^def$" } :Parent
+  }
+  :type :Child
+  :body "abc"
+}

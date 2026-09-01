@@ -1,0 +1,27 @@
+{
+  // typed_constants.stvn
+  :defs {
+    #MAX_RETRY          :Uint8 3
+    #API_HOST           { #regex "^[a-z.]+$" } :String "api.internal.net"
+    #BASE_PORT          :Uint16 8000
+    #SERVICE_PORT       :Uint16 #BASE_PORT
+    #DEFAULT_COORDINATES :Tuple( :Float32 :Float32 ) ( 12.34 56.78 )
+    #ALLOWED_PORTS      :Seq( :Uint16 ) [ 80 443 8080 ]
+  }
+
+  :type :Tuple(
+    :Uint8
+    :String
+    :Uint16
+    :Tuple( :Float32 :Float32 )
+    :Seq( :Uint16 )
+  )
+
+  :body (
+    #MAX_RETRY
+    #API_HOST
+    #SERVICE_PORT
+    #DEFAULT_COORDINATES
+    #ALLOWED_PORTS
+  )
+}

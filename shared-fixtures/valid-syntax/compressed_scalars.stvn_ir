@@ -1,0 +1,49 @@
+TypeRegistry:
+  - :BoolFlag
+      schema:
+        node: :Boolean
+        aliasName: :BoolFlag
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Boolean
+  - :OptVal
+      schema:
+        node: :Option(:String)
+        aliasName: :OptVal
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Option(:String)
+  - :ChoiceVal
+      schema:
+        node: :Either(:Int32:String)
+        aliasName: :ChoiceVal
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Either(:Int32:String)
+  - <:type>
+      schema:
+        node: :Tuple(:BoolFlag:BoolFlag:OptVal:OptVal:ChoiceVal:ChoiceVal)
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnBoolean(:BoolFlag): true
+      - StvnBoolean(:BoolFlag): false
+      - StvnOption
+          value: StvnString(:String): "Payload"
+      - StvnOption
+          value: null
+      - StvnEither
+          isRight: false
+          value: StvnInteger(:Int32): -100
+      - StvnEither
+          isRight: true
+          value: StvnString(:String): "Success"

@@ -1,0 +1,14 @@
+{
+  // invalid_negative_int_suffix.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #SYNTAX_ERROR
+    "STVN Syntax Error: mismatched input '-8'"
+    "java.lang.RuntimeException"
+  )
+}

@@ -1,0 +1,27 @@
+TypeRegistry:
+  - :app/v1/Response
+      schema:
+        node: :Tuple(:HttpStatus:HttpHeader)
+        aliasName: :app/v1/Response
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:HttpStatus:HttpHeader)
+  - <:type>
+      schema:
+        node: :Tuple(:HttpStatus:HttpHeader)
+        aliasName: :app/v1/Response
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:HttpStatus:HttpHeader)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnEnum(:HttpStatus): #net/http/OK
+      - StvnTuple
+          elements:
+            - StvnString(:String): "Content-Type"
+            - StvnString(:String): "application/stvn"

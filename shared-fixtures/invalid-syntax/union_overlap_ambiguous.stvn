@@ -1,0 +1,7 @@
+{
+  :defs {
+    :OverlapUnion :Union(:Int32 :Int)
+  }
+  :type :OverlapUnion
+  :body 42
+}

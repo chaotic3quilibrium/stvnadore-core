@@ -1,0 +1,12 @@
+{
+  :defs {
+    :include [
+      "shared-fixtures/valid-syntax/module_a.stvn_incl"
+      "shared-fixtures/valid-syntax/module_b.stvn_incl" {
+        :ConflictType :ConflictTypeB
+      }
+    ]
+  }
+  :type :Tuple( :TypeA :TypeB :ConflictType :ConflictTypeB )
+  :body ( 42 "hello" 100 "world" )
+}

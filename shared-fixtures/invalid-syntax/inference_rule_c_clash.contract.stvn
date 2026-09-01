@@ -1,0 +1,14 @@
+{
+  // inference_rule_c_clash.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #TYPE_MISMATCH
+    "Ambiguous keyword clash: Token #Some is both a control keyword for :Option and a valid variant of enum :Action"
+    "java.lang.IllegalArgumentException"
+  )
+}

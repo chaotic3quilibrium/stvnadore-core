@@ -1,0 +1,14 @@
+{
+  // include_cyclic_indirect.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #CYCLIC_DEPENDENCY
+    "Cycle detected: include_cyclic_indirect"
+    "org.stvnadore.core.validation.CyclicDependencyException"
+  )
+}

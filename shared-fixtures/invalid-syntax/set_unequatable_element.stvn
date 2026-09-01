@@ -1,0 +1,4 @@
+{
+  :type :Set(:Float)
+  :body [ 1.0 2.0 ]
+}

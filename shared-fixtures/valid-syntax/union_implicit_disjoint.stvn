@@ -1,0 +1,7 @@
+{
+  :defs {
+    :DisjointUnion :Union(:Int32 :String)
+  }
+  :type :DisjointUnion
+  :body 42
+}

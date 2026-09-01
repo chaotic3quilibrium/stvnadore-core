@@ -1,0 +1,7 @@
+{
+  :defs {
+    :Port :Uint16 { #minIncl 1 #maxIncl 65535 }
+  }
+  :type :Port
+  :body 8080
+}

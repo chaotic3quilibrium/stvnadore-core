@@ -1,0 +1,51 @@
+{
+  // algebraic_full.stvn
+  :defs {
+    :OptText       :Option( :String )
+    :EitherResult  :Either( :Int32 :String )
+    :DisjointUnion :Union( :Int32 :Boolean :Float64 :String )
+    :ProductData   :Tuple( :Int32 :String :Boolean )
+  }
+
+  :type :Tuple(
+    :OptText
+    :OptText
+    :OptText
+    :OptText
+    :OptText
+
+    :EitherResult
+    :EitherResult
+    :EitherResult
+    :EitherResult
+    :EitherResult
+
+    :DisjointUnion
+    :DisjointUnion
+    :DisjointUnion
+    :DisjointUnion
+
+    :ProductData
+  )
+
+  :body (
+    #Some "Explicit long option"
+    #S "Explicit short option"
+    #None
+    #N
+    "Implicitly wrapped option"
+
+    #Left 404
+    #L 500
+    #Right "Explicit long right"
+    #R "Explicit short right"
+    "Implicitly wrapped right"
+
+    #1 1024
+    #2 #TRUE
+    #3 99.95
+    #4 "Union payload text"
+
+    ( 200 "OK" #TRUE )
+  )
+}

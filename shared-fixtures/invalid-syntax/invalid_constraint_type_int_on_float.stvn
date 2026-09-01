@@ -1,0 +1,7 @@
+{
+  :defs {
+    :BadFloat {#minIncl 5} :Float32
+  }
+  :type :BadFloat
+  :body 10.0
+}

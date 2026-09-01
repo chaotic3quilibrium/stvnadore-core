@@ -1,0 +1,14 @@
+{
+  // invalid_regex_override_mismatch.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "Constraint violation (:Child): String does not match required pattern: ^def$"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

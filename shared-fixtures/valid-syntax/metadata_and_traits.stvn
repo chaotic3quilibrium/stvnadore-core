@@ -1,0 +1,38 @@
+{
+  // metadata_and_traits.stvn
+  :defs {
+    :RestrictedPort   { #minIncl 1024 #maxIncl 65535 } :Uint16
+    :ScoreRange       { #minExcl 0.0 #maxIncl 10.0 } :Float64
+    :NegativeOffset   { #minIncl -100 #maxExcl 0 } :Int32
+
+    :RegexIdentifier  { #regex "^[a-z][a-z0-9_-]{2,31}$" } :StringNonEmpty32
+
+    :RawScriptBlock   { #preserveIndent #TRUE } :String
+
+    :BitwiseFloat     { #equatable #TRUE } :Float64
+    :NonEquatableInt  { #equatable #FALSE } :Int32
+  }
+
+  :type :Tuple(
+    :RestrictedPort
+    :ScoreRange
+    :NegativeOffset
+    :RegexIdentifier
+    :RawScriptBlock
+    :BitwiseFloat
+    :NonEquatableInt
+  )
+
+  :body (
+    8080
+    9.5
+    -50
+    "server_node_01"
+    """
+      Line 1 indented
+        Line 2 further indented
+    """
+    3.141592653589793
+    42
+  )
+}

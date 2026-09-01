@@ -1,0 +1,14 @@
+TypeRegistry:
+  - <:type>
+      schema:
+        node: :Seq(:Boolean)
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+ValuePayload:
+  StvnSeq
+    elements:
+      - StvnBoolean(:Boolean): true
+      - StvnBoolean(:Boolean): false
+      - StvnBoolean(:Boolean): true
+      - StvnBoolean(:Boolean): false

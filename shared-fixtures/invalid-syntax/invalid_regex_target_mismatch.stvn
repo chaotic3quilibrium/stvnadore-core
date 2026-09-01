@@ -1,0 +1,7 @@
+{
+  :defs {
+    :BadType { #regex "^[0-9]+$" } :Int32
+  }
+  :type :BadType
+  :body 42
+}

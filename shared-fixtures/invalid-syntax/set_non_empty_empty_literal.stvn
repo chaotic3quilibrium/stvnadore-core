@@ -1,0 +1,4 @@
+{
+  :type :SetNonEmpty(:Int32)
+  :body []
+}

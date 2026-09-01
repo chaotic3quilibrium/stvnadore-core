@@ -1,0 +1,25 @@
+{
+  // File:        error_contract.stvn_inclf
+  // Description: Canonical schema module for STVN negative fixture assertion contracts
+  // Specification: STVN v1.0.0
+  :defs {
+    :ErrorCategory :Enum [
+      #SYNTAX_ERROR
+      #MALFORMED_SCHEMA
+      #MALFORMED_PAYLOAD
+      #TYPE_MISMATCH
+      #COLLECTION_COLLISION
+      #CYCLIC_DEPENDENCY
+      #NAMESPACE_COLLISION
+      #DUPLICATE_IMPORT
+      #CIRCULAR_REFERENCE
+      #MALFORMED_LITERAL
+    ]
+
+    :ErrorContract :Tuple(
+      :ErrorCategory
+      :String
+      :Option( :String )
+    )
+  }
+}

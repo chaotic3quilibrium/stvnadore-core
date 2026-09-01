@@ -1,0 +1,14 @@
+{
+  // invertible_map_value_collision.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #COLLECTION_COLLISION
+    "Duplicate inverted map value detected"
+    "org.stvnadore.core.validation.StvnCollectionCollisionException"
+  )
+}

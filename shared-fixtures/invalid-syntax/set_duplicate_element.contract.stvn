@@ -1,0 +1,14 @@
+{
+  // set_duplicate_element.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #COLLECTION_COLLISION
+    "Duplicate set element detected"
+    "org.stvnadore.core.validation.StvnCollectionCollisionException"
+  )
+}

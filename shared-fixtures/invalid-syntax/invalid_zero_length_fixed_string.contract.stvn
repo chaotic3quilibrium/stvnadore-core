@@ -1,0 +1,14 @@
+{
+  // invalid_zero_length_fixed_string.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation: Type suffix dimensions must be strictly positive (N >= 1): :StringFixed0"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

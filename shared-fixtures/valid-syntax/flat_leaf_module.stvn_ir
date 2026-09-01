@@ -1,0 +1,26 @@
+TypeRegistry:
+  - :NetworkConfig
+      schema:
+        node: :Tuple(:HostName:Port:Protocol:BitFlag)
+        aliasName: :NetworkConfig
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:HostName:Port:Protocol:BitFlag)
+  - <:type>
+      schema:
+        node: :Tuple(:HostName:Port:Protocol:BitFlag)
+        aliasName: :NetworkConfig
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:HostName:Port:Protocol:BitFlag)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnString(:HostName): "gateway.internal"
+      - StvnInteger(:Port): 8443
+      - StvnEnum(:Protocol): #HTTPS
+      - StvnInteger(:BitFlag): 1

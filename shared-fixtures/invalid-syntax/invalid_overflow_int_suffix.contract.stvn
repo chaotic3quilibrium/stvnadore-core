@@ -1,0 +1,14 @@
+{
+  // invalid_overflow_int_suffix.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation: Type suffix dimension overflows signed 32-bit integer limit: :Int4294967296"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

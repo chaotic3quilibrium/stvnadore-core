@@ -1,0 +1,7 @@
+{
+  :defs {
+    :SignedType {#maxIncl 128} :Int8
+  }
+  :type :SignedType
+  :body 10
+}

@@ -1,0 +1,14 @@
+{
+  // include_dual_eviction_unresolved.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Undefined type: :ConflictType"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

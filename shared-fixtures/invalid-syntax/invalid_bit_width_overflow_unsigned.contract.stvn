@@ -1,0 +1,14 @@
+{
+  // invalid_bit_width_overflow_unsigned.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation (:UnsignedType): #maxIncl value 256 is out of bounds for physical capacity of :Uint8 (0 to 255)"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

@@ -1,0 +1,7 @@
+{
+  :defs {
+    :include [
+      "include_cyclic_indirect.stvn"
+    ]
+  }
+}

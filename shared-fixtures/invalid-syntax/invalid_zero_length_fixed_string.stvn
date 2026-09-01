@@ -1,0 +1,7 @@
+{
+  :defs {
+    :ZeroLenString :StringFixed0
+  }
+  :type :ZeroLenString
+  :body ""
+}

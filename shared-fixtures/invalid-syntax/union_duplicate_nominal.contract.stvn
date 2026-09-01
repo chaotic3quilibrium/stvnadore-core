@@ -1,0 +1,14 @@
+{
+  // union_duplicate_nominal.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Two member branches within a single sum type share identical nominal type identities: :MyInt"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

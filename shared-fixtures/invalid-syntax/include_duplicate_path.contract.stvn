@@ -1,0 +1,14 @@
+{
+  // include_duplicate_path.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #DUPLICATE_IMPORT
+    "Duplicate module import detected for path: shared-fixtures/valid-syntax/module_a.stvn_incl"
+    "org.stvnadore.core.validation.DuplicateModuleImportException"
+  )
+}

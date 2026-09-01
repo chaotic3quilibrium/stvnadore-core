@@ -1,0 +1,6 @@
+{
+  :defs {
+    :TypeB :String
+    :ConflictType :String
+  }
+}

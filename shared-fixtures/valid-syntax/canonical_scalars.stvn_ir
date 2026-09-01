@@ -1,0 +1,231 @@
+TypeRegistry:
+  - :IntBit1
+      schema:
+        node: :Int1
+        aliasName: :IntBit1
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int1
+  - :IntBit7
+      schema:
+        node: :Int7
+        aliasName: :IntBit7
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int7
+  - :IntBit24
+      schema:
+        node: :Int24
+        aliasName: :IntBit24
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int24
+  - :IntBit64
+      schema:
+        node: :Int64
+        aliasName: :IntBit64
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int64
+  - :IntBit128
+      schema:
+        node: :Int128
+        aliasName: :IntBit128
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int128
+  - :DefaultSigned
+      schema:
+        node: :Int
+        aliasName: :DefaultSigned
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int
+  - :UintBit1
+      schema:
+        node: :Uint1
+        aliasName: :UintBit1
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Uint1
+  - :UintBit3
+      schema:
+        node: :Uint3
+        aliasName: :UintBit3
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Uint3
+  - :UintBit49
+      schema:
+        node: :Uint49
+        aliasName: :UintBit49
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Uint49
+  - :UintBit64
+      schema:
+        node: :Uint64
+        aliasName: :UintBit64
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Uint64
+  - :UintBit128
+      schema:
+        node: :Uint128
+        aliasName: :UintBit128
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Uint128
+  - :DefaultUnsigned
+      schema:
+        node: :Uint
+        aliasName: :DefaultUnsigned
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Uint
+  - :DefaultFloat
+      schema:
+        node: :Float
+        aliasName: :DefaultFloat
+        constraints:
+          equatable: false (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Float
+  - :SingleFloat
+      schema:
+        node: :Float32
+        aliasName: :SingleFloat
+        constraints:
+          equatable: false (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Float32
+  - :DoubleFloat
+      schema:
+        node: :Float64
+        aliasName: :DoubleFloat
+        constraints:
+          equatable: false (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Float64
+  - :FinancialValue
+      schema:
+        node: :FloatExact
+        aliasName: :FinancialValue
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :FloatExact
+  - :UnboundedText
+      schema:
+        node: :String
+        aliasName: :UnboundedText
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+  - :BoundedText
+      schema:
+        node: :String64
+        aliasName: :BoundedText
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String64
+  - :MandatoryText
+      schema:
+        node: :StringNonEmpty128
+        aliasName: :MandatoryText
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :StringNonEmpty128
+  - :ExactKeyText
+      schema:
+        node: :StringFixed16
+        aliasName: :ExactKeyText
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :StringFixed16
+  - :FlagState
+      schema:
+        node: :Boolean
+        aliasName: :FlagState
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Boolean
+  - :ServerState
+      schema:
+        node: :Enum[#INITIALIZING#ACTIVE#DEGRADED#OFFLINE]
+        aliasName: :ServerState
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#INITIALIZING#ACTIVE#DEGRADED#OFFLINE]
+  - <:type>
+      schema:
+        node: :Tuple(:Int1:Int7:Int24:Int64:Int128:Int:Uint1:Uint3:Uint49:Uint64:Uint128:Uint:Float:Float32:Float64:FloatExact:String:String64:StringNonEmpty128:StringFixed16:Boolean:Boolean:ServerState)
+        constraints:
+          equatable: false (derived from :Float)
+          comparable: true (default)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnInteger(:Int1): 0
+      - StvnInteger(:Int7): -64
+      - StvnInteger(:Int24): -8388600
+      - StvnInteger(:Int64): -9223372036854775808
+      - StvnInteger(:Int128): -170141183460469231731687303715884105728
+      - StvnInteger(:Int): -2147483648
+      - StvnInteger(:Uint1): 1
+      - StvnInteger(:Uint3): 7
+      - StvnInteger(:Uint49): 500000000000000
+      - StvnInteger(:Uint64): 18446744073709551615
+      - StvnInteger(:Uint128): 340282366920938463463374607431768211455
+      - StvnInteger(:Uint): 4294967295
+      - StvnFloat(:Float): 3.141592653589793
+      - StvnFloat(:Float32): 1.5
+      - StvnFloat(:Float64): -1E-8
+      - StvnFloat(:FloatExact): 12450.75
+      - StvnString(:String): "Standard text without manual character limits"
+      - StvnString(:String64): "1234567890123456789012345678901234567890123456789012345678901234"
+      - StvnString(:StringNonEmpty128): "Text requiring at least 1 character and at most 128"
+      - StvnString(:StringFixed16): "1234567890abcdef"
+      - StvnBoolean(:Boolean): true
+      - StvnBoolean(:Boolean): false
+      - StvnEnum(:ServerState): #ACTIVE

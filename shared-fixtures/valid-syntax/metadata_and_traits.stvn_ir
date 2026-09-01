@@ -1,0 +1,88 @@
+TypeRegistry:
+  - :RestrictedPort
+      schema:
+        node: :Uint16
+        aliasName: :RestrictedPort
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+          minIncl: 1024 (explicit)
+          maxIncl: 65535 (explicit)
+        underlyingSchema:
+          node: :Uint16
+  - :ScoreRange
+      schema:
+        node: :Float64
+        aliasName: :ScoreRange
+        constraints:
+          equatable: false (default)
+          comparable: true (default)
+          minExcl: 0.0 (explicit)
+          maxIncl: 10.0 (explicit)
+        underlyingSchema:
+          node: :Float64
+  - :NegativeOffset
+      schema:
+        node: :Int32
+        aliasName: :NegativeOffset
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+          minIncl: -100 (explicit)
+          maxExcl: 0 (explicit)
+        underlyingSchema:
+          node: :Int32
+  - :RegexIdentifier
+      schema:
+        node: :StringNonEmpty32
+        aliasName: :RegexIdentifier
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+          regex: "^[a-z][a-z0-9_-]{2,31}$" (explicit)
+        underlyingSchema:
+          node: :StringNonEmpty32
+  - :RawScriptBlock
+      schema:
+        node: :String
+        aliasName: :RawScriptBlock
+        constraints:
+          preserveIndent: true (explicit)
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+  - :BitwiseFloat
+      schema:
+        node: :Float64
+        aliasName: :BitwiseFloat
+        constraints:
+          equatable: true (explicit override)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Float64
+  - :NonEquatableInt
+      schema:
+        node: :Int32
+        aliasName: :NonEquatableInt
+        constraints:
+          equatable: false (explicit override)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int32
+  - <:type>
+      schema:
+        node: :Tuple(:RestrictedPort:ScoreRange:NegativeOffset:RegexIdentifier:RawScriptBlock:BitwiseFloat:NonEquatableInt)
+        constraints:
+          equatable: false (derived from :ScoreRange)
+          comparable: true (default)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnInteger(:RestrictedPort): 8080
+      - StvnFloat(:ScoreRange): 9.5
+      - StvnInteger(:NegativeOffset): -50
+      - StvnString(:RegexIdentifier): "server_node_01"
+      - StvnString(:RawScriptBlock): "      Line 1 indented\n        Line 2 further indented\n    "
+      - StvnFloat(:BitwiseFloat): 3.141592653589793
+      - StvnInteger(:NonEquatableInt): 42

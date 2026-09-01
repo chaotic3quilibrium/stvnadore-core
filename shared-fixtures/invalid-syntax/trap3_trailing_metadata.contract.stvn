@@ -1,0 +1,14 @@
+{
+  // trap3_trailing_metadata.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #SYNTAX_ERROR
+    "STVN Syntax Error: mismatched input '{'"
+    "java.lang.RuntimeException"
+  )
+}

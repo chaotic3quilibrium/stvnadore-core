@@ -1,0 +1,14 @@
+{
+  // boolean_truthiness_int.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "Type mismatch: Expected boolean, got integer"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

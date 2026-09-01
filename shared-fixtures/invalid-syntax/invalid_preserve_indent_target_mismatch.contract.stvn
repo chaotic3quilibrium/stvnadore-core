@@ -1,0 +1,14 @@
+{
+  // invalid_preserve_indent_target_mismatch.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation (:BadType): preserveIndent is not allowed on :Int32"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

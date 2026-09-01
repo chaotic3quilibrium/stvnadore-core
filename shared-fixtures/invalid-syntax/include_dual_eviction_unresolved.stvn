@@ -1,0 +1,14 @@
+{
+  :defs {
+    :include [
+      "shared-fixtures/invalid-syntax/module_dual_a.stvn_incl" {
+        :ConflictType :AliasA
+      }
+      "shared-fixtures/invalid-syntax/module_dual_b.stvn_incl" {
+        :ConflictType :AliasB
+      }
+    ]
+  }
+  :type :ConflictType
+  :body "this should fail downstream because :ConflictType is unresolved"
+}

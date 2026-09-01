@@ -1,0 +1,10 @@
+{
+  :defs {
+    :include [
+      "shared-fixtures/invalid-syntax/module_raw_a.stvn_incl"
+      "shared-fixtures/invalid-syntax/module_raw_b.stvn_incl"
+    ]
+  }
+  :type :Int32
+  :body 42
+}

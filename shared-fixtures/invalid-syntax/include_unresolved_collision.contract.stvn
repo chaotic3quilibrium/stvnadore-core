@@ -1,0 +1,14 @@
+{
+  // include_unresolved_collision.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #NAMESPACE_COLLISION
+    "Namespace collision(s) detected: [:ConflictType]"
+    "org.stvnadore.core.validation.NamespaceCollisionException"
+  )
+}

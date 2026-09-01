@@ -1,0 +1,7 @@
+{
+  :defs {
+    #RESTRICTED_PORT { #minIncl 1024 #maxIncl 65535 } :Uint16 80
+  }
+  :type :Uint16
+  :body #RESTRICTED_PORT
+}

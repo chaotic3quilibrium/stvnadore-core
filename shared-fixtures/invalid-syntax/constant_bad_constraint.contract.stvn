@@ -1,0 +1,14 @@
+{
+  // constant_bad_constraint.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation (#RESTRICTED_PORT): Value must be greater than or equal to 1024"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

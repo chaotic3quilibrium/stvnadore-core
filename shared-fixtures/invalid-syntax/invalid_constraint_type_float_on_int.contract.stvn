@@ -1,0 +1,14 @@
+{
+  // invalid_constraint_type_float_on_int.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation (:BadInt): minIncl for :Int32 requires an integer literal"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

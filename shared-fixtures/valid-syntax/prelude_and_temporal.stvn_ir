@@ -1,0 +1,218 @@
+TypeRegistry:
+  - :EpochSeconds
+      schema:
+        node: :TimeEpochS
+        aliasName: :EpochSeconds
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :TimeEpochS
+  - :EpochMillis
+      schema:
+        node: :TimeEpochMs
+        aliasName: :EpochMillis
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :TimeEpochMs
+  - :EpochNanos
+      schema:
+        node: :TimeEpochNs
+        aliasName: :EpochNanos
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :TimeEpochNs
+  - :OffsetDateTime
+      schema:
+        node: :DateTimeOffset
+        aliasName: :OffsetDateTime
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :DateTimeOffset
+  - :ZonedDateTime
+      schema:
+        node: :DateTimeZoned
+        aliasName: :ZonedDateTime
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :DateTimeZoned
+  - :AuditedDateTime
+      schema:
+        node: :DateTimeAudited
+        aliasName: :AuditedDateTime
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :DateTimeAudited
+  - :IdUuid
+      schema:
+        node: :StringFixed36
+        aliasName: :IdUuid
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+          regex: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" (inherited from :Uuid)
+        underlyingSchema:
+          node: :StringFixed36
+          aliasName: :Uuid
+  - :IdUlid
+      schema:
+        node: :StringFixed26
+        aliasName: :IdUlid
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+          regex: "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" (inherited from :Ulid)
+        underlyingSchema:
+          node: :StringFixed26
+          aliasName: :Ulid
+  - :HashSha256
+      schema:
+        node: :StringFixed64
+        aliasName: :HashSha256
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+          regex: "^[0-9a-fA-F]{64}$" (inherited from :Sha256)
+        underlyingSchema:
+          node: :StringFixed64
+          aliasName: :Sha256
+  - :VersionSemVer
+      schema:
+        node: :String
+        aliasName: :VersionSemVer
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+          regex: "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" (inherited from :SemVer)
+        underlyingSchema:
+          node: :String
+          aliasName: :SemVer
+  - :ContactEmail
+      schema:
+        node: :String
+        aliasName: :ContactEmail
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+          regex: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" (inherited from :Email)
+        underlyingSchema:
+          node: :String
+          aliasName: :Email
+  - :NetworkIPv4
+      schema:
+        node: :String
+        aliasName: :NetworkIPv4
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+          regex: "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" (inherited from :IPv4)
+        underlyingSchema:
+          node: :String
+          aliasName: :IPv4
+  - :NetworkPort
+      schema:
+        node: :Uint16
+        aliasName: :NetworkPort
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+          minIncl: 1 (inherited from :Port)
+          maxIncl: 65535 (inherited from :Port)
+        underlyingSchema:
+          node: :Uint16
+          aliasName: :Port
+  - :RatioPercent
+      schema:
+        node: :Float64
+        aliasName: :RatioPercent
+        constraints:
+          equatable: false (default)
+          comparable: true (default)
+          minIncl: 0.0 (inherited from :Percentage)
+          maxIncl: 100.0 (inherited from :Percentage)
+        underlyingSchema:
+          node: :Float64
+          aliasName: :Percentage
+  - :RatioProb
+      schema:
+        node: :Float64
+        aliasName: :RatioProb
+        constraints:
+          equatable: false (default)
+          comparable: true (default)
+          minIncl: 0.0 (inherited from :Probability)
+          maxIncl: 1.0 (inherited from :Probability)
+        underlyingSchema:
+          node: :Float64
+          aliasName: :Probability
+  - :MoneyAmount
+      schema:
+        node: :FloatExact
+        aliasName: :MoneyAmount
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :FloatExact
+          aliasName: :Currency
+  - :GeoLat
+      schema:
+        node: :Float64
+        aliasName: :GeoLat
+        constraints:
+          equatable: false (default)
+          comparable: true (default)
+          minIncl: -90.0 (inherited from :Latitude)
+          maxIncl: 90.0 (inherited from :Latitude)
+        underlyingSchema:
+          node: :Float64
+          aliasName: :Latitude
+  - :GeoLon
+      schema:
+        node: :Float64
+        aliasName: :GeoLon
+        constraints:
+          equatable: false (default)
+          comparable: true (default)
+          minIncl: -180.0 (inherited from :Longitude)
+          maxIncl: 180.0 (inherited from :Longitude)
+        underlyingSchema:
+          node: :Float64
+          aliasName: :Longitude
+  - <:type>
+      schema:
+        node: :Tuple(:EpochSeconds:EpochMillis:EpochNanos:OffsetDateTime:ZonedDateTime:AuditedDateTime:IdUuid:IdUlid:HashSha256:VersionSemVer:ContactEmail:NetworkIPv4:NetworkPort:RatioPercent:RatioProb:MoneyAmount:GeoLat:GeoLon)
+        constraints:
+          equatable: false (derived from :RatioPercent)
+          comparable: true (default)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnTime(:EpochSeconds): 1773532800
+      - StvnTime(:EpochMillis): 1773532800000
+      - StvnTime(:EpochNanos): 1773532800000000000
+      - StvnDateTimeOffset(:OffsetDateTime): 2026-03-15T08:00-05:00
+      - StvnDateTimeZoned(:ZonedDateTime): 2026-03-15T08:00[America/Chicago]
+      - StvnDateTimeAudited(:AuditedDateTime): 2026-03-15T08:00-05:00[America/Chicago]
+      - StvnString(:IdUuid): "123e4567-e89b-12d3-a456-426614174000"
+      - StvnString(:IdUlid): "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+      - StvnString(:HashSha256): "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      - StvnString(:VersionSemVer): "1.2.3-beta.1"
+      - StvnString(:ContactEmail): "developer@example.com"
+      - StvnString(:NetworkIPv4): "192.168.1.1"
+      - StvnInteger(:NetworkPort): 8443
+      - StvnFloat(:RatioPercent): 99.95
+      - StvnFloat(:RatioProb): 0.85
+      - StvnFloat(:MoneyAmount): 149.99
+      - StvnFloat(:GeoLat): 32.7767
+      - StvnFloat(:GeoLon): -96.7970

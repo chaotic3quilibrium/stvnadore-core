@@ -1,0 +1,7 @@
+{
+  :defs {
+    :ZeroWidthIntType :Int0
+  }
+  :type :ZeroWidthIntType
+  :body 0
+}

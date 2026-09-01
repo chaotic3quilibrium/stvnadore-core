@@ -1,0 +1,14 @@
+{
+  // flat_module_with_include.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Leaf module (.stvn_inclf) cannot contain include statements"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

@@ -1,0 +1,7 @@
+{
+  :defs {
+    :BadType { #preserveIndent #TRUE } :Int32
+  }
+  :type :BadType
+  :body 42
+}

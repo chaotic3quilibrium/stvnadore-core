@@ -1,0 +1,7 @@
+{
+  :defs {
+    :SimpleUnion :Union(:Int32 :String)
+  }
+  :type :SimpleUnion
+  :body #3 42
+}

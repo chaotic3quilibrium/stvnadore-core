@@ -1,0 +1,7 @@
+{
+  :defs {
+    :MyUnion :Union(:Int32 :String)
+  }
+  :type :MyUnion
+  :body #1 42
+}
