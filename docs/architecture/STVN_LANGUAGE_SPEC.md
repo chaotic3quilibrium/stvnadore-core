@@ -1,6 +1,6 @@
 # STVN Language Specification
 
-**Version:** 1.0.0
+**Version:** 1.0.1
 
 **Status:** Formal Technical Specification
 
@@ -57,10 +57,12 @@
   * [9. Standard Library Prelude](#9-standard-library-prelude)
   * [10. Binary Format (`.stvn_bin`) Wire Framing & Schema Governance](#10-binary-format-stvn_bin-wire-framing--schema-governance)
     * [10.1 Control Byte Bitwise Architecture (Byte 4)](#101-control-byte-bitwise-architecture-byte-4)
+      * [Bitwise Operations](#bitwise-operations)
     * [10.2 Upper Nibble: `BinaryEncodingStrategy` Taxonomy (Bits 7..4)](#102-upper-nibble-binaryencodingstrategy-taxonomy-bits-74)
     * [10.3 Lower Nibble: `SchemaIdentityStrategy` Taxonomy (Bits 3..0)](#103-lower-nibble-schemaidentitystrategy-taxonomy-bits-30)
     * [10.4 Header Decoding & Strategy Dispatch Pipeline](#104-header-decoding--strategy-dispatch-pipeline)
     * [10.5 Tripartite Temporal Wire Encoding & Memory Layouts](#105-tripartite-temporal-wire-encoding--memory-layouts)
+      * [Header IANA Zone Dictionary Pool](#header-iana-zone-dictionary-pool)
   * [11. Code Generation & Implementation Directives](#11-code-generation--implementation-directives)
   * [Appendix A: Arbitrary Bit-Width Integer Semantics and Codec Layout](#appendix-a-arbitrary-bit-width-integer-semantics-and-codec-layout)
     * [A.1 Lexer and Grammar Rules](#a1-lexer-and-grammar-rules)

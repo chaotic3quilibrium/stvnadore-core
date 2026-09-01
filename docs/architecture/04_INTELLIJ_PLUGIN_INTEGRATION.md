@@ -1,8 +1,8 @@
 # STVN Architectural Specification 04: IntelliJ Platform Integration
 
-**Document ID**: `STVN-SPEC-04`  
-**Status**: Canonical Specification  
-**Version**: 1.0.0  
+**Document ID**: `STVN-SPEC-04`
+**Status**: Canonical Specification
+**Version**: 1.0.1
 **Compliance**: Mandatory across all STVN IDE plugins, language server protocols, and editor integrations.
 
 ---

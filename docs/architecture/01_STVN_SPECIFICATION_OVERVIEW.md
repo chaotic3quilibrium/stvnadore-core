@@ -2,7 +2,7 @@
 
 **Document ID**: `STVN-SPEC-01`  
 **Status**: Canonical Specification  
-**Version**: 1.0.0  
+**Version**: 1.0.1
 **Compliance**: Mandatory across all STVN parsers, compilers, and IDE integrations.
 
 ---
@@ -31,13 +31,13 @@ STVN strictly mandates single-line comments (`// ...`). Multi-line block comment
 
 Every text-based STVN document must enclose its content within a single root curly brace pair `{ ... }`.
 
-| Extension | File Purpose | Required Sections | Prohibited Sections |
-|:---|:---|:---|:---|
-| `.stvn` | Primary Payload Document | `:type`, `:body` (Optional `:defs`) | N/A |
-| `.stvn_incl` | Transitive Shared Module | `:defs` | `:type`, `:body` |
-| `.stvn_inclf` | Flat Standalone Module | `:defs` | `:type`, `:body`, `:include` |
-| `.stvn_bin` | Zero-Copy Binary Bytecode | Embedded Binary Header | N/A |
-| `.stvn_cas` | CAS Storage Profile Envelope | `:Tuple( :String :String :String )` | N/A |
+| Extension     | File Purpose                 | Required Sections                   | Prohibited Sections          |
+|:--------------|:-----------------------------|:------------------------------------|:-----------------------------|
+| `.stvn`       | Primary Payload Document     | `:type`, `:body` (Optional `:defs`) | N/A                          |
+| `.stvn_incl`  | Transitive Shared Module     | `:defs`                             | `:type`, `:body`             |
+| `.stvn_inclf` | Flat Standalone Module       | `:defs`                             | `:type`, `:body`, `:include` |
+| `.stvn_bin`   | Zero-Copy Binary Bytecode    | Embedded Binary Header              | N/A                          |
+| `.stvn_cas`   | CAS Storage Profile Envelope | `:Tuple( :String :String :String )` | N/A                          |
 
 ---
 
