@@ -299,7 +299,7 @@ If any unused upper bit in the most significant byte is non-zero, decoders rejec
 
 In JSON and traditional serialization formats, map entry and set ordering is undefined. In STVN:
 1. **Positional Determinism:** Encounter order is preserved across lexing, AST construction, binary serialization, and JVM heap mapping.
-2. **Absolute Immutability:** Collection values in the AST ([StvnSet](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L647) and [StvnMap](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L705)) require `SequencedSet` and `SequencedMap` and wrap them in unmodifiable decorators.
+2. **Absolute Immutability:** Collection values in the AST ([StvnSet](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L647) and [StvnMap](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L705)) require `SequencedSet` and `SequencedMap` and wrap them in unmodifiable decorators.
 
 ### 5.2 The 8 Collection Types
 
@@ -392,7 +392,7 @@ flowchart TB
 
 Java records allow developers to construct illegal instances where an `Optional` field holds a literal `null` reference (`new UserProfile("dev", 30, null)`). In VOP, `null` references do not exist—an optional value is either `#Some value` or `#None`.
 
-[StvnMapper](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/mapper/StvnMapper.java) intercepts this at the serialization boundary, throwing a `MalformedPayloadException` if any record component of type `Optional` holds a `null` reference.
+[StvnMapper](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/mapper/StvnMapper.java) intercepts this at the serialization boundary, throwing a `MalformedPayloadException` if any record component of type `Optional` holds a `null` reference.
 
 ### 7.3 DiagnosticBag Accumulation, Coordinate Spans & Partial AST Recovery
 
@@ -428,7 +428,7 @@ if (result.isRecoveredPartialAst()) {
 
 ### 8.1 Built-in Prelude Nominal Types
 
-The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/stdlib/StvnPrelude.java)) is pre-registered and implicitly available in all STVN contexts:
+The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/stdlib/StvnPrelude.java)) is pre-registered and implicitly available in all STVN contexts:
 
 | Nominal Type       | Underlying Type  | Applied Constraints / Validation Specification                                               |
 |:-------------------|:-----------------|:---------------------------------------------------------------------------------------------|

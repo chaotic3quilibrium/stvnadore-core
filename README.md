@@ -1,9 +1,9 @@
 # STVN Core SDK (`stvnadore-core`)
 
-[![STVN Core SDK](https://img.shields.io/badge/STVN-1.0.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
+[![STVN Core SDK](https://img.shields.io/badge/STVN-1.0.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
 [![Java Version Compatibility](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
-[![Build Verification Status](https://img.shields.io/badge/Tests-371%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/test/java/org/stvnadore/core/)
-[![Null Safety](https://img.shields.io/badge/NullMarked-Tier%201%20Soundness-brightgreen.svg)](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md)
+[![Build Verification Status](https://img.shields.io/badge/Tests-371%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
+[![Null Safety](https://img.shields.io/badge/NullMarked-Tier%201%20Soundness-brightgreen.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md)
 
 `stvnadore-core` is the high-performance, strongly typed value notation (STVN) engine and SDK for Java 21. Tailored for safety-critical environments demanding zero-copy binary serialization, algebraic type safety, deterministic content-addressable storage (CAS) fingerprinting, and value-oriented programming (VOP) models, `stvnadore-core` eliminates reference nulls and uninitialized states at compile-time and serialization boundaries.
 
@@ -59,7 +59,7 @@ Add the following Maven dependency to your `pom.xml`:
 <dependency>
     <groupId>org.stvnadore</groupId>
     <artifactId>stvnadore-core</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
 </dependency>
 ```
 
@@ -71,18 +71,18 @@ Add the following Maven dependency to your `pom.xml`:
 
 The formal specifications governing the STVN grammar, CAS topology, binary protocols, and IDE integration are located in `docs/architecture/`:
 
-1. [01_STVN_SPECIFICATION_OVERVIEW.md](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md) — Dual-track grammar, AST records, algebraic sum/product types, and arbitrary bit-widths.
-2. [02_CONTENT_ADDRESSABLE_STORAGE_REGISTRY.md](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/docs/architecture/02_CONTENT_ADDRESSABLE_STORAGE_REGISTRY.md) — 2/62 filesystem CAS sharding, envelope framing, PostgreSQL/H2 catalog DDL, and background projection sweeper.
-3. [03_BINARY_ENCODING_AND_ZERO_TRUST.md](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/docs/architecture/03_BINARY_ENCODING_AND_ZERO_TRUST.md) — Byte 4 4:4 nibble control architecture, Strategy `0x07` zero-trust verification, and tripartite temporal binary layouts.
-4. [04_INTELLIJ_PLUGIN_INTEGRATION.md](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/docs/architecture/04_INTELLIJ_PLUGIN_INTEGRATION.md) — Grammar-Kit PSI tree, EDT discipline, sub-token diagnostic annotator, and schema flattener.
-5. [SOUNDNESS_BOUNDARIES.md](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md) — Nullability invariants, Tier 1 soundness, and JSpecify 1.0.0 boundary definitions.
-6. [STVN_LANGUAGE_SPEC.md](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/docs/architecture/STVN_LANGUAGE_SPEC.md) — The complete data grammar specification.
+1. [01_STVN_SPECIFICATION_OVERVIEW.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md) — Dual-track grammar, AST records, algebraic sum/product types, and arbitrary bit-widths.
+2. [02_CONTENT_ADDRESSABLE_STORAGE_REGISTRY.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/02_CONTENT_ADDRESSABLE_STORAGE_REGISTRY.md) — 2/62 filesystem CAS sharding, envelope framing, PostgreSQL/H2 catalog DDL, and background projection sweeper.
+3. [03_BINARY_ENCODING_AND_ZERO_TRUST.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/03_BINARY_ENCODING_AND_ZERO_TRUST.md) — Byte 4 4:4 nibble control architecture, Strategy `0x07` zero-trust verification, and tripartite temporal binary layouts.
+4. [04_INTELLIJ_PLUGIN_INTEGRATION.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/04_INTELLIJ_PLUGIN_INTEGRATION.md) — Grammar-Kit PSI tree, EDT discipline, sub-token diagnostic annotator, and schema flattener.
+5. [SOUNDNESS_BOUNDARIES.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md) — Nullability invariants, Tier 1 soundness, and JSpecify 1.0.0 boundary definitions.
+6. [STVN_LANGUAGE_SPEC.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/STVN_LANGUAGE_SPEC.md) — The complete data grammar specification.
 
 ---
 
 ## Quick Start: Record Marshalling & Compilation
 
-`stvnadore-core` provides [StvnMapper](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/mapper/StvnMapper.java) to map Java 21 `record` classes to and from STVN representations symmetrically. The following example demonstrates record serialization, deserialization, arbitrary bit-width validation, and canonical string generation.
+`stvnadore-core` provides [StvnMapper](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/mapper/StvnMapper.java) to map Java 21 `record` classes to and from STVN representations symmetrically. The following example demonstrates record serialization, deserialization, arbitrary bit-width validation, and canonical string generation.
 
 ### 1. Define Your Target Record Profile
 
@@ -208,7 +208,7 @@ STVN strictly segregates the lexical and semantic namespaces of types and values
 
 Data models represent pure, immutable values:
 
-* **Deterministic Sequenced Ordering**: Collections in the AST ([StvnSet](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L647) and [StvnMap](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L716)) strictly enforce `java.util.SequencedSet` and `java.util.SequencedMap` and wrap them in unmodifiable decorators.
+* **Deterministic Sequenced Ordering**: Collections in the AST ([StvnSet](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L647) and [StvnMap](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L716)) strictly enforce `java.util.SequencedSet` and `java.util.SequencedMap` and wrap them in unmodifiable decorators.
 * **Invertible Bidirectional Maps (`:MapInv`)**: Enforces dual-set uniqueness: all keys must be unique **and** all values must be unique. Duplicate keys trigger `DUPLICATE_MAP_KEY`; duplicate values trigger `DUPLICATE_INVERTED_MAP_VALUE`.
 * **Content-Addressable Storage (CAS)**: `StvnCompiler.computeCasFingerprint(StvnValue)` computes deterministic 32-byte SHA-256 fingerprints across canonically serialized representations.
 
@@ -252,7 +252,7 @@ STVN partitions date-time values into three mathematically orthogonal, unambiguo
 
 ### Control Byte Wire Resolution Matrix
 
-The low-level binary codec negotiating [SchemaIdentityStrategy](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/src/main/java/org/stvnadore/core/binary/SchemaIdentityStrategy.java) is governed by 9 control-byte pathways (header offset position 4, following `MAGIC_BYTES = 0x5354564E`):
+The low-level binary codec negotiating [SchemaIdentityStrategy](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/binary/SchemaIdentityStrategy.java) is governed by 9 control-byte pathways (header offset position 4, following `MAGIC_BYTES = 0x5354564E`):
 
 | Control Byte | Schema Strategy        | Header Payload Structure                           | Verification & Action                                                                      |
 |:-------------|:-----------------------|:---------------------------------------------------|:-------------------------------------------------------------------------------------------|
@@ -311,7 +311,7 @@ The low-level binary codec negotiating [SchemaIdentityStrategy](https://github.c
 
 # Support
 
-**Website:** <https://github.com/chaotic3quilibrium/stvnadore_core/tree/main>
+**Website:** <https://github.com/chaotic3quilibrium/stvnadore-core/tree/main>
 
 **Email:** [jim.oflaherty.jr@gmail.com](mailto:jim.oflaherty.jr+scrm@gmail.com)
 
@@ -319,7 +319,7 @@ The low-level binary codec negotiating [SchemaIdentityStrategy](https://github.c
 
 ## License
 
-### [GNU AFFERO GENERAL PUBLIC LICENSE](https://github.com/chaotic3quilibrium/stvnadore_core/blob/main/LICENSE.md)
+### [GNU AFFERO GENERAL PUBLIC LICENSE](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/LICENSE.md)
 
 The stvnadore-core files are free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 

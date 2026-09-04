@@ -2,7 +2,7 @@
 
 **Document ID**: `STVN-SPEC-03`
 **Status**: Canonical Specification
-**Version**: 1.0.1
+**Version**: 1.0.2
 **Compliance**: Mandatory across all STVN binary encoders, decoders, zero-copy readers, and wire protocol bindings.
 
 ---
