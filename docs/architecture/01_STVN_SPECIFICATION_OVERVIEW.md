@@ -2,7 +2,7 @@
 
 **Document ID**: `STVN-SPEC-01`  
 **Status**: Canonical Specification  
-**Version**: 1.0.1
+**Version**: 1.0.2
 **Compliance**: Mandatory across all STVN parsers, compilers, and IDE integrations.
 
 ---
