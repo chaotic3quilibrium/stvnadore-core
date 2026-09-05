@@ -32,10 +32,13 @@ constantDefinition : valueKeyword metadataMap? schemaType value ;
 metadataMap    : LBRACE metadataEntry* RBRACE ;
 
 // Enforced structural type verification branches
-metadataEntry  : metadataBool | metadataNum | metadataString ;
+metadataEntry  : metadataBool | metadataNum | metadataString | metadataFilter ;
 metadataBool   : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) metadataValue ;
 metadataNum    : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
 metadataString : KW_REGEX metadataValue ;
+metadataFilter : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
+
+variantList    : LBRACK valueKeyword* RBRACK ;
 
 metadataValue  : booleanLiteral
                | integerLiteral
@@ -166,4 +169,5 @@ valueKeywordStart : VALUE_KEYWORD_BASE
                   | KW_MIN_INCL | KW_MIN_EXCL
                   | KW_MAX_INCL | KW_MAX_EXCL
                   | KW_REGEX
+                  | KW_FILTER_INCL | KW_FILTER_EXCL
                   ;

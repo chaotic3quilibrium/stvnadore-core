@@ -204,6 +204,44 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
               layout.appendSeparator();
               layout.writeBoolean(comparable, options.symbolStyle());
             }
+            var filterExcl = constraints.filterExcl().orElse(null);
+            if (filterExcl != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#filterExcl");
+              layout.appendSeparator();
+              layout.openGroup("[");
+              var firstV = true;
+              for (String v : filterExcl) {
+                if (!firstV) layout.appendSeparator();
+                firstV = false;
+                layout.writeLiteral(v);
+              }
+              layout.closeGroup("]");
+            }
+            var filterIncl = constraints.filterIncl().orElse(null);
+            if (filterIncl != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#filterIncl");
+              layout.appendSeparator();
+              layout.openGroup("[");
+              var firstV = true;
+              for (String v : filterIncl) {
+                if (!firstV) layout.appendSeparator();
+                firstV = false;
+                layout.writeLiteral(v);
+              }
+              layout.closeGroup("]");
+            }
 
             if (!inline) {
               layout.outdent();
@@ -277,7 +315,8 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
     var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains("comparable");
 
     return !hasMinIncl && !hasMinExcl && !hasMaxIncl && !hasMaxExcl
-        && !hasRegex && !hasPreserveIndent && !hasEquatable && !hasComparable;
+        && !hasRegex && !hasPreserveIndent && !hasEquatable && !hasComparable
+        && c.filterIncl().isEmpty() && c.filterExcl().isEmpty();
   }
 
   private void writeSchemaType(StvnParser.SchemaTypeContext node, LayoutWriter layout) throws IOException {
@@ -360,6 +399,8 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
     if (c.preserveIndent() && c.explicitOverrides().contains("preserveIndent")) count++;
     if (c.equatable().isPresent() && c.explicitOverrides().contains("equatable")) count++;
     if (c.comparable().isPresent() && c.explicitOverrides().contains("comparable")) count++;
+    if (c.filterIncl().isPresent()) count++;
+    if (c.filterExcl().isPresent()) count++;
     return count;
   }
 }

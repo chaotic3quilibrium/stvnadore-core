@@ -1,6 +1,6 @@
 # STVN Core SDK (`stvnadore-core`)
 
-[![STVN Core SDK](https://img.shields.io/badge/STVN-1.0.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
+[![STVN Core SDK](https://img.shields.io/badge/STVN-1.0.2-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
 [![Java Version Compatibility](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Verification Status](https://img.shields.io/badge/Tests-371%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
 [![Null Safety](https://img.shields.io/badge/NullMarked-Tier%201%20Soundness-brightgreen.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md)

@@ -33,6 +33,8 @@ KW_MIN_EXCL        : '#minExcl' ;
 KW_MAX_INCL        : '#maxIncl' ;
 KW_MAX_EXCL        : '#maxExcl' ;
 KW_REGEX           : '#regex' ;
+KW_FILTER_INCL     : '#filterIncl' ;
+KW_FILTER_EXCL     : '#filterExcl' ;
 
 KW_TUPLE     : ':Tuple' ;
 KW_ENUM      : ':Enum' ;

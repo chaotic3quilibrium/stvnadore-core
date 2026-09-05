@@ -632,6 +632,14 @@ public class StvnBinaryDecoder {
             }
           }
         }
+        if (schema != null && schema.enumSubset().isPresent()) {
+          var subset = schema.enumSubset().get();
+          if (seqIndex < 0 || seqIndex >= count || !subset.containsVariant(kw)) {
+            throw new org.stvnadore.core.validation.MalformedPayloadException(
+                "Decoded enum ordinal " + seqIndex + " (" + kw + ") violates active subset boundary for " + subset.name()
+            );
+          }
+        }
         yield new StvnValue.StvnEnum(schema, kw, seqIndex, count);
       }
       default -> throw new UnsupportedOperationException("Unsupported inline unpack type: " + baseType);

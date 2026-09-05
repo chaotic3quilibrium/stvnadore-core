@@ -708,6 +708,8 @@ public class StvnTypeResolver {
    * @param equatable         optional user override for the {@code #equatable} trait
    * @param comparable        optional user override for the {@code #comparable} trait
    * @param explicitOverrides list of explicit traits overridden by the developer
+   * @param filterIncl        optional immutable list of variants included in enum subset
+   * @param filterExcl        optional immutable list of variants excluded from enum subset
    */
   public record StvnConstraints(
       Optional<BigDecimal> minIncl,
@@ -718,20 +720,12 @@ public class StvnTypeResolver {
       boolean preserveIndent,
       Optional<Boolean> equatable,
       Optional<Boolean> comparable,
-      java.util.List<String> explicitOverrides
+      java.util.List<String> explicitOverrides,
+      Optional<List<String>> filterIncl,
+      Optional<List<String>> filterExcl
   ) {
     /**
-     * Canonical constructor validating that all optional parameters are non-null.
-     *
-     * @param minIncl           optional inclusive minimum boundary
-     * @param minExcl           optional exclusive minimum boundary
-     * @param maxIncl           optional inclusive maximum boundary
-     * @param maxExcl           optional exclusive maximum boundary
-     * @param regex             optional regex pattern
-     * @param preserveIndent    if true, preserves indentation
-     * @param equatable         optional equatable override
-     * @param comparable        optional comparable override
-     * @param explicitOverrides list of explicit traits overridden
+     * Backward-compatible 9-parameter constructor defaulting filterIncl and filterExcl to empty.
      */
     public StvnConstraints(
         Optional<BigDecimal> minIncl,
@@ -744,6 +738,25 @@ public class StvnTypeResolver {
         Optional<Boolean> comparable,
         @Nullable List<String> explicitOverrides
     ) {
+      this(minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides, Optional.empty(), Optional.empty());
+    }
+
+    /**
+     * Canonical constructor validating that all optional parameters are non-null and copying lists.
+     */
+    public StvnConstraints(
+        Optional<BigDecimal> minIncl,
+        Optional<BigDecimal> minExcl,
+        Optional<BigDecimal> maxIncl,
+        Optional<BigDecimal> maxExcl,
+        Optional<String> regex,
+        boolean preserveIndent,
+        Optional<Boolean> equatable,
+        Optional<Boolean> comparable,
+        @Nullable List<String> explicitOverrides,
+        Optional<List<String>> filterIncl,
+        Optional<List<String>> filterExcl
+    ) {
       this.minIncl = java.util.Objects.requireNonNull(minIncl);
       this.minExcl = java.util.Objects.requireNonNull(minExcl);
       this.maxIncl = java.util.Objects.requireNonNull(maxIncl);
@@ -755,6 +768,8 @@ public class StvnTypeResolver {
       this.explicitOverrides = explicitOverrides != null
           ? java.util.List.copyOf(explicitOverrides)
           : java.util.List.of();
+      this.filterIncl = java.util.Objects.requireNonNull(filterIncl).map(java.util.List::copyOf);
+      this.filterExcl = java.util.Objects.requireNonNull(filterExcl).map(java.util.List::copyOf);
     }
 
     /**
@@ -765,7 +780,8 @@ public class StvnTypeResolver {
     public static StvnConstraints empty() {
       return new StvnConstraints(
           Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-          Optional.empty(), false, Optional.empty(), Optional.empty(), java.util.List.of()
+          Optional.empty(), false, Optional.empty(), Optional.empty(), java.util.List.of(),
+          Optional.empty(), Optional.empty()
       );
     }
 
@@ -821,13 +837,22 @@ public class StvnTypeResolver {
           ? this.regex
           : inner.regex;
 
+      Optional<List<String>> resFilterIncl = this.filterIncl.isPresent()
+          ? this.filterIncl
+          : inner.filterIncl;
+      Optional<List<String>> resFilterExcl = this.filterExcl.isPresent()
+          ? this.filterExcl
+          : inner.filterExcl;
+
       return new StvnConstraints(
           resMinIncl, resMinExcl, resMaxIncl, resMaxExcl,
           resRegex,
           resPreserveIndent,
           resEquatable,
           resComparable,
-          java.util.List.copyOf(mergedOverrides)
+          java.util.List.copyOf(mergedOverrides),
+          resFilterIncl,
+          resFilterExcl
       );
     }
 
@@ -848,6 +873,8 @@ public class StvnTypeResolver {
           ", equatable=" + equatable.orElse(null) +
           ", comparable=" + comparable.orElse(null) +
           ", explicitOverrides=" + explicitOverrides +
+          ", filterIncl=" + filterIncl.orElse(null) +
+          ", filterExcl=" + filterExcl.orElse(null) +
           ']';
     }
   }
@@ -864,6 +891,7 @@ public class StvnTypeResolver {
    * @param underlyingSchema  the underlying schema, if this schema aliases or delegates to another schema
    * @param localConstraints  the constraints defined locally on this specific schema node
    * @param isPoisonedSentinel true if this schema instance represents a poisoned error sentinel
+   * @param enumSubset         the resolved enum subset metadata, if this schema represents an enum subset
    */
   public record ResolvedSchema(
       SchemaTypeContext node,
@@ -873,19 +901,11 @@ public class StvnTypeResolver {
       Optional<SumTypeContext> sumTypeNode,
       Optional<ResolvedSchema> underlyingSchema,
       Optional<StvnConstraints> localConstraints,
-      boolean isPoisonedSentinel
+      boolean isPoisonedSentinel,
+      Optional<ResolvedType.EnumSubset> enumSubset
   ) {
     /**
      * Canonical constructor validating that all optional parameters are non-null.
-     *
-     * @param node              the AST schema type context node
-     * @param constraints       the consolidated constraints for this schema
-     * @param aliasName         the nominal alias name of the type
-     * @param implicitUnionTag  the implicit variant index if resolved as an untagged union branch
-     * @param sumTypeNode       the parsing context of the sum type
-     * @param underlyingSchema  the underlying schema
-     * @param localConstraints  the constraints defined locally on this specific schema node
-     * @param isPoisonedSentinel true if this schema represents a poisoned error sentinel
      */
     public ResolvedSchema {
       java.util.Objects.requireNonNull(node);
@@ -894,18 +914,27 @@ public class StvnTypeResolver {
       java.util.Objects.requireNonNull(sumTypeNode);
       java.util.Objects.requireNonNull(underlyingSchema);
       java.util.Objects.requireNonNull(localConstraints);
+      java.util.Objects.requireNonNull(enumSubset);
     }
 
     /**
-     * Backward-compatible 7-arg constructor defaulting isPoisonedSentinel to false.
-     *
-     * @param node              the AST schema type context node
-     * @param constraints       the consolidated constraints for this schema
-     * @param aliasName         the nominal alias name of the type
-     * @param implicitUnionTag  the implicit variant index if resolved as an untagged union branch
-     * @param sumTypeNode       the parsing context of the sum type
-     * @param underlyingSchema  the underlying schema
-     * @param localConstraints  the constraints defined locally on this specific schema node
+     * Backward-compatible 8-arg constructor defaulting enumSubset to empty.
+     */
+    public ResolvedSchema(
+        SchemaTypeContext node,
+        StvnConstraints constraints,
+        Optional<String> aliasName,
+        Optional<Integer> implicitUnionTag,
+        Optional<SumTypeContext> sumTypeNode,
+        Optional<ResolvedSchema> underlyingSchema,
+        Optional<StvnConstraints> localConstraints,
+        boolean isPoisonedSentinel
+    ) {
+      this(node, constraints, aliasName, implicitUnionTag, sumTypeNode, underlyingSchema, localConstraints, isPoisonedSentinel, Optional.empty());
+    }
+
+    /**
+     * Backward-compatible 7-arg constructor defaulting isPoisonedSentinel to false and enumSubset to empty.
      */
     public ResolvedSchema(
         SchemaTypeContext node,
@@ -916,39 +945,25 @@ public class StvnTypeResolver {
         Optional<ResolvedSchema> underlyingSchema,
         Optional<StvnConstraints> localConstraints
     ) {
-      this(node, constraints, aliasName, implicitUnionTag, sumTypeNode, underlyingSchema, localConstraints, false);
+      this(node, constraints, aliasName, implicitUnionTag, sumTypeNode, underlyingSchema, localConstraints, false, Optional.empty());
     }
 
     /**
      * Convenience constructor to build a ResolvedSchema with default empty sum type context and underlying schemas.
-     *
-     * @param node        the AST schema type context node
-     * @param constraints the consolidated constraints for this schema
-     * @param aliasName   the nominal alias name of the type
      */
     public ResolvedSchema(SchemaTypeContext node, StvnConstraints constraints, Optional<String> aliasName) {
-      this(node, constraints, aliasName, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false);
+      this(node, constraints, aliasName, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty());
     }
 
     /**
      * Convenience constructor to build a ResolvedSchema specifying implicit union tag and sum type node context.
-     *
-     * @param node             the AST schema type context node
-     * @param constraints      the consolidated constraints for this schema
-     * @param aliasName        the nominal alias name of the type
-     * @param implicitUnionTag the implicit variant index if resolved as an untagged union branch
-     * @param sumTypeNode      the parsing context of the sum type
      */
     public ResolvedSchema(SchemaTypeContext node, StvnConstraints constraints, Optional<String> aliasName, Optional<Integer> implicitUnionTag, Optional<SumTypeContext> sumTypeNode) {
-      this(node, constraints, aliasName, implicitUnionTag, sumTypeNode, Optional.empty(), Optional.empty(), false);
+      this(node, constraints, aliasName, implicitUnionTag, sumTypeNode, Optional.empty(), Optional.empty(), false, Optional.empty());
     }
 
     /**
      * Factory for creating a poisoned sentinel schema for unresolved or structurally broken types.
-     *
-     * @param aliasName the name of the poisoned type
-     * @param node      the schema AST context node
-     * @return a poisoned ResolvedSchema sentinel
      */
     public static ResolvedSchema error(String aliasName, SchemaTypeContext node) {
       return new ResolvedSchema(
@@ -959,39 +974,25 @@ public class StvnTypeResolver {
           Optional.empty(),
           Optional.empty(),
           Optional.of(StvnConstraints.empty()),
-          true
+          true,
+          Optional.empty()
       );
     }
 
-    /**
-     * Compares this resolved schema with another object for equivalence based on constraints and alias name.
-     *
-     * @param o the other object to compare against
-     * @return {@code true} if the objects are equivalent, otherwise {@code false}
-     */
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
       if (!(o instanceof ResolvedSchema that)) return false;
       return java.util.Objects.equals(constraints, that.constraints) &&
-          java.util.Objects.equals(aliasName, that.aliasName);
+          java.util.Objects.equals(aliasName, that.aliasName) &&
+          java.util.Objects.equals(enumSubset, that.enumSubset);
     }
 
-    /**
-     * Computes the hash code value for this resolved schema based on constraints and alias name.
-     *
-     * @return the computed hash code
-     */
     @Override
     public int hashCode() {
-      return java.util.Objects.hash(constraints, aliasName);
+      return java.util.Objects.hash(constraints, aliasName, enumSubset);
     }
 
-    /**
-     * Returns a string representation of the resolved schema configuration.
-     *
-     * @return the string representation
-     */
     @Override
     public String toString() {
       return "ResolvedSchema[" +
@@ -1002,6 +1003,7 @@ public class StvnTypeResolver {
           ", sumTypeNode=" + sumTypeNode.orElse(null) +
           ", underlyingSchema=" + underlyingSchema.orElse(null) +
           ", localConstraints=" + localConstraints.orElse(null) +
+          ", enumSubset=" + enumSubset.orElse(null) +
           ']';
     }
   }
@@ -1042,10 +1044,26 @@ public class StvnTypeResolver {
     boolean preserveIndent = false;
     Boolean equatable = null, comparable = null;
     var explicitOverrides = new java.util.ArrayList<String>();
+    List<String> filterIncl = null;
+    List<String> filterExcl = null;
 
     for (StvnParser.MetadataEntryContext entry : metadataMap.metadataEntry()) {
-      // PATHWAY B: Defensive checks to route metadata entry variants, as only one will be non-null at runtime depending on syntax matching
-      if (entry.metadataNum() != null) {
+      if (entry.metadataFilter() != null) {
+        var filterCtx = entry.metadataFilter();
+        var list = new java.util.ArrayList<String>();
+        if (filterCtx.variantList() != null && filterCtx.variantList().valueKeyword() != null) {
+          for (var vk : filterCtx.variantList().valueKeyword()) {
+            list.add(vk.getText());
+          }
+        }
+        if (filterCtx.KW_FILTER_INCL() != null) {
+          filterIncl = list;
+          explicitOverrides.add("filterIncl");
+        } else if (filterCtx.KW_FILTER_EXCL() != null) {
+          filterExcl = list;
+          explicitOverrides.add("filterExcl");
+        }
+      } else if (entry.metadataNum() != null) {
         var numCtx = entry.metadataNum();
         BigDecimal val = null;
         if (numCtx.metadataValue() != null) {
@@ -1096,7 +1114,9 @@ public class StvnTypeResolver {
         preserveIndent,
         Optional.ofNullable(equatable),
         Optional.ofNullable(comparable),
-        java.util.List.copyOf(explicitOverrides)
+        java.util.List.copyOf(explicitOverrides),
+        Optional.ofNullable(filterIncl),
+        Optional.ofNullable(filterExcl)
     );
   }
 
@@ -1255,11 +1275,85 @@ public class StvnTypeResolver {
         var meta = extractConstraints(typeDef.metadataMap());
         var innerRes = resolvePrimitiveSchema(doc, typeDef.schemaType(), nextVisited, false);
 
+        Optional<ResolvedType.EnumSubset> derivedSubset = Optional.empty();
+        if (meta.filterIncl().isPresent() || meta.filterExcl().isPresent()) {
+          var target = innerRes.orElseThrow(() -> new MalformedSchemaException("Cannot resolve target for enum filter: " + kw));
+          var baseType = getPrimitiveBaseType(target.node());
+          if (!":Enum".equals(baseType)) {
+            throw new MalformedSchemaException("Constraint violation (" + kw + "): filter facets are not allowed on " + baseType);
+          }
+          if (typeDef.schemaType().schemaConstructor() != null && typeDef.schemaType().schemaConstructor().sumType() != null && typeDef.schemaType().schemaConstructor().sumType().enumDef() != null) {
+            throw new MalformedSchemaException("Constraint violation (" + kw + "): filter facets cannot be applied to inline enum constructors; filter facets are only allowed on nominal aliases of :Enum or existing enum subsets");
+          }
+          if (meta.filterIncl().isPresent() && meta.filterExcl().isPresent()) {
+            throw new MalformedSchemaException("Constraint violation (" + kw + "): #filterIncl and #filterExcl are mutually exclusive");
+          }
+
+          List<String> parentAllowed;
+          String parentName = target.aliasName().orElse(":Enum");
+          String rootEnumName;
+          List<String> rootVariants;
+
+          if (target.enumSubset().isPresent()) {
+            var parentSubset = target.enumSubset().get();
+            parentAllowed = parentSubset.allowedVariants();
+            rootEnumName = parentSubset.rootEnum();
+            rootVariants = parentSubset.rootVariants();
+          } else {
+            var rootEnumDef = target.node().schemaConstructor().sumType().enumDef();
+            if (rootEnumDef == null) {
+              throw new MalformedSchemaException("Cannot resolve enum definition for " + kw);
+            }
+            rootVariants = rootEnumDef.valueKeyword().stream().map(ParseTree::getText).toList();
+            parentAllowed = rootVariants;
+            rootEnumName = parentName;
+          }
+
+          boolean isIncl = meta.filterIncl().isPresent();
+          List<String> facetList = isIncl ? meta.filterIncl().get() : meta.filterExcl().get();
+
+          if (facetList.isEmpty()) {
+            throw new MalformedSchemaException("Constraint violation (" + kw + "): enum filter variant list cannot be empty");
+          }
+          if (new HashSet<>(facetList).size() != facetList.size()) {
+            throw new MalformedSchemaException("Constraint violation (" + kw + "): duplicate variant in filter facet");
+          }
+          for (String v : facetList) {
+            if (!parentAllowed.contains(v)) {
+              throw new MalformedSchemaException("Constraint violation (" + kw + "): Monotonic narrowing violation: variant " + v + " does not exist in immediate parent type " + parentName);
+            }
+          }
+          int prevRootIdx = -1;
+          for (String v : facetList) {
+            int idx = rootVariants.indexOf(v);
+            if (idx <= prevRootIdx) {
+              throw new MalformedSchemaException("Constraint violation (" + kw + "): Root ordering violation: variant " + v + " does not match relative declaration order of root :Enum " + rootEnumName);
+            }
+            prevRootIdx = idx;
+          }
+
+          List<String> computedAllowed;
+          if (isIncl) {
+            computedAllowed = List.copyOf(facetList);
+          } else {
+            computedAllowed = parentAllowed.stream().filter(v -> !facetList.contains(v)).toList();
+          }
+
+          if (computedAllowed.isEmpty()) {
+            throw new MalformedSchemaException("Constraint violation (" + kw + "): Complete exclusion violation: enum subset results in empty variant list");
+          }
+
+          derivedSubset = Optional.of(new ResolvedType.EnumSubset(kw, parentName, rootEnumName, computedAllowed, rootVariants, isIncl));
+        } else if (innerRes.isPresent() && innerRes.get().enumSubset().isPresent()) {
+          derivedSubset = innerRes.get().enumSubset();
+        }
+
+        final var finalSubset = derivedSubset;
         return innerRes
             .map(resolvedSchema ->
-                applyDefaults(new ResolvedSchema(resolvedSchema.node(), meta.merge(resolvedSchema.constraints()), Optional.of(kw), Optional.empty(), Optional.empty(), Optional.of(resolvedSchema), Optional.of(meta), resolvedSchema.isPoisonedSentinel())))
+                applyDefaults(new ResolvedSchema(resolvedSchema.node(), meta.merge(resolvedSchema.constraints()), Optional.of(kw), Optional.empty(), Optional.empty(), Optional.of(resolvedSchema), Optional.of(meta), resolvedSchema.isPoisonedSentinel(), finalSubset)))
             .or(() ->
-                Optional.of(applyDefaults(new ResolvedSchema(schemaNode, meta, Optional.of(kw), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(meta), false))))
+                Optional.of(applyDefaults(new ResolvedSchema(schemaNode, meta, Optional.of(kw), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(meta), false, finalSubset))))
             .map(StvnTypeResolver::validateResolvedSchema);
       } else {
         markTypePoisoned(doc, kw);
@@ -1360,9 +1454,9 @@ public class StvnTypeResolver {
         var cleanConstraints = new StvnConstraints(
             constraints.minIncl(), constraints.minExcl(), constraints.maxIncl(), constraints.maxExcl(),
             Optional.empty(), constraints.preserveIndent(), constraints.equatable(), constraints.comparable(),
-            constraints.explicitOverrides()
+            constraints.explicitOverrides(), constraints.filterIncl(), constraints.filterExcl()
         );
-        return new ResolvedSchema(rs.node(), cleanConstraints, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel());
+        return new ResolvedSchema(rs.node(), cleanConstraints, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel(), rs.enumSubset());
       }
       try {
         java.util.regex.Pattern.compile(regexStr);
@@ -1370,9 +1464,9 @@ public class StvnTypeResolver {
         var cleanConstraints = new StvnConstraints(
             constraints.minIncl(), constraints.minExcl(), constraints.maxIncl(), constraints.maxExcl(),
             Optional.empty(), constraints.preserveIndent(), constraints.equatable(), constraints.comparable(),
-            constraints.explicitOverrides()
+            constraints.explicitOverrides(), constraints.filterIncl(), constraints.filterExcl()
         );
-        return new ResolvedSchema(rs.node(), cleanConstraints, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel());
+        return new ResolvedSchema(rs.node(), cleanConstraints, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel(), rs.enumSubset());
       }
     }
     if (constraints.preserveIndent() || constraints.explicitOverrides().contains("preserveIndent")) {
@@ -1383,9 +1477,9 @@ public class StvnTypeResolver {
         var cleanConstraints = new StvnConstraints(
             constraints.minIncl(), constraints.minExcl(), constraints.maxIncl(), constraints.maxExcl(),
             constraints.regex(), false, constraints.equatable(), constraints.comparable(),
-            cleanOverrides
+            cleanOverrides, constraints.filterIncl(), constraints.filterExcl()
         );
-        return new ResolvedSchema(rs.node(), cleanConstraints, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel());
+        return new ResolvedSchema(rs.node(), cleanConstraints, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel(), rs.enumSubset());
       }
     }
     return rs;
@@ -1434,9 +1528,10 @@ public class StvnTypeResolver {
           rs.constraints().maxIncl(), rs.constraints().maxExcl(),
           rs.constraints().regex(), rs.constraints().preserveIndent(),
           equatable, comparable,
-          rs.constraints().explicitOverrides()
+          rs.constraints().explicitOverrides(),
+          rs.constraints().filterIncl(), rs.constraints().filterExcl()
       );
-      return new ResolvedSchema(rs.node(), updatedC, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints());
+      return new ResolvedSchema(rs.node(), updatedC, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel(), rs.enumSubset());
     }
     return rs;
   }
@@ -1519,10 +1614,11 @@ public class StvnTypeResolver {
         constraints.minIncl(), constraints.minExcl(),
         constraints.maxIncl(), constraints.maxExcl(),
         constraints.regex(), constraints.preserveIndent(),
-        equatable, comparable, overrides
+        equatable, comparable, overrides,
+        constraints.filterIncl(), constraints.filterExcl()
     );
 
-    return new ResolvedSchema(parent.node(), updatedC, parent.aliasName(), parent.implicitUnionTag(), parent.sumTypeNode(), parent.underlyingSchema(), parent.localConstraints());
+    return new ResolvedSchema(parent.node(), updatedC, parent.aliasName(), parent.implicitUnionTag(), parent.sumTypeNode(), parent.underlyingSchema(), parent.localConstraints(), parent.isPoisonedSentinel(), parent.enumSubset());
   }
 
   /**
@@ -2002,6 +2098,9 @@ public class StvnTypeResolver {
       case KEYWORD_LITERAL -> {
         if (baseType.equals(":Enum")) {
           if (literalText != null) {
+            if (resolved.enumSubset().isPresent()) {
+              yield resolved.enumSubset().get().containsVariant(literalText);
+            }
             yield isValidEnumVariant(resolved.node(), literalText);
           }
           yield true;
@@ -2531,6 +2630,21 @@ public class StvnTypeResolver {
     validateSchemaSumTypeUniqueness(doc, constDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     validateSchemaCapabilities(doc, constDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     if (constDef.metadataMap() != null) {
+      for (var entry : constDef.metadataMap().metadataEntry()) {
+        if (entry.metadataFilter() != null) {
+          var f = entry.metadataFilter();
+          var constraintName = f.KW_FILTER_INCL() != null ? "filterIncl" : "filterExcl";
+          diagnosticBag.addError(
+              "Constraint violation (" + constName + "): " + constraintName + " is not allowed on constants",
+              f.getStart().getStartIndex(),
+              f.getStop().getStopIndex() + 1,
+              f.getStart().getLine(),
+              f.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+          );
+        }
+      }
       validateMetadataMapConstraints(constName, constDef.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
     }
 
@@ -2621,6 +2735,8 @@ public class StvnTypeResolver {
     var hasMinExcl = false;
     var hasMaxIncl = false;
     var hasMaxExcl = false;
+    var hasFilterIncl = false;
+    var hasFilterExcl = false;
 
     for (var entry : metadataMap.metadataEntry()) {
       if (entry.metadataNum() != null) {
@@ -2629,6 +2745,10 @@ public class StvnTypeResolver {
         if (numCtx.KW_MIN_EXCL() != null) hasMinExcl = true;
         if (numCtx.KW_MAX_INCL() != null) hasMaxIncl = true;
         if (numCtx.KW_MAX_EXCL() != null) hasMaxExcl = true;
+      } else if (entry.metadataFilter() != null) {
+        var filterCtx = entry.metadataFilter();
+        if (filterCtx.KW_FILTER_INCL() != null) hasFilterIncl = true;
+        if (filterCtx.KW_FILTER_EXCL() != null) hasFilterExcl = true;
       }
     }
 
@@ -2646,6 +2766,17 @@ public class StvnTypeResolver {
     if (hasMaxIncl && hasMaxExcl) {
       diagnosticBag.addError(
           "Constraint violation (" + name + "): #maxIncl and #maxExcl are mutually exclusive",
+          metadataMap.getStart().getStartIndex(),
+          metadataMap.getStop().getStopIndex() + 1,
+          metadataMap.getStart().getLine(),
+          metadataMap.getStart().getCharPositionInLine(),
+          null,
+          DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+      );
+    }
+    if (hasFilterIncl && hasFilterExcl) {
+      diagnosticBag.addError(
+          "Constraint violation (" + name + "): #filterIncl and #filterExcl are mutually exclusive",
           metadataMap.getStart().getStartIndex(),
           metadataMap.getStop().getStopIndex() + 1,
           metadataMap.getStart().getLine(),
@@ -2835,6 +2966,20 @@ public class StvnTypeResolver {
                 DiagnosticBag.ERR_INCOMPATIBLE_TYPE
             );
           }
+        }
+      } else if (entry.metadataFilter() != null) {
+        var filterCtx = entry.metadataFilter();
+        var constraintName = filterCtx.KW_FILTER_INCL() != null ? "filterIncl" : "filterExcl";
+        if (!":Enum".equals(baseType)) {
+          diagnosticBag.addError(
+              "Constraint violation (" + name + "): " + constraintName + " is not allowed on " + baseType,
+              filterCtx.getStart().getStartIndex(),
+              filterCtx.getStop().getStopIndex() + 1,
+              filterCtx.getStart().getLine(),
+              filterCtx.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+          );
         }
       }
     }
