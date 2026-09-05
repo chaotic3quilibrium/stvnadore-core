@@ -15,12 +15,15 @@ import org.stvnadore.core.ir.StvnValue.StvnString;
 import org.stvnadore.core.ir.StvnValue.StvnTuple;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.stvnadore.core.binary.StvnBinaryDecoder;
+import org.stvnadore.core.binary.exceptions.UnsupportedEncodingStrategyException;
 
 @NullMarked
 public class StvnIrValidationTest {
@@ -206,6 +209,33 @@ public class StvnIrValidationTest {
     }
   }
 
+  @ParameterizedTest(name = "Binary Invalid Fixture - {0}")
+  @MethodSource("provideDynamicInvalidBinaryCases")
+  public void testDynamicInvalidBinaryFixtures(String displayName, DynamicInvalidTestCase testCase) throws IOException {
+    Assertions.assertTrue(testCase.hasContract(), "Missing contract for binary fixture: " + testCase.stvnPath());
+    byte[] bytes = Files.readAllBytes(testCase.stvnPath());
+    String contractContent = Files.readString(testCase.contractPath());
+    var contractAst = StvnCompiler.compile(contractContent).orElseThrow();
+    var contract = StvnErrorContract.fromAst(contractAst);
+
+    var thrown = Assertions.assertThrows(RuntimeException.class, () -> {
+      var buf = ByteBuffer.wrap(bytes);
+      var root = StvnBinaryDecoder.open(buf);
+      StvnBinaryDecoder.unpack(root, Optional.empty());
+    });
+
+    contract.expectedExceptionClass().ifPresent(expectedClass -> {
+      Assertions.assertEquals(expectedClass, thrown.getClass().getName());
+    });
+
+    Assertions.assertTrue(
+        thrown.getMessage() != null && thrown.getMessage().contains(contract.errorMessageSubstring()),
+        "Expected message substring: [" + contract.errorMessageSubstring() + "], got: [" + thrown.getMessage() + "]"
+    );
+
+    Assertions.assertEquals(contract.category().replace("#", ""), deriveCategory(thrown).replace("#", ""));
+  }
+
   private static String deriveCategory(Throwable e) {
     if (e instanceof org.stvnadore.core.validation.CyclicDependencyException) {
       return "CYCLIC_DEPENDENCY";
@@ -234,7 +264,26 @@ public class StvnIrValidationTest {
     if (e instanceof IllegalArgumentException) {
       return "TYPE_MISMATCH";
     }
+    if (e instanceof UnsupportedEncodingStrategyException) {
+      return "SYNTAX_ERROR";
+    }
     return "SYNTAX_ERROR";
+  }
+
+  private static Stream<Arguments> provideDynamicInvalidBinaryCases() throws IOException {
+    if (!Files.exists(INVALID_FIXTURES_DIR)) {
+      return Stream.empty();
+    }
+    try (Stream<Path> paths = Files.walk(INVALID_FIXTURES_DIR)) {
+      List<Path> binaryFiles = paths.filter(p -> p.toString().endsWith(".stvn_bin")).toList();
+      return binaryFiles.stream().map(binPath -> {
+        String baseName = binPath.getFileName().toString();
+        String contractFileName = baseName.substring(0, baseName.lastIndexOf('.')) + ".contract.stvn";
+        Path contractPath = binPath.resolveSibling(contractFileName);
+        boolean hasContract = Files.exists(contractPath);
+        return Arguments.of(baseName, new DynamicInvalidTestCase(baseName, binPath, contractPath, hasContract));
+      });
+    }
   }
 
   private static Stream<Arguments> provideDynamicInvalidCases() throws IOException {

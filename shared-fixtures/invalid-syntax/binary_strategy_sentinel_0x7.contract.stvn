@@ -1,0 +1,14 @@
+{
+  // File: binary_strategy_sentinel_0x7.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #SYNTAX_ERROR
+    "Strategy 0x7 is reserved for multi-byte header extension"
+    "org.stvnadore.core.binary.exceptions.UnsupportedEncodingStrategyException"
+  )
+}

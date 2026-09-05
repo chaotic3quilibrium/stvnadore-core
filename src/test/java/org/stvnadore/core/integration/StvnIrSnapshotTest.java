@@ -39,10 +39,11 @@ public class StvnIrSnapshotTest {
     var binSnapshotPath = stvnFile.resolveSibling(stvnFile.getFileName().toString() + "_bin");
 
     var cleanLive = liveSnapshot.replace("\r\n", "\n").trim();
+    boolean isChecksummed = fileName.contains("crc32c");
 
     if (Boolean.getBoolean("updateSnapshots")) {
       Files.writeString(snapshotPath, cleanLive);
-      var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+      var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), isChecksummed);
       var buf = encoder.encode(liveIr);
       var liveBin = new byte[buf.remaining()];
       buf.get(liveBin);
@@ -64,7 +65,7 @@ public class StvnIrSnapshotTest {
 
     var expectedBin = Files.readAllBytes(binSnapshotPath);
 
-    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), isChecksummed);
     var buf = encoder.encode(liveIr);
     var liveBin = new byte[buf.remaining()];
     buf.get(liveBin);

@@ -11,6 +11,7 @@ import org.stvnadore.core.binary.readers.StvnSeqReader;
 import org.stvnadore.core.binary.readers.StvnTupleReader;
 import org.stvnadore.core.ir.StvnLiteralParser;
 import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.validation.MalformedPayloadException;
 import org.stvnadore.core.validation.StvnTypeResolver;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 
@@ -19,6 +20,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
+import java.util.zip.CRC32C;
 
 /**
  * Decoder engine for parsing STVN binary buffers back into AST values or accessing them via zero-copy flyweights.
@@ -122,6 +124,7 @@ public class StvnBinaryDecoder {
   }
 
   private record HeaderInfo(
+      ByteBuffer effectiveBuffer,
       int offsetSize,
       @Nullable SchemaIdentityStrategy identityStrategy,
       BinaryEncodingStrategy encodingStrategy,
@@ -135,18 +138,45 @@ public class StvnBinaryDecoder {
 
   private static HeaderInfo parseHeader(ByteBuffer buffer) {
     buffer.order(ByteOrder.LITTLE_ENDIAN);
+    if (buffer.remaining() < 5) {
+      throw new IllegalArgumentException("Buffer too small for STVN binary header: requires at least 5 bytes");
+    }
     if (buffer.getInt(0) != MAGIC_BYTES) {
       throw new IllegalArgumentException("Invalid STVN binary: Magic bytes mismatch");
     }
 
     byte controlByte = buffer.get(4);
-    int upperNibble = (controlByte >>> 4) & 0x0F;
-    int lowerNibble = controlByte & 0x0F;
+    boolean hasTrailerCrc32c = (controlByte & (byte) 0x80) != 0;
+    int encodingCode = (controlByte & 0x70) >>> 4;
+    int identityCode = controlByte & 0x0F;
 
-    BinaryEncodingStrategy encodingStrategy = BinaryEncodingStrategy.fromCode(upperNibble);
+    ByteBuffer effectiveBuffer = buffer;
+    if (hasTrailerCrc32c) {
+      if (buffer.remaining() < 9) {
+        throw new MalformedPayloadException("Buffer too small for STVN binary with CRC-32C trailer: requires at least 9 bytes, found " + buffer.remaining());
+      }
+      int totalLimit = buffer.limit();
+      int payloadLimit = totalLimit - 4;
+
+      ByteBuffer crcView = buffer.duplicate().order(ByteOrder.LITTLE_ENDIAN);
+      crcView.position(0);
+      crcView.limit(payloadLimit);
+
+      CRC32C crc = new CRC32C();
+      crc.update(crcView);
+      int computedCrc = (int) crc.getValue();
+      int expectedCrc = buffer.getInt(payloadLimit);
+
+      if (computedCrc != expectedCrc) {
+        throw new MalformedPayloadException("CRC-32C trailer mismatch: payload corrupted or truncated");
+      }
+      effectiveBuffer = buffer.slice(0, payloadLimit).order(ByteOrder.LITTLE_ENDIAN);
+    }
+
+    BinaryEncodingStrategy encodingStrategy = BinaryEncodingStrategy.fromCode(encodingCode);
 
     int currentPos = 5;
-    SchemaIdentityStrategy strategy = switch (lowerNibble) {
+    SchemaIdentityStrategy strategy = switch (identityCode) {
       case 0 -> new SchemaIdentityStrategy.UniversalDefault();
       case 1 -> new SchemaIdentityStrategy.UuidV8Hash();
       case 2 -> new SchemaIdentityStrategy.Sha256Hash();
@@ -192,17 +222,17 @@ public class StvnBinaryDecoder {
         currentPos += len;
         yield new SchemaIdentityStrategy.SelfDescribingSchema(new String(bytes, StandardCharsets.UTF_8));
       }
-      default -> throw new StvnSerializationException("Invalid Schema Identity Strategy code: " + lowerNibble);
+      default -> throw new StvnSerializationException("Invalid Schema Identity Strategy code: " + identityCode);
     };
 
     byte flags = buffer.get(currentPos++);
     int offsetSize = 1 << (flags & 0b0000_0011);
 
-    return new HeaderInfo(offsetSize, strategy, encodingStrategy, currentPos);
+    return new HeaderInfo(effectiveBuffer, offsetSize, strategy, encodingStrategy, currentPos);
   }
 
   private static RootPointer createRootPointer(ByteBuffer buffer, HeaderInfo header, @Nullable ResolvedSchema schema) {
-    DecodeContext ctx = new DecodeContext(buffer, header.offsetSize, Optional.ofNullable(header.identityStrategy()), header.encodingStrategy());
+    DecodeContext ctx = new DecodeContext(header.effectiveBuffer(), header.offsetSize, Optional.ofNullable(header.identityStrategy()), header.encodingStrategy());
     int rootOffset = ctx.readPointer(header.payloadStart());
     return new RootPointer(ctx, rootOffset, Optional.ofNullable(schema));
   }

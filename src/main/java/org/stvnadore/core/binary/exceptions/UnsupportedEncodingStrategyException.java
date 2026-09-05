@@ -5,7 +5,7 @@ import java.io.Serial;
 
 /**
  * Exception thrown when an STVN binary payload declares an unrecognized or unsupported
- * {@link org.stvnadore.core.binary.BinaryEncodingStrategy} in the upper nibble of Header Byte 4.
+ * {@link org.stvnadore.core.binary.BinaryEncodingStrategy} in bits 6..4 of Header Byte 4.
  *
  * @since 1.0.0
  */
@@ -15,15 +15,25 @@ public class UnsupportedEncodingStrategyException extends StvnSerializationExcep
   private static final long serialVersionUID = 1004L;
 
   /**
-   * The 4-bit upper nibble strategy code encountered in the binary header.
+   * The 3-bit strategy code (bits 6..4) encountered in the binary header.
    */
   private final int strategyCode;
+
+  /**
+   * Constructs a new UnsupportedEncodingStrategyException with the specified detail message.
+   *
+   * @param message the detail message describing the unsupported encoding strategy
+   */
+  public UnsupportedEncodingStrategyException(String message) {
+    super(message);
+    this.strategyCode = -1;
+  }
 
   /**
    * Constructs a new UnsupportedEncodingStrategyException with the specified detail message and unmapped strategy code.
    *
    * @param message      the detail message describing the unsupported encoding strategy
-   * @param strategyCode the 4-bit upper nibble strategy code encountered
+   * @param strategyCode the 3-bit strategy code encountered
    */
   public UnsupportedEncodingStrategyException(String message, int strategyCode) {
     super(message);

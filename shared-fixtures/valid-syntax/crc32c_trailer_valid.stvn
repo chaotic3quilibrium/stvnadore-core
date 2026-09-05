@@ -1,0 +1,31 @@
+{
+  // File: crc32c_trailer_valid.stvn
+  // Canonical STVN payload with scalars, collections, and enum subsets
+  :defs {
+    :Environment :Enum [ #LOCAL #DEV #STAGING #CANARY #PROD ]
+    :DeployEnv { #filterIncl [ #DEV #STAGING #CANARY ] } :Environment
+  }
+
+  :type :Tuple(
+    :Int32
+    :Float64
+    :String
+    :Boolean
+    :Seq( :String )
+    :Map( :String :Int32 )
+    :DeployEnv
+  )
+
+  :body (
+    42
+    3.141592653589793
+    "STVN Protocol Engine"
+    #TRUE
+    [ "Alpha" "Beta" "Gamma" ]
+    {
+      [ "timeout_ms" 5000 ]
+      [ "retry_limit" 3 ]
+    }
+    #STAGING
+  )
+}

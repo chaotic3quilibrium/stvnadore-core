@@ -12,18 +12,23 @@
 The STVN binary stream is encoded in Little-Endian byte order with a deterministic header structure:
 
 ```
-+-------------------+---------------+-----------------------+---------------+--------------------+
-| Bytes 0-3 (4B)    | Byte 4 (1B)   | Bytes 5..N (0..Var B) | Byte N+1 (1B) | Bytes N+2.. (1..8B)|
-| "STVN" Magic      | Control Byte  | Schema Identity Data  | Flags (Offset)| Root Node Pointer  |
-+-------------------+---------------+-----------------------+---------------+--------------------+
++-------------------+---------------+-----------------------+---------------+--------------------+--------------------+
+| Bytes 0-3 (4B)    | Byte 4 (1B)   | Bytes 5..N (0..Var B) | Byte N+1 (1B) | Bytes N+2.. (1..8B)| Trailing (0 or 4B) |
+| "STVN" Magic      | Control Byte  | Schema Identity Data  | Flags (Offset)| Root Node Pointer  | [CRC-32C Trailer]  |
++-------------------+---------------+-----------------------+---------------+--------------------+--------------------+
 ```
 
-### Byte 4 Control Byte (4:4 Nibble Split)
-Byte 4 is partitioned into two 4-bit unsigned bitfields:
+### Byte 4 Control Byte (1:3:4 Bitwise Partition)
+Byte 4 is partitioned into three distinct bitfields:
 
-* **Upper Nibble (Bits 7..4, Mask `0xF0`)**: `BinaryEncodingStrategy`
+* **Trailer Flag (Bit 7, Mask `0x80`)**: `HAS_TRAILER_CRC32C`
+  * `0`: No trailer appended. Payload limit coincides with binary arena boundary.
+  * `1`: 4-byte Little-Endian CRC-32C trailer appended at `limit - 4`. Computes checksum over `0..(limit - 4)`.
+
+* **Wire Strategy (Bits 6..4, Mask `0x70`)**: `BinaryEncodingStrategy`
   * `0x0`: `ZERO_COPY_POST_ORDER` (Standard zero-copy post-order layout).
-  * `0x1`–`0xF`: Reserved for future compression and layout models.
+  * `0x1`–`0x6`: Reserved for future compression and layout models.
+  * `0x7`: Extension sentinel reserved for multi-byte header extension.
 
 * **Lower Nibble (Bits 3..0, Mask `0x0F`)**: `SchemaIdentityStrategy`
   * `0x0`: `UniversalDefault` (0 bytes payload). Resolves payload against universal default schema context.
@@ -38,7 +43,18 @@ Byte 4 is partitioned into two 4-bit unsigned bitfields:
 
 ---
 
-## 2. Zero-Trust Security Enforcement (Strategy `0x07`)
+## 2. Hardware-Accelerated CRC-32C Trailer Integrity
+
+When Byte 4 Bit 7 (`0x80`) is set:
+1. The buffer must contain at least 9 bytes (5-byte minimum header + 4-byte trailer).
+2. The decoder reads trailing 4 bytes at `limit - 4` as a 32-bit Little-Endian integer.
+3. The decoder computes the streaming CRC-32C (`java.util.zip.CRC32C`) across bytes `0..(limit - 4)`.
+4. If computed CRC $\ne$ expected CRC, the decoder throws `MalformedPayloadException("CRC-32C trailer mismatch: payload corrupted or truncated")`.
+5. Downstream decoders slice the buffer to `0..(limit - 4)`, ensuring zero-copy readers remain oblivious to trailer presence.
+
+---
+
+## 3. Zero-Trust Security Enforcement (Strategy `0x07`)
 
 When decoding an STVN binary payload marked with Strategy `0x07` (`ExplicitSha256`):
 1. `StvnBinaryDecoder.open()` reads the 37-byte header and extracts the embedded 32-byte SHA-256 digest at Header Bytes 5..36.
@@ -47,7 +63,7 @@ When decoding an STVN binary payload marked with Strategy `0x07` (`ExplicitSha25
 
 ---
 
-## 3. Tripartite Temporal Wire Memory Layouts
+## 4. Tripartite Temporal Wire Memory Layouts
 
 STVN eliminates string parsing overhead for temporal types by embedding fixed-width binary representations:
 
@@ -73,7 +89,7 @@ To avoid repeating long time zone identifier strings (e.g. `"America/Argentina/B
 
 ---
 
-## 4. Arbitrary Bit-Width High-Bit Masking
+## 5. Arbitrary Bit-Width High-Bit Masking
 
 For any arbitrary integer type `:Int`$n$ or `:Uint`$n$ ($n \ge 1$), the wire allocates $B = \lceil n/8 \rceil$ containment bytes in Little-Endian order.
 
@@ -83,11 +99,11 @@ For any arbitrary integer type `:Int`$n$ or `:Uint`$n$ ($n \ge 1$), the wire all
 
 ---
 
-## 5. Enum Subset Binary Wire Encoding & Zero-Copy Subtyping
+## 6. Enum Subset Binary Wire Encoding & Zero-Copy Subtyping
 
 STVN enum subsets achieve zero-copy polymorphism through root-relative ordinal preservation.
 
-### 5.1 Root-Relative Ordinal Indexing
+### 6.1 Root-Relative Ordinal Indexing
 When serializing a payload value typed as an `EnumSubset`, the binary encoder emits the variant's sequential index relative to the **root `:Enum` declaration**, not a dense local ordinal.
 
 * **Wire Byte Width:** The containment byte width matches the capacity required by the root enum ($N$ root variants):
@@ -105,13 +121,13 @@ Payload: #Active
 Wire Encoding: Byte value 0x01 (Root index 1, NOT local index 0)
 ```
 
-### 5.2 Parent-Slot Zero-Copy Assignability
+### 6.2 Parent-Slot Zero-Copy Assignability
 Because payloads serialize using root-relative ordinals and identical byte widths:
 * Payloads typed with `:ActiveStatus` are byte-identical on the wire to payloads typed with `:Status`.
 * Systems read and assign child subset payloads directly into storage slots typed as the parent enum without memory reallocation, trans-coding, or ordinal transformation.
 * Transitive chains of arbitrary depth preserve this zero-overhead invariant.
 
-### 5.3 Decoder Boundary Validation (`MalformedPayloadException`)
+### 6.3 Decoder Boundary Validation (`MalformedPayloadException`)
 During payload deserialization, `StvnBinaryDecoder` enforces strict zero-trust boundary verification:
 
 1. The decoder reads the root-relative ordinal index `seqIndex` from the input stream.
@@ -123,11 +139,11 @@ During payload deserialization, `StvnBinaryDecoder` enforces strict zero-trust b
 
 ---
 
-## 6. Cryptographic Schema Hashing for Enum Subsets
+## 7. Cryptographic Schema Hashing for Enum Subsets
 
 `StvnSchemaHasher` generates deterministic 32-byte SHA-256 fingerprints to identify schemas in Content-Addressable Storage (CAS) and Strategy `0x07` (`ExplicitSha256`) zero-trust binary headers.
 
-### 6.1 Digest Ingestion Sequence
+### 7.1 Digest Ingestion Sequence
 To prevent CAS hash collisions between distinct subsets or between a subset and its root enum, `StvnSchemaHasher.digestSchema()` digests subset metadata in strict sequential order:
 
 1. **Base Primitive Type:** Emits UTF-8 string bytes for `:Enum`.

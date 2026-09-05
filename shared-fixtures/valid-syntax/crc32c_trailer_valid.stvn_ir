@@ -1,0 +1,47 @@
+TypeRegistry:
+  - :Environment
+      schema:
+        node: :Enum[#LOCAL#DEV#STAGING#CANARY#PROD]
+        aliasName: :Environment
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#LOCAL#DEV#STAGING#CANARY#PROD]
+  - :DeployEnv
+      schema:
+        node: :Enum[#LOCAL#DEV#STAGING#CANARY#PROD]
+        aliasName: :DeployEnv
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#LOCAL#DEV#STAGING#CANARY#PROD]
+          aliasName: :Environment
+  - <:type>
+      schema:
+        node: :Tuple(:Int32:Float64:String:Boolean:Seq(:String):Map(:String:Int32):DeployEnv)
+        constraints:
+          equatable: false (derived from :Float64)
+          comparable: false (derived from :Map(:String:Int32))
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnInteger(:Int32): 42
+      - StvnFloat(:Float64): 3.141592653589793
+      - StvnString(:String): "STVN Protocol Engine"
+      - StvnBoolean(:Boolean): true
+      - StvnSeq
+          elements:
+            - StvnString(:String): "Alpha"
+            - StvnString(:String): "Beta"
+            - StvnString(:String): "Gamma"
+      - StvnMap
+          entries:
+            - pair:
+                key: StvnString(:String): "timeout_ms"
+                value: StvnInteger(:Int32): 5000
+            - pair:
+                key: StvnString(:String): "retry_limit"
+                value: StvnInteger(:Int32): 3
+      - StvnEnum(:DeployEnv): #STAGING

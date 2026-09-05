@@ -11,6 +11,22 @@ import org.stvnadore.core.validation.MalformedPayloadException;
 @NullMarked
 public final class StvnBinaryUtils {
 
+  /** Mandatory magic preamble bytes ('S', 'T', 'V', 'N' in Little-Endian). */
+  public static final int MAGIC_BYTES = 0x5354564E;
+
+  /** Bitmask for Bit 7 of Byte 4: HAS_TRAILER_CRC32C flag (0x80). */
+  public static final int CONTROL_MASK_TRAILER_CRC32C = 0x80;
+  /** Bitmask for Bits 6..4 of Byte 4: BinaryEncodingStrategy (0x70). */
+  public static final int CONTROL_MASK_ENCODING_STRATEGY = 0x70;
+  /** Bitmask for Bits 3..0 of Byte 4: SchemaIdentityStrategy (0x0F). */
+  public static final int CONTROL_MASK_SCHEMA_IDENTITY = 0x0F;
+  /** Strategy code 0x7 reserved as an extension sentinel. */
+  public static final int ENCODING_STRATEGY_EXTENSION_SENTINEL = 0x07;
+  /** Minimum byte buffer size required when CRC-32C trailer flag is enabled (5-byte header + 4-byte CRC-32C). */
+  public static final int MIN_CRC32C_BUFFER_CAPACITY = 9;
+  /** Size in bytes of the CRC-32C trailer. */
+  public static final int CRC32C_TRAILER_SIZE = 4;
+
   private StvnBinaryUtils() {
     // Utility class, non-instantiable
   }

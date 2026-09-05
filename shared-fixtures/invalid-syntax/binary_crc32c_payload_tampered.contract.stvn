@@ -1,0 +1,14 @@
+{
+  // File: binary_crc32c_payload_tampered.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "CRC-32C trailer mismatch: payload corrupted or truncated"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

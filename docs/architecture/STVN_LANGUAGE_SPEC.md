@@ -1,4 +1,4 @@
-﻿# STVN Language Specification
+# STVN Language Specification
 
 **Version:** 1.1.0-SNAPSHOT
 
@@ -65,7 +65,7 @@
   * [10. Binary Format (`.stvn_bin`) Wire Framing & Schema Governance](#10-binary-format-stvn_bin-wire-framing--schema-governance)
     * [10.1 Control Byte Bitwise Architecture (Byte 4)](#101-control-byte-bitwise-architecture-byte-4)
       * [Bitwise Operations](#bitwise-operations)
-    * [10.2 Upper Nibble: `BinaryEncodingStrategy` Taxonomy (Bits 7..4)](#102-upper-nibble-binaryencodingstrategy-taxonomy-bits-74)
+    * [10.2 Bits 6..4: `BinaryEncodingStrategy` Taxonomy](#102-bits-64-binaryencodingstrategy-taxonomy)
     * [10.3 Lower Nibble: `SchemaIdentityStrategy` Taxonomy (Bits 3..0)](#103-lower-nibble-schemaidentitystrategy-taxonomy-bits-30)
     * [10.4 Header Decoding & Strategy Dispatch Pipeline](#104-header-decoding--strategy-dispatch-pipeline)
     * [10.5 Tripartite Temporal Wire Encoding & Memory Layouts](#105-tripartite-temporal-wire-encoding--memory-layouts)
@@ -777,44 +777,47 @@ The runtime environment provides the following pre-registered types:
 
 The STVN binary stream (`.stvn_bin`) begins with a mandatory 5-byte header frame:
 * **Bytes 0–3 (4 Bytes):** Magic identifier (`MAGIC_BYTES = 0x5354564E`, ASCII `"STVN"`).
-* **Byte 4 (1 Byte):** Codec Control Byte partitioned into a 4:4 bitwise layout.
+* **Byte 4 (1 Byte):** Codec Control Byte partitioned into a 1:3:4 bitwise layout.
 
 ### 10.1 Control Byte Bitwise Architecture (Byte 4)
 
-Byte 4 separates wire layout framing (`BinaryEncodingStrategy`) from schema authentication and discovery (`SchemaIdentityStrategy`):
+Byte 4 separates CRC-32C trailer presence (`HAS_TRAILER_CRC32C`), wire layout framing (`BinaryEncodingStrategy`), and schema authentication (`SchemaIdentityStrategy`):
 
 ```
-+-------------------------------------------+-------------------------------------------+
-|         Upper Nibble (Bits 7..4)          |         Lower Nibble (Bits 3..0)          |
-|          BinaryEncodingStrategy           |          SchemaIdentityStrategy           |
-+-------------------------------------------+-------------------------------------------+
-| 0x0: ZERO_COPY_POST_ORDER (Canonical DAG) | 0x0: UniversalDefault                     |
-| 0x1..0xF: Reserved Wire Strategies        | 0x1: UuidV8Hash       0x5: UniversalVers  |
-|                                           | 0x2: Sha256Hash       0x6: ExplicitUuid   |
-|                                           | 0x3: AsciiStringKey   0x7: ExplicitSha256 |
-|                                           | 0x4: UnicodeStringKey 0x8: SelfDescribing |
-+-------------------------------------------+-------------------------------------------+
+ 7   6   5   4   3   2   1   0
++---+---+---+---+---+---+---+---+
+| T |   STRAT   |    SCHEMA     |
++---+---+---+---+---+---+---+---+
+  |       |             |
+  |       |             +--> Bits 3..0 (0x0F): SchemaIdentityStrategy (0x0..0xF)
+  |       +----------------> Bits 6..4 (0x70): BinaryEncodingStrategy (0x0..0x7)
+  +------------------------> Bit 7     (0x80): HAS_TRAILER_CRC32C flag (1 = Present, 0 = Absent)
 ```
 
 #### Bitwise Operations
 * **Packing Formula:**
 
   ```java
-  byte controlByte = (byte) (((encodingStrategy.code() & 0x0F) << 4) | (identityStrategy.code() & 0x0F));
+  int trailerBit = hasTrailerCrc32c ? 0x80 : 0x00;
+  int encodingBits = (encodingStrategy.code() & 0x07) << 4;
+  int identityBits = identityStrategy.code() & 0x0F;
+  byte controlByte = (byte) (trailerBit | encodingBits | identityBits);
   ```
 
-* **Unpacking Formula (Unsigned Logical Shift):**
+* **Unpacking Formula (Bitwise Extraction):**
   ```java
-  int encodingCode = (controlByte >>> 4) & 0x0F;
+  boolean hasTrailer = (controlByte & (byte) 0x80) != 0;
+  int encodingCode = (controlByte & 0x70) >>> 4;
   int identityCode = controlByte & 0x0F;
   ```
 
-### 10.2 Upper Nibble: `BinaryEncodingStrategy` Taxonomy (Bits 7..4)
+### 10.2 Bits 6..4: `BinaryEncodingStrategy` Taxonomy
 
-| Code            | Strategy Constant      | Description & Framing Invariant                                       | Verification & Exception                                           |
-|:----------------|:-----------------------|:----------------------------------------------------------------------|:-------------------------------------------------------------------|
-| **`0x0`**       | `ZERO_COPY_POST_ORDER` | Canonical indexed post-order DAG binary layout.                       | Supported default.                                                 |
-| **`0x1`–`0xF**` | *Reserved*             | Reserved for future framing, dictionary compression, or block codecs. | Decoder immediately throws `UnsupportedEncodingStrategyException`. |
+| Code            | Strategy Constant      | Description & Framing Invariant                                       | Verification & Exception                                                                                           |
+|:----------------|:-----------------------|:----------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------|
+| **`0x0`**       | `ZERO_COPY_POST_ORDER` | Canonical indexed post-order DAG binary layout.                       | Supported default.                                                                                                 |
+| **`0x1`–`0x6`** | *Reserved*             | Reserved for future framing, dictionary compression, or block codecs. | Decoder immediately throws `UnsupportedEncodingStrategyException`.                                                 |
+| **`0x7`**       | *Extension Sentinel*   | Reserved sentinel indicating multi-byte header extension.             | Decoder throws `UnsupportedEncodingStrategyException("Strategy 0x7 is reserved for multi-byte header extension")`. |
 
 ### 10.3 Lower Nibble: `SchemaIdentityStrategy` Taxonomy (Bits 3..0)
 
