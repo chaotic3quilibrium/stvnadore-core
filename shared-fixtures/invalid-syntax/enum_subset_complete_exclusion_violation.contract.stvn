@@ -1,0 +1,14 @@
+{
+  // enum_subset_complete_exclusion_violation.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Complete exclusion violation: enum subset results in empty variant list"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

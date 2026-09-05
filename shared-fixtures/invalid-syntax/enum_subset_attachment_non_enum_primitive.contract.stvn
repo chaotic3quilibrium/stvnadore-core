@@ -1,0 +1,14 @@
+{
+  // enum_subset_attachment_non_enum_primitive.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "filterIncl is not allowed on :Int32"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

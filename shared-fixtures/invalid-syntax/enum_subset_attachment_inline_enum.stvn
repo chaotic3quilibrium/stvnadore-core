@@ -1,0 +1,10 @@
+{
+  // enum_subset_attachment_inline_enum.stvn
+  :defs {
+    :IllegalInline { #filterIncl [ #A ] } :Enum [ #A #B #C ]
+  }
+
+  :type :IllegalInline
+
+  :body #A
+}

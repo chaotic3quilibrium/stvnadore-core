@@ -1,0 +1,11 @@
+{
+  // enum_subset_empty_exclusion_list.stvn
+  :defs {
+    :Priority :Enum [ #LOW #HIGH ]
+    :EmptySubset { #filterExcl [ ] } :Priority
+  }
+
+  :type :EmptySubset
+
+  :body #LOW
+}

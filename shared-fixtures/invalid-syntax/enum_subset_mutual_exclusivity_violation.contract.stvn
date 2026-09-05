@@ -1,0 +1,14 @@
+{
+  // enum_subset_mutual_exclusivity_violation.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "#filterIncl and #filterExcl are mutually exclusive"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

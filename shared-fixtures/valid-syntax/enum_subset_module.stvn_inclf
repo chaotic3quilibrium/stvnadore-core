@@ -1,0 +1,7 @@
+{
+  // enum_subset_module.stvn_inclf
+  :defs {
+    :HttpProtocol :Enum [ #HTTP_1_0 #HTTP_1_1 #HTTP_2_0 #HTTP_3_0 ]
+    :ModernHttp { #filterExcl [ #HTTP_1_0 ] } :HttpProtocol
+  }
+}

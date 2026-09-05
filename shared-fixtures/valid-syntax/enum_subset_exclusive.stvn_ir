@@ -1,0 +1,32 @@
+TypeRegistry:
+  - :Environment
+      schema:
+        node: :Enum[#LOCAL#DEV#STAGING#CANARY#PROD]
+        aliasName: :Environment
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#LOCAL#DEV#STAGING#CANARY#PROD]
+  - :TestableEnv
+      schema:
+        node: :Enum[#LOCAL#DEV#STAGING#CANARY#PROD]
+        aliasName: :TestableEnv
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#LOCAL#DEV#STAGING#CANARY#PROD]
+          aliasName: :Environment
+  - <:type>
+      schema:
+        node: :Enum[#LOCAL#DEV#STAGING#CANARY#PROD]
+        aliasName: :TestableEnv
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#LOCAL#DEV#STAGING#CANARY#PROD]
+          aliasName: :Environment
+ValuePayload:
+  StvnEnum(:TestableEnv): #LOCAL

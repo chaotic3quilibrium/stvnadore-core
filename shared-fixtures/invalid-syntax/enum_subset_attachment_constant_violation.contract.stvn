@@ -1,0 +1,14 @@
+{
+  // enum_subset_attachment_constant_violation.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "filterIncl is not allowed on constants"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

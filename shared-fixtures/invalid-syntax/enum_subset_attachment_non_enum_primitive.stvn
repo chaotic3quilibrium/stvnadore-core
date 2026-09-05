@@ -1,0 +1,10 @@
+{
+  // enum_subset_attachment_non_enum_primitive.stvn
+  :defs {
+    :IllegalScalar { #filterIncl [ #A ] } :Int32
+  }
+
+  :type :IllegalScalar
+
+  :body 100
+}

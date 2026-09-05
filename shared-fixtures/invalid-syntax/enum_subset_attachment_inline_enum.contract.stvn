@@ -1,0 +1,14 @@
+{
+  // enum_subset_attachment_inline_enum.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "filter facets cannot be applied to inline enum constructors"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

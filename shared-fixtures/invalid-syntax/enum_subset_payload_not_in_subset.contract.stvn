@@ -1,0 +1,14 @@
+{
+  // enum_subset_payload_not_in_subset.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "variant #CRITICAL is not permitted in enum subset :StandardPriority; allowed variants: [#LOW, #MEDIUM, #HIGH]"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

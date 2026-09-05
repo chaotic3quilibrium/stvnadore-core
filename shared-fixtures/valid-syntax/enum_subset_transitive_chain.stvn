@@ -1,0 +1,28 @@
+{
+  // enum_subset_transitive_chain.stvn
+  :defs {
+    :TaskStatus :Enum [
+      #BACKLOG
+      #TODO
+      #IN_PROGRESS
+      #CODE_REVIEW
+      #TESTING
+      #DONE
+      #BLOCKED
+      #CANCELLED
+    ]
+
+    // Tier 1: Exclude terminal states (8 - 3 = 5 variants remain)
+    :ActiveStatus { #filterExcl [ #BACKLOG #DONE #CANCELLED ] } :TaskStatus
+
+    // Tier 2: Select workable states from Tier 1 (5 -> 4 variants remain)
+    :WorkableStatus { #filterIncl [ #TODO #IN_PROGRESS #CODE_REVIEW #TESTING ] } :ActiveStatus
+
+    // Tier 3: Exclude verification states from Tier 2 (4 - 2 = 2 variants remain)
+    :ExecutionStatus { #filterExcl [ #CODE_REVIEW #TESTING ] } :WorkableStatus
+  }
+
+  :type :ExecutionStatus
+
+  :body #IN_PROGRESS
+}
