@@ -1,4 +1,4 @@
-# STVN Architectural Specification 03: Binary Encoding & Zero-Trust Verification
+ STVN Architectural Specification 03: Binary Encoding & Zero-Trust Verification
 
 **Document ID**: `STVN-SPEC-03`
 **Status**: Canonical Specification
@@ -80,3 +80,70 @@ For any arbitrary integer type `:Int`$n$ or `:Uint`$n$ ($n \ge 1$), the wire all
 * **High-Bit Zero Invariant**: Unused upper bits in the most significant byte (bits $n \pmod 8$ through 7 when $n \not\equiv 0 \pmod 8$) must be 0.
 * **Corrupted Pattern Trap**: If any unused high bit is set to 1, decoders reject the buffer immediately with `StvnCorruptedBitPatternException`.
 * **Zero-Copy Readers**: Reader flyweights (`StvnTupleReader`, `StvnSeqReader`, `StvnMapReader`) traverse nested buffers using direct memory offset pointers without intermediate heap allocations.
+
+---
+
+## 5. Enum Subset Binary Wire Encoding & Zero-Copy Subtyping
+
+STVN enum subsets achieve zero-copy polymorphism through root-relative ordinal preservation.
+
+### 5.1 Root-Relative Ordinal Indexing
+When serializing a payload value typed as an `EnumSubset`, the binary encoder emits the variant's sequential index relative to the **root `:Enum` declaration**, not a dense local ordinal.
+
+* **Wire Byte Width:** The containment byte width matches the capacity required by the root enum ($N$ root variants):
+  * $1 \le N \le 256$: 1 byte (`u8`).
+  * $257 \le N \le 65536$: 2 bytes (`u16` Little-Endian).
+  * $N > 65536$: 4 bytes (`u32` Little-Endian).
+* **Ordinal Preservation:** An enum subset with 2 allowed variants derived from a root enum of 4 variants uses the root variant indices:
+
+```
+Root Enum: :Status :Enum [ #Pending #Active #Suspended #Deleted ]
+Root Ordinals:               0        1         2          3
+
+Subset: :ActiveStatus { #filterIncl [ #Active #Suspended ] } :Status
+Payload: #Active
+Wire Encoding: Byte value 0x01 (Root index 1, NOT local index 0)
+```
+
+### 5.2 Parent-Slot Zero-Copy Assignability
+Because payloads serialize using root-relative ordinals and identical byte widths:
+* Payloads typed with `:ActiveStatus` are byte-identical on the wire to payloads typed with `:Status`.
+* Systems read and assign child subset payloads directly into storage slots typed as the parent enum without memory reallocation, trans-coding, or ordinal transformation.
+* Transitive chains of arbitrary depth preserve this zero-overhead invariant.
+
+### 5.3 Decoder Boundary Validation (`MalformedPayloadException`)
+During payload deserialization, `StvnBinaryDecoder` enforces strict zero-trust boundary verification:
+
+1. The decoder reads the root-relative ordinal index `seqIndex` from the input stream.
+2. The decoder retrieves the variant keyword string from the root enum schema definition.
+3. If the active target schema contains an `enumSubset`, the decoder evaluates:
+   $$\text{seqIndex} \ge 0 \quad \land \quad \text{seqIndex} < N_{\text{root}} \quad \land \quad \text{subset.containsVariant}(\text{kw})$$
+4. If the decoded ordinal references a variant that exists in the root enum but is excluded from the active subset, the decoder immediately aborts and throws `MalformedPayloadException`.
+5. Undefined bytes and invalid ordinals are rejected before memory allocation or object instantiation occurs.
+
+---
+
+## 6. Cryptographic Schema Hashing for Enum Subsets
+
+`StvnSchemaHasher` generates deterministic 32-byte SHA-256 fingerprints to identify schemas in Content-Addressable Storage (CAS) and Strategy `0x07` (`ExplicitSha256`) zero-trust binary headers.
+
+### 6.1 Digest Ingestion Sequence
+To prevent CAS hash collisions between distinct subsets or between a subset and its root enum, `StvnSchemaHasher.digestSchema()` digests subset metadata in strict sequential order:
+
+1. **Base Primitive Type:** Emits UTF-8 string bytes for `:Enum`.
+2. **Root Enum Variants:** For each variant keyword in the root enum definition, emits:
+   ```
+   "enumVariant:" + keyword
+   ```
+3. **Subset Identity & Derivation Metadata (if `enumSubset` is present):**
+   * `"subsetName:" + subset.name()` (e.g., `subsetName::ActiveStatus`)
+   * `"subsetParent:" + subset.parentType()` (e.g., `subsetParent::Status`)
+   * `"subsetRoot:" + subset.rootEnum()` (e.g., `subsetRoot::Status`)
+   * `"subsetFilterType:" + (subset.isInclusive() ? "incl" : "excl")`
+4. **Allowed Variant Tokens:** For each variant in `subset.allowedVariants()`, in sorted declaration order, emits:
+   ```
+   "subsetVariant:" + variant
+   ```
+5. **Constraints & Traits:** Digests numeric limits, indent flags, and capability trait overrides in deterministic order.
+
+Any modification to the allowed variant list, filter mode, parent link, or root enum changes the schema digest deterministically.

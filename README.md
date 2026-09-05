@@ -1,17 +1,17 @@
 # STVN Core SDK (`stvnadore-core`)
 
-[![STVN Core SDK](https://img.shields.io/badge/STVN-1.0.2-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
+[![STVN Core SDK](https://img.shields.io/badge/STVN-1.1.0--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
 [![Java Version Compatibility](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
-[![Build Verification Status](https://img.shields.io/badge/Tests-371%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
+[![Build Verification Status](https://img.shields.io/badge/Tests-497%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
 [![Null Safety](https://img.shields.io/badge/NullMarked-Tier%201%20Soundness-brightgreen.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md)
 
 `stvnadore-core` is the high-performance, strongly typed value notation (STVN) engine and SDK for Java 21. Tailored for safety-critical environments demanding zero-copy binary serialization, algebraic type safety, deterministic content-addressable storage (CAS) fingerprinting, and value-oriented programming (VOP) models, `stvnadore-core` eliminates reference nulls and uninitialized states at compile-time and serialization boundaries.
 
-The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror`), and validated against a comprehensive 371-test verification suite spanning 19 test suites covering structural schema hashing, zero-trust binary negotiation, arbitrary bit-width integers, tripartite temporal models, and POJO-free record marshalling.
+The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror`), and validated against a comprehensive 497-test verification suite spanning 20 test suites covering structural schema hashing, zero-trust binary negotiation, arbitrary bit-width integers, tripartite temporal models, transitive enum subset filtering, and POJO-free record marshalling.
 
 ---
 
-- Version: 1.0.0 - 2026.08.31
+- Version: 1.1.0-SNAPSHOT - 2026.09.04
 
 ---
 
@@ -26,6 +26,7 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
     * [1. Define Your Target Record Profile](#1-define-your-target-record-profile)
     * [2. Execute Bidirectional Marshalling](#2-execute-bidirectional-marshalling)
     * [3. Monadic Compilation with Diagnostic Accumulation](#3-monadic-compilation-with-diagnostic-accumulation)
+    * [4. Transitive Enum Subset Filtering & Validation](#4-transitive-enum-subset-filtering--validation)
     * [Expected STVN String Output Format](#expected-stvn-string-output-format)
   * [The Seven Core Architectural Pillars](#the-seven-core-architectural-pillars)
     * [1. Dual-Track Syntax & Strict Product Demarcation](#1-dual-track-syntax--strict-product-demarcation)
@@ -59,7 +60,7 @@ Add the following Maven dependency to your `pom.xml`:
 <dependency>
     <groupId>org.stvnadore</groupId>
     <artifactId>stvnadore-core</artifactId>
-    <version>1.0.2</version>
+    <version>1.1.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -155,6 +156,22 @@ public class Demonstration {
     assert restored.username().equals("stvn_engineer");
     assert restored.age() == 28;
     assert restored.accountId().equals(BigInteger.valueOf(500_000_000_000L));
+
+    // 7. Compile & Validate Transitive Enum Subsets (#filterIncl / #filterExcl)
+    var subsetDoc = StvnCompiler.compile("""
+        {
+          :defs {
+            :Status :Enum [ #Pending #Active #Suspended #Deleted ]
+            :ActiveStatus { #filterIncl [ #Active #Suspended ] } :Status
+            :ReadyStatus { #filterIncl [ #Active ] } :ActiveStatus
+          }
+          :type :ReadyStatus
+          :body #Active
+        }
+        """).orElseThrow();
+    var subset = subsetDoc.schema().enumSubset().orElseThrow();
+    assert subset.containsVariant("#Active");
+    assert !subset.containsVariant("#Deleted");
   }
 }
 ```
@@ -183,6 +200,24 @@ if (result.isSuccess()) {
    }
 }
 ```
+
+### 4. Transitive Enum Subset Filtering & Validation
+
+`stvnadore-core` natively supports transitive enum subset derivation via inclusive (`#filterIncl`) and exclusive (`#filterExcl`) facets:
+
+```stvn
+{
+  :defs {
+    :Status :Enum [ #Pending #Active #Suspended #Deleted ]
+    :WorkingStatus { #filterExcl [ #Deleted ] } :Status
+    :ImmediateStatus { #filterIncl [ #Pending #Active ] } :WorkingStatus
+  }
+  :type :ImmediateStatus
+  :body #Active
+}
+```
+
+The compiler enforces monotonic narrowing ($Child \subset Parent \subset Root$), relative root declaration ordering, non-empty variant guarantees, and zero-copy root-relative ordinal encoding across the wire format.
 
 ### Expected STVN String Output Format
 
@@ -231,6 +266,7 @@ STVN partitions date-time values into three mathematically orthogonal, unambiguo
 ### 5. Algebraic Sum Types & Sealed Interface Marshalling
 
 * **Sum Type Families**: `:Option(T)`, `:Either(L R)`, `:Union(T1 ... Tn)`, and `:Enum[ #A #B ]`.
+* **Transitive Enum Subset Filtering (`#filterIncl`, `#filterExcl`)**: Restricts enum domains using inclusive or exclusive variant filters on nominal aliases. Enforces monotonic narrowing ($Child \subset Parent \subset Root$), declaration ordering, and non-empty variants. Subsets maintain root-relative ordinals for zero-copy parent slot assignability.
 * **Sealed Interfaces as Native Unions**: `SealedInterfaceMapper` dynamically inspects permitted subclasses, sorting them alphabetically by fully qualified class name (`Class::getName`) for platform-agnostic, stable tag indices.
 * **Optional Null Loophole Prevention**: Prohibits `null` references inside record components typed as `Optional`, throwing `MalformedPayloadException` at the perimeter.
 

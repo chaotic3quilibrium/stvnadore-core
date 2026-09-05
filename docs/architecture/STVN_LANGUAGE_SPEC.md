@@ -1,6 +1,6 @@
-# STVN Language Specification
+﻿# STVN Language Specification
 
-**Version:** 1.0.2
+**Version:** 1.1.0-SNAPSHOT
 
 **Status:** Formal Technical Specification
 
@@ -35,6 +35,13 @@
   * [4. Module Ingestion and Namespace Isolation](#4-module-ingestion-and-namespace-isolation)
     * [4.1 Single-Import Constraint](#41-single-import-constraint)
     * [4.2 Namespace Eviction Cascade](#42-namespace-eviction-cascade)
+    * [4.8 Enum Subset Filtering & Transitive Chaining](#48-enum-subset-filtering--transitive-chaining)
+      * [4.8.1 Grammar & Facet Syntax](#481-grammar--facet-syntax)
+      * [4.8.2 Target Attachment Constraints](#482-target-attachment-constraints)
+      * [4.8.3 Transitive Monotonic Narrowing Invariant](#483-transitive-monotonic-narrowing-invariant)
+      * [4.8.4 Root Declaration Ordering Invariant](#484-root-declaration-ordering-invariant)
+      * [4.8.5 Non-Empty Subset Invariants](#485-non-empty-subset-invariants)
+      * [4.8.6 Payload Validation & AST Lowering](#486-payload-validation--ast-lowering)
   * [5. Complete Type Taxonomy](#5-complete-type-taxonomy)
     * [5.1 Scalar Primitives & Arbitrary Bit-Widths](#51-scalar-primitives--arbitrary-bit-widths)
     * [5.2 Algebraic Sum Types](#52-algebraic-sum-types)
@@ -414,6 +421,138 @@ graph TD
 
 ---
 
+### 4.8 Enum Subset Filtering & Transitive Chaining
+
+STVN provides enum subset filtering to restrict an existing enumeration to a subset of its variants without defining a new, disconnected type. An enum subset derives from a parent enum or from another enum subset. It creates a formal nominal subtype that preserves the binary wire layout of the root enum.
+
+#### 4.8.1 Grammar & Facet Syntax
+Enum subset filtering uses two metadata facet keywords defined in `StvnLexer.g4`:
+* `#filterIncl`: Declares an inclusive allowlist. Only variants in the bracketed list are valid members.
+* `#filterExcl`: Declares an exclusive denylist. Variants in the bracketed list are removed from the parent variant set.
+
+The grammar production in `StvnParser.g4` integrates filter facets into metadata entries:
+
+```antlr
+metadataEntry  : metadataBool | metadataNum | metadataString | metadataFilter ;
+metadataFilter : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
+variantList    : LBRACK valueKeyword* RBRACK ;
+```
+
+Filter facets attach to nominal type definitions inside a `:defs` block:
+
+```stvn
+:defs {
+  // Root enumeration definition
+  :Status :Enum [ #Pending #Active #Suspended #Deleted ]
+
+  // Inclusive subset derived from root enum
+  :ActiveStatus { #filterIncl [ #Active #Suspended ] } :Status
+
+  // Exclusive subset derived from root enum
+  :NonDeletedStatus { #filterExcl [ #Deleted ] } :Status
+
+  // Transitive subset derived from a parent subset (Chain Depth = 2)
+  :ReadyStatus { #filterIncl [ #Active ] } :ActiveStatus
+}
+```
+
+#### 4.8.2 Target Attachment Constraints
+The compiler strictly enforces the following attachment rules during schema resolution:
+
+1. **Nominal Aliases Only:** Filter facets must attach only to nominal aliases of `:Enum` or to existing enum subsets.
+2. **Inline Enum Constructor Prohibition:** Filter facets must not attach directly to an inline enum constructor.
+   ```stvn
+   // INVALID: Filter applied directly to inline enum constructor
+   :BadSubset { #filterIncl [ #A ] } :Enum [ #A #B ] // Compile Error
+   ```
+3. **Constant Definition Prohibition:** Filter facets must not attach to constant definitions.
+   ```stvn
+   // INVALID: Filter applied to constant definition
+   #BAD_CONST { #filterIncl [ #Active ] } :Status #Active // Compile Error
+   ```
+4. **Non-Enum Prohibition:** Filter facets must not attach to scalar types, collections, or composite product types.
+   ```stvn
+   // INVALID: Filter applied to integer scalar
+   :BadInt { #filterIncl [ #A ] } :Int32 // Compile Error
+   ```
+5. **Mutual Exclusivity:** A single metadata block must not contain both `#filterIncl` and `#filterExcl`.
+   ```stvn
+   // INVALID: Mutually exclusive facets declared simultaneously
+   :Conflict { #filterIncl [ #Active ] #filterExcl [ #Suspended ] } :Status // Compile Error
+   ```
+
+#### 4.8.3 Transitive Monotonic Narrowing Invariant
+Enum subset derivation enforces monotonic narrowing across arbitrary chain depths. Every child subset must strictly narrow or maintain its immediate parent variant domain:
+
+$$\text{AllowedVariants}(\text{Child}) \subseteq \text{AllowedVariants}(\text{Parent}) \subset \text{Variants}(\text{Root})$$
+
+```
+        ┌─────────────────────────────────────────────────────────┐
+        │               :Status (Root Enumeration)                │
+        │         [ #Pending #Active #Suspended #Deleted ]        │
+        └────────────────────────────┬────────────────────────────┘
+                                     │
+                  #filterExcl [ #Deleted ] (Narrowing)
+                                     ▼
+        ┌─────────────────────────────────────────────────────────┐
+        │           :WorkingStatus (Parent Enum Subset)           │
+        │              [ #Pending #Active #Suspended ]            │
+        └────────────────────────────┬────────────────────────────┘
+                                     │
+                  #filterIncl [ #Pending #Active ] (Narrowing)
+                                     ▼
+        ┌─────────────────────────────────────────────────────────┐
+        │           :ImmediateStatus (Child Enum Subset)          │
+        │                    [ #Pending #Active ]                 │
+        └─────────────────────────────────────────────────────────┘
+```
+
+**Monotonic Narrowing Rules:**
+* Every variant listed in a `#filterIncl` or `#filterExcl` facet must exist in the immediate parent type's allowed variant set.
+* A child subset must not re-introduce variants excluded by any ancestor in the chain.
+* If a child subset references an unknown or previously excluded variant, the compiler rejects the schema with diagnostic `ERR_MALFORMED_SCHEMA`.
+
+```stvn
+// INVALID: #Deleted was excluded by :WorkingStatus; cannot re-introduce in child
+:WorkingStatus { #filterExcl [ #Deleted ] } :Status
+:IllegalExpansion { #filterIncl [ #Deleted ] } :WorkingStatus // Compile Error: Monotonic narrowing violation
+```
+
+#### 4.8.4 Root Declaration Ordering Invariant
+Variants specified inside `#filterIncl` or `#filterExcl` bracketed lists must follow the relative declaration order of the root `:Enum`.
+
+* Let the root enum declare variants in order $\langle v_1, v_2, \dots, v_n \rangle$.
+* For any filter facet listing $\langle u_1, u_2, \dots, u_k \rangle$, the root index of $u_i$ must be strictly less than the root index of $u_{i+1}$:
+  $$\text{Index}_{\text{Root}}(u_i) < \text{Index}_{\text{Root}}(u_{i+1}) \quad \forall \; 1 \le i < k$$
+* If variants appear out of root declaration order, the compiler rejects the definition with diagnostic `ERR_MALFORMED_SCHEMA`.
+
+```stvn
+:defs {
+  :Status :Enum [ #Pending #Active #Suspended #Deleted ]
+
+  // VALID: Relative order matches root (#Active precedes #Suspended)
+  :ValidOrder { #filterIncl [ #Active #Suspended ] } :Status
+
+  // INVALID: Relative order reversed (#Suspended before #Active)
+  :BadOrder { #filterIncl [ #Suspended #Active ] } :Status // Compile Error: Root ordering violation
+}
+```
+
+#### 4.8.5 Non-Empty Subset Invariants
+An enum subset must represent a non-empty domain of valid values:
+
+1. **Non-Empty Filter List:** A filter facet list must contain at least one value keyword token. Specifying `{ #filterIncl [ ] }` or `{ #filterExcl [ ] }` causes immediate compilation rejection (`ERR_MALFORMED_SCHEMA`).
+2. **Complete Exclusion Rejection:** An exclusive filter `#filterExcl` must not exclude all remaining variants of the parent type. If the subtraction produces an empty allowed variant set, the compiler rejects the definition with `ERR_MALFORMED_SCHEMA`.
+3. **No Duplicate Variants:** A filter list must not repeat a variant token (e.g., `[ #Active #Active ]`). Duplicates trigger `ERR_MALFORMED_SCHEMA`.
+
+#### 4.8.6 Payload Validation & AST Lowering
+When a payload value targets an enum subset type:
+* The parser constructs a standard `StvnValue.StvnEnum` node carrying the variant keyword, the root sequential index, and the root variant count.
+* The type resolver validates that the keyword exists in the active subset allowed list via `subset.containsVariant(kw)`.
+* If the keyword is valid in the root enum but absent from the subset, the compiler emits compile-time diagnostic `ERR_TYPE_MISMATCH` ("Variant not permitted in enum subset").
+
+---
+
 ## 5. Complete Type Taxonomy
 
 ### 5.1 Scalar Primitives & Arbitrary Bit-Widths
@@ -547,7 +686,7 @@ Metadata annotations appear inside `{ ... }` blocks immediately following a type
 
 | Type Category             | Specific Types                                                                                         | `#equatable` Default | `#comparable` Default |
 |:--------------------------|:-------------------------------------------------------------------------------------------------------|:---------------------|:----------------------|
-| **Scalars**               | `:Boolean`, `:Int*`, `:Uint*`, `:FloatExact`, `:String*`, `:Enum`                                      | **Yes**              | **Yes**               |
+| **Scalars**               | `:Boolean`, `:Int*`, `:Uint*`, `:FloatExact`, `:String*`, `:Enum` (including filtered subsets)         | **Yes**              | **Yes**               |
 | **Floating-Point**        | `:Float32`, `:Float64`, `:Float`                                                                       | **--No--**           | **Yes**               |
 | **Temporal**              | `:TimeEpochS`, `:TimeEpochMs`, `:TimeEpochNs`, `:DateTimeOffset`, `:DateTimeZoned`, `:DateTimeAudited` | **Yes**              | **Yes**               |
 | **Unordered Collections** | `:Set`, `:SetNonEmpty`, `:MapInv`, `:MapInvNonEmpty`                                                   | **Yes**              | **--No--**            |
