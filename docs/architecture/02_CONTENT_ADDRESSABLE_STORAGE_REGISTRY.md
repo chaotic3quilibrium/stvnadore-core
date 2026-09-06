@@ -2,8 +2,25 @@
 
 **Document ID**: `STVN-SPEC-02`  
 **Status**: Canonical Specification  
-**Version**: 1.0.2
+**Version**: 1.1.0
 **Compliance**: Mandatory across all STVN repository servers, storage backends, and deployment topologies.
+
+---
+
+# Table of Contents <!-- omit in toc -->
+
+<!-- TOC -->
+* [STVN Architectural Specification 02: Content-Addressable Storage (CAS) & Schema Registry](#stvn-architectural-specification-02-content-addressable-storage-cas--schema-registry)
+* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
+  * [1. 2/62 Physical Storage Topology](#1-262-physical-storage-topology)
+    * [Directory Layout](#directory-layout)
+  * [2. CAS Envelope Format & Storage Immutability](#2-cas-envelope-format--storage-immutability)
+  * [3. Relational Schema Catalog (PostgreSQL & H2 DDL)](#3-relational-schema-catalog-postgresql--h2-ddl)
+  * [4. REST API & Protocol Boundaries](#4-rest-api--protocol-boundaries)
+    * [Media Type Standard](#media-type-standard)
+    * [Endpoint Contract](#endpoint-contract)
+  * [5. Background Relational Projection Sweeper](#5-background-relational-projection-sweeper)
+<!-- TOC -->
 
 ---
 

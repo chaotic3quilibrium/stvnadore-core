@@ -2,8 +2,28 @@
 
 **Document ID**: `STVN-SPEC-01`  
 **Status**: Canonical Specification  
-**Version**: 1.0.2
+**Version**: 1.1.0
 **Compliance**: Mandatory across all STVN parsers, compilers, and IDE integrations.
+
+---
+
+# Table of Contents <!-- omit in toc -->
+
+<!-- TOC -->
+* [STVN Architectural Specification 01: Language & AST Overview](#stvn-architectural-specification-01-language--ast-overview)
+* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
+  * [1. Dual-Track Lexical Grammar](#1-dual-track-lexical-grammar)
+    * [Syntactic Comment Standard](#syntactic-comment-standard)
+  * [2. Root Enclosure & File Extension Contract](#2-root-enclosure--file-extension-contract)
+  * [3. Nominal AST Record Model](#3-nominal-ast-record-model)
+  * [4. Sum Types vs. Product Types](#4-sum-types-vs-product-types)
+    * [Sum Types (Algebraic Disjunctions)](#sum-types-algebraic-disjunctions)
+    * [Product Types (Algebraic Conjunctions)](#product-types-algebraic-conjunctions)
+    * [Strict Product Demarcation](#strict-product-demarcation)
+  * [5. Arbitrary Bit-Width Numeric Systems](#5-arbitrary-bit-width-numeric-systems)
+  * [6. Tripartite Temporal Architecture](#6-tripartite-temporal-architecture)
+  * [7. Monadic Compilation & Diagnostic Accumulation](#7-monadic-compilation--diagnostic-accumulation)
+<!-- TOC -->
 
 ---
 
