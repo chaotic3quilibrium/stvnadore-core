@@ -1,0 +1,11 @@
+{
+  // enum_subset_modular.stvn
+  :defs {
+    :include [ "enum_subset_module.stvn_inclf" ]
+    :MuxProtocol { #filterIncl [ #HTTP_2_0 #HTTP_3_0 ] } :ModernHttp
+  }
+
+  :type :MuxProtocol
+
+  :body #HTTP_3_0
+}

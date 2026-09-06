@@ -1,0 +1,11 @@
+{
+  // enum_subset_inclusive.stvn
+  :defs {
+    :Environment :Enum [ #LOCAL #DEV #STAGING #CANARY #PROD ]
+    :PreReleaseEnv { #filterIncl [ #DEV #STAGING #CANARY ] } :Environment
+  }
+
+  :type :PreReleaseEnv
+
+  :body #STAGING
+}

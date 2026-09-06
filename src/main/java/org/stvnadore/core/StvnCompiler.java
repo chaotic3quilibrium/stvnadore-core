@@ -338,7 +338,7 @@ public final class StvnCompiler {
         var visitor = new StvnIrVisitor(docCtx, diagnosticBag);
         StvnValue astValue = visitor.visit(docCtx.documentBody().bodyEntry().value());
 
-        boolean hasErrors = diagnosticBag.hasErrors() || hasErrorNodes(astValue);
+        boolean hasErrors = diagnosticBag.hasErrors() || (astValue != null && hasErrorNodes(astValue));
         if (hasErrors) {
           return StvnCompilationResult.partial(astValue, diagnosticBag.toList());
         } else {

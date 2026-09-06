@@ -1,0 +1,11 @@
+{
+  // enum_subset_exclusive.stvn
+  :defs {
+    :Environment :Enum [ #LOCAL #DEV #STAGING #CANARY #PROD ]
+    :TestableEnv { #filterExcl [ #PROD ] } :Environment
+  }
+
+  :type :TestableEnv
+
+  :body #LOCAL
+}

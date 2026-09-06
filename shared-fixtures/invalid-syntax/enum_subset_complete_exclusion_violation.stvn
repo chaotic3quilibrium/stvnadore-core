@@ -1,0 +1,11 @@
+{
+  // enum_subset_complete_exclusion_violation.stvn
+  :defs {
+    :Priority :Enum [ #LOW #HIGH ]
+    :NoVariantsLeft { #filterExcl [ #LOW #HIGH ] } :Priority
+  }
+
+  :type :NoVariantsLeft
+
+  :body #LOW
+}

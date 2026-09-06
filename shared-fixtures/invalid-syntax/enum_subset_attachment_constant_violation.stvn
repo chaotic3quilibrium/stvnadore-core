@@ -1,0 +1,11 @@
+{
+  // enum_subset_attachment_constant_violation.stvn
+  :defs {
+    :Priority :Enum [ #LOW #MEDIUM #HIGH ]
+    #DEFAULT_PRIORITY { #filterIncl [ #LOW ] } :Priority #LOW
+  }
+
+  :type :Priority
+
+  :body #LOW
+}

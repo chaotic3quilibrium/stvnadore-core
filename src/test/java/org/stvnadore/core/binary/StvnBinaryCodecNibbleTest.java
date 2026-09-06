@@ -22,19 +22,33 @@ import java.util.Optional;
 class StvnBinaryCodecNibbleTest {
 
   @Test
-  @DisplayName("TC-ENC-01: Bitwise packing correctly combines upper and lower nibbles")
+  @DisplayName("TC-ENC-01: Bitwise packing correctly combines 1:3:4 partition")
   void testBitwisePackingZeroCopyPostOrderStrategy() {
     var ir = StvnCompiler.compile("{ :type :Int32 :body 42 }").orElseThrow();
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), BinaryEncodingStrategy.ZERO_COPY_POST_ORDER);
     ByteBuffer buf = encoder.encode(ir);
 
     byte controlByte = buf.get(4);
-    int upper = (controlByte >>> 4) & 0x0F;
-    int lower = controlByte & 0x0F;
+    boolean hasTrailer = (controlByte & (byte) 0x80) != 0;
+    int strategy = (controlByte & 0x70) >>> 4;
+    int identity = controlByte & 0x0F;
 
-    Assertions.assertEquals(0x00, upper, "Upper nibble must be 0x00 for ZERO_COPY_POST_ORDER encoding");
-    Assertions.assertEquals(0x00, lower, "Lower nibble must be 0x00 for UniversalDefault");
+    Assertions.assertFalse(hasTrailer, "Bit 7 must be 0 for default encoding without CRC-32C trailer");
+    Assertions.assertEquals(0x00, strategy, "Bits 6..4 must be 0x00 for ZERO_COPY_POST_ORDER encoding");
+    Assertions.assertEquals(0x00, identity, "Bits 3..0 must be 0x00 for UniversalDefault");
     Assertions.assertEquals(0x00, controlByte);
+
+    var encoderWithTrailer = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), BinaryEncodingStrategy.ZERO_COPY_POST_ORDER, true);
+    ByteBuffer bufWithTrailer = encoderWithTrailer.encode(ir);
+    byte controlByteWithTrailer = bufWithTrailer.get(4);
+    boolean hasTrailerSet = (controlByteWithTrailer & (byte) 0x80) != 0;
+    int strategyWithTrailer = (controlByteWithTrailer & 0x70) >>> 4;
+    int identityWithTrailer = controlByteWithTrailer & 0x0F;
+
+    Assertions.assertTrue(hasTrailerSet, "Bit 7 must be 1 when CRC-32C trailer is enabled");
+    Assertions.assertEquals(0x00, strategyWithTrailer);
+    Assertions.assertEquals(0x00, identityWithTrailer);
+    Assertions.assertEquals((byte) 0x80, controlByteWithTrailer);
 
     // Verify all 9 SchemaIdentityStrategy codes (0x00 to 0x08) pack correctly
     Assertions.assertEquals(0x00, new SchemaIdentityStrategy.UniversalDefault().code());
@@ -48,10 +62,31 @@ class StvnBinaryCodecNibbleTest {
     Assertions.assertEquals(0x08, new SchemaIdentityStrategy.SelfDescribingSchema("schema").code());
   }
 
+  @Test
+  @DisplayName("TC-CRC-07: Sentinel 0x7 throws UnsupportedEncodingStrategyException with extension message")
+  void testSentinel0x7ThrowsUnsupportedEncodingStrategyException() {
+    var ir = StvnCompiler.compile("{ :type :Int32 :body 42 }").orElseThrow();
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    ByteBuffer buf = encoder.encode(ir);
+
+    ByteBuffer corrupted = buf.duplicate();
+    // Set Bits 6..4 to 0x7 -> 0x70
+    corrupted.put(4, (byte) 0x70);
+
+    var ex = Assertions.assertThrows(
+        UnsupportedEncodingStrategyException.class,
+        () -> StvnBinaryDecoder.open(corrupted)
+    );
+    Assertions.assertTrue(
+        ex.getMessage().contains("Strategy 0x7 is reserved for multi-byte header extension"),
+        () -> "Unexpected error message: " + ex.getMessage()
+    );
+  }
+
   @ParameterizedTest
-  @ValueSource(ints = {0x10, 0x20, 0x30, 0x70, 0x80, 0x90, 0xF0})
-  @DisplayName("TC-DEC-01: Unmapped upper nibble throws UnsupportedEncodingStrategyException")
-  void testUnmappedUpperNibbleThrowsUnsupportedEncodingStrategyException(int corruptedByte4) {
+  @ValueSource(ints = {0x10, 0x20, 0x30, 0x40, 0x50, 0x60})
+  @DisplayName("TC-CRC-08: Unmapped strategy codes 0x1 through 0x6 throw UnsupportedEncodingStrategyException")
+  void testUnmappedStrategyCodes0x1Through0x6(int corruptedByte4) {
     var ir = StvnCompiler.compile("{ :type :Int32 :body 42 }").orElseThrow();
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     ByteBuffer buf = encoder.encode(ir);
@@ -63,7 +98,7 @@ class StvnBinaryCodecNibbleTest {
         UnsupportedEncodingStrategyException.class,
         () -> StvnBinaryDecoder.open(corrupted)
     );
-    Assertions.assertEquals((corruptedByte4 >>> 4) & 0x0F, ex.getStrategyCode());
+    Assertions.assertEquals((corruptedByte4 & 0x70) >>> 4, ex.getStrategyCode());
   }
 
   @ParameterizedTest

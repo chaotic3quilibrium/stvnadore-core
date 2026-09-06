@@ -93,6 +93,24 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
             layout.writeLiteral("#equatable");
             layout.writeBoolean(equatable, PrinterOptions.SymbolStyle.LONG_FORM);
           }
+          var filterExcl = constraints.filterExcl().orElse(null);
+          if (filterExcl != null) {
+            layout.writeLiteral("#filterExcl");
+            layout.openGroup("[");
+            for (String v : filterExcl) {
+              layout.writeLiteral(v);
+            }
+            layout.closeGroup("]");
+          }
+          var filterIncl = constraints.filterIncl().orElse(null);
+          if (filterIncl != null) {
+            layout.writeLiteral("#filterIncl");
+            layout.openGroup("[");
+            for (String v : filterIncl) {
+              layout.writeLiteral(v);
+            }
+            layout.closeGroup("]");
+          }
           var maxExcl = constraints.maxExcl().orElse(null);
           if (maxExcl != null) {
             layout.writeLiteral("#maxExcl");
@@ -167,7 +185,8 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
     var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains("comparable");
 
     return !hasMinIncl && !hasMinExcl && !hasMaxIncl && !hasMaxExcl
-        && !hasRegex && !hasPreserveIndent && !hasEquatable && !hasComparable;
+        && !hasRegex && !hasPreserveIndent && !hasEquatable && !hasComparable
+        && c.filterIncl().isEmpty() && c.filterExcl().isEmpty();
   }
 
   private void writeSchemaType(StvnParser.SchemaTypeContext node, CanonicalLayoutWriter layout) throws IOException {

@@ -15,12 +15,15 @@ import org.stvnadore.core.ir.StvnValue.StvnString;
 import org.stvnadore.core.ir.StvnValue.StvnTuple;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
+import org.stvnadore.core.binary.StvnBinaryDecoder;
+import org.stvnadore.core.binary.exceptions.UnsupportedEncodingStrategyException;
 
 @NullMarked
 public class StvnIrValidationTest {
@@ -206,6 +209,33 @@ public class StvnIrValidationTest {
     }
   }
 
+  @ParameterizedTest(name = "Binary Invalid Fixture - {0}")
+  @MethodSource("provideDynamicInvalidBinaryCases")
+  public void testDynamicInvalidBinaryFixtures(String displayName, DynamicInvalidTestCase testCase) throws IOException {
+    Assertions.assertTrue(testCase.hasContract(), "Missing contract for binary fixture: " + testCase.stvnPath());
+    byte[] bytes = Files.readAllBytes(testCase.stvnPath());
+    String contractContent = Files.readString(testCase.contractPath());
+    var contractAst = StvnCompiler.compile(contractContent).orElseThrow();
+    var contract = StvnErrorContract.fromAst(contractAst);
+
+    var thrown = Assertions.assertThrows(RuntimeException.class, () -> {
+      var buf = ByteBuffer.wrap(bytes);
+      var root = StvnBinaryDecoder.open(buf);
+      StvnBinaryDecoder.unpack(root, Optional.empty());
+    });
+
+    contract.expectedExceptionClass().ifPresent(expectedClass -> {
+      Assertions.assertEquals(expectedClass, thrown.getClass().getName());
+    });
+
+    Assertions.assertTrue(
+        thrown.getMessage() != null && thrown.getMessage().contains(contract.errorMessageSubstring()),
+        "Expected message substring: [" + contract.errorMessageSubstring() + "], got: [" + thrown.getMessage() + "]"
+    );
+
+    Assertions.assertEquals(contract.category().replace("#", ""), deriveCategory(thrown).replace("#", ""));
+  }
+
   private static String deriveCategory(Throwable e) {
     if (e instanceof org.stvnadore.core.validation.CyclicDependencyException) {
       return "CYCLIC_DEPENDENCY";
@@ -234,7 +264,26 @@ public class StvnIrValidationTest {
     if (e instanceof IllegalArgumentException) {
       return "TYPE_MISMATCH";
     }
+    if (e instanceof UnsupportedEncodingStrategyException) {
+      return "SYNTAX_ERROR";
+    }
     return "SYNTAX_ERROR";
+  }
+
+  private static Stream<Arguments> provideDynamicInvalidBinaryCases() throws IOException {
+    if (!Files.exists(INVALID_FIXTURES_DIR)) {
+      return Stream.empty();
+    }
+    try (Stream<Path> paths = Files.walk(INVALID_FIXTURES_DIR)) {
+      List<Path> binaryFiles = paths.filter(p -> p.toString().endsWith(".stvn_bin")).toList();
+      return binaryFiles.stream().map(binPath -> {
+        String baseName = binPath.getFileName().toString();
+        String contractFileName = baseName.substring(0, baseName.lastIndexOf('.')) + ".contract.stvn";
+        Path contractPath = binPath.resolveSibling(contractFileName);
+        boolean hasContract = Files.exists(contractPath);
+        return Arguments.of(baseName, new DynamicInvalidTestCase(baseName, binPath, contractPath, hasContract));
+      });
+    }
   }
 
   private static Stream<Arguments> provideDynamicInvalidCases() throws IOException {
@@ -273,29 +322,29 @@ public class StvnIrValidationTest {
         ValidationTestCase.success(
             "Implied Option - Scalar Integer Implied Some",
             "{ :type :Option(:Int32) :body 42 }",
-            "StvnOption[schema=ResolvedSchema[node=[134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=Optional[StvnInteger[schema=ResolvedSchema[node=[223 189 182 134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=0, sumTypeNode=[189 182 134 92 85], underlyingSchema=null, localConstraints=null], value=42, bitWidth=32, isUnsigned=false]]]"
+            "StvnOption[schema=ResolvedSchema[node=[138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnInteger[schema=ResolvedSchema[node=[240 206 199 138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=0, sumTypeNode=[206 199 138 96 89], underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false]]]"
         ),
         ValidationTestCase.success(
             "Implied Either - Scalar Right Implied Route",
             "{ :type :Either(:Int32 :String) :body \"right-value\" }",
-            "StvnEither[schema=ResolvedSchema[node=[134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=StvnString[schema=ResolvedSchema[node=[231 189 182 134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=1, sumTypeNode=[189 182 134 92 85], underlyingSchema=null, localConstraints=null], value=right-value, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]], isRight=true, isAmbiguous=false]"
+            "StvnEither[schema=ResolvedSchema[node=[138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnString[schema=ResolvedSchema[node=[248 206 199 138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=1, sumTypeNode=[206 199 138 96 89], underlyingSchema=null, localConstraints=null, enumSubset=null], value=right-value, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]], isRight=true, isAmbiguous=false]"
         ),
 
         // --- 2b) Explicit Disambiguation Vector ---
         ValidationTestCase.success(
             "Explicit Option - Explicit Some Tag",
             "{ :type :Option(:Int32) :body #Some 42 }",
-            "StvnOption[schema=ResolvedSchema[node=[134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=Optional[StvnInteger[schema=ResolvedSchema[node=[223 189 182 134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=42, bitWidth=32, isUnsigned=false]]]"
+            "StvnOption[schema=ResolvedSchema[node=[138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnInteger[schema=ResolvedSchema[node=[240 206 199 138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false]]]"
         ),
         ValidationTestCase.success(
             "Explicit Option - Explicit None Tag",
             "{ :type :Option(:Int32) :body #None }",
-            "StvnOption[schema=ResolvedSchema[node=[134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=Optional.empty]"
+            "StvnOption[schema=ResolvedSchema[node=[138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional.empty]"
         ),
         ValidationTestCase.success(
             "Explicit Either - Left Variant Tagged",
             "{ :type :Either(:Int32 :String) :body #Left 42 }",
-            "StvnEither[schema=ResolvedSchema[node=[134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=StvnInteger[schema=ResolvedSchema[node=[230 189 182 134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=42, bitWidth=32, isUnsigned=false], isRight=false, isAmbiguous=false]"
+            "StvnEither[schema=ResolvedSchema[node=[138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnInteger[schema=ResolvedSchema[node=[247 206 199 138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false], isRight=false, isAmbiguous=false]"
         ),
         ValidationTestCase.success(
             "Explicit Disambiguation - Enum Variant Clash via Double Tagging",
@@ -306,7 +355,7 @@ public class StvnIrValidationTest {
               :body #Left #Left
             }
             """,
-            "StvnEither[schema=ResolvedSchema[node=[134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=StvnEnum[schema=ResolvedSchema[node=[143 100 89 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=:Status, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=ResolvedSchema[node=[143 100 89 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], localConstraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=null, comparable=null, explicitOverrides=[]]], keyword=#Left, sequentialIndex=0, variantCount=3], isRight=false, isAmbiguous=false]"
+            "StvnEither[schema=ResolvedSchema[node=[138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnEnum[schema=ResolvedSchema[node=[147 104 93 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=:Status, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=ResolvedSchema[node=[147 104 93 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], localConstraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=null, comparable=null, explicitOverrides=[], filterIncl=null, filterExcl=null], enumSubset=null], keyword=#Left, sequentialIndex=0, variantCount=3], isRight=false, isAmbiguous=false]"
         ),
 
         // --- 2c) Rule C Failure Vector ---
@@ -342,12 +391,12 @@ public class StvnIrValidationTest {
         ValidationTestCase.success(
             "Nested Implicit Evaluation - Option Either Right",
             "{ :type :Option(:Either(:Int32 :String)) :body \"nested-implicit-right\" }",
-            "StvnOption[schema=ResolvedSchema[node=[134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=Optional[StvnEither[schema=ResolvedSchema[node=[223 189 182 134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=StvnString[schema=ResolvedSchema[node=[231 189 182 223 189 182 134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=1, sumTypeNode=[189 182 223 189 182 134 92 85], underlyingSchema=null, localConstraints=null], value=nested-implicit-right, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]], isRight=true, isAmbiguous=false]]]"
+            "StvnOption[schema=ResolvedSchema[node=[138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnEither[schema=ResolvedSchema[node=[240 206 199 138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnString[schema=ResolvedSchema[node=[248 206 199 240 206 199 138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=1, sumTypeNode=[206 199 240 206 199 138 96 89], underlyingSchema=null, localConstraints=null, enumSubset=null], value=nested-implicit-right, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]], isRight=true, isAmbiguous=false]]]"
         ),
         ValidationTestCase.success(
             "Hybrid Nested Tagging - Explicit Either Implicit Option Some",
             "{ :type :Either(:Int32 :Option(:String)) :body #Right \"implicit-inner-some\" }",
-            "StvnEither[schema=ResolvedSchema[node=[134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=StvnOption[schema=ResolvedSchema[node=[231 189 182 134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null], value=Optional[StvnString[schema=ResolvedSchema[node=[223 189 182 231 189 182 134 92 85], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[]], aliasName=null, implicitUnionTag=0, sumTypeNode=[189 182 231 189 182 134 92 85], underlyingSchema=null, localConstraints=null], value=implicit-inner-some, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]]]], isRight=true, isAmbiguous=false]"
+            "StvnEither[schema=ResolvedSchema[node=[138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnOption[schema=ResolvedSchema[node=[248 206 199 138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnString[schema=ResolvedSchema[node=[240 206 199 248 206 199 138 96 89], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=0, sumTypeNode=[206 199 248 206 199 138 96 89], underlyingSchema=null, localConstraints=null, enumSubset=null], value=implicit-inner-some, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]]]], isRight=true, isAmbiguous=false]"
         ),
         ValidationTestCase.failure(
             "Deep Rule C Failure Propagation - Sequence Option Keyword Clash",

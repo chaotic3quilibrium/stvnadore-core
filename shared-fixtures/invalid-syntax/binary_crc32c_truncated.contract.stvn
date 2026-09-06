@@ -1,0 +1,14 @@
+{
+  // File: binary_crc32c_truncated.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_PAYLOAD
+    "Buffer too small for STVN binary with CRC-32C trailer"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

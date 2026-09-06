@@ -1060,6 +1060,22 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
             end
         );
       }
+      if (schema.enumSubset().isPresent()) {
+        var subset = schema.enumSubset().get();
+        if (!subset.containsVariant(keywordText)) {
+          int start = ctx != null && ctx.getStart() != null
+              ? ctx.getStart().getStartIndex()
+              : -1;
+          int end = ctx != null && ctx.getStop() != null
+              ? ctx.getStop().getStopIndex() + 1
+              : -1;
+          throw new MalformedPayloadException(
+              "Invalid enum value: variant " + keywordText + " is not permitted in enum subset " + subset.name() + "; allowed variants: " + subset.allowedVariants(),
+              start,
+              end
+          );
+        }
+      }
     }
     return new StvnEnum(schema, keywordText, sequentialIndex, variantCount);
   }

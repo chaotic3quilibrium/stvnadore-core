@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.IdentityHashMap;
+import java.util.zip.CRC32C;
 
 import org.jspecify.annotations.Nullable;
 
@@ -42,6 +43,7 @@ public class StvnBinaryEncoder {
   private final boolean isMinimizingOffsetSize;
   private final @Nullable SchemaIdentityStrategy identityStrategy;
   private final BinaryEncodingStrategy encodingStrategy;
+  private final boolean hasTrailerCrc32c;
 
   private int offsetSize;
 
@@ -62,7 +64,20 @@ public class StvnBinaryEncoder {
    * @param identityStrategy       the strategy used to register and verify schema hashes, or {@code null} if untyped
    */
   public StvnBinaryEncoder(boolean isMinimizingOffsetSize, @Nullable SchemaIdentityStrategy identityStrategy) {
-    this(isMinimizingOffsetSize, identityStrategy, BinaryEncodingStrategy.ZERO_COPY_POST_ORDER);
+    this(isMinimizingOffsetSize, identityStrategy, BinaryEncodingStrategy.ZERO_COPY_POST_ORDER, false);
+  }
+
+  /**
+   * Constructs a new StvnBinaryEncoder configuration defaulting to {@link BinaryEncodingStrategy#ZERO_COPY_POST_ORDER}
+   * with an optional CRC-32C trailer flag.
+   *
+   * @param isMinimizingOffsetSize if {@code true}, the encoder will downscale offset pointer sizes (to 1 or 2 bytes)
+   *                               if the total buffer footprint allows, saving space
+   * @param identityStrategy       the strategy used to register and verify schema hashes, or {@code null} if untyped
+   * @param hasTrailerCrc32c       if {@code true}, appends a 4-byte CRC-32C trailer and sets Bit 7 of Byte 4
+   */
+  public StvnBinaryEncoder(boolean isMinimizingOffsetSize, @Nullable SchemaIdentityStrategy identityStrategy, boolean hasTrailerCrc32c) {
+    this(isMinimizingOffsetSize, identityStrategy, BinaryEncodingStrategy.ZERO_COPY_POST_ORDER, hasTrailerCrc32c);
   }
 
   /**
@@ -74,9 +89,37 @@ public class StvnBinaryEncoder {
    * @param encodingStrategy       the binary wire encoding strategy to use
    */
   public StvnBinaryEncoder(boolean isMinimizingOffsetSize, @Nullable SchemaIdentityStrategy identityStrategy, BinaryEncodingStrategy encodingStrategy) {
+    this(isMinimizingOffsetSize, identityStrategy, encodingStrategy, false);
+  }
+
+  /**
+   * Constructs a new StvnBinaryEncoder configuration with explicit encoding, identity strategies, and CRC-32C trailer flag.
+   *
+   * @param isMinimizingOffsetSize if {@code true}, the encoder will downscale offset pointer sizes (to 1 or 2 bytes)
+   *                               if the total buffer footprint allows, saving space
+   * @param identityStrategy       the strategy used to register and verify schema hashes, or {@code null} if untyped
+   * @param encodingStrategy       the binary wire encoding strategy to use
+   * @param hasTrailerCrc32c       if {@code true}, appends a 4-byte CRC-32C trailer and sets Bit 7 of Byte 4
+   */
+  public StvnBinaryEncoder(
+      boolean isMinimizingOffsetSize,
+      @Nullable SchemaIdentityStrategy identityStrategy,
+      BinaryEncodingStrategy encodingStrategy,
+      boolean hasTrailerCrc32c
+  ) {
     this.isMinimizingOffsetSize = isMinimizingOffsetSize;
     this.identityStrategy = identityStrategy;
     this.encodingStrategy = encodingStrategy;
+    this.hasTrailerCrc32c = hasTrailerCrc32c;
+  }
+
+  /**
+   * Returns whether this encoder appends a 4-byte CRC-32C trailer to serialized byte buffers.
+   *
+   * @return {@code true} if CRC-32C trailer appending is enabled, {@code false} otherwise
+   */
+  public boolean hasTrailerCrc32c() {
+    return hasTrailerCrc32c;
   }
 
   /**
@@ -112,6 +155,9 @@ public class StvnBinaryEncoder {
       };
     }
     fp = fp.add(new Footprint(baseHeader, 0));
+    if (hasTrailerCrc32c) {
+      fp = fp.add(new Footprint(4, 0));
+    }
 
     // 3. Determine optimal Offset Size
     this.offsetSize = 4; // Default to uint32
@@ -131,8 +177,21 @@ public class StvnBinaryEncoder {
 
     // 5. Execute post-order traversal
     int rootOffset = writeValuePostOrder(root);
-    int totalLimit = buffer.position();
+    int payloadLimit = buffer.position();
     writeHeader(rootOffset);
+
+    int totalLimit = payloadLimit;
+    if (hasTrailerCrc32c) {
+      ensureCapacity(4);
+      buffer.position(payloadLimit);
+
+      CRC32C crc = new CRC32C();
+      crc.update(ByteBuffer.wrap(this.data, 0, payloadLimit));
+      int crc32cValue = (int) crc.getValue();
+
+      buffer.putInt(crc32cValue);
+      totalLimit = payloadLimit + 4;
+    }
 
     buffer.limit(totalLimit);
     buffer.position(0);
@@ -852,7 +911,10 @@ public class StvnBinaryEncoder {
     buffer.putInt(MAGIC_BYTES);
 
     int identityCode = (identityStrategy != null) ? identityStrategy.code() : 0x00;
-    byte controlByte = (byte) (((encodingStrategy.code() & 0x0F) << 4) | (identityCode & 0x0F));
+    int trailerBit = hasTrailerCrc32c ? 0x80 : 0x00;
+    int encodingBits = (encodingStrategy.code() & 0x07) << 4;
+    int identityBits = identityCode & 0x0F;
+    byte controlByte = (byte) (trailerBit | encodingBits | identityBits);
     buffer.put(controlByte);
 
     if (identityStrategy != null) {

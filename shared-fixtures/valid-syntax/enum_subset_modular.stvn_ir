@@ -1,0 +1,32 @@
+TypeRegistry:
+  - :HttpProtocol
+      schema:
+        node: :Enum[#HTTP_1_0#HTTP_1_1#HTTP_2_0#HTTP_3_0]
+        aliasName: :HttpProtocol
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#HTTP_1_0#HTTP_1_1#HTTP_2_0#HTTP_3_0]
+  - :ModernHttp
+      schema:
+        node: :Enum[#HTTP_1_0#HTTP_1_1#HTTP_2_0#HTTP_3_0]
+        aliasName: :ModernHttp
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#HTTP_1_0#HTTP_1_1#HTTP_2_0#HTTP_3_0]
+          aliasName: :HttpProtocol
+  - <:type>
+      schema:
+        node: :Enum[#HTTP_1_0#HTTP_1_1#HTTP_2_0#HTTP_3_0]
+        aliasName: :MuxProtocol
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#HTTP_1_0#HTTP_1_1#HTTP_2_0#HTTP_3_0]
+          aliasName: :ModernHttp
+ValuePayload:
+  StvnEnum(:MuxProtocol): #HTTP_3_0

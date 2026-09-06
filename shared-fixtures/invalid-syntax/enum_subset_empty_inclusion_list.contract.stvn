@@ -1,0 +1,14 @@
+{
+  // enum_subset_empty_inclusion_list.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "enum filter variant list cannot be empty"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

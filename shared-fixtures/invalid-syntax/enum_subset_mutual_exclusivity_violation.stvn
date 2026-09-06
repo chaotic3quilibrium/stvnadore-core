@@ -1,0 +1,11 @@
+{
+  // enum_subset_mutual_exclusivity_violation.stvn
+  :defs {
+    :Priority :Enum [ #LOW #MEDIUM #HIGH #CRITICAL ]
+    :ConflictFilter { #filterIncl [ #LOW ] #filterExcl [ #CRITICAL ] } :Priority
+  }
+
+  :type :ConflictFilter
+
+  :body #LOW
+}

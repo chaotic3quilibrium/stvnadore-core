@@ -124,6 +124,25 @@ public class StvnSchemaHasher {
       String baseType = StvnTypeResolver.getPrimitiveBaseType(schema.node());
       if (baseType != null) {
         digest.update(baseType.getBytes(StandardCharsets.UTF_8));
+        if (":Enum".equals(baseType) && schema.node() != null && schema.node().schemaConstructor() != null && schema.node().schemaConstructor().sumType() != null) {
+          var enumDef = schema.node().schemaConstructor().sumType().enumDef();
+          if (enumDef != null) {
+            for (var kw : enumDef.valueKeyword()) {
+              digest.update(("enumVariant:" + kw.getText()).getBytes(StandardCharsets.UTF_8));
+            }
+          }
+        }
+      }
+
+      if (schema.enumSubset().isPresent()) {
+        var subset = schema.enumSubset().get();
+        digest.update(("subsetName:" + subset.name()).getBytes(StandardCharsets.UTF_8));
+        digest.update(("subsetParent:" + subset.parentType()).getBytes(StandardCharsets.UTF_8));
+        digest.update(("subsetRoot:" + subset.rootEnum()).getBytes(StandardCharsets.UTF_8));
+        digest.update(("subsetFilterType:" + (subset.isInclusive() ? "incl" : "excl")).getBytes(StandardCharsets.UTF_8));
+        for (String variant : subset.allowedVariants()) {
+          digest.update(("subsetVariant:" + variant).getBytes(StandardCharsets.UTF_8));
+        }
       }
 
       // 2. Digest constraints in a strictly deterministic order

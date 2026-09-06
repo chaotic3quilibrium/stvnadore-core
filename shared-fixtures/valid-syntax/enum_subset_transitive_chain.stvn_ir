@@ -1,0 +1,52 @@
+TypeRegistry:
+  - :TaskStatus
+      schema:
+        node: :Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]
+        aliasName: :TaskStatus
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]
+  - :ActiveStatus
+      schema:
+        node: :Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]
+        aliasName: :ActiveStatus
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]
+          aliasName: :TaskStatus
+  - :WorkableStatus
+      schema:
+        node: :Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]
+        aliasName: :WorkableStatus
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]
+          aliasName: :ActiveStatus
+  - :ExecutionStatus
+      schema:
+        node: :Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]
+        aliasName: :ExecutionStatus
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]
+          aliasName: :WorkableStatus
+  - <:type>
+      schema:
+        node: :Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]
+        aliasName: :ExecutionStatus
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]
+          aliasName: :WorkableStatus
+ValuePayload:
+  StvnEnum(:ExecutionStatus): #IN_PROGRESS

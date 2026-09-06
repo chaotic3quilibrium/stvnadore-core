@@ -1,0 +1,14 @@
+{
+  // enum_subset_root_ordering_violation.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Root ordering violation: variant #MEDIUM does not match relative declaration order of root :Enum :Priority"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

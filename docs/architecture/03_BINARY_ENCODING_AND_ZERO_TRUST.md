@@ -1,4 +1,4 @@
-# STVN Architectural Specification 03: Binary Encoding & Zero-Trust Verification
+ STVN Architectural Specification 03: Binary Encoding & Zero-Trust Verification
 
 **Document ID**: `STVN-SPEC-03`
 **Status**: Canonical Specification
@@ -12,18 +12,23 @@
 The STVN binary stream is encoded in Little-Endian byte order with a deterministic header structure:
 
 ```
-+-------------------+---------------+-----------------------+---------------+--------------------+
-| Bytes 0-3 (4B)    | Byte 4 (1B)   | Bytes 5..N (0..Var B) | Byte N+1 (1B) | Bytes N+2.. (1..8B)|
-| "STVN" Magic      | Control Byte  | Schema Identity Data  | Flags (Offset)| Root Node Pointer  |
-+-------------------+---------------+-----------------------+---------------+--------------------+
++-------------------+---------------+-----------------------+---------------+--------------------+--------------------+
+| Bytes 0-3 (4B)    | Byte 4 (1B)   | Bytes 5..N (0..Var B) | Byte N+1 (1B) | Bytes N+2.. (1..8B)| Trailing (0 or 4B) |
+| "STVN" Magic      | Control Byte  | Schema Identity Data  | Flags (Offset)| Root Node Pointer  | [CRC-32C Trailer]  |
++-------------------+---------------+-----------------------+---------------+--------------------+--------------------+
 ```
 
-### Byte 4 Control Byte (4:4 Nibble Split)
-Byte 4 is partitioned into two 4-bit unsigned bitfields:
+### Byte 4 Control Byte (1:3:4 Bitwise Partition)
+Byte 4 is partitioned into three distinct bitfields:
 
-* **Upper Nibble (Bits 7..4, Mask `0xF0`)**: `BinaryEncodingStrategy`
+* **Trailer Flag (Bit 7, Mask `0x80`)**: `HAS_TRAILER_CRC32C`
+  * `0`: No trailer appended. Payload limit coincides with binary arena boundary.
+  * `1`: 4-byte Little-Endian CRC-32C trailer appended at `limit - 4`. Computes checksum over `0..(limit - 4)`.
+
+* **Wire Strategy (Bits 6..4, Mask `0x70`)**: `BinaryEncodingStrategy`
   * `0x0`: `ZERO_COPY_POST_ORDER` (Standard zero-copy post-order layout).
-  * `0x1`–`0xF`: Reserved for future compression and layout models.
+  * `0x1`–`0x6`: Reserved for future compression and layout models.
+  * `0x7`: Extension sentinel reserved for multi-byte header extension.
 
 * **Lower Nibble (Bits 3..0, Mask `0x0F`)**: `SchemaIdentityStrategy`
   * `0x0`: `UniversalDefault` (0 bytes payload). Resolves payload against universal default schema context.
@@ -38,7 +43,18 @@ Byte 4 is partitioned into two 4-bit unsigned bitfields:
 
 ---
 
-## 2. Zero-Trust Security Enforcement (Strategy `0x07`)
+## 2. Hardware-Accelerated CRC-32C Trailer Integrity
+
+When Byte 4 Bit 7 (`0x80`) is set:
+1. The buffer must contain at least 9 bytes (5-byte minimum header + 4-byte trailer).
+2. The decoder reads trailing 4 bytes at `limit - 4` as a 32-bit Little-Endian integer.
+3. The decoder computes the streaming CRC-32C (`java.util.zip.CRC32C`) across bytes `0..(limit - 4)`.
+4. If computed CRC $\ne$ expected CRC, the decoder throws `MalformedPayloadException("CRC-32C trailer mismatch: payload corrupted or truncated")`.
+5. Downstream decoders slice the buffer to `0..(limit - 4)`, ensuring zero-copy readers remain oblivious to trailer presence.
+
+---
+
+## 3. Zero-Trust Security Enforcement (Strategy `0x07`)
 
 When decoding an STVN binary payload marked with Strategy `0x07` (`ExplicitSha256`):
 1. `StvnBinaryDecoder.open()` reads the 37-byte header and extracts the embedded 32-byte SHA-256 digest at Header Bytes 5..36.
@@ -47,7 +63,7 @@ When decoding an STVN binary payload marked with Strategy `0x07` (`ExplicitSha25
 
 ---
 
-## 3. Tripartite Temporal Wire Memory Layouts
+## 4. Tripartite Temporal Wire Memory Layouts
 
 STVN eliminates string parsing overhead for temporal types by embedding fixed-width binary representations:
 
@@ -73,10 +89,77 @@ To avoid repeating long time zone identifier strings (e.g. `"America/Argentina/B
 
 ---
 
-## 4. Arbitrary Bit-Width High-Bit Masking
+## 5. Arbitrary Bit-Width High-Bit Masking
 
 For any arbitrary integer type `:Int`$n$ or `:Uint`$n$ ($n \ge 1$), the wire allocates $B = \lceil n/8 \rceil$ containment bytes in Little-Endian order.
 
 * **High-Bit Zero Invariant**: Unused upper bits in the most significant byte (bits $n \pmod 8$ through 7 when $n \not\equiv 0 \pmod 8$) must be 0.
 * **Corrupted Pattern Trap**: If any unused high bit is set to 1, decoders reject the buffer immediately with `StvnCorruptedBitPatternException`.
 * **Zero-Copy Readers**: Reader flyweights (`StvnTupleReader`, `StvnSeqReader`, `StvnMapReader`) traverse nested buffers using direct memory offset pointers without intermediate heap allocations.
+
+---
+
+## 6. Enum Subset Binary Wire Encoding & Zero-Copy Subtyping
+
+STVN enum subsets achieve zero-copy polymorphism through root-relative ordinal preservation.
+
+### 6.1 Root-Relative Ordinal Indexing
+When serializing a payload value typed as an `EnumSubset`, the binary encoder emits the variant's sequential index relative to the **root `:Enum` declaration**, not a dense local ordinal.
+
+* **Wire Byte Width:** The containment byte width matches the capacity required by the root enum ($N$ root variants):
+  * $1 \le N \le 256$: 1 byte (`u8`).
+  * $257 \le N \le 65536$: 2 bytes (`u16` Little-Endian).
+  * $N > 65536$: 4 bytes (`u32` Little-Endian).
+* **Ordinal Preservation:** An enum subset with 2 allowed variants derived from a root enum of 4 variants uses the root variant indices:
+
+```
+Root Enum: :Status :Enum [ #Pending #Active #Suspended #Deleted ]
+Root Ordinals:               0        1         2          3
+
+Subset: :ActiveStatus { #filterIncl [ #Active #Suspended ] } :Status
+Payload: #Active
+Wire Encoding: Byte value 0x01 (Root index 1, NOT local index 0)
+```
+
+### 6.2 Parent-Slot Zero-Copy Assignability
+Because payloads serialize using root-relative ordinals and identical byte widths:
+* Payloads typed with `:ActiveStatus` are byte-identical on the wire to payloads typed with `:Status`.
+* Systems read and assign child subset payloads directly into storage slots typed as the parent enum without memory reallocation, trans-coding, or ordinal transformation.
+* Transitive chains of arbitrary depth preserve this zero-overhead invariant.
+
+### 6.3 Decoder Boundary Validation (`MalformedPayloadException`)
+During payload deserialization, `StvnBinaryDecoder` enforces strict zero-trust boundary verification:
+
+1. The decoder reads the root-relative ordinal index `seqIndex` from the input stream.
+2. The decoder retrieves the variant keyword string from the root enum schema definition.
+3. If the active target schema contains an `enumSubset`, the decoder evaluates:
+   $$\text{seqIndex} \ge 0 \quad \land \quad \text{seqIndex} < N_{\text{root}} \quad \land \quad \text{subset.containsVariant}(\text{kw})$$
+4. If the decoded ordinal references a variant that exists in the root enum but is excluded from the active subset, the decoder immediately aborts and throws `MalformedPayloadException`.
+5. Undefined bytes and invalid ordinals are rejected before memory allocation or object instantiation occurs.
+
+---
+
+## 7. Cryptographic Schema Hashing for Enum Subsets
+
+`StvnSchemaHasher` generates deterministic 32-byte SHA-256 fingerprints to identify schemas in Content-Addressable Storage (CAS) and Strategy `0x07` (`ExplicitSha256`) zero-trust binary headers.
+
+### 7.1 Digest Ingestion Sequence
+To prevent CAS hash collisions between distinct subsets or between a subset and its root enum, `StvnSchemaHasher.digestSchema()` digests subset metadata in strict sequential order:
+
+1. **Base Primitive Type:** Emits UTF-8 string bytes for `:Enum`.
+2. **Root Enum Variants:** For each variant keyword in the root enum definition, emits:
+   ```
+   "enumVariant:" + keyword
+   ```
+3. **Subset Identity & Derivation Metadata (if `enumSubset` is present):**
+   * `"subsetName:" + subset.name()` (e.g., `subsetName::ActiveStatus`)
+   * `"subsetParent:" + subset.parentType()` (e.g., `subsetParent::Status`)
+   * `"subsetRoot:" + subset.rootEnum()` (e.g., `subsetRoot::Status`)
+   * `"subsetFilterType:" + (subset.isInclusive() ? "incl" : "excl")`
+4. **Allowed Variant Tokens:** For each variant in `subset.allowedVariants()`, in sorted declaration order, emits:
+   ```
+   "subsetVariant:" + variant
+   ```
+5. **Constraints & Traits:** Digests numeric limits, indent flags, and capability trait overrides in deterministic order.
+
+Any modification to the allowed variant list, filter mode, parent link, or root enum changes the schema digest deterministically.

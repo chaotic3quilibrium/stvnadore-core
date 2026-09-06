@@ -1,0 +1,12 @@
+{
+  // enum_subset_monotonic_narrowing_violation.stvn
+  :defs {
+    :Priority :Enum [ #LOW #MEDIUM #HIGH #CRITICAL ]
+    :StandardPriority { #filterExcl [ #CRITICAL ] } :Priority
+    :IllegalReintroduction { #filterIncl [ #CRITICAL ] } :StandardPriority
+  }
+
+  :type :IllegalReintroduction
+
+  :body #CRITICAL
+}

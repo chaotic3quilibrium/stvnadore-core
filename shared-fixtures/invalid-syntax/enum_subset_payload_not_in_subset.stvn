@@ -1,0 +1,11 @@
+{
+  // enum_subset_payload_not_in_subset.stvn
+  :defs {
+    :Priority :Enum [ #LOW #MEDIUM #HIGH #CRITICAL ]
+    :StandardPriority { #filterExcl [ #CRITICAL ] } :Priority
+  }
+
+  :type :StandardPriority
+
+  :body #CRITICAL
+}

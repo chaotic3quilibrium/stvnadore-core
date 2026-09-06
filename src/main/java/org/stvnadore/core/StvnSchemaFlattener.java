@@ -633,6 +633,18 @@ public final class StvnSchemaFlattener {
       if (equatable != null && constraints.explicitOverrides().contains("equatable")) {
         sb.append(" #equatable ").append(equatable ? "#TRUE" : "#FALSE");
       }
+      var filterExcl = constraints.filterExcl().orElse(null);
+      if (filterExcl != null) {
+        sb.append(" #filterExcl [");
+        for (String v : filterExcl) sb.append(" ").append(v);
+        sb.append(" ]");
+      }
+      var filterIncl = constraints.filterIncl().orElse(null);
+      if (filterIncl != null) {
+        sb.append(" #filterIncl [");
+        for (String v : filterIncl) sb.append(" ").append(v);
+        sb.append(" ]");
+      }
       var maxExcl = constraints.maxExcl().orElse(null);
       if (maxExcl != null) {
         sb.append(" #maxExcl ").append(maxExcl);
@@ -678,7 +690,8 @@ public final class StvnSchemaFlattener {
     var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains("comparable");
 
     return hasMinIncl || hasMinExcl || hasMaxIncl || hasMaxExcl
-        || hasRegex || hasPreserveIndent || hasEquatable || hasComparable;
+        || hasRegex || hasPreserveIndent || hasEquatable || hasComparable
+        || c.filterIncl().isPresent() || c.filterExcl().isPresent();
   }
 
   private static String escapeString(String s) {

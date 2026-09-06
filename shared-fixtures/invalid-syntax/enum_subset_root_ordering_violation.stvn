@@ -1,0 +1,11 @@
+{
+  // enum_subset_root_ordering_violation.stvn
+  :defs {
+    :Priority :Enum [ #LOW #MEDIUM #HIGH #CRITICAL ]
+    :InvalidOrder { #filterIncl [ #HIGH #MEDIUM ] } :Priority
+  }
+
+  :type :InvalidOrder
+
+  :body #HIGH
+}
