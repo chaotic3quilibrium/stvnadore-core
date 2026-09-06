@@ -1,6 +1,6 @@
 # STVN Language Specification
 
-**Version:** 1.1.0-SNAPSHOT
+**Version:** 1.1.0
 
 **Status:** Formal Technical Specification
 

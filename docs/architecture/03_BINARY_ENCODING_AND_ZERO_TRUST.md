@@ -2,8 +2,29 @@
 
 **Document ID**: `STVN-SPEC-03`
 **Status**: Canonical Specification
-**Version**: 1.0.2
+**Version**: 1.1.0
 **Compliance**: Mandatory across all STVN binary encoders, decoders, zero-copy readers, and wire protocol bindings.
+
+---
+
+# Table of Contents <!-- omit in toc -->
+
+<!-- TOC -->
+* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
+  * [1. Binary Wire Framing (`.stvn_bin`)](#1-binary-wire-framing-stvn_bin)
+    * [Byte 4 Control Byte (1:3:4 Bitwise Partition)](#byte-4-control-byte-134-bitwise-partition)
+  * [2. Hardware-Accelerated CRC-32C Trailer Integrity](#2-hardware-accelerated-crc-32c-trailer-integrity)
+  * [3. Zero-Trust Security Enforcement (Strategy `0x07`)](#3-zero-trust-security-enforcement-strategy-0x07)
+  * [4. Tripartite Temporal Wire Memory Layouts](#4-tripartite-temporal-wire-memory-layouts)
+    * [Header IANA Zone Dictionary Pool](#header-iana-zone-dictionary-pool)
+  * [5. Arbitrary Bit-Width High-Bit Masking](#5-arbitrary-bit-width-high-bit-masking)
+  * [6. Enum Subset Binary Wire Encoding & Zero-Copy Subtyping](#6-enum-subset-binary-wire-encoding--zero-copy-subtyping)
+    * [6.1 Root-Relative Ordinal Indexing](#61-root-relative-ordinal-indexing)
+    * [6.2 Parent-Slot Zero-Copy Assignability](#62-parent-slot-zero-copy-assignability)
+    * [6.3 Decoder Boundary Validation (`MalformedPayloadException`)](#63-decoder-boundary-validation-malformedpayloadexception)
+  * [7. Cryptographic Schema Hashing for Enum Subsets](#7-cryptographic-schema-hashing-for-enum-subsets)
+    * [7.1 Digest Ingestion Sequence](#71-digest-ingestion-sequence)
+<!-- TOC -->
 
 ---
 

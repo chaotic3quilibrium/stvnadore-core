@@ -2,8 +2,23 @@
 
 **Document ID**: `STVN-SPEC-04`
 **Status**: Canonical Specification
-**Version**: 1.0.2
+**Version**: 1.1.0
 **Compliance**: Mandatory across all STVN IDE plugins, language server protocols, and editor integrations.
+
+---
+
+# Table of Contents <!-- omit in toc -->
+
+<!-- TOC -->
+* [STVN Architectural Specification 04: IntelliJ Platform Integration](#stvn-architectural-specification-04-intellij-platform-integration)
+* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
+  * [1. PSI & Grammar Architecture](#1-psi--grammar-architecture)
+  * [2. AST & PSI Bridge](#2-ast--psi-bridge)
+  * [3. In-Memory Workspace Flattener (`StvnFlattenWorkspaceAction`)](#3-in-memory-workspace-flattener-stvnflattenworkspaceaction)
+  * [4. Non-Blocking Event Dispatch Thread (EDT) Discipline](#4-non-blocking-event-dispatch-thread-edt-discipline)
+  * [5. Sub-Token Diagnostic Precision & Structural Immunity](#5-sub-token-diagnostic-precision--structural-immunity)
+  * [6. Interactive Scaffolding & Auto-Healing](#6-interactive-scaffolding--auto-healing)
+<!-- TOC -->
 
 ---
 
