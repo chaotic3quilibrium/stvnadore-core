@@ -1,6 +1,6 @@
 # STVN Core SDK (`stvnadore-core`)
 
-[![STVN Core SDK](https://img.shields.io/badge/STVN-1.1.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
+[![STVN Core SDK](https://img.shields.io/badge/STVN-1.1.1--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
 [![Java Version Compatibility](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Verification Status](https://img.shields.io/badge/Tests-497%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
 [![Null Safety](https://img.shields.io/badge/NullMarked-Tier%201%20Soundness-brightgreen.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md)
@@ -11,7 +11,7 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
 
 ---
 
-- Version: 1.1.0 - 2026.09.06
+- Version: 1.1.1-SNAPSHOT - 2026.09.07
 
 ---
 
@@ -49,6 +49,7 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
     * [FYI, I'd prefer to move stvnadore-core to an Apache 2.0 license](#fyi-id-prefer-to-move-stvnadore-core-to-an-apache-20-license)
     * [I'm not looking to win the lottery, I just don't want to work for free](#im-not-looking-to-win-the-lottery-i-just-dont-want-to-work-for-free)
 * [Version History](#version-history)
+  * [v1.1.1-SNAPSHOT](#v111-snapshot)
   * [v1.1.0](#v110)
   * [v1.0.2](#v102)
 <!-- TOC -->
@@ -388,6 +389,15 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 ---
 
 # Version History
+
+## v1.1.1-SNAPSHOT
+
+- 2026.09.07
+- Formalized **Rule STR-04 (Fenced String Language Discriminator Invariant)** in ANTLR4 lexer and parser
+- Supported optional directional arrow `->` (`"""->[TAG]` and `"""[TAG]`)
+- Enforced strict tag character class `^[a-zA-Z0-9_-]{1,256}$` with length bounding from 1 to 256 characters
+- Remediated all missing Javadoc parameter tags in `StvnTypeResolver.java` and enforced `<failOnWarnings>true</failOnWarnings>`
+- Updated Section 5.3 in `STVN_LANGUAGE_SPEC.md` to define Rule STR-04 invariants
 
 ## v1.1.0
 

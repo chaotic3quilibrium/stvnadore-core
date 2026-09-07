@@ -591,4 +591,85 @@ public class StvnDiagnosticsTest {
         "Expected ambiguity message for constant matching overlapping Either, got: " + diag.message()
     );
   }
+
+  @Test
+  @DisplayName("Rule STR-04: Empty tag brackets rejected with specific diagnostic and zero cascading errors")
+  void testEmptyTagRejectedWithRuleStr04Diagnostic() {
+    String input = """
+        {
+          :type :String
+          :body ""\"->[]
+          SELECT * FROM users WHERE active = TRUE;
+          []""\"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Must isolate body and produce exactly one diagnostic");
+    var msg = result.diagnostics().getFirst().message();
+    Assertions.assertTrue(msg.contains("Rule STR-04 violation: Fenced string delimiter tag must not be empty"), msg);
+  }
+
+  @Test
+  @DisplayName("Rule STR-04: Whitespace in tag rejected with specific diagnostic")
+  void testWhitespaceTagRejectedWithRuleStr04Diagnostic() {
+    String input = """
+        {
+          :type :String
+          :body ""\"[ ]
+          content
+          [ ]""\"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size());
+    var msg = result.diagnostics().getFirst().message();
+    Assertions.assertTrue(msg.contains("Rule STR-04 violation: Fenced string delimiter tag must not contain whitespace"), msg);
+  }
+
+  @Test
+  @DisplayName("Rule STR-04: Illegal symbols in tag rejected with specific diagnostic")
+  void testIllegalSymbolsTagRejectedWithRuleStr04Diagnostic() {
+    String input = """
+        {
+          :type :String
+          :body ""\"[C++]
+          int main() { return 0; }
+          [C++]""\"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size());
+    var msg = result.diagnostics().getFirst().message();
+    Assertions.assertTrue(msg.contains("Rule STR-04 violation: Fenced string delimiter tag 'C++' contains invalid characters"), msg);
+  }
+
+  @Test
+  @DisplayName("Rule STR-04: Tag length exceeding 256 characters rejected with specific diagnostic")
+  void testTagLengthExceeding256RejectedWithRuleStr04Diagnostic() {
+    String tag257 = "A".repeat(257);
+    String input = "{\n  :type :String\n  :body \"\"\"[" + tag257 + "]\n  content\n  [" + tag257 + "]\"\"\"\n}\n";
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size());
+    var msg = result.diagnostics().getFirst().message();
+    Assertions.assertTrue(msg.contains("Rule STR-04 violation: Fenced string delimiter tag length exceeds maximum of 256 characters"), msg);
+  }
+
+  @Test
+  @DisplayName("Rule STR-04: Orphan closing delimiter in default mode rejected without triggering block string")
+  void testOrphanClosingDelimiterRejectedWithRuleStr04Diagnostic() {
+    String input = """
+        {
+          :type :String
+          :body [SQL]""\"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    var msg = result.diagnostics().getFirst().message();
+    Assertions.assertTrue(msg.contains("Rule STR-04 violation: Orphan or unexpected closing fence delimiter"), msg);
+  }
 }

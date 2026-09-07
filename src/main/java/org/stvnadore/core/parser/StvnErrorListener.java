@@ -124,6 +124,24 @@ public final class StvnErrorListener extends BaseErrorListener {
       String tokenText = offendingToken != null ? offendingToken.getText() : "";
       int tokenType = offendingToken != null ? offendingToken.getType() : Token.INVALID_TYPE;
 
+      // 0a. Intercept MALFORMED_FENCE_OPEN token citing Rule STR-04
+      if (offendingToken != null && offendingToken.getType() == StvnLexer.MALFORMED_FENCE_OPEN) {
+        return formatMalformedFenceMessage(tokenText);
+      }
+
+      // 0b. Intercept MALFORMED_FENCE_CLOSE token in DEFAULT_MODE citing Rule STR-04
+      if (offendingToken != null && offendingToken.getType() == StvnLexer.MALFORMED_FENCE_CLOSE) {
+        return "Rule STR-04 violation: Orphan or unexpected closing fence delimiter " + escapeWsAndQuote(tokenText);
+      }
+
+      // 0c. Intercept unclosed fenced string / asymmetric closing tag at EOF
+      if (offendingToken != null && offendingToken.getType() == Token.EOF) {
+        IntervalSet expected = e != null ? e.getExpectedTokens() : parser.getExpectedTokens();
+        if (expected != null && expected.contains(StvnLexer.FENCE_END)) {
+          return formatUnclosedFenceMessage(parser);
+        }
+      }
+
       // 1. Check if we are inside a collection literal where unexpected tokens should be flagged as extraneous
       boolean inCollectionLiteral = isInCollectionLiteral(ctx);
 
@@ -240,6 +258,57 @@ public final class StvnErrorListener extends BaseErrorListener {
 
     // Fallback: Strip existing verbose vocabulary sets if present in rawMsg
     return sanitizeRawFallback(rawMsg);
+  }
+
+  private static String formatMalformedFenceMessage(String tokenText) {
+    int start = tokenText.indexOf('[');
+    int end = tokenText.indexOf(']', start >= 0 ? start : 0);
+    String tag = (start >= 0 && end > start) ? tokenText.substring(start + 1, end) : "";
+
+    if (tag.isEmpty()) {
+      return "Rule STR-04 violation: Fenced string delimiter tag must not be empty";
+    }
+    if (tag.contains(" ") || tag.contains("\t") || tag.contains("\r") || tag.contains("\n")) {
+      return "Rule STR-04 violation: Fenced string delimiter tag must not contain whitespace, got '" + tag + "'";
+    }
+    if (tag.length() > 256) {
+      return "Rule STR-04 violation: Fenced string delimiter tag length exceeds maximum of 256 characters, got " + tag.length();
+    }
+    return "Rule STR-04 violation: Fenced string delimiter tag '" + tag + "' contains invalid characters; must match positive character class ^[a-zA-Z0-9_-]{1,256}$";
+  }
+
+  private static String formatUnclosedFenceMessage(Parser parser) {
+    String expectedTag = "";
+    var stream = parser.getTokenStream();
+    for (int i = 0; i < stream.size(); i++) {
+      Token t = stream.get(i);
+      if (t.getType() == StvnLexer.FENCE_START) {
+        String txt = t.getText();
+        int open = txt.indexOf('[');
+        int close = txt.indexOf(']', open);
+        if (open >= 0 && close > open) {
+          expectedTag = txt.substring(open + 1, close);
+        }
+      }
+    }
+
+    String fullInput = stream.getText();
+    java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[([a-zA-Z0-9_-]+)\\]\"\"\"").matcher(fullInput);
+    String foundClosingTag = null;
+    while (m.find()) {
+      String tag = m.group(1);
+      if (!tag.equals(expectedTag)) {
+        foundClosingTag = tag;
+      }
+    }
+
+    if (foundClosingTag != null && !expectedTag.isEmpty()) {
+      return "Rule STR-04 violation: Mismatched closing fence tag '[" + foundClosingTag + "]', expected '[" + expectedTag + "]'";
+    }
+    if (!expectedTag.isEmpty()) {
+      return "Rule STR-04 violation: Unclosed fenced string block; expected closing delimiter '[" + expectedTag + "]\"\"\"'";
+    }
+    return "Rule STR-04 violation: Unclosed fenced string block; expected closing delimiter '[TAG]\"\"\"'";
   }
 
   private static boolean isInCollectionLiteral(@Nullable RuleContext ctx) {

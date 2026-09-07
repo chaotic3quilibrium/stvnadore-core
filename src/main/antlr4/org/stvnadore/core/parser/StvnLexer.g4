@@ -3,6 +3,10 @@ lexer grammar StvnLexer;
 @members {
     // Isolated Lexer state to track exact fencing boundaries during Mode transitions
     private String currentFenceTag = "";
+
+    public String getCurrentFenceTag() {
+        return currentFenceTag;
+    }
 }
 
 // ============================================================================
@@ -93,26 +97,48 @@ LITERAL_INTEGER : '-'? ('0' [xX] [0-9a-fA-F]+ | '0' [bB] [01]+ | '0' [oO] [0-7]+
 LITERAL_FLOAT : '-'? [0-9]+ '.' [0-9]+ ([eE] [-+]? [0-9]+)? ;
 LITERAL_STRING_SIMPLE : '"' (~["\\\r\n] | '\\' .)* '"' ;
 
+fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
+
+FENCE_START : '"""' '->'? '[' FENCE_TAG_CHAR+ ']' [ \t\r]* '\n' {
+    String text = getText();
+    int start = text.indexOf('[') + 1;
+    int end = text.indexOf(']', start);
+    String tag = text.substring(start, end);
+    if (tag.length() > 256) {
+        setType(MALFORMED_FENCE_OPEN);
+        pushMode(MALFORMED_FENCED_STRING);
+    } else {
+        currentFenceTag = tag;
+        pushMode(FENCED_STRING);
+    }
+} ;
+
+MALFORMED_FENCE_OPEN : '"""' '->'? '[' ~[\r\n]* '\n' {
+    pushMode(MALFORMED_FENCED_STRING);
+} ;
+
+MALFORMED_FENCE_CLOSE : '[' ~[\r\n\]]* ']"""' ;
+
 BLOCK_STRING_TRIGGER : '"""' -> more, pushMode(STANDARD_BLOCK);
 
 // ============================================================================
 // 2. ISOLATED LEXER MODES
 // ============================================================================
 
-FENCE_START : '"""->[' [-a-zA-Z0-9_ ]* ']' ~[\n]* '\n' {
-    String text = getText();
-    int start = text.indexOf('[') + 1;
-    int end = text.indexOf(']', start);
-    currentFenceTag = text.substring(start, end);
-    pushMode(FENCED_STRING);
-} ;
-
 mode FENCED_STRING;
 
 // Semantic Predicate ensures that we only pop the lexer mode if the matching tag is mathematically identical!
-FENCE_END : '[' [-a-zA-Z0-9_ ]* ']"""' { getText().substring(1, getText().length() - 4).equals(currentFenceTag) }? -> popMode ;
+FENCE_END : '[' FENCE_TAG_CHAR+ ']"""' { getText().substring(1, getText().length() - 4).equals(currentFenceTag) }? -> popMode ;
 
 FENCE_CONTENT : . ;
+
+mode MALFORMED_FENCED_STRING;
+
+// Consume and skip the closing delimiter to return cleanly to DEFAULT_MODE
+MALFORMED_FENCE_END : '[' ~[\r\n\]]* ']"""' -> skip, popMode ;
+
+// Silently skip body characters to prevent cascading syntax errors in DEFAULT_MODE
+MALFORMED_FENCE_CONTENT : . -> skip ;
 
 mode STANDARD_BLOCK;
 

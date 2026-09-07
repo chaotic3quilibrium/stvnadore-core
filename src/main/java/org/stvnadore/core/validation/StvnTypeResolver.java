@@ -726,6 +726,16 @@ public class StvnTypeResolver {
   ) {
     /**
      * Backward-compatible 9-parameter constructor defaulting filterIncl and filterExcl to empty.
+     *
+     * @param minIncl           optional minimum inclusive value
+     * @param minExcl           optional minimum exclusive value
+     * @param maxIncl           optional maximum inclusive value
+     * @param maxExcl           optional maximum exclusive value
+     * @param regex             optional regular expression pattern
+     * @param preserveIndent    flag to preserve indentation
+     * @param equatable         optional equatable requirement
+     * @param comparable        optional comparable requirement
+     * @param explicitOverrides optional list of explicit constraint overrides
      */
     public StvnConstraints(
         Optional<BigDecimal> minIncl,
@@ -743,6 +753,18 @@ public class StvnTypeResolver {
 
     /**
      * Canonical constructor validating that all optional parameters are non-null and copying lists.
+     *
+     * @param minIncl           optional minimum inclusive value
+     * @param minExcl           optional minimum exclusive value
+     * @param maxIncl           optional maximum inclusive value
+     * @param maxExcl           optional maximum exclusive value
+     * @param regex             optional regular expression pattern
+     * @param preserveIndent    flag to preserve indentation
+     * @param equatable         optional equatable requirement
+     * @param comparable        optional comparable requirement
+     * @param explicitOverrides optional list of explicit constraint overrides
+     * @param filterIncl        optional enum inclusion filter list
+     * @param filterExcl        optional enum exclusion filter list
      */
     public StvnConstraints(
         Optional<BigDecimal> minIncl,
@@ -919,6 +941,15 @@ public class StvnTypeResolver {
 
     /**
      * Backward-compatible 8-arg constructor defaulting enumSubset to empty.
+     *
+     * @param node               schema type parse context
+     * @param constraints        effective constraints
+     * @param aliasName          optional nominal alias name
+     * @param implicitUnionTag   optional implicit union branch tag index
+     * @param sumTypeNode        optional AST context for sum type definitions
+     * @param underlyingSchema   optional underlying aliased schema
+     * @param localConstraints   optional localized schema constraints
+     * @param isPoisonedSentinel whether this schema represents an unresolvable error sentinel
      */
     public ResolvedSchema(
         SchemaTypeContext node,
@@ -935,6 +966,14 @@ public class StvnTypeResolver {
 
     /**
      * Backward-compatible 7-arg constructor defaulting isPoisonedSentinel to false and enumSubset to empty.
+     *
+     * @param node             schema type parse context
+     * @param constraints      effective constraints
+     * @param aliasName        optional nominal alias name
+     * @param implicitUnionTag optional implicit union branch tag index
+     * @param sumTypeNode      optional AST context for sum type definitions
+     * @param underlyingSchema optional underlying aliased schema
+     * @param localConstraints optional localized schema constraints
      */
     public ResolvedSchema(
         SchemaTypeContext node,
@@ -950,6 +989,10 @@ public class StvnTypeResolver {
 
     /**
      * Convenience constructor to build a ResolvedSchema with default empty sum type context and underlying schemas.
+     *
+     * @param node        schema type parse context
+     * @param constraints effective constraints
+     * @param aliasName   optional nominal alias name
      */
     public ResolvedSchema(SchemaTypeContext node, StvnConstraints constraints, Optional<String> aliasName) {
       this(node, constraints, aliasName, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty());
@@ -957,6 +1000,12 @@ public class StvnTypeResolver {
 
     /**
      * Convenience constructor to build a ResolvedSchema specifying implicit union tag and sum type node context.
+     *
+     * @param node             schema type parse context
+     * @param constraints      effective constraints
+     * @param aliasName        optional nominal alias name
+     * @param implicitUnionTag optional implicit union branch tag index
+     * @param sumTypeNode      optional AST context for sum type definitions
      */
     public ResolvedSchema(SchemaTypeContext node, StvnConstraints constraints, Optional<String> aliasName, Optional<Integer> implicitUnionTag, Optional<SumTypeContext> sumTypeNode) {
       this(node, constraints, aliasName, implicitUnionTag, sumTypeNode, Optional.empty(), Optional.empty(), false, Optional.empty());
@@ -964,6 +1013,10 @@ public class StvnTypeResolver {
 
     /**
      * Factory for creating a poisoned sentinel schema for unresolved or structurally broken types.
+     *
+     * @param aliasName the alias name associated with the broken type
+     * @param node      the schema type parse context
+     * @return a poisoned sentinel schema instance
      */
     public static ResolvedSchema error(String aliasName, SchemaTypeContext node) {
       return new ResolvedSchema(
