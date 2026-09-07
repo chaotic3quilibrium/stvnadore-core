@@ -606,8 +606,9 @@ Fenced multi-line strings encapsulate embedded host language source code, struct
 Every fenced string literal must adhere to **Rule STR-04**:
 
 1. **Opening Delimiter:**
-   `"""->[TAG]` OR `"""[TAG]`  
-   The directional arrow `->` is optional. The opening delimiter must be followed by optional horizontal whitespace and a newline.
+   `"""[TAG]` (Canonical)  
+   `"""->[TAG]` (**DEPRECATED as of 1.1.1; scheduled for removal in 2.0.0**)  
+   The directional arrow `->` is deprecated. Compilers emit a `WARNING` diagnostic when `->` is encountered. The opening delimiter must be followed by optional horizontal whitespace and a newline.
 
 2. **Closing Delimiter:**
    `[TAG]"""`  
@@ -624,7 +625,7 @@ Every fenced string literal must adhere to **Rule STR-04**:
 
 #### Examples
 ```stvn
-// SQL query with optional arrow omitted
+// Canonical SQL query (modern standard)
 :defs { :Query :String }
 :type :Query
 :body """[SQL]
@@ -635,11 +636,11 @@ WHERE active = TRUE;
 ```
 
 ```stvn
-// CAS Content-Addressable Storage envelope with extended SHA-256 digest tag
+// CAS Content-Addressable Storage envelope with canonical SHA-256 digest tag
 :type :Tuple( :String :String )
 :body (
   "payload.stvn"
-  """->[SHA256-26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f]
+  """[SHA256-26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f]
 {
   :type :Int32
   :body 42
@@ -1487,7 +1488,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
   :type :Tuple(:SchemaName :StvnInclf)
   :body (
     "example-schema.stvn_inclf"
-    """->[SHA256-ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad]
+    """[SHA256-ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad]
 {
   //example-schema.stvn_inclf
   :defs {

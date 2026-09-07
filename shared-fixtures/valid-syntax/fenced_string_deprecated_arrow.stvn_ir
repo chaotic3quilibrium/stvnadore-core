@@ -1,0 +1,31 @@
+TypeRegistry:
+  - :SchemaName
+      schema:
+        node: :String
+        aliasName: :SchemaName
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+  - :StvnInclf
+      schema:
+        node: :String
+        aliasName: :StvnInclf
+        constraints:
+          preserveIndent: true (explicit)
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+  - <:type>
+      schema:
+        node: :Tuple(:SchemaName:StvnInclf)
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnString(:SchemaName): "schemaName"
+      - StvnString(:StvnInclf): "{\n  :defs {\n    :CustomAlias :String\n  }\n}\n    "

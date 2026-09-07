@@ -2542,6 +2542,7 @@ public class StvnTypeResolver {
     if (doc == null || doc.documentBody() == null) {
       return;
     }
+    validateFencedStringDelimiters(doc, diagnosticBag);
     getDocumentDefinitions(doc, diagnosticBag);
     var defsEntry = doc.documentBody().defsEntry();
     if (defsEntry != null) {
@@ -2559,6 +2560,40 @@ public class StvnTypeResolver {
     if (doc.documentBody().typeEntry() != null) {
       validateSchemaSumTypeUniqueness(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>(), diagnosticBag);
       validateSchemaCapabilities(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>(), diagnosticBag);
+    }
+  }
+
+  /**
+   * Scans the document parse tree for deprecated Rule STR-04 fenced string arrow delimiters.
+   *
+   * @param tree          the parse tree node to inspect recursively
+   * @param diagnosticBag the accumulator bag for recording deprecation warnings
+   */
+  public static void validateFencedStringDelimiters(
+      @Nullable ParseTree tree,
+      DiagnosticBag diagnosticBag
+  ) {
+    if (tree == null) {
+      return;
+    }
+    if (tree instanceof StvnParser.FencedStringContext fencedCtx) {
+      var fenceStart = fencedCtx.FENCE_START();
+      if (fenceStart != null) {
+        var token = fenceStart.getSymbol();
+        if (token != null && token.getText().startsWith("\"\"\"->")) {
+          diagnosticBag.addWarning(
+              org.stvnadore.core.parser.StvnErrorListener.RULE_STR_04_ARROW_DEPRECATION_MSG,
+              token.getStartIndex(),
+              token.getStopIndex() + 1,
+              token.getLine(),
+              token.getCharPositionInLine(),
+              DiagnosticBag.WARN_DEPRECATED_FENCE_ARROW
+          );
+        }
+      }
+    }
+    for (int i = 0; i < tree.getChildCount(); i++) {
+      validateFencedStringDelimiters(tree.getChild(i), diagnosticBag);
     }
   }
 

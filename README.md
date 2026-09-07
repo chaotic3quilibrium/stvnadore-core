@@ -394,7 +394,7 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 
 - 2026.09.07
 - Formalized **Rule STR-04 (Fenced String Language Discriminator Invariant)** in ANTLR4 lexer and parser
-- Supported optional directional arrow `->` (`"""->[TAG]` and `"""[TAG]`)
+- Supported optional directional arrow `->` (`"""->[TAG]` and `"""[TAG]`); deprecated `"""->[TAG]` in favor of canonical `"""[TAG]` (scheduled for removal in 2.0.0)
 - Enforced strict tag character class `^[a-zA-Z0-9_-]{1,256}$` with length bounding from 1 to 256 characters
 - Remediated all missing Javadoc parameter tags in `StvnTypeResolver.java` and enforced `<failOnWarnings>true</failOnWarnings>`
 - Updated Section 5.3 in `STVN_LANGUAGE_SPEC.md` to define Rule STR-04 invariants

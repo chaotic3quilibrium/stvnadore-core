@@ -54,6 +54,18 @@ public record StvnCompilationResult<T>(
   }
 
   /**
+   * Constructs a successful compilation result with accumulated diagnostics.
+   *
+   * @param value       the successfully compiled AST value
+   * @param diagnostics the list of non-fatal diagnostics (warnings/hints)
+   * @param <T>         the value type
+   * @return a successful compilation result containing diagnostics
+   */
+  public static <T> StvnCompilationResult<T> success(T value, List<StvnDiagnostic> diagnostics) {
+    return new StvnCompilationResult<>(Optional.of(value), diagnostics, false);
+  }
+
+  /**
    * Constructs a successful compilation result for an empty document body with zero diagnostics.
    *
    * @param <T> the value type
@@ -61,6 +73,17 @@ public record StvnCompilationResult<T>(
    */
   public static <T> StvnCompilationResult<T> empty() {
     return new StvnCompilationResult<>(Optional.empty(), List.of(), false);
+  }
+
+  /**
+   * Constructs a successful compilation result for an empty document body with accumulated diagnostics.
+   *
+   * @param diagnostics the list of non-fatal diagnostics
+   * @param <T>         the value type
+   * @return an empty compilation result containing diagnostics
+   */
+  public static <T> StvnCompilationResult<T> empty(List<StvnDiagnostic> diagnostics) {
+    return new StvnCompilationResult<>(Optional.empty(), diagnostics, false);
   }
 
   /**

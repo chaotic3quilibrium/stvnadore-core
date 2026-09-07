@@ -331,7 +331,7 @@ public final class StvnCompiler {
       if (docCtx.documentBody() == null || docCtx.documentBody().bodyEntry() == null) {
         return diagnosticBag.hasErrors()
             ? StvnCompilationResult.failure(diagnosticBag.toList())
-            : StvnCompilationResult.empty();
+            : StvnCompilationResult.empty(diagnosticBag.toList());
       }
 
       try {
@@ -342,7 +342,7 @@ public final class StvnCompiler {
         if (hasErrors) {
           return StvnCompilationResult.partial(astValue, diagnosticBag.toList());
         } else {
-          return StvnCompilationResult.success(astValue);
+          return StvnCompilationResult.success(astValue, diagnosticBag.toList());
         }
       } catch (Throwable t) {
         int startOffset = -1;

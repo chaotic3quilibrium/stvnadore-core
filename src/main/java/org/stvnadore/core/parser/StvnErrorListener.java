@@ -24,6 +24,12 @@ import java.util.Optional;
 @NullMarked
 public final class StvnErrorListener extends BaseErrorListener {
 
+  /**
+   * Standardized deprecation diagnostic message for Rule STR-04 fenced string arrow delimiter.
+   */
+  public static final String RULE_STR_04_ARROW_DEPRECATION_MSG =
+      "Rule STR-04 deprecation: The '->' arrow delimiter in fenced strings is deprecated; use '\"\"\"[TAG]' instead.";
+
   private final @Nullable DiagnosticBag diagnosticBag;
   private final boolean strict;
 

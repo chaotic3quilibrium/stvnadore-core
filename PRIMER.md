@@ -335,7 +335,7 @@ Traits govern capability states:
 STVN supports three string presentation formats:
 1. **Simple String:** `"Single-line quoted text with escapes \n"`
 2. **Block String:** Multi-line triple-quoted string `""" Line 1 \n Line 2 """`
-3. **Fenced String:** Tagged multi-line string `"""->[TAG] ... [TAG]"""`
+3. **Fenced String:** Tagged multi-line string `"""[TAG] ... [TAG]"""` (Note: `"""->[TAG]` is deprecated as of v1.1.1)
 
 ### 6.2 Fenced Multi-Line Strings for STVN Containing STVN
 
@@ -350,7 +350,7 @@ When storing an STVN document or schema inside another STVN document (such as in
   :type :Tuple( :SchemaName :Payload )
   :body (
     "network_config.stvn_inclf"
-    """->[STVN_DOC]
+    """[STVN_DOC]
 {
   :defs {
     :Port :Uint16

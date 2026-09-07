@@ -521,13 +521,13 @@ class StvnTextPrinterTest {
             """,
         optDefault,
         """
-            {:type :String :body ""\"->[CUSTOM_FENCE]
+            {:type :String :body ""\"[CUSTOM_FENCE]
             Nested fenced content
             [CUSTOM_FENCE]""\"}""",
         """
             {
                 :type :String
-                :body ""\"->[CUSTOM_FENCE]
+                :body ""\"[CUSTOM_FENCE]
             Nested fenced content
             [CUSTOM_FENCE]""\"
             }"""

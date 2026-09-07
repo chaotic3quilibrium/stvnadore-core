@@ -672,4 +672,50 @@ public class StvnDiagnosticsTest {
     var msg = result.diagnostics().getFirst().message();
     Assertions.assertTrue(msg.contains("Rule STR-04 violation: Orphan or unexpected closing fence delimiter"), msg);
   }
+
+  @Test
+  @DisplayName("Rule STR-04 Deprecation: Encountering '->' emits WARNING diagnostic and succeeds compilation")
+  void testFencedStringArrowDelimiterEmitsDeprecationWarning() {
+    String input = """
+        {
+          :type :String
+          :body ""\"->[SQL]
+          SELECT 1;
+          [SQL]""\"
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.isSuccess(), "Compilation must succeed despite deprecation warning");
+    Assertions.assertFalse(result.hasErrors(), "Must contain zero ERROR diagnostics");
+    Assertions.assertTrue(result.hasWarnings(), "Must flag warning diagnostic");
+    Assertions.assertEquals(1, result.diagnostics().size());
+
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(StvnDiagnostic.DiagnosticSeverity.WARNING, diag.severity());
+    Assertions.assertEquals(
+        "Rule STR-04 deprecation: The '->' arrow delimiter in fenced strings is deprecated; use '\"\"\"[TAG]' instead.",
+        diag.message()
+    );
+    Assertions.assertEquals("RULE_STR_04_DEPRECATED_ARROW", diag.errorCode().orElse(""));
+    Assertions.assertEquals(3, diag.line());
+  }
+
+  @Test
+  @DisplayName("Rule STR-04 Canonical: Fenced string without arrow emits zero diagnostics")
+  void testFencedStringCanonicalWithoutArrowEmitsNoDiagnostics() {
+    String input = """
+        {
+          :type :String
+          :body ""\"[SQL]
+          SELECT 1;
+          [SQL]""\"
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.isSuccess());
+    Assertions.assertFalse(result.hasWarnings());
+    Assertions.assertEquals(0, result.diagnostics().size());
+  }
 }
