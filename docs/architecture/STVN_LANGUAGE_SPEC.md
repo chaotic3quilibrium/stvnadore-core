@@ -1,6 +1,6 @@
 # STVN Language Specification
 
-**Version:** 1.1.0
+**Version:** 1.1.1
 
 **Status:** Formal Technical Specification
 
@@ -47,6 +47,8 @@
     * [5.2 Algebraic Sum Types](#52-algebraic-sum-types)
       * [5.2.1 Variant Syntax & Strict Product Demarcation](#521-variant-syntax--strict-product-demarcation)
     * [5.3 Polyglot Multi-Language Fenced Strings (Rule STR-04)](#53-polyglot-multi-language-fenced-strings-rule-str-04)
+      * [Delimiter Invariant](#delimiter-invariant)
+      * [Examples](#examples)
     * [5.4 Algebraic Product Types](#54-algebraic-product-types)
     * [5.5 Collection Types](#55-collection-types)
     * [5.6 Temporal Domain Types (Tripartite Architecture)](#56-temporal-domain-types-tripartite-architecture)
