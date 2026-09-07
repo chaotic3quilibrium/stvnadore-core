@@ -4,6 +4,7 @@ import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.printer.PrinterOptions;
+import org.stvnadore.core.StvnCompiler;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -61,5 +62,47 @@ class CanonicalLayoutWriterTest {
 
     // The writer separates non-punctuation tokens with a space
     Assertions.assertEquals("#Some #Left #Right", writer.toString());
+  }
+
+  @Test
+  void testCanonicalNormalizationOfFencedStringArrowDeprecation() {
+    String legacySource = """
+        {
+          :defs {
+            :Doc { #preserveIndent #TRUE } :String
+          }
+          :type :Doc
+          :body ""\"->[SQL]
+        SELECT * FROM users;
+        [SQL]""\"
+        }
+        """;
+
+    String modernSource = """
+        {
+          :defs {
+            :Doc { #preserveIndent #TRUE } :String
+          }
+          :type :Doc
+          :body ""\"[SQL]
+        SELECT * FROM users;
+        [SQL]""\"
+        }
+        """;
+
+    var legacyAst = StvnCompiler.compile(legacySource).orElseThrow();
+    var modernAst = StvnCompiler.compile(modernSource).orElseThrow();
+
+    // 1. Assert byte-for-byte identical canonical serialized output
+    String canonicalLegacy = StvnCompiler.toCanonicalString(legacyAst);
+    String canonicalModern = StvnCompiler.toCanonicalString(modernAst);
+    Assertions.assertEquals(canonicalModern, canonicalLegacy);
+    Assertions.assertFalse(canonicalLegacy.contains("->[SQL]"), "Canonical output must strictly omit '->' arrow");
+    Assertions.assertTrue(canonicalLegacy.contains("\"\"\"[SQL]"), "Canonical output must format as '\"\"\"[TAG]'");
+
+    // 2. Assert byte-for-byte identical SHA-256 CAS fingerprints
+    byte[] hashLegacy = StvnCompiler.computeCasFingerprint(legacyAst);
+    byte[] hashModern = StvnCompiler.computeCasFingerprint(modernAst);
+    Assertions.assertArrayEquals(hashModern, hashLegacy, "Both legacy and modern inputs must generate identical CAS fingerprints");
   }
 }

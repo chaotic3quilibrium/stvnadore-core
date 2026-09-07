@@ -99,4 +99,35 @@ class StvnLiteralParserTest {
       StvnLiteralParser.parseDateTimeAudited("\"2026-03-15T08:00:00-05:00\"");
     });
   }
+
+  @Test
+  void testFencedStringParsingOptionalArrow() {
+    String withArrow = "\"\"\"->[SQL]\nSELECT 1;\n[SQL]\"\"\"";
+    var parsedWith = StvnLiteralParser.parseStringNew(withArrow, true);
+    Assertions.assertEquals(StvnValue.StringStyle.FENCED, parsedWith.style());
+    Assertions.assertEquals("SQL", parsedWith.optionalFenceTag().orElseThrow());
+    Assertions.assertEquals("SELECT 1;\n", parsedWith.text());
+
+    String withoutArrow = "\"\"\"[SQL]\nSELECT 1;\n[SQL]\"\"\"";
+    var parsedWithout = StvnLiteralParser.parseStringNew(withoutArrow, true);
+    Assertions.assertEquals(StvnValue.StringStyle.FENCED, parsedWithout.style());
+    Assertions.assertEquals("SQL", parsedWithout.optionalFenceTag().orElseThrow());
+    Assertions.assertEquals("SELECT 1;\n", parsedWithout.text());
+  }
+
+  @Test
+  void testFencedStringTagLengthBoundaries() {
+    String tag256 = "A".repeat(256);
+    String input256 = "\"\"\"[" + tag256 + "]\ncontent\n[" + tag256 + "]\"\"\"";
+    var parsed256 = StvnLiteralParser.parseStringNew(input256, true);
+    Assertions.assertEquals(tag256, parsed256.optionalFenceTag().orElseThrow());
+
+    String tag257 = "A".repeat(257);
+    String input257 = "\"\"\"[" + tag257 + "]\ncontent\n[" + tag257 + "]\"\"\"";
+    Assertions.assertThrows(IllegalArgumentException.class, () -> StvnLiteralParser.parseStringNew(input257, true));
+
+    Assertions.assertThrows(IllegalArgumentException.class, () -> StvnLiteralParser.parseStringNew("\"\"\"[]\ncontent\n[]\"\"\"", true));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> StvnLiteralParser.parseStringNew("\"\"\"[ ]\ncontent\n[ ]\"\"\"", true));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> StvnLiteralParser.parseStringNew("\"\"\"[C++]\ncontent\n[C++]\"\"\"", true));
+  }
 }

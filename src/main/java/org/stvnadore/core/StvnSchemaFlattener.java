@@ -827,7 +827,7 @@ public final class StvnSchemaFlattener {
         tokens.add("\"\"\"\n" + parsed.text() + "\"\"\"");
       } else if (parsed.style() == org.stvnadore.core.ir.StvnValue.StringStyle.FENCED) {
         String tag = parsed.optionalFenceTag().orElse("FENCE");
-        tokens.add("\"\"\"->[" + tag + "]\n" + parsed.text() + "[" + tag + "]\"\"\"");
+        tokens.add("\"\"\"[" + tag + "]\n" + parsed.text() + "[" + tag + "]\"\"\"");
       }
     } else if (ctx.valueKeyword() != null) {
       tokens.add(ctx.valueKeyword().getText());

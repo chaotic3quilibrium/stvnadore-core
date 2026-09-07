@@ -46,14 +46,15 @@
     * [5.1 Scalar Primitives & Arbitrary Bit-Widths](#51-scalar-primitives--arbitrary-bit-widths)
     * [5.2 Algebraic Sum Types](#52-algebraic-sum-types)
       * [5.2.1 Variant Syntax & Strict Product Demarcation](#521-variant-syntax--strict-product-demarcation)
-    * [5.3 Algebraic Product Types](#53-algebraic-product-types)
-    * [5.4 Collection Types](#54-collection-types)
-    * [5.5 Temporal Domain Types (Tripartite Architecture)](#55-temporal-domain-types-tripartite-architecture)
-      * [5.5.1 Physical Epoch Timestamps](#551-physical-epoch-timestamps)
-      * [5.5.2 Physical Instant: `:DateTimeOffset`](#552-physical-instant-datetimeoffset)
-      * [5.5.3 Civil Schedule: `:DateTimeZoned`](#553-civil-schedule-datetimezoned)
-      * [5.5.4 Compliance & Audit Record: `:DateTimeAudited`](#554-compliance--audit-record-datetimeaudited)
-      * [5.5.5 Tripartite Invariant Comparison Matrix](#555-tripartite-invariant-comparison-matrix)
+    * [5.3 Polyglot Multi-Language Fenced Strings (Rule STR-04)](#53-polyglot-multi-language-fenced-strings-rule-str-04)
+    * [5.4 Algebraic Product Types](#54-algebraic-product-types)
+    * [5.5 Collection Types](#55-collection-types)
+    * [5.6 Temporal Domain Types (Tripartite Architecture)](#56-temporal-domain-types-tripartite-architecture)
+      * [5.6.1 Physical Epoch Timestamps](#561-physical-epoch-timestamps)
+      * [5.6.2 Physical Instant: `:DateTimeOffset`](#562-physical-instant-datetimeoffset)
+      * [5.6.3 Civil Schedule: `:DateTimeZoned`](#563-civil-schedule-datetimezoned)
+      * [5.6.4 Compliance & Audit Record: `:DateTimeAudited`](#564-compliance--audit-record-datetimeaudited)
+      * [5.6.5 Tripartite Invariant Comparison Matrix](#565-tripartite-invariant-comparison-matrix)
   * [6. Trait Capability Calculus & Metadata Constraints](#6-trait-capability-calculus--metadata-constraints)
     * [6.1 Metadata Target Constraints](#61-metadata-target-constraints)
     * [6.2 Trait Capability Matrix](#62-trait-capability-matrix)
@@ -597,11 +598,62 @@ Sum variant tags (`#Some`, `#None`, `#Left`, `#Right`, `#S`, `#N`, `#L`, `#R`, a
    - If the target schema is explicitly a product (e.g., `:Option( :Tuple( :Uint32 ) )`), parentheses are mandatory: `#Some ( 42 )`.
    - Multi-element product variants require parentheses matching the product schema arity: `:Option( :Tuple( :Uint32 :Uint32 ) )` with `#Some ( 1 2 )`.
 
-### 5.3 Algebraic Product Types
+### 5.3 Polyglot Multi-Language Fenced Strings (Rule STR-04)
+
+Fenced multi-line strings encapsulate embedded host language source code, structured documentation, and nested data formats without requiring character escaping.
+
+#### Delimiter Invariant
+Every fenced string literal must adhere to **Rule STR-04**:
+
+1. **Opening Delimiter:**
+   `"""[TAG]` (Canonical)  
+   `"""->[TAG]` (**DEPRECATED as of 1.1.1; scheduled for removal in 2.0.0**)  
+   The directional arrow `->` is deprecated. Compilers emit a `WARNING` diagnostic when `->` is encountered. The opening delimiter must be followed by optional horizontal whitespace and a newline.
+
+2. **Closing Delimiter:**
+   `[TAG]"""`  
+   The closing tag must match the opening tag identically ($\text{TAG}_{\text{close}} == \text{TAG}_{\text{open}}$).
+
+3. **Valid Character Set:**
+   `TAG` must match the positive character class: `^[a-zA-Z0-9_-]{1,256}$`
+
+4. **Length Bounds:**
+   $1 \le \text{length}(\text{TAG}) \le 256$. Tags exceeding 256 characters are rejected at parse time to prevent memory exhaustion.
+
+5. **Prohibited Patterns:**
+   Empty tags (`"""->[]`, `"""[]`), whitespace (`0x20`, `\t`), quotation marks (`"`, `'`, ```), brackets (`[`, `]`), and punctuation (`:`, `;`, `,`, `.`, `/`, `\`) are strictly prohibited.
+
+#### Examples
+```stvn
+// Canonical SQL query (modern standard)
+:defs { :Query :String }
+:type :Query
+:body """[SQL]
+SELECT id, username, email
+FROM users
+WHERE active = TRUE;
+[SQL]"""
+```
+
+```stvn
+// CAS Content-Addressable Storage envelope with canonical SHA-256 digest tag
+:type :Tuple( :String :String )
+:body (
+  "payload.stvn"
+  """[SHA256-26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f]
+{
+  :type :Int32
+  :body 42
+}
+[SHA256-26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f]"""
+)
+```
+
+### 5.4 Algebraic Product Types
 
 * **`:Tuple( T1 T2 ... Tn )`**: Heterogeneous fixed-size ordered structural sequence. Encoded as `( v1 v2 ... vn )`.
 
-### 5.4 Collection Types
+### 5.5 Collection Types
 
 All collection types preserve **insertion order**. Value equality is order-dependent: `{ [ "a" 1 ] [ "b" 2 ] }` does not equal `{ [ "b" 2 ] [ "a" 1 ] }`.
 
@@ -614,16 +666,16 @@ All collection types preserve **insertion order**. Value equality is order-depen
 * **`:MapInv( K V )`**: Invertible bidirectional map. Enforces a **dual-set invariant**: all keys must be unique **and** all values must be unique. Both `K` and `V` **must** resolve to `#equatable`. Encoded in text as `{ [ k1 v1 ] [ k2 v2 ] ... }`. Duplicate values trigger `"Duplicate inverted map value detected"`.
 * **`:MapInvNonEmpty( K V )`**: Invertible bidirectional map requiring size $\ge 1$. Same constraints as `:MapInv`.
 
-### 5.5 Temporal Domain Types (Tripartite Architecture)
+### 5.6 Temporal Domain Types (Tripartite Architecture)
 
 STVN partitions temporal values into physical epoch counters and a mathematically orthogonal tripartite date-time system:
 
-#### 5.5.1 Physical Epoch Timestamps
+#### 5.6.1 Physical Epoch Timestamps
 * **`:TimeEpochS`**: 64-bit signed integer representing seconds elapsed since the Unix Epoch (`1970-01-01T00:00:00Z`).
 * **`:TimeEpochMs`**: 64-bit signed integer representing milliseconds elapsed since the Unix Epoch.
 * **`:TimeEpochNs`**: Arbitrary-precision integer representing nanoseconds elapsed since the Unix Epoch.
 
-#### 5.5.2 Physical Instant: `:DateTimeOffset`
+#### 5.6.2 Physical Instant: `:DateTimeOffset`
 Represents an absolute point on the physical timeline associated with a fixed local presentation offset.
 * **Normative Syntax:** Double-quoted ISO-8601 string containing full date, time, and mandatory numerical UTC offset (`Z` or `±HH:mm`):
   `"YYYY-MM-DDTHH:mm:ss[.fff...](Z|±HH:mm)"`
@@ -631,7 +683,7 @@ Represents an absolute point on the physical timeline associated with a fixed lo
 * **AST Record:** `StvnValue.StvnDateTimeOffset(ResolvedSchema schema, OffsetDateTime value)`
 * **Examples:** `"2026-03-15T08:00:00-05:00"`, `"2026-08-18T18:30:00Z"`, `"2026-12-31T23:59:59.999999999+09:00"`
 
-#### 5.5.3 Civil Schedule: `:DateTimeZoned`
+#### 5.6.3 Civil Schedule: `:DateTimeZoned`
 Represents a human civil wall-clock time scheduled within a geopolitical IANA time zone jurisdiction.
 * **Normative Syntax:** Double-quoted ISO-8601 string containing local date, local time, and a bracketed canonical IANA time zone identifier:
   `"YYYY-MM-DDTHH:mm:ss[.fff...][Region/City]"`
@@ -640,7 +692,7 @@ Represents a human civil wall-clock time scheduled within a geopolitical IANA ti
 * **AST Record:** `StvnValue.StvnDateTimeZoned(ResolvedSchema schema, LocalDateTime localDateTime, ZoneId zoneId)`
 * **Examples:** `"2026-03-15T08:00:00[America/Chicago]"`, `"2026-08-18T18:30:00[Europe/London]"`, `"2026-11-01T01:30:00[Asia/Tokyo]"`
 
-#### 5.5.4 Compliance & Audit Record: `:DateTimeAudited`
+#### 5.6.4 Compliance & Audit Record: `:DateTimeAudited`
 Represents an immutable regulatory event recording both the observed instant offset and the legal IANA jurisdiction under which the transaction occurred.
 * **Normative Syntax:** Double-quoted ISO-8601 string containing local date, local time, explicit UTC offset, and bracketed IANA time zone identifier:
   `"YYYY-MM-DDTHH:mm:ss[.fff...](Z|±HH:mm)[Region/City]"`
@@ -652,7 +704,7 @@ Represents an immutable regulatory event recording both the observed instant off
 * **AST Record:** `StvnValue.StvnDateTimeAudited(ResolvedSchema schema, OffsetDateTime offsetDateTime, ZoneId zoneId)`
 * **Examples:** `"2026-03-15T08:00:00-05:00[America/Chicago]"`, `"2026-01-15T08:00:00-06:00[America/Chicago]"`, `"2026-07-04T12:00:00+01:00[Europe/London]"`
 
-#### 5.5.5 Tripartite Invariant Comparison Matrix
+#### 5.6.5 Tripartite Invariant Comparison Matrix
 
 | Specification Attribute            | `:DateTimeOffset`                       | `:DateTimeZoned`                        | `:DateTimeAudited`                                     |
 |:-----------------------------------|:----------------------------------------|:----------------------------------------|:-------------------------------------------------------|
@@ -1436,7 +1488,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
   :type :Tuple(:SchemaName :StvnInclf)
   :body (
     "example-schema.stvn_inclf"
-    """->[SHA256-ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad]
+    """[SHA256-ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad]
 {
   //example-schema.stvn_inclf
   :defs {
@@ -1562,6 +1614,10 @@ lexer grammar StvnLexer;
 @members {
     // Isolated Lexer state to track exact fencing boundaries during Mode transitions
     private String currentFenceTag = "";
+
+    public String getCurrentFenceTag() {
+        return currentFenceTag;
+    }
 }
 
 // ============================================================================
@@ -1650,26 +1706,48 @@ LITERAL_INTEGER : '-'? ('0' [xX] [0-9a-fA-F]+ | '0' [bB] [01]+ | '0' [oO] [0-7]+
 LITERAL_FLOAT : '-'? [0-9]+ '.' [0-9]+ ([eE] [-+]? [0-9]+)? ;
 LITERAL_STRING_SIMPLE : '"' (~["\\\r\n] | '\\' .)* '"' ;
 
+fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
+
+FENCE_START : '"""' '->'? '[' FENCE_TAG_CHAR+ ']' [ \t\r]* '\n' {
+    String text = getText();
+    int start = text.indexOf('[') + 1;
+    int end = text.indexOf(']', start);
+    String tag = text.substring(start, end);
+    if (tag.length() > 256) {
+        setType(MALFORMED_FENCE_OPEN);
+        pushMode(MALFORMED_FENCED_STRING);
+    } else {
+        currentFenceTag = tag;
+        pushMode(FENCED_STRING);
+    }
+} ;
+
+MALFORMED_FENCE_OPEN : '"""' '->'? '[' ~[\r\n]* '\n' {
+    pushMode(MALFORMED_FENCED_STRING);
+} ;
+
+MALFORMED_FENCE_CLOSE : '[' ~[\r\n\]]* ']"""' ;
+
 BLOCK_STRING_TRIGGER : '"""' -> more, pushMode(STANDARD_BLOCK);
 
 // ============================================================================
 // 2. ISOLATED LEXER MODES
 // ============================================================================
 
-FENCE_START : '"""->[' [-a-zA-Z0-9_ ]* ']' ~[\n]* '\n' {
-    String text = getText();
-    int start = text.indexOf('[') + 1;
-    int end = text.indexOf(']', start);
-    currentFenceTag = text.substring(start, end);
-    pushMode(FENCED_STRING);
-} ;
-
 mode FENCED_STRING;
 
 // Semantic Predicate ensures that we only pop the lexer mode if the matching tag is mathematically identical!
-FENCE_END : '[' [-a-zA-Z0-9_ ]* ']"""' { getText().substring(1, getText().length() - 4).equals(currentFenceTag) }? -> popMode ;
+FENCE_END : '[' FENCE_TAG_CHAR+ ']"""' { getText().substring(1, getText().length() - 4).equals(currentFenceTag) }? -> popMode ;
 
 FENCE_CONTENT : . ;
+
+mode MALFORMED_FENCED_STRING;
+
+// Consume and skip the closing delimiter to return cleanly to DEFAULT_MODE
+MALFORMED_FENCE_END : '[' ~[\r\n\]]* ']"""' -> skip, popMode ;
+
+// Silently skip body characters to prevent cascading syntax errors in DEFAULT_MODE
+MALFORMED_FENCE_CONTENT : . -> skip ;
 
 mode STANDARD_BLOCK;
 

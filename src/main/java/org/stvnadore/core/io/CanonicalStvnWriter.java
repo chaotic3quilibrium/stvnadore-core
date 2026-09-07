@@ -262,7 +262,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
             layout.writeBlockString(value);
           } else if (style == StringStyle.FENCED) {
             var tag = fenceTag.orElse("FENCE");
-            layout.writeLiteral("\"\"\"->[" + tag + "]\n");
+            layout.writeLiteral("\"\"\"[" + tag + "]\n");
             layout.writeLiteral(value);
             layout.writeLiteral("[" + tag + "]\"\"\"");
           } else {

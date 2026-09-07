@@ -1041,7 +1041,7 @@ public class StvnEndToEndIntegrationTest {
                     hi1234[FENCE_OOPS]""\"
                   ]
                 }""",
-            "STVN Syntax Error: extraneous input '<EOF>'")
+            "STVN Syntax Error: Rule STR-04 violation: Mismatched closing fence tag '[FENCE_OOPS]', expected '[FENCE]'")
     ).map(testProfile -> Arguments.of(testProfile.displayName(), testProfile));
   }
 

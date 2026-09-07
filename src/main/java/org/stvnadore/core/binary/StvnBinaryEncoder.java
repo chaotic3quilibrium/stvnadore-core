@@ -620,7 +620,7 @@ public class StvnBinaryEncoder {
       writeDerivedLengthPrefix(totalLength);
 
       buffer.put(styleByte);
-      buffer.put((byte) tagBytes.length);
+      buffer.put((byte) (tagBytes.length - 1));
       buffer.put(tagBytes);
       buffer.put(textBytes);
 

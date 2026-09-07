@@ -43,7 +43,7 @@ public final class PatternPrinterDispatcher {
           case BLOCK -> layout.writeBlockString(text);
           case FENCED -> {
             var tag = fenceTag.orElse("FENCE");
-            layout.writeLiteral("\"\"\"->[" + tag + "]\n");
+            layout.writeLiteral("\"\"\"[" + tag + "]\n");
             layout.writeLiteral(text);
             layout.writeLiteral("[" + tag + "]\"\"\"");
           }

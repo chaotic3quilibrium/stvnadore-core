@@ -460,7 +460,7 @@ public class StvnBinaryDecoder {
 
     // 3. If it's FENCED (ordinal 2), we must skip over the Tag metadata
     if (styleByte == 2) {
-      int tagLen = Byte.toUnsignedInt(ctx.buffer().get(payloadOffset));
+      int tagLen = Byte.toUnsignedInt(ctx.buffer().get(payloadOffset)) + 1;
 
       // Advance past the tag length byte and the tag string itself
       payloadOffset += (1 + tagLen);
@@ -704,7 +704,7 @@ public class StvnBinaryDecoder {
 
       // Extract the dynamic fence tag if the style requires it
       if (style == StvnValue.StringStyle.FENCED) {
-        int tagLen = Byte.toUnsignedInt(ctx.buffer().get(payloadOffset));
+        int tagLen = Byte.toUnsignedInt(ctx.buffer().get(payloadOffset)) + 1;
         payloadOffset += 1;
         payloadLength -= 1;
 

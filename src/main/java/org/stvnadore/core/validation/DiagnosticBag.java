@@ -48,6 +48,8 @@ public final class DiagnosticBag {
   public static final String ERR_TRAIT_VIOLATION = "TRAIT_VIOLATION";
   /** Error code emitted when a schema definition contains malformed syntax or illegal nesting. */
   public static final String ERR_MALFORMED_SCHEMA = "MALFORMED_SCHEMA";
+  /** Warning code emitted when a legacy Rule STR-04 fenced string arrow delimiter is encountered. */
+  public static final String WARN_DEPRECATED_FENCE_ARROW = "RULE_STR_04_DEPRECATED_ARROW";
 
   private final int maxDiagnostics;
   private final List<StvnDiagnostic> diagnostics;
@@ -166,6 +168,36 @@ public final class DiagnosticBag {
       @Nullable String errorCode
   ) {
     addError(message, startOffset, endOffset, -1, -1, cause, errorCode);
+  }
+
+  /**
+   * Helper method to record a warning-level diagnostic with exact coordinates.
+   *
+   * @param message     the descriptive warning message
+   * @param startOffset the 0-based character start offset
+   * @param endOffset   the 0-based character end offset
+   * @param line        the 1-based source line index
+   * @param column      the 0-based character column offset
+   * @param errorCode   the optional standardized error code identifier, or {@code null}
+   */
+  public void addWarning(
+      String message,
+      int startOffset,
+      int endOffset,
+      int line,
+      int column,
+      @Nullable String errorCode
+  ) {
+    add(new StvnDiagnostic(
+        message,
+        DiagnosticSeverity.WARNING,
+        line,
+        column,
+        startOffset,
+        endOffset,
+        null,
+        Optional.ofNullable(errorCode)
+    ));
   }
 
   /**

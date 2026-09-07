@@ -22,6 +22,11 @@ import java.util.regex.Pattern;
  */
 public final class StvnLiteralParser {
 
+  /**
+   * Strict positive character class pattern for Rule STR-04 fenced string language tags.
+   */
+  public static final Pattern FENCE_TAG_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{1,256}$");
+
   private StvnLiteralParser() {
     throw new UnsupportedOperationException("Utility class cannot be instantiated");
   }
@@ -136,7 +141,7 @@ public final class StvnLiteralParser {
    */
   public static ParsedString parseStringNew(String rawText, boolean preserveIndent) {
     if (rawText.startsWith("\"\"\"")) {
-      boolean isFenced = rawText.startsWith("\"\"\"->[");
+      boolean isFenced = rawText.startsWith("\"\"\"->[") || rawText.startsWith("\"\"\"[");
       int newlineIndex = rawText.indexOf('\n');
 
       // Failsafe: if somehow a single-line block string snuck past the validator
@@ -146,14 +151,17 @@ public final class StvnLiteralParser {
             StvnValue.StringStyle.SIMPLE,
             Optional.empty());
 
-      String openingTail = rawText.substring(3 + (isFenced
-          ? 2
-          : 0), newlineIndex).trim();
       String payload;
 
       Optional<String> optionalOpeningTag = Optional.empty();
       if (isFenced) {
-        String openingTag = openingTail.substring(1, openingTail.length() - 1);
+        int tagStart = rawText.indexOf('[');
+        int tagEnd = rawText.indexOf(']', tagStart);
+        if (tagStart == -1 || tagEnd == -1 || tagEnd <= tagStart) {
+          throw new IllegalArgumentException("Rule STR-04 violation: Malformed opening fence delimiter");
+        }
+        String openingTag = rawText.substring(tagStart + 1, tagEnd);
+        validateFenceTag(openingTag);
         optionalOpeningTag = Optional.of(openingTag);
         String expectedClosing = "[" + openingTag + "]\"\"\"";
         payload = rawText.substring(newlineIndex + 1, rawText.length() - expectedClosing.length());
@@ -179,6 +187,27 @@ public final class StvnLiteralParser {
         rawText,
         StvnValue.StringStyle.SIMPLE,
         Optional.empty());
+  }
+
+  /**
+   * Validates that a fenced string language discriminator tag complies with Rule STR-04.
+   *
+   * @param tag the tag string to validate
+   * @throws IllegalArgumentException if the tag violates Rule STR-04
+   */
+  public static void validateFenceTag(String tag) {
+    if (tag.isEmpty()) {
+      throw new IllegalArgumentException("Rule STR-04 violation: Fenced string delimiter tag must not be empty");
+    }
+    if (tag.contains(" ") || tag.contains("\t") || tag.contains("\r") || tag.contains("\n")) {
+      throw new IllegalArgumentException("Rule STR-04 violation: Fenced string delimiter tag must not contain whitespace, got '" + tag + "'");
+    }
+    if (tag.length() > 256) {
+      throw new IllegalArgumentException("Rule STR-04 violation: Fenced string delimiter tag length exceeds maximum of 256 characters, got " + tag.length());
+    }
+    if (!FENCE_TAG_PATTERN.matcher(tag).matches()) {
+      throw new IllegalArgumentException("Rule STR-04 violation: Fenced string delimiter tag '" + tag + "' contains invalid characters; must match positive character class ^[a-zA-Z0-9_-]{1,256}$");
+    }
   }
 
   /**

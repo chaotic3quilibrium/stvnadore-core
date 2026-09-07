@@ -591,4 +591,131 @@ public class StvnDiagnosticsTest {
         "Expected ambiguity message for constant matching overlapping Either, got: " + diag.message()
     );
   }
+
+  @Test
+  @DisplayName("Rule STR-04: Empty tag brackets rejected with specific diagnostic and zero cascading errors")
+  void testEmptyTagRejectedWithRuleStr04Diagnostic() {
+    String input = """
+        {
+          :type :String
+          :body ""\"->[]
+          SELECT * FROM users WHERE active = TRUE;
+          []""\"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Must isolate body and produce exactly one diagnostic");
+    var msg = result.diagnostics().getFirst().message();
+    Assertions.assertTrue(msg.contains("Rule STR-04 violation: Fenced string delimiter tag must not be empty"), msg);
+  }
+
+  @Test
+  @DisplayName("Rule STR-04: Whitespace in tag rejected with specific diagnostic")
+  void testWhitespaceTagRejectedWithRuleStr04Diagnostic() {
+    String input = """
+        {
+          :type :String
+          :body ""\"[ ]
+          content
+          [ ]""\"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size());
+    var msg = result.diagnostics().getFirst().message();
+    Assertions.assertTrue(msg.contains("Rule STR-04 violation: Fenced string delimiter tag must not contain whitespace"), msg);
+  }
+
+  @Test
+  @DisplayName("Rule STR-04: Illegal symbols in tag rejected with specific diagnostic")
+  void testIllegalSymbolsTagRejectedWithRuleStr04Diagnostic() {
+    String input = """
+        {
+          :type :String
+          :body ""\"[C++]
+          int main() { return 0; }
+          [C++]""\"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size());
+    var msg = result.diagnostics().getFirst().message();
+    Assertions.assertTrue(msg.contains("Rule STR-04 violation: Fenced string delimiter tag 'C++' contains invalid characters"), msg);
+  }
+
+  @Test
+  @DisplayName("Rule STR-04: Tag length exceeding 256 characters rejected with specific diagnostic")
+  void testTagLengthExceeding256RejectedWithRuleStr04Diagnostic() {
+    String tag257 = "A".repeat(257);
+    String input = "{\n  :type :String\n  :body \"\"\"[" + tag257 + "]\n  content\n  [" + tag257 + "]\"\"\"\n}\n";
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size());
+    var msg = result.diagnostics().getFirst().message();
+    Assertions.assertTrue(msg.contains("Rule STR-04 violation: Fenced string delimiter tag length exceeds maximum of 256 characters"), msg);
+  }
+
+  @Test
+  @DisplayName("Rule STR-04: Orphan closing delimiter in default mode rejected without triggering block string")
+  void testOrphanClosingDelimiterRejectedWithRuleStr04Diagnostic() {
+    String input = """
+        {
+          :type :String
+          :body [SQL]""\"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    var msg = result.diagnostics().getFirst().message();
+    Assertions.assertTrue(msg.contains("Rule STR-04 violation: Orphan or unexpected closing fence delimiter"), msg);
+  }
+
+  @Test
+  @DisplayName("Rule STR-04 Deprecation: Encountering '->' emits WARNING diagnostic and succeeds compilation")
+  void testFencedStringArrowDelimiterEmitsDeprecationWarning() {
+    String input = """
+        {
+          :type :String
+          :body ""\"->[SQL]
+          SELECT 1;
+          [SQL]""\"
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.isSuccess(), "Compilation must succeed despite deprecation warning");
+    Assertions.assertFalse(result.hasErrors(), "Must contain zero ERROR diagnostics");
+    Assertions.assertTrue(result.hasWarnings(), "Must flag warning diagnostic");
+    Assertions.assertEquals(1, result.diagnostics().size());
+
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(StvnDiagnostic.DiagnosticSeverity.WARNING, diag.severity());
+    Assertions.assertEquals(
+        "Rule STR-04 deprecation: The '->' arrow delimiter in fenced strings is deprecated; use '\"\"\"[TAG]' instead.",
+        diag.message()
+    );
+    Assertions.assertEquals("RULE_STR_04_DEPRECATED_ARROW", diag.errorCode().orElse(""));
+    Assertions.assertEquals(3, diag.line());
+  }
+
+  @Test
+  @DisplayName("Rule STR-04 Canonical: Fenced string without arrow emits zero diagnostics")
+  void testFencedStringCanonicalWithoutArrowEmitsNoDiagnostics() {
+    String input = """
+        {
+          :type :String
+          :body ""\"[SQL]
+          SELECT 1;
+          [SQL]""\"
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.isSuccess());
+    Assertions.assertFalse(result.hasWarnings());
+    Assertions.assertEquals(0, result.diagnostics().size());
+  }
 }
