@@ -17,6 +17,7 @@ import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.parser.StvnParser.SchemaTypeContext;
 import org.stvnadore.core.parser.StvnParser.TypeDefinitionContext;
 import org.stvnadore.core.parser.StvnParser.ValueContext;
+import org.stvnadore.core.stdlib.StvnPrelude;
 import org.stvnadore.core.validation.CyclicDependencyException;
 import org.stvnadore.core.validation.DuplicateModuleImportException;
 import org.stvnadore.core.validation.NamespaceCollisionException;
@@ -61,6 +62,8 @@ public final class StvnSchemaFlattener {
   private record ImportInfo(
       String rawPath,
       String resolvedPath,
+      boolean hasStrip,
+      @Nullable String stripPrefix,
       Map<String, String> aliasMap
   ) {}
 
@@ -211,7 +214,16 @@ public final class StvnSchemaFlattener {
       TokenStreamRewriter rewriter = new TokenStreamRewriter(doc.tokenStream());
 
       // Rewrite nominal identifier
-      rewriter.replace(originalDef.typeKeyword().getStart(), originalDef.typeKeyword().getStop(), entryName);
+      Map<Integer, Integer> replacementRanges = new HashMap<>();
+      Set<Integer> skippedIndices = new HashSet<>();
+
+      int tgtStart = originalDef.typeDefTarget().getStart().getTokenIndex();
+      int tgtStop = originalDef.typeDefTarget().getStop().getTokenIndex();
+      rewriter.replace(originalDef.typeDefTarget().getStart(), originalDef.typeDefTarget().getStop(), entryName);
+      replacementRanges.put(tgtStart, tgtStop);
+      for (int i = tgtStart + 1; i <= tgtStop; i++) {
+        skippedIndices.add(i);
+      }
 
       // Find all descendant references inside schemaType
       List<StvnParser.TypeKeywordContext> internalRefs = new ArrayList<>();
@@ -220,7 +232,13 @@ public final class StvnSchemaFlattener {
       for (var refCtx : internalRefs) {
         String refText = refCtx.getText();
         String targetName = resolveReference(refText, doc.normalizedPath(), resolvedCache, entryPointTypeNames);
+        int rStart = refCtx.getStart().getTokenIndex();
+        int rStop = refCtx.getStop().getTokenIndex();
         rewriter.replace(refCtx.getStart(), refCtx.getStop(), targetName);
+        replacementRanges.put(rStart, rStop);
+        for (int i = rStart + 1; i <= rStop; i++) {
+          skippedIndices.add(i);
+        }
       }
 
       // Convert rewritten token stream to a spaced canonical text format to prevent token blending
@@ -228,8 +246,16 @@ public final class StvnSchemaFlattener {
       int stopIdx = originalDef.getStop().getTokenIndex();
       List<String> tokenTexts = new ArrayList<>();
       for (int i = startIdx; i <= stopIdx; i++) {
-        var interval = new org.antlr.v4.runtime.misc.Interval(i, i);
-        tokenTexts.add(rewriter.getText(interval));
+        if (skippedIndices.contains(i)) {
+          continue;
+        }
+        if (replacementRanges.containsKey(i)) {
+          int end = replacementRanges.get(i);
+          tokenTexts.add(rewriter.getText(new org.antlr.v4.runtime.misc.Interval(i, end)));
+        } else {
+          var interval = new org.antlr.v4.runtime.misc.Interval(i, i);
+          tokenTexts.add(rewriter.getText(interval));
+        }
       }
       String spacedRewritten = toCanonicalString(tokenTexts);
       var cleanDef = parseTypeDefinition(spacedRewritten, errorListener);
@@ -315,11 +341,18 @@ public final class StvnSchemaFlattener {
     return false;
   }
 
+  private static final Set<String> DYNAMIC_PRELUDE_TYPES = Collections.synchronizedSet(new HashSet<>());
+
   private static boolean isPreludeType(String type) {
-    return type.equals(":Uuid") || type.equals(":Ulid") || type.equals(":Sha256") ||
-        type.equals(":SemVer") || type.equals(":Email") || type.equals(":IPv4") ||
-        type.equals(":Port") || type.equals(":Percentage") || type.equals(":Probability") ||
-        type.equals(":Currency") || type.equals(":Latitude") || type.equals(":Longitude");
+    if (DYNAMIC_PRELUDE_TYPES.isEmpty()) {
+      var pDoc = StvnPrelude.getPreludeDocument();
+      if (pDoc.documentBody() != null && pDoc.documentBody().defsEntry() != null) {
+        for (var def : pDoc.documentBody().defsEntry().typeDefinition()) {
+          DYNAMIC_PRELUDE_TYPES.add(def.typeDefTarget().getText());
+        }
+      }
+    }
+    return DYNAMIC_PRELUDE_TYPES.contains(type);
   }
 
   private static ParsedDocument parseFile(
@@ -365,13 +398,26 @@ public final class StvnSchemaFlattener {
               }
               var resolvedPath = resolveIncludePath(normalizedPath, pathVal);
 
+              boolean hasStrip = false;
+              String stripPrefix = null;
+              if (element.includeOptionsBlock() != null) {
+                for (var opt : element.includeOptionsBlock().includeOption()) {
+                  if (opt.KW_STRIP() != null) {
+                    hasStrip = true;
+                    if (opt.stringLiteral() != null) {
+                      stripPrefix = StvnLiteralParser.parseString(opt.stringLiteral().getText(), true);
+                    }
+                  }
+                }
+              }
+
               Map<String, String> aliasMap = new LinkedHashMap<>();
               if (element.includeAliasBlock() != null && element.includeAliasBlock().includeMapAlias() != null) {
                 for (var alias : element.includeAliasBlock().includeMapAlias()) {
                   aliasMap.put(alias.typeKeyword(0).getText(), alias.typeKeyword(1).getText());
                 }
               }
-              imports.add(new ImportInfo(pathVal, resolvedPath, aliasMap));
+              imports.add(new ImportInfo(pathVal, resolvedPath, hasStrip, stripPrefix, aliasMap));
             }
           }
         }
@@ -488,7 +534,7 @@ public final class StvnSchemaFlattener {
 
       for (var element : elements) {
         if (element instanceof TypeDefinitionContext typeDef) {
-          String typeName = typeDef.typeKeyword().getText();
+          String typeName = typeDef.typeDefTarget().getText();
           var existingClaims = accumulator.get(typeName);
           if (existingClaims != null) {
             for (var claim : existingClaims) {
@@ -518,21 +564,40 @@ public final class StvnSchemaFlattener {
                 String originalName = entry.getKey();
                 DefSource defSource = entry.getValue();
 
-                String importedName = originalName;
+                String candidateName = originalName;
+                if (imp.hasStrip()) {
+                  String prefix = imp.stripPrefix();
+                  if (prefix != null) {
+                    char sigil = originalName.charAt(0);
+                    String rawSub = originalName.substring(1);
+                    if (rawSub.startsWith(prefix)) {
+                      candidateName = sigil + rawSub.substring(prefix.length());
+                    } else if (originalName.startsWith(prefix)) {
+                      candidateName = sigil + originalName.substring(prefix.length());
+                    }
+                  } else {
+                    int lastSlash = candidateName.lastIndexOf('/');
+                    if (lastSlash >= 0 && lastSlash + 1 < candidateName.length()) {
+                      candidateName = originalName.charAt(0) + candidateName.substring(lastSlash + 1);
+                    }
+                  }
+                }
+
+                String importedName = candidateName;
                 boolean isRenamed = false;
-                if (imp.aliasMap().containsKey(originalName)) {
-                  importedName = imp.aliasMap().get(originalName);
+                if (imp.aliasMap().containsKey(candidateName)) {
+                  importedName = imp.aliasMap().get(candidateName);
                   isRenamed = true;
                 }
 
                 if (isRenamed) {
                   accumulator.computeIfAbsent(importedName, k -> new ArrayList<>())
                       .add(new NamespaceClaim(importedName, defSource.defNode(), defSource.sourceName(), ClaimType.RENAMED_IMPORT_RHS));
-                  accumulator.computeIfAbsent(originalName, k -> new ArrayList<>())
-                      .add(new NamespaceClaim(originalName, defSource.defNode(), defSource.sourceName(), ClaimType.RENAMED_IMPORT_LHS));
+                  accumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
+                      .add(new NamespaceClaim(candidateName, defSource.defNode(), defSource.sourceName(), ClaimType.RENAMED_IMPORT_LHS));
                 } else {
-                  accumulator.computeIfAbsent(originalName, k -> new ArrayList<>())
-                      .add(new NamespaceClaim(originalName, defSource.defNode(), defSource.sourceName(), ClaimType.RAW_IMPORT));
+                  accumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
+                      .add(new NamespaceClaim(candidateName, defSource.defNode(), defSource.sourceName(), ClaimType.RAW_IMPORT));
                 }
               }
             }
@@ -620,7 +685,7 @@ public final class StvnSchemaFlattener {
 
   private static String printCanonical(TypeDefinitionContext typeDef) {
     StringBuilder sb = new StringBuilder();
-    sb.append(typeDef.typeKeyword().getText());
+    sb.append(typeDef.typeDefTarget().getText());
 
     StvnConstraints constraints = StvnTypeResolver.extractConstraints(typeDef.metadataMap());
     if (hasConstraints(constraints)) {

@@ -9,8 +9,9 @@ import org.stvnadore.core.parser.StvnParser;
 /**
  * Static registry for standard library types implicitly available in all STVN context environments.
  * <p>
- * Contains definitions for common nominal types such as {@code :Uuid}, {@code :Ulid}, {@code :IPv4},
- * {@code :Port}, {@code :Percentage}, and {@code :Currency}.
+ * Contains definitions for common nominal types such as {@code :org/stvnadore/prelude/Uuid},
+ * {@code :org/stvnadore/prelude/Ulid}, {@code :org/stvnadore/prelude/IPv4}, {@code :org/stvnadore/prelude/Port},
+ * {@code :org/stvnadore/prelude/Percentage}, and {@code :org/stvnadore/prelude/Currency}.
  *
  * @since 1.0.0
  */
@@ -27,20 +28,20 @@ public final class StvnPrelude {
         //Version:     0.2.0
         //Date:        2026.05.30
         :defs {
-          :Uuid { #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } :StringFixed36
-          :Ulid { #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" } :StringFixed26
-          :Sha256 { #regex "^[0-9a-fA-F]{64}$" } :StringFixed64
-          :SemVer { #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
-      
-          :Email { #regex "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" } :String
-          :IPv4  { #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" } :String
-          :Port  { #minIncl 1 #maxIncl 65535 } :Uint16
-      
-          :Percentage  { #minIncl 0.0 #maxIncl 100.0 } :Float64
-          :Probability { #minIncl 0.0 #maxIncl 1.0 }   :Float64
-          :Currency :FloatExact
-          :Latitude    { #minIncl -90.0 #maxIncl 90.0 }   :Float64
-          :Longitude   { #minIncl -180.0 #maxIncl 180.0 } :Float64
+          :org/stvnadore/prelude/Uuid { #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } :StringFixed36
+          :org/stvnadore/prelude/Ulid { #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" } :StringFixed26
+          :org/stvnadore/prelude/Sha256 { #regex "^[0-9a-fA-F]{64}$" } :StringFixed64
+          :org/stvnadore/prelude/SemVer { #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
+
+          :org/stvnadore/prelude/Email { #regex "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" } :String
+          :org/stvnadore/prelude/IPv4  { #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" } :String
+          :org/stvnadore/prelude/Port  { #minIncl 1 #maxIncl 65535 } :Uint16
+
+          :org/stvnadore/prelude/Percentage  { #minIncl 0.0 #maxIncl 100.0 } :Float64
+          :org/stvnadore/prelude/Probability { #minIncl 0.0 #maxIncl 1.0 }   :Float64
+          :org/stvnadore/prelude/Currency :FloatExact
+          :org/stvnadore/prelude/Latitude    { #minIncl -90.0 #maxIncl 90.0 }   :Float64
+          :org/stvnadore/prelude/Longitude   { #minIncl -180.0 #maxIncl 180.0 } :Float64
         }
       }""";
 

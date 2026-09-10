@@ -1087,7 +1087,7 @@ public class StvnBinaryDecoder {
   private static ResolvedSchema getStringSchema() {
     if (cachedStringSchema == null) {
       var prelude = org.stvnadore.core.stdlib.StvnPrelude.getPreludeDocument();
-      var def = org.stvnadore.core.validation.StvnTypeResolver.findTypeDefinition(prelude, ":SemVer").get();
+      var def = org.stvnadore.core.validation.StvnTypeResolver.findTypeDefinition(prelude, ":org/stvnadore/prelude/SemVer").get();
       cachedStringSchema = org.stvnadore.core.validation.StvnTypeResolver.resolvePrimitiveSchema(prelude, def.schemaType(), java.util.Set.of()).get();
     }
     return cachedStringSchema;
@@ -1229,15 +1229,22 @@ public class StvnBinaryDecoder {
 
     if (base.startsWith(":String") || base.equals(":DateTimeOffset") || base.equals(":DateTimeZoned") || base.equals(":DateTimeAudited") || base.equals(":DateTime")
         || base.equals(":Uuid") || base.equals(":Ulid") || base.equals(":Sha256") || base.equals(":SemVer")
-        || base.equals(":Email") || base.equals(":IPv4")) {
+        || base.equals(":Email") || base.equals(":IPv4")
+        || base.equals(":org/stvnadore/prelude/Uuid") || base.equals(":org/stvnadore/prelude/Ulid")
+        || base.equals(":org/stvnadore/prelude/Sha256") || base.equals(":org/stvnadore/prelude/SemVer")
+        || base.equals(":org/stvnadore/prelude/Email") || base.equals(":org/stvnadore/prelude/IPv4")) {
       return "STRING";
     }
     if (base.startsWith(":Int") || base.startsWith(":Uint") || base.equals(":TimeEpochS")
-        || base.equals(":TimeEpochMs") || base.equals(":TimeEpochNs") || base.equals(":Port")) {
+        || base.equals(":TimeEpochMs") || base.equals(":TimeEpochNs") || base.equals(":Port")
+        || base.equals(":org/stvnadore/prelude/Port")) {
       return "INTEGER";
     }
     if (base.startsWith(":Float") || base.equals(":Percentage") || base.equals(":Probability")
-        || base.equals(":Currency") || base.equals(":Latitude") || base.equals(":Longitude")) {
+        || base.equals(":Currency") || base.equals(":Latitude") || base.equals(":Longitude")
+        || base.equals(":org/stvnadore/prelude/Percentage") || base.equals(":org/stvnadore/prelude/Probability")
+        || base.equals(":org/stvnadore/prelude/Currency") || base.equals(":org/stvnadore/prelude/Latitude")
+        || base.equals(":org/stvnadore/prelude/Longitude")) {
       return "FLOAT";
     }
     if (base.equals(":Boolean")) {

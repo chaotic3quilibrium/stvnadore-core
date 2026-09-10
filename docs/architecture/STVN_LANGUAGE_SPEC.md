@@ -320,6 +320,12 @@ All `:include` directives inside a `:defs` block **must** be enclosed within squ
   // Direct import
   :include [ "network_primitives.stvn_inclf" ]
 
+  // Import with bare prefix strip (strips up to terminal slash)
+  :include [ "types/network.stvn_incl" { #strip } ]
+
+  // Import with explicit prefix strip
+  :include [ "types/network.stvn_incl" { #strip "net/http/" } ]
+
   // Import with explicit namespace alias mapping block
   :include [ "shared_models.stvn_incl" { :HostName :RemoteHost :Port :RemotePort } ]
 }
@@ -378,7 +384,8 @@ constantDefinition : valueKeyword metadataMap? schemaType value ;
    // Lowers to: ( 3 "api.internal.net" )
    ```
 3. **Lexical Isolation:** Nominal type identifiers (`:`) **MUST NOT** appear in value positions. Value keywords (`#`) **MUST NOT** appear as nominal type declarations.
-4. **Type Soundness:** The assigned `value` payload **MUST** conform to the specified `schemaType` and all associated metadata constraints during `:defs` validation. Mismatches cause immediate compile-time failure.
+4. **Bit-Width Range Validation:** Integer literals assigned to arbitrary bit-width types `:Uint`$n$ or `:Int`$n$ must not exceed declared capacity bounds ($0 \le V \le 2^n - 1$ for unsigned, $-2^{n-1} \le V \le 2^{n-1} - 1$ for signed). Out-of-bounds assignments trigger `ERR_INTEGER_OVERFLOW` before IR lowering.
+5. **Type Soundness:** The assigned `value` payload **MUST** conform to the specified `schemaType` and all associated metadata constraints during `:defs` validation. Mismatches cause immediate compile-time failure.
 
 ---
 
@@ -812,18 +819,20 @@ The runtime environment provides the following pre-registered types:
 
 | Type Identifier    | Underlying Representation | Applied Constraints / Validation Specification               |
 |:-------------------|:--------------------------|:-------------------------------------------------------------|
-| **`:Uuid`**        | `:StringFixed36`          | Standard UUID format: `8-4-4-4-12` hex characters            |
-| **`:Ulid`**        | `:StringFixed26`          | Crockford's Base32 ULID character set                        |
-| **`:Sha256`**      | `:StringFixed64`          | Hexadecimal SHA-256 hash string (64 hex characters)          |
-| **`:SemVer`**      | `:StringNonEmpty64`       | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH`)    |
-| **`:Email`**       | `:StringNonEmpty256`      | Standard RFC 5322 email address validation                   |
-| **`:IPv4`**        | `:StringNonEmpty15`       | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`) |
-| **`:Port`**        | `:Uint16`                 | `{ #minIncl 1 #maxIncl 65535 }`                              |
-| **`:Percentage`**  | `:Float64`                | `{ #minIncl 0.0 #maxIncl 100.0 }`                            |
-| **`:Probability`** | `:Float64`                | `{ #minIncl 0.0 #maxIncl 1.0 }`                              |
-| **`:Currency`**    | `:FloatExact`             | Monetary decimal value with exact decimal precision          |
-| **`:Latitude`**    | `:Float64`                | `{ #minIncl -90.0 #maxIncl 90.0 }`                           |
-| **`:Longitude`**   | `:Float64`                | `{ #minIncl -180.0 #maxIncl 180.0 }`                         |
+| **`:org/stvnadore/prelude/Uuid`**        | `:StringFixed36`          | Standard UUID format: `8-4-4-4-12` hex characters            |
+| **`:org/stvnadore/prelude/Ulid`**        | `:StringFixed26`          | Crockford's Base32 ULID character set                        |
+| **`:org/stvnadore/prelude/Sha256`**      | `:StringFixed64`          | Hexadecimal SHA-256 hash string (64 hex characters)          |
+| **`:org/stvnadore/prelude/SemVer`**      | `:StringNonEmpty64`       | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH`)    |
+| **`:org/stvnadore/prelude/Email`**       | `:StringNonEmpty256`      | Standard RFC 5322 email address validation                   |
+| **`:org/stvnadore/prelude/IPv4`**        | `:StringNonEmpty15`       | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`) |
+| **`:org/stvnadore/prelude/Port`**        | `:Uint16`                 | `{ #minIncl 1 #maxIncl 65535 }`                              |
+| **`:org/stvnadore/prelude/Percentage`**  | `:Float64`                | `{ #minIncl 0.0 #maxIncl 100.0 }`                            |
+| **`:org/stvnadore/prelude/Probability`** | `:Float64`                | `{ #minIncl 0.0 #maxIncl 1.0 }`                              |
+| **`:org/stvnadore/prelude/Currency`**    | `:FloatExact`             | Monetary decimal value with exact decimal precision          |
+| **`:org/stvnadore/prelude/Latitude`**    | `:Float64`                | `{ #minIncl -90.0 #maxIncl 90.0 }`                           |
+| **`:org/stvnadore/prelude/Longitude`**   | `:Float64`                | `{ #minIncl -180.0 #maxIncl 180.0 }`                         |
+
+Prelude types reside in `:org/stvnadore/prelude/` and are implicitly ingested into every document scope. Bare unqualified type references (such as `:Port`) trigger `ERR_UNKNOWN_TYPE` unless explicitly declared or aliased.
 
 ---
 
@@ -1050,7 +1059,7 @@ For any declared bit-width $n \ge 1$:
 | **`:Int`$n$**  | $-2^{n-1}$              | $2^{n-1} - 1$           |
 | **`:Uint`$n$** | $0$                     | $2^n - 1$               |
 
-* **Overflow Validation:** Any literal value assigned to an $n$-bit integer type that exceeds the specified range causes an immediate compile-time `StvnIntegerOverflowException`.
+* **Overflow Validation:** Any literal value assigned to an $n$-bit integer type that exceeds the specified range records diagnostic code `ERR_INTEGER_OVERFLOW` in `DiagnosticBag` and halts compilation before lowering.
 * **Negative Values on Unsigned Types:** Supplying a negative literal (e.g., `-1`) to any `:Uint`$n$ type causes a compile-time type error.
 
 ### A.3 Codec Containment and Memory Layout
@@ -1641,6 +1650,7 @@ KW_DEFS    : ':defs' ;
 KW_TYPE    : ':type' ;
 KW_BODY    : ':body' ;
 KW_INCLUDE : ':include' ;
+KW_STRIP   : '#strip' ;
 
 KW_EQUATABLE       : '#equatable' ;
 KW_COMPARABLE      : '#comparable' ;
@@ -1784,7 +1794,11 @@ defsEntry : KW_DEFS LBRACE ( includeStmt | typeDefinition | constantDefinition )
 
 includeStmt       : KW_INCLUDE LBRACK includeElement+ RBRACK ;
 
-includeElement    : stringLiteral includeAliasBlock? ;
+includeElement      : stringLiteral includeOptionsBlock? includeAliasBlock? ;
+
+includeOptionsBlock : LBRACE includeOption+ RBRACE ;
+
+includeOption       : KW_STRIP ( stringLiteral )? ;
 
 includeAliasBlock : LBRACE includeMapAlias+ RBRACE ;
 
@@ -1793,7 +1807,8 @@ includeMapAlias   : typeKeyword typeKeyword ;
 typeEntry : KW_TYPE schemaType ;
 bodyEntry : KW_BODY value ;
 
-typeDefinition     : typeKeyword metadataMap? schemaType ;
+typeDefinition     : typeDefTarget metadataMap? schemaType ;
+typeDefTarget      : typeKeyword | reservedKeyword ;
 constantDefinition : valueKeyword metadataMap? schemaType value ;
 
 metadataMap    : LBRACE metadataEntry* RBRACE ;
@@ -1885,16 +1900,40 @@ fencedString : FENCE_START FENCE_CONTENT* FENCE_END ;
 // Support for slash-delimited pathways
 typeKeyword : typeKeywordStart ( FSLASH IDENTIFIER )* ;
 
-typeKeywordStart : TYPE_KEYWORD_BASE
-                 | KW_DEFS
-                 | KW_TYPE
-                 | KW_BODY
-                 | KW_TUPLE
-                 | KW_ENUM
-                 | KW_OPTION
-                 | KW_EITHER
-                 | KW_UNION
-                 ;
+typeKeywordStart : TYPE_KEYWORD_BASE ;
+
+reservedKeyword : ATOM_BOOLEAN
+                | ATOM_UINT
+                | ATOM_INT
+                | ATOM_FLOAT
+                | ATOM_FLOAT_EXACT
+                | ATOM_STRING_FIXED
+                | ATOM_STRING
+                | ATOM_STRING_NON_EMPTY
+                | ATOM_TIME_EPOCH_S
+                | ATOM_TIME_EPOCH_MS
+                | ATOM_TIME_EPOCH_NS
+                | ATOM_DATE_TIME_OFFSET
+                | ATOM_DATE_TIME_ZONED
+                | ATOM_DATE_TIME_AUDITED
+                | COLL_SEQ
+                | COLL_SEQ_NON_EMPTY
+                | COLL_SET
+                | COLL_SET_NON_EMPTY
+                | COLL_MAP
+                | COLL_MAP_NON_EMPTY
+                | COLL_MAP_INV
+                | COLL_MAP_INV_NON_EMPTY
+                | KW_DEFS
+                | KW_TYPE
+                | KW_BODY
+                | KW_INCLUDE
+                | KW_TUPLE
+                | KW_ENUM
+                | KW_OPTION
+                | KW_EITHER
+                | KW_UNION
+                ;
 
 valueKeyword : valueKeywordStart ( FSLASH IDENTIFIER )* ;
 

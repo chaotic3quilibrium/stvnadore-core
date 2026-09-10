@@ -28,6 +28,7 @@ KW_DEFS    : ':defs' ;
 KW_TYPE    : ':type' ;
 KW_BODY    : ':body' ;
 KW_INCLUDE : ':include' ;
+KW_STRIP   : '#strip' ;
 
 KW_EQUATABLE       : '#equatable' ;
 KW_COMPARABLE      : '#comparable' ;

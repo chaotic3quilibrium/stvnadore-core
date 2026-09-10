@@ -99,7 +99,7 @@ public final class IrGeneratorUtility {
     if (doc != null && doc.documentBody() != null && doc.documentBody().defsEntry() != null) {
       var defsEntry = doc.documentBody().defsEntry();
       for (var typeDef : defsEntry.typeDefinition()) {
-        String kw = typeDef.typeKeyword().getText();
+        String kw = typeDef.typeDefTarget().getText();
         sb.append("  - ").append(kw).append("\n");
         var nominalSchemaOpt = resolveNominalSchema(doc, kw);
         if (nominalSchemaOpt.isPresent()) {

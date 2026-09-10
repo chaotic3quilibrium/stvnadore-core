@@ -428,22 +428,24 @@ if (result.isRecoveredPartialAst()) {
 
 ### 8.1 Built-in Prelude Nominal Types
 
-The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/stdlib/StvnPrelude.java)) is pre-registered and implicitly available in all STVN contexts:
+The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/stdlib/StvnPrelude.java)) defines canonical standard types under `:org/stvnadore/prelude/`. The compiler implicitly registers these types into every document scope:
 
 | Nominal Type       | Underlying Type  | Applied Constraints / Validation Specification                                               |
 |:-------------------|:-----------------|:---------------------------------------------------------------------------------------------|
-| **`:Uuid`**        | `:StringFixed36` | `{ #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }` |
-| **`:Ulid`**        | `:StringFixed26` | `{ #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32)                            |
-| **`:Sha256`**      | `:StringFixed64` | `{ #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest)                                |
-| **`:SemVer`**      | `:String`        | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`)               |
-| **`:Email`**       | `:String`        | RFC 5322 email address validation                                                            |
-| **`:IPv4`**        | `:String`        | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`)                                 |
-| **`:Port`**        | `:Uint16`        | `{ #minIncl 1 #maxIncl 65535 }`                                                              |
-| **`:Percentage`**  | `:Float64`       | `{ #minIncl 0.0 #maxIncl 100.0 }`                                                            |
-| **`:Probability`** | `:Float64`       | `{ #minIncl 0.0 #maxIncl 1.0 }`                                                              |
-| **`:Currency`**    | `:FloatExact`    | Monetary value with exact arbitrary decimal precision                                        |
-| **`:Latitude`**    | `:Float64`       | `{ #minIncl -90.0 #maxIncl 90.0 }`                                                           |
-| **`:Longitude`**   | `:Float64`       | `{ #minIncl -180.0 #maxIncl 180.0 }`                                                         |
+| **`:org/stvnadore/prelude/Uuid`**        | `:StringFixed36` | `{ #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }` |
+| **`:org/stvnadore/prelude/Ulid`**        | `:StringFixed26` | `{ #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32)                            |
+| **`:org/stvnadore/prelude/Sha256`**      | `:StringFixed64` | `{ #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest)                                |
+| **`:org/stvnadore/prelude/SemVer`**      | `:String`        | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`)               |
+| **`:org/stvnadore/prelude/Email`**       | `:String`        | RFC 5322 email address validation                                                            |
+| **`:org/stvnadore/prelude/IPv4`**        | `:String`        | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`)                                 |
+| **`:org/stvnadore/prelude/Port`**        | `:Uint16`        | `{ #minIncl 1 #maxIncl 65535 }`                                                              |
+| **`:org/stvnadore/prelude/Percentage`**  | `:Float64`       | `{ #minIncl 0.0 #maxIncl 100.0 }`                                                            |
+| **`:org/stvnadore/prelude/Probability`** | `:Float64`       | `{ #minIncl 0.0 #maxIncl 1.0 }`                                                              |
+| **`:org/stvnadore/prelude/Currency`**    | `:FloatExact`    | Monetary value with exact arbitrary decimal precision                                        |
+| **`:org/stvnadore/prelude/Latitude`**    | `:Float64`       | `{ #minIncl -90.0 #maxIncl 90.0 }`                                                           |
+| **`:org/stvnadore/prelude/Longitude`**   | `:Float64`       | `{ #minIncl -180.0 #maxIncl 180.0 }`                                                         |
+
+Bare unqualified references (such as `:Port`) trigger `ERR_UNKNOWN_TYPE`. Documents that prefer short unqualified names declare local aliases (for example, `:Port :org/stvnadore/prelude/Port`).
 
 ### 8.2 Security Considerations: `:Sha256` Adoption and `:Sha1` Excision
 

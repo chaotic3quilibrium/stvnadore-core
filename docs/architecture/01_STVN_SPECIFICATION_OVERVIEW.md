@@ -124,6 +124,7 @@ STVN natively supports arbitrary bit-width integers ($n \ge 1$):
 * **Signed Integers (`:Int`$n$)**: Valid range $[-2^{n-1}, 2^{n-1}-1]$ (e.g., `:Int1`, `:Int7`, `:Int16`, `:Int64`).
 * **Unsigned Integers (`:Uint`$n$)**: Valid range $[0, 2^n-1]$ (e.g., `:Uint3`, `:Uint4`, `:Uint7`, `:Uint10`, `:Uint49`, `:Uint128`).
 * **High-Bit Binary Masking**: Binary decoders allocate $B = \lceil n/8 \rceil$ bytes and verify that unused upper bits in containment bytes are zero. If any unused high bit is set to 1, decoders reject the buffer immediately with `StvnCorruptedBitPatternException`.
+* **Compile-Time Constant Bounds Enforcement**: Semantic validation validates constant integer literals against declared bit-width ranges. Values exceeding capacity bounds emit `ERR_INTEGER_OVERFLOW` and halt compilation before IR lowering.
 * **Exact Decimals (`:FloatExact`)**: Preserves arbitrary-precision decimal representations without IEEE 754 floating-point rounding hazards.
 
 ---
@@ -153,4 +154,6 @@ STVN partitions date-time values into three mathematically orthogonal, unambiguo
 
 * **Monadic Results (`StvnCompilationResult`)**: Returns clean or partial ASTs alongside accumulated `StvnDiagnostic` frames.
 * **Bounded Diagnostic Accumulator (`DiagnosticBag`)**: Memory-bounded accumulation suppresses runaway error floods and appends a sentinel `STVN_DIAG_LIMIT_EXCEEDED` warning.
+* **Standard Diagnostic Error Codes**: Emits uniform diagnostic codes (`ERR_UNKNOWN_TYPE`, `ERR_RESERVED_KEYWORD_ON_LHS`, `ERR_INTEGER_OVERFLOW`, `ERR_UNUSED_STRIP_PREFIX`).
+* **Compiler Lowering Gate**: When `DiagnosticBag.hasErrors()` is true, the compiler halts before lowering to IR, preventing illegal constants or malformed constructs from reaching code generation.
 * **Error-Tolerant AST Nodes (`StvnError`)**: Isolates semantic and syntax failures into localized `StvnError` leaves, allowing sibling nodes and surrounding structures to parse successfully.

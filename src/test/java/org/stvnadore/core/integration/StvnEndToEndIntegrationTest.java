@@ -203,7 +203,7 @@ public class StvnEndToEndIntegrationTest {
                 {
                   :defs {
                     :Status :Enum [ #INITIALIZED #PROCESSING #COMPLETED #FAILED ]
-                    :StatusRegistry :Map( :Status :Uuid )
+                    :StatusRegistry :Map( :Status :org/stvnadore/prelude/Uuid )
                     #StatusUuidMap :StatusRegistry {
                       [#INITIALIZED "f47ac10b-58cc-4372-a567-0e02b2c3d479"]
                       [#PROCESSING  "550e8400-e29b-41d4-a716-446655440000"]
@@ -506,7 +506,7 @@ public class StvnEndToEndIntegrationTest {
             "Uuid Validation - Mixed Case Success",
             """
                 {
-                  :type :Seq( :Uuid )
+                  :type :Seq( :org/stvnadore/prelude/Uuid )
                   :body [ "A6287828-1b9b-4295-B66D-015de536c4e1" ]
                 }
                 """),
@@ -515,11 +515,11 @@ public class StvnEndToEndIntegrationTest {
             "Uuid Validation - Malformed Length Short",
             """
                 {
-                  :type :Seq( :Uuid )
+                  :type :Seq( :org/stvnadore/prelude/Uuid )
                   :body [ "not-a-uuid" ]
                 }
                 """,
-            "Constraint violation (:Uuid): Fixed string must be exactly 36 characters long, got 10"),
+            "Constraint violation (:org/stvnadore/prelude/Uuid): Fixed string must be exactly 36 characters long, got 10"),
 
         TestProfile.create(
             "Uuid Validation - Standard String Bypasses Uuid Checks",
@@ -534,7 +534,7 @@ public class StvnEndToEndIntegrationTest {
             "Sha256 Validation - Lowercase Hex Success",
             """
                 {
-                  :type :Seq( :Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256 )
                   :body [ "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" ]
                 }
                 """),
@@ -543,7 +543,7 @@ public class StvnEndToEndIntegrationTest {
             "Sha256 Validation - Uppercase Hex Success",
             """
                 {
-                  :type :Seq( :Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256 )
                   :body [ "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD" ]
                 }
                 """),
@@ -552,7 +552,7 @@ public class StvnEndToEndIntegrationTest {
             "Sha256 Validation - Mixed Case Hex Success",
             """
                 {
-                  :type :Seq( :Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256 )
                   :body [ "bA7816bF8f01CfEa414140De5dAE2223B00361A396177A9cB410Ff61F20015aD" ]
                 }
                 """),
@@ -561,51 +561,51 @@ public class StvnEndToEndIntegrationTest {
             "Sha256 Validation - Error Length Short (40 chars)",
             """
                 {
-                  :type :Seq( :Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256 )
                   :body [ "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12" ]
                 }
                 """,
-            "Constraint violation (:Sha256): Fixed string must be exactly 64 characters long, got 40"),
+            "Constraint violation (:org/stvnadore/prelude/Sha256): Fixed string must be exactly 64 characters long, got 40"),
 
         TestProfile.createError(
             "Sha256 Validation - Error Length Short (63 chars)",
             """
                 {
-                  :type :Seq( :Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256 )
                   :body [ "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015a" ]
                 }
                 """,
-            "Constraint violation (:Sha256): Fixed string must be exactly 64 characters long, got 63"),
+            "Constraint violation (:org/stvnadore/prelude/Sha256): Fixed string must be exactly 64 characters long, got 63"),
 
         TestProfile.createError(
             "Sha256 Validation - Error Length Long (65 chars)",
             """
                 {
-                  :type :Seq( :Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256 )
                   :body [ "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad0" ]
                 }
                 """,
-            "Constraint violation (:Sha256): Fixed string must be exactly 64 characters long, got 65"),
+            "Constraint violation (:org/stvnadore/prelude/Sha256): Fixed string must be exactly 64 characters long, got 65"),
 
         TestProfile.createError(
             "Sha256 Validation - Error Non-Hex Character",
             """
                 {
-                  :type :Seq( :Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256 )
                   :body [ "ga7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" ]
                 }
                 """,
-            "Constraint violation (:Sha256): String does not match required pattern: ^[0-9a-fA-F]{64}$"),
+            "Constraint violation (:org/stvnadore/prelude/Sha256): String does not match required pattern: ^[0-9a-fA-F]{64}$"),
 
         TestProfile.createError(
             "Sha256 Validation - Error Non-Hex Symbol",
             """
                 {
-                  :type :Seq( :Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256 )
                   :body [ "ba7816bf8f01cfea414140de5dae2223-00361a396177a9cb410ff61f20015ad" ]
                 }
                 """,
-            "Constraint violation (:Sha256): String does not match required pattern: ^[0-9a-fA-F]{64}$"),
+            "Constraint violation (:org/stvnadore/prelude/Sha256): String does not match required pattern: ^[0-9a-fA-F]{64}$"),
 
         TestProfile.createError(
             "Sha256 Validation - Removed Sha1 Rejection",
@@ -1053,7 +1053,7 @@ public class StvnEndToEndIntegrationTest {
                 {
                   :defs {
                     :StatusType :Enum [ #PENDING #ACTIVE #TERMINATED ]
-                    :StatusId :Uuid
+                    :StatusId :org/stvnadore/prelude/Uuid
                     :StatusRegistry :MapInvNonEmpty( :StatusType :StatusId )
                   }
                   :type :StatusRegistry
@@ -1643,17 +1643,33 @@ public class StvnEndToEndIntegrationTest {
       }
   }
 
-  private static class CustomTypeDefinitionContext extends org.stvnadore.core.parser.StvnParser.TypeDefinitionContext {
+  private static class CustomTypeDefTargetContext extends org.stvnadore.core.parser.StvnParser.TypeDefTargetContext {
       private final org.stvnadore.core.parser.StvnParser.TypeKeywordContext kw;
-      private final org.stvnadore.core.parser.StvnParser.SchemaTypeContext schemaType;
-      public CustomTypeDefinitionContext(org.stvnadore.core.parser.StvnParser.TypeKeywordContext kw, org.stvnadore.core.parser.StvnParser.SchemaTypeContext schemaType) {
+      public CustomTypeDefTargetContext(org.stvnadore.core.parser.StvnParser.TypeKeywordContext kw) {
           super(null, 0);
           this.kw = kw;
-          this.schemaType = schemaType;
       }
       @Override
       public org.stvnadore.core.parser.StvnParser.TypeKeywordContext typeKeyword() {
           return kw;
+      }
+      @Override
+      public String getText() {
+          return kw.getText();
+      }
+  }
+
+  private static class CustomTypeDefinitionContext extends org.stvnadore.core.parser.StvnParser.TypeDefinitionContext {
+      private final org.stvnadore.core.parser.StvnParser.TypeDefTargetContext target;
+      private final org.stvnadore.core.parser.StvnParser.SchemaTypeContext schemaType;
+      public CustomTypeDefinitionContext(org.stvnadore.core.parser.StvnParser.TypeKeywordContext kw, org.stvnadore.core.parser.StvnParser.SchemaTypeContext schemaType) {
+          super(null, 0);
+          this.target = new CustomTypeDefTargetContext(kw);
+          this.schemaType = schemaType;
+      }
+      @Override
+      public org.stvnadore.core.parser.StvnParser.TypeDefTargetContext typeDefTarget() {
+          return target;
       }
       @Override
       public org.stvnadore.core.parser.StvnParser.SchemaTypeContext schemaType() {

@@ -17,16 +17,21 @@ defsEntry : KW_DEFS LBRACE ( includeStmt | typeDefinition | constantDefinition )
 
 includeStmt       : KW_INCLUDE LBRACK includeElement+ RBRACK ;
 
-includeElement    : stringLiteral includeAliasBlock? ;
+includeElement      : stringLiteral includeOptionsBlock? includeAliasBlock? ;
 
-includeAliasBlock : LBRACE includeMapAlias+ RBRACE ;
+includeOptionsBlock : LBRACE includeOption+ RBRACE ;
 
-includeMapAlias   : typeKeyword typeKeyword ;
+includeOption       : KW_STRIP ( stringLiteral )? ;
+
+includeAliasBlock   : LBRACE includeMapAlias+ RBRACE ;
+
+includeMapAlias     : typeKeyword typeKeyword ;
 
 typeEntry : KW_TYPE schemaType ;
 bodyEntry : KW_BODY value ;
 
-typeDefinition     : typeKeyword metadataMap? schemaType ;
+typeDefinition     : typeDefTarget metadataMap? schemaType ;
+typeDefTarget      : typeKeyword | reservedKeyword ;
 constantDefinition : valueKeyword metadataMap? schemaType value ;
 
 metadataMap    : LBRACE metadataEntry* RBRACE ;
@@ -121,39 +126,40 @@ fencedString : FENCE_START FENCE_CONTENT* FENCE_END ;
 // Support for slash-delimited pathways
 typeKeyword : typeKeywordStart ( FSLASH IDENTIFIER )* ;
 
-typeKeywordStart : TYPE_KEYWORD_BASE
-                 | KW_DEFS
-                 | KW_TYPE
-                 | KW_BODY
-                 | KW_INCLUDE
-                 | KW_TUPLE
-                 | KW_ENUM
-                 | KW_OPTION
-                 | KW_EITHER
-                 | KW_UNION
-                 | COLL_SEQ
-                 | COLL_SEQ_NON_EMPTY
-                 | COLL_SET
-                 | COLL_SET_NON_EMPTY
-                 | COLL_MAP
-                 | COLL_MAP_NON_EMPTY
-                 | COLL_MAP_INV
-                 | COLL_MAP_INV_NON_EMPTY
-                 | ATOM_BOOLEAN
-                 | ATOM_UINT
-                 | ATOM_INT
-                 | ATOM_FLOAT
-                 | ATOM_FLOAT_EXACT
-                 | ATOM_STRING_FIXED
-                 | ATOM_STRING
-                 | ATOM_STRING_NON_EMPTY
-                 | ATOM_TIME_EPOCH_S
-                 | ATOM_TIME_EPOCH_MS
-                 | ATOM_TIME_EPOCH_NS
-                 | ATOM_DATE_TIME_OFFSET
-                 | ATOM_DATE_TIME_ZONED
-                 | ATOM_DATE_TIME_AUDITED
-                 ;
+typeKeywordStart : TYPE_KEYWORD_BASE ;
+
+reservedKeyword : ATOM_BOOLEAN
+                | ATOM_UINT
+                | ATOM_INT
+                | ATOM_FLOAT
+                | ATOM_FLOAT_EXACT
+                | ATOM_STRING_FIXED
+                | ATOM_STRING
+                | ATOM_STRING_NON_EMPTY
+                | ATOM_TIME_EPOCH_S
+                | ATOM_TIME_EPOCH_MS
+                | ATOM_TIME_EPOCH_NS
+                | ATOM_DATE_TIME_OFFSET
+                | ATOM_DATE_TIME_ZONED
+                | ATOM_DATE_TIME_AUDITED
+                | COLL_SEQ
+                | COLL_SEQ_NON_EMPTY
+                | COLL_SET
+                | COLL_SET_NON_EMPTY
+                | COLL_MAP
+                | COLL_MAP_NON_EMPTY
+                | COLL_MAP_INV
+                | COLL_MAP_INV_NON_EMPTY
+                | KW_DEFS
+                | KW_TYPE
+                | KW_BODY
+                | KW_INCLUDE
+                | KW_TUPLE
+                | KW_ENUM
+                | KW_OPTION
+                | KW_EITHER
+                | KW_UNION
+                ;
 
 valueKeyword : valueKeywordStart ( FSLASH IDENTIFIER )* ;
 

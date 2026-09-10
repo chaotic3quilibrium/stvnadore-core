@@ -8,18 +8,18 @@
     :ZonedDateTime  :DateTimeZoned
     :AuditedDateTime :DateTimeAudited
 
-    :IdUuid         :Uuid
-    :IdUlid         :Ulid
-    :HashSha256     :Sha256
-    :VersionSemVer  :SemVer
-    :ContactEmail   :Email
-    :NetworkIPv4    :IPv4
-    :NetworkPort    :Port
-    :RatioPercent   :Percentage
-    :RatioProb      :Probability
-    :MoneyAmount    :Currency
-    :GeoLat         :Latitude
-    :GeoLon         :Longitude
+    :IdUuid         :org/stvnadore/prelude/Uuid
+    :IdUlid         :org/stvnadore/prelude/Ulid
+    :HashSha256     :org/stvnadore/prelude/Sha256
+    :VersionSemVer  :org/stvnadore/prelude/SemVer
+    :ContactEmail   :org/stvnadore/prelude/Email
+    :NetworkIPv4    :org/stvnadore/prelude/IPv4
+    :NetworkPort    :org/stvnadore/prelude/Port
+    :RatioPercent   :org/stvnadore/prelude/Percentage
+    :RatioProb      :org/stvnadore/prelude/Probability
+    :MoneyAmount    :org/stvnadore/prelude/Currency
+    :GeoLat         :org/stvnadore/prelude/Latitude
+    :GeoLon         :org/stvnadore/prelude/Longitude
   }
 
   :type :Tuple(

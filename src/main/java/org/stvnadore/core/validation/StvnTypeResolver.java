@@ -229,6 +229,18 @@ public class StvnTypeResolver {
     var accumulator = new LinkedHashMap<String, List<NamespaceClaim<TypeDefinitionContext>>>();
     var constAccumulator = new LinkedHashMap<String, List<NamespaceClaim<ConstantDefinitionContext>>>();
 
+    // Pass 1: Implicit ingestion of standard library prelude under :org/stvnadore/prelude/
+    if (doc != org.stvnadore.core.stdlib.StvnPrelude.getPreludeDocument()) {
+      var preludeDoc = org.stvnadore.core.stdlib.StvnPrelude.getPreludeDocument();
+      if (preludeDoc.documentBody() != null && preludeDoc.documentBody().defsEntry() != null) {
+        for (var pDef : preludeDoc.documentBody().defsEntry().typeDefinition()) {
+          String pName = pDef.typeDefTarget() != null ? pDef.typeDefTarget().getText() : pDef.getText();
+          accumulator.computeIfAbsent(pName, k -> new ArrayList<>())
+              .add(new NamespaceClaim<>(pName, pDef, "Prelude", ClaimType.RAW_IMPORT));
+        }
+      }
+    }
+
     if (doc.documentBody() != null && doc.documentBody().defsEntry() != null) {
       var defsEntry = doc.documentBody().defsEntry();
       var currentDocPath = documentPaths.get(doc);
@@ -255,7 +267,7 @@ public class StvnTypeResolver {
 
       for (var child : elements) {
         if (child instanceof StvnParser.TypeDefinitionContext typeDef) {
-          var typeName = typeDef.typeKeyword().getText();
+          var typeName = typeDef.typeDefTarget().getText();
           var existingClaims = accumulator.get(typeName);
           if (existingClaims != null) {
             var hasLocal = false;
@@ -409,15 +421,55 @@ public class StvnTypeResolver {
               var importedConstDefs = documentConstantDefinitionsCache.getOrDefault(importedDoc, Collections.emptyMap());
               validateDocumentConstraints(importedDoc, diagnosticBag);
 
-              for (var entry : importedDefs.entrySet()) {
-                var originalName = entry.getKey();
-                var defSource = entry.getValue();
+              boolean hasStrip = false;
+              String explicitPrefix = null;
+              if (element.includeOptionsBlock() != null) {
+                for (var opt : element.includeOptionsBlock().includeOption()) {
+                  if (opt.KW_STRIP() != null) {
+                    hasStrip = true;
+                    if (opt.stringLiteral() != null) {
+                      explicitPrefix = StvnLiteralParser.parseString(opt.stringLiteral().getText(), true);
+                    }
+                  }
+                }
+              }
 
-                var importedName = originalName;
+              int prefixMatches = 0;
+
+              for (var entry : importedDefs.entrySet()) {
+                var defSource = entry.getValue();
+                if ("Prelude".equals(defSource.sourceName())) {
+                  continue;
+                }
+                var originalName = entry.getKey();
+
+                var candidateName = originalName;
+                if (hasStrip) {
+                  if (explicitPrefix != null) {
+                    char sigil = originalName.charAt(0);
+                    String rawSub = originalName.substring(1);
+                    if (rawSub.startsWith(explicitPrefix)) {
+                      candidateName = sigil + rawSub.substring(explicitPrefix.length());
+                      prefixMatches++;
+                    } else if (originalName.startsWith(explicitPrefix)) {
+                      candidateName = sigil + originalName.substring(explicitPrefix.length());
+                      prefixMatches++;
+                    }
+                  } else {
+                    int lastSlash = originalName.lastIndexOf('/');
+                    if (lastSlash != -1) {
+                      candidateName = originalName.charAt(0) + originalName.substring(lastSlash + 1);
+                      prefixMatches++;
+                    }
+                  }
+                }
+
+                var importedName = candidateName;
                 var isRenamed = false;
                 if (element.includeAliasBlock() != null && element.includeAliasBlock().includeMapAlias() != null) {
                   for (var alias : element.includeAliasBlock().includeMapAlias()) {
-                    if (alias.typeKeyword(0).getText().equals(originalName)) {
+                    if (alias.typeKeyword(0).getText().equals(candidateName)
+                        || alias.typeKeyword(0).getText().equals(originalName)) {
                       importedName = alias.typeKeyword(1).getText();
                       isRenamed = true;
                       break;
@@ -431,16 +483,51 @@ public class StvnTypeResolver {
                   accumulator.computeIfAbsent(originalName, k -> new ArrayList<>())
                       .add(new NamespaceClaim<>(originalName, defSource.defNode(), resolvedPath.getFileName().toString(), ClaimType.RENAMED_IMPORT_LHS));
                 } else {
-                  accumulator.computeIfAbsent(originalName, k -> new ArrayList<>())
-                      .add(new NamespaceClaim<>(originalName, defSource.defNode(), resolvedPath.getFileName().toString(), ClaimType.RAW_IMPORT));
+                  accumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
+                      .add(new NamespaceClaim<>(candidateName, defSource.defNode(), resolvedPath.getFileName().toString(), ClaimType.RAW_IMPORT));
                 }
               }
 
               for (var entry : importedConstDefs.entrySet()) {
                 var originalName = entry.getKey();
                 var constSource = entry.getValue();
-                constAccumulator.computeIfAbsent(originalName, k -> new ArrayList<>())
-                    .add(new NamespaceClaim<>(originalName, constSource.defNode(), resolvedPath.getFileName().toString(), ClaimType.RAW_IMPORT));
+
+                var candidateName = originalName;
+                if (hasStrip) {
+                  if (explicitPrefix != null) {
+                    char sigil = originalName.charAt(0);
+                    String rawSub = originalName.substring(1);
+                    if (rawSub.startsWith(explicitPrefix)) {
+                      candidateName = sigil + rawSub.substring(explicitPrefix.length());
+                      prefixMatches++;
+                    } else if (originalName.startsWith(explicitPrefix)) {
+                      candidateName = sigil + originalName.substring(explicitPrefix.length());
+                      prefixMatches++;
+                    }
+                  } else {
+                    int lastSlash = originalName.lastIndexOf('/');
+                    if (lastSlash != -1) {
+                      candidateName = originalName.charAt(0) + originalName.substring(lastSlash + 1);
+                      prefixMatches++;
+                    }
+                  }
+                }
+
+                constAccumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
+                    .add(new NamespaceClaim<>(candidateName, constSource.defNode(), resolvedPath.getFileName().toString(), ClaimType.RAW_IMPORT));
+              }
+
+              if (hasStrip && explicitPrefix != null && prefixMatches == 0) {
+                var optNode = element.includeOptionsBlock();
+                diagnosticBag.addError(
+                    "Declared #strip prefix \"" + explicitPrefix + "\" matched zero imported symbols in module: " + pathVal,
+                    optNode.getStart().getStartIndex(),
+                    optNode.getStop().getStopIndex() + 1,
+                    optNode.getStart().getLine(),
+                    optNode.getStart().getCharPositionInLine(),
+                    null,
+                    DiagnosticBag.ERR_UNUSED_STRIP_PREFIX
+                );
               }
             }
           }
@@ -1410,7 +1497,9 @@ public class StvnTypeResolver {
             .map(StvnTypeResolver::validateResolvedSchema);
       } else {
         markTypePoisoned(doc, kw);
-        throw new MalformedSchemaException("Undefined type: " + kw);
+        throw new MalformedSchemaException("Undefined type: " + kw,
+            schemaNode.getStart().getStartIndex(),
+            schemaNode.getStop().getStopIndex() + 1);
       }
     }
 
@@ -2558,6 +2647,24 @@ public class StvnTypeResolver {
       }
     }
     if (doc.documentBody().typeEntry() != null) {
+      try {
+        resolvePrimitiveSchema(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>());
+      } catch (MalformedSchemaException e) {
+        int start = e.startOffset() >= 0 ? e.startOffset() : doc.documentBody().typeEntry().schemaType().getStart().getStartIndex();
+        int end = e.endOffset() >= 0 ? e.endOffset() : doc.documentBody().typeEntry().schemaType().getStop().getStopIndex() + 1;
+        int line = doc.documentBody().typeEntry().schemaType().getStart().getLine();
+        int col = doc.documentBody().typeEntry().schemaType().getStart().getCharPositionInLine();
+        String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))
+            ? DiagnosticBag.ERR_UNKNOWN_TYPE
+            : DiagnosticBag.ERR_MALFORMED_SCHEMA;
+        diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
+      } catch (CircularReferenceException e) {
+        int start = doc.documentBody().typeEntry().schemaType().getStart().getStartIndex();
+        int end = doc.documentBody().typeEntry().schemaType().getStop().getStopIndex() + 1;
+        int line = doc.documentBody().typeEntry().schemaType().getStart().getLine();
+        int col = doc.documentBody().typeEntry().schemaType().getStart().getCharPositionInLine();
+        diagnosticBag.addError(e.getMessage(), start, end, line, col, e, DiagnosticBag.ERR_CIRCULAR_TYPE);
+      }
       validateSchemaSumTypeUniqueness(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>(), diagnosticBag);
       validateSchemaCapabilities(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>(), diagnosticBag);
     }
@@ -2629,7 +2736,19 @@ public class StvnTypeResolver {
       diagnosticBag.addError("Type definition is null in validateTypeDefinition", -1, -1, null, DiagnosticBag.ERR_MALFORMED_SCHEMA);
       return;
     }
-    var typeName = typeDef.typeKeyword().getText();
+    var typeName = typeDef.typeDefTarget().getText();
+    if (isReservedFundamentalType(typeName) || typeDef.typeDefTarget().reservedKeyword() != null) {
+      int line = typeDef.typeDefTarget().getStart().getLine();
+      int col = typeDef.typeDefTarget().getStart().getCharPositionInLine();
+      int start = typeDef.typeDefTarget().getStart().getStartIndex();
+      int end = typeDef.typeDefTarget().getStop().getStopIndex() + 1;
+      diagnosticBag.addError(
+          "Reserved fundamental type or keyword cannot be used on left-hand side of type definition: " + typeName,
+          start, end, line, col, null, DiagnosticBag.ERR_RESERVED_KEYWORD_ON_LHS
+      );
+      markTypePoisoned(doc, typeName);
+      return;
+    }
     var visited = new java.util.LinkedHashSet<String>();
     visited.add(typeName);
     Optional<ResolvedSchema> resolvedOpt;
@@ -2648,7 +2767,10 @@ public class StvnTypeResolver {
       int col = typeDef.getStart().getCharPositionInLine();
       int start = e.startOffset() >= 0 ? e.startOffset() : typeDef.getStart().getStartIndex();
       int end = e.endOffset() >= 0 ? e.endOffset() : typeDef.getStop().getStopIndex() + 1;
-      diagnosticBag.addError(e.getMessage(), start, end, line, col, e, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+      String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))
+          ? DiagnosticBag.ERR_UNKNOWN_TYPE
+          : DiagnosticBag.ERR_MALFORMED_SCHEMA;
+      diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       markTypePoisoned(doc, typeName);
       return;
     }
@@ -2711,7 +2833,10 @@ public class StvnTypeResolver {
       int col = constDef.getStart().getCharPositionInLine();
       int start = e.startOffset() >= 0 ? e.startOffset() : constDef.getStart().getStartIndex();
       int end = e.endOffset() >= 0 ? e.endOffset() : constDef.getStop().getStopIndex() + 1;
-      diagnosticBag.addError(e.getMessage(), start, end, line, col, e, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+      String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))
+          ? DiagnosticBag.ERR_UNKNOWN_TYPE
+          : DiagnosticBag.ERR_MALFORMED_SCHEMA;
+      diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       return;
     }
 
@@ -2746,6 +2871,7 @@ public class StvnTypeResolver {
           : StvnConstraints.empty();
       var effectiveConstraints = localConstraints.merge(resolvedOpt.get().constraints());
       validateConstantValueConstraints(constName, constDef.value(), effectiveConstraints, diagnosticBag);
+      validateConstantBitWidthCapacity(constName, resolvedOpt.get(), constDef.value(), diagnosticBag);
     }
   }
 
@@ -3245,7 +3371,7 @@ public class StvnTypeResolver {
     if (doc.documentBody() != null && doc.documentBody().defsEntry() != null) {
       for (var def : doc.documentBody().defsEntry().typeDefinition()) {
         if (def.schemaType() == schemaType) {
-          return Optional.of(def.typeKeyword().getText());
+          return Optional.of(def.typeDefTarget().getText());
         }
       }
     }
@@ -3253,11 +3379,88 @@ public class StvnTypeResolver {
     if (preludeDoc != null && preludeDoc.documentBody() != null && preludeDoc.documentBody().defsEntry() != null) {
       for (var def : preludeDoc.documentBody().defsEntry().typeDefinition()) {
         if (def.schemaType() == schemaType) {
-          return Optional.of(def.typeKeyword().getText());
+          return Optional.of(def.typeDefTarget().getText());
         }
       }
     }
     return Optional.empty();
+  }
+
+  /**
+   * Validates that an integer literal assigned to a typed constant fits within the declared bit-width bounds.
+   *
+   * @param constName the constant name
+   * @param resolved the resolved schema of the constant
+   * @param valueCtx the AST value context containing the integer literal
+   * @param diagnosticBag the accumulator bag for recording semantic diagnostics
+   */
+  public static void validateConstantBitWidthCapacity(
+      String constName,
+      ResolvedSchema resolved,
+      StvnParser.ValueContext valueCtx,
+      DiagnosticBag diagnosticBag
+  ) {
+    if (valueCtx.integerLiteral() == null || resolved.node() == null) {
+      return;
+    }
+    String baseType = getPrimitiveBaseType(resolved.node());
+    if (baseType == null) return;
+
+    boolean isUnsigned = baseType.startsWith(":Uint");
+    boolean isSigned = baseType.startsWith(":Int");
+    if (!isUnsigned && !isSigned) return;
+
+    int bitWidth = 32;
+    String suffix = isUnsigned ? baseType.substring(5) : baseType.substring(4);
+    if (!suffix.isEmpty() && suffix.matches("\\d+")) {
+      bitWidth = Integer.parseInt(suffix);
+    }
+
+    java.math.BigInteger val = StvnLiteralParser.parseBigInteger(valueCtx.integerLiteral().getText());
+    java.math.BigInteger min = isUnsigned
+        ? java.math.BigInteger.ZERO
+        : java.math.BigInteger.ONE.shiftLeft(bitWidth - 1).negate();
+    java.math.BigInteger max = isUnsigned
+        ? java.math.BigInteger.ONE.shiftLeft(bitWidth).subtract(java.math.BigInteger.ONE)
+        : java.math.BigInteger.ONE.shiftLeft(bitWidth - 1).subtract(java.math.BigInteger.ONE);
+
+    if (val.compareTo(min) < 0 || val.compareTo(max) > 0) {
+      int line = valueCtx.getStart().getLine();
+      int col = valueCtx.getStart().getCharPositionInLine();
+      int start = valueCtx.getStart().getStartIndex();
+      int end = valueCtx.getStop().getStopIndex() + 1;
+      diagnosticBag.addError(
+          "Integer literal " + val + " out of range for " + baseType + " [" + min + ", " + max + "]",
+          start, end, line, col, null, DiagnosticBag.ERR_INTEGER_OVERFLOW
+      );
+    }
+  }
+
+  /**
+   * Checks whether a type name matches a built-in reserved fundamental type keyword.
+   *
+   * @param name the type name to check
+   * @return {@code true} if the name is a reserved fundamental type keyword, {@code false} otherwise
+   */
+  public static boolean isReservedFundamentalType(String name) {
+    if (name.equals(":Boolean") || name.equals(":FloatExact") ||
+        name.equals(":TimeEpochS") || name.equals(":TimeEpochMs") || name.equals(":TimeEpochNs") ||
+        name.equals(":DateTimeOffset") || name.equals(":DateTimeZoned") || name.equals(":DateTimeAudited") ||
+        name.equals(":Tuple") || name.equals(":Enum") || name.equals(":Option") ||
+        name.equals(":Either") || name.equals(":Union") || name.equals(":MapEntry") ||
+        name.equals(":Seq") || name.equals(":SeqNonEmpty") || name.equals(":Set") ||
+        name.equals(":SetNonEmpty") || name.equals(":Map") || name.equals(":MapNonEmpty") ||
+        name.equals(":MapInv") || name.equals(":MapInvNonEmpty") ||
+        name.equals(":defs") || name.equals(":type") || name.equals(":body") || name.equals(":include")) {
+      return true;
+    }
+    if (name.startsWith(":Uint") && name.substring(5).matches("\\d*")) return true;
+    if (name.startsWith(":Int") && name.substring(4).matches("\\d*")) return true;
+    if (name.startsWith(":Float") && name.substring(6).matches("\\d*")) return true;
+    if (name.startsWith(":StringFixed") && name.substring(12).matches("\\d*")) return true;
+    if (name.startsWith(":StringNonEmpty") && name.substring(15).matches("\\d*")) return true;
+    if (name.startsWith(":String") && !name.startsWith(":StringFixed") && !name.startsWith(":StringNonEmpty") && name.substring(7).matches("\\d*")) return true;
+    return false;
   }
 
   /**
