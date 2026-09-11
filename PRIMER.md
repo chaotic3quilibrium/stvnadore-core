@@ -220,16 +220,16 @@ STVN decoders support implicit tagging for sum types when payload values are una
 
 ### 3.1 Eliminating Temporal Conflation
 
-Traditional serialization formats conflate physical timeline instants with civil wall-clock schedule times, causing catastrophic timezone conversion bugs and Daylight Saving Time (DST) data corruption. STVN partitions temporal representations into three mathematically orthogonal domains.
+Traditional serialization formats conflate physical timeline instants with civil wall-clock schedule times, causing catastrophic timezone conversion bugs and Daylight Saving Time (DST) data corruption. STVN partitions temporal representations into three mathematically orthogonal domains. All six temporal domain types are standard library prelude types located under `:org/stvnadore/prelude/*`. Bare unqualified references (such as `:DateTimeOffset` or `:TimeEpochS`) trigger `ERR_UNKNOWN_TYPE`.
 
-### 3.2 Physical Instant: `:DateTimeOffset`
+### 3.2 Physical Instant: `:org/stvnadore/prelude/DateTimeOffset`
 
 * **Domain:** Absolute point on the physical timeline associated with a fixed UTC presentation offset.
 * **Syntax:** ISO-8601 string with mandatory UTC offset (`Z` or `±HH:mm`): `"2026-03-15T08:00:00-05:00"`.
 * **Invariant:** **Zone brackets `[...]` are prohibited.** Supplying an IANA zone (e.g., `"2026-03-15T08:00:00-05:00[America/Chicago]"`) is a fatal syntax rejection.
 * **Binary Footprint:** 12 bytes `(epoch_utc_nanos: i64, offset_seconds: i32)`.
 
-### 3.3 Civil Wall-Clock Schedule: `:DateTimeZoned`
+### 3.3 Civil Wall-Clock Schedule: `:org/stvnadore/prelude/DateTimeZoned`
 
 * **Domain:** Future-scheduled human wall-clock time within a political IANA timezone jurisdiction.
 * **Syntax:** Local ISO-8601 timestamp with bracketed IANA zone: `"2026-03-15T08:00:00[America/Chicago]"`.
@@ -237,7 +237,7 @@ Traditional serialization formats conflate physical timeline instants with civil
 * **Invariant 2 (DST Spring-Forward Rejection):** Timestamps falling into non-existent DST transition gaps (e.g., `"2026-03-08T02:30:00[America/Chicago]"`) are strictly rejected by the compiler.
 * **Binary Footprint:** 10 bytes `(local_nanos: i64, zone_dict_id: u16)`.
 
-### 3.4 Compliance & Audit Record: `:DateTimeAudited`
+### 3.4 Compliance & Audit Record: `:org/stvnadore/prelude/DateTimeAudited`
 
 * **Domain:** Immutable legal/financial audit record proving both the observed UTC instant and the legal jurisdiction of execution.
 * **Syntax:** Dual-token string with both UTC offset and bracketed IANA zone: `"2026-03-15T08:00:00-05:00[America/Chicago]"`.
@@ -246,21 +246,21 @@ Traditional serialization formats conflate physical timeline instants with civil
 
 ### 3.5 Physical Epoch Counters
 
-* `:TimeEpochS`: Signed 64-bit seconds since Unix epoch (`1970-01-01T00:00:00Z`).
-* `:TimeEpochMs`: Signed 64-bit milliseconds since Unix epoch.
-* `:TimeEpochNs`: Arbitrary-precision nanoseconds since Unix epoch.
+* `:org/stvnadore/prelude/TimeEpochS`: Signed 64-bit seconds since Unix epoch (`1970-01-01T00:00:00Z`).
+* `:org/stvnadore/prelude/TimeEpochMs`: Signed 64-bit milliseconds since Unix epoch.
+* `:org/stvnadore/prelude/TimeEpochNs`: Arbitrary-precision nanoseconds since Unix epoch.
 
 ### 3.6 Tripartite Invariant Matrix
 
-| Attribute                  | `:DateTimeOffset`             | `:DateTimeZoned`              | `:DateTimeAudited`                  |
-|:---------------------------|:------------------------------|:------------------------------|:------------------------------------|
-| **Domain**                 | Physical Instant              | Civil Wall-Clock              | Regulatory Audit                    |
-| **Literal Grammar**        | `"YYYY-MM-DDTHH:mm:ss±HH:mm"` | `"YYYY-MM-DDTHH:mm:ss[Zone]"` | `"YYYY-MM-DDTHH:mm:ss±HH:mm[Zone]"` |
-| **UTC Offset**             | **Mandatory**                 | **Prohibited**                | **Mandatory**                       |
-| **Zone Bracket (`[...]`)** | **Prohibited**                | **Mandatory**                 | **Mandatory**                       |
-| **Offset Verification**    | N/A                           | Derived dynamically           | **Validated at Compile Time**       |
-| **DST Gap Rejection**      | N/A                           | **Strictly Rejected**         | **Strictly Rejected**               |
-| **Wire Footprint**         | 12 Bytes                      | 10 Bytes                      | 14 Bytes                            |
+| Attribute                  | `:org/stvnadore/prelude/DateTimeOffset` | `:org/stvnadore/prelude/DateTimeZoned` | `:org/stvnadore/prelude/DateTimeAudited` |
+|:---------------------------|:----------------------------------------|:---------------------------------------|:-----------------------------------------|
+| **Domain**                 | Physical Instant                        | Civil Wall-Clock                       | Regulatory Audit                         |
+| **Literal Grammar**        | `"YYYY-MM-DDTHH:mm:ss±HH:mm"`           | `"YYYY-MM-DDTHH:mm:ss[Zone]"`          | `"YYYY-MM-DDTHH:mm:ss±HH:mm[Zone]"`       |
+| **UTC Offset**             | **Mandatory**                           | **Prohibited**                         | **Mandatory**                             |
+| **Zone Bracket (`[...]`)** | **Prohibited**                          | **Mandatory**                          | **Mandatory**                             |
+| **Offset Verification**    | N/A                                     | Derived dynamically                    | **Validated at Compile Time**             |
+| **DST Gap Rejection**      | N/A                                     | **Strictly Rejected**                  | **Strictly Rejected**                     |
+| **Wire Footprint**         | 12 Bytes                                | 10 Bytes                               | 14 Bytes                                  |
 
 ---
 
@@ -432,6 +432,12 @@ The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quil
 
 | Nominal Type       | Underlying Type  | Applied Constraints / Validation Specification                                               |
 |:-------------------|:-----------------|:---------------------------------------------------------------------------------------------|
+| **`:org/stvnadore/prelude/TimeEpochS`**     | `:Int64`         | Epoch seconds elapsed since 1970-01-01T00:00:00Z                                            |
+| **`:org/stvnadore/prelude/TimeEpochMs`**    | `:Int64`         | Epoch milliseconds elapsed since 1970-01-01T00:00:00Z                                       |
+| **`:org/stvnadore/prelude/TimeEpochNs`**    | `:Int128`        | Epoch nanoseconds elapsed since 1970-01-01T00:00:00Z                                        |
+| **`:org/stvnadore/prelude/DateTimeOffset`** | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$" }` (Physical Instant) |
+| **`:org/stvnadore/prelude/DateTimeZoned`**  | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Civil Schedule) |
+| **`:org/stvnadore/prelude/DateTimeAudited`**| `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Compliance Audit Record) |
 | **`:org/stvnadore/prelude/Uuid`**        | `:StringFixed36` | `{ #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }` |
 | **`:org/stvnadore/prelude/Ulid`**        | `:StringFixed26` | `{ #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32)                            |
 | **`:org/stvnadore/prelude/Sha256`**      | `:StringFixed64` | `{ #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest)                                |

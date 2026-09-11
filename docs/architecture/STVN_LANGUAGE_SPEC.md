@@ -53,9 +53,9 @@
     * [5.5 Collection Types](#55-collection-types)
     * [5.6 Temporal Domain Types (Tripartite Architecture)](#56-temporal-domain-types-tripartite-architecture)
       * [5.6.1 Physical Epoch Timestamps](#561-physical-epoch-timestamps)
-      * [5.6.2 Physical Instant: `:DateTimeOffset`](#562-physical-instant-datetimeoffset)
-      * [5.6.3 Civil Schedule: `:DateTimeZoned`](#563-civil-schedule-datetimezoned)
-      * [5.6.4 Compliance & Audit Record: `:DateTimeAudited`](#564-compliance--audit-record-datetimeaudited)
+      * [5.6.2 Physical Instant: `:org/stvnadore/prelude/DateTimeOffset`](#562-physical-instant-orgstvnadorepreludedatetimeoffset)
+      * [5.6.3 Civil Schedule: `:org/stvnadore/prelude/DateTimeZoned`](#563-civil-schedule-orgstvnadorepreludedatetimezoned)
+      * [5.6.4 Compliance & Audit Record: `:org/stvnadore/prelude/DateTimeAudited`](#564-compliance--audit-record-orgstvnadorepreludedatetimeaudited)
       * [5.6.5 Tripartite Invariant Comparison Matrix](#565-tripartite-invariant-comparison-matrix)
   * [6. Trait Capability Calculus & Metadata Constraints](#6-trait-capability-calculus--metadata-constraints)
     * [6.1 Metadata Target Constraints](#61-metadata-target-constraints)
@@ -259,7 +259,7 @@ The colon character (`:`) is a dedicated **type-space and structural keyword pre
 | **Module Directives**                        | `:include`                | `:include [ "lib.stvn_inclf" ]`                                                                                                                         | Directs the module resolver to import external definitions                    |
 | **Scalar & Sized Type Tokens**               | `:` `[A-Z][a-zA-Z0-9]*`   | `:Boolean`, `:Int`, `:Int32`, `:Uint49`, `:Float64`, `:FloatExact`, `:String`, `:StringNonEmpty64`, `:StringFixed16`                                    | Built-in primitive and arbitrary bit-width scalar type identifiers            |
 | **Algebraic & Collection Type Constructors** | `:` `[A-Z][a-zA-Z0-9]*`   | `:Option`, `:Either`, `:Union`, `:Tuple`, `:Enum`, `:Seq`, `:SeqNonEmpty`, `:Set`, `:SetNonEmpty`, `:Map`, `:MapNonEmpty`, `:MapInv`, `:MapInvNonEmpty` | Parameterized sum, product, and collection type constructors                  |
-| **Temporal & Prelude Identifiers**           | `:` `[A-Z][a-zA-Z0-9]*`   | `:TimeEpochMs`, `:DateTimeOffset`, `:DateTimeZoned`, `:DateTimeAudited`, `:Uuid`, `:Port`, `:Email`, `:Currency`                                        | Pre-registered temporal primitives and standard library domain aliases        |
+| **Standard Library Prelude Aliases**         | `:org/stvnadore/prelude/` `[A-Za-z0-9_]+` | `:org/stvnadore/prelude/TimeEpochS`, `:org/stvnadore/prelude/DateTimeOffset`, `:org/stvnadore/prelude/DateTimeZoned`, `:org/stvnadore/prelude/DateTimeAudited`, `:org/stvnadore/prelude/Uuid`, `:org/stvnadore/prelude/Port` | Standard library domain types and temporal aliases located under `:org/stvnadore/prelude/*` |
 | **Nominal User-Defined Type Identifiers**    | `:` `[A-Z][a-zA-Z0-9_]*`  | `:HostName`, `:ServerConfig`, `:RouteTable`                                                                                                             | User-defined type names declared inside `:defs` and referenced across schemas |
 
 ```stvn
@@ -323,13 +323,16 @@ All `:include` directives inside a `:defs` block **must** be enclosed within squ
   // Import with bare prefix strip (strips up to terminal slash)
   :include [ "types/network.stvn_incl" { #strip } ]
 
-  // Import with explicit prefix strip
+  // Import with explicit prefix strip (applies to both types and typed constants)
   :include [ "types/network.stvn_incl" { #strip "net/http/" } ]
+  :include [ "config/network.stvn_incl" { #strip "net/config/" } ]
 
   // Import with explicit namespace alias mapping block
   :include [ "shared_models.stvn_incl" { :HostName :RemoteHost :Port :RemotePort } ]
 }
 ```
+
+The `#strip` facet strips matching hierarchical prefixes from both nominal types (stripping `:net/config/Port` to `:Port`) and compile-time constants (stripping `#net/config/TIMEOUT` to `#TIMEOUT`), strictly preserving the leading `#` value sigil. A matching constant satisfies `#strip` prefix accounting and prevents `ERR_UNUSED_STRIP_PREFIX`.
 
 ---
 
@@ -677,14 +680,14 @@ All collection types preserve **insertion order**. Value equality is order-depen
 
 ### 5.6 Temporal Domain Types (Tripartite Architecture)
 
-STVN partitions temporal values into physical epoch counters and a mathematically orthogonal tripartite date-time system:
+STVN partitions temporal values into physical epoch counters and a mathematically orthogonal tripartite date-time system. All six temporal domain types reside within the Standard Library Prelude under the canonical `:org/stvnadore/prelude/` namespace. Referencing bare unqualified temporal type identifiers (such as `:DateTimeOffset` or `:TimeEpochS`) without an explicit local alias or include mapping is rejected at compile time with `ERR_UNKNOWN_TYPE`.
 
 #### 5.6.1 Physical Epoch Timestamps
-* **`:TimeEpochS`**: 64-bit signed integer representing seconds elapsed since the Unix Epoch (`1970-01-01T00:00:00Z`).
-* **`:TimeEpochMs`**: 64-bit signed integer representing milliseconds elapsed since the Unix Epoch.
-* **`:TimeEpochNs`**: Arbitrary-precision integer representing nanoseconds elapsed since the Unix Epoch.
+* **`:org/stvnadore/prelude/TimeEpochS`**: 64-bit signed integer representing seconds elapsed since the Unix Epoch (`1970-01-01T00:00:00Z`).
+* **`:org/stvnadore/prelude/TimeEpochMs`**: 64-bit signed integer representing milliseconds elapsed since the Unix Epoch.
+* **`:org/stvnadore/prelude/TimeEpochNs`**: Arbitrary-precision integer representing nanoseconds elapsed since the Unix Epoch.
 
-#### 5.6.2 Physical Instant: `:DateTimeOffset`
+#### 5.6.2 Physical Instant: `:org/stvnadore/prelude/DateTimeOffset`
 Represents an absolute point on the physical timeline associated with a fixed local presentation offset.
 * **Normative Syntax:** Double-quoted ISO-8601 string containing full date, time, and mandatory numerical UTC offset (`Z` or `±HH:mm`):
   `"YYYY-MM-DDTHH:mm:ss[.fff...](Z|±HH:mm)"`
@@ -692,7 +695,7 @@ Represents an absolute point on the physical timeline associated with a fixed lo
 * **AST Record:** `StvnValue.StvnDateTimeOffset(ResolvedSchema schema, OffsetDateTime value)`
 * **Examples:** `"2026-03-15T08:00:00-05:00"`, `"2026-08-18T18:30:00Z"`, `"2026-12-31T23:59:59.999999999+09:00"`
 
-#### 5.6.3 Civil Schedule: `:DateTimeZoned`
+#### 5.6.3 Civil Schedule: `:org/stvnadore/prelude/DateTimeZoned`
 Represents a human civil wall-clock time scheduled within a geopolitical IANA time zone jurisdiction.
 * **Normative Syntax:** Double-quoted ISO-8601 string containing local date, local time, and a bracketed canonical IANA time zone identifier:
   `"YYYY-MM-DDTHH:mm:ss[.fff...][Region/City]"`
@@ -701,7 +704,7 @@ Represents a human civil wall-clock time scheduled within a geopolitical IANA ti
 * **AST Record:** `StvnValue.StvnDateTimeZoned(ResolvedSchema schema, LocalDateTime localDateTime, ZoneId zoneId)`
 * **Examples:** `"2026-03-15T08:00:00[America/Chicago]"`, `"2026-08-18T18:30:00[Europe/London]"`, `"2026-11-01T01:30:00[Asia/Tokyo]"`
 
-#### 5.6.4 Compliance & Audit Record: `:DateTimeAudited`
+#### 5.6.4 Compliance & Audit Record: `:org/stvnadore/prelude/DateTimeAudited`
 Represents an immutable regulatory event recording both the observed instant offset and the legal IANA jurisdiction under which the transaction occurred.
 * **Normative Syntax:** Double-quoted ISO-8601 string containing local date, local time, explicit UTC offset, and bracketed IANA time zone identifier:
   `"YYYY-MM-DDTHH:mm:ss[.fff...](Z|±HH:mm)[Region/City]"`
@@ -715,7 +718,7 @@ Represents an immutable regulatory event recording both the observed instant off
 
 #### 5.6.5 Tripartite Invariant Comparison Matrix
 
-| Specification Attribute            | `:DateTimeOffset`                       | `:DateTimeZoned`                        | `:DateTimeAudited`                                     |
+| Specification Attribute            | `:org/stvnadore/prelude/DateTimeOffset` | `:org/stvnadore/prelude/DateTimeZoned`  | `:org/stvnadore/prelude/DateTimeAudited`               |
 |:-----------------------------------|:----------------------------------------|:----------------------------------------|:-------------------------------------------------------|
 | **Domain Category**                | Physical / Universal Instant            | Civil / Wall-Clock Schedule             | Compliance / Regulatory Audit                          |
 | **Literal Grammar**                | `"YYYY-MM-DDTHH:mm:ss±HH:mm"`           | `"YYYY-MM-DDTHH:mm:ss[Zone]"`           | `"YYYY-MM-DDTHH:mm:ss±HH:mm[Zone]"`                    |
@@ -749,7 +752,7 @@ Metadata annotations appear inside `{ ... }` blocks immediately following a type
 |:--------------------------|:-------------------------------------------------------------------------------------------------------|:---------------------|:----------------------|
 | **Scalars**               | `:Boolean`, `:Int*`, `:Uint*`, `:FloatExact`, `:String*`, `:Enum` (including filtered subsets)         | **Yes**              | **Yes**               |
 | **Floating-Point**        | `:Float32`, `:Float64`, `:Float`                                                                       | **--No--**           | **Yes**               |
-| **Temporal**              | `:TimeEpochS`, `:TimeEpochMs`, `:TimeEpochNs`, `:DateTimeOffset`, `:DateTimeZoned`, `:DateTimeAudited` | **Yes**              | **Yes**               |
+| **Temporal**              | `:org/stvnadore/prelude/TimeEpochS`, `:org/stvnadore/prelude/TimeEpochMs`, `:org/stvnadore/prelude/TimeEpochNs`, `:org/stvnadore/prelude/DateTimeOffset`, `:org/stvnadore/prelude/DateTimeZoned`, `:org/stvnadore/prelude/DateTimeAudited` | **Yes**              | **Yes**               |
 | **Unordered Collections** | `:Set`, `:SetNonEmpty`, `:MapInv`, `:MapInvNonEmpty`                                                   | **Yes**              | **--No--**            |
 | **Derived Containers**    | `:Option`, `:Either`, `:Union`, `:Tuple`, `:Seq*`, `:Map*`                                             | **Derived**          | **Derived**           |
 
@@ -819,6 +822,12 @@ The runtime environment provides the following pre-registered types:
 
 | Type Identifier    | Underlying Representation | Applied Constraints / Validation Specification               |
 |:-------------------|:--------------------------|:-------------------------------------------------------------|
+| **`:org/stvnadore/prelude/TimeEpochS`**     | `:Int64`                  | Epoch seconds elapsed since 1970-01-01T00:00:00Z             |
+| **`:org/stvnadore/prelude/TimeEpochMs`**    | `:Int64`                  | Epoch milliseconds elapsed since 1970-01-01T00:00:00Z        |
+| **`:org/stvnadore/prelude/TimeEpochNs`**    | `:Int128`                 | Epoch nanoseconds elapsed since 1970-01-01T00:00:00Z         |
+| **`:org/stvnadore/prelude/DateTimeOffset`** | `:String`                 | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$" }` (Physical Instant) |
+| **`:org/stvnadore/prelude/DateTimeZoned`**  | `:String`                 | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Civil Schedule) |
+| **`:org/stvnadore/prelude/DateTimeAudited`**| `:String`                 | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Compliance Audit Record) |
 | **`:org/stvnadore/prelude/Uuid`**        | `:StringFixed36`          | Standard UUID format: `8-4-4-4-12` hex characters            |
 | **`:org/stvnadore/prelude/Ulid`**        | `:StringFixed26`          | Crockford's Base32 ULID character set                        |
 | **`:org/stvnadore/prelude/Sha256`**      | `:StringFixed64`          | Hexadecimal SHA-256 hash string (64 hex characters)          |
@@ -1375,26 +1384,26 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
   // prelude_and_temporal.stvn
   :defs {
     // Temporal types
-    :EpochSeconds    :TimeEpochS
-    :EpochMillis     :TimeEpochMs
-    :EpochNanos      :TimeEpochNs
-    :OffsetDateTime  :DateTimeOffset
-    :ZonedDateTime   :DateTimeZoned
-    :AuditedDateTime :DateTimeAudited
+    :EpochSeconds    :org/stvnadore/prelude/TimeEpochS
+    :EpochMillis     :org/stvnadore/prelude/TimeEpochMs
+    :EpochNanos      :org/stvnadore/prelude/TimeEpochNs
+    :OffsetDateTime  :org/stvnadore/prelude/DateTimeOffset
+    :ZonedDateTime   :org/stvnadore/prelude/DateTimeZoned
+    :AuditedDateTime :org/stvnadore/prelude/DateTimeAudited
 
     // Standard Library Prelude Types
-    :IdUuid         :Uuid
-    :IdUlid         :Ulid
-    :HashSha256     :Sha256
-    :VersionSemVer  :SemVer
-    :ContactEmail   :Email
-    :NetworkIPv4    :IPv4
-    :NetworkPort    :Port
-    :RatioPercent   :Percentage
-    :RatioProb      :Probability
-    :MoneyAmount    :Currency
-    :GeoLat         :Latitude
-    :GeoLon         :Longitude
+    :IdUuid         :org/stvnadore/prelude/Uuid
+    :IdUlid         :org/stvnadore/prelude/Ulid
+    :HashSha256     :org/stvnadore/prelude/Sha256
+    :VersionSemVer  :org/stvnadore/prelude/SemVer
+    :ContactEmail   :org/stvnadore/prelude/Email
+    :NetworkIPv4    :org/stvnadore/prelude/IPv4
+    :NetworkPort    :org/stvnadore/prelude/Port
+    :RatioPercent   :org/stvnadore/prelude/Percentage
+    :RatioProb      :org/stvnadore/prelude/Probability
+    :MoneyAmount    :org/stvnadore/prelude/Currency
+    :GeoLat         :org/stvnadore/prelude/Latitude
+    :GeoLon         :org/stvnadore/prelude/Longitude
   }
 
   :type :Tuple(
@@ -1691,12 +1700,6 @@ ATOM_FLOAT            : ':Float' [0-9]* ;
 ATOM_STRING_FIXED     : ':StringFixed' [0-9]* ;
 ATOM_STRING           : ':String' [0-9]* ;
 ATOM_STRING_NON_EMPTY : ':StringNonEmpty' [0-9]* ;
-ATOM_TIME_EPOCH_S     : ':TimeEpochS' ;
-ATOM_TIME_EPOCH_MS    : ':TimeEpochMs' ;
-ATOM_TIME_EPOCH_NS    : ':TimeEpochNs' ;
-ATOM_DATE_TIME_OFFSET : ':DateTimeOffset' ;
-ATOM_DATE_TIME_ZONED  : ':DateTimeZoned' ;
-ATOM_DATE_TIME_AUDITED: ':DateTimeAudited' ;
 
 COLL_SEQ               : ':Seq' ;
 COLL_SEQ_NON_EMPTY    : ':SeqNonEmpty' ;
@@ -1838,12 +1841,6 @@ atomicType : ATOM_BOOLEAN
            | ATOM_STRING_FIXED
            | ATOM_STRING
            | ATOM_STRING_NON_EMPTY
-           | ATOM_TIME_EPOCH_S
-           | ATOM_TIME_EPOCH_MS
-           | ATOM_TIME_EPOCH_NS
-           | ATOM_DATE_TIME_OFFSET
-           | ATOM_DATE_TIME_ZONED
-           | ATOM_DATE_TIME_AUDITED
            ;
 
 collectionType
@@ -1910,12 +1907,6 @@ reservedKeyword : ATOM_BOOLEAN
                 | ATOM_STRING_FIXED
                 | ATOM_STRING
                 | ATOM_STRING_NON_EMPTY
-                | ATOM_TIME_EPOCH_S
-                | ATOM_TIME_EPOCH_MS
-                | ATOM_TIME_EPOCH_NS
-                | ATOM_DATE_TIME_OFFSET
-                | ATOM_DATE_TIME_ZONED
-                | ATOM_DATE_TIME_AUDITED
                 | COLL_SEQ
                 | COLL_SEQ_NON_EMPTY
                 | COLL_SET

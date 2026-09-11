@@ -18,6 +18,7 @@ import org.stvnadore.core.parser.StvnParser.SchemaTypeContext;
 import org.stvnadore.core.parser.StvnParser.TypeDefinitionContext;
 import org.stvnadore.core.parser.StvnParser.ValueContext;
 import org.stvnadore.core.stdlib.StvnPrelude;
+import org.stvnadore.core.validation.StvnTypeResolver.ConstantDefSource;
 import org.stvnadore.core.validation.CyclicDependencyException;
 import org.stvnadore.core.validation.DuplicateModuleImportException;
 import org.stvnadore.core.validation.NamespaceCollisionException;
@@ -52,9 +53,9 @@ public final class StvnSchemaFlattener {
     RENAMED_IMPORT_RHS
   }
 
-  private record NamespaceClaim(
+  private record NamespaceClaim<T extends ParserRuleContext>(
       String identifier,
-      TypeDefinitionContext defNode,
+      T defNode,
       String sourceModule,
       ClaimType type
   ) {}
@@ -72,7 +73,13 @@ public final class StvnSchemaFlattener {
       StvnParser.StvnDocumentContext docCtx,
       CommonTokenStream tokenStream,
       List<ImportInfo> imports,
-      List<TypeDefinitionContext> localDefs
+      List<TypeDefinitionContext> localDefs,
+      List<StvnParser.ConstantDefinitionContext> localConstDefs
+  ) {}
+
+  private record ResolvedDefinitions(
+      Map<String, DefSource> types,
+      Map<String, ConstantDefSource> constants
   ) {}
 
   /**
@@ -172,12 +179,12 @@ public final class StvnSchemaFlattener {
     };
 
     Map<String, ParsedDocument> parsedCache = new HashMap<>();
-    Map<String, Map<String, DefSource>> resolvedCache = new HashMap<>();
+    Map<String, ResolvedDefinitions> resolvedCache = new HashMap<>();
     LinkedHashSet<String> activePaths = new LinkedHashSet<>();
     List<String> activeRawPaths = new ArrayList<>();
 
     // Recursively resolve all definitions and check for cycles
-    Map<String, DefSource> entryPointDefs = resolveDocument(
+    ResolvedDefinitions entryPointDefs = resolveDocument(
         normEntryPoint,
         "",
         parsedCache,
@@ -190,15 +197,75 @@ public final class StvnSchemaFlattener {
 
     // Map each definition context to its final name in the entry point context (supporting multiple aliases)
     Map<TypeDefinitionContext, List<String>> entryPointTypeNames = new IdentityHashMap<>();
-    for (var entry : entryPointDefs.entrySet()) {
+    for (var entry : entryPointDefs.types().entrySet()) {
       entryPointTypeNames.computeIfAbsent(entry.getValue().defNode(), k -> new ArrayList<>())
           .add(entry.getKey());
     }
 
-    // Rewrite type definitions and canonicalize them
+    // Rewrite type and constant definitions and canonicalize them
     List<String> outputDefinitions = new ArrayList<>();
 
-    for (var entry : entryPointDefs.entrySet()) {
+    for (var entry : entryPointDefs.constants().entrySet()) {
+      String entryName = entry.getKey();
+      ConstantDefSource cs = entry.getValue();
+      StvnParser.ConstantDefinitionContext originalConst = cs.defNode();
+
+      String sourcePath = cs.sourceName();
+      ParsedDocument doc = parsedCache.get(normalizePath(sourcePath));
+      if (doc == null) {
+        throw new IllegalStateException("Failed to find parsed document for: " + sourcePath);
+      }
+
+      TokenStreamRewriter rewriter = new TokenStreamRewriter(doc.tokenStream());
+      Map<Integer, Integer> replacementRanges = new HashMap<>();
+      Set<Integer> skippedIndices = new HashSet<>();
+
+      int tgtStart = originalConst.valueKeyword().getStart().getTokenIndex();
+      int tgtStop = originalConst.valueKeyword().getStop().getTokenIndex();
+      rewriter.replace(originalConst.valueKeyword().getStart(), originalConst.valueKeyword().getStop(), entryName);
+      replacementRanges.put(tgtStart, tgtStop);
+      for (int i = tgtStart + 1; i <= tgtStop; i++) {
+        skippedIndices.add(i);
+      }
+
+      List<StvnParser.TypeKeywordContext> internalRefs = new ArrayList<>();
+      collectTypeKeywords(originalConst.schemaType(), internalRefs);
+
+      for (var refCtx : internalRefs) {
+        String refText = refCtx.getText();
+        String targetName = resolveReference(refText, doc.normalizedPath(), resolvedCache, entryPointTypeNames);
+        int rStart = refCtx.getStart().getTokenIndex();
+        int rStop = refCtx.getStop().getTokenIndex();
+        rewriter.replace(refCtx.getStart(), refCtx.getStop(), targetName);
+        replacementRanges.put(rStart, rStop);
+        for (int i = rStart + 1; i <= rStop; i++) {
+          skippedIndices.add(i);
+        }
+      }
+
+      int startIdx = originalConst.getStart().getTokenIndex();
+      int stopIdx = originalConst.getStop().getTokenIndex();
+      List<String> tokenTexts = new ArrayList<>();
+      for (int i = startIdx; i <= stopIdx; i++) {
+        if (skippedIndices.contains(i)) {
+          continue;
+        }
+        if (replacementRanges.containsKey(i)) {
+          int end = replacementRanges.get(i);
+          tokenTexts.add(rewriter.getText(new org.antlr.v4.runtime.misc.Interval(i, end)));
+        } else {
+          var interval = new org.antlr.v4.runtime.misc.Interval(i, i);
+          tokenTexts.add(rewriter.getText(interval));
+        }
+      }
+      String spacedRewritten = toCanonicalString(tokenTexts);
+      var cleanConst = parseConstantDefinition(spacedRewritten, errorListener);
+
+      String canonicalConst = printCanonicalConstant(cleanConst);
+      outputDefinitions.add(canonicalConst);
+    }
+
+    for (var entry : entryPointDefs.types().entrySet()) {
       String entryName = entry.getKey();
       DefSource ds = entry.getValue();
       TypeDefinitionContext originalDef = ds.defNode();
@@ -298,16 +365,16 @@ public final class StvnSchemaFlattener {
   private static String resolveReference(
       String refText,
       String currentPath,
-      Map<String, Map<String, DefSource>> resolvedCache,
+      Map<String, ResolvedDefinitions> resolvedCache,
       Map<TypeDefinitionContext, List<String>> entryPointTypeNames
   ) {
     if (isPrimitiveType(refText) || isPreludeType(refText)) {
       return refText;
     }
 
-    Map<String, DefSource> currentDefs = resolvedCache.get(currentPath);
-    if (currentDefs != null && currentDefs.containsKey(refText)) {
-      DefSource target = currentDefs.get(refText);
+    ResolvedDefinitions currentDefs = resolvedCache.get(currentPath);
+    if (currentDefs != null && currentDefs.types().containsKey(refText)) {
+      DefSource target = currentDefs.types().get(refText);
       List<String> entryNames = entryPointTypeNames.get(target.defNode());
       if (entryNames != null && !entryNames.isEmpty()) {
         if (entryNames.contains(refText)) {
@@ -323,9 +390,7 @@ public final class StvnSchemaFlattener {
   }
 
   private static boolean isPrimitiveType(String type) {
-    if (type.equals(":Boolean") || type.equals(":FloatExact") || type.equals(":TimeEpochS") ||
-        type.equals(":TimeEpochMs") || type.equals(":TimeEpochNs") || type.equals(":DateTimeOffset") ||
-        type.equals(":DateTimeZoned") || type.equals(":DateTimeAudited") || type.equals(":Seq") || type.equals(":SeqNonEmpty") ||
+    if (type.equals(":Boolean") || type.equals(":FloatExact") || type.equals(":Seq") || type.equals(":SeqNonEmpty") ||
         type.equals(":Set") || type.equals(":SetNonEmpty") || type.equals(":Map") ||
         type.equals(":MapNonEmpty") || type.equals(":MapInv") || type.equals(":MapInvNonEmpty") ||
         type.equals(":Tuple") || type.equals(":MapEntry") || type.equals(":Option") ||
@@ -383,6 +448,7 @@ public final class StvnSchemaFlattener {
 
     List<ImportInfo> imports = new ArrayList<>();
     List<TypeDefinitionContext> localDefs = new ArrayList<>();
+    List<StvnParser.ConstantDefinitionContext> localConstDefs = new ArrayList<>();
 
     if (docCtx.documentBody() != null && docCtx.documentBody().defsEntry() != null) {
       var defsEntry = docCtx.documentBody().defsEntry();
@@ -425,9 +491,12 @@ public final class StvnSchemaFlattener {
       if (defsEntry.typeDefinition() != null) {
         localDefs.addAll(defsEntry.typeDefinition());
       }
+      if (defsEntry.constantDefinition() != null) {
+        localConstDefs.addAll(defsEntry.constantDefinition());
+      }
     }
 
-    return new ParsedDocument(normalizedPath, docCtx, tokenStream, imports, localDefs);
+    return new ParsedDocument(normalizedPath, docCtx, tokenStream, imports, localDefs, localConstDefs);
   }
 
   private static TypeDefinitionContext parseTypeDefinition(String source, BaseErrorListener errorListener) {
@@ -455,14 +524,14 @@ public final class StvnSchemaFlattener {
     return doc.documentBody().defsEntry().typeDefinition(0);
   }
 
-  private static Map<String, DefSource> resolveDocument(
+  private static ResolvedDefinitions resolveDocument(
       String currentPath,
       String currentRawImport,
       Map<String, ParsedDocument> parsedCache,
       Map<String, String> workspace,
       LinkedHashSet<String> activePaths,
       List<String> activeRawPaths,
-      Map<String, Map<String, DefSource>> resolvedCache,
+      Map<String, ResolvedDefinitions> resolvedCache,
       BaseErrorListener errorListener
   ) {
     if (activePaths.contains(currentPath)) {
@@ -510,13 +579,17 @@ public final class StvnSchemaFlattener {
       parsedCache.put(currentPath, parsed);
     }
 
-    var accumulator = new LinkedHashMap<String, List<NamespaceClaim>>();
+    var accumulator = new LinkedHashMap<String, List<NamespaceClaim<TypeDefinitionContext>>>();
+    var constAccumulator = new LinkedHashMap<String, List<NamespaceClaim<StvnParser.ConstantDefinitionContext>>>();
 
     if (parsed.docCtx.documentBody() != null && parsed.docCtx.documentBody().defsEntry() != null) {
       var defsEntry = parsed.docCtx.documentBody().defsEntry();
       var elements = new ArrayList<ParserRuleContext>();
       if (defsEntry.typeDefinition() != null) {
         elements.addAll(defsEntry.typeDefinition());
+      }
+      if (defsEntry.constantDefinition() != null) {
+        elements.addAll(defsEntry.constantDefinition());
       }
       if (defsEntry.includeStmt() != null) {
         elements.addAll(defsEntry.includeStmt());
@@ -544,12 +617,24 @@ public final class StvnSchemaFlattener {
             }
           }
           accumulator.computeIfAbsent(typeName, k -> new ArrayList<>())
-              .add(new NamespaceClaim(typeName, typeDef, currentPath, ClaimType.LOCAL));
+              .add(new NamespaceClaim<>(typeName, typeDef, currentPath, ClaimType.LOCAL));
+        } else if (element instanceof StvnParser.ConstantDefinitionContext constDef) {
+          String constName = constDef.valueKeyword().getText();
+          var existingClaims = constAccumulator.get(constName);
+          if (existingClaims != null) {
+            for (var claim : existingClaims) {
+              if (claim.type() == ClaimType.LOCAL) {
+                throw new IllegalStateException("Zero-Shadowing constraint violated: " + constName);
+              }
+            }
+          }
+          constAccumulator.computeIfAbsent(constName, k -> new ArrayList<>())
+              .add(new NamespaceClaim<>(constName, constDef, currentPath, ClaimType.LOCAL));
         } else if (element instanceof StvnParser.IncludeStmtContext includeStmt) {
           if (includeStmt.includeElement() != null) {
             for (var inclEl : includeStmt.includeElement()) {
               ImportInfo imp = parsed.imports.get(importIdx++);
-              Map<String, DefSource> importedDefs = resolveDocument(
+              ResolvedDefinitions importedDefs = resolveDocument(
                   imp.resolvedPath(),
                   imp.rawPath(),
                   parsedCache,
@@ -560,7 +645,7 @@ public final class StvnSchemaFlattener {
                   errorListener
               );
 
-              for (var entry : importedDefs.entrySet()) {
+              for (var entry : importedDefs.types().entrySet()) {
                 String originalName = entry.getKey();
                 DefSource defSource = entry.getValue();
 
@@ -592,13 +677,40 @@ public final class StvnSchemaFlattener {
 
                 if (isRenamed) {
                   accumulator.computeIfAbsent(importedName, k -> new ArrayList<>())
-                      .add(new NamespaceClaim(importedName, defSource.defNode(), defSource.sourceName(), ClaimType.RENAMED_IMPORT_RHS));
+                      .add(new NamespaceClaim<>(importedName, defSource.defNode(), defSource.sourceName(), ClaimType.RENAMED_IMPORT_RHS));
                   accumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
-                      .add(new NamespaceClaim(candidateName, defSource.defNode(), defSource.sourceName(), ClaimType.RENAMED_IMPORT_LHS));
+                      .add(new NamespaceClaim<>(candidateName, defSource.defNode(), defSource.sourceName(), ClaimType.RENAMED_IMPORT_LHS));
                 } else {
                   accumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
-                      .add(new NamespaceClaim(candidateName, defSource.defNode(), defSource.sourceName(), ClaimType.RAW_IMPORT));
+                      .add(new NamespaceClaim<>(candidateName, defSource.defNode(), defSource.sourceName(), ClaimType.RAW_IMPORT));
                 }
+              }
+
+              for (var entry : importedDefs.constants().entrySet()) {
+                String originalName = entry.getKey();
+                ConstantDefSource constSource = entry.getValue();
+
+                String candidateName = originalName;
+                if (imp.hasStrip()) {
+                  String prefix = imp.stripPrefix();
+                  if (prefix != null) {
+                    char sigil = originalName.charAt(0);
+                    String rawSub = originalName.substring(1);
+                    if (rawSub.startsWith(prefix)) {
+                      candidateName = sigil + rawSub.substring(prefix.length());
+                    } else if (originalName.startsWith(prefix)) {
+                      candidateName = sigil + originalName.substring(prefix.length());
+                    }
+                  } else {
+                    int lastSlash = candidateName.lastIndexOf('/');
+                    if (lastSlash >= 0 && lastSlash + 1 < candidateName.length()) {
+                      candidateName = originalName.charAt(0) + candidateName.substring(lastSlash + 1);
+                    }
+                  }
+                }
+
+                constAccumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
+                    .add(new NamespaceClaim<>(candidateName, constSource.defNode(), constSource.sourceName(), ClaimType.RAW_IMPORT));
               }
             }
           }
@@ -607,14 +719,42 @@ public final class StvnSchemaFlattener {
     }
 
     Map<String, DefSource> localDefs = new LinkedHashMap<>();
+    Map<String, ConstantDefSource> localConstDefs = new LinkedHashMap<>();
     List<String> collisions = new ArrayList<>();
 
+    applyEvictionCascade(accumulator, localDefs, collisions, DefSource::new);
+    applyEvictionCascade(constAccumulator, localConstDefs, collisions, ConstantDefSource::new);
+
+    if (!collisions.isEmpty()) {
+      throw new NamespaceCollisionException("Namespace collision(s) detected: " + collisions);
+    }
+
+    ResolvedDefinitions res = new ResolvedDefinitions(localDefs, localConstDefs);
+    resolvedCache.put(currentPath, res);
+
+    activePaths.remove(currentPath);
+    activeRawPaths.remove(activeRawPaths.size() - 1);
+
+    return res;
+  }
+
+  @FunctionalInterface
+  private interface DefFactory<N extends ParserRuleContext, S> {
+    S create(N node, String sourceModule);
+  }
+
+  private static <N extends ParserRuleContext, S> void applyEvictionCascade(
+      Map<String, List<NamespaceClaim<N>>> accumulator,
+      Map<String, S> destination,
+      List<String> collisions,
+      DefFactory<N, S> factory
+  ) {
     for (var entry : accumulator.entrySet()) {
       String id = entry.getKey();
-      List<NamespaceClaim> claims = entry.getValue();
+      List<NamespaceClaim<N>> claims = entry.getValue();
 
       boolean hasLocal = false;
-      NamespaceClaim localClaim = null;
+      NamespaceClaim<N> localClaim = null;
       for (var c : claims) {
         if (c.type() == ClaimType.LOCAL) {
           hasLocal = true;
@@ -624,7 +764,7 @@ public final class StvnSchemaFlattener {
       }
 
       if (hasLocal) {
-        List<NamespaceClaim> filteredClaims = new ArrayList<>();
+        List<NamespaceClaim<N>> filteredClaims = new ArrayList<>();
         filteredClaims.add(localClaim);
         for (var c : claims) {
           if (c.type() == ClaimType.RENAMED_IMPORT_RHS) {
@@ -634,12 +774,12 @@ public final class StvnSchemaFlattener {
         if (filteredClaims.size() > 1) {
           collisions.add(id);
         } else {
-          localDefs.put(id, new DefSource(localClaim.defNode(), localClaim.sourceModule()));
+          destination.put(id, factory.create(localClaim.defNode(), localClaim.sourceModule()));
         }
       } else {
-        List<NamespaceClaim> rawClaims = new ArrayList<>();
-        List<NamespaceClaim> lhsClaims = new ArrayList<>();
-        List<NamespaceClaim> rhsClaims = new ArrayList<>();
+        List<NamespaceClaim<N>> rawClaims = new ArrayList<>();
+        List<NamespaceClaim<N>> lhsClaims = new ArrayList<>();
+        List<NamespaceClaim<N>> rhsClaims = new ArrayList<>();
 
         for (var c : claims) {
           if (c.type() == ClaimType.RAW_IMPORT) {
@@ -657,37 +797,22 @@ public final class StvnSchemaFlattener {
           lhsClaims.clear();
         }
 
-        List<NamespaceClaim> remainingClaims = new ArrayList<>();
+        List<NamespaceClaim<N>> remainingClaims = new ArrayList<>();
         remainingClaims.addAll(rawClaims);
         remainingClaims.addAll(lhsClaims);
         remainingClaims.addAll(rhsClaims);
 
         if (remainingClaims.size() == 1) {
-          NamespaceClaim single = remainingClaims.get(0);
-          localDefs.put(id, new DefSource(single.defNode(), single.sourceModule()));
+          NamespaceClaim<N> single = remainingClaims.get(0);
+          destination.put(id, factory.create(single.defNode(), single.sourceModule()));
         } else if (remainingClaims.size() > 1) {
           collisions.add(id);
         }
       }
     }
-
-    if (!collisions.isEmpty()) {
-      throw new NamespaceCollisionException("Namespace collision(s) detected: " + collisions);
-    }
-
-    resolvedCache.put(currentPath, localDefs);
-
-    activePaths.remove(currentPath);
-    activeRawPaths.remove(activeRawPaths.size() - 1);
-
-    return localDefs;
   }
 
-  private static String printCanonical(TypeDefinitionContext typeDef) {
-    StringBuilder sb = new StringBuilder();
-    sb.append(typeDef.typeDefTarget().getText());
-
-    StvnConstraints constraints = StvnTypeResolver.extractConstraints(typeDef.metadataMap());
+  private static void appendConstraints(StringBuilder sb, StvnConstraints constraints) {
     if (hasConstraints(constraints)) {
       sb.append(" {");
       var comparable = constraints.comparable().orElse(null);
@@ -735,6 +860,14 @@ public final class StvnSchemaFlattener {
       }
       sb.append(" }");
     }
+  }
+
+  private static String printCanonical(TypeDefinitionContext typeDef) {
+    StringBuilder sb = new StringBuilder();
+    sb.append(typeDef.typeDefTarget().getText());
+
+    StvnConstraints constraints = StvnTypeResolver.extractConstraints(typeDef.metadataMap());
+    appendConstraints(sb, constraints);
 
     List<String> tokens = new ArrayList<>();
     collectSchemaTypeTokens(typeDef.schemaType(), tokens);
@@ -742,6 +875,51 @@ public final class StvnSchemaFlattener {
     String tail = toCanonicalString(tokens);
     sb.append(" ").append(tail);
     return sb.toString();
+  }
+
+  private static String printCanonicalConstant(StvnParser.ConstantDefinitionContext constDef) {
+    StringBuilder sb = new StringBuilder();
+    sb.append(constDef.valueKeyword().getText());
+
+    StvnConstraints constraints = StvnTypeResolver.extractConstraints(constDef.metadataMap());
+    appendConstraints(sb, constraints);
+
+    List<String> tokens = new ArrayList<>();
+    collectSchemaTypeTokens(constDef.schemaType(), tokens);
+    String schemaTail = toCanonicalString(tokens);
+    sb.append(" ").append(schemaTail);
+
+    List<String> valTokens = new ArrayList<>();
+    collectValueTokens(constDef.value(), valTokens, constraints.preserveIndent());
+    String valTail = toCanonicalString(valTokens);
+    sb.append(" ").append(valTail);
+
+    return sb.toString();
+  }
+
+  private static StvnParser.ConstantDefinitionContext parseConstantDefinition(String source, BaseErrorListener errorListener) {
+    String wrapped = "{ :defs { " + source + " } }";
+    var lexer = new StvnLexer(CharStreams.fromString(wrapped));
+    lexer.removeErrorListeners();
+    lexer.addErrorListener(errorListener);
+
+    List<Token> tokens = new ArrayList<>();
+    Token token;
+    while ((token = lexer.nextToken()).getType() != Token.EOF) {
+      if (token.getChannel() == Token.DEFAULT_CHANNEL) {
+        tokens.add(token);
+      }
+    }
+    tokens.add(token);
+
+    var tokenSource = new org.antlr.v4.runtime.ListTokenSource(tokens);
+    var tokenStream = new CommonTokenStream(tokenSource);
+    var parser = new StvnParser(tokenStream);
+    parser.removeErrorListeners();
+    parser.addErrorListener(errorListener);
+
+    var doc = parser.stvnDocument();
+    return doc.documentBody().defsEntry().constantDefinition(0);
   }
 
   private static boolean hasConstraints(StvnConstraints c) {

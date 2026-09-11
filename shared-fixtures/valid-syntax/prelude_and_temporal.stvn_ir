@@ -1,58 +1,67 @@
 TypeRegistry:
   - :EpochSeconds
       schema:
-        node: :TimeEpochS
+        node: :Int64
         aliasName: :EpochSeconds
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :TimeEpochS
+          node: :Int64
+          aliasName: :org/stvnadore/prelude/TimeEpochS
   - :EpochMillis
       schema:
-        node: :TimeEpochMs
+        node: :Int64
         aliasName: :EpochMillis
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :TimeEpochMs
+          node: :Int64
+          aliasName: :org/stvnadore/prelude/TimeEpochMs
   - :EpochNanos
       schema:
-        node: :TimeEpochNs
+        node: :Int128
         aliasName: :EpochNanos
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :TimeEpochNs
+          node: :Int128
+          aliasName: :org/stvnadore/prelude/TimeEpochNs
   - :OffsetDateTime
       schema:
-        node: :DateTimeOffset
+        node: :String
         aliasName: :OffsetDateTime
         constraints:
           equatable: true (default)
           comparable: true (default)
+          regex: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$" (inherited from :org/stvnadore/prelude/DateTimeOffset)
         underlyingSchema:
-          node: :DateTimeOffset
+          node: :String
+          aliasName: :org/stvnadore/prelude/DateTimeOffset
   - :ZonedDateTime
       schema:
-        node: :DateTimeZoned
+        node: :String
         aliasName: :ZonedDateTime
         constraints:
           equatable: true (default)
           comparable: true (default)
+          regex: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" (inherited from :org/stvnadore/prelude/DateTimeZoned)
         underlyingSchema:
-          node: :DateTimeZoned
+          node: :String
+          aliasName: :org/stvnadore/prelude/DateTimeZoned
   - :AuditedDateTime
       schema:
-        node: :DateTimeAudited
+        node: :String
         aliasName: :AuditedDateTime
         constraints:
           equatable: true (default)
           comparable: true (default)
+          regex: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" (inherited from :org/stvnadore/prelude/DateTimeAudited)
         underlyingSchema:
-          node: :DateTimeAudited
+          node: :String
+          aliasName: :org/stvnadore/prelude/DateTimeAudited
   - :IdUuid
       schema:
         node: :StringFixed36
@@ -198,12 +207,12 @@ TypeRegistry:
 ValuePayload:
   StvnTuple
     elements:
-      - StvnTime(:EpochSeconds): 1773532800
-      - StvnTime(:EpochMillis): 1773532800000
-      - StvnTime(:EpochNanos): 1773532800000000000
-      - StvnDateTimeOffset(:OffsetDateTime): 2026-03-15T08:00-05:00
-      - StvnDateTimeZoned(:ZonedDateTime): 2026-03-15T08:00[America/Chicago]
-      - StvnDateTimeAudited(:AuditedDateTime): 2026-03-15T08:00-05:00[America/Chicago]
+      - StvnInteger(:EpochSeconds): 1773532800
+      - StvnInteger(:EpochMillis): 1773532800000
+      - StvnInteger(:EpochNanos): 1773532800000000000
+      - StvnString(:OffsetDateTime): "2026-03-15T08:00:00-05:00"
+      - StvnString(:ZonedDateTime): "2026-03-15T08:00:00[America/Chicago]"
+      - StvnString(:AuditedDateTime): "2026-03-15T08:00:00-05:00[America/Chicago]"
       - StvnString(:IdUuid): "123e4567-e89b-12d3-a456-426614174000"
       - StvnString(:IdUlid): "01ARZ3NDEKTSV4RRFFQ69G5FAV"
       - StvnString(:HashSha256): "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"

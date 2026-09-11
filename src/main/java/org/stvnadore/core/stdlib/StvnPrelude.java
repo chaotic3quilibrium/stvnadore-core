@@ -42,6 +42,13 @@ public final class StvnPrelude {
           :org/stvnadore/prelude/Currency :FloatExact
           :org/stvnadore/prelude/Latitude    { #minIncl -90.0 #maxIncl 90.0 }   :Float64
           :org/stvnadore/prelude/Longitude   { #minIncl -180.0 #maxIncl 180.0 } :Float64
+
+          :org/stvnadore/prelude/TimeEpochS :Int64
+          :org/stvnadore/prelude/TimeEpochMs :Int64
+          :org/stvnadore/prelude/TimeEpochNs :Int128
+          :org/stvnadore/prelude/DateTimeOffset  { #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$" } :String
+          :org/stvnadore/prelude/DateTimeZoned   { #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" } :String
+          :org/stvnadore/prelude/DateTimeAudited { #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" } :String
         }
       }""";
 

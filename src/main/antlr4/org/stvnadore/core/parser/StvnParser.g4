@@ -64,12 +64,6 @@ atomicType : ATOM_BOOLEAN
            | ATOM_STRING_FIXED
            | ATOM_STRING
            | ATOM_STRING_NON_EMPTY
-           | ATOM_TIME_EPOCH_S
-           | ATOM_TIME_EPOCH_MS
-           | ATOM_TIME_EPOCH_NS
-           | ATOM_DATE_TIME_OFFSET
-           | ATOM_DATE_TIME_ZONED
-           | ATOM_DATE_TIME_AUDITED
            ;
 
 collectionType
@@ -136,12 +130,6 @@ reservedKeyword : ATOM_BOOLEAN
                 | ATOM_STRING_FIXED
                 | ATOM_STRING
                 | ATOM_STRING_NON_EMPTY
-                | ATOM_TIME_EPOCH_S
-                | ATOM_TIME_EPOCH_MS
-                | ATOM_TIME_EPOCH_NS
-                | ATOM_DATE_TIME_OFFSET
-                | ATOM_DATE_TIME_ZONED
-                | ATOM_DATE_TIME_AUDITED
                 | COLL_SEQ
                 | COLL_SEQ_NON_EMPTY
                 | COLL_SET

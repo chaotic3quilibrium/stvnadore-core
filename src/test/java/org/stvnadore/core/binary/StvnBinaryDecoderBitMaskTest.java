@@ -166,7 +166,7 @@ class StvnBinaryDecoderBitMaskTest {
     var source = """
         {
           :defs {
-            :AuditRecord :Tuple( :DateTimeOffset :DateTimeZoned :DateTimeAudited )
+            :AuditRecord :Tuple( :org/stvnadore/prelude/DateTimeOffset :org/stvnadore/prelude/DateTimeZoned :org/stvnadore/prelude/DateTimeAudited )
           }
           :type :AuditRecord
           :body (

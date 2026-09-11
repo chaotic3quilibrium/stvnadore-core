@@ -33,8 +33,8 @@ Strongly Typed Value Notation (STVN) partitions identifiers, tokens, and type co
 
 1. **The Typic Track (`:`)**:
    * All type constructors, nominal type declarations, structural annotations, and module keywords begin with a colon (`:`).
-   * Examples: `:defs`, `:type`, `:body`, `:include`, `:Int32`, `:Uint49`, `:String`, `:Tuple`, `:Option`, `:Either`, `:Union`, `:Map`, `:MapInv`, `:DateTimeOffset`, `:DateTimeZoned`, `:DateTimeAudited`.
-   * Type names support forward-slash namespaces (e.g., `:net/http/Status`).
+   * Examples: `:defs`, `:type`, `:body`, `:include`, `:Int32`, `:Uint49`, `:String`, `:Tuple`, `:Option`, `:Either`, `:Union`, `:Map`, `:MapInv`, `:org/stvnadore/prelude/DateTimeOffset`.
+   * Type names support forward-slash namespaces (e.g., `:net/http/Status`). Under STVN root clearance guarantees, all standard domain and temporal types reside in `:org/stvnadore/prelude/*`. Bare unqualified references trigger `ERR_UNKNOWN_TYPE`.
 
 2. **The Variable / Value Track (`#`)**:
    * All literal values, sum type algebraic tags, boolean literals, enum constants, and constant bindings begin with a hash (`#`).
@@ -130,20 +130,20 @@ STVN natively supports arbitrary bit-width integers ($n \ge 1$):
 ---
 
 ## 6. Tripartite Temporal Architecture
+ 
+STVN partitions date-time values into three mathematically orthogonal, unambiguous types defined within the Standard Library Prelude (`:org/stvnadore/prelude/*`). Bare unqualified temporal references without an explicit local alias trigger `ERR_UNKNOWN_TYPE`.
 
-STVN partitions date-time values into three mathematically orthogonal, unambiguous types:
-
-1. **Physical Instant (`:DateTimeOffset`)**:
+1. **Physical Instant (`:org/stvnadore/prelude/DateTimeOffset`)**:
    * Absolute timeline point with numerical UTC offset (`"2026-03-15T08:00:00-05:00"`).
    * Zone brackets are strictly prohibited.
    * Binary wire size: 12 bytes (`epoch_utc_nanos: i64` + `offset_seconds: i32`).
 
-2. **Civil Wall-Clock Schedule (`:DateTimeZoned`)**:
+2. **Civil Wall-Clock Schedule (`:org/stvnadore/prelude/DateTimeZoned`)**:
    * Human civil wall-clock time bound to an IANA time zone (`"2026-03-15T08:00:00[America/Chicago]"`).
    * Numerical offsets are prohibited. Rejects invalid timestamps falling into Daylight Saving Time (DST) spring-forward gaps at parse time.
    * Binary wire size: 10 bytes (`local_nanos: i64` + `zone_dict_id: u16`).
 
-3. **Regulatory Audit Record (`:DateTimeAudited`)**:
+3. **Regulatory Audit Record (`:org/stvnadore/prelude/DateTimeAudited`)**:
    * Compliance record capturing both observed UTC offset and IANA jurisdiction (`"2026-03-15T08:00:00-05:00[America/Chicago]"`).
    * Validates offset consistency against IANA `ZoneRules` at compile time.
    * Binary wire size: 14 bytes (`local_nanos: i64` + `offset_seconds: i32` + `zone_dict_id: u16`).

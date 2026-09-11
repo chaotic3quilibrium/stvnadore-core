@@ -3444,8 +3444,6 @@ public class StvnTypeResolver {
    */
   public static boolean isReservedFundamentalType(String name) {
     if (name.equals(":Boolean") || name.equals(":FloatExact") ||
-        name.equals(":TimeEpochS") || name.equals(":TimeEpochMs") || name.equals(":TimeEpochNs") ||
-        name.equals(":DateTimeOffset") || name.equals(":DateTimeZoned") || name.equals(":DateTimeAudited") ||
         name.equals(":Tuple") || name.equals(":Enum") || name.equals(":Option") ||
         name.equals(":Either") || name.equals(":Union") || name.equals(":MapEntry") ||
         name.equals(":Seq") || name.equals(":SeqNonEmpty") || name.equals(":Set") ||

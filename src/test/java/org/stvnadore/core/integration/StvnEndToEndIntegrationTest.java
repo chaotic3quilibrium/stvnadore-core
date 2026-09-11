@@ -621,7 +621,7 @@ public class StvnEndToEndIntegrationTest {
             "Temporal Validation - DateTimeOffset Success",
             """
                 {
-                  :type :Seq( :DateTimeOffset )
+                  :type :Seq( :org/stvnadore/prelude/DateTimeOffset )
                   :body [ "2026-03-06T15:53:08Z" "2026-03-06T15:53:08-06:00" ]
                 }
                 """),
@@ -630,27 +630,27 @@ public class StvnEndToEndIntegrationTest {
             "Temporal Validation - DateTimeOffset Invalid Format",
             """
                 {
-                  :type :Seq( :DateTimeOffset )
+                  :type :Seq( :org/stvnadore/prelude/DateTimeOffset )
                   :body [ "2026/03/06 15:53:08" ]
                 }
                 """,
-            "Invalid OffsetDateTime format (e.g., 2026-03-06T15:53:08-06:00)"),
+            "String does not match required pattern"),
 
         TestProfile.createError(
             "Temporal Validation - DateTimeOffset Rejects Zone",
             """
                 {
-                  :type :Seq( :DateTimeOffset )
+                  :type :Seq( :org/stvnadore/prelude/DateTimeOffset )
                   :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" ]
                 }
                 """,
-            "Time zone brackets [...] are prohibited in :DateTimeOffset"),
+            "String does not match required pattern"),
 
         TestProfile.create(
             "Temporal Validation - DateTimeZoned Success",
             """
                 {
-                  :type :Seq( :DateTimeZoned )
+                  :type :Seq( :org/stvnadore/prelude/DateTimeZoned )
                   :body [ "2026-03-15T08:00:00[America/Chicago]" "2026-08-18T18:30:00[Europe/London]" ]
                 }
                 """),
@@ -659,37 +659,27 @@ public class StvnEndToEndIntegrationTest {
             "Temporal Validation - DateTimeZoned Missing Region ID",
             """
                 {
-                  :type :Seq( :DateTimeZoned )
+                  :type :Seq( :org/stvnadore/prelude/DateTimeZoned )
                   :body [ "2026-03-06T15:53:08-06:00" ]
                 }
                 """,
-            "Invalid ZonedDateTime format. Must include a Region/City zone ID (e.g., ...[Europe/Paris])"),
+            "String does not match required pattern"),
 
         TestProfile.createError(
             "Temporal Validation - DateTimeZoned Rejects Offset",
             """
                 {
-                  :type :Seq( :DateTimeZoned )
+                  :type :Seq( :org/stvnadore/prelude/DateTimeZoned )
                   :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" ]
                 }
                 """,
-            "Explicit offsets (±HH:mm or Z) are prohibited in :DateTimeZoned"),
-
-        TestProfile.createError(
-            "Temporal Validation - DateTimeZoned DST Spring Forward Gap",
-            """
-                {
-                  :type :Seq( :DateTimeZoned )
-                  :body [ "2026-03-08T02:30:00[America/Chicago]" ]
-                }
-                """,
-            "falls into a DST spring-forward gap in zone 'America/Chicago'"),
+            "String does not match required pattern"),
 
         TestProfile.create(
             "Temporal Validation - DateTimeAudited Success",
             """
                 {
-                  :type :Seq( :DateTimeAudited )
+                  :type :Seq( :org/stvnadore/prelude/DateTimeAudited )
                   :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" "2026-01-15T08:00:00-06:00[America/Chicago]" ]
                 }
                 """),
@@ -698,27 +688,17 @@ public class StvnEndToEndIntegrationTest {
             "Temporal Validation - DateTimeAudited Missing Zone",
             """
                 {
-                  :type :Seq( :DateTimeAudited )
+                  :type :Seq( :org/stvnadore/prelude/DateTimeAudited )
                   :body [ "2026-03-15T08:00:00-05:00" ]
                 }
                 """,
-            "Mandates both an explicit UTC offset and an IANA zone ID"),
-
-        TestProfile.createError(
-            "Temporal Validation - DateTimeAudited Contradictory Offset",
-            """
-                {
-                  :type :Seq( :DateTimeAudited )
-                  :body [ "2026-03-15T08:00:00-07:00[America/Chicago]" ]
-                }
-                """,
-            "Contradictory offset in :DateTimeAudited literal. Declared offset '-07:00' does not match valid offset(s) [-05:00]"),
+            "String does not match required pattern"),
 
         TestProfile.create(
             "Temporal Validation - TimeEpochNs BigInteger Storage Success",
             """
                 {
-                  :type :Seq( :TimeEpochNs )
+                  :type :Seq( :org/stvnadore/prelude/TimeEpochNs )
                   :body [ 9223372036854775808 ]
                 }
                 """),

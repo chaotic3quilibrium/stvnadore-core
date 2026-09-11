@@ -1,12 +1,12 @@
 {
   // prelude_and_temporal.stvn
   :defs {
-    :EpochSeconds   :TimeEpochS
-    :EpochMillis    :TimeEpochMs
-    :EpochNanos     :TimeEpochNs
-    :OffsetDateTime :DateTimeOffset
-    :ZonedDateTime  :DateTimeZoned
-    :AuditedDateTime :DateTimeAudited
+    :EpochSeconds   :org/stvnadore/prelude/TimeEpochS
+    :EpochMillis    :org/stvnadore/prelude/TimeEpochMs
+    :EpochNanos     :org/stvnadore/prelude/TimeEpochNs
+    :OffsetDateTime :org/stvnadore/prelude/DateTimeOffset
+    :ZonedDateTime  :org/stvnadore/prelude/DateTimeZoned
+    :AuditedDateTime :org/stvnadore/prelude/DateTimeAudited
 
     :IdUuid         :org/stvnadore/prelude/Uuid
     :IdUlid         :org/stvnadore/prelude/Ulid
