@@ -106,8 +106,8 @@ public class StvnDefinitionsTest {
     Assertions.assertTrue(result.hasErrors());
 
     var diag = result.diagnostics().getFirst();
-    Assertions.assertTrue(diag.message().contains("Leaf module (.stvn_inclf) cannot contain include statements"));
-    Assertions.assertEquals(DiagnosticBag.ERR_MODULE_IMPORT, diag.errorCode().orElse(null));
+    Assertions.assertTrue(diag.message().contains("Flat document or leaf module (.stvn_f / .stvn_inclf) cannot contain include statements"));
+    Assertions.assertEquals(DiagnosticBag.ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT, diag.errorCode().orElse(null));
   }
 
   @Test

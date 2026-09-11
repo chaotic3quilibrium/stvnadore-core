@@ -1658,13 +1658,22 @@ public class StvnEndToEndIntegrationTest {
   }
 
   private static class CustomDefsEntryContext extends org.stvnadore.core.parser.StvnParser.DefsEntryContext {
-      private final java.util.List<org.stvnadore.core.parser.StvnParser.TypeDefinitionContext> defsList;
-      public CustomDefsEntryContext(java.util.List<org.stvnadore.core.parser.StvnParser.TypeDefinitionContext> defsList) {
+      private final java.util.List<org.stvnadore.core.parser.StvnParser.DefsElementContext> defsList;
+      public CustomDefsEntryContext(java.util.List<org.stvnadore.core.parser.StvnParser.TypeDefinitionContext> typeDefs) {
           super(null, 0);
-          this.defsList = defsList;
+          this.defsList = new java.util.ArrayList<>();
+          for (var td : typeDefs) {
+              var de = new org.stvnadore.core.parser.StvnParser.DefsElementContext(this, 0) {
+                  @Override
+                  public org.stvnadore.core.parser.StvnParser.TypeDefinitionContext typeDefinition() {
+                      return td;
+                  }
+              };
+              this.defsList.add(de);
+          }
       }
       @Override
-      public java.util.List<org.stvnadore.core.parser.StvnParser.TypeDefinitionContext> typeDefinition() {
+      public java.util.List<org.stvnadore.core.parser.StvnParser.DefsElementContext> defsElement() {
           return defsList;
       }
   }

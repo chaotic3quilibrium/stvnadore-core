@@ -205,9 +205,108 @@ public class StvnTypeResolver {
     return includePath;
   }
 
+  public static String sliceTerminal(String identifier) {
+    int lastSlash = identifier.lastIndexOf('/');
+    if (lastSlash < 0) {
+      return identifier;
+    }
+    char sigil = identifier.charAt(0);
+    return sigil + identifier.substring(lastSlash + 1);
+  }
+
+  public record ScopedUseEnvironment(
+      Map<String, String> typeMappings,
+      Map<String, String> constMappings,
+      @Nullable String packagePrefix
+  ) {}
+
+  private static final Map<StvnDocumentContext, ScopedUseEnvironment> documentScopes = Collections.synchronizedMap(new WeakHashMap<>());
+  private static final Map<StvnParser.PackageEnclosureContext, ScopedUseEnvironment> packageEnclosureScopes = Collections.synchronizedMap(new WeakHashMap<>());
+
+  public static ScopedUseEnvironment findScope(@Nullable StvnDocumentContext doc, @Nullable ParserRuleContext node) {
+    ParserRuleContext cur = node;
+    while (cur != null) {
+      if (cur instanceof StvnParser.PackageEnclosureContext pkgEnc) {
+        var env = packageEnclosureScopes.get(pkgEnc);
+        if (env != null) return env;
+      }
+      cur = cur.getParent();
+    }
+    if (doc != null) {
+      var rootEnv = documentScopes.get(doc);
+      if (rootEnv != null) return rootEnv;
+    }
+    return new ScopedUseEnvironment(Collections.emptyMap(), Collections.emptyMap(), null);
+  }
+
+  public static String resolveTypeIdentifier(@Nullable StvnDocumentContext doc, String kw, @Nullable ParserRuleContext referenceContext) {
+    if (doc == null || kw == null || isReservedFundamentalType(kw)) {
+      return kw;
+    }
+    var env = findScope(doc, referenceContext);
+    // 2. In-scope :use aliases and #strip mappings (package-local first)
+    if (env.typeMappings().containsKey(kw)) {
+      return env.typeMappings().get(kw);
+    }
+    // Document-global :use mappings (if in package scope)
+    var docEnv = documentScopes.get(doc);
+    if (docEnv != null && docEnv.typeMappings().containsKey(kw)) {
+      return docEnv.typeMappings().get(kw);
+    }
+    // 3. Enclosing :package prefix check for sibling definitions
+    if (env.packagePrefix() != null) {
+      String localSuffix = kw.startsWith(":") ? kw.substring(1) : kw;
+      String siblingFqni = env.packagePrefix() + "/" + localSuffix;
+      if (findDefInDocument(doc, siblingFqni).isPresent()) {
+        return siblingFqni;
+      }
+    }
+    // 4. Document-global definitions (or Prelude)
+    if (findDefInDocument(doc, kw).isPresent()) {
+      return kw;
+    }
+    var preludeDoc = StvnPrelude.getPreludeDocument();
+    if (preludeDoc != null && findDefInDocument(preludeDoc, kw).isPresent()) {
+      return kw;
+    }
+    return kw;
+  }
+
+  public static String resolveConstantIdentifier(@Nullable StvnDocumentContext doc, String kw, @Nullable ParserRuleContext referenceContext) {
+    if (doc == null || kw == null) {
+      return kw;
+    }
+    var env = findScope(doc, referenceContext);
+    // 2. In-scope :use aliases and #strip mappings
+    if (env.constMappings().containsKey(kw)) {
+      return env.constMappings().get(kw);
+    }
+    var docEnv = documentScopes.get(doc);
+    if (docEnv != null && docEnv.constMappings().containsKey(kw)) {
+      return docEnv.constMappings().get(kw);
+    }
+    // 3. Enclosing :package prefix check for sibling constants
+    if (env.packagePrefix() != null) {
+      String localSuffix = kw.startsWith("#") ? kw.substring(1) : kw;
+      String siblingFqni = "#" + env.packagePrefix().substring(1) + "/" + localSuffix;
+      if (findConstantDefInDocument(doc, siblingFqni).isPresent()) {
+        return siblingFqni;
+      }
+    }
+    // 4. Document-global definitions
+    if (findConstantDefInDocument(doc, kw).isPresent()) {
+      return kw;
+    }
+    var preludeDoc = StvnPrelude.getPreludeDocument();
+    if (preludeDoc != null && findConstantDefInDocument(preludeDoc, kw).isPresent()) {
+      return kw;
+    }
+    return kw;
+  }
+
   private record NamespaceClaim<T extends ParserRuleContext>(
       String identifier,
-      T defNode,
+      @Nullable T defNode,
       String sourceModule,
       ClaimType type
   ) {}
@@ -233,10 +332,13 @@ public class StvnTypeResolver {
     if (doc != org.stvnadore.core.stdlib.StvnPrelude.getPreludeDocument()) {
       var preludeDoc = org.stvnadore.core.stdlib.StvnPrelude.getPreludeDocument();
       if (preludeDoc.documentBody() != null && preludeDoc.documentBody().defsEntry() != null) {
-        for (var pDef : preludeDoc.documentBody().defsEntry().typeDefinition()) {
-          String pName = pDef.typeDefTarget() != null ? pDef.typeDefTarget().getText() : pDef.getText();
-          accumulator.computeIfAbsent(pName, k -> new ArrayList<>())
-              .add(new NamespaceClaim<>(pName, pDef, "Prelude", ClaimType.RAW_IMPORT));
+        for (var de : preludeDoc.documentBody().defsEntry().defsElement()) {
+          if (de.typeDefinition() != null) {
+            var pDef = de.typeDefinition();
+            String pName = pDef.typeDefTarget() != null ? pDef.typeDefTarget().getText() : pDef.getText();
+            accumulator.computeIfAbsent(pName, k -> new ArrayList<>())
+                .add(new NamespaceClaim<>(pName, pDef, "Prelude", ClaimType.RAW_IMPORT));
+          }
         }
       }
     }
@@ -247,14 +349,14 @@ public class StvnTypeResolver {
 
       // Iterate over the elements of defsEntry in sorted source order
       var elements = new ArrayList<ParserRuleContext>();
-      if (defsEntry.typeDefinition() != null) {
-        elements.addAll(defsEntry.typeDefinition());
-      }
-      if (defsEntry.constantDefinition() != null) {
-        elements.addAll(defsEntry.constantDefinition());
-      }
-      if (defsEntry.includeStmt() != null) {
-        elements.addAll(defsEntry.includeStmt());
+      if (defsEntry.defsElement() != null) {
+        for (var de : defsEntry.defsElement()) {
+          if (de.includeStmt() != null) elements.add(de.includeStmt());
+          else if (de.packageEnclosure() != null) elements.add(de.packageEnclosure());
+          else if (de.useStmt() != null) elements.add(de.useStmt());
+          else if (de.typeDefinition() != null) elements.add(de.typeDefinition());
+          else if (de.constantDefinition() != null) elements.add(de.constantDefinition());
+        }
       }
       elements.sort((a, b) -> {
         var startA = a.getStart();
@@ -317,15 +419,18 @@ public class StvnTypeResolver {
           constAccumulator.computeIfAbsent(constName, k -> new ArrayList<>())
               .add(new NamespaceClaim<>(constName, constDef, "Inline Document", ClaimType.LOCAL));
         } else if (child instanceof StvnParser.IncludeStmtContext includeStmt) {
-          if (currentDocPath != null && currentDocPath.endsWith(".stvn_inclf")) {
+          if (currentDocPath != null && (currentDocPath.endsWith(".stvn_f") || currentDocPath.endsWith(".stvn_inclf"))) {
+            String msg = currentDocPath.endsWith(".stvn_f")
+                ? "Flat document or leaf module (.stvn_f / .stvn_inclf) cannot contain include statements: " + currentDocPath
+                : "Flat document or leaf module (.stvn_f / .stvn_inclf) cannot contain include statements (Leaf module (.stvn_inclf) cannot contain include statements): " + currentDocPath;
             diagnosticBag.addError(
-                "Leaf module (.stvn_inclf) cannot contain include statements: " + currentDocPath,
+                msg,
                 includeStmt.getStart().getStartIndex(),
                 includeStmt.getStop().getStopIndex() + 1,
                 includeStmt.getStart().getLine(),
                 includeStmt.getStart().getCharPositionInLine(),
                 null,
-                DiagnosticBag.ERR_MODULE_IMPORT
+                DiagnosticBag.ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT
             );
           }
           if (includeStmt.includeElement() != null) {
@@ -349,34 +454,28 @@ public class StvnTypeResolver {
               var resolvedPathStr = resolvedPath.toAbsolutePath().toString();
 
               if (activePaths.contains(resolvedPathStr)) {
-                var cycleStartIndex = activePaths.indexOf(resolvedPathStr);
-                var rawPathsSlice = new ArrayList<String>();
-                var canonicalPathsSlice = new ArrayList<String>();
-
-                for (var i = cycleStartIndex + 1; i < activePaths.size(); i++) {
+                int cycleStartIndex = activePaths.indexOf(resolvedPathStr);
+                List<String> rawPathsSlice = new ArrayList<>();
+                List<String> canonicalPathsSlice = new ArrayList<>();
+                for (int i = cycleStartIndex + 1; i < activePaths.size(); i++) {
                   rawPathsSlice.add(activeRawPaths.get(i));
                   canonicalPathsSlice.add(activePaths.get(i));
                 }
                 rawPathsSlice.add(pathVal);
                 canonicalPathsSlice.add(resolvedPathStr);
 
-                var names = new ArrayList<String>();
-                names.add(Paths.get(activePaths.get(cycleStartIndex)).getFileName().toString());
-                for (var p : canonicalPathsSlice) {
-                  names.add(Paths.get(p).getFileName().toString());
-                }
-                var trace = String.join(" -> ", names);
+                List<String> names = new ArrayList<>();
+                String startFile = activePaths.get(cycleStartIndex);
+                int lastSlash = startFile.replace('\\', '/').lastIndexOf('/');
+                names.add(lastSlash == -1 ? startFile : startFile.substring(lastSlash + 1));
 
-                diagnosticBag.addError(
-                    "Cycle detected: " + trace,
-                    element.getStart().getStartIndex(),
-                    element.getStop().getStopIndex() + 1,
-                    element.getStart().getLine(),
-                    element.getStart().getCharPositionInLine(),
-                    new CyclicDependencyException("Cycle detected: " + trace, rawPathsSlice, canonicalPathsSlice),
-                    DiagnosticBag.ERR_CYCLIC_MODULE
-                );
-                continue;
+                for (String p : canonicalPathsSlice) {
+                  int ls = p.replace('\\', '/').lastIndexOf('/');
+                  names.add(ls == -1 ? p : p.substring(ls + 1));
+                }
+                String trace = String.join(" -> ", names);
+
+                throw new CyclicDependencyException("Cycle detected: " + trace, rawPathsSlice, canonicalPathsSlice);
               }
 
               StvnDocumentContext importedDoc;
@@ -413,28 +512,23 @@ public class StvnTypeResolver {
 
               documentPaths.put(importedDoc, resolvedPath.toString());
 
-              var nextActive = new ArrayList<String>(activePaths);
+              var nextActive = new ArrayList<>(activePaths);
               nextActive.add(resolvedPathStr);
-              var nextActiveRaw = new ArrayList<String>(activeRawPaths);
+              var nextActiveRaw = new ArrayList<>(activeRawPaths);
               nextActiveRaw.add(pathVal);
+
               var importedDefs = resolveDefinitionsAndValidate(importedDoc, nextActive, nextActiveRaw, diagnosticBag);
               var importedConstDefs = documentConstantDefinitionsCache.getOrDefault(importedDoc, Collections.emptyMap());
               validateDocumentConstraints(importedDoc, diagnosticBag);
 
               boolean hasStrip = false;
-              String explicitPrefix = null;
               if (element.includeOptionsBlock() != null) {
                 for (var opt : element.includeOptionsBlock().includeOption()) {
                   if (opt.KW_STRIP() != null) {
                     hasStrip = true;
-                    if (opt.stringLiteral() != null) {
-                      explicitPrefix = StvnLiteralParser.parseString(opt.stringLiteral().getText(), true);
-                    }
                   }
                 }
               }
-
-              int prefixMatches = 0;
 
               for (var entry : importedDefs.entrySet()) {
                 var defSource = entry.getValue();
@@ -445,23 +539,7 @@ public class StvnTypeResolver {
 
                 var candidateName = originalName;
                 if (hasStrip) {
-                  if (explicitPrefix != null) {
-                    char sigil = originalName.charAt(0);
-                    String rawSub = originalName.substring(1);
-                    if (rawSub.startsWith(explicitPrefix)) {
-                      candidateName = sigil + rawSub.substring(explicitPrefix.length());
-                      prefixMatches++;
-                    } else if (originalName.startsWith(explicitPrefix)) {
-                      candidateName = sigil + originalName.substring(explicitPrefix.length());
-                      prefixMatches++;
-                    }
-                  } else {
-                    int lastSlash = originalName.lastIndexOf('/');
-                    if (lastSlash != -1) {
-                      candidateName = originalName.charAt(0) + originalName.substring(lastSlash + 1);
-                      prefixMatches++;
-                    }
-                  }
+                  candidateName = sliceTerminal(originalName);
                 }
 
                 var importedName = candidateName;
@@ -494,42 +572,28 @@ public class StvnTypeResolver {
 
                 var candidateName = originalName;
                 if (hasStrip) {
-                  if (explicitPrefix != null) {
-                    char sigil = originalName.charAt(0);
-                    String rawSub = originalName.substring(1);
-                    if (rawSub.startsWith(explicitPrefix)) {
-                      candidateName = sigil + rawSub.substring(explicitPrefix.length());
-                      prefixMatches++;
-                    } else if (originalName.startsWith(explicitPrefix)) {
-                      candidateName = sigil + originalName.substring(explicitPrefix.length());
-                      prefixMatches++;
-                    }
-                  } else {
-                    int lastSlash = originalName.lastIndexOf('/');
-                    if (lastSlash != -1) {
-                      candidateName = originalName.charAt(0) + originalName.substring(lastSlash + 1);
-                      prefixMatches++;
-                    }
-                  }
+                  candidateName = sliceTerminal(originalName);
                 }
 
                 constAccumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
                     .add(new NamespaceClaim<>(candidateName, constSource.defNode(), resolvedPath.getFileName().toString(), ClaimType.RAW_IMPORT));
               }
-
-              if (hasStrip && explicitPrefix != null && prefixMatches == 0) {
-                var optNode = element.includeOptionsBlock();
-                diagnosticBag.addError(
-                    "Declared #strip prefix \"" + explicitPrefix + "\" matched zero imported symbols in module: " + pathVal,
-                    optNode.getStart().getStartIndex(),
-                    optNode.getStop().getStopIndex() + 1,
-                    optNode.getStart().getLine(),
-                    optNode.getStart().getCharPositionInLine(),
-                    null,
-                    DiagnosticBag.ERR_UNUSED_STRIP_PREFIX
-                );
-              }
             }
+          }
+        } else if (child instanceof StvnParser.PackageEnclosureContext pkgEnc) {
+          processPackageEnclosure(pkgEnc, accumulator, constAccumulator, diagnosticBag);
+        } else if (child instanceof StvnParser.UseStmtContext useStmt) {
+          if (useStmt.useTarget() != null && useStmt.useTarget().useTargetIllegal() != null) {
+            var illegalTarget = useStmt.useTarget().useTargetIllegal();
+            diagnosticBag.addError(
+                "Trailing slash prohibited in :use target: " + illegalTarget.getText(),
+                illegalTarget.getStart().getStartIndex(),
+                illegalTarget.getStop().getStopIndex() + 1,
+                illegalTarget.getStart().getLine(),
+                illegalTarget.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_TRAILING_SLASH_PROHIBITED
+            );
           }
         }
       }
@@ -541,6 +605,48 @@ public class StvnTypeResolver {
     var localConstDefs = new LinkedHashMap<String, ConstantDefSource>();
     applyEvictionCascade(constAccumulator, localConstDefs, collisions, ConstantDefSource::new);
     documentConstantDefinitionsCache.put(doc, localConstDefs);
+
+    // Build ScopedUseEnvironments
+    if (doc.documentBody() != null && doc.documentBody().defsEntry() != null) {
+      var defsEntry = doc.documentBody().defsEntry();
+      var rootUseStmts = new ArrayList<StvnParser.UseStmtContext>();
+      var rootLocalTypes = new ArrayList<String>();
+      var rootLocalConsts = new ArrayList<String>();
+
+      if (defsEntry.defsElement() != null) {
+        for (var de : defsEntry.defsElement()) {
+          if (de.useStmt() != null) {
+            rootUseStmts.add(de.useStmt());
+          } else if (de.typeDefinition() != null) {
+            rootLocalTypes.add(de.typeDefinition().typeDefTarget().getText());
+          } else if (de.constantDefinition() != null) {
+            rootLocalConsts.add(de.constantDefinition().valueKeyword().getText());
+          } else if (de.packageEnclosure() != null) {
+            var pkgEnc = de.packageEnclosure();
+            var pkgPrefix = pkgEnc.packagePath().getText();
+            var pkgUseStmts = new ArrayList<StvnParser.UseStmtContext>();
+            var pkgLocalTypes = new ArrayList<String>();
+            var pkgLocalConsts = new ArrayList<String>();
+
+            if (pkgEnc.packageElement() != null) {
+              for (var pe : pkgEnc.packageElement()) {
+                if (pe.useStmt() != null) {
+                  pkgUseStmts.add(pe.useStmt());
+                } else if (pe.typeDefinition() != null) {
+                  pkgLocalTypes.add(pe.typeDefinition().typeDefTarget().getText());
+                } else if (pe.constantDefinition() != null) {
+                  pkgLocalConsts.add(pe.constantDefinition().valueKeyword().getText());
+                }
+              }
+            }
+            var pkgEnv = buildScopeEnvironment(doc, pkgUseStmts, localDefs, localConstDefs, pkgPrefix, pkgLocalTypes, pkgLocalConsts, diagnosticBag);
+            packageEnclosureScopes.put(pkgEnc, pkgEnv);
+          }
+        }
+      }
+      var docEnv = buildScopeEnvironment(doc, rootUseStmts, localDefs, localConstDefs, null, rootLocalTypes, rootLocalConsts, diagnosticBag);
+      documentScopes.put(doc, docEnv);
+    }
 
     if (!collisions.isEmpty()) {
       for (var col : collisions) {
@@ -557,6 +663,249 @@ public class StvnTypeResolver {
     }
 
     return localDefs;
+  }
+
+  private static void processPackageEnclosure(
+      StvnParser.PackageEnclosureContext pkgEnc,
+      Map<String, List<NamespaceClaim<TypeDefinitionContext>>> accumulator,
+      Map<String, List<NamespaceClaim<ConstantDefinitionContext>>> constAccumulator,
+      DiagnosticBag diagnosticBag
+  ) {
+    var pkgPath = pkgEnc.packagePath().getText();
+    if (pkgEnc.packageElement() == null) {
+      return;
+    }
+    for (var pe : pkgEnc.packageElement()) {
+      if (pe.nestedPackageIllegal() != null) {
+        var illegalNode = pe.nestedPackageIllegal();
+        diagnosticBag.addError(
+            "Nested packages are prohibited: " + illegalNode.packagePath().getText(),
+            illegalNode.getStart().getStartIndex(),
+            illegalNode.getStop().getStopIndex() + 1,
+            illegalNode.getStart().getLine(),
+            illegalNode.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_NESTED_PACKAGE_PROHIBITED
+        );
+      } else if (pe.typeDefinition() != null) {
+        var typeDef = pe.typeDefinition();
+        var localName = typeDef.typeDefTarget().getText();
+        var fqni = pkgPath + "/" + localName.substring(1);
+        var existingClaims = accumulator.get(fqni);
+        if (existingClaims != null) {
+          var hasLocal = false;
+          for (var claim : existingClaims) {
+            if (claim.type() == ClaimType.LOCAL) {
+              hasLocal = true;
+              break;
+            }
+          }
+          if (hasLocal) {
+            diagnosticBag.addError(
+                "Zero-Shadowing constraint violated: " + fqni,
+                typeDef.getStart().getStartIndex(),
+                typeDef.getStop().getStopIndex() + 1,
+                typeDef.getStart().getLine(),
+                typeDef.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_DUPLICATE_DEF
+            );
+          }
+        }
+        accumulator.computeIfAbsent(fqni, k -> new ArrayList<>())
+            .add(new NamespaceClaim<>(fqni, typeDef, "Inline Document", ClaimType.LOCAL));
+      } else if (pe.constantDefinition() != null) {
+        var constDef = pe.constantDefinition();
+        var localName = constDef.valueKeyword().getText();
+        var fqni = "#" + pkgPath.substring(1) + "/" + localName.substring(1);
+        var existingClaims = constAccumulator.get(fqni);
+        if (existingClaims != null) {
+          var hasLocal = false;
+          for (var claim : existingClaims) {
+            if (claim.type() == ClaimType.LOCAL) {
+              hasLocal = true;
+              break;
+            }
+          }
+          if (hasLocal) {
+            diagnosticBag.addError(
+                "Zero-Shadowing constraint violated: " + fqni,
+                constDef.getStart().getStartIndex(),
+                constDef.getStop().getStopIndex() + 1,
+                constDef.getStart().getLine(),
+                constDef.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_DUPLICATE_DEF
+            );
+          }
+        }
+        constAccumulator.computeIfAbsent(fqni, k -> new ArrayList<>())
+            .add(new NamespaceClaim<>(fqni, constDef, "Inline Document", ClaimType.LOCAL));
+      } else if (pe.useStmt() != null) {
+        if (pe.useStmt().useTarget() != null && pe.useStmt().useTarget().useTargetIllegal() != null) {
+          var illegalTarget = pe.useStmt().useTarget().useTargetIllegal();
+          diagnosticBag.addError(
+              "Trailing slash prohibited in :use target: " + illegalTarget.getText(),
+              illegalTarget.getStart().getStartIndex(),
+              illegalTarget.getStop().getStopIndex() + 1,
+              illegalTarget.getStart().getLine(),
+              illegalTarget.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_TRAILING_SLASH_PROHIBITED
+          );
+        }
+      }
+    }
+  }
+
+  private static ScopedUseEnvironment buildScopeEnvironment(
+      @Nullable StvnDocumentContext doc,
+      List<StvnParser.UseStmtContext> useStmts,
+      Map<String, DefSource> allTypes,
+      Map<String, ConstantDefSource> allConstants,
+      @Nullable String packagePrefix,
+      List<String> localTypeNames,
+      List<String> localConstNames,
+      DiagnosticBag diagnosticBag
+  ) {
+    var typeClaims = new LinkedHashMap<String, List<NamespaceClaim<TypeDefinitionContext>>>();
+    var constClaims = new LinkedHashMap<String, List<NamespaceClaim<ConstantDefinitionContext>>>();
+    var typeTargetMap = new LinkedHashMap<String, String>();
+    var constTargetMap = new LinkedHashMap<String, String>();
+
+    for (var useStmt : useStmts) {
+      if (useStmt.useTarget() == null || useStmt.useTarget().useTargetIllegal() != null) {
+        continue;
+      }
+      var target = useStmt.useTarget().getText();
+      boolean hasStrip = useStmt.useOptionsBlock() != null && useStmt.useOptionsBlock().KW_STRIP() != null;
+      var typeAliasMap = new LinkedHashMap<String, String>();
+      var constAliasMap = new LinkedHashMap<String, String>();
+      if (useStmt.useAliasBlock() != null && useStmt.useAliasBlock().useMapAlias() != null) {
+        for (var alias : useStmt.useAliasBlock().useMapAlias()) {
+          if (alias.typeKeyword(0) != null && alias.typeKeyword(1) != null) {
+            typeAliasMap.put(alias.typeKeyword(0).getText(), alias.typeKeyword(1).getText());
+          }
+          if (alias.valueKeyword(0) != null && alias.valueKeyword(1) != null) {
+            constAliasMap.put(alias.valueKeyword(0).getText(), alias.valueKeyword(1).getText());
+          }
+        }
+      }
+
+      // Types matching target
+      for (var entry : allTypes.entrySet()) {
+        String fqni = entry.getKey();
+        if (fqni.equals(target) || fqni.startsWith(target + "/")) {
+          DefSource ds = entry.getValue();
+          String stripped = sliceTerminal(fqni);
+          if (typeAliasMap.containsKey(fqni)) {
+            String alias = typeAliasMap.get(fqni);
+            typeClaims.computeIfAbsent(alias, k -> new ArrayList<>())
+                .add(new NamespaceClaim<>(alias, ds.defNode(), target, ClaimType.RENAMED_IMPORT_RHS));
+            typeTargetMap.put(alias, fqni);
+          } else if (typeAliasMap.containsKey(stripped)) {
+            String alias = typeAliasMap.get(stripped);
+            typeClaims.computeIfAbsent(alias, k -> new ArrayList<>())
+                .add(new NamespaceClaim<>(alias, ds.defNode(), target, ClaimType.RENAMED_IMPORT_RHS));
+            typeTargetMap.put(alias, fqni);
+          } else if (hasStrip) {
+            typeClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
+                .add(new NamespaceClaim<>(stripped, ds.defNode(), target, ClaimType.RAW_IMPORT));
+            typeTargetMap.put(stripped, fqni);
+          }
+        }
+      }
+
+      // Constants matching target
+      String constTarget = "#" + (target.startsWith(":") ? target.substring(1) : target);
+      for (var entry : allConstants.entrySet()) {
+        String fqni = entry.getKey();
+        if (fqni.equals(constTarget) || fqni.startsWith(constTarget + "/")) {
+          ConstantDefSource cs = entry.getValue();
+          String stripped = sliceTerminal(fqni);
+          if (constAliasMap.containsKey(fqni)) {
+            String alias = constAliasMap.get(fqni);
+            constClaims.computeIfAbsent(alias, k -> new ArrayList<>())
+                .add(new NamespaceClaim<>(alias, cs.defNode(), target, ClaimType.RENAMED_IMPORT_RHS));
+            constTargetMap.put(alias, fqni);
+          } else if (constAliasMap.containsKey(stripped)) {
+            String alias = constAliasMap.get(stripped);
+            constClaims.computeIfAbsent(alias, k -> new ArrayList<>())
+                .add(new NamespaceClaim<>(alias, cs.defNode(), target, ClaimType.RENAMED_IMPORT_RHS));
+            constTargetMap.put(alias, fqni);
+          } else if (hasStrip) {
+            constClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
+                .add(new NamespaceClaim<>(stripped, cs.defNode(), target, ClaimType.RAW_IMPORT));
+            constTargetMap.put(stripped, fqni);
+          }
+        }
+      }
+    }
+
+    // Local definitions evict RAW_IMPORT
+    for (var localName : localTypeNames) {
+      typeClaims.computeIfAbsent(localName, k -> new ArrayList<>())
+          .add(new NamespaceClaim<>(localName, null, "Inline Document", ClaimType.LOCAL));
+    }
+    for (var localName : localConstNames) {
+      constClaims.computeIfAbsent(localName, k -> new ArrayList<>())
+          .add(new NamespaceClaim<>(localName, null, "Inline Document", ClaimType.LOCAL));
+    }
+
+    var scopeCollisions = new ArrayList<String>();
+    var resolvedTypes = new LinkedHashMap<String, String>();
+    for (var entry : typeClaims.entrySet()) {
+      var id = entry.getKey();
+      var claims = entry.getValue();
+      var hasLocal = claims.stream().anyMatch(c -> c.type() == ClaimType.LOCAL);
+      if (hasLocal) {
+        if (claims.stream().anyMatch(c -> c.type() == ClaimType.RENAMED_IMPORT_RHS)) {
+          scopeCollisions.add(id);
+        }
+      } else {
+        long count = claims.stream().filter(c -> c.type() == ClaimType.RAW_IMPORT || c.type() == ClaimType.RENAMED_IMPORT_RHS).count();
+        if (count > 1) {
+          scopeCollisions.add(id);
+        } else if (count == 1) {
+          resolvedTypes.put(id, typeTargetMap.get(id));
+        }
+      }
+    }
+
+    var resolvedConstants = new LinkedHashMap<String, String>();
+    for (var entry : constClaims.entrySet()) {
+      var id = entry.getKey();
+      var claims = entry.getValue();
+      var hasLocal = claims.stream().anyMatch(c -> c.type() == ClaimType.LOCAL);
+      if (hasLocal) {
+        if (claims.stream().anyMatch(c -> c.type() == ClaimType.RENAMED_IMPORT_RHS)) {
+          scopeCollisions.add(id);
+        }
+      } else {
+        long count = claims.stream().filter(c -> c.type() == ClaimType.RAW_IMPORT || c.type() == ClaimType.RENAMED_IMPORT_RHS).count();
+        if (count > 1) {
+          scopeCollisions.add(id);
+        } else if (count == 1) {
+          resolvedConstants.put(id, constTargetMap.get(id));
+        }
+      }
+    }
+
+    if (!scopeCollisions.isEmpty() && doc != null) {
+      for (var col : scopeCollisions) {
+        diagnosticBag.addError(
+            "Namespace collision(s) detected: " + scopeCollisions,
+            doc.getStart() != null ? doc.getStart().getStartIndex() : -1,
+            doc.getStop() != null ? doc.getStop().getStopIndex() + 1 : -1,
+            doc.getStart() != null ? doc.getStart().getLine() : -1,
+            doc.getStart() != null ? doc.getStart().getCharPositionInLine() : -1,
+            new NamespaceCollisionException("Namespace collision(s) detected: " + scopeCollisions),
+            DiagnosticBag.ERR_NAMESPACE_COLLISION
+        );
+      }
+    }
+
+    return new ScopedUseEnvironment(resolvedTypes, resolvedConstants, packagePrefix);
   }
 
   @FunctionalInterface
@@ -1315,7 +1664,12 @@ public class StvnTypeResolver {
    * @return an {@link Optional} containing the definition context, or {@link Optional#empty()}
    */
   public static Optional<TypeDefinitionContext> findTypeDefinition(@Nullable StvnDocumentContext doc, String keyword) {
-    return findAllDefinitions(doc, keyword).stream().findFirst().map(DefSource::defNode);
+    return findTypeDefinition(doc, keyword, null);
+  }
+
+  public static Optional<TypeDefinitionContext> findTypeDefinition(@Nullable StvnDocumentContext doc, String keyword, @Nullable ParserRuleContext contextNode) {
+    String resolved = resolveTypeIdentifier(doc, keyword, contextNode);
+    return findAllDefinitions(doc, resolved).stream().findFirst().map(DefSource::defNode);
   }
 
   /**
@@ -1369,7 +1723,12 @@ public class StvnTypeResolver {
    * @return an {@link Optional} containing the definition context, or {@link Optional#empty()}
    */
   public static Optional<ConstantDefinitionContext> findConstantDefinition(@Nullable StvnDocumentContext doc, String keyword) {
-    return findAllConstantDefinitions(doc, keyword).stream().findFirst().map(ConstantDefSource::defNode);
+    return findConstantDefinition(doc, keyword, null);
+  }
+
+  public static Optional<ConstantDefinitionContext> findConstantDefinition(@Nullable StvnDocumentContext doc, String keyword, @Nullable ParserRuleContext contextNode) {
+    String resolved = resolveConstantIdentifier(doc, keyword, contextNode);
+    return findAllConstantDefinitions(doc, resolved).stream().findFirst().map(ConstantDefSource::defNode);
   }
 
   /**
@@ -1394,7 +1753,8 @@ public class StvnTypeResolver {
     if (schemaNode == null) return Optional.empty();
 
     if (schemaNode.typeKeyword() != null) {
-      var kw = schemaNode.typeKeyword().getText();
+      var rawKw = schemaNode.typeKeyword().getText();
+      var kw = resolveTypeIdentifier(doc, rawKw, schemaNode);
       if (doc != null && isTypePoisoned(doc, kw)) {
         return Optional.of(ResolvedSchema.error(kw, schemaNode));
       }
@@ -1409,7 +1769,7 @@ public class StvnTypeResolver {
       var nextVisited = new LinkedHashSet<>(visited);
       nextVisited.add(kw);
 
-      var typeDefOpt = findTypeDefinition(doc, kw);
+      var typeDefOpt = findTypeDefinition(doc, kw, schemaNode);
       if (typeDefOpt.isPresent()) {
         var typeDef = typeDefOpt.get();
         var meta = extractConstraints(typeDef.metadataMap());
@@ -2104,7 +2464,7 @@ public class StvnTypeResolver {
       var kw1 = n1.typeKeyword().getText();
       if (!visited1.contains(kw1)) {
         visited1.add(kw1);
-        var typeDefOpt1 = findTypeDefinition(doc, kw1);
+        var typeDefOpt1 = findTypeDefinition(doc, kw1, n1);
         if (typeDefOpt1.isPresent()) {
           var res = isSameSchemaNodeRecursive(doc, typeDefOpt1.get().schemaType(), n2, visited1, visited2);
           visited1.remove(kw1);
@@ -2118,7 +2478,7 @@ public class StvnTypeResolver {
       var kw2 = n2.typeKeyword().getText();
       if (!visited2.contains(kw2)) {
         visited2.add(kw2);
-        var typeDefOpt2 = findTypeDefinition(doc, kw2);
+        var typeDefOpt2 = findTypeDefinition(doc, kw2, n2);
         if (typeDefOpt2.isPresent()) {
           var res = isSameSchemaNodeRecursive(doc, n1, typeDefOpt2.get().schemaType(), visited1, visited2);
           visited2.remove(kw2);
@@ -2541,11 +2901,12 @@ public class StvnTypeResolver {
     if (schemaNode == null) return;
 
     if (schemaNode.typeKeyword() != null) {
-      var kw = schemaNode.typeKeyword().getText();
+      var rawKw = schemaNode.typeKeyword().getText();
+      var kw = resolveTypeIdentifier(doc, rawKw, schemaNode);
       if (!visited.add(kw)) {
         return; // Break recursion on cycle
       }
-      var typeDefOpt = findTypeDefinition(doc, kw);
+      var typeDefOpt = findTypeDefinition(doc, kw, schemaNode);
       if (typeDefOpt.isPresent()) {
         var typeDef = typeDefOpt.get();
         validateSchemaCapabilities(doc, typeDef.schemaType(), new java.util.HashSet<>(visited), diagnosticBag);
@@ -2634,15 +2995,22 @@ public class StvnTypeResolver {
     validateFencedStringDelimiters(doc, diagnosticBag);
     getDocumentDefinitions(doc, diagnosticBag);
     var defsEntry = doc.documentBody().defsEntry();
-    if (defsEntry != null) {
-      if (defsEntry.typeDefinition() != null) {
-        for (var typeDef : defsEntry.typeDefinition()) {
-          validateTypeDefinition(doc, typeDef, diagnosticBag);
-        }
-      }
-      if (defsEntry.constantDefinition() != null) {
-        for (var constDef : defsEntry.constantDefinition()) {
-          validateConstantDefinition(doc, constDef, diagnosticBag);
+    if (defsEntry != null && defsEntry.defsElement() != null) {
+      for (var de : defsEntry.defsElement()) {
+        if (de.typeDefinition() != null) {
+          validateTypeDefinition(doc, de.typeDefinition(), diagnosticBag);
+        } else if (de.constantDefinition() != null) {
+          validateConstantDefinition(doc, de.constantDefinition(), diagnosticBag);
+        } else if (de.packageEnclosure() != null) {
+          if (de.packageEnclosure().packageElement() != null) {
+            for (var pe : de.packageEnclosure().packageElement()) {
+              if (pe.typeDefinition() != null) {
+                validateTypeDefinition(doc, pe.typeDefinition(), diagnosticBag);
+              } else if (pe.constantDefinition() != null) {
+                validateConstantDefinition(doc, pe.constantDefinition(), diagnosticBag);
+              }
+            }
+          }
         }
       }
     }
@@ -3369,17 +3737,27 @@ public class StvnTypeResolver {
       return Optional.empty();
     }
     if (doc.documentBody() != null && doc.documentBody().defsEntry() != null) {
-      for (var def : doc.documentBody().defsEntry().typeDefinition()) {
-        if (def.schemaType() == schemaType) {
-          return Optional.of(def.typeDefTarget().getText());
+      for (var de : doc.documentBody().defsEntry().defsElement()) {
+        if (de.typeDefinition() != null && de.typeDefinition().schemaType() == schemaType) {
+          return Optional.of(de.typeDefinition().typeDefTarget().getText());
+        } else if (de.packageEnclosure() != null) {
+          var pkgPath = de.packageEnclosure().packagePath().getText();
+          if (de.packageEnclosure().packageElement() != null) {
+            for (var pe : de.packageEnclosure().packageElement()) {
+              if (pe.typeDefinition() != null && pe.typeDefinition().schemaType() == schemaType) {
+                String localName = pe.typeDefinition().typeDefTarget().getText().substring(1);
+                return Optional.of(pkgPath + "/" + localName);
+              }
+            }
+          }
         }
       }
     }
     var preludeDoc = StvnPrelude.getPreludeDocument();
     if (preludeDoc != null && preludeDoc.documentBody() != null && preludeDoc.documentBody().defsEntry() != null) {
-      for (var def : preludeDoc.documentBody().defsEntry().typeDefinition()) {
-        if (def.schemaType() == schemaType) {
-          return Optional.of(def.typeDefTarget().getText());
+      for (var de : preludeDoc.documentBody().defsEntry().defsElement()) {
+        if (de.typeDefinition() != null && de.typeDefinition().schemaType() == schemaType) {
+          return Optional.of(de.typeDefinition().typeDefTarget().getText());
         }
       }
     }
@@ -3449,7 +3827,8 @@ public class StvnTypeResolver {
         name.equals(":Seq") || name.equals(":SeqNonEmpty") || name.equals(":Set") ||
         name.equals(":SetNonEmpty") || name.equals(":Map") || name.equals(":MapNonEmpty") ||
         name.equals(":MapInv") || name.equals(":MapInvNonEmpty") ||
-        name.equals(":defs") || name.equals(":type") || name.equals(":body") || name.equals(":include")) {
+        name.equals(":defs") || name.equals(":type") || name.equals(":body") || name.equals(":include") ||
+        name.equals(":package") || name.equals(":use")) {
       return true;
     }
     if (name.startsWith(":Uint") && name.substring(5).matches("\\d*")) return true;

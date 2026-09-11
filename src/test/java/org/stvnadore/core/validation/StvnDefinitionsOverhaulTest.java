@@ -367,8 +367,8 @@ public class StvnDefinitionsOverhaulTest {
   }
 
   @Test
-  @DisplayName("Explicit prefix #strip strips matching prefix only")
-  void testExplicitPrefixStrip(@TempDir Path tempDir) throws IOException {
+  @DisplayName("Unary #strip strips all definitions to terminal segment")
+  void testUnaryStripMultipleDefinitions(@TempDir Path tempDir) throws IOException {
     Path module = tempDir.resolve("module.stvn_incl");
     Files.writeString(module, """
         {
@@ -383,22 +383,22 @@ public class StvnDefinitionsOverhaulTest {
     String mainContent = """
         {
           :defs {
-            :include [ "module.stvn_incl" { #strip "pkg/sub/" } ]
+            :include [ "module.stvn_incl" { #strip } ]
           }
-          :type :Tuple( :Type :other/Foo )
+          :type :Tuple( :Type :Foo )
           :body ( 42 "bar" )
         }
         """;
     Files.writeString(mainFile, mainContent);
 
     var res = StvnCompiler.compileToResult(mainContent, mainFile.toString());
-    Assertions.assertTrue(res.isSuccess(), "Explicit prefix strip should strip pkg/sub/ only");
+    Assertions.assertTrue(res.isSuccess(), "Unary strip should strip all definitions to terminal segments: " + res.diagnostics());
     Assertions.assertNotNull(res.orElseThrow());
   }
 
   @Test
-  @DisplayName("Unused #strip prefix emits ERR_UNUSED_STRIP_PREFIX diagnostic")
-  void testUnusedStripPrefixEmitsDiagnostic(@TempDir Path tempDir) throws IOException {
+  @DisplayName("Parameterized #strip argument fails at parser gate")
+  void testParameterizedStripFailsAtParserGate(@TempDir Path tempDir) throws IOException {
     Path module = tempDir.resolve("module.stvn_incl");
     Files.writeString(module, """
         {
@@ -414,7 +414,7 @@ public class StvnDefinitionsOverhaulTest {
           :defs {
             :include [ "module.stvn_incl" { #strip "unmatched/path/" } ]
           }
-          :type :pkg/sub/Type
+          :type :Int32
           :body 42
         }
         """;
@@ -422,8 +422,6 @@ public class StvnDefinitionsOverhaulTest {
 
     var res = StvnCompiler.compileToResult(mainContent, mainFile.toString());
     Assertions.assertFalse(res.isSuccess());
-    Assertions.assertTrue(res.diagnostics().stream()
-        .anyMatch(d -> DiagnosticBag.ERR_UNUSED_STRIP_PREFIX.equals(d.errorCode().orElse(null))));
   }
 
   @Test

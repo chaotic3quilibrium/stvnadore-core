@@ -1,0 +1,11 @@
+{
+  // invalid_flat_payload_with_include.stvn_f
+  // Specification: STVN v1.2.0 (ECD-2026-04-A1)
+  :defs {
+    :include [ "network_primitives.stvn_inclf" ]
+    :Host :String
+  }
+
+  :type :Host
+  :body "localhost"
+}

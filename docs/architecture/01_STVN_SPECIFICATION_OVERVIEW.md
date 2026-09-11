@@ -2,7 +2,7 @@
 
 **Document ID**: `STVN-SPEC-01`  
 **Status**: Canonical Specification  
-**Version**: 1.1.0
+**Version**: 1.2.0
 **Compliance**: Mandatory across all STVN parsers, compilers, and IDE integrations.
 
 ---
@@ -33,7 +33,7 @@ Strongly Typed Value Notation (STVN) partitions identifiers, tokens, and type co
 
 1. **The Typic Track (`:`)**:
    * All type constructors, nominal type declarations, structural annotations, and module keywords begin with a colon (`:`).
-   * Examples: `:defs`, `:type`, `:body`, `:include`, `:Int32`, `:Uint49`, `:String`, `:Tuple`, `:Option`, `:Either`, `:Union`, `:Map`, `:MapInv`, `:org/stvnadore/prelude/DateTimeOffset`.
+   * Examples: `:defs`, `:type`, `:body`, `:include`, `:package`, `:use`, `:Int32`, `:Uint49`, `:String`, `:Tuple`, `:Option`, `:Either`, `:Union`, `:Map`, `:MapInv`, `:org/stvnadore/prelude/DateTimeOffset`.
    * Type names support forward-slash namespaces (e.g., `:net/http/Status`). Under STVN root clearance guarantees, all standard domain and temporal types reside in `:org/stvnadore/prelude/*`. Bare unqualified references trigger `ERR_UNKNOWN_TYPE`.
 
 2. **The Variable / Value Track (`#`)**:
@@ -51,13 +51,14 @@ STVN strictly mandates single-line comments (`// ...`). Multi-line block comment
 
 Every text-based STVN document must enclose its content within a single root curly brace pair `{ ... }`.
 
-| Extension     | File Purpose                 | Required Sections                   | Prohibited Sections          |
-|:--------------|:-----------------------------|:------------------------------------|:-----------------------------|
-| `.stvn`       | Primary Payload Document     | `:type`, `:body` (Optional `:defs`) | N/A                          |
-| `.stvn_incl`  | Transitive Shared Module     | `:defs`                             | `:type`, `:body`             |
-| `.stvn_inclf` | Flat Standalone Module       | `:defs`                             | `:type`, `:body`, `:include` |
-| `.stvn_bin`   | Zero-Copy Binary Bytecode    | Embedded Binary Header              | N/A                          |
-| `.stvn_cas`   | CAS Storage Profile Envelope | `:Tuple( :String :String :String )` | N/A                          |
+| Extension     | File Purpose                     | Required Sections                   | Prohibited Sections          |
+|:--------------|:---------------------------------|:------------------------------------|:-----------------------------|
+| `.stvn`       | Primary Modular Document         | `:type`, `:body` (Optional `:defs`) | N/A                          |
+| `.stvn_f`     | Flat Hermetic Payload Document   | `:type`, `:body` (Optional `:defs`) | `:include`                   |
+| `.stvn_incl`  | Transitive Shared Module         | `:defs`                             | `:type`, `:body`             |
+| `.stvn_inclf` | Flat Standalone Module           | `:defs`                             | `:type`, `:body`, `:include` |
+| `.stvn_bin`   | Zero-Copy Binary Bytecode        | Embedded Binary Header              | N/A                          |
+| `.stvn_cas`   | CAS Storage Profile Envelope     | `:Tuple( :String :String :String )` | N/A                          |
 
 ---
 

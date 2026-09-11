@@ -1,0 +1,14 @@
+{
+  // invalid_flat_payload_with_include.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Flat document or leaf module (.stvn_f / .stvn_inclf) cannot contain include statements"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

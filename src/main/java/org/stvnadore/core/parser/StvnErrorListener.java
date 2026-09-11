@@ -441,6 +441,9 @@ public final class StvnErrorListener extends BaseErrorListener {
     if (hasAtomic || hasCollection || hasTypeKw) {
       return "<schema type>";
     }
+    if (tokens.contains(StvnParser.KW_PACKAGE) || tokens.contains(StvnParser.KW_USE)) {
+      return "<definition keyword>";
+    }
     if (hasValueKw && tokens.size() > 5) {
       return "<value keyword>";
     }

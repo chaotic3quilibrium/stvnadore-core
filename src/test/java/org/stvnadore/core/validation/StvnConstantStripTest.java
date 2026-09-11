@@ -44,8 +44,8 @@ class StvnConstantStripTest {
   }
 
   @Test
-  @DisplayName("Explicit prefix #strip strips matching constant prefix only")
-  void testExplicitPrefixStripConstant(@TempDir Path tempDir) throws IOException {
+  @DisplayName("Unary #strip strips all imported constants to terminal identifiers")
+  void testUnaryStripMultipleConstants(@TempDir Path tempDir) throws IOException {
     Path module = tempDir.resolve("module.stvn_incl");
     Files.writeString(module, """
         {
@@ -60,21 +60,21 @@ class StvnConstantStripTest {
     String mainContent = """
         {
           :defs {
-            :include [ "module.stvn_incl" { #strip "pkg/sub/" } ]
+            :include [ "module.stvn_incl" { #strip } ]
           }
           :type :Tuple( :Int32 :Int32 )
-          :body ( #TIMEOUT #other/RETRIES )
+          :body ( #TIMEOUT #RETRIES )
         }
         """;
     Files.writeString(mainFile, mainContent);
 
     var res = StvnCompiler.compileToResult(mainContent, mainFile.toString());
-    Assertions.assertTrue(res.isSuccess(), "Explicit strip must strip #pkg/sub/TIMEOUT to #TIMEOUT: " + res.diagnostics());
+    Assertions.assertTrue(res.isSuccess(), "Unary strip must strip constants to terminal segments: " + res.diagnostics());
   }
 
   @Test
-  @DisplayName("Constant match prevents false-positive ERR_UNUSED_STRIP_PREFIX")
-  void testConstantMatchPreventsUnusedStripPrefix(@TempDir Path tempDir) throws IOException {
+  @DisplayName("Parameterized #strip fails at syntax gate")
+  void testParameterizedStripFailsAtSyntaxGate(@TempDir Path tempDir) throws IOException {
     Path module = tempDir.resolve("module.stvn_incl");
     Files.writeString(module, """
         {
@@ -97,7 +97,9 @@ class StvnConstantStripTest {
     Files.writeString(mainFile, mainContent);
 
     var res = StvnCompiler.compileToResult(mainContent, mainFile.toString());
-    Assertions.assertTrue(res.isSuccess(), "Constant match must satisfy #strip prefix accounting: " + res.diagnostics());
+    Assertions.assertFalse(res.isSuccess(), "Parameterized #strip must fail at parser gate");
+    Assertions.assertTrue(res.diagnostics().stream()
+        .anyMatch(d -> "STVN_SYNTAX_ERROR".equals(d.errorCode().orElse(null))));
   }
 
   @Test

@@ -28,6 +28,8 @@ KW_DEFS    : ':defs' ;
 KW_TYPE    : ':type' ;
 KW_BODY    : ':body' ;
 KW_INCLUDE : ':include' ;
+KW_PACKAGE : ':package' ;
+KW_USE     : ':use' ;
 KW_STRIP   : '#strip' ;
 
 KW_EQUATABLE       : '#equatable' ;

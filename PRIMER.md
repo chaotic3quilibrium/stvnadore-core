@@ -16,7 +16,8 @@ This document serves as an in-depth technical onboarding guide for software engi
     * [1.1 Type Track (`:`) vs. Value Track (`#`)](#11-type-track--vs-value-track-)
     * [1.2 Typed Compile-Time Constants in `:defs`](#12-typed-compile-time-constants-in-defs)
     * [1.3 Hierarchical Path-Delimited Identifiers](#13-hierarchical-path-delimited-identifiers)
-    * [1.4 Single-Pass Lexing and Zero-Lookahead Disambiguation](#14-single-pass-lexing-and-zero-lookahead-disambiguation)
+    * [1.4 Package Enclosures (`:package`) and Scoped Use (`:use`)](#14-package-enclosures-package-and-scoped-use-use)
+    * [1.5 Single-Pass Lexing and Zero-Lookahead Disambiguation](#15-single-pass-lexing-and-zero-lookahead-disambiguation)
   * [2. Algebraic Data Types & The 10 Inference Rules (Rules A–J)](#2-algebraic-data-types--the-10-inference-rules-rules-aj)
     * [2.1 Product Types (`:Tuple`) vs. Bare Value Variant Syntax](#21-product-types-tuple-vs-bare-value-variant-syntax)
     * [2.2 Sum Types (`:Option`, `:Either`, `:Union`, `:Enum`)](#22-sum-types-option-either-union-enum)
@@ -72,7 +73,7 @@ In traditional formats (JSON, YAML, EDN), type information is either absent, emb
 }
 ```
 
-* **The Colon Sigil (`:`) — Type Track:** Reserved exclusively for structural type constructors, built-in primitives, user-defined nominal type definitions, and top-level block keywords (`:defs`, `:type`, `:body`, `:include`). Colons must **always** attach as a leading prefix to an identifier. A bare colon token `:` or an infix JSON-style key-value separator (`key: "value"`) is a fatal lexical error.
+* **The Colon Sigil (`:`) — Type Track:** Reserved exclusively for structural type constructors, built-in primitives, user-defined nominal type definitions, and top-level block keywords (`:defs`, `:type`, `:body`, `:include`, `:package`, `:use`). Colons must **always** attach as a leading prefix to an identifier. A bare colon token `:` or an infix JSON-style key-value separator (`key: "value"`) is a fatal lexical error.
 * **The Hash Sigil (`#`) — Value Track:** Reserved exclusively for value-level symbols, boolean literals (`#TRUE`, `#FALSE`, `#T`, `#F`), sum type variant constructors (`#Some`, `#None`, `#Left`, `#Right`, `#S`, `#N`, `#L`, `#R`), union branch selectors (`#1`, `#2`), enum domain constants (`#HTTP`, `#HTTPS`), metadata constraint flags (`#minIncl`, `#regex`), and compile-time constants in `:defs`.
 
 ### 1.2 Typed Compile-Time Constants in `:defs`
@@ -100,7 +101,28 @@ STVN natively supports forward-slash (`/`) path-delimited identifiers across def
 
 The leading sigil attaches only to the first segment (e.g., `:net/http/Status`). Infix colons (e.g., `:net:http:Status`) are strictly prohibited. The compiler treats `:net/http/Status` and `:Status` as distinct, non-interchangeable nominal types.
 
-### 1.4 Single-Pass Lexing and Zero-Lookahead Disambiguation
+### 1.4 Package Enclosures (`:package`) and Scoped Use (`:use`)
+
+STVN supports modular namespace organization inside single documents via `:package` enclosures and scoped `:use` directives:
+
+```stvn
+:defs {
+  :package :org/example/net {
+    :Port :Uint16
+    #DEFAULT_PORT :Uint16 8080
+  }
+  :package :org/example/service {
+    :use [ :org/example/net { #strip } ]
+    :Config { :port :Port }
+  }
+}
+```
+
+* **LHS FQNI Expansion:** Definitions inside `:package :Prefix { ... }` automatically expand on the LHS to `:Prefix/Name` and `#Prefix/NAME`.
+* **Scope Isolation:** Directives in `:use` inside a package enclosure are isolated to that enclosure. Root `:defs` `:use` directives apply document-globally.
+* **Hermetic Standalone Document Tier (`.stvn_f`):** Flat payload documents (`.stvn_f`) prohibit `:include` statements to preserve hermetic runtime integrity.
+
+### 1.5 Single-Pass Lexing and Zero-Lookahead Disambiguation
 
 Because type constructors and value literals are cleanly segregated by their leading prefix sigils (`:` vs `#`), the lexer and parser operate in a single pass without lookahead or backtracking.
 

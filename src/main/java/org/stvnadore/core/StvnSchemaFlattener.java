@@ -21,6 +21,7 @@ import org.stvnadore.core.stdlib.StvnPrelude;
 import org.stvnadore.core.validation.StvnTypeResolver.ConstantDefSource;
 import org.stvnadore.core.validation.CyclicDependencyException;
 import org.stvnadore.core.validation.DuplicateModuleImportException;
+import org.stvnadore.core.validation.MalformedSchemaException;
 import org.stvnadore.core.validation.NamespaceCollisionException;
 import org.stvnadore.core.validation.StvnTypeResolver;
 import org.stvnadore.core.validation.StvnTypeResolver.DefSource;
@@ -412,8 +413,10 @@ public final class StvnSchemaFlattener {
     if (DYNAMIC_PRELUDE_TYPES.isEmpty()) {
       var pDoc = StvnPrelude.getPreludeDocument();
       if (pDoc.documentBody() != null && pDoc.documentBody().defsEntry() != null) {
-        for (var def : pDoc.documentBody().defsEntry().typeDefinition()) {
-          DYNAMIC_PRELUDE_TYPES.add(def.typeDefTarget().getText());
+        for (var de : pDoc.documentBody().defsEntry().defsElement()) {
+          if (de.typeDefinition() != null) {
+            DYNAMIC_PRELUDE_TYPES.add(de.typeDefinition().typeDefTarget().getText());
+          }
         }
       }
     }
@@ -452,9 +455,17 @@ public final class StvnSchemaFlattener {
 
     if (docCtx.documentBody() != null && docCtx.documentBody().defsEntry() != null) {
       var defsEntry = docCtx.documentBody().defsEntry();
-      if (defsEntry.includeStmt() != null) {
-        Set<String> seenRawPaths = new LinkedHashSet<>();
-        for (var includeStmt : defsEntry.includeStmt()) {
+      if (normalizedPath.endsWith(".stvn_f") || normalizedPath.endsWith(".stvn_inclf")) {
+        for (var de : defsEntry.defsElement()) {
+          if (de.includeStmt() != null) {
+            throw new MalformedSchemaException("Flat document (.stvn_f / .stvn_inclf) cannot contain includes: " + normalizedPath);
+          }
+        }
+      }
+      Set<String> seenRawPaths = new LinkedHashSet<>();
+      for (var de : defsEntry.defsElement()) {
+        if (de.includeStmt() != null) {
+          var includeStmt = de.includeStmt();
           if (includeStmt.includeElement() != null) {
             for (var element : includeStmt.includeElement()) {
               var rawPathStr = element.stringLiteral().getText();
@@ -465,14 +476,10 @@ public final class StvnSchemaFlattener {
               var resolvedPath = resolveIncludePath(normalizedPath, pathVal);
 
               boolean hasStrip = false;
-              String stripPrefix = null;
               if (element.includeOptionsBlock() != null) {
                 for (var opt : element.includeOptionsBlock().includeOption()) {
                   if (opt.KW_STRIP() != null) {
                     hasStrip = true;
-                    if (opt.stringLiteral() != null) {
-                      stripPrefix = StvnLiteralParser.parseString(opt.stringLiteral().getText(), true);
-                    }
                   }
                 }
               }
@@ -483,16 +490,25 @@ public final class StvnSchemaFlattener {
                   aliasMap.put(alias.typeKeyword(0).getText(), alias.typeKeyword(1).getText());
                 }
               }
-              imports.add(new ImportInfo(pathVal, resolvedPath, hasStrip, stripPrefix, aliasMap));
+              imports.add(new ImportInfo(pathVal, resolvedPath, hasStrip, null, aliasMap));
+            }
+          }
+        } else if (de.typeDefinition() != null) {
+          localDefs.add(de.typeDefinition());
+        } else if (de.constantDefinition() != null) {
+          localConstDefs.add(de.constantDefinition());
+        } else if (de.packageEnclosure() != null) {
+          var pkgEnc = de.packageEnclosure();
+          if (pkgEnc.packageElement() != null) {
+            for (var pe : pkgEnc.packageElement()) {
+              if (pe.typeDefinition() != null) {
+                localDefs.add(pe.typeDefinition());
+              } else if (pe.constantDefinition() != null) {
+                localConstDefs.add(pe.constantDefinition());
+              }
             }
           }
         }
-      }
-      if (defsEntry.typeDefinition() != null) {
-        localDefs.addAll(defsEntry.typeDefinition());
-      }
-      if (defsEntry.constantDefinition() != null) {
-        localConstDefs.addAll(defsEntry.constantDefinition());
       }
     }
 
@@ -521,7 +537,7 @@ public final class StvnSchemaFlattener {
     parser.addErrorListener(errorListener);
 
     var doc = parser.stvnDocument();
-    return doc.documentBody().defsEntry().typeDefinition(0);
+    return doc.documentBody().defsEntry().defsElement(0).typeDefinition();
   }
 
   private static ResolvedDefinitions resolveDocument(
@@ -585,14 +601,13 @@ public final class StvnSchemaFlattener {
     if (parsed.docCtx.documentBody() != null && parsed.docCtx.documentBody().defsEntry() != null) {
       var defsEntry = parsed.docCtx.documentBody().defsEntry();
       var elements = new ArrayList<ParserRuleContext>();
-      if (defsEntry.typeDefinition() != null) {
-        elements.addAll(defsEntry.typeDefinition());
-      }
-      if (defsEntry.constantDefinition() != null) {
-        elements.addAll(defsEntry.constantDefinition());
-      }
-      if (defsEntry.includeStmt() != null) {
-        elements.addAll(defsEntry.includeStmt());
+      if (defsEntry.defsElement() != null) {
+        for (var de : defsEntry.defsElement()) {
+          if (de.typeDefinition() != null) elements.add(de.typeDefinition());
+          else if (de.constantDefinition() != null) elements.add(de.constantDefinition());
+          else if (de.includeStmt() != null) elements.add(de.includeStmt());
+          else if (de.packageEnclosure() != null) elements.add(de.packageEnclosure());
+        }
       }
       elements.sort((a, b) -> {
         var startA = a.getStart();
@@ -630,6 +645,41 @@ public final class StvnSchemaFlattener {
           }
           constAccumulator.computeIfAbsent(constName, k -> new ArrayList<>())
               .add(new NamespaceClaim<>(constName, constDef, currentPath, ClaimType.LOCAL));
+        } else if (element instanceof StvnParser.PackageEnclosureContext pkgEnc) {
+          String pkgPrefix = pkgEnc.packagePath().getText();
+          if (pkgEnc.packageElement() != null) {
+            for (var pe : pkgEnc.packageElement()) {
+              if (pe.typeDefinition() != null) {
+                var typeDef = pe.typeDefinition();
+                String localName = typeDef.typeDefTarget().getText();
+                String fqni = pkgPrefix + "/" + localName.substring(1);
+                var existingClaims = accumulator.get(fqni);
+                if (existingClaims != null) {
+                  for (var claim : existingClaims) {
+                    if (claim.type() == ClaimType.LOCAL) {
+                      throw new IllegalStateException("Zero-Shadowing constraint violated: " + fqni);
+                    }
+                  }
+                }
+                accumulator.computeIfAbsent(fqni, k -> new ArrayList<>())
+                    .add(new NamespaceClaim<>(fqni, typeDef, currentPath, ClaimType.LOCAL));
+              } else if (pe.constantDefinition() != null) {
+                var constDef = pe.constantDefinition();
+                String localName = constDef.valueKeyword().getText();
+                String fqni = "#" + pkgPrefix.substring(1) + "/" + localName.substring(1);
+                var existingClaims = constAccumulator.get(fqni);
+                if (existingClaims != null) {
+                  for (var claim : existingClaims) {
+                    if (claim.type() == ClaimType.LOCAL) {
+                      throw new IllegalStateException("Zero-Shadowing constraint violated: " + fqni);
+                    }
+                  }
+                }
+                constAccumulator.computeIfAbsent(fqni, k -> new ArrayList<>())
+                    .add(new NamespaceClaim<>(fqni, constDef, currentPath, ClaimType.LOCAL));
+              }
+            }
+          }
         } else if (element instanceof StvnParser.IncludeStmtContext includeStmt) {
           if (includeStmt.includeElement() != null) {
             for (var inclEl : includeStmt.includeElement()) {
@@ -651,21 +701,7 @@ public final class StvnSchemaFlattener {
 
                 String candidateName = originalName;
                 if (imp.hasStrip()) {
-                  String prefix = imp.stripPrefix();
-                  if (prefix != null) {
-                    char sigil = originalName.charAt(0);
-                    String rawSub = originalName.substring(1);
-                    if (rawSub.startsWith(prefix)) {
-                      candidateName = sigil + rawSub.substring(prefix.length());
-                    } else if (originalName.startsWith(prefix)) {
-                      candidateName = sigil + originalName.substring(prefix.length());
-                    }
-                  } else {
-                    int lastSlash = candidateName.lastIndexOf('/');
-                    if (lastSlash >= 0 && lastSlash + 1 < candidateName.length()) {
-                      candidateName = originalName.charAt(0) + candidateName.substring(lastSlash + 1);
-                    }
-                  }
+                  candidateName = StvnTypeResolver.sliceTerminal(originalName);
                 }
 
                 String importedName = candidateName;
@@ -692,21 +728,7 @@ public final class StvnSchemaFlattener {
 
                 String candidateName = originalName;
                 if (imp.hasStrip()) {
-                  String prefix = imp.stripPrefix();
-                  if (prefix != null) {
-                    char sigil = originalName.charAt(0);
-                    String rawSub = originalName.substring(1);
-                    if (rawSub.startsWith(prefix)) {
-                      candidateName = sigil + rawSub.substring(prefix.length());
-                    } else if (originalName.startsWith(prefix)) {
-                      candidateName = sigil + originalName.substring(prefix.length());
-                    }
-                  } else {
-                    int lastSlash = candidateName.lastIndexOf('/');
-                    if (lastSlash >= 0 && lastSlash + 1 < candidateName.length()) {
-                      candidateName = originalName.charAt(0) + candidateName.substring(lastSlash + 1);
-                    }
-                  }
+                  candidateName = StvnTypeResolver.sliceTerminal(originalName);
                 }
 
                 constAccumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
@@ -919,7 +941,7 @@ public final class StvnSchemaFlattener {
     parser.addErrorListener(errorListener);
 
     var doc = parser.stvnDocument();
-    return doc.documentBody().defsEntry().constantDefinition(0);
+    return doc.documentBody().defsEntry().defsElement(0).constantDefinition();
   }
 
   private static boolean hasConstraints(StvnConstraints c) {

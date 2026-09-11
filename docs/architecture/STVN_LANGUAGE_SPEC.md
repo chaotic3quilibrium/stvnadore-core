@@ -120,7 +120,8 @@ Every text-based STVN document **must** enclose its entire content within a sing
 
 | Extension         | Purpose                  | `:defs` Section | `:type` Section | `:body` Section | Directives Allowed                 |
 |:------------------|:-------------------------|:----------------|:----------------|:----------------|:-----------------------------------|
-| **`.stvn`**       | Primary Payload Document | Optional        | **Required**    | **Required**    | `:include`                         |
+| **`.stvn`**       | Primary Modular Document | Optional        | **Required**    | **Required**    | `:include`                         |
+| **`.stvn_f`**     | Flat Hermetic Document   | Optional        | **Required**    | **Required**    | None (`:include` is prohibited)    |
 | **`.stvn_incl`**  | Transitive Shared Module | **Required**    | **Prohibited**  | **Prohibited**  | `:include` (Must resolve as a DAG) |
 | **`.stvn_inclf`** | Flat Leaf Module         | **Required**    | **Prohibited**  | **Prohibited**  | None (`:include` is prohibited)    |
 | **`.stvn_bin`**   | Zero-Copy Compact Binary | Embedded        | Embedded        | Embedded        | N/A (Bytecode)                     |
@@ -320,19 +321,15 @@ All `:include` directives inside a `:defs` block **must** be enclosed within squ
   // Direct import
   :include [ "network_primitives.stvn_inclf" ]
 
-  // Import with bare prefix strip (strips up to terminal slash)
+  // Import with atomic unary prefix strip (terminal segment slicing)
   :include [ "types/network.stvn_incl" { #strip } ]
-
-  // Import with explicit prefix strip (applies to both types and typed constants)
-  :include [ "types/network.stvn_incl" { #strip "net/http/" } ]
-  :include [ "config/network.stvn_incl" { #strip "net/config/" } ]
 
   // Import with explicit namespace alias mapping block
   :include [ "shared_models.stvn_incl" { :HostName :RemoteHost :Port :RemotePort } ]
 }
 ```
 
-The `#strip` facet strips matching hierarchical prefixes from both nominal types (stripping `:net/config/Port` to `:Port`) and compile-time constants (stripping `#net/config/TIMEOUT` to `#TIMEOUT`), strictly preserving the leading `#` value sigil. A matching constant satisfies `#strip` prefix accounting and prevents `ERR_UNUSED_STRIP_PREFIX`.
+The `#strip` facet is an atomic unary flag without optional string arguments. Supplying string arguments fails at the parser gate. Unary `#strip` executes deterministic terminal segment slicing across all slash-delimited nominal types (`:org/example/Port` -> `:Port`) and value constants (`#org/example/TIMEOUT` -> `#TIMEOUT`). Leading sigils are strictly preserved. Single-segment identifiers are preserved idempotently.
 
 ---
 
@@ -366,7 +363,8 @@ A `:defs` block **MAY** bind immutable compile-time constant values to identifie
 
 #### 3.7.1 Syntax Grammar
 ```antlr4
-defsEntry          : KW_DEFS LBRACE ( includeStmt | typeDefinition | constantDefinition )* RBRACE ;
+defsEntry          : KW_DEFS LBRACE defsElement* RBRACE ;
+defsElement        : includeStmt | packageEnclosure | useStmt | typeDefinition | constantDefinition ;
 typeDefinition     : typeKeyword metadataMap? schemaType ;
 constantDefinition : valueKeyword metadataMap? schemaType value ;
 ```
@@ -389,6 +387,33 @@ constantDefinition : valueKeyword metadataMap? schemaType value ;
 3. **Lexical Isolation:** Nominal type identifiers (`:`) **MUST NOT** appear in value positions. Value keywords (`#`) **MUST NOT** appear as nominal type declarations.
 4. **Bit-Width Range Validation:** Integer literals assigned to arbitrary bit-width types `:Uint`$n$ or `:Int`$n$ must not exceed declared capacity bounds ($0 \le V \le 2^n - 1$ for unsigned, $-2^{n-1} \le V \le 2^{n-1} - 1$ for signed). Out-of-bounds assignments trigger `ERR_INTEGER_OVERFLOW` before IR lowering.
 5. **Type Soundness:** The assigned `value` payload **MUST** conform to the specified `schemaType` and all associated metadata constraints during `:defs` validation. Mismatches cause immediate compile-time failure.
+
+---
+
+### 3.8 Package Enclosures (`:package`) and Scoped Imports (`:use`)
+
+Authors can organize definitions into explicit namespace packages and import symbols locally:
+
+```stvn
+:defs {
+  :package :org/example/network {
+    :Port :Uint16
+    #DEFAULT_PORT :Uint16 8080
+  }
+  :package :org/example/service {
+    :use [ :org/example/network { #strip } ]
+    :ServiceConfig { :port :Port }
+  }
+}
+```
+
+#### Scoping Invariants
+1. **LHS FQNI Expansion:** Relative type identifiers (`:Name`) and constant identifiers (`#NAME`) declared inside `:package :Prefix { ... }` expand immediately to `:Prefix/Name` and `#Prefix/NAME`.
+2. **Scope Isolation:** `:use` directives declared inside a `:package` enclosure are isolated strictly to that enclosure. Sibling packages and the document root cannot see package-local `:use` mappings.
+3. **Root Visibility:** `:use` directives declared directly under `:defs` are visible across all sibling packages and the document root `:type` section.
+4. **No Package Nesting:** Enclosing `:package` within another `:package` is prohibited and emits `ERR_NESTED_PACKAGE_PROHIBITED`.
+5. **No Trailing Slashes:** Specifying a trailing slash in `:use` target paths emits `ERR_TRAILING_SLASH_PROHIBITED`.
+6. **Section 4.2 Eviction Integration:** Symbols imported via `:use` undergo eviction cascade: local definitions take precedence, explicit aliases resolve collisions, and unmitigated collisions emit `ERR_NAMESPACE_COLLISION`.
 
 ---
 

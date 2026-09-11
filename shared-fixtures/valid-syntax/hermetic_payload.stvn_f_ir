@@ -1,0 +1,42 @@
+TypeRegistry:
+  - :org/stvnadore/payload/TransactionId
+      schema:
+        node: :StringFixed16
+        aliasName: :org/stvnadore/payload/TransactionId
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :StringFixed16
+  - :org/stvnadore/payload/StatusCode
+      schema:
+        node: :Uint16
+        aliasName: :org/stvnadore/payload/StatusCode
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Uint16
+  - :Response
+      schema:
+        node: :Tuple(:org/stvnadore/payload/TransactionId:org/stvnadore/payload/StatusCode)
+        aliasName: :Response
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:org/stvnadore/payload/TransactionId:org/stvnadore/payload/StatusCode)
+  - <:type>
+      schema:
+        node: :Tuple(:org/stvnadore/payload/TransactionId:org/stvnadore/payload/StatusCode)
+        aliasName: :Response
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:org/stvnadore/payload/TransactionId:org/stvnadore/payload/StatusCode)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnString(:org/stvnadore/payload/TransactionId): "TX-20260911-0001"
+      - StvnInteger(:org/stvnadore/payload/StatusCode): 200

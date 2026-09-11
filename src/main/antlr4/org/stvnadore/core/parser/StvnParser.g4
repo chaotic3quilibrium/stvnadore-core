@@ -13,7 +13,30 @@ stvnDocument : LBRACE documentBody RBRACE EOF ;
 documentBody : defsEntry? (typeEntry bodyEntry)? ;
 
 // Inclusion definitions integrated alongside type structures
-defsEntry : KW_DEFS LBRACE ( includeStmt | typeDefinition | constantDefinition )* RBRACE ;
+defsEntry : KW_DEFS LBRACE defsElement* RBRACE ;
+
+defsElement : includeStmt
+            | packageEnclosure
+            | useStmt
+            | typeDefinition
+            | constantDefinition
+            ;
+
+packageEnclosure : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
+packagePath      : typeKeyword ;
+packageElement   : useStmt
+                 | typeDefinition
+                 | constantDefinition
+                 | nestedPackageIllegal
+                 ;
+nestedPackageIllegal : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
+
+useStmt : KW_USE LBRACK useTarget useOptionsBlock? useAliasBlock? RBRACK ;
+useTarget : typeKeyword | useTargetIllegal ;
+useTargetIllegal : typeKeyword FSLASH+ ;
+useOptionsBlock : LBRACE KW_STRIP RBRACE ;
+useAliasBlock   : LBRACE useMapAlias+ RBRACE ;
+useMapAlias     : typeKeyword typeKeyword | valueKeyword valueKeyword ;
 
 includeStmt       : KW_INCLUDE LBRACK includeElement+ RBRACK ;
 
@@ -21,7 +44,7 @@ includeElement      : stringLiteral includeOptionsBlock? includeAliasBlock? ;
 
 includeOptionsBlock : LBRACE includeOption+ RBRACE ;
 
-includeOption       : KW_STRIP ( stringLiteral )? ;
+includeOption       : KW_STRIP ;
 
 includeAliasBlock   : LBRACE includeMapAlias+ RBRACE ;
 
@@ -142,6 +165,8 @@ reservedKeyword : ATOM_BOOLEAN
                 | KW_TYPE
                 | KW_BODY
                 | KW_INCLUDE
+                | KW_PACKAGE
+                | KW_USE
                 | KW_TUPLE
                 | KW_ENUM
                 | KW_OPTION

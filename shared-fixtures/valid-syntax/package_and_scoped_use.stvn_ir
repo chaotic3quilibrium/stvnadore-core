@@ -1,0 +1,42 @@
+TypeRegistry:
+  - :org/example/network/Port
+      schema:
+        node: :Uint16
+        aliasName: :org/example/network/Port
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Uint16
+  - :org/example/network/HostName
+      schema:
+        node: :StringNonEmpty
+        aliasName: :org/example/network/HostName
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :StringNonEmpty
+  - :org/example/service/ServiceConfig
+      schema:
+        node: :Tuple(:HostName:Port)
+        aliasName: :org/example/service/ServiceConfig
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:HostName:Port)
+  - <:type>
+      schema:
+        node: :Tuple(:HostName:Port)
+        aliasName: :org/example/service/ServiceConfig
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:HostName:Port)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnString(:org/example/network/HostName): "api.internal"
+      - StvnInteger(:org/example/network/Port): 8080

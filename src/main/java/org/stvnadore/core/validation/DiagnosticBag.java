@@ -48,8 +48,12 @@ public final class DiagnosticBag {
   public static final String ERR_RESERVED_KEYWORD_ON_LHS = "ERR_RESERVED_KEYWORD_ON_LHS";
   /** Error code emitted when an integer literal exceeds the capacity bounds of its declared bit-width type. */
   public static final String ERR_INTEGER_OVERFLOW = "ERR_INTEGER_OVERFLOW";
-  /** Error code emitted when an include prefix strip configuration does not match any imported symbol. */
-  public static final String ERR_UNUSED_STRIP_PREFIX = "ERR_UNUSED_STRIP_PREFIX";
+  /** Error code emitted when an include statement is declared inside a flat hermetic document (.stvn_f) or leaf module (.stvn_inclf). */
+  public static final String ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT = "ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT";
+  /** Error code emitted when a package enclosure is illegally nested inside another package enclosure. */
+  public static final String ERR_NESTED_PACKAGE_PROHIBITED = "ERR_NESTED_PACKAGE_PROHIBITED";
+  /** Error code emitted when a :use target specification contains trailing slash characters. */
+  public static final String ERR_TRAILING_SLASH_PROHIBITED = "ERR_TRAILING_SLASH_PROHIBITED";
   /** Error code emitted when algebraic sum type branches share duplicate tag identifiers. */
   public static final String ERR_SUM_TYPE_COLLISION = "SUM_TYPE_TAG_COLLISION";
   /** Error code emitted when structural trait constraints are violated. */

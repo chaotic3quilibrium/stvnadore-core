@@ -1,0 +1,14 @@
+{
+  // invalid_use_trailing_slash.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Trailing slash prohibited in :use target"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

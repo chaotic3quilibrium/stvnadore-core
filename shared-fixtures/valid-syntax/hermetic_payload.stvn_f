@@ -1,0 +1,21 @@
+{
+  // hermetic_payload.stvn_f
+  // Flat Hermetic Payload Document Tier (Zero :include Statements)
+  // Specification: STVN v1.2.0 (ECD-2026-04-A1)
+  :defs {
+    :package :org/stvnadore/payload {
+      :TransactionId :StringFixed16
+      :StatusCode :Uint16
+      #STATUS_SUCCESS :Uint16 200
+    }
+
+    :Response :Tuple( :org/stvnadore/payload/TransactionId :org/stvnadore/payload/StatusCode )
+  }
+
+  :type :Response
+
+  :body (
+    "TX-20260911-0001"
+    200
+  )
+}
