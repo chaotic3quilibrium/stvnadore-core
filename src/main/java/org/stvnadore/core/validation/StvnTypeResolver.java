@@ -205,6 +205,12 @@ public class StvnTypeResolver {
     return includePath;
   }
 
+  /**
+   * Slices a slash-delimited nominal identifier to its terminal segment while preserving the leading sigil.
+   *
+   * @param identifier the full nominal type or constant identifier (e.g., {@code :org/example/Port} or {@code #org/example/PORT})
+   * @return the sliced terminal identifier preserving the leading sigil (e.g., {@code :Port} or {@code #PORT})
+   */
   public static String sliceTerminal(String identifier) {
     int lastSlash = identifier.lastIndexOf('/');
     if (lastSlash < 0) {
@@ -214,15 +220,32 @@ public class StvnTypeResolver {
     return sigil + identifier.substring(lastSlash + 1);
   }
 
+  /**
+   * Encapsulates the active lexical scoping environment for symbol resolution, including package-local
+   * aliases, reverse alias mappings, and stripped imports.
+   *
+   * @param packagePath the optional enclosing package path prefix, or empty if at root document scope
+   * @param typeAliases map of local type aliases to fully qualified nominal type identifiers
+   * @param constAliases map of local constant aliases to fully qualified nominal constant identifiers
+   * @param reverseTypeAliases map of fully qualified nominal type identifiers back to local aliases
+   */
   public record ScopedUseEnvironment(
-      Map<String, String> typeMappings,
-      Map<String, String> constMappings,
-      @Nullable String packagePrefix
+      Optional<String> packagePath,
+      Map<String, String> typeAliases,
+      Map<String, String> constAliases,
+      Map<String, String> reverseTypeAliases
   ) {}
 
   private static final Map<StvnDocumentContext, ScopedUseEnvironment> documentScopes = Collections.synchronizedMap(new WeakHashMap<>());
   private static final Map<StvnParser.PackageEnclosureContext, ScopedUseEnvironment> packageEnclosureScopes = Collections.synchronizedMap(new WeakHashMap<>());
 
+  /**
+   * Discovers and evaluates the active {@link ScopedUseEnvironment} corresponding to a specific AST context node.
+   *
+   * @param doc the enclosing STVN document context, or null
+   * @param node the parse tree context node whose lexical scope is being evaluated
+   * @return the resolved lexical scoping environment for the context node
+   */
   public static ScopedUseEnvironment findScope(@Nullable StvnDocumentContext doc, @Nullable ParserRuleContext node) {
     ParserRuleContext cur = node;
     while (cur != null) {
@@ -236,27 +259,36 @@ public class StvnTypeResolver {
       var rootEnv = documentScopes.get(doc);
       if (rootEnv != null) return rootEnv;
     }
-    return new ScopedUseEnvironment(Collections.emptyMap(), Collections.emptyMap(), null);
+    return new ScopedUseEnvironment(Optional.empty(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
   }
 
+  /**
+   * Resolves a nominal type identifier reference against the active lexical scope, applying the Section 4.2
+   * precedence cascade and expanding relative identifiers to fully qualified nominal identifiers.
+   *
+   * @param doc the enclosing STVN document context, or null
+   * @param kw the raw type keyword identifier to resolve (e.g., {@code :Port})
+   * @param referenceContext the parse tree context where the type reference occurs
+   * @return the resolved canonical fully qualified nominal type identifier
+   */
   public static String resolveTypeIdentifier(@Nullable StvnDocumentContext doc, String kw, @Nullable ParserRuleContext referenceContext) {
     if (doc == null || kw == null || isReservedFundamentalType(kw)) {
       return kw;
     }
     var env = findScope(doc, referenceContext);
     // 2. In-scope :use aliases and #strip mappings (package-local first)
-    if (env.typeMappings().containsKey(kw)) {
-      return env.typeMappings().get(kw);
+    if (env.typeAliases().containsKey(kw)) {
+      return env.typeAliases().get(kw);
     }
     // Document-global :use mappings (if in package scope)
     var docEnv = documentScopes.get(doc);
-    if (docEnv != null && docEnv.typeMappings().containsKey(kw)) {
-      return docEnv.typeMappings().get(kw);
+    if (docEnv != null && docEnv.typeAliases().containsKey(kw)) {
+      return docEnv.typeAliases().get(kw);
     }
     // 3. Enclosing :package prefix check for sibling definitions
-    if (env.packagePrefix() != null) {
+    if (env.packagePath().isPresent()) {
       String localSuffix = kw.startsWith(":") ? kw.substring(1) : kw;
-      String siblingFqni = env.packagePrefix() + "/" + localSuffix;
+      String siblingFqni = env.packagePath().get() + "/" + localSuffix;
       if (findDefInDocument(doc, siblingFqni).isPresent()) {
         return siblingFqni;
       }
@@ -272,23 +304,32 @@ public class StvnTypeResolver {
     return kw;
   }
 
+  /**
+   * Resolves a typed constant identifier reference against the active lexical scope, expanding relative
+   * names to fully qualified nominal constant identifiers while preserving the leading value sigil.
+   *
+   * @param doc the enclosing STVN document context, or null
+   * @param kw the raw constant keyword identifier to resolve (e.g., {@code #PORT})
+   * @param referenceContext the parse tree context where the constant reference occurs
+   * @return the resolved canonical fully qualified nominal constant identifier
+   */
   public static String resolveConstantIdentifier(@Nullable StvnDocumentContext doc, String kw, @Nullable ParserRuleContext referenceContext) {
     if (doc == null || kw == null) {
       return kw;
     }
     var env = findScope(doc, referenceContext);
     // 2. In-scope :use aliases and #strip mappings
-    if (env.constMappings().containsKey(kw)) {
-      return env.constMappings().get(kw);
+    if (env.constAliases().containsKey(kw)) {
+      return env.constAliases().get(kw);
     }
     var docEnv = documentScopes.get(doc);
-    if (docEnv != null && docEnv.constMappings().containsKey(kw)) {
-      return docEnv.constMappings().get(kw);
+    if (docEnv != null && docEnv.constAliases().containsKey(kw)) {
+      return docEnv.constAliases().get(kw);
     }
     // 3. Enclosing :package prefix check for sibling constants
-    if (env.packagePrefix() != null) {
+    if (env.packagePath().isPresent()) {
       String localSuffix = kw.startsWith("#") ? kw.substring(1) : kw;
-      String siblingFqni = "#" + env.packagePrefix().substring(1) + "/" + localSuffix;
+      String siblingFqni = "#" + env.packagePath().get().substring(1) + "/" + localSuffix;
       if (findConstantDefInDocument(doc, siblingFqni).isPresent()) {
         return siblingFqni;
       }
@@ -905,7 +946,11 @@ public class StvnTypeResolver {
       }
     }
 
-    return new ScopedUseEnvironment(resolvedTypes, resolvedConstants, packagePrefix);
+    var reverseTypeAliases = new LinkedHashMap<String, String>();
+    for (var entry : resolvedTypes.entrySet()) {
+      reverseTypeAliases.put(entry.getValue(), entry.getKey());
+    }
+    return new ScopedUseEnvironment(Optional.ofNullable(packagePrefix), resolvedTypes, resolvedConstants, reverseTypeAliases);
   }
 
   @FunctionalInterface
@@ -1667,6 +1712,14 @@ public class StvnTypeResolver {
     return findTypeDefinition(doc, keyword, null);
   }
 
+  /**
+   * Locates the AST definition context node for a specified type keyword within the document or its packages.
+   *
+   * @param doc the enclosing STVN document context, or null
+   * @param keyword the fully qualified or scoped type keyword to locate
+   * @param contextNode the parse tree context initiating the lookup
+   * @return an optional containing the matching {@link StvnParser.TypeDefinitionContext} if found, or empty
+   */
   public static Optional<TypeDefinitionContext> findTypeDefinition(@Nullable StvnDocumentContext doc, String keyword, @Nullable ParserRuleContext contextNode) {
     String resolved = resolveTypeIdentifier(doc, keyword, contextNode);
     return findAllDefinitions(doc, resolved).stream().findFirst().map(DefSource::defNode);
@@ -1726,6 +1779,14 @@ public class StvnTypeResolver {
     return findConstantDefinition(doc, keyword, null);
   }
 
+  /**
+   * Locates the AST definition context node for a specified constant keyword within the document or its packages.
+   *
+   * @param doc the enclosing STVN document context, or null
+   * @param keyword the fully qualified or scoped constant keyword to locate
+   * @param contextNode the parse tree context initiating the lookup
+   * @return an optional containing the matching {@link StvnParser.ConstantDefinitionContext} if found, or empty
+   */
   public static Optional<ConstantDefinitionContext> findConstantDefinition(@Nullable StvnDocumentContext doc, String keyword, @Nullable ParserRuleContext contextNode) {
     String resolved = resolveConstantIdentifier(doc, keyword, contextNode);
     return findAllConstantDefinitions(doc, resolved).stream().findFirst().map(ConstantDefSource::defNode);
