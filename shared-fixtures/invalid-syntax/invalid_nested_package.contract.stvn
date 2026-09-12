@@ -1,0 +1,14 @@
+{
+  // invalid_nested_package.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Nested packages are prohibited"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

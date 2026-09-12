@@ -1,0 +1,24 @@
+{
+  // package_and_scoped_use.stvn
+  // Specification: STVN v1.2.0 (ECD-2026-04)
+  :defs {
+    :package :org/example/network {
+      :Port :Uint16
+      :HostName :StringNonEmpty
+      #DEFAULT_PORT :Uint16 8080
+    }
+
+    :package :org/example/service {
+      :use [ :org/example/network { #strip } ]
+
+      :ServiceConfig :Tuple( :HostName :Port )
+    }
+  }
+
+  :type :org/example/service/ServiceConfig
+
+  :body (
+    "api.internal"
+    8080
+  )
+}

@@ -1082,16 +1082,6 @@ public class StvnBinaryDecoder {
     throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Unsupported or undefined type for decoding: " + baseType);
   }
 
-  private static @Nullable ResolvedSchema cachedStringSchema = null;
-
-  private static ResolvedSchema getStringSchema() {
-    if (cachedStringSchema == null) {
-      var prelude = org.stvnadore.core.stdlib.StvnPrelude.getPreludeDocument();
-      var def = org.stvnadore.core.validation.StvnTypeResolver.findTypeDefinition(prelude, ":SemVer").get();
-      cachedStringSchema = org.stvnadore.core.validation.StvnTypeResolver.resolvePrimitiveSchema(prelude, def.schemaType(), java.util.Set.of()).get();
-    }
-    return cachedStringSchema;
-  }
 
   /**
    * Verifies that unused high bits in the leading byte container are strictly zero for arbitrary bit-widths where
@@ -1227,17 +1217,24 @@ public class StvnBinaryDecoder {
     String base = org.stvnadore.core.validation.StvnTypeResolver.getPrimitiveBaseType(rs.node());
     if (base == null) return "UNKNOWN";
 
-    if (base.startsWith(":String") || base.equals(":DateTimeOffset") || base.equals(":DateTimeZoned") || base.equals(":DateTimeAudited") || base.equals(":DateTime")
-        || base.equals(":Uuid") || base.equals(":Ulid") || base.equals(":Sha256") || base.equals(":SemVer")
-        || base.equals(":Email") || base.equals(":IPv4")) {
+    if (base.startsWith(":String")
+        || base.equals(":org/stvnadore/prelude/DateTimeOffset") || base.equals(":org/stvnadore/prelude/DateTimeZoned")
+        || base.equals(":org/stvnadore/prelude/DateTimeAudited")
+        || base.equals(":org/stvnadore/prelude/Uuid") || base.equals(":org/stvnadore/prelude/Ulid")
+        || base.equals(":org/stvnadore/prelude/Sha256") || base.equals(":org/stvnadore/prelude/SemVer")
+        || base.equals(":org/stvnadore/prelude/Email") || base.equals(":org/stvnadore/prelude/IPv4")) {
       return "STRING";
     }
-    if (base.startsWith(":Int") || base.startsWith(":Uint") || base.equals(":TimeEpochS")
-        || base.equals(":TimeEpochMs") || base.equals(":TimeEpochNs") || base.equals(":Port")) {
+    if (base.startsWith(":Int") || base.startsWith(":Uint")
+        || base.equals(":org/stvnadore/prelude/TimeEpochS") || base.equals(":org/stvnadore/prelude/TimeEpochMs")
+        || base.equals(":org/stvnadore/prelude/TimeEpochNs")
+        || base.equals(":org/stvnadore/prelude/Port")) {
       return "INTEGER";
     }
-    if (base.startsWith(":Float") || base.equals(":Percentage") || base.equals(":Probability")
-        || base.equals(":Currency") || base.equals(":Latitude") || base.equals(":Longitude")) {
+    if (base.startsWith(":Float")
+        || base.equals(":org/stvnadore/prelude/Percentage") || base.equals(":org/stvnadore/prelude/Probability")
+        || base.equals(":org/stvnadore/prelude/Currency") || base.equals(":org/stvnadore/prelude/Latitude")
+        || base.equals(":org/stvnadore/prelude/Longitude")) {
       return "FLOAT";
     }
     if (base.equals(":Boolean")) {

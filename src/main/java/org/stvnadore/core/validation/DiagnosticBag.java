@@ -42,6 +42,18 @@ public final class DiagnosticBag {
   public static final String ERR_NAMESPACE_COLLISION = "NAMESPACE_COLLISION";
   /** Error code emitted when a referenced type identifier has not been defined. */
   public static final String ERR_UNDEFINED_TYPE = "UNDEFINED_TYPE";
+  /** Error code emitted when an unqualified type reference is not found in document scope or root namespace. */
+  public static final String ERR_UNKNOWN_TYPE = "ERR_UNKNOWN_TYPE";
+  /** Error code emitted when a reserved scalar or structural type keyword is declared on the LHS of a type definition. */
+  public static final String ERR_RESERVED_KEYWORD_ON_LHS = "ERR_RESERVED_KEYWORD_ON_LHS";
+  /** Error code emitted when an integer literal exceeds the capacity bounds of its declared bit-width type. */
+  public static final String ERR_INTEGER_OVERFLOW = "ERR_INTEGER_OVERFLOW";
+  /** Error code emitted when an include statement is declared inside a flat hermetic document (.stvn_f) or leaf module (.stvn_inclf). */
+  public static final String ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT = "ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT";
+  /** Error code emitted when a package enclosure is illegally nested inside another package enclosure. */
+  public static final String ERR_NESTED_PACKAGE_PROHIBITED = "ERR_NESTED_PACKAGE_PROHIBITED";
+  /** Error code emitted when a :use target specification contains trailing slash characters. */
+  public static final String ERR_TRAILING_SLASH_PROHIBITED = "ERR_TRAILING_SLASH_PROHIBITED";
   /** Error code emitted when algebraic sum type branches share duplicate tag identifiers. */
   public static final String ERR_SUM_TYPE_COLLISION = "SUM_TYPE_TAG_COLLISION";
   /** Error code emitted when structural trait constraints are violated. */

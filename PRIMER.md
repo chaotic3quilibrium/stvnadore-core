@@ -16,7 +16,8 @@ This document serves as an in-depth technical onboarding guide for software engi
     * [1.1 Type Track (`:`) vs. Value Track (`#`)](#11-type-track--vs-value-track-)
     * [1.2 Typed Compile-Time Constants in `:defs`](#12-typed-compile-time-constants-in-defs)
     * [1.3 Hierarchical Path-Delimited Identifiers](#13-hierarchical-path-delimited-identifiers)
-    * [1.4 Single-Pass Lexing and Zero-Lookahead Disambiguation](#14-single-pass-lexing-and-zero-lookahead-disambiguation)
+    * [1.4 Package Enclosures (`:package`) and Scoped Use (`:use`)](#14-package-enclosures-package-and-scoped-use-use)
+    * [1.5 Single-Pass Lexing and Zero-Lookahead Disambiguation](#15-single-pass-lexing-and-zero-lookahead-disambiguation)
   * [2. Algebraic Data Types & The 10 Inference Rules (Rules A–J)](#2-algebraic-data-types--the-10-inference-rules-rules-aj)
     * [2.1 Product Types (`:Tuple`) vs. Bare Value Variant Syntax](#21-product-types-tuple-vs-bare-value-variant-syntax)
     * [2.2 Sum Types (`:Option`, `:Either`, `:Union`, `:Enum`)](#22-sum-types-option-either-union-enum)
@@ -72,7 +73,7 @@ In traditional formats (JSON, YAML, EDN), type information is either absent, emb
 }
 ```
 
-* **The Colon Sigil (`:`) — Type Track:** Reserved exclusively for structural type constructors, built-in primitives, user-defined nominal type definitions, and top-level block keywords (`:defs`, `:type`, `:body`, `:include`). Colons must **always** attach as a leading prefix to an identifier. A bare colon token `:` or an infix JSON-style key-value separator (`key: "value"`) is a fatal lexical error.
+* **The Colon Sigil (`:`) — Type Track:** Reserved exclusively for structural type constructors, built-in primitives, user-defined nominal type definitions, and top-level block keywords (`:defs`, `:type`, `:body`, `:include`, `:package`, `:use`). Colons must **always** attach as a leading prefix to an identifier. A bare colon token `:` or an infix JSON-style key-value separator (`key: "value"`) is a fatal lexical error.
 * **The Hash Sigil (`#`) — Value Track:** Reserved exclusively for value-level symbols, boolean literals (`#TRUE`, `#FALSE`, `#T`, `#F`), sum type variant constructors (`#Some`, `#None`, `#Left`, `#Right`, `#S`, `#N`, `#L`, `#R`), union branch selectors (`#1`, `#2`), enum domain constants (`#HTTP`, `#HTTPS`), metadata constraint flags (`#minIncl`, `#regex`), and compile-time constants in `:defs`.
 
 ### 1.2 Typed Compile-Time Constants in `:defs`
@@ -100,7 +101,28 @@ STVN natively supports forward-slash (`/`) path-delimited identifiers across def
 
 The leading sigil attaches only to the first segment (e.g., `:net/http/Status`). Infix colons (e.g., `:net:http:Status`) are strictly prohibited. The compiler treats `:net/http/Status` and `:Status` as distinct, non-interchangeable nominal types.
 
-### 1.4 Single-Pass Lexing and Zero-Lookahead Disambiguation
+### 1.4 Package Enclosures (`:package`) and Scoped Use (`:use`)
+
+STVN supports modular namespace organization inside single documents via `:package` enclosures and scoped `:use` directives:
+
+```stvn
+:defs {
+  :package :org/example/net {
+    :Port :Uint16
+    #DEFAULT_PORT :Uint16 8080
+  }
+  :package :org/example/service {
+    :use [ :org/example/net { #strip } ]
+    :Config { :port :Port }
+  }
+}
+```
+
+* **LHS FQNI Expansion:** Definitions inside `:package :Prefix { ... }` automatically expand on the LHS to `:Prefix/Name` and `#Prefix/NAME`.
+* **Scope Isolation:** Directives in `:use` inside a package enclosure are isolated to that enclosure. Root `:defs` `:use` directives apply document-globally.
+* **Hermetic Standalone Document Tier (`.stvn_f`):** Flat payload documents (`.stvn_f`) prohibit `:include` statements to preserve hermetic runtime integrity.
+
+### 1.5 Single-Pass Lexing and Zero-Lookahead Disambiguation
 
 Because type constructors and value literals are cleanly segregated by their leading prefix sigils (`:` vs `#`), the lexer and parser operate in a single pass without lookahead or backtracking.
 
@@ -220,16 +242,16 @@ STVN decoders support implicit tagging for sum types when payload values are una
 
 ### 3.1 Eliminating Temporal Conflation
 
-Traditional serialization formats conflate physical timeline instants with civil wall-clock schedule times, causing catastrophic timezone conversion bugs and Daylight Saving Time (DST) data corruption. STVN partitions temporal representations into three mathematically orthogonal domains.
+Traditional serialization formats conflate physical timeline instants with civil wall-clock schedule times, causing catastrophic timezone conversion bugs and Daylight Saving Time (DST) data corruption. STVN partitions temporal representations into three mathematically orthogonal domains. All six temporal domain types are standard library prelude types located under `:org/stvnadore/prelude/*`. Bare unqualified references (such as `:DateTimeOffset` or `:TimeEpochS`) trigger `ERR_UNKNOWN_TYPE`.
 
-### 3.2 Physical Instant: `:DateTimeOffset`
+### 3.2 Physical Instant: `:org/stvnadore/prelude/DateTimeOffset`
 
 * **Domain:** Absolute point on the physical timeline associated with a fixed UTC presentation offset.
 * **Syntax:** ISO-8601 string with mandatory UTC offset (`Z` or `±HH:mm`): `"2026-03-15T08:00:00-05:00"`.
 * **Invariant:** **Zone brackets `[...]` are prohibited.** Supplying an IANA zone (e.g., `"2026-03-15T08:00:00-05:00[America/Chicago]"`) is a fatal syntax rejection.
 * **Binary Footprint:** 12 bytes `(epoch_utc_nanos: i64, offset_seconds: i32)`.
 
-### 3.3 Civil Wall-Clock Schedule: `:DateTimeZoned`
+### 3.3 Civil Wall-Clock Schedule: `:org/stvnadore/prelude/DateTimeZoned`
 
 * **Domain:** Future-scheduled human wall-clock time within a political IANA timezone jurisdiction.
 * **Syntax:** Local ISO-8601 timestamp with bracketed IANA zone: `"2026-03-15T08:00:00[America/Chicago]"`.
@@ -237,7 +259,7 @@ Traditional serialization formats conflate physical timeline instants with civil
 * **Invariant 2 (DST Spring-Forward Rejection):** Timestamps falling into non-existent DST transition gaps (e.g., `"2026-03-08T02:30:00[America/Chicago]"`) are strictly rejected by the compiler.
 * **Binary Footprint:** 10 bytes `(local_nanos: i64, zone_dict_id: u16)`.
 
-### 3.4 Compliance & Audit Record: `:DateTimeAudited`
+### 3.4 Compliance & Audit Record: `:org/stvnadore/prelude/DateTimeAudited`
 
 * **Domain:** Immutable legal/financial audit record proving both the observed UTC instant and the legal jurisdiction of execution.
 * **Syntax:** Dual-token string with both UTC offset and bracketed IANA zone: `"2026-03-15T08:00:00-05:00[America/Chicago]"`.
@@ -246,21 +268,21 @@ Traditional serialization formats conflate physical timeline instants with civil
 
 ### 3.5 Physical Epoch Counters
 
-* `:TimeEpochS`: Signed 64-bit seconds since Unix epoch (`1970-01-01T00:00:00Z`).
-* `:TimeEpochMs`: Signed 64-bit milliseconds since Unix epoch.
-* `:TimeEpochNs`: Arbitrary-precision nanoseconds since Unix epoch.
+* `:org/stvnadore/prelude/TimeEpochS`: Signed 64-bit seconds since Unix epoch (`1970-01-01T00:00:00Z`).
+* `:org/stvnadore/prelude/TimeEpochMs`: Signed 64-bit milliseconds since Unix epoch.
+* `:org/stvnadore/prelude/TimeEpochNs`: Arbitrary-precision nanoseconds since Unix epoch.
 
 ### 3.6 Tripartite Invariant Matrix
 
-| Attribute                  | `:DateTimeOffset`             | `:DateTimeZoned`              | `:DateTimeAudited`                  |
-|:---------------------------|:------------------------------|:------------------------------|:------------------------------------|
-| **Domain**                 | Physical Instant              | Civil Wall-Clock              | Regulatory Audit                    |
-| **Literal Grammar**        | `"YYYY-MM-DDTHH:mm:ss±HH:mm"` | `"YYYY-MM-DDTHH:mm:ss[Zone]"` | `"YYYY-MM-DDTHH:mm:ss±HH:mm[Zone]"` |
-| **UTC Offset**             | **Mandatory**                 | **Prohibited**                | **Mandatory**                       |
-| **Zone Bracket (`[...]`)** | **Prohibited**                | **Mandatory**                 | **Mandatory**                       |
-| **Offset Verification**    | N/A                           | Derived dynamically           | **Validated at Compile Time**       |
-| **DST Gap Rejection**      | N/A                           | **Strictly Rejected**         | **Strictly Rejected**               |
-| **Wire Footprint**         | 12 Bytes                      | 10 Bytes                      | 14 Bytes                            |
+| Attribute                  | `:org/stvnadore/prelude/DateTimeOffset` | `:org/stvnadore/prelude/DateTimeZoned` | `:org/stvnadore/prelude/DateTimeAudited` |
+|:---------------------------|:----------------------------------------|:---------------------------------------|:-----------------------------------------|
+| **Domain**                 | Physical Instant                        | Civil Wall-Clock                       | Regulatory Audit                         |
+| **Literal Grammar**        | `"YYYY-MM-DDTHH:mm:ss±HH:mm"`           | `"YYYY-MM-DDTHH:mm:ss[Zone]"`          | `"YYYY-MM-DDTHH:mm:ss±HH:mm[Zone]"`       |
+| **UTC Offset**             | **Mandatory**                           | **Prohibited**                         | **Mandatory**                             |
+| **Zone Bracket (`[...]`)** | **Prohibited**                          | **Mandatory**                          | **Mandatory**                             |
+| **Offset Verification**    | N/A                                     | Derived dynamically                    | **Validated at Compile Time**             |
+| **DST Gap Rejection**      | N/A                                     | **Strictly Rejected**                  | **Strictly Rejected**                     |
+| **Wire Footprint**         | 12 Bytes                                | 10 Bytes                               | 14 Bytes                                  |
 
 ---
 
@@ -428,22 +450,30 @@ if (result.isRecoveredPartialAst()) {
 
 ### 8.1 Built-in Prelude Nominal Types
 
-The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/stdlib/StvnPrelude.java)) is pre-registered and implicitly available in all STVN contexts:
+The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/stdlib/StvnPrelude.java)) defines canonical standard types under `:org/stvnadore/prelude/`. The compiler implicitly registers these types into every document scope:
 
 | Nominal Type       | Underlying Type  | Applied Constraints / Validation Specification                                               |
 |:-------------------|:-----------------|:---------------------------------------------------------------------------------------------|
-| **`:Uuid`**        | `:StringFixed36` | `{ #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }` |
-| **`:Ulid`**        | `:StringFixed26` | `{ #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32)                            |
-| **`:Sha256`**      | `:StringFixed64` | `{ #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest)                                |
-| **`:SemVer`**      | `:String`        | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`)               |
-| **`:Email`**       | `:String`        | RFC 5322 email address validation                                                            |
-| **`:IPv4`**        | `:String`        | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`)                                 |
-| **`:Port`**        | `:Uint16`        | `{ #minIncl 1 #maxIncl 65535 }`                                                              |
-| **`:Percentage`**  | `:Float64`       | `{ #minIncl 0.0 #maxIncl 100.0 }`                                                            |
-| **`:Probability`** | `:Float64`       | `{ #minIncl 0.0 #maxIncl 1.0 }`                                                              |
-| **`:Currency`**    | `:FloatExact`    | Monetary value with exact arbitrary decimal precision                                        |
-| **`:Latitude`**    | `:Float64`       | `{ #minIncl -90.0 #maxIncl 90.0 }`                                                           |
-| **`:Longitude`**   | `:Float64`       | `{ #minIncl -180.0 #maxIncl 180.0 }`                                                         |
+| **`:org/stvnadore/prelude/TimeEpochS`**     | `:Int64`         | Epoch seconds elapsed since 1970-01-01T00:00:00Z                                            |
+| **`:org/stvnadore/prelude/TimeEpochMs`**    | `:Int64`         | Epoch milliseconds elapsed since 1970-01-01T00:00:00Z                                       |
+| **`:org/stvnadore/prelude/TimeEpochNs`**    | `:Int128`        | Epoch nanoseconds elapsed since 1970-01-01T00:00:00Z                                        |
+| **`:org/stvnadore/prelude/DateTimeOffset`** | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$" }` (Physical Instant) |
+| **`:org/stvnadore/prelude/DateTimeZoned`**  | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Civil Schedule) |
+| **`:org/stvnadore/prelude/DateTimeAudited`**| `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Compliance Audit Record) |
+| **`:org/stvnadore/prelude/Uuid`**        | `:StringFixed36` | `{ #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }` |
+| **`:org/stvnadore/prelude/Ulid`**        | `:StringFixed26` | `{ #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32)                            |
+| **`:org/stvnadore/prelude/Sha256`**      | `:StringFixed64` | `{ #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest)                                |
+| **`:org/stvnadore/prelude/SemVer`**      | `:String`        | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`)               |
+| **`:org/stvnadore/prelude/Email`**       | `:String`        | RFC 5322 email address validation                                                            |
+| **`:org/stvnadore/prelude/IPv4`**        | `:String`        | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`)                                 |
+| **`:org/stvnadore/prelude/Port`**        | `:Uint16`        | `{ #minIncl 1 #maxIncl 65535 }`                                                              |
+| **`:org/stvnadore/prelude/Percentage`**  | `:Float64`       | `{ #minIncl 0.0 #maxIncl 100.0 }`                                                            |
+| **`:org/stvnadore/prelude/Probability`** | `:Float64`       | `{ #minIncl 0.0 #maxIncl 1.0 }`                                                              |
+| **`:org/stvnadore/prelude/Currency`**    | `:FloatExact`    | Monetary value with exact arbitrary decimal precision                                        |
+| **`:org/stvnadore/prelude/Latitude`**    | `:Float64`       | `{ #minIncl -90.0 #maxIncl 90.0 }`                                                           |
+| **`:org/stvnadore/prelude/Longitude`**   | `:Float64`       | `{ #minIncl -180.0 #maxIncl 180.0 }`                                                         |
+
+Bare unqualified references (such as `:Port`) trigger `ERR_UNKNOWN_TYPE`. Documents that prefer short unqualified names declare local aliases (for example, `:Port :org/stvnadore/prelude/Port`).
 
 ### 8.2 Security Considerations: `:Sha256` Adoption and `:Sha1` Excision
 

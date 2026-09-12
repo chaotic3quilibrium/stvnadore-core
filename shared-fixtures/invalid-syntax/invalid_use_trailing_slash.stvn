@@ -1,0 +1,13 @@
+{
+  // invalid_use_trailing_slash.stvn
+  // Specification: STVN v1.2.0 (ECD-2026-04)
+  :defs {
+    :package :org/example/models {
+      :User :String
+    }
+    :use [ :org/example/models/ { #strip } ]
+  }
+
+  :type :User
+  :body "Alice"
+}

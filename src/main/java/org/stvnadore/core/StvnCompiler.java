@@ -297,9 +297,13 @@ public final class StvnCompiler {
       } catch (Throwable t) {
         int startOffset = -1;
         int endOffset = -1;
+        String errorCode = null;
         if (t instanceof org.stvnadore.core.validation.MalformedSchemaException e) {
           startOffset = e.startOffset();
           endOffset = e.endOffset();
+          if (e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_UNKNOWN_TYPE;
+          }
         } else if (t instanceof org.stvnadore.core.validation.StvnMalformedLiteralException e) {
           startOffset = e.startOffset();
           endOffset = e.endOffset();
@@ -324,7 +328,8 @@ public final class StvnCompiler {
             column,
             startOffset,
             endOffset,
-            t
+            t,
+            Optional.ofNullable(errorCode)
         ));
       }
 
@@ -332,6 +337,10 @@ public final class StvnCompiler {
         return diagnosticBag.hasErrors()
             ? StvnCompilationResult.failure(diagnosticBag.toList())
             : StvnCompilationResult.empty(diagnosticBag.toList());
+      }
+
+      if (diagnosticBag.hasErrors()) {
+        return StvnCompilationResult.failure(diagnosticBag.toList());
       }
 
       try {

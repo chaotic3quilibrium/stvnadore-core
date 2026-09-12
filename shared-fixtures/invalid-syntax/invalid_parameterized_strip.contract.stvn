@@ -1,0 +1,14 @@
+{
+  // invalid_parameterized_strip.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #SYNTAX_ERROR
+    "mismatched input"
+    #None
+  )
+}

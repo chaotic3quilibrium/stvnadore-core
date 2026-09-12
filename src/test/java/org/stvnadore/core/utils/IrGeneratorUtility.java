@@ -98,12 +98,25 @@ public final class IrGeneratorUtility {
     sb.append("TypeRegistry:\n");
     if (doc != null && doc.documentBody() != null && doc.documentBody().defsEntry() != null) {
       var defsEntry = doc.documentBody().defsEntry();
-      for (var typeDef : defsEntry.typeDefinition()) {
-        String kw = typeDef.typeKeyword().getText();
-        sb.append("  - ").append(kw).append("\n");
-        var nominalSchemaOpt = resolveNominalSchema(doc, kw);
-        if (nominalSchemaOpt.isPresent()) {
-          serializeSchema(doc, nominalSchemaOpt.get(), 6, sb, true);
+      if (defsEntry.defsElement() != null) {
+        for (var de : defsEntry.defsElement()) {
+          if (de.typeDefinition() != null) {
+            String kw = de.typeDefinition().typeDefTarget().getText();
+            sb.append("  - ").append(kw).append("\n");
+            resolveNominalSchema(doc, kw).ifPresent(s -> serializeSchema(doc, s, 6, sb, true));
+          } else if (de.packageEnclosure() != null) {
+            var pkgPath = de.packageEnclosure().packagePath().getText();
+            if (de.packageEnclosure().packageElement() != null) {
+              for (var pe : de.packageEnclosure().packageElement()) {
+                if (pe.typeDefinition() != null) {
+                  String localName = pe.typeDefinition().typeDefTarget().getText().substring(1);
+                  String fqni = pkgPath + "/" + localName;
+                  sb.append("  - ").append(fqni).append("\n");
+                  resolveNominalSchema(doc, fqni).ifPresent(s -> serializeSchema(doc, s, 6, sb, true));
+                }
+              }
+            }
+          }
         }
       }
     }

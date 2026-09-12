@@ -1,0 +1,14 @@
+{
+  // invalid_nested_package.stvn
+  // Specification: STVN v1.2.0 (ECD-2026-04)
+  :defs {
+    :package :Outer {
+      :package :Inner {
+        :Target :String
+      }
+    }
+  }
+
+  :type :Outer/Inner/Target
+  :body "payload"
+}

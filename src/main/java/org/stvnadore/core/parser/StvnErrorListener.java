@@ -424,13 +424,7 @@ public final class StvnErrorListener extends BaseErrorListener {
                         tokens.contains(StvnParser.ATOM_FLOAT) ||
                         tokens.contains(StvnParser.ATOM_FLOAT_EXACT) ||
                         tokens.contains(StvnParser.ATOM_STRING_FIXED) ||
-                        tokens.contains(StvnParser.ATOM_STRING_NON_EMPTY) ||
-                        tokens.contains(StvnParser.ATOM_TIME_EPOCH_S) ||
-                        tokens.contains(StvnParser.ATOM_TIME_EPOCH_MS) ||
-                        tokens.contains(StvnParser.ATOM_TIME_EPOCH_NS) ||
-                        tokens.contains(StvnParser.ATOM_DATE_TIME_OFFSET) ||
-                        tokens.contains(StvnParser.ATOM_DATE_TIME_ZONED) ||
-                        tokens.contains(StvnParser.ATOM_DATE_TIME_AUDITED);
+                        tokens.contains(StvnParser.ATOM_STRING_NON_EMPTY);
     boolean hasCollection = tokens.contains(StvnParser.COLL_SEQ) ||
                             tokens.contains(StvnParser.COLL_SEQ_NON_EMPTY) ||
                             tokens.contains(StvnParser.COLL_SET) ||
@@ -446,6 +440,9 @@ public final class StvnErrorListener extends BaseErrorListener {
 
     if (hasAtomic || hasCollection || hasTypeKw) {
       return "<schema type>";
+    }
+    if (tokens.contains(StvnParser.KW_PACKAGE) || tokens.contains(StvnParser.KW_USE)) {
+      return "<definition keyword>";
     }
     if (hasValueKw && tokens.size() > 5) {
       return "<value keyword>";

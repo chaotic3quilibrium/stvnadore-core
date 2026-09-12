@@ -28,6 +28,9 @@ KW_DEFS    : ':defs' ;
 KW_TYPE    : ':type' ;
 KW_BODY    : ':body' ;
 KW_INCLUDE : ':include' ;
+KW_PACKAGE : ':package' ;
+KW_USE     : ':use' ;
+KW_STRIP   : '#strip' ;
 
 KW_EQUATABLE       : '#equatable' ;
 KW_COMPARABLE      : '#comparable' ;
@@ -70,12 +73,6 @@ ATOM_FLOAT            : ':Float' [0-9]* ;
 ATOM_STRING_FIXED     : ':StringFixed' [0-9]* ;
 ATOM_STRING           : ':String' [0-9]* ;
 ATOM_STRING_NON_EMPTY : ':StringNonEmpty' [0-9]* ;
-ATOM_TIME_EPOCH_S     : ':TimeEpochS' ;
-ATOM_TIME_EPOCH_MS    : ':TimeEpochMs' ;
-ATOM_TIME_EPOCH_NS    : ':TimeEpochNs' ;
-ATOM_DATE_TIME_OFFSET : ':DateTimeOffset' ;
-ATOM_DATE_TIME_ZONED  : ':DateTimeZoned' ;
-ATOM_DATE_TIME_AUDITED: ':DateTimeAudited' ;
 
 COLL_SEQ               : ':Seq' ;
 COLL_SEQ_NON_EMPTY    : ':SeqNonEmpty' ;

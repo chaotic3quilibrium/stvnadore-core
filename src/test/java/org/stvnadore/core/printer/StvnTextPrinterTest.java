@@ -970,7 +970,7 @@ class StvnTextPrinterTest {
     var matrix = new VisualMatrix(
         """
         {
-          :type :Tuple( :DateTimeOffset :DateTimeZoned :DateTimeAudited )
+          :type :Tuple( :org/stvnadore/prelude/DateTimeOffset :org/stvnadore/prelude/DateTimeZoned :org/stvnadore/prelude/DateTimeAudited )
           :body (
             "2026-03-15T08:00:00-05:00"
             "2026-03-15T08:00:00[America/Chicago]"
@@ -979,10 +979,10 @@ class StvnTextPrinterTest {
         }
         """,
         options,
-        "{:type :Tuple(:DateTimeOffset :DateTimeZoned :DateTimeAudited) :body (\"2026-03-15T08:00:00-05:00\" \"2026-03-15T08:00:00[America/Chicago]\" \"2026-03-15T08:00:00-05:00[America/Chicago]\")}",
+        "{:type :Tuple(:org/stvnadore/prelude/DateTimeOffset :org/stvnadore/prelude/DateTimeZoned :org/stvnadore/prelude/DateTimeAudited) :body (\"2026-03-15T08:00:00-05:00\" \"2026-03-15T08:00:00[America/Chicago]\" \"2026-03-15T08:00:00-05:00[America/Chicago]\")}",
         """
         {
-            :type :Tuple(:DateTimeOffset :DateTimeZoned :DateTimeAudited)
+            :type :Tuple(:org/stvnadore/prelude/DateTimeOffset :org/stvnadore/prelude/DateTimeZoned :org/stvnadore/prelude/DateTimeAudited)
             :body ("2026-03-15T08:00:00-05:00" "2026-03-15T08:00:00[America/Chicago]" "2026-03-15T08:00:00-05:00[America/Chicago]")
         }"""
     );
