@@ -1,6 +1,6 @@
 # STVN Language Specification
 
-**Version:** 1.1.1
+**Version:** 1.2.0
 
 **Status:** Formal Technical Specification
 
@@ -32,6 +32,8 @@
     * [3.7 Typed Constant Definitions](#37-typed-constant-definitions)
       * [3.7.1 Syntax Grammar](#371-syntax-grammar)
       * [3.7.2 Semantics & Substitution Rules](#372-semantics--substitution-rules)
+    * [3.8 Package Enclosures (`:package`) and Scoped Imports (`:use`)](#38-package-enclosures-package-and-scoped-imports-use)
+      * [Scoping Invariants](#scoping-invariants)
   * [4. Module Ingestion and Namespace Isolation](#4-module-ingestion-and-namespace-isolation)
     * [4.1 Single-Import Constraint](#41-single-import-constraint)
     * [4.2 Namespace Eviction Cascade](#42-namespace-eviction-cascade)
@@ -254,14 +256,14 @@ The colon character (`:`) is a dedicated **type-space and structural keyword pre
 * **The Leading Prefix Rule:** The colon **must always** be attached directly as a prefix to an identifier (e.g., `:type`, `:Int32`, `:UserAccount`).
 * **The No-Infix Rule:** The colon is **never** used as an infix punctuation mark, key-value separator (JSON/YAML style), or statement terminator. A bare colon token `:` is a fatal lexical error.
 
-| Category                                     | Token Pattern             | Examples                                                                                                                                                | Context / Purpose                                                             |
-|:---------------------------------------------|:--------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------|
-| **Root Block Keywords**                      | `:defs`, `:type`, `:body` | `:defs { ... }`<br>`:type :AppPayload`<br>`:body ( ... )`                                                                                               | Declares mandatory and optional top-level document sections                   |
-| **Module Directives**                        | `:include`                | `:include [ "lib.stvn_inclf" ]`                                                                                                                         | Directs the module resolver to import external definitions                    |
-| **Scalar & Sized Type Tokens**               | `:` `[A-Z][a-zA-Z0-9]*`   | `:Boolean`, `:Int`, `:Int32`, `:Uint49`, `:Float64`, `:FloatExact`, `:String`, `:StringNonEmpty64`, `:StringFixed16`                                    | Built-in primitive and arbitrary bit-width scalar type identifiers            |
-| **Algebraic & Collection Type Constructors** | `:` `[A-Z][a-zA-Z0-9]*`   | `:Option`, `:Either`, `:Union`, `:Tuple`, `:Enum`, `:Seq`, `:SeqNonEmpty`, `:Set`, `:SetNonEmpty`, `:Map`, `:MapNonEmpty`, `:MapInv`, `:MapInvNonEmpty` | Parameterized sum, product, and collection type constructors                  |
-| **Standard Library Prelude Aliases**         | `:org/stvnadore/prelude/` `[A-Za-z0-9_]+` | `:org/stvnadore/prelude/TimeEpochS`, `:org/stvnadore/prelude/DateTimeOffset`, `:org/stvnadore/prelude/DateTimeZoned`, `:org/stvnadore/prelude/DateTimeAudited`, `:org/stvnadore/prelude/Uuid`, `:org/stvnadore/prelude/Port` | Standard library domain types and temporal aliases located under `:org/stvnadore/prelude/*` |
-| **Nominal User-Defined Type Identifiers**    | `:` `[A-Z][a-zA-Z0-9_]*`  | `:HostName`, `:ServerConfig`, `:RouteTable`                                                                                                             | User-defined type names declared inside `:defs` and referenced across schemas |
+| Category                                     | Token Pattern                             | Examples                                                                                                                                                | Context / Purpose                                                                           |
+|:---------------------------------------------|:------------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------|:--------------------------------------------------------------------------------------------|
+| **Root Block Keywords**                      | `:defs`, `:type`, `:body`                 | `:defs { ... }`<br>`:type :AppPayload`<br>`:body ( ... )`                                                                                               | Declares mandatory and optional top-level document sections                                 |
+| **Module Directives**                        | `:include`                                | `:include [ "lib.stvn_inclf" ]`                                                                                                                         | Directs the module resolver to import external definitions                                  |
+| **Scalar & Sized Type Tokens**               | `:` `[A-Z][a-zA-Z0-9]*`                   | `:Boolean`, `:Int`, `:Int32`, `:Uint49`, `:Float64`, `:FloatExact`, `:String`, `:StringNonEmpty64`, `:StringFixed16`                                    | Built-in primitive and arbitrary bit-width scalar type identifiers                          |
+| **Algebraic & Collection Type Constructors** | `:` `[A-Z][a-zA-Z0-9]*`                   | `:Option`, `:Either`, `:Union`, `:Tuple`, `:Enum`, `:Seq`, `:SeqNonEmpty`, `:Set`, `:SetNonEmpty`, `:Map`, `:MapNonEmpty`, `:MapInv`, `:MapInvNonEmpty` | Parameterized sum, product, and collection type constructors                                |
+| **Standard Library Prelude Aliases**         | `:org/stvnadore/prelude/` `[A-Za-z0-9_]+` | `:org/stvnadore/prelude/TimeEpochS`, `:org/stvnadore/prelude/DateTimeAudited`, `:org/stvnadore/prelude/Uuid`, `:org/stvnadore/prelude/Port`             | Standard library domain types and temporal aliases located under `:org/stvnadore/prelude/*` |
+| **Nominal User-Defined Type Identifiers**    | `:` `[A-Z][a-zA-Z0-9_]*`                  | `:HostName`, `:ServerConfig`, `:RouteTable`                                                                                                             | User-defined type names declared inside `:defs` and referenced across schemas               |
 
 ```stvn
 // VALID: Colon as prefix sigil
@@ -644,7 +646,7 @@ Every fenced string literal must adhere to **Rule STR-04**:
 
 1. **Opening Delimiter:**
    `"""[TAG]` (Canonical)  
-   `"""->[TAG]` (**DEPRECATED as of 1.1.1; scheduled for removal in 2.0.0**)  
+   `"""->[TAG]` (**DEPRECATED as of 1.1.1; scheduled for removal in 1.3.0**)  
    The directional arrow `->` is deprecated. Compilers emit a `WARNING` diagnostic when `->` is encountered. The opening delimiter must be followed by optional horizontal whitespace and a newline.
 
 2. **Closing Delimiter:**
@@ -773,13 +775,13 @@ Metadata annotations appear inside `{ ... }` blocks immediately following a type
 
 ### 6.2 Trait Capability Matrix
 
-| Type Category             | Specific Types                                                                                         | `#equatable` Default | `#comparable` Default |
-|:--------------------------|:-------------------------------------------------------------------------------------------------------|:---------------------|:----------------------|
-| **Scalars**               | `:Boolean`, `:Int*`, `:Uint*`, `:FloatExact`, `:String*`, `:Enum` (including filtered subsets)         | **Yes**              | **Yes**               |
-| **Floating-Point**        | `:Float32`, `:Float64`, `:Float`                                                                       | **--No--**           | **Yes**               |
-| **Temporal**              | `:org/stvnadore/prelude/TimeEpochS`, `:org/stvnadore/prelude/TimeEpochMs`, `:org/stvnadore/prelude/TimeEpochNs`, `:org/stvnadore/prelude/DateTimeOffset`, `:org/stvnadore/prelude/DateTimeZoned`, `:org/stvnadore/prelude/DateTimeAudited` | **Yes**              | **Yes**               |
-| **Unordered Collections** | `:Set`, `:SetNonEmpty`, `:MapInv`, `:MapInvNonEmpty`                                                   | **Yes**              | **--No--**            |
-| **Derived Containers**    | `:Option`, `:Either`, `:Union`, `:Tuple`, `:Seq*`, `:Map*`                                             | **Derived**          | **Derived**           |
+| Type Category             | Specific Types                                                                                                                                    | `#equatable` Default | `#comparable` Default |
+|:--------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------|:---------------------|:----------------------|
+| **Scalars**               | `:Boolean`, `:Int*`, `:Uint*`, `:FloatExact`, `:String*`, `:Enum` (including filtered subsets)                                                    | **Yes**              | **Yes**               |
+| **Floating-Point**        | `:Float32`, `:Float64`, `:Float`                                                                                                                  | **--No--**           | **Yes**               |
+| **Temporal**              | `TimeEpochS`, `:TimeEpochMs`, `:TimeEpochNs`, `:DateTimeOffset`, `:DateTimeZoned`, `:DateTimeAudited` (namespace prefix `:org/stvnadore/prelude`) | **Yes**              | **Yes**               |
+| **Unordered Collections** | `:Set`, `:SetNonEmpty`, `:MapInv`, `:MapInvNonEmpty`                                                                                              | **Yes**              | **--No--**            |
+| **Derived Containers**    | `:Option`, `:Either`, `:Union`, `:Tuple`, `:Seq*`, `:Map*`                                                                                        | **Derived**          | **Derived**           |
 
 ### 6.3 Trait Derivation and Override Rules
 
@@ -845,26 +847,26 @@ STVN decoders support implicit tagging for sum types when the payload value is u
 
 The runtime environment provides the following pre-registered types:
 
-| Type Identifier    | Underlying Representation | Applied Constraints / Validation Specification               |
-|:-------------------|:--------------------------|:-------------------------------------------------------------|
-| **`:org/stvnadore/prelude/TimeEpochS`**     | `:Int64`                  | Epoch seconds elapsed since 1970-01-01T00:00:00Z             |
-| **`:org/stvnadore/prelude/TimeEpochMs`**    | `:Int64`                  | Epoch milliseconds elapsed since 1970-01-01T00:00:00Z        |
-| **`:org/stvnadore/prelude/TimeEpochNs`**    | `:Int128`                 | Epoch nanoseconds elapsed since 1970-01-01T00:00:00Z         |
-| **`:org/stvnadore/prelude/DateTimeOffset`** | `:String`                 | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$" }` (Physical Instant) |
-| **`:org/stvnadore/prelude/DateTimeZoned`**  | `:String`                 | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Civil Schedule) |
-| **`:org/stvnadore/prelude/DateTimeAudited`**| `:String`                 | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Compliance Audit Record) |
-| **`:org/stvnadore/prelude/Uuid`**        | `:StringFixed36`          | Standard UUID format: `8-4-4-4-12` hex characters            |
-| **`:org/stvnadore/prelude/Ulid`**        | `:StringFixed26`          | Crockford's Base32 ULID character set                        |
-| **`:org/stvnadore/prelude/Sha256`**      | `:StringFixed64`          | Hexadecimal SHA-256 hash string (64 hex characters)          |
-| **`:org/stvnadore/prelude/SemVer`**      | `:StringNonEmpty64`       | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH`)    |
-| **`:org/stvnadore/prelude/Email`**       | `:StringNonEmpty256`      | Standard RFC 5322 email address validation                   |
-| **`:org/stvnadore/prelude/IPv4`**        | `:StringNonEmpty15`       | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`) |
-| **`:org/stvnadore/prelude/Port`**        | `:Uint16`                 | `{ #minIncl 1 #maxIncl 65535 }`                              |
-| **`:org/stvnadore/prelude/Percentage`**  | `:Float64`                | `{ #minIncl 0.0 #maxIncl 100.0 }`                            |
-| **`:org/stvnadore/prelude/Probability`** | `:Float64`                | `{ #minIncl 0.0 #maxIncl 1.0 }`                              |
-| **`:org/stvnadore/prelude/Currency`**    | `:FloatExact`             | Monetary decimal value with exact decimal precision          |
-| **`:org/stvnadore/prelude/Latitude`**    | `:Float64`                | `{ #minIncl -90.0 #maxIncl 90.0 }`                           |
-| **`:org/stvnadore/prelude/Longitude`**   | `:Float64`                | `{ #minIncl -180.0 #maxIncl 180.0 }`                         |
+| Type Identifier                              | Underlying Representation | Applied Constraints / Validation Specification                                                                                                                                          |
+|:---------------------------------------------|:--------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **`:org/stvnadore/prelude/TimeEpochS`**      | `:Int64`                  | Epoch seconds elapsed since 1970-01-01T00:00:00Z                                                                                                                                        |
+| **`:org/stvnadore/prelude/TimeEpochMs`**     | `:Int64`                  | Epoch milliseconds elapsed since 1970-01-01T00:00:00Z                                                                                                                                   |
+| **`:org/stvnadore/prelude/TimeEpochNs`**     | `:Int128`                 | Epoch nanoseconds elapsed since 1970-01-01T00:00:00Z                                                                                                                                    |
+| **`:org/stvnadore/prelude/DateTimeOffset`**  | `:String`                 | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z[+-][0-9]{2}:[0-9]{2})$" }` (Physical Instant)                                                    |
+| **`:org/stvnadore/prelude/DateTimeZoned`**   | `:String`                 | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Civil Schedule)                                  |
+| **`:org/stvnadore/prelude/DateTimeAudited`** | `:String`                 | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Compliance Audit Record) |
+| **`:org/stvnadore/prelude/Uuid`**            | `:StringFixed36`          | Standard UUID format: `8-4-4-4-12` hex characters                                                                                                                                       |
+| **`:org/stvnadore/prelude/Ulid`**            | `:StringFixed26`          | Crockford's Base32 ULID character set                                                                                                                                                   |
+| **`:org/stvnadore/prelude/Sha256`**          | `:StringFixed64`          | Hexadecimal SHA-256 hash string (64 hex characters)                                                                                                                                     |
+| **`:org/stvnadore/prelude/SemVer`**          | `:StringNonEmpty64`       | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH`)                                                                                                                               |
+| **`:org/stvnadore/prelude/Email`**           | `:StringNonEmpty256`      | Standard RFC 5322 email address validation                                                                                                                                              |
+| **`:org/stvnadore/prelude/IPv4`**            | `:StringNonEmpty15`       | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`)                                                                                                                            |
+| **`:org/stvnadore/prelude/Port`**            | `:Uint16`                 | `{ #minIncl 1 #maxIncl 65535 }`                                                                                                                                                         |
+| **`:org/stvnadore/prelude/Percentage`**      | `:Float64`                | `{ #minIncl 0.0 #maxIncl 100.0 }`                                                                                                                                                       |
+| **`:org/stvnadore/prelude/Probability`**     | `:Float64`                | `{ #minIncl 0.0 #maxIncl 1.0 }`                                                                                                                                                         |
+| **`:org/stvnadore/prelude/Currency`**        | `:FloatExact`             | Monetary decimal value with exact decimal precision                                                                                                                                     |
+| **`:org/stvnadore/prelude/Latitude`**        | `:Float64`                | `{ #minIncl -90.0 #maxIncl 90.0 }`                                                                                                                                                      |
+| **`:org/stvnadore/prelude/Longitude`**       | `:Float64`                | `{ #minIncl -180.0 #maxIncl 180.0 }`                                                                                                                                                    |
 
 Prelude types reside in `:org/stvnadore/prelude/` and are implicitly ingested into every document scope. Bare unqualified type references (such as `:Port`) trigger `ERR_UNKNOWN_TYPE` unless explicitly declared or aliased.
 
