@@ -26,9 +26,9 @@ This document serves as an in-depth technical onboarding guide for software engi
     * [2.5 Exhaustive Specification of Inference Rules A through J](#25-exhaustive-specification-of-inference-rules-a-through-j)
   * [3. The Tripartite Temporal Model](#3-the-tripartite-temporal-model)
     * [3.1 Eliminating Temporal Conflation](#31-eliminating-temporal-conflation)
-    * [3.2 Physical Instant: `:DateTimeOffset`](#32-physical-instant-datetimeoffset)
-    * [3.3 Civil Wall-Clock Schedule: `:DateTimeZoned`](#33-civil-wall-clock-schedule-datetimezoned)
-    * [3.4 Compliance & Audit Record: `:DateTimeAudited`](#34-compliance--audit-record-datetimeaudited)
+    * [3.2 Physical Instant: `:org/stvnadore/prelude/DateTimeOffset`](#32-physical-instant-orgstvnadorepreludedatetimeoffset)
+    * [3.3 Civil Wall-Clock Schedule: `:org/stvnadore/prelude/DateTimeZoned`](#33-civil-wall-clock-schedule-orgstvnadorepreludedatetimezoned)
+    * [3.4 Compliance & Audit Record: `:org/stvnadore/prelude/DateTimeAudited`](#34-compliance--audit-record-orgstvnadorepreludedatetimeaudited)
     * [3.5 Physical Epoch Counters](#35-physical-epoch-counters)
     * [3.6 Tripartite Invariant Matrix](#36-tripartite-invariant-matrix)
   * [4. Arbitrary Bit-Width Numeric Systems](#4-arbitrary-bit-width-numeric-systems)
@@ -277,12 +277,12 @@ Traditional serialization formats conflate physical timeline instants with civil
 | Attribute                  | `:org/stvnadore/prelude/DateTimeOffset` | `:org/stvnadore/prelude/DateTimeZoned` | `:org/stvnadore/prelude/DateTimeAudited` |
 |:---------------------------|:----------------------------------------|:---------------------------------------|:-----------------------------------------|
 | **Domain**                 | Physical Instant                        | Civil Wall-Clock                       | Regulatory Audit                         |
-| **Literal Grammar**        | `"YYYY-MM-DDTHH:mm:ss±HH:mm"`           | `"YYYY-MM-DDTHH:mm:ss[Zone]"`          | `"YYYY-MM-DDTHH:mm:ss±HH:mm[Zone]"`       |
-| **UTC Offset**             | **Mandatory**                           | **Prohibited**                         | **Mandatory**                             |
-| **Zone Bracket (`[...]`)** | **Prohibited**                          | **Mandatory**                          | **Mandatory**                             |
-| **Offset Verification**    | N/A                                     | Derived dynamically                    | **Validated at Compile Time**             |
-| **DST Gap Rejection**      | N/A                                     | **Strictly Rejected**                  | **Strictly Rejected**                     |
-| **Wire Footprint**         | 12 Bytes                                | 10 Bytes                               | 14 Bytes                                  |
+| **Literal Grammar**        | `"YYYY-MM-DDTHH:mm:ss±HH:mm"`           | `"YYYY-MM-DDTHH:mm:ss[Zone]"`          | `"YYYY-MM-DDTHH:mm:ss±HH:mm[Zone]"`      |
+| **UTC Offset**             | **Mandatory**                           | **Prohibited**                         | **Mandatory**                            |
+| **Zone Bracket (`[...]`)** | **Prohibited**                          | **Mandatory**                          | **Mandatory**                            |
+| **Offset Verification**    | N/A                                     | Derived dynamically                    | **Validated at Compile Time**            |
+| **DST Gap Rejection**      | N/A                                     | **Strictly Rejected**                  | **Strictly Rejected**                    |
+| **Wire Footprint**         | 12 Bytes                                | 10 Bytes                               | 14 Bytes                                 |
 
 ---
 
@@ -452,26 +452,26 @@ if (result.isRecoveredPartialAst()) {
 
 The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/stdlib/StvnPrelude.java)) defines canonical standard types under `:org/stvnadore/prelude/`. The compiler implicitly registers these types into every document scope:
 
-| Nominal Type       | Underlying Type  | Applied Constraints / Validation Specification                                               |
-|:-------------------|:-----------------|:---------------------------------------------------------------------------------------------|
-| **`:org/stvnadore/prelude/TimeEpochS`**     | `:Int64`         | Epoch seconds elapsed since 1970-01-01T00:00:00Z                                            |
-| **`:org/stvnadore/prelude/TimeEpochMs`**    | `:Int64`         | Epoch milliseconds elapsed since 1970-01-01T00:00:00Z                                       |
-| **`:org/stvnadore/prelude/TimeEpochNs`**    | `:Int128`        | Epoch nanoseconds elapsed since 1970-01-01T00:00:00Z                                        |
-| **`:org/stvnadore/prelude/DateTimeOffset`** | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$" }` (Physical Instant) |
-| **`:org/stvnadore/prelude/DateTimeZoned`**  | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Civil Schedule) |
-| **`:org/stvnadore/prelude/DateTimeAudited`**| `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Compliance Audit Record) |
-| **`:org/stvnadore/prelude/Uuid`**        | `:StringFixed36` | `{ #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }` |
-| **`:org/stvnadore/prelude/Ulid`**        | `:StringFixed26` | `{ #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32)                            |
-| **`:org/stvnadore/prelude/Sha256`**      | `:StringFixed64` | `{ #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest)                                |
-| **`:org/stvnadore/prelude/SemVer`**      | `:String`        | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`)               |
-| **`:org/stvnadore/prelude/Email`**       | `:String`        | RFC 5322 email address validation                                                            |
-| **`:org/stvnadore/prelude/IPv4`**        | `:String`        | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`)                                 |
-| **`:org/stvnadore/prelude/Port`**        | `:Uint16`        | `{ #minIncl 1 #maxIncl 65535 }`                                                              |
-| **`:org/stvnadore/prelude/Percentage`**  | `:Float64`       | `{ #minIncl 0.0 #maxIncl 100.0 }`                                                            |
-| **`:org/stvnadore/prelude/Probability`** | `:Float64`       | `{ #minIncl 0.0 #maxIncl 1.0 }`                                                              |
-| **`:org/stvnadore/prelude/Currency`**    | `:FloatExact`    | Monetary value with exact arbitrary decimal precision                                        |
-| **`:org/stvnadore/prelude/Latitude`**    | `:Float64`       | `{ #minIncl -90.0 #maxIncl 90.0 }`                                                           |
-| **`:org/stvnadore/prelude/Longitude`**   | `:Float64`       | `{ #minIncl -180.0 #maxIncl 180.0 }`                                                         |
+| Nominal Type                                 | Underlying Type  | Applied Constraints / Validation Specification                                                                                                                                          |
+|:---------------------------------------------|:-----------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **`:org/stvnadore/prelude/TimeEpochS`**      | `:Int64`         | Epoch seconds elapsed since 1970-01-01T00:00:00Z                                                                                                                                        |
+| **`:org/stvnadore/prelude/TimeEpochMs`**     | `:Int64`         | Epoch milliseconds elapsed since 1970-01-01T00:00:00Z                                                                                                                                   |
+| **`:org/stvnadore/prelude/TimeEpochNs`**     | `:Int128`        | Epoch nanoseconds elapsed since 1970-01-01T00:00:00Z                                                                                                                                    |
+| **`:org/stvnadore/prelude/DateTimeOffset`**  | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z[+-][0-9]{2}:[0-9]{2})$" }` (Physical Instant)                                                    |
+| **`:org/stvnadore/prelude/DateTimeZoned`**   | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Civil Schedule)                                  |
+| **`:org/stvnadore/prelude/DateTimeAudited`** | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Compliance Audit Record) |
+| **`:org/stvnadore/prelude/Uuid`**            | `:StringFixed36` | `{ #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }`                                                                                            |
+| **`:org/stvnadore/prelude/Ulid`**            | `:StringFixed26` | `{ #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32)                                                                                                                       |
+| **`:org/stvnadore/prelude/Sha256`**          | `:StringFixed64` | `{ #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest)                                                                                                                           |
+| **`:org/stvnadore/prelude/SemVer`**          | `:String`        | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`)                                                                                                          |
+| **`:org/stvnadore/prelude/Email`**           | `:String`        | RFC 5322 email address validation                                                                                                                                                       |
+| **`:org/stvnadore/prelude/IPv4`**            | `:String`        | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`)                                                                                                                            |
+| **`:org/stvnadore/prelude/Port`**            | `:Uint16`        | `{ #minIncl 1 #maxIncl 65535 }`                                                                                                                                                         |
+| **`:org/stvnadore/prelude/Percentage`**      | `:Float64`       | `{ #minIncl 0.0 #maxIncl 100.0 }`                                                                                                                                                       |
+| **`:org/stvnadore/prelude/Probability`**     | `:Float64`       | `{ #minIncl 0.0 #maxIncl 1.0 }`                                                                                                                                                         |
+| **`:org/stvnadore/prelude/Currency`**        | `:FloatExact`    | Monetary value with exact arbitrary decimal precision                                                                                                                                   |
+| **`:org/stvnadore/prelude/Latitude`**        | `:Float64`       | `{ #minIncl -90.0 #maxIncl 90.0 }`                                                                                                                                                      |
+| **`:org/stvnadore/prelude/Longitude`**       | `:Float64`       | `{ #minIncl -180.0 #maxIncl 180.0 }`                                                                                                                                                    |
 
 Bare unqualified references (such as `:Port`) trigger `ERR_UNKNOWN_TYPE`. Documents that prefer short unqualified names declare local aliases (for example, `:Port :org/stvnadore/prelude/Port`).
 
