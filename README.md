@@ -15,11 +15,10 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Core SDK (`stvnadore-core`)](#stvn-core-sdk-stvnadore-core)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [Installation](#installation)
   * [Canonical Architecture Specifications](#canonical-architecture-specifications)
   * [Quick Start: Record Marshalling & Compilation](#quick-start-record-marshalling--compilation)
@@ -393,7 +392,7 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 
 ## v1.2.0
 
-- 2026.09.07
+- 2026.09.12
 - Standard prelude relocated to namespace `:org/stvnadore/prelude/*` and out of root, completely clearing the root namespace
 - Atomic temporal primitives pruned to nominal prelude schemas
 - Package enclosures (`:package`) with automatic LHS FQNI expansion
@@ -401,7 +400,7 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 - Hermetic flat payload tier (newly introduced `.stvn_f`) and flat schema tier (existing `.stvn_inclf`)
 - Arbitrary bit-width integer overflow enforcement (BigInteger)
 - Updated shared-fixtures conformance suite
-- 
+
 ## v1.1.1
 
 - 2026.09.07

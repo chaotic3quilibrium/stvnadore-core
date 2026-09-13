@@ -6,12 +6,11 @@ This document serves as an in-depth technical onboarding guide for software engi
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Technology Primer: Foundations of Value-Oriented Notation](#stvn-technology-primer-foundations-of-value-oriented-notation)
   * [For Engineers Transitioning from JSON, EDN, Protocol Buffers, and YAML to STVN](#for-engineers-transitioning-from-json-edn-protocol-buffers-and-yaml-to-stvn)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [1. The Dual-Track Lexical Architecture](#1-the-dual-track-lexical-architecture)
     * [1.1 Type Track (`:`) vs. Value Track (`#`)](#11-type-track--vs-value-track-)
     * [1.2 Typed Compile-Time Constants in `:defs`](#12-typed-compile-time-constants-in-defs)

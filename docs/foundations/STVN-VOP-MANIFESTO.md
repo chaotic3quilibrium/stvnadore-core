@@ -8,11 +8,10 @@
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [The Strongly Typed Value Notation (STVN) Value-Oriented Programming (VOP) Manifesto](#the-strongly-typed-value-notation-stvn-value-oriented-programming-vop-manifesto)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [1. The Principle (The North Star)](#1-the-principle-the-north-star)
     * [1.1 Purpose and the Dual Integrity Postures](#11-purpose-and-the-dual-integrity-postures)
     * [1.2 Fundamental Definitions](#12-fundamental-definitions)

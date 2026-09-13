@@ -1,17 +1,16 @@
 # STVN Architectural Specification 01: Language & AST Overview
 
-**Document ID**: `STVN-SPEC-01`  
-**Status**: Canonical Specification  
-**Version**: 1.2.0
-**Compliance**: Mandatory across all STVN parsers, compilers, and IDE integrations.
+- **Document ID**: `STVN-SPEC-01`  
+- **Status**: Canonical Specification  
+- **Version**: 1.2.0
+- **Compliance**: Mandatory across all STVN parsers, compilers, and IDE integrations.
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Architectural Specification 01: Language & AST Overview](#stvn-architectural-specification-01-language--ast-overview)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [1. Dual-Track Lexical Grammar](#1-dual-track-lexical-grammar)
     * [Syntactic Comment Standard](#syntactic-comment-standard)
   * [2. Root Enclosure & File Extension Contract](#2-root-enclosure--file-extension-contract)

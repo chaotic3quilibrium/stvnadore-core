@@ -7,10 +7,9 @@
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [1. Binary Wire Framing (`.stvn_bin`)](#1-binary-wire-framing-stvn_bin)
     * [Byte 4 Control Byte (1:3:4 Bitwise Partition)](#byte-4-control-byte-134-bitwise-partition)
   * [2. Hardware-Accelerated CRC-32C Trailer Integrity](#2-hardware-accelerated-crc-32c-trailer-integrity)

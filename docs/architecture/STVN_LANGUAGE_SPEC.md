@@ -8,11 +8,10 @@
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Language Specification](#stvn-language-specification)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [1. Document Boundaries and File Types](#1-document-boundaries-and-file-types)
     * [1.1 Root Enclosure Rule](#11-root-enclosure-rule)
     * [1.2 File Extension Matrix](#12-file-extension-matrix)

@@ -7,11 +7,10 @@
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Architectural Specification 02: Content-Addressable Storage (CAS) & Schema Registry](#stvn-architectural-specification-02-content-addressable-storage-cas--schema-registry)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [1. 2/62 Physical Storage Topology](#1-262-physical-storage-topology)
     * [Directory Layout](#directory-layout)
   * [2. CAS Envelope Format & Storage Immutability](#2-cas-envelope-format--storage-immutability)

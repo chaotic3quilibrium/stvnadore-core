@@ -4,11 +4,10 @@ This document defines the rules for null safety and optional data in the codebas
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [Architectural Specification: Null Isolation and Codebase Soundness](#architectural-specification-null-isolation-and-codebase-soundness)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [Global Default Rule](#global-default-rule)
   * [Tier Matrix](#tier-matrix)
     * [Tier 1: Primary Logic Core](#tier-1-primary-logic-core)

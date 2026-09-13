@@ -7,11 +7,10 @@
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Architectural Specification 04: IntelliJ Platform Integration](#stvn-architectural-specification-04-intellij-platform-integration)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [1. PSI & Grammar Architecture](#1-psi--grammar-architecture)
   * [2. AST & PSI Bridge](#2-ast--psi-bridge)
   * [3. In-Memory Workspace Flattener (`StvnFlattenWorkspaceAction`)](#3-in-memory-workspace-flattener-stvnflattenworkspaceaction)
