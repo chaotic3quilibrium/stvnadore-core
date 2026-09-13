@@ -22,6 +22,9 @@
 
     :UnboundedText  :String
     :BoundedText    :String64
+    :BoundedText4k  :String4096
+    :MaxCapacityText :String16777216
+    :ExtendedCapacityText :String33554432
     :MandatoryText  :StringNonEmpty128
     :ExactKeyText   :StringFixed16
 
@@ -33,7 +36,7 @@
     :Int1 :Int7 :Int24 :Int64 :Int128 :Int
     :Uint1 :Uint3 :Uint49 :Uint64 :Uint128 :Uint
     :Float :Float32 :Float64 :FloatExact
-    :String :String64 :StringNonEmpty128 :StringFixed16
+    :String :String64 :String4096 :String16777216 :String33554432 :StringNonEmpty128 :StringFixed16
     :Boolean :Boolean :ServerState
   )
 
@@ -59,6 +62,9 @@
 
     "Standard text without manual character limits"
     "1234567890123456789012345678901234567890123456789012345678901234"
+    "Text bounded by default inspection threshold of 4096 characters"
+    "Text bounded by default allocation limit of 16777216 characters"
+    "Text with explicit nominal dimension larger than 16 MiB (33554432 characters)"
     "Text requiring at least 1 character and at most 128"
     "1234567890abcdef"
 

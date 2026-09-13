@@ -1,0 +1,7 @@
+{
+  :defs {
+    :ZeroCapacityString :String0
+  }
+  :type :ZeroCapacityString
+  :body ""
+}

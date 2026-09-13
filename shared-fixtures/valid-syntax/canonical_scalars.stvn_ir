@@ -161,6 +161,33 @@ TypeRegistry:
           comparable: true (default)
         underlyingSchema:
           node: :String64
+  - :BoundedText4k
+      schema:
+        node: :String4096
+        aliasName: :BoundedText4k
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String4096
+  - :MaxCapacityText
+      schema:
+        node: :String16777216
+        aliasName: :MaxCapacityText
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String16777216
+  - :ExtendedCapacityText
+      schema:
+        node: :String33554432
+        aliasName: :ExtendedCapacityText
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String33554432
   - :MandatoryText
       schema:
         node: :StringNonEmpty128
@@ -199,7 +226,7 @@ TypeRegistry:
           node: :Enum[#INITIALIZING#ACTIVE#DEGRADED#OFFLINE]
   - <:type>
       schema:
-        node: :Tuple(:Int1:Int7:Int24:Int64:Int128:Int:Uint1:Uint3:Uint49:Uint64:Uint128:Uint:Float:Float32:Float64:FloatExact:String:String64:StringNonEmpty128:StringFixed16:Boolean:Boolean:ServerState)
+        node: :Tuple(:Int1:Int7:Int24:Int64:Int128:Int:Uint1:Uint3:Uint49:Uint64:Uint128:Uint:Float:Float32:Float64:FloatExact:String:String64:String4096:String16777216:String33554432:StringNonEmpty128:StringFixed16:Boolean:Boolean:ServerState)
         constraints:
           equatable: false (derived from :Float)
           comparable: true (default)
@@ -224,6 +251,9 @@ ValuePayload:
       - StvnFloat(:FloatExact): 12450.75
       - StvnString(:String): "Standard text without manual character limits"
       - StvnString(:String64): "1234567890123456789012345678901234567890123456789012345678901234"
+      - StvnString(:String4096): "Text bounded by default inspection threshold of 4096 characters"
+      - StvnString(:String16777216): "Text bounded by default allocation limit of 16777216 characters"
+      - StvnString(:String33554432): "Text with explicit nominal dimension larger than 16 MiB (33554432 characters)"
       - StvnString(:StringNonEmpty128): "Text requiring at least 1 character and at most 128"
       - StvnString(:StringFixed16): "1234567890abcdef"
       - StvnBoolean(:Boolean): true

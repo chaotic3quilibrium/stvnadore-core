@@ -280,7 +280,24 @@ port: 8080              // FATAL: Lexical/Parse error (bare colon infix separato
 
 ---
 
-### 3.3 Comment Tokens
+### 3.3 Whitespace Discipline and the Strict Zero-Tab Invariant
+
+STVN enforces strict lexical whitespace discipline to eliminate formatting ambiguity and layout drift across platforms and editors:
+
+1. **Permissible Whitespace:** The only valid structural and indentation whitespace characters are standard ASCII spaces (`U+0020`), carriage returns (`\r`, `U+000D`), and line feeds (`\n`, `U+000A`).
+2. **Strict Zero-Tab Invariant:** Tab characters (`\t`, `U+0009`) are **completely prohibited** as structural or indentation whitespace throughout STVN documents. The presence of a raw tab character in document structure is a fatal syntax violation (`ERR_TAB_CHARACTER_FORBIDDEN`). Tab characters inside single-line strings must be escaped (`\t`).
+3. **Canonical Indentation Standard:** Canonical STVN formatting dictates a strict 2-space indentation standard (`indentWidth = 2`). All nested blocks (inside `{ ... }`, `( ... )`, `[ ... ]`) indent by 2 spaces per hierarchy level.
+4. **Canonical AST Printers:**
+   - **`AstPrettyPrinter`:** Emits long-form keywords (`#TRUE`, `#FALSE`, `#Some`, `#None`) with a configurable 2-space indented hierarchy.
+   - **`AstCompactPrinter`:** Emits short-form keywords (`#T`, `#F`, `#S`, `#N`) with minimal structural whitespace collapsed to single lines.
+5. **String Capacity Governance:**
+   - **Default Unbounded Allocation Limit:** Unadorned `:String` instances default to a maximum allocation limit of 16,777,216 characters (16 MiB).
+   - **Default Inspection Threshold:** 4,096 characters.
+   - **Explicit Nominal Suffix Dimensions:** Explicit nominal type suffix dimensions (such as `:String4096` or `:String33554432`) support arbitrary positive capacities up to the signed 32-bit integer boundary ($1 \le N \le 2,147,483,647$).
+
+---
+
+### 3.4 Comment Tokens
 
 1. **Single-Line Comments (`//`)**: The scanner discards all characters from the double-slash token (`//`) through the end-of-line boundary before AST construction.
 2. **Block Comments Prohibited**: STVN does not support multi-line block comments (`/* ... */`). Documentation spanning multiple lines **must** use contiguous single-line `//` tokens.
@@ -296,7 +313,7 @@ port: 8080              // FATAL: Lexical/Parse error (bare colon infix separato
 
 ---
 
-### 3.4 Metadata Annotation Placement Rules
+### 3.5 Metadata Annotation Placement Rules
 
 Metadata constraint blocks `{ ... }` **must immediately precede** the target type identifier they configure:
 
@@ -313,7 +330,7 @@ Metadata constraint blocks `{ ... }` **must immediately precede** the target typ
 
 ---
 
-### 3.5 Module Include Directive Syntax
+### 3.6 Module Include Directive Syntax
 
 All `:include` directives inside a `:defs` block **must** be enclosed within square brackets `[ ... ]`:
 
@@ -334,11 +351,11 @@ The `#strip` facet is an atomic unary flag without optional string arguments. Su
 
 ---
 
-### 3.6 Namespaced and Path-Delimited Identifiers
+### 3.7 Namespaced and Path-Delimited Identifiers
 
 STVN supports hierarchical, slash-delimited path identifiers in definition and value spaces. This capability allows domain modularization, namespace scoping, and structured cataloging without requiring complex package import hierarchies.
 
-#### 3.6.1 Lexical and Syntactic Grammar Rules
+#### 3.7.1 Lexical and Syntactic Grammar Rules
 A path-delimited identifier consists of a base keyword start token followed by one or more forward-slash (`/`) delimited alphanumeric segments:
 
 * **Type Identifier Syntax:** `typeKeywordStart ( '/' IDENTIFIER )*`
@@ -346,7 +363,7 @@ A path-delimited identifier consists of a base keyword start token followed by o
 * **Value Identifier Syntax:** `valueKeywordStart ( '/' IDENTIFIER )*`
   * Examples: `#net/http/OK`, `#net/http/NotFound`, `#status/v1/ACTIVE`
 
-#### 3.6.2 Semantics & Scoping Invariants
+#### 3.7.2 Semantics & Scoping Invariants
 1. **Atomic Token Identity:** The complete slash-delimited token acts as a single, indivisible nominal identifier. The compiler treats `:net/http/Status` and `:Status` as distinct, non-interchangeable nominal types.
 2. **Leading Prefix Rule:** The leading colon (`:`) or hash (`#`) sigil attaches only to the first segment. Subsequent segments are separated solely by forward slashes (`/`). Colons must not appear in infix positions (e.g. `:net:http:Status` is a fatal syntax error).
 3. **Module Alias Compatibility:** Namespaced identifiers can be targeted by include alias blocks inside `:defs`:
@@ -358,11 +375,11 @@ A path-delimited identifier consists of a base keyword start token followed by o
 
 ---
 
-### 3.7 Typed Constant Definitions
+### 3.8 Typed Constant Definitions
 
 A `:defs` block **MAY** bind immutable compile-time constant values to identifiers. Constant identifiers **MUST** reside in the value namespace and start with a value sigil (`#`). Type identifiers (`:`) in constant definition position are **PROHIBITED**.
 
-#### 3.7.1 Syntax Grammar
+#### 3.8.1 Syntax Grammar
 ```antlr4
 defsEntry          : KW_DEFS LBRACE defsElement* RBRACE ;
 defsElement        : includeStmt | packageEnclosure | useStmt | typeDefinition | constantDefinition ;
@@ -370,7 +387,7 @@ typeDefinition     : typeKeyword metadataMap? schemaType ;
 constantDefinition : valueKeyword metadataMap? schemaType value ;
 ```
 
-#### 3.7.2 Semantics & Substitution Rules
+#### 3.8.2 Semantics & Substitution Rules
 1. **Declaration:** A constant definition **MUST** declare a value keyword (`#`), an optional metadata constraint block, a target schema type, and a trailing literal payload:
    ```stvn
    :defs {
@@ -391,7 +408,7 @@ constantDefinition : valueKeyword metadataMap? schemaType value ;
 
 ---
 
-### 3.8 Package Enclosures (`:package`) and Scoped Imports (`:use`)
+### 3.9 Package Enclosures (`:package`) and Scoped Imports (`:use`)
 
 Authors can organize definitions into explicit namespace packages and import symbols locally:
 
