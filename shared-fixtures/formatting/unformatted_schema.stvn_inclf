@@ -1,0 +1,2 @@
+{:defs{:UserID:Uint64:Status:Enum[#ACTIVE #SUSPENDED]}
+:type:Tuple(:UserID :Status):body(1001 #ACTIVE)}
