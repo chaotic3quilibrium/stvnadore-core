@@ -1,0 +1,117 @@
+package org.stvnadore.core;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.printer.AstPrettyPrinter;
+
+public class StvnCompilerTest {
+
+  @Test
+  @DisplayName("TC-COMP-01: Transitive reachability preserves nested nominal references in canonical AST")
+  void testTransitiveReachabilityCanonicalOutput() {
+    String source = """
+        {
+          :defs {
+            :package :org/stvnadore/finance {
+              :Transaction :Tuple(:Int64 :Float64)
+              :CreationTime :Int64
+            }
+            :use [ :org/stvnadore/finance { :Transaction :LocalTx } ]
+            :A :String
+            :T :Tuple(:LocalTx :A)
+          }
+          :type :T
+          :body (
+            (1001 49.99)
+            "a"
+          )
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.isSuccess(), "Source compilation must succeed: " + result.diagnostics());
+    StvnValue ast = result.orElseThrow();
+
+    String canonical = StvnCompiler.toCanonicalString(ast);
+
+    // 1. Assert intermediate definitions are retained
+    Assertions.assertTrue(canonical.contains(":org/stvnadore/finance/Transaction"),
+        "Must retain transitive dependency :org/stvnadore/finance/Transaction in canonical output: " + canonical);
+    Assertions.assertTrue(canonical.contains(":A :String"),
+        "Must retain transitive dependency :A in canonical output: " + canonical);
+    Assertions.assertTrue(canonical.contains(":T :Tuple(:org/stvnadore/finance/Transaction :A)"),
+        "Must rewrite :LocalTx to FQNI inside :T: " + canonical);
+
+    // 2. Assert unreferenced dead code is pruned
+    Assertions.assertFalse(canonical.contains(":CreationTime"),
+        "Must prune dead code :CreationTime from canonical output: " + canonical);
+
+    // 3. Assert zero raw local alias remains
+    Assertions.assertFalse(canonical.contains(":LocalTx"),
+        "Must not emit un-desugared local alias :LocalTx: " + canonical);
+
+    // 4. Assert re-compilation round-trip produces clean AST without errors
+    var roundTrip = StvnCompiler.compileToResult(canonical);
+    Assertions.assertTrue(roundTrip.isSuccess(), "Canonical output must re-compile with zero errors: " + roundTrip.diagnostics());
+    Assertions.assertEquals(canonical, StvnCompiler.toCanonicalString(roundTrip.orElseThrow()),
+        "Canonical serialization must be idempotent");
+  }
+
+  @Test
+  @DisplayName("TC-COMP-02: Multi-tier transitive chain retention (D -> C -> B -> A)")
+  void testDeepTransitiveChainRetention() {
+    String source = """
+        {
+          :defs {
+            :D :Int32
+            :C :Tuple(:D)
+            :B :Tuple(:C)
+            :A :Tuple(:B)
+            :Unused :String
+          }
+          :type :A
+          :body (((42)))
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.isSuccess(), "Compilation must succeed: " + result.diagnostics());
+    String canonical = StvnCompiler.toCanonicalString(result.orElseThrow());
+
+    Assertions.assertTrue(canonical.contains(":D :Int32"));
+    Assertions.assertTrue(canonical.contains(":C :Tuple(:D)"));
+    Assertions.assertTrue(canonical.contains(":B :Tuple(:C)"));
+    Assertions.assertTrue(canonical.contains(":A :Tuple(:B)"));
+    Assertions.assertFalse(canonical.contains(":Unused"));
+
+    var recompiled = StvnCompiler.compileToResult(canonical);
+    Assertions.assertTrue(recompiled.isSuccess());
+  }
+
+  @Test
+  @DisplayName("TC-COMP-03: Pretty printer preserves transitive definitions with 2-space indentation")
+  void testPrettyPrinterTransitiveParity() {
+    String source = """
+        {
+          :defs {
+            :package :org/example/geo {
+              :Coord :Float64
+            }
+            :use [ :org/example/geo { #strip } ]
+            :Point :Tuple(:Coord :Coord)
+          }
+          :type :Point
+          :body (12.34 56.78)
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.isSuccess());
+    String pretty = AstPrettyPrinter.print(result.orElseThrow());
+
+    Assertions.assertTrue(pretty.contains(":org/example/geo/Coord :Float64"));
+    Assertions.assertTrue(pretty.contains(":Point :Tuple(:org/example/geo/Coord :org/example/geo/Coord)"));
+  }
+}

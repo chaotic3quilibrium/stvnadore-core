@@ -107,6 +107,10 @@
     * [F.4 Scenario 4: Unmitigated Raw vs. Raw Collision (Compiler Rejection)](#f4-scenario-4-unmitigated-raw-vs-raw-collision-compiler-rejection)
     * [F.5 Scenario 5: Single-Import Violation (Compiler Rejection)](#f5-scenario-5-single-import-violation-compiler-rejection)
     * [F.6 Scenario 6: Namespaced and Path-Delimited Identifier Ingestion](#f6-scenario-6-namespaced-and-path-delimited-identifier-ingestion)
+  * [Appendix G: Canonical Transitive Reachability & Hermetic Self-Containment](#appendix-g-canonical-transitive-reachability--hermetic-self-containment)
+    * [G.1 Transitive Reachability Invariant](#g1-transitive-reachability-invariant)
+    * [G.2 Universal Alias Desugaring](#g2-universal-alias-desugaring)
+    * [G.3 Dead-Code Pruning & Topological Order](#g3-dead-code-pruning--topological-order)
 <!-- TOC -->
 
 ---
@@ -287,9 +291,14 @@ STVN enforces strict lexical whitespace discipline to eliminate formatting ambig
 1. **Permissible Whitespace:** The only valid structural and indentation whitespace characters are standard ASCII spaces (`U+0020`), carriage returns (`\r`, `U+000D`), and line feeds (`\n`, `U+000A`).
 2. **Strict Zero-Tab Invariant:** Tab characters (`\t`, `U+0009`) are **completely prohibited** as structural or indentation whitespace throughout STVN documents. The presence of a raw tab character in document structure is a fatal syntax violation (`ERR_TAB_CHARACTER_FORBIDDEN`). Tab characters inside single-line strings must be escaped (`\t`).
 3. **Canonical Indentation Standard:** Canonical STVN formatting dictates a strict 2-space indentation standard (`indentWidth = 2`). All nested blocks (inside `{ ... }`, `( ... )`, `[ ... ]`) indent by 2 spaces per hierarchy level.
-4. **Canonical AST Printers:**
+4. **Canonical AST Printers & Serialization Rules:**
+   - **`CanonicalStvnWriter`:** Emits deterministic canonical form with minimal structural whitespace for cryptographic hashing and Content-Addressable Storage (CAS).
    - **`AstPrettyPrinter`:** Emits long-form keywords (`#TRUE`, `#FALSE`, `#Some`, `#None`) with a configurable 2-space indented hierarchy.
    - **`AstCompactPrinter`:** Emits short-form keywords (`#T`, `#F`, `#S`, `#N`) with minimal structural whitespace collapsed to single lines.
+   - **Transitive Reachability Invariant:** Serializers compute the reachability closure of nominal type and constant definitions reachable from the root `:type` and `:body`. All reachable definitions are emitted in `:defs`.
+   - **Universal Alias Desugaring:** Scoped aliases declared via `:use` desugar directly into Fully Qualified Nominal Identifiers (FQNIs). Canonical output contains zero `:package` or `:use` wrappers.
+   - **Dead-Code Elimination:** Definitions unreferenced by the root `:type` or `:body` payload are strictly pruned.
+   - **Topological Ordering:** Retained definitions in `:defs` emit in topological dependency order (dependencies precede dependents).
 5. **String Capacity Governance:**
    - **Default Unbounded Allocation Limit:** Unadorned `:String` instances default to a maximum allocation limit of 16,777,216 characters (16 MiB).
    - **Default Inspection Threshold:** 4,096 characters.
@@ -2304,3 +2313,64 @@ Hierarchical, slash-delimited type identifiers (e.g., `:net/http/Status`) can be
   )
 }
 ```
+
+---
+
+## Appendix G: Canonical Transitive Reachability & Hermetic Self-Containment
+
+### G.1 Transitive Reachability Invariant
+
+Canonical STVN output MUST be hermetically self-contained. Any nominal type or constant symbol referenced directly or transitively from the document root `:type` or `:body` MUST be retained in the `:defs` block.
+
+Serializers execute a worklist reachability algorithm:
+1. **Seed:** Initialize the worklist with nominal symbols in root `:type` and constants referenced in `:body`.
+2. **Expand:** Dequeue each symbol, resolve its definition source, and inspect nested nominal references in its schema or value.
+3. **Cycle Guard:** Maintain a visited set to avoid infinite loops on recursive schemas.
+4. **Prune:** Discard unvisited definitions from output.
+
+### G.2 Universal Alias Desugaring
+
+Local aliases established by `:use` directives are scoped syntactical sugar. Canonical serializers MUST desugar local aliases into their Fully Qualified Nominal Identifiers (FQNIs).
+
+Canonical documents MUST NOT emit `:package` or `:use` wrappers in `:defs`. Every retained type definition MUST be emitted under its canonical FQNI.
+
+### G.3 Dead-Code Pruning & Topological Order
+
+Definitions not present in the transitive reachability set are dead code. Serializers MUST eliminate dead code from canonical output.
+
+Retained definitions MUST be ordered topologically using depth-first search post-order traversal. Each dependency MUST precede its dependents in the output `:defs` block.
+
+```stvn
+// Source Document (with local aliases, packages, and dead code):
+{
+  :defs {
+    :package :org/stvnadore/finance {
+      :Transaction :Tuple(:Int64 :Float64)
+      :CreationTime :Int64
+    }
+    :use [ :org/stvnadore/finance { :Transaction :LocalTx } ]
+    :A :String
+    :T :Tuple(:LocalTx :A)
+  }
+  :type :T
+  :body (
+    (1001 49.99)
+    "a"
+  )
+}
+
+// Canonical Output (desugared, pruned, topologically ordered):
+{
+  :defs {
+    :org/stvnadore/finance/Transaction :Tuple(:Int64 :Float64)
+    :A :String
+    :T :Tuple(:org/stvnadore/finance/Transaction :A)
+  }
+  :type :T
+  :body (
+    (1001 49.99)
+    "a"
+  )
+}
+```
+
