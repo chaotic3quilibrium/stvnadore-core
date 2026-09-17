@@ -1,6 +1,6 @@
 # STVN Core SDK (`stvnadore-core`)
 
-[![STVN Core SDK](https://img.shields.io/badge/STVN-1.3.0--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
+[![STVN Core SDK](https://img.shields.io/badge/STVN-1.3.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
 [![Java Version Compatibility](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
 [![Build Verification Status](https://img.shields.io/badge/Tests-595%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
 [![Null Safety](https://img.shields.io/badge/NullMarked-Tier%201%20Soundness-brightgreen.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md)
@@ -11,7 +11,7 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
 
 ---
 
-- Version: 1.3.0-SNAPSHOT - 2026.09.13
+- Version: 1.3.0 - 2026.09.17
 
 ---
 
@@ -48,6 +48,7 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
     * [FYI, I'd prefer to move stvnadore-core to an Apache 2.0 license](#fyi-id-prefer-to-move-stvnadore-core-to-an-apache-20-license)
     * [I'm not looking to win the lottery, I just don't want to work for free](#im-not-looking-to-win-the-lottery-i-just-dont-want-to-work-for-free)
 * [Version History](#version-history)
+  * [v1.3.0](#v130)
   * [v1.2.0](#v120)
   * [v1.1.1](#v111)
   * [v1.1.0](#v110)
@@ -64,7 +65,7 @@ Add the following Maven dependency to your `pom.xml`:
 <dependency>
     <groupId>org.stvnadore</groupId>
     <artifactId>stvnadore-core</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
 </dependency>
 ```
 
@@ -389,6 +390,13 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 ---
 
 # Version History
+
+## v1.3.0
+
+- 2026.09.17
+- Refactored to align the core SDK with the cannonical STVN specification; prohibited the tab character as whitespace, added constants for :String capacities, create canonical AST printers, and expanded shared-fixtures and snapshots
+- Updates to add canonical formatting and browser shared fixtures
+- Implement compiler transitive reachability, dead-code elimination, and universal alias desurgaring
 
 ## v1.2.0
 
