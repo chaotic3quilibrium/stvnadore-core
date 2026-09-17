@@ -62,6 +62,10 @@ public final class DiagnosticBag {
   public static final String ERR_MALFORMED_SCHEMA = "MALFORMED_SCHEMA";
   /** Warning code emitted when a legacy Rule STR-04 fenced string arrow delimiter is encountered. */
   public static final String WARN_DEPRECATED_FENCE_ARROW = "RULE_STR_04_DEPRECATED_ARROW";
+  /** Error code emitted when a forbidden tab character ('\t', U+0009) is encountered in STVN syntax. */
+  public static final String ERR_TAB_CHARACTER_FORBIDDEN = "ERR_TAB_CHARACTER_FORBIDDEN";
+  /** Error code emitted when a nominal string capacity suffix violates architectural bounds. */
+  public static final String ERR_INVALID_STRING_CAPACITY = "ERR_INVALID_STRING_CAPACITY";
 
   private final int maxDiagnostics;
   private final List<StvnDiagnostic> diagnostics;

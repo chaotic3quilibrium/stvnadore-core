@@ -6,18 +6,18 @@ This document serves as an in-depth technical onboarding guide for software engi
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Technology Primer: Foundations of Value-Oriented Notation](#stvn-technology-primer-foundations-of-value-oriented-notation)
   * [For Engineers Transitioning from JSON, EDN, Protocol Buffers, and YAML to STVN](#for-engineers-transitioning-from-json-edn-protocol-buffers-and-yaml-to-stvn)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [1. The Dual-Track Lexical Architecture](#1-the-dual-track-lexical-architecture)
     * [1.1 Type Track (`:`) vs. Value Track (`#`)](#11-type-track--vs-value-track-)
     * [1.2 Typed Compile-Time Constants in `:defs`](#12-typed-compile-time-constants-in-defs)
     * [1.3 Hierarchical Path-Delimited Identifiers](#13-hierarchical-path-delimited-identifiers)
     * [1.4 Package Enclosures (`:package`) and Scoped Use (`:use`)](#14-package-enclosures-package-and-scoped-use-use)
     * [1.5 Single-Pass Lexing and Zero-Lookahead Disambiguation](#15-single-pass-lexing-and-zero-lookahead-disambiguation)
+    * [1.6 Whitespace Discipline, Zero-Tab Invariant & Canonical AST Printers](#16-whitespace-discipline-zero-tab-invariant--canonical-ast-printers)
   * [2. Algebraic Data Types & The 10 Inference Rules (Rules A–J)](#2-algebraic-data-types--the-10-inference-rules-rules-aj)
     * [2.1 Product Types (`:Tuple`) vs. Bare Value Variant Syntax](#21-product-types-tuple-vs-bare-value-variant-syntax)
     * [2.2 Sum Types (`:Option`, `:Either`, `:Union`, `:Enum`)](#22-sum-types-option-either-union-enum)
@@ -125,6 +125,15 @@ STVN supports modular namespace organization inside single documents via `:packa
 ### 1.5 Single-Pass Lexing and Zero-Lookahead Disambiguation
 
 Because type constructors and value literals are cleanly segregated by their leading prefix sigils (`:` vs `#`), the lexer and parser operate in a single pass without lookahead or backtracking.
+
+### 1.6 Whitespace Discipline, Zero-Tab Invariant & Canonical AST Printers
+
+STVN enforces strict lexical whitespace discipline to ensure consistent formatting across editors, compilers, and build tools:
+
+1. **Permissible Whitespace:** Only standard ASCII spaces (`U+0020`), carriage returns (`\r`), and line feeds (`\n`) are permitted as structural whitespace.
+2. **Strict Zero-Tab Invariant:** Raw tab characters (`\t`, `U+0009`) are strictly forbidden in STVN document structure. The presence of a tab character raises a fatal syntax error (`ERR_TAB_CHARACTER_FORBIDDEN`). Tab characters within single-line string literals must be escaped as `\t`.
+3. **Canonical AST Printers:** `AstPrettyPrinter` serializes AST value trees with canonical 2-space indentation and long-form keywords (`#TRUE`, `#FALSE`, `#Some`, `#None`). `AstCompactPrinter` emits minimal single-line text with short-form keywords (`#T`, `#F`, `#S`, `#N`).
+4. **String Capacity Governance:** Unadorned `:String` allocations default to `DEFAULT_UNBOUNDED_STRING_CAPACITY` (16,777,216 characters / 16 MiB). Explicit nominal suffix dimensions (`:String4096`, `:StringFixed16`, `:String33554432`) support capacities up to $2^{31}-1$.
 
 ---
 

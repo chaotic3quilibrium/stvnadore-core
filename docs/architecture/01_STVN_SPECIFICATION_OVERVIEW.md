@@ -1,17 +1,16 @@
 # STVN Architectural Specification 01: Language & AST Overview
 
-**Document ID**: `STVN-SPEC-01`  
-**Status**: Canonical Specification  
-**Version**: 1.2.0
-**Compliance**: Mandatory across all STVN parsers, compilers, and IDE integrations.
+- **Document ID**: `STVN-SPEC-01`  
+- **Status**: Canonical Specification  
+- **Version**: 1.3.0
+- **Compliance**: Mandatory across all STVN parsers, compilers, and IDE integrations.
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Architectural Specification 01: Language & AST Overview](#stvn-architectural-specification-01-language--ast-overview)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [1. Dual-Track Lexical Grammar](#1-dual-track-lexical-grammar)
     * [Syntactic Comment Standard](#syntactic-comment-standard)
   * [2. Root Enclosure & File Extension Contract](#2-root-enclosure--file-extension-contract)
@@ -23,6 +22,7 @@
   * [5. Arbitrary Bit-Width Numeric Systems](#5-arbitrary-bit-width-numeric-systems)
   * [6. Tripartite Temporal Architecture](#6-tripartite-temporal-architecture)
   * [7. Monadic Compilation & Diagnostic Accumulation](#7-monadic-compilation--diagnostic-accumulation)
+  * [8. Transitive Canonicalization & Self-Containment Guarantees](#8-transitive-canonicalization--self-containment-guarantees)
 <!-- TOC -->
 
 ---
@@ -158,3 +158,27 @@ STVN partitions date-time values into three mathematically orthogonal, unambiguo
 * **Standard Diagnostic Error Codes**: Emits uniform diagnostic codes (`ERR_UNKNOWN_TYPE`, `ERR_RESERVED_KEYWORD_ON_LHS`, `ERR_INTEGER_OVERFLOW`, `ERR_UNUSED_STRIP_PREFIX`).
 * **Compiler Lowering Gate**: When `DiagnosticBag.hasErrors()` is true, the compiler halts before lowering to IR, preventing illegal constants or malformed constructs from reaching code generation.
 * **Error-Tolerant AST Nodes (`StvnError`)**: Isolates semantic and syntax failures into localized `StvnError` leaves, allowing sibling nodes and surrounding structures to parse successfully.
+
+---
+
+## 8. Transitive Canonicalization & Self-Containment Guarantees
+
+STVN serialization enforces mathematical determinism and hermetic document self-containment:
+
+1. **Transitive Reachability Closure**:
+   * Canonical AST serializers (`CanonicalStvnWriter`, `AstPrettyPrinter`, `AstCompactPrinter`) compute the reachability closure of nominal types and typed constants.
+   * Traversal starts from the document root `:type` and `:body` payload.
+   * The compiler retains all reachable intermediate nominal definitions in the `:defs` block.
+
+2. **Dead-Code Elimination**:
+   * Definitions not reachable from the root `:type` or `:body` are discarded.
+   * Dead code never appears in canonical output.
+
+3. **Universal Alias Desugaring**:
+   * Local aliases declared via `:use` desugar directly into Fully Qualified Nominal Identifiers (FQNIs).
+   * Canonical documents emit zero `:package` or `:use` wrappers.
+
+4. **Topological Dependency Ordering**:
+   * Retained definitions emit in topological dependency order.
+   * Dependencies strictly precede dependent definitions.
+

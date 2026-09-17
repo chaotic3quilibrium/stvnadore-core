@@ -177,6 +177,36 @@ public class StvnTypeResolver {
     }
   }
 
+  /**
+   * Returns the cached type definitions map for the specified document context.
+   *
+   * @param doc the document context to query
+   * @return the map of canonical nominal type identifiers to their definition sources
+   * @since 1.3.0
+   */
+  public static Map<String, DefSource> getDocumentDefinitionsCache(@Nullable StvnDocumentContext doc) {
+    if (doc == null) {
+      return Collections.emptyMap();
+    }
+    getDocumentDefinitions(doc);
+    return documentDefinitionsCache.getOrDefault(doc, Collections.emptyMap());
+  }
+
+  /**
+   * Returns the cached constant definitions map for the specified document context.
+   *
+   * @param doc the document context to query
+   * @return the map of canonical nominal constant identifiers to their definition sources
+   * @since 1.3.0
+   */
+  public static Map<String, ConstantDefSource> getDocumentConstantDefinitionsCache(@Nullable StvnDocumentContext doc) {
+    if (doc == null) {
+      return Collections.emptyMap();
+    }
+    getDocumentDefinitions(doc);
+    return documentConstantDefinitionsCache.getOrDefault(doc, Collections.emptyMap());
+  }
+
   private static Path resolveIncludePath(@Nullable String currentDocPath, String includePathStr) {
     Path includePath = Paths.get(includePathStr);
     if (includePath.isAbsolute()) {

@@ -18,6 +18,7 @@ module org.stvnadore.core {
     exports org.stvnadore.core.printer;
     exports org.stvnadore.core.printer.internal;
     exports org.stvnadore.core.annotations;
+    exports org.stvnadore.core.utils;
     exports org.stvnadore.core.mapper;
     exports org.stvnadore.core.binary;
     exports org.stvnadore.core.binary.readers;

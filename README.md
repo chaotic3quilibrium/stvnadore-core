@@ -1,25 +1,24 @@
 # STVN Core SDK (`stvnadore-core`)
 
-[![STVN Core SDK](https://img.shields.io/badge/STVN-1.2.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
+[![STVN Core SDK](https://img.shields.io/badge/STVN-1.3.0--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
 [![Java Version Compatibility](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
-[![Build Verification Status](https://img.shields.io/badge/Tests-497%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
+[![Build Verification Status](https://img.shields.io/badge/Tests-595%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
 [![Null Safety](https://img.shields.io/badge/NullMarked-Tier%201%20Soundness-brightgreen.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md)
 
 `stvnadore-core` is the high-performance, strongly typed value notation (STVN) engine and SDK for Java 21. Tailored for safety-critical environments demanding zero-copy binary serialization, algebraic type safety, deterministic content-addressable storage (CAS) fingerprinting, and value-oriented programming (VOP) models, `stvnadore-core` eliminates reference nulls and uninitialized states at compile-time and serialization boundaries.
 
-The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror`), and validated against a comprehensive 497-test verification suite spanning 20 test suites covering structural schema hashing, zero-trust binary negotiation, arbitrary bit-width integers, tripartite temporal models, transitive enum subset filtering, and POJO-free record marshalling.
+The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror`), and validated against a comprehensive test verification suite spanning 22 test suites covering structural schema hashing, zero-trust binary negotiation, arbitrary bit-width integers, tripartite temporal models, transitive enum subset filtering, canonical AST conversion, and POJO-free record marshalling.
 
 ---
 
-- Version: 1.2.0 - 2026.09.12
+- Version: 1.3.0-SNAPSHOT - 2026.09.13
 
 ---
 
-# Table of Contents <!-- omit in toc -->
+**Table of Contents**
 
 <!-- TOC -->
 * [STVN Core SDK (`stvnadore-core`)](#stvn-core-sdk-stvnadore-core)
-* [Table of Contents <!-- omit in toc -->](#table-of-contents----omit-in-toc---)
   * [Installation](#installation)
   * [Canonical Architecture Specifications](#canonical-architecture-specifications)
   * [Quick Start: Record Marshalling & Compilation](#quick-start-record-marshalling--compilation)
@@ -393,7 +392,7 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 
 ## v1.2.0
 
-- 2026.09.07
+- 2026.09.12
 - Standard prelude relocated to namespace `:org/stvnadore/prelude/*` and out of root, completely clearing the root namespace
 - Atomic temporal primitives pruned to nominal prelude schemas
 - Package enclosures (`:package`) with automatic LHS FQNI expansion
@@ -401,7 +400,7 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 - Hermetic flat payload tier (newly introduced `.stvn_f`) and flat schema tier (existing `.stvn_inclf`)
 - Arbitrary bit-width integer overflow enforcement (BigInteger)
 - Updated shared-fixtures conformance suite
-- 
+
 ## v1.1.1
 
 - 2026.09.07

@@ -1,0 +1,16 @@
+{
+  :defs {
+    :package :org/stvnadore/finance {
+      :Transaction :Tuple(:Int64 :Float64)
+      :CreationTime :Int64
+    }
+    :use [ :org/stvnadore/finance { :Transaction :LocalTx } ]
+    :A :String
+    :T :Tuple(:LocalTx :A)
+  }
+  :type :T
+  :body (
+    (1001 49.99)
+    "a"
+  )
+}

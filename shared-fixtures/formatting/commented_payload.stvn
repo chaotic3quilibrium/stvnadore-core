@@ -1,0 +1,10 @@
+{
+  // Root metadata documentation
+  :defs {
+    // Primary identifier
+    :ID :Uint32
+  }
+  :type :ID
+  // Core data payload
+  :body 100
+}

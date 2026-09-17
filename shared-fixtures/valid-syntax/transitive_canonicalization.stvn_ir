@@ -1,0 +1,54 @@
+TypeRegistry:
+  - :org/stvnadore/finance/Transaction
+      schema:
+        node: :Tuple(:Int64:Float64)
+        aliasName: :org/stvnadore/finance/Transaction
+        constraints:
+          equatable: false (derived from :Float64)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:Int64:Float64)
+  - :org/stvnadore/finance/CreationTime
+      schema:
+        node: :Int64
+        aliasName: :org/stvnadore/finance/CreationTime
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int64
+  - :A
+      schema:
+        node: :String
+        aliasName: :A
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+  - :T
+      schema:
+        node: :Tuple(:LocalTx:A)
+        aliasName: :T
+        constraints:
+          equatable: false (derived from :org/stvnadore/finance/Transaction)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:LocalTx:A)
+  - <:type>
+      schema:
+        node: :Tuple(:LocalTx:A)
+        aliasName: :T
+        constraints:
+          equatable: false (derived from :org/stvnadore/finance/Transaction)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:LocalTx:A)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnTuple
+          elements:
+            - StvnInteger(:Int64): 1001
+            - StvnFloat(:Float64): 49.99
+      - StvnString(:A): "a"

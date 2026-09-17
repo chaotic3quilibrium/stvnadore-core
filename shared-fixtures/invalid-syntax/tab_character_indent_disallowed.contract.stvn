@@ -1,0 +1,14 @@
+{
+  // tab_character_indent_disallowed.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #SYNTAX_ERROR
+    "ERR_TAB_CHARACTER_FORBIDDEN"
+    "java.lang.RuntimeException"
+  )
+}

@@ -1,0 +1,7 @@
+{
+  :defs {
+    :OverflowString :String2147483648
+  }
+  :type :OverflowString
+  :body "overflow"
+}

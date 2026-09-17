@@ -13,7 +13,8 @@ lexer grammar StvnLexer;
 // 1. STANDARD LEXER RULES
 // ============================================================================
 
-SPACE   : [ \t\r\n]+ -> skip ;
+SPACE         : [ \r\n]+ -> skip ;
+TAB_CHARACTER : '\t'+ ;
 COMMENT : '//' ~[\r\n]* -> skip ;
 
 LBRACK : '[' ;
@@ -96,7 +97,7 @@ LITERAL_STRING_SIMPLE : '"' (~["\\\r\n] | '\\' .)* '"' ;
 
 fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
 
-FENCE_START : '"""' '->'? '[' FENCE_TAG_CHAR+ ']' [ \t\r]* '\n' {
+FENCE_START : '"""' '->'? '[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     String text = getText();
     int start = text.indexOf('[') + 1;
     int end = text.indexOf(']', start);

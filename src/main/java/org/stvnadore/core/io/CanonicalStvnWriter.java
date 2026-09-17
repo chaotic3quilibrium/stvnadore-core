@@ -12,6 +12,8 @@ import org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.List;
+import org.stvnadore.core.io.StvnCanonicalDefinitionsResolver.ResolvedCanonicalDefinition;
 
 /**
  * Serializes STVN value trees into a deterministic, canonical text representation.
@@ -62,24 +64,15 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
     layout.openGroup("{");
 
     var schema = value.schema();
-    String mainAlias = schema != null ? schema.aliasName().orElse(null) : null;
-    if (schema != null && mainAlias != null) {
+    List<ResolvedCanonicalDefinition> defs = StvnCanonicalDefinitionsResolver.resolveDefinitions(value);
+    if (!defs.isEmpty()) {
       layout.writeLiteral(":defs");
       layout.openGroup("{");
 
-      var current = schema;
-      var chain = new ArrayList<ResolvedSchema>();
-      while (current != null) {
-        var alias = current.aliasName().orElse(null);
-        if (alias == null) break;
-        chain.addFirst(current);
-        current = current.underlyingSchema().orElse(null);
-      }
+      for (var s : defs) {
+        layout.writeLiteral(s.canonicalName());
 
-      for (var s : chain) {
-        layout.writeLiteral(s.aliasName().orElseThrow());
-
-        var constraints = s.localConstraints().orElse(s.constraints());
+        var constraints = s.constraints();
         if (!isConstraintsEmpty(constraints)) {
           layout.openGroup("{");
 
@@ -144,12 +137,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
           layout.closeGroup("}");
         }
 
-        var underlyingAlias = s.underlyingSchema().flatMap(ResolvedSchema::aliasName).orElse(null);
-        if (underlyingAlias != null) {
-          layout.writeLiteral(underlyingAlias);
-        } else {
-          writeSchemaType(s.node(), layout);
-        }
+        writeSchemaType(s.schemaNode(), layout, s.lexicalContext());
       }
 
       layout.closeGroup("}");
@@ -161,7 +149,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
       if (alias != null) {
         layout.writeLiteral(alias);
       } else {
-        writeSchemaType(schema.node(), layout);
+        writeSchemaType(schema.node(), layout, schema.node());
       }
     } else {
       throw new IOException("Missing schema context for canonical serialization");
@@ -189,9 +177,10 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
         && c.filterIncl().isEmpty() && c.filterExcl().isEmpty();
   }
 
-  private void writeSchemaType(StvnParser.SchemaTypeContext node, CanonicalLayoutWriter layout) throws IOException {
+  private void writeSchemaType(StvnParser.SchemaTypeContext node, CanonicalLayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext) throws IOException {
     if (node.typeKeyword() != null) {
-      layout.writeLiteral(node.typeKeyword().getText());
+      String desugared = StvnCanonicalDefinitionsResolver.resolveCanonicalTypeKeyword(node.typeKeyword().getText(), lexicalContext);
+      layout.writeLiteral(desugared);
     } else if (node.schemaConstructor() != null) {
       var ctor = node.schemaConstructor();
       if (ctor.atomicType() != null) {
@@ -201,7 +190,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
         layout.writeLiteral(resolveCollectionType(col));
         layout.openGroup("(");
         for (var st : col.schemaType()) {
-          writeSchemaType(st, layout);
+          writeSchemaType(st, layout, lexicalContext);
         }
         layout.closeGroup(")");
       } else if (ctor.productType() != null) {
@@ -210,7 +199,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
           layout.writeLiteral(":Tuple");
           layout.openGroup("(");
           for (var st : tt.schemaType()) {
-            writeSchemaType(st, layout);
+            writeSchemaType(st, layout, lexicalContext);
           }
           layout.closeGroup(")");
         }
@@ -219,19 +208,19 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
         if (sum.KW_OPTION() != null) {
           layout.writeLiteral(":Option");
           layout.openGroup("(");
-          writeSchemaType(sum.schemaType(0), layout);
+          writeSchemaType(sum.schemaType(0), layout, lexicalContext);
           layout.closeGroup(")");
         } else if (sum.KW_EITHER() != null) {
           layout.writeLiteral(":Either");
           layout.openGroup("(");
-          writeSchemaType(sum.schemaType(0), layout);
-          writeSchemaType(sum.schemaType(1), layout);
+          writeSchemaType(sum.schemaType(0), layout, lexicalContext);
+          writeSchemaType(sum.schemaType(1), layout, lexicalContext);
           layout.closeGroup(")");
         } else if (sum.KW_UNION() != null) {
           layout.writeLiteral(":Union");
           layout.openGroup("(");
           for (var st : sum.schemaType()) {
-            writeSchemaType(st, layout);
+            writeSchemaType(st, layout, lexicalContext);
           }
           layout.closeGroup(")");
         } else if (sum.KW_ENUM() != null) {

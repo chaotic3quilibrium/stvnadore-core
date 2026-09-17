@@ -623,10 +623,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       );
     }
 
-    // 5. Global Baseline Allocation Limit Check (len <= 16,777,216)
-    if (fixedLength == 0 && maxLength == 0 && textLength > 16_777_216) {
+    // 5. Default Unbounded Allocation Limit Check (len <= 16,777,216 for unadorned :String)
+    if (fixedLength == 0 && maxLength == 0 && textLength > org.stvnadore.core.utils.StvnStringCapacityUtils.DEFAULT_UNBOUNDED_STRING_CAPACITY) {
       throw new MalformedPayloadException(
-          "Constraint violation (" + aliasOrBase + "): String length exceeds maximum allocation size of 16777216",
+          "Constraint violation (" + aliasOrBase + "): String length exceeds default unbounded allocation size of " + org.stvnadore.core.utils.StvnStringCapacityUtils.DEFAULT_UNBOUNDED_STRING_CAPACITY,
           ctx.getStart().getStartIndex(),
           ctx.getStop().getStopIndex() + 1
       );

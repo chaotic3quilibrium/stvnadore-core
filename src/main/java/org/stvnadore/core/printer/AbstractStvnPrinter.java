@@ -9,6 +9,9 @@ import org.stvnadore.core.printer.internal.PrettyLayoutWriter;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.List;
+import org.stvnadore.core.io.StvnCanonicalDefinitionsResolver;
+import org.stvnadore.core.io.StvnCanonicalDefinitionsResolver.ResolvedCanonicalDefinition;
 
 /**
  * Abstract base class for STVN printers, orchestrating formatting and serialization loops.
@@ -64,23 +67,14 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
       }
 
       var schema = value.schema();
-      String mainAlias = schema != null ? schema.aliasName().orElse(null) : null;
-      if (schema != null && mainAlias != null) {
+      List<ResolvedCanonicalDefinition> defs = StvnCanonicalDefinitionsResolver.resolveDefinitions(value);
+      if (!defs.isEmpty()) {
         layout.writeLiteral(":defs");
         layout.appendSeparator();
         layout.openGroup("{");
 
-        var current = schema;
-        var chain = new java.util.ArrayList<org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema>();
-        while (current != null) {
-          var alias = current.aliasName().orElse(null);
-          if (alias == null) break;
-          chain.addFirst(current);
-          current = current.underlyingSchema().orElse(null);
-        }
-
         var firstDef = true;
-        for (var s : chain) {
+        for (var s : defs) {
           if (!firstDef) {
             if (pretty) {
               layout.newline();
@@ -94,9 +88,9 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
           }
           firstDef = false;
 
-          layout.writeLiteral(s.aliasName().orElseThrow());
+          layout.writeLiteral(s.canonicalName());
 
-          var constraints = s.localConstraints().orElse(s.constraints());
+          var constraints = s.constraints();
           if (!isConstraintsEmpty(constraints)) {
             var count = countConstraints(constraints);
             var inline = (count <= 1) || !pretty;
@@ -251,12 +245,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
           }
 
           layout.appendSeparator();
-          var underlyingAlias = s.underlyingSchema().flatMap(org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema::aliasName).orElse(null);
-          if (underlyingAlias != null) {
-            layout.writeLiteral(underlyingAlias);
-          } else {
-            writeSchemaType(s.node(), layout);
-          }
+          writeSchemaType(s.schemaNode(), layout, s.lexicalContext());
         }
 
         if (pretty) {
@@ -279,7 +268,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         if (alias != null) {
           layout.writeLiteral(alias);
         } else {
-          writeSchemaType(schema.node(), layout);
+          writeSchemaType(schema.node(), layout, schema.node());
         }
       } else {
         throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing schema context");
@@ -319,9 +308,10 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         && c.filterIncl().isEmpty() && c.filterExcl().isEmpty();
   }
 
-  private void writeSchemaType(StvnParser.SchemaTypeContext node, LayoutWriter layout) throws IOException {
+  private void writeSchemaType(StvnParser.SchemaTypeContext node, LayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext) throws IOException {
     if (node.typeKeyword() != null) {
-      layout.writeLiteral(node.typeKeyword().getText());
+      String desugared = StvnCanonicalDefinitionsResolver.resolveCanonicalTypeKeyword(node.typeKeyword().getText(), lexicalContext);
+      layout.writeLiteral(desugared);
     } else if (node.schemaConstructor() != null) {
       var ctor = node.schemaConstructor();
       if (ctor.atomicType() != null) {
@@ -334,7 +324,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         for (var st : col.schemaType()) {
           if (!first) layout.appendSeparator();
           first = false;
-          writeSchemaType(st, layout);
+          writeSchemaType(st, layout, lexicalContext);
         }
         layout.closeGroup(")");
       } else if (ctor.productType() != null) {
@@ -346,7 +336,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
           for (var st : tt.schemaType()) {
             if (!first) layout.appendSeparator();
             first = false;
-            writeSchemaType(st, layout);
+            writeSchemaType(st, layout, lexicalContext);
           }
           layout.closeGroup(")");
         }
@@ -355,14 +345,14 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         if (sum.KW_OPTION() != null) {
           layout.writeLiteral(":Option");
           layout.openGroup("(");
-          writeSchemaType(sum.schemaType(0), layout);
+          writeSchemaType(sum.schemaType(0), layout, lexicalContext);
           layout.closeGroup(")");
         } else if (sum.KW_EITHER() != null) {
           layout.writeLiteral(":Either");
           layout.openGroup("(");
-          writeSchemaType(sum.schemaType(0), layout);
+          writeSchemaType(sum.schemaType(0), layout, lexicalContext);
           layout.appendSeparator();
-          writeSchemaType(sum.schemaType(1), layout);
+          writeSchemaType(sum.schemaType(1), layout, lexicalContext);
           layout.closeGroup(")");
         } else if (sum.KW_UNION() != null) {
           layout.writeLiteral(":Union");
@@ -371,7 +361,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
           for (var st : sum.schemaType()) {
             if (!first) layout.appendSeparator();
             first = false;
-            writeSchemaType(st, layout);
+            writeSchemaType(st, layout, lexicalContext);
           }
           layout.closeGroup(")");
         } else if (sum.KW_ENUM() != null) {

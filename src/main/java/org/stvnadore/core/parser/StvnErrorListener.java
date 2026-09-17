@@ -87,6 +87,11 @@ public final class StvnErrorListener extends BaseErrorListener {
 
     String sanitizedMessage = formatSanitizedMessage(recognizer, offendingToken, rawMsg, e);
 
+    Optional<String> errorCode = Optional.of("STVN_SYNTAX_ERROR");
+    if (offendingToken != null && offendingToken.getType() == StvnLexer.TAB_CHARACTER) {
+      errorCode = Optional.of(DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN);
+    }
+
     if (this.strict) {
       throw new StvnSyntaxCancellationException(
           "STVN Syntax Error: " + sanitizedMessage,
@@ -105,7 +110,7 @@ public final class StvnErrorListener extends BaseErrorListener {
           startOffset,
           endOffset,
           e,
-          Optional.of("STVN_SYNTAX_ERROR")
+          errorCode
       ));
     }
   }
@@ -129,6 +134,11 @@ public final class StvnErrorListener extends BaseErrorListener {
       RuleContext ctx = e != null && e.getCtx() != null ? e.getCtx() : parser.getContext();
       String tokenText = offendingToken != null ? offendingToken.getText() : "";
       int tokenType = offendingToken != null ? offendingToken.getType() : Token.INVALID_TYPE;
+
+      // Intercept forbidden TAB_CHARACTER tokens citing Zero-Tab Invariant
+      if (offendingToken != null && offendingToken.getType() == StvnLexer.TAB_CHARACTER) {
+        return "Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax; use standard spaces instead (ERR_TAB_CHARACTER_FORBIDDEN)";
+      }
 
       // 0a. Intercept MALFORMED_FENCE_OPEN token citing Rule STR-04
       if (offendingToken != null && offendingToken.getType() == StvnLexer.MALFORMED_FENCE_OPEN) {

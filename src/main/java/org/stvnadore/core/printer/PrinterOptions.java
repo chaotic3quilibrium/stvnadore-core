@@ -78,12 +78,12 @@ public record PrinterOptions(
   /**
    * Constructs a new {@code PrinterOptions} with default settings.
    * <p>
-   * Default settings render all sections ({@link Coverage#ALL_SECTIONS}), use 4-space
-   * indentation ({@code indentStep = 4}), select verbose keywords ({@link SymbolStyle#LONG_FORM}),
+   * Default settings render all sections ({@link Coverage#ALL_SECTIONS}), use 2-space
+   * indentation ({@code indentStep = 2}), select verbose keywords ({@link SymbolStyle#LONG_FORM}),
    * and allow implied tagging ({@link SumTypePolicy#HAPPY_PATH_INFERRED}).
    * </p>
    */
   public PrinterOptions() {
-    this(Coverage.ALL_SECTIONS, 4, SymbolStyle.LONG_FORM, SumTypePolicy.HAPPY_PATH_INFERRED);
+    this(Coverage.ALL_SECTIONS, 2, SymbolStyle.LONG_FORM, SumTypePolicy.HAPPY_PATH_INFERRED);
   }
 }
