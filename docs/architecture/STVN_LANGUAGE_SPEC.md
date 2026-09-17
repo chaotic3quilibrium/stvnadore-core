@@ -1,10 +1,8 @@
 # STVN Language Specification
 
-**Version:** 1.2.0
-
-**Status:** Formal Technical Specification
-
-**Target Audience:** Lexer, Parser, AST Analyzer, and Codec Implementers (Java, Kotlin, Scala, Rust, TypeScript, C++)
+- **Version:** 1.3.0
+- **Status:** Formal Technical Specification
+- **Target Audience:** Lexer, Parser, AST Analyzer, and Codec Implementers (Java, Kotlin, Scala, Rust, TypeScript, C++)
 
 ---
 
@@ -22,16 +20,17 @@
   * [3. Lexical and Syntactic Enclosure Rules](#3-lexical-and-syntactic-enclosure-rules)
     * [3.1 Hash Symbol (`#`) Semantic Taxonomy](#31-hash-symbol--semantic-taxonomy)
     * [3.2 Colon Symbol (`:`) Semantic Taxonomy](#32-colon-symbol--semantic-taxonomy)
-    * [3.3 Comment Tokens](#33-comment-tokens)
-    * [3.4 Metadata Annotation Placement Rules](#34-metadata-annotation-placement-rules)
-    * [3.5 Module Include Directive Syntax](#35-module-include-directive-syntax)
-    * [3.6 Namespaced and Path-Delimited Identifiers](#36-namespaced-and-path-delimited-identifiers)
-      * [3.6.1 Lexical and Syntactic Grammar Rules](#361-lexical-and-syntactic-grammar-rules)
-      * [3.6.2 Semantics & Scoping Invariants](#362-semantics--scoping-invariants)
-    * [3.7 Typed Constant Definitions](#37-typed-constant-definitions)
-      * [3.7.1 Syntax Grammar](#371-syntax-grammar)
-      * [3.7.2 Semantics & Substitution Rules](#372-semantics--substitution-rules)
-    * [3.8 Package Enclosures (`:package`) and Scoped Imports (`:use`)](#38-package-enclosures-package-and-scoped-imports-use)
+    * [3.3 Whitespace Discipline and the Strict Zero-Tab Invariant](#33-whitespace-discipline-and-the-strict-zero-tab-invariant)
+    * [3.4 Comment Tokens](#34-comment-tokens)
+    * [3.5 Metadata Annotation Placement Rules](#35-metadata-annotation-placement-rules)
+    * [3.6 Module Include Directive Syntax](#36-module-include-directive-syntax)
+    * [3.7 Namespaced and Path-Delimited Identifiers](#37-namespaced-and-path-delimited-identifiers)
+      * [3.7.1 Lexical and Syntactic Grammar Rules](#371-lexical-and-syntactic-grammar-rules)
+      * [3.7.2 Semantics & Scoping Invariants](#372-semantics--scoping-invariants)
+    * [3.8 Typed Constant Definitions](#38-typed-constant-definitions)
+      * [3.8.1 Syntax Grammar](#381-syntax-grammar)
+      * [3.8.2 Semantics & Substitution Rules](#382-semantics--substitution-rules)
+    * [3.9 Package Enclosures (`:package`) and Scoped Imports (`:use`)](#39-package-enclosures-package-and-scoped-imports-use)
       * [Scoping Invariants](#scoping-invariants)
   * [4. Module Ingestion and Namespace Isolation](#4-module-ingestion-and-namespace-isolation)
     * [4.1 Single-Import Constraint](#41-single-import-constraint)
