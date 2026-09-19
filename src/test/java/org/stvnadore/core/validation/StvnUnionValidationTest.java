@@ -66,7 +66,10 @@ class StvnUnionValidationTest {
     var exception = Assertions.assertThrows(StvnMalformedLiteralException.class, () -> {
       StvnCompiler.compile(input);
     });
-    Assertions.assertTrue(exception.getMessage().contains("overflows union schema constraints. Maximum branch capacity is 2"));
+    Assertions.assertTrue(exception.getMessage().contains("Union variant tag '#3' exceeds branch count (2)"));
+    int tagStart = input.indexOf("#3");
+    Assertions.assertEquals(tagStart, exception.startOffset(), "startOffset must match '#3'");
+    Assertions.assertEquals(tagStart + 2, exception.endOffset(), "endOffset must match end of '#3'");
   }
 
   @Test

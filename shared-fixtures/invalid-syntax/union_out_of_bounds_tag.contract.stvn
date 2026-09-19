@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_LITERAL
-    "Explicit branch tag #3 overflows union schema constraints. Maximum branch capacity is 2."
+    "Union variant tag '#3' exceeds branch count (2)"
     "org.stvnadore.core.validation.StvnMalformedLiteralException"
   )
 }

@@ -550,8 +550,12 @@ public final class StvnErrorListener extends BaseErrorListener {
       String prefix = rawMsg.substring(0, quoteStart + 1);
       String inner = rawMsg.substring(quoteStart + 1, quoteEnd);
       String suffix = rawMsg.substring(quoteEnd);
-      while (inner.endsWith("\n") || inner.endsWith("\r")) {
-        inner = inner.substring(0, inner.length() - 1);
+      while (inner.endsWith("\\n") || inner.endsWith("\\r") || inner.endsWith("\n") || inner.endsWith("\r")) {
+        if (inner.endsWith("\\n") || inner.endsWith("\\r")) {
+          inner = inner.substring(0, inner.length() - 2);
+        } else {
+          inner = inner.substring(0, inner.length() - 1);
+        }
       }
       return prefix + inner + suffix;
     }

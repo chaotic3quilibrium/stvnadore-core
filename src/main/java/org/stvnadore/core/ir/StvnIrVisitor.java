@@ -1296,16 +1296,24 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     if (baseType.equals(":Union")) {
       List<ResolvedSchema> candidates = StvnTypeResolver.resolveCandidateSchemas(documentContext, schema.node());
       if (item instanceof UnionTagItem unionTag) {
-        int tagNum = Integer.parseInt(unionTag.tag().substring(1));
+        int tagNum = StvnLiteralParser.parseUnionTagIndex(unionTag.tag());
         int branchIndex = tagNum - 1;
-        if (branchIndex < 0 || branchIndex >= candidates.size()) {
-          int start = unionTag.sourceCtx() != null && unionTag.sourceCtx().getStart() != null
-              ? unionTag.sourceCtx().getStart().getStartIndex()
-              : -1;
-          int end = unionTag.sourceCtx() != null && unionTag.sourceCtx().getStop() != null
-              ? unionTag.sourceCtx().getStop().getStopIndex() + 1
-              : -1;
-          throw new org.stvnadore.core.validation.StvnMalformedLiteralException("Union tag #" + tagNum + " out of bounds for " + candidates.size() + "-branch union", start, end);
+        if (branchIndex < 0 || tagNum > candidates.size()) {
+          int start = -1;
+          int end = -1;
+          if (unionTag.sourceCtx() instanceof StvnParser.ExplicitUnionValueContext euv && euv.UNION_TAG_PREFIX() != null) {
+            Token tagToken = euv.UNION_TAG_PREFIX().getSymbol();
+            start = tagToken.getStartIndex();
+            end = tagToken.getStopIndex() + 1;
+          } else if (unionTag.sourceCtx() != null && unionTag.sourceCtx().getStart() != null) {
+            start = unionTag.sourceCtx().getStart().getStartIndex();
+            end = start + unionTag.tag().length();
+          }
+          throw new org.stvnadore.core.validation.StvnMalformedLiteralException(
+              "Union variant tag '#" + tagNum + "' exceeds branch count (" + candidates.size() + ")",
+              start,
+              end
+          );
         }
         if (unionTag.childValue() != null) {
           queue.addFirst(toStreamItem(unionTag.childValue()));
@@ -1712,9 +1720,14 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           int start = getStartOffset(t, item.sourceCtx());
           int end = getEndOffset(t, item.sourceCtx());
           int[] pos = getLineCol(item.sourceCtx());
+          Optional<String> errCode = Optional.empty();
+          if (t instanceof org.stvnadore.core.validation.StvnMalformedLiteralException mle
+              && mle.getMessage() != null && mle.getMessage().contains("exceeds branch count")) {
+            errCode = Optional.of("UNION_BRANCH_OVERFLOW");
+          }
           var diag = new StvnDiagnostic(t.getMessage() != null
               ? t.getMessage()
-              : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t);
+              : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t, errCode);
           diagnosticBag.add(diag);
           String rawText = item.sourceCtx() != null
               ? item.sourceCtx().getText()
@@ -1871,27 +1884,26 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
 
   private StvnUnion buildUnion(StvnParser.ExplicitUnionValueContext ctx, ResolvedSchema schema) {
     String tagText = ctx.UNION_TAG_PREFIX().getText();
-    int tagIndex = 0;
-    for (int i = 1; i < tagText.length(); i++) {
-      tagIndex = tagIndex * 10 + (tagText.charAt(i) - '0');
-    }
+    int tagIndex = StvnLiteralParser.parseUnionTagIndex(tagText);
     int zeroBasedIndex = tagIndex - 1;
     List<ResolvedSchema> childSchemas = StvnTypeResolver.resolveCandidateSchemas(documentContext, schema.node());
     int maxBranchCapacity = childSchemas.size();
-    if (zeroBasedIndex < 0 || zeroBasedIndex >= maxBranchCapacity) {
-      int start = ctx.start.getStartIndex();
-      int end = ctx.stop.getStopIndex() + 1;
-      int[] pos = getLineCol(ctx);
+    if (zeroBasedIndex < 0 || tagIndex > maxBranchCapacity) {
+      Token tagToken = ctx.UNION_TAG_PREFIX().getSymbol();
+      int start = tagToken.getStartIndex();
+      int end = tagToken.getStopIndex() + 1;
+      int line = tagToken.getLine();
+      int col = tagToken.getCharPositionInLine();
       var ex = new org.stvnadore.core.validation.StvnMalformedLiteralException(
-          "Explicit branch tag #" + tagIndex + " overflows union schema constraints. Maximum branch capacity is " + maxBranchCapacity + ".",
+          "Union variant tag '#" + tagIndex + "' exceeds branch count (" + maxBranchCapacity + ")",
           start,
           end
       );
       var diag = new StvnDiagnostic(
           ex.getMessage(),
           StvnDiagnostic.DiagnosticSeverity.ERROR,
-          pos[0],
-          pos[1],
+          line,
+          col,
           start,
           end,
           ex,

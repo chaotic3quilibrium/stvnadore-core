@@ -249,5 +249,46 @@ public class StvnCompilerTest {
     Assertions.assertEquals(3, diag.line());
     Assertions.assertFalse(diag.message().contains("\n"), "Sanitized diagnostic message must not contain raw '\\n'");
     Assertions.assertFalse(diag.message().contains("\r"), "Sanitized diagnostic message must not contain raw '\\r'");
+    Assertions.assertFalse(diag.message().contains("\\n"), "Sanitized diagnostic message must not contain escaped '\\\\n'");
+    Assertions.assertFalse(diag.message().contains("\\r"), "Sanitized diagnostic message must not contain escaped '\\\\r'");
+    Assertions.assertTrue(diag.message().contains("token recognition error at: '#'"), "Must display clean token text '#'");
+  }
+
+  @Test
+  @DisplayName("TC-COMP-10: Tuple child error isolation preserves element count and suppresses arity underflow on ')'")
+  void testTupleChildErrorIsolationPreservesElementCountAndSuppressesArityUnderflow() {
+    String source = """
+        {
+          :defs {
+            :UnionLikeEitherC :Union(:Uint32 :Uint33)
+          }
+          :type :Tuple(:Uint32 :Uint32 :UnionLikeEitherC :Uint32 :Uint32 :Uint32)
+          :body (
+            1
+            2
+            #3 3
+            4
+            5
+            6
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Must isolate error strictly to malformed child without cascading diagnostics");
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertTrue(diag.message().contains("Union variant tag '#3' exceeds branch count (2)"));
+    int tagOffset = source.indexOf("#3");
+    Assertions.assertEquals(tagOffset, diag.startOffset(), "Diagnostic must pin strictly to UNION_TAG_PREFIX start");
+    Assertions.assertEquals(tagOffset + 2, diag.endOffset(), "Diagnostic must pin strictly to UNION_TAG_PREFIX stop + 1");
+    Assertions.assertFalse(
+        result.diagnostics().stream().anyMatch(d -> "TUPLE_ARITY_MISMATCH".equals(d.errorCode().orElse(null))),
+        "Must not emit spurious TUPLE_ARITY_MISMATCH on closing delimiter ')'"
+    );
+    Assertions.assertTrue(result.document().isPresent());
+    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnTuple.class, result.document().get());
+    var tuple = (org.stvnadore.core.ir.StvnValue.StvnTuple) result.document().get();
+    Assertions.assertEquals(6, tuple.elements().size(), "Tuple must maintain full element cardinality");
+    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnError.class, tuple.elements().get(2), "Malformed child element must be recorded as StvnError");
   }
 }
