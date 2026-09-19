@@ -182,4 +182,72 @@ public class StvnCompilerTest {
         "Must emit ERR_AMBIGUOUS_SUM_INFERENCE: " + result.diagnostics()
     );
   }
+
+  @Test
+  @DisplayName("TC-COMP-07: Tuple arity underflow clamps coordinate strictly to closing delimiter ')'")
+  void testTupleArityUnderflowClampsToClosingDelimiter() {
+    String source = """
+        {
+          :type :Tuple(:Int32 :String :Boolean)
+          :body (
+            42
+            "test"
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    var diag = result.diagnostics().stream()
+        .filter(d -> "TUPLE_ARITY_MISMATCH".equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("Expected TUPLE_ARITY_MISMATCH diagnostic"));
+
+    int rparenOffset = source.lastIndexOf(')');
+    Assertions.assertEquals(rparenOffset, diag.startOffset(), "startOffset must clamp to closing delimiter ')'");
+    Assertions.assertEquals(rparenOffset + 1, diag.endOffset(), "endOffset must clamp to closing delimiter ')' + 1");
+    Assertions.assertTrue(diag.message().contains("Tuple arity mismatch: Expected 3 elements, got 2"));
+  }
+
+  @Test
+  @DisplayName("TC-COMP-08: Tuple arity overflow clamps coordinate across extraneous elements")
+  void testTupleArityOverflowClampsToExtraneousElements() {
+    String source = """
+        {
+          :type :Tuple(:Int32 :String)
+          :body (
+            42
+            "valid"
+            #TRUE
+            100
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    var diag = result.diagnostics().stream()
+        .filter(d -> "TUPLE_ARITY_MISMATCH".equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("Expected TUPLE_ARITY_MISMATCH diagnostic"));
+
+    int expectedStart = source.indexOf("#TRUE");
+    int expectedEnd = source.indexOf("100") + "100".length();
+    Assertions.assertEquals(expectedStart, diag.startOffset(), "startOffset must match first extraneous element");
+    Assertions.assertEquals(expectedEnd, diag.endOffset(), "endOffset must match end of last extraneous element");
+    Assertions.assertTrue(diag.message().contains("Tuple arity mismatch: Expected 2 elements, got 4"));
+  }
+
+  @Test
+  @DisplayName("TC-COMP-09: Bare '#' followed by newline clamps strictly to single '#' without newline spillover")
+  void testBareHashLexerErrorClampsWithoutNewlineSpillover() {
+    String source = "{\n  :type :Int32\n  :body #\n}\n";
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    int hashOffset = source.indexOf('#');
+    Assertions.assertEquals(hashOffset, diag.startOffset(), "startOffset must pin directly to '#'");
+    Assertions.assertEquals(hashOffset + 1, diag.endOffset(), "endOffset must pin directly to '#' + 1");
+    Assertions.assertEquals(3, diag.line());
+    Assertions.assertFalse(diag.message().contains("\n"), "Sanitized diagnostic message must not contain raw '\\n'");
+    Assertions.assertFalse(diag.message().contains("\r"), "Sanitized diagnostic message must not contain raw '\\r'");
+  }
 }

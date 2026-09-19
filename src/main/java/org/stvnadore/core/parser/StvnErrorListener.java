@@ -83,8 +83,48 @@ public final class StvnErrorListener extends BaseErrorListener {
           ? startOffset
           : Math.max(startOffset + 1, token.getStopIndex() + 1);
     } else if (recognizer instanceof org.antlr.v4.runtime.Lexer lexerRec) {
-      startOffset = lexerRec.getCharIndex();
-      endOffset = lexerRec.getCharIndex() + 1;
+      if (e instanceof org.antlr.v4.runtime.LexerNoViableAltException lnvae && lnvae.getStartIndex() >= 0) {
+        startOffset = lnvae.getStartIndex();
+      } else if (lexerRec._tokenStartCharIndex >= 0) {
+        startOffset = lexerRec._tokenStartCharIndex;
+      } else {
+        startOffset = lexerRec.getCharIndex();
+      }
+
+      var input = lexerRec.getInputStream();
+      String source = input != null ? input.getText(org.antlr.v4.runtime.misc.Interval.of(0, input.size())) : "";
+
+      int matchedEnd = lexerRec.getCharIndex();
+      if (matchedEnd <= startOffset) {
+        matchedEnd = startOffset + 1;
+      }
+
+      // Clamp strictly within the current line boundary (never cross \r or \n)
+      int eol = source.length();
+      for (int i = startOffset; i < source.length(); i++) {
+        char c = source.charAt(i);
+        if (c == '\r' || c == '\n') {
+          eol = i;
+          break;
+        }
+      }
+
+      // Strip trailing line terminators from the matched character sequence
+      while (matchedEnd > startOffset && matchedEnd <= source.length()
+          && (source.charAt(matchedEnd - 1) == '\n' || source.charAt(matchedEnd - 1) == '\r')) {
+        matchedEnd--;
+      }
+
+      endOffset = Math.min(matchedEnd, eol);
+
+      // Specifically clamp bare '#' to exactly 1 character
+      if (startOffset >= 0 && startOffset < source.length() && source.charAt(startOffset) == '#') {
+        endOffset = startOffset + 1;
+      }
+
+      if (endOffset <= startOffset) {
+        endOffset = Math.min(startOffset + 1, source.length());
+      }
     }
 
     String sanitizedMessage = formatSanitizedMessage(recognizer, offendingToken, rawMsg, e);
@@ -485,6 +525,9 @@ public final class StvnErrorListener extends BaseErrorListener {
 
   private static String sanitizeRawFallback(String rawMsg) {
     if (rawMsg == null) return "syntax error";
+    if (rawMsg.contains("token recognition error at:")) {
+      return sanitizeTokenRecognitionMessage(rawMsg);
+    }
     if (rawMsg.contains("expecting {")) {
       int idx = rawMsg.indexOf("expecting {");
       String prefix = rawMsg.substring(0, idx).trim();
@@ -496,6 +539,21 @@ public final class StvnErrorListener extends BaseErrorListener {
     }
     if (rawMsg.contains("no viable alternative at input")) {
       return rawMsg.replace("no viable alternative at input", "mismatched input");
+    }
+    return rawMsg;
+  }
+
+  private static String sanitizeTokenRecognitionMessage(String rawMsg) {
+    int quoteStart = rawMsg.indexOf('\'');
+    int quoteEnd = rawMsg.lastIndexOf('\'');
+    if (quoteStart >= 0 && quoteEnd > quoteStart) {
+      String prefix = rawMsg.substring(0, quoteStart + 1);
+      String inner = rawMsg.substring(quoteStart + 1, quoteEnd);
+      String suffix = rawMsg.substring(quoteEnd);
+      while (inner.endsWith("\n") || inner.endsWith("\r")) {
+        inner = inner.substring(0, inner.length() - 1);
+      }
+      return prefix + inner + suffix;
     }
     return rawMsg;
   }

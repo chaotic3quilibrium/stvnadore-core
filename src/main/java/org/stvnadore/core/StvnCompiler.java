@@ -103,6 +103,9 @@ public final class StvnCompiler {
     if (msg.contains("no viable alternative at input")) {
       return msg.replace("no viable alternative at input", "mismatched input");
     }
+    if (msg.contains("token recognition error at:")) {
+      return StvnErrorListener.formatSanitizedMessage(null, null, msg, null);
+    }
     return msg;
   }
 

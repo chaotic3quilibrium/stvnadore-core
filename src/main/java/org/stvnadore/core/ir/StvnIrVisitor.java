@@ -1,6 +1,7 @@
 package org.stvnadore.core.ir;
 
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.ir.StvnValue.*;
@@ -1699,7 +1700,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         int prevSize = queue.size();
         ResolvedSchema elSchema = (targetIndex < elementSchemas.size())
             ? elementSchemas.get(targetIndex)
-            : null;
+            : ensureSchema(null);
         targetIndex++;
         try {
           StvnValue elVal = evaluateNextItem(queue, elSchema);
@@ -1723,13 +1724,40 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
 
       if (expected > 0 && expected != elements.size()) {
-        int start = ctx.start.getStartIndex();
-        int end = ctx.stop.getStopIndex() + 1;
-        int[] pos = getLineCol(ctx);
+        int start;
+        int end;
+        int line;
+        int col;
+        if (elements.size() < expected) {
+          // Underflow: Clamp strictly to the closing parenthesis delimiter ')'
+          Token rparen = (ctx.RPAREN() != null && ctx.RPAREN().getSymbol() != null)
+              ? ctx.RPAREN().getSymbol()
+              : ctx.stop;
+          start = rparen.getStartIndex();
+          end = rparen.getStopIndex() + 1;
+          line = rparen.getLine();
+          col = rparen.getCharPositionInLine();
+        } else {
+          // Overflow: Clamp across extraneous elements (from index expected through elements.size() - 1)
+          if (ctx.value() != null && ctx.value().size() > expected) {
+            var firstExtraneous = ctx.value(expected);
+            var lastExtraneous = ctx.value(ctx.value().size() - 1);
+            start = firstExtraneous.getStart().getStartIndex();
+            end = lastExtraneous.getStop().getStopIndex() + 1;
+            line = firstExtraneous.getStart().getLine();
+            col = firstExtraneous.getStart().getCharPositionInLine();
+          } else {
+            Token stop = ctx.stop != null ? ctx.stop : ctx.start;
+            start = stop.getStartIndex();
+            end = stop.getStopIndex() + 1;
+            line = stop.getLine();
+            col = stop.getCharPositionInLine();
+          }
+        }
         var ex = new MalformedPayloadException("Tuple arity mismatch: Expected " + expected + " elements, got " + elements.size(), start, end);
         var diag = new StvnDiagnostic(
             ex.getMessage(),
-            StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, ex, Optional.of("TUPLE_ARITY_MISMATCH")
+            StvnDiagnostic.DiagnosticSeverity.ERROR, line, col, start, end, ex, Optional.of("TUPLE_ARITY_MISMATCH")
         );
         diagnosticBag.add(diag);
       }

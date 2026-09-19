@@ -423,4 +423,37 @@ public class StvnIrValidationTest {
     Assertions.assertTrue(astStr.contains("ConflictType"));
     Assertions.assertTrue(astStr.contains("ConflictTypeB"));
   }
+
+  @org.junit.jupiter.api.Test
+  @org.junit.jupiter.api.DisplayName("TC-IR-TUPLE-01: Tuple arity mismatch throws MalformedPayloadException with pinned coordinates")
+  void testTupleArityMismatchCoordinatesInStrictCompile() {
+    String underflow = """
+        {
+          :type :Tuple(:Int32 :Int32)
+          :body ( 42 )
+        }
+        """;
+    var exUnderflow = org.junit.jupiter.api.Assertions.assertThrows(
+        org.stvnadore.core.validation.MalformedPayloadException.class,
+        () -> org.stvnadore.core.StvnCompiler.compile(underflow)
+    );
+    int rparen = underflow.lastIndexOf(')');
+    org.junit.jupiter.api.Assertions.assertEquals(rparen, exUnderflow.startOffset());
+    org.junit.jupiter.api.Assertions.assertEquals(rparen + 1, exUnderflow.endOffset());
+
+    String overflow = """
+        {
+          :type :Tuple(:Int32)
+          :body ( 42 84 126 )
+        }
+        """;
+    var exOverflow = org.junit.jupiter.api.Assertions.assertThrows(
+        org.stvnadore.core.validation.MalformedPayloadException.class,
+        () -> org.stvnadore.core.StvnCompiler.compile(overflow)
+    );
+    int startExcess = overflow.indexOf("84");
+    int endExcess = overflow.indexOf("126") + "126".length();
+    org.junit.jupiter.api.Assertions.assertEquals(startExcess, exOverflow.startOffset());
+    org.junit.jupiter.api.Assertions.assertEquals(endExcess, exOverflow.endOffset());
+  }
 }
