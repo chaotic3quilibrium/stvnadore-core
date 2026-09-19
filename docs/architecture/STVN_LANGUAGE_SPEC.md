@@ -60,7 +60,10 @@
       * [5.6.4 Compliance & Audit Record: `:org/stvnadore/prelude/DateTimeAudited`](#564-compliance--audit-record-orgstvnadorepreludedatetimeaudited)
       * [5.6.5 Tripartite Invariant Comparison Matrix](#565-tripartite-invariant-comparison-matrix)
   * [6. Trait Capability Calculus & Metadata Constraints](#6-trait-capability-calculus--metadata-constraints)
-    * [6.1 Metadata Target Constraints](#61-metadata-target-constraints)
+    * [6.1 Metadata Target Constraints & Facet Governance](#61-metadata-target-constraints--facet-governance)
+      * [Facet Target Governance Matrix](#facet-target-governance-matrix)
+      * [Empty Block Invariants](#empty-block-invariants)
+      * [Diagnostic Reporting Invariant](#diagnostic-reporting-invariant)
     * [6.2 Trait Capability Matrix](#62-trait-capability-matrix)
     * [6.3 Trait Derivation and Override Rules](#63-trait-derivation-and-override-rules)
   * [7. Value-Oriented Protocol (VOP) Invariants](#7-value-oriented-protocol-vop-invariants)
@@ -654,7 +657,7 @@ STVN supports arbitrary bit-width integers ($n \ge 1$). Integers are not limited
 ### 5.2 Algebraic Sum Types
 
 * **`:Option( T )`**: Optional wrapper. Recognizes `#Some v` (or `#S v`) and `#None` (or `#N`).
-* **`:Either( L R )`**: Disjoint union with right bias. Recognizes `#Left v` (or `#L v`) and `#Right v` (or `#R v`).
+* **`:Either( L R )`**: Disjoint union with right bias. Recognizes `#Left v` (or `#L v`) and `#Right v` (or `#R v`). In accordance with Value-Oriented Programming (VOP) principles, `:Either` is fundamentally right-biased: candidate branch evaluation, diagnostic enumeration, and tooling intention actions are strictly **right-first** ($R$ precedes $L$).
 * **`:Union( T1 T2 ... Tn )`**: N-way disjoint variant plane. Variants use 1-based indexing (`#1`, `#2`, ... `#n`).
 * **`:Enum[ #VAL1 #VAL2 ... #VALn ]`**: Bounded set of nominal keyword constants. Stored internally as 0-based sequential integers.
 
@@ -804,13 +807,13 @@ Metadata constraint blocks `{ ... }` configure nominal type definitions and comp
 
 #### Facet Target Governance Matrix
 
-| Facet Group | Permitted Facets | Permitted Target Entities | Prohibited Targets | Diagnostic Code |
-|:---|:---|:---|:---|:---|
-| **Numeric Bounds** | `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl` | Numeric types (`:Int*`, `:Uint*`, `:Float*`, `:FloatExact`) | String types, `:Boolean`, `:Enum`, `:Tuple`, collections | `ERR_INVALID_METADATA_FACET` |
-| **String Constraints** | `#regex`, `#preserveIndent` | String types (`:String*`, `:StringFixed*`, `:StringNonEmpty*`) | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, collections | `ERR_INVALID_METADATA_FACET` |
-| **Enum Subsetting** | `#filterIncl`, `#filterExcl` | Nominal aliases of `:Enum` and existing enum subsets | Inline enum constructors, scalar primitives, constants | `ERR_INVALID_METADATA_FACET` |
-| **Directive Options** | `#strip` | Directive blocks in `:use` and `:include` statements | Type definitions, constant definitions | `ERR_INVALID_METADATA_FACET` |
-| **Trait Overrides** | `#equatable`, `#comparable` | Nominal type definitions | Constant definitions, collection instances | `ERR_INVALID_METADATA_FACET` |
+| Facet Group            | Permitted Facets                               | Permitted Target Entities                                      | Prohibited Targets                                        | Diagnostic Code              |
+|:-----------------------|:-----------------------------------------------|:---------------------------------------------------------------|:----------------------------------------------------------|:-----------------------------|
+| **Numeric Bounds**     | `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl` | Numeric types (`:Int*`, `:Uint*`, `:Float*`, `:FloatExact`)    | String types, `:Boolean`, `:Enum`, `:Tuple`, collections  | `ERR_INVALID_METADATA_FACET` |
+| **String Constraints** | `#regex`, `#preserveIndent`                    | String types (`:String*`, `:StringFixed*`, `:StringNonEmpty*`) | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, collections | `ERR_INVALID_METADATA_FACET` |
+| **Enum Subsetting**    | `#filterIncl`, `#filterExcl`                   | Nominal aliases of `:Enum` and existing enum subsets           | Inline enum constructors, scalar primitives, constants    | `ERR_INVALID_METADATA_FACET` |
+| **Directive Options**  | `#strip`                                       | Directive blocks in `:use` and `:include` statements           | Type definitions, constant definitions                    | `ERR_INVALID_METADATA_FACET` |
+| **Trait Overrides**    | `#equatable`, `#comparable`                    | Nominal type definitions                                       | Constant definitions, collection instances                | `ERR_INVALID_METADATA_FACET` |
 
 #### Empty Block Invariants
 
@@ -889,7 +892,7 @@ STVN decoders support implicit tagging for sum types when the payload value is u
 [ 42.5 ] // Inferred as #Some #Right 42.5
 ```
 * **Rule G (Union Branch Indexing):** Union variants use 1-based indexing prefixes matching lexer pattern `#` `[1-9][0-9]*` (e.g., `#1 42`, `#2 "text"`). Tag `#0` and negative tags are illegal. Indices exceeding the union branch count throw `StvnMalformedLiteralException`.
-* **Rule H (Two-Branch Union vs. Either):** A 2-branch `:Union( A B )` has no structural bias and allows implicit bidirectional matching across distinct token domains via Rule C. In contrast, `:Either( L R )` is right-biased and requires explicit `#Left` tagging.
+* **Rule H (Right-First Precedence & Either vs. Union):** A 2-branch `:Union( A B )` has no structural bias and allows implicit bidirectional matching across distinct token domains via Rule C. In contrast, `:Either( L R )` is fundamentally right-biased ($R$ precedes $L$). Across all compiler validation passes, diagnostic message enumerations, candidate resolutions, and interactive IDE intention actions/quick-fixes, branch $R$ is evaluated and presented prior to branch $L$. In IDE quick-fixes for ambiguous `:Either` payloads, `Wrap with #Right (-> R)` must always be registered as the primary (top) intention action, followed by `Wrap with #Left (-> L)`.
 * **Rule I (Intersection Clusters & Duplicate Branches):** If an untagged value matches multiple candidate branches in a sum type (due to intersecting structural domains or duplicate nominal types such as `:Union( :Uint32 :Uint32 )`), implicit resolution is disabled. The payload must provide an explicit branch tag (`#Left`, `#Right`, `#1`, `#2`, etc.), or the parser emits `ERR_AMBIGUOUS_SUM_INFERENCE` (`StvnCollectionCollisionException` for `:Union`, `MalformedPayloadException` for `:Either`).
 * **Rule J (Semantic Guard Tracking):** If an explicit branch tag is syntactically valid but the value violates a localized constraint (e.g., a `#regex` mismatch), the AST node is lowered into a monadic diagnostic framework (`StvnAnalysisResult`). The error is tracked in a `StvnDiagnostic` frame with text coordinates for IDE highlighting without crashing the AST pipeline.
 
