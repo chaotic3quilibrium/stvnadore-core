@@ -1,0 +1,25 @@
+{
+  // sum_type_duplicate_branches_explicit.stvn
+  // Verifies that sum types with duplicate nominal branches compile cleanly when explicit tags are used.
+  :defs {
+    :IdenticalEither :Either( :Uint32 :Uint32 )
+    :IdenticalUnion  :Union( :Uint32 :Uint32 :Uint32 )
+    :RootPayload     :Tuple(
+      :IdenticalEither
+      :IdenticalEither
+      :IdenticalUnion
+      :IdenticalUnion
+      :IdenticalUnion
+    )
+  }
+
+  :type :RootPayload
+
+  :body (
+    #Left 100
+    #Right 200
+    #1 300
+    #2 400
+    #3 500
+  )
+}

@@ -313,9 +313,15 @@ public final class StvnCompiler {
         } else if (t instanceof org.stvnadore.core.validation.StvnCollectionCollisionException e) {
           startOffset = e.startOffset();
           endOffset = e.endOffset();
+          if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
+          }
         } else if (t instanceof org.stvnadore.core.validation.MalformedPayloadException e) {
           startOffset = e.startOffset();
           endOffset = e.endOffset();
+          if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
+          }
         }
         int line = -1;
         int column = -1;
@@ -359,6 +365,7 @@ public final class StvnCompiler {
       } catch (Throwable t) {
         int startOffset = -1;
         int endOffset = -1;
+        String errorCode = null;
         if (t instanceof org.stvnadore.core.validation.MalformedSchemaException e) {
           startOffset = e.startOffset();
           endOffset = e.endOffset();
@@ -368,9 +375,15 @@ public final class StvnCompiler {
         } else if (t instanceof org.stvnadore.core.validation.StvnCollectionCollisionException e) {
           startOffset = e.startOffset();
           endOffset = e.endOffset();
+          if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
+          }
         } else if (t instanceof org.stvnadore.core.validation.MalformedPayloadException e) {
           startOffset = e.startOffset();
           endOffset = e.endOffset();
+          if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
+          }
         }
         int line = -1;
         int column = -1;
@@ -386,7 +399,8 @@ public final class StvnCompiler {
             column,
             startOffset,
             endOffset,
-            t
+            t,
+            Optional.ofNullable(errorCode)
         ));
         return StvnCompilationResult.failure(diagnosticBag.toList());
       }

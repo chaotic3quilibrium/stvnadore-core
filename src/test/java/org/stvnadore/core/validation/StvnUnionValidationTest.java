@@ -98,14 +98,14 @@ class StvnUnionValidationTest {
           :body 42
         }
         """;
-    var exception = Assertions.assertThrows(MalformedSchemaException.class, () -> {
+    var exception = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> {
       StvnCompiler.compile(input);
     });
-    Assertions.assertTrue(exception.getMessage().contains("Two member branches within a single sum type share identical nominal type identities"));
+    Assertions.assertTrue(exception.getMessage().contains("Ambiguous implicit resolution: Value matches multiple branches"));
   }
 
   @Test
-  void testEitherDuplicateNominalBranchThrowsMalformedSchemaException() {
+  void testEitherDuplicateNominalBranchExplicitTagSucceeds() {
     String input = """
         {
           :defs {
@@ -116,10 +116,12 @@ class StvnUnionValidationTest {
           :body #Left 42
         }
         """;
-    var exception = Assertions.assertThrows(MalformedSchemaException.class, () -> {
-      StvnCompiler.compile(input);
-    });
-    Assertions.assertTrue(exception.getMessage().contains("Two member branches within a single sum type share identical nominal type identities"));
+    var valOpt = StvnCompiler.compile(input);
+    Assertions.assertTrue(valOpt.isPresent());
+    Assertions.assertInstanceOf(StvnValue.StvnEither.class, valOpt.get());
+    var either = (StvnValue.StvnEither) valOpt.get();
+    Assertions.assertFalse(either.isRight());
+    Assertions.assertTrue(either.isAmbiguous());
   }
 
   @Test

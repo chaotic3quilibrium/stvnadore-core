@@ -56,6 +56,8 @@ public final class DiagnosticBag {
   public static final String ERR_TRAILING_SLASH_PROHIBITED = "ERR_TRAILING_SLASH_PROHIBITED";
   /** Error code emitted when algebraic sum type branches share duplicate tag identifiers. */
   public static final String ERR_SUM_TYPE_COLLISION = "SUM_TYPE_TAG_COLLISION";
+  /** Error code emitted when implicit sum type payload inference is ambiguous due to duplicate nominal types or intersecting domains. */
+  public static final String ERR_AMBIGUOUS_SUM_INFERENCE = "ERR_AMBIGUOUS_SUM_INFERENCE";
   /** Error code emitted when structural trait constraints are violated. */
   public static final String ERR_TRAIT_VIOLATION = "TRAIT_VIOLATION";
   /** Error code emitted when a schema definition contains malformed syntax or illegal nesting. */

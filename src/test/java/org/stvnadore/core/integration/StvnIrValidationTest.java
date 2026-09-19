@@ -361,8 +361,8 @@ public class StvnIrValidationTest {
         // --- 2c) Rule C Failure Vector ---
         ValidationTestCase.failure(
             "Rule C Failure - Ambiguous Either Identical Sides (String)",
-            "{ :type :Either(:String :String) :body [ \"world\" ] }",
-            "share identical nominal type identities"
+            "{ :type :Either(:String :String) :body \"world\" }",
+            "Ambiguous implicit either: Both sides are identical (:String), explicit #Left or #Right tag is required"
         ),
         ValidationTestCase.failure(
             "Rule C Failure - Ambiguous Option Keyword Clash with Enum Value",

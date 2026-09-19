@@ -1,0 +1,55 @@
+TypeRegistry:
+  - :IdenticalEither
+      schema:
+        node: :Either(:Uint32:Uint32)
+        aliasName: :IdenticalEither
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Either(:Uint32:Uint32)
+  - :IdenticalUnion
+      schema:
+        node: :Union(:Uint32:Uint32:Uint32)
+        aliasName: :IdenticalUnion
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Union(:Uint32:Uint32:Uint32)
+  - :RootPayload
+      schema:
+        node: :Tuple(:IdenticalEither:IdenticalEither:IdenticalUnion:IdenticalUnion:IdenticalUnion)
+        aliasName: :RootPayload
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:IdenticalEither:IdenticalEither:IdenticalUnion:IdenticalUnion:IdenticalUnion)
+  - <:type>
+      schema:
+        node: :Tuple(:IdenticalEither:IdenticalEither:IdenticalUnion:IdenticalUnion:IdenticalUnion)
+        aliasName: :RootPayload
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple(:IdenticalEither:IdenticalEither:IdenticalUnion:IdenticalUnion:IdenticalUnion)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnEither
+          isRight: false
+          value: StvnInteger(:Uint32): 100
+      - StvnEither
+          isRight: true
+          value: StvnInteger(:Uint32): 200
+      - StvnUnion
+          tagIndex: 0
+          value: StvnInteger(:Uint32): 300
+      - StvnUnion
+          tagIndex: 1
+          value: StvnInteger(:Uint32): 400
+      - StvnUnion
+          tagIndex: 2
+          value: StvnInteger(:Uint32): 500

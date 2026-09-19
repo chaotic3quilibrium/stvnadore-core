@@ -1,0 +1,9 @@
+{
+  // union_duplicate_branches_untagged.stvn
+  :defs {
+    :IdenticalUnion :Union( :Uint32 :Uint32 )
+  }
+
+  :type :IdenticalUnion
+  :body 42
+}

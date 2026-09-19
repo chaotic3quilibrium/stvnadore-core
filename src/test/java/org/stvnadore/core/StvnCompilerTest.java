@@ -114,4 +114,72 @@ public class StvnCompilerTest {
     Assertions.assertTrue(pretty.contains(":org/example/geo/Coord :Float64"));
     Assertions.assertTrue(pretty.contains(":Point :Tuple(:org/example/geo/Coord :org/example/geo/Coord)"));
   }
+
+  @Test
+  @DisplayName("TC-COMP-04: Sum types with duplicate branches compile cleanly with explicit tags")
+  void testDuplicateBranchesCompileWithExplicitTags() {
+    String source = """
+        {
+          :defs {
+            :MyEither :Either( :Uint32 :Uint32 )
+            :MyUnion  :Union( :Uint32 :Uint32 )
+            :RootPayload :Tuple( :MyEither :MyEither :MyUnion :MyUnion )
+          }
+          :type :RootPayload
+          :body (
+            #Left 42
+            #Right 84
+            #1 100
+            #2 200
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.isSuccess(), "Compilation must succeed with explicit tags: " + result.diagnostics());
+    Assertions.assertTrue(result.diagnostics().isEmpty());
+  }
+
+  @Test
+  @DisplayName("TC-COMP-05: Untagged payload matching duplicate Either branches fails with ERR_AMBIGUOUS_SUM_INFERENCE")
+  void testUntaggedEitherDuplicateBranchesFailsClosed() {
+    String source = """
+        {
+          :defs {
+            :MyEither :Either( :Uint32 :Uint32 )
+          }
+          :type :MyEither
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertTrue(
+        result.diagnostics().stream().anyMatch(d ->
+            org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE.equals(d.errorCode().orElse(null))
+        ),
+        "Must emit ERR_AMBIGUOUS_SUM_INFERENCE: " + result.diagnostics()
+    );
+  }
+
+  @Test
+  @DisplayName("TC-COMP-06: Untagged payload matching duplicate Union branches fails with ERR_AMBIGUOUS_SUM_INFERENCE")
+  void testUntaggedUnionDuplicateBranchesFailsClosed() {
+    String source = """
+        {
+          :defs {
+            :MyUnion :Union( :Uint32 :Uint32 )
+          }
+          :type :MyUnion
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertTrue(
+        result.diagnostics().stream().anyMatch(d ->
+            org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE.equals(d.errorCode().orElse(null))
+        ),
+        "Must emit ERR_AMBIGUOUS_SUM_INFERENCE: " + result.diagnostics()
+    );
+  }
 }

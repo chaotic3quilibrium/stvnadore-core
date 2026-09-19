@@ -1193,7 +1193,7 @@ public class StvnEndToEndIntegrationTest {
               :body 42
             }
             """,
-        "Two member branches within a single sum type share identical nominal type identities: :Option"
+        "Ambiguous implicit resolution: Value matches both Left and Right branches of :Either"
     );
 
     var nominalEitherSubstringTest = TestProfile.create(
@@ -1260,7 +1260,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "world" ]
                 }
                 """,
-            "Two member branches within a single sum type share identical nominal type identities: :String"),
+            "Ambiguous implicit either: Both sides are identical (:String), explicit #Left or #Right tag is required"),
 
         TestProfile.createError(
             "Rogue Wrappers - Option Tags Enforced on Primitives",

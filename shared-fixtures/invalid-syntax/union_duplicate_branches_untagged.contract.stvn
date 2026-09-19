@@ -1,5 +1,5 @@
 {
-  // union_duplicate_nominal.contract.stvn
+  // union_duplicate_branches_untagged.contract.stvn
   :defs {
     :include [ "error_contract.stvn_inclf" ]
   }

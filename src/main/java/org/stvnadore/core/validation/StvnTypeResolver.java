@@ -2916,20 +2916,14 @@ public class StvnTypeResolver {
    * @param schemaNode the schema type context node to validate
    * @param visited    the set of visited type keyword names to detect and prevent cycles
    * @throws MalformedSchemaException if any structural constraint violation is detected
+   * @deprecated Sum types with duplicate nominal branch types are valid coproducts as of 1.3.1.
    */
+  @Deprecated
   public static void validateSchemaSumTypeUniqueness(
       @Nullable StvnDocumentContext doc,
       @Nullable SchemaTypeContext schemaNode,
       Set<String> visited) {
-    var bag = new DiagnosticBag();
-    validateSchemaSumTypeUniqueness(doc, schemaNode, visited, bag);
-    if (bag.hasErrors()) {
-      var first = bag.toList().getFirst();
-      if (first.cause() instanceof RuntimeException re) {
-        throw re;
-      }
-      throw new MalformedSchemaException(first.message(), first.startOffset(), first.endOffset(), first.cause());
-    }
+    // Deprecated no-op: Duplicate nominal branches are valid algebraic coproducts
   }
 
   /**
@@ -2941,52 +2935,15 @@ public class StvnTypeResolver {
    * @param schemaNode    the schema type context node to validate
    * @param visited       the set of visited type keyword names to detect and prevent cycles
    * @param diagnosticBag the accumulator bag for recording semantic diagnostics
+   * @deprecated Sum types with duplicate nominal branch types are valid coproducts as of 1.3.1.
    */
+  @Deprecated
   public static void validateSchemaSumTypeUniqueness(
       @Nullable StvnDocumentContext doc,
       @Nullable SchemaTypeContext schemaNode,
       Set<String> visited,
       DiagnosticBag diagnosticBag) {
-    if (schemaNode == null) return;
-
-    if (schemaNode.typeKeyword() != null) {
-      var kw = schemaNode.typeKeyword().getText();
-      if (!visited.add(kw)) {
-        return; // Break recursion on cycle
-      }
-    }
-
-    var resolvedOpt = resolvePrimitiveSchema(doc, schemaNode, new java.util.HashSet<>(visited), true);
-    if (resolvedOpt.isEmpty()) return;
-
-    var resolved = resolvedOpt.get();
-    var baseText = getPrimitiveBaseType(resolved.node());
-
-    if (baseText != null && (baseText.equals(":Union") || baseText.equals(":Either"))) {
-      var candidates = resolveCandidateSchemas(doc, resolved.node());
-      for (int i = 0; i < candidates.size(); i++) {
-        for (int j = i + 1; j < candidates.size(); j++) {
-          var r1 = candidates.get(i);
-          var r2 = candidates.get(j);
-          var nom1 = r1.aliasName().orElseGet(() -> getPrimitiveBaseType(r1.node()));
-          var nom2 = r2.aliasName().orElseGet(() -> getPrimitiveBaseType(r2.node()));
-          if (Objects.equals(nom1, nom2)) {
-            int line = schemaNode.getStart().getLine();
-            int col = schemaNode.getStart().getCharPositionInLine();
-            int start = schemaNode.getStart().getStartIndex();
-            int end = schemaNode.getStop().getStopIndex() + 1;
-            diagnosticBag.addError(
-                "Two member branches within a single sum type share identical nominal type identities: " + nom1,
-                start, end, line, col, null, DiagnosticBag.ERR_SUM_TYPE_COLLISION
-            );
-          }
-        }
-      }
-    }
-
-    for (var child : getInnerSchemas(schemaNode)) {
-      validateSchemaSumTypeUniqueness(doc, child, new java.util.HashSet<>(visited), diagnosticBag);
-    }
+    // Deprecated no-op: Duplicate nominal branches are valid algebraic coproducts
   }
 
   /**
@@ -3163,7 +3120,6 @@ public class StvnTypeResolver {
         int col = doc.documentBody().typeEntry().schemaType().getStart().getCharPositionInLine();
         diagnosticBag.addError(e.getMessage(), start, end, line, col, e, DiagnosticBag.ERR_CIRCULAR_TYPE);
       }
-      validateSchemaSumTypeUniqueness(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>(), diagnosticBag);
       validateSchemaCapabilities(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>(), diagnosticBag);
     }
   }
@@ -3275,7 +3231,6 @@ public class StvnTypeResolver {
       return;
     }
 
-    validateSchemaSumTypeUniqueness(doc, typeDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     validateSchemaCapabilities(doc, typeDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     if (typeDef.metadataMap() != null) {
       if (typeDef.metadataMap().metadataEntry().isEmpty()) {
@@ -3353,7 +3308,6 @@ public class StvnTypeResolver {
       return;
     }
 
-    validateSchemaSumTypeUniqueness(doc, constDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     validateSchemaCapabilities(doc, constDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     if (constDef.metadataMap() != null) {
       if (constDef.metadataMap().metadataEntry().isEmpty()) {

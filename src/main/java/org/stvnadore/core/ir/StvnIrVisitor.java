@@ -1830,7 +1830,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       if (childSchemas.size() >= 2) {
         String leftBase = StvnTypeResolver.getPrimitiveBaseType(childSchemas.get(0).node());
         String rightBase = StvnTypeResolver.getPrimitiveBaseType(childSchemas.get(1).node());
-        if (leftBase != null && leftBase.equals(rightBase)) {
+        if ((leftBase != null && leftBase.equals(rightBase))
+            || StvnTypeResolver.isSameSchemaNode(documentContext, childSchemas.get(0).node(), childSchemas.get(1).node())) {
           isAmbiguous = true;
         }
       }
@@ -1970,10 +1971,21 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
       return 0;
     } else if (baseType.equals(":Union")) {
+      int matchCount = 0;
+      int matchedIndex = -1;
       for (var i = 0; i < candidates.size(); i++) {
         if (matchesSchema(val, candidates.get(i))) {
-          return i;
+          matchCount++;
+          matchedIndex = i;
         }
+      }
+      if (matchCount > 1) {
+        throw new org.stvnadore.core.validation.StvnCollectionCollisionException(
+            "Ambiguous implicit resolution: Value matches multiple branches"
+        );
+      }
+      if (matchCount == 1) {
+        return matchedIndex;
       }
     }
     return 0;
@@ -2467,15 +2479,24 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
 
       var candidates = StvnTypeResolver.resolveCandidateSchemas(documentContext, rootSchema.node());
 
+      int schemaMatchCount = 0;
       ResolvedSchema matchedCand = null;
       var matchedIndex = -1;
       for (var i = 0; i < candidates.size(); i++) {
         var cand = candidates.get(i);
         if (val.schema() != null && StvnTypeResolver.isSameSchemaNode(documentContext, val.schema().node(), cand.node())) {
+          schemaMatchCount++;
           matchedCand = cand;
           matchedIndex = i;
-          break;
         }
+      }
+
+      if (schemaMatchCount > 1) {
+        throw new org.stvnadore.core.validation.StvnCollectionCollisionException(
+            "Ambiguous implicit resolution: Value matches multiple branches",
+            startOffset,
+            endOffset
+        );
       }
 
       if (matchedCand != null) {

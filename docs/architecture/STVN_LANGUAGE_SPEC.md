@@ -857,7 +857,7 @@ When an author applies a facet to an incompatible target entity, the compiler em
 2. **Zero-Shadowing:** A nominal type definition in a `:defs` block must not redefine or shadow another type identifier in the same file context.
 3. **Nominal Type Isolation:** Types with identical structural layouts remain incompatible if their names differ. Compatibility requires matching nominal type identifiers.
 4. **Nominal Bounding:** Recursive or cyclical type structures must not be defined anonymously at the raw payload tier. Recursive types must be anchored through a named definition in a `:defs` block.
-5. **Sum Type Variant Uniqueness:** All candidate branches in `:Either` or `:Union` types must possess unique nominal type names. If two branches share the same underlying structure, the developer must register unique aliases in `:defs`. Duplicate branch types cause a `MalformedSchemaException`.
+5. **Sum Type Variant Soundness (Coproduct Invariant):** Sum types (`:Either`, `:Union`) are mathematically valid coproducts even when candidate branches share identical nominal types or intersecting value domains. When candidate branches share identical nominal types or intersecting domains, implicit payload inference (Rules B, C) is disabled for those branches. Payloads matching intersecting or duplicate branches must provide explicit variant tags (`#Left`, `#Right`, `#1`, `#2`, etc.).
 
 ---
 
@@ -868,8 +868,8 @@ STVN decoders support implicit tagging for sum types when the payload value is u
 ### 8.1 Inference Rules
 
 * **Rule A (Implied Option `#Some`):** For schema `:Option( T )`, an untagged value matching type `T` is automatically parsed as `#Some value`.
-* **Rule B (Implied Either `#Right`):** For schema `:Either( L R )`, an untagged value matching type `R` is automatically parsed as `#Right value`.
-* **Rule C (Implied Union Branch):** For schema `:Union( T1 T2 ... Tn )`, an untagged value matching the distinct structural domain of exactly one branch `Tk` is automatically parsed as `#k value`.
+* **Rule B (Implied Either `#Right`):** For schema `:Either( L R )`, an untagged value matching type `R` is automatically parsed as `#Right value` if and only if `L` and `R` have non-intersecting value domains and distinct nominal identities. If `L` and `R` share identical nominal types or intersecting domains, implicit inference is disabled; untagged values trigger `ERR_AMBIGUOUS_SUM_INFERENCE` (`MalformedPayloadException`).
+* **Rule C (Implied Union Branch):** For schema `:Union( T1 T2 ... Tn )`, an untagged value matching the distinct structural domain of exactly one branch `Tk` is automatically parsed as `#k value`. If the untagged value matches more than one candidate branch, implicit inference is disabled; untagged values trigger `ERR_AMBIGUOUS_SUM_INFERENCE` (`StvnCollectionCollisionException`).
 * **Rule D (Ambiguity Resolution):** If an untagged value is structurally valid as both an explicit variant tag (e.g., enum or constant value token `#None`, `#Right`, etc.) and an inner scalar type `T`, explicit tagging is **mandatory**.
 * **Rule E (Asymmetric Non-Inferability):** The tags `#Left` and `#None` **must never be inferred**.
     * Untagged values matching type `L` in an `:Either( L R )` schema trigger a fatal type error (`MalformedPayloadException`).
@@ -890,7 +890,7 @@ STVN decoders support implicit tagging for sum types when the payload value is u
 ```
 * **Rule G (Union Branch Indexing):** Union variants use 1-based indexing prefixes matching lexer pattern `#` `[1-9][0-9]*` (e.g., `#1 42`, `#2 "text"`). Tag `#0` and negative tags are illegal. Indices exceeding the union branch count throw `StvnMalformedLiteralException`.
 * **Rule H (Two-Branch Union vs. Either):** A 2-branch `:Union( A B )` has no structural bias and allows implicit bidirectional matching across distinct token domains via Rule C. In contrast, `:Either( L R )` is right-biased and requires explicit `#Left` tagging.
-* **Rule I (Intersection Clusters):** If an untagged value matches multiple candidate branches in a union, implicit resolution is disabled. The payload must provide an explicit branch tag (`#1`), or the parser throws `StvnCollectionCollisionException`.
+* **Rule I (Intersection Clusters & Duplicate Branches):** If an untagged value matches multiple candidate branches in a sum type (due to intersecting structural domains or duplicate nominal types such as `:Union( :Uint32 :Uint32 )`), implicit resolution is disabled. The payload must provide an explicit branch tag (`#Left`, `#Right`, `#1`, `#2`, etc.), or the parser emits `ERR_AMBIGUOUS_SUM_INFERENCE` (`StvnCollectionCollisionException` for `:Union`, `MalformedPayloadException` for `:Either`).
 * **Rule J (Semantic Guard Tracking):** If an explicit branch tag is syntactically valid but the value violates a localized constraint (e.g., a `#regex` mismatch), the AST node is lowered into a monadic diagnostic framework (`StvnAnalysisResult`). The error is tracked in a `StvnDiagnostic` frame with text coordinates for IDE highlighting without crashing the AST pipeline.
 
 ---
