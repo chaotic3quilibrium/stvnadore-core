@@ -5,6 +5,7 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
+import org.antlr.v4.runtime.Token;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import java.util.Optional;
@@ -303,6 +304,8 @@ public final class StvnCompiler {
           endOffset = e.endOffset();
           if (e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_UNKNOWN_TYPE;
+          } else if (e.getMessage() != null && e.getMessage().contains("filter facets")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_INVALID_METADATA_FACET;
           }
         } else if (t instanceof org.stvnadore.core.validation.StvnMalformedLiteralException e) {
           startOffset = e.startOffset();
@@ -413,7 +416,9 @@ public final class StvnCompiler {
           line = token.getLine();
           column = token.getCharPositionInLine();
           startOffset = token.getStartIndex();
-          endOffset = token.getStopIndex();
+          endOffset = token.getType() == Token.EOF
+              ? startOffset
+              : Math.max(startOffset + 1, token.getStopIndex() + 1);
         }
       } else if (e.getMessage() != null) {
         msg = e.getMessage();

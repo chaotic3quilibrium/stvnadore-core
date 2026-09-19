@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Constraint violation (:BadType): preserveIndent is not allowed on :Int32"
+    "facet 'preserveIndent' is not permitted on :Int32"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

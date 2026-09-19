@@ -13,6 +13,7 @@ import org.stvnadore.core.ir.StvnValue.StvnOption;
 import org.stvnadore.core.ir.StvnValue.StvnSeq;
 import org.stvnadore.core.ir.StvnValue.StvnString;
 import org.stvnadore.core.ir.StvnValue.StvnTuple;
+import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.MalformedPayloadException;
 import org.stvnadore.core.validation.StvnSyntaxCancellationException;
 
@@ -717,5 +718,107 @@ public class StvnDiagnosticsTest {
     Assertions.assertTrue(result.isSuccess());
     Assertions.assertFalse(result.hasWarnings());
     Assertions.assertEquals(0, result.diagnostics().size());
+  }
+
+  @Test
+  @DisplayName("Tolerant parsing: Empty metadata block on type emits ERR_EMPTY_METADATA_BLOCK without syntax error")
+  void testEmptyMetadataBlockOnTypeEmitsSemanticError() {
+    String input = """
+        {
+          :defs {
+            :Port {} :Uint16
+          }
+          :type :Port
+          :body 8080
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_EMPTY_METADATA_BLOCK, diag.errorCode().orElse(""));
+    Assertions.assertTrue(diag.message().contains("Empty metadata block is invalid; remove '{}' or specify valid facets"));
+    Assertions.assertEquals(3, diag.line());
+    int expectedStart = input.indexOf("{}");
+    Assertions.assertEquals(expectedStart, diag.startOffset());
+    Assertions.assertEquals(expectedStart + 2, diag.endOffset());
+  }
+
+  @Test
+  @DisplayName("Tolerant parsing: Empty metadata block on constant emits ERR_EMPTY_METADATA_BLOCK")
+  void testEmptyMetadataBlockOnConstantEmitsSemanticError() {
+    String input = """
+        {
+          :defs {
+            #DEFAULT_PORT {} :Uint16 8080
+          }
+          :type :Uint16
+          :body #DEFAULT_PORT
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(1, result.diagnostics().size());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_EMPTY_METADATA_BLOCK, diag.errorCode().orElse(""));
+  }
+
+  @Test
+  @DisplayName("Tolerant parsing: Empty directive block in :use emits ERR_EMPTY_DIRECTIVE_BLOCK")
+  void testEmptyDirectiveBlockInUseEmitsSemanticError() {
+    String input = """
+        {
+          :defs {
+            :package :Network { :Port :Uint16 }
+            :use [ :Network {} ]
+          }
+          :type :Network/Port
+          :body 8080
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK, diag.errorCode().orElse(""));
+    Assertions.assertTrue(diag.message().contains("Empty directive block in :use or :include statement is invalid"));
+  }
+
+  @Test
+  @DisplayName("Tolerant parsing: Empty directive block in :include emits ERR_EMPTY_DIRECTIVE_BLOCK")
+  void testEmptyDirectiveBlockInIncludeEmitsSemanticError() {
+    String input = """
+        {
+          :defs {
+            :include [ "common.stvn_incl" {} ]
+          }
+          :type :String
+          :body "val"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK, diag.errorCode().orElse(""));
+  }
+
+  @Test
+  @DisplayName("Coordinate span: Parser syntax error endOffset equals stopIndex + 1 (exclusive length)")
+  void testSyntaxErrorCoordinateSpanAccuracy() {
+    String input = """
+        {
+          :type :Boolean
+          :body #False
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    var diag = result.diagnostics().getFirst();
+    int start = input.indexOf("#False");
+    int expectedEnd = start + "#False".length();
+    Assertions.assertEquals(start, diag.startOffset());
+    Assertions.assertEquals(expectedEnd, diag.endOffset(), "endOffset must cover the complete token");
+    Assertions.assertEquals(3, diag.line());
+    Assertions.assertEquals(8, diag.column());
   }
 }

@@ -1,0 +1,8 @@
+{
+  // package_enclave_unqualified_leak.stvn
+  :defs {
+    :include [ "packaged_module.stvn_incl" ]
+  }
+  :type :LocalPort
+  :body 8080
+}

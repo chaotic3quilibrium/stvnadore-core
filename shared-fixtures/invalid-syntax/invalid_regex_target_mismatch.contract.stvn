@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Constraint violation (:BadType): regex is not allowed on :Int32"
+    "facet 'regex' is not permitted on :Int32"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

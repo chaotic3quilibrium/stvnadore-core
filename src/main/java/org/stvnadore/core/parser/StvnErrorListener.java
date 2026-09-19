@@ -79,10 +79,12 @@ public final class StvnErrorListener extends BaseErrorListener {
     if (offendingSymbol instanceof Token token) {
       offendingToken = token;
       startOffset = token.getStartIndex();
-      endOffset = token.getStopIndex();
+      endOffset = token.getType() == Token.EOF
+          ? startOffset
+          : Math.max(startOffset + 1, token.getStopIndex() + 1);
     } else if (recognizer instanceof org.antlr.v4.runtime.Lexer lexerRec) {
       startOffset = lexerRec.getCharIndex();
-      endOffset = lexerRec.getCharIndex();
+      endOffset = lexerRec.getCharIndex() + 1;
     }
 
     String sanitizedMessage = formatSanitizedMessage(recognizer, offendingToken, rawMsg, e);

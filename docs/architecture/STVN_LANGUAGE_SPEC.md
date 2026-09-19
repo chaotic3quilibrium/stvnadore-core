@@ -1,6 +1,6 @@
 # STVN Language Specification
 
-- **Version:** 1.3.0
+- **Version:** 1.3.1
 - **Status:** Formal Technical Specification
 - **Target Audience:** Lexer, Parser, AST Analyzer, and Codec Implementers (Java, Kotlin, Scala, Rust, TypeScript, C++)
 
@@ -23,7 +23,9 @@
     * [3.3 Whitespace Discipline and the Strict Zero-Tab Invariant](#33-whitespace-discipline-and-the-strict-zero-tab-invariant)
     * [3.4 Comment Tokens](#34-comment-tokens)
     * [3.5 Metadata Annotation Placement Rules](#35-metadata-annotation-placement-rules)
+      * [3.5.1 Empty Metadata Block Prohibition](#351-empty-metadata-block-prohibition)
     * [3.6 Module Include Directive Syntax](#36-module-include-directive-syntax)
+      * [3.6.1 Empty Directive Block Prohibition](#361-empty-directive-block-prohibition)
     * [3.7 Namespaced and Path-Delimited Identifiers](#37-namespaced-and-path-delimited-identifiers)
       * [3.7.1 Lexical and Syntactic Grammar Rules](#371-lexical-and-syntactic-grammar-rules)
       * [3.7.2 Semantics & Scoping Invariants](#372-semantics--scoping-invariants)
@@ -334,7 +336,14 @@ Metadata constraint blocks `{ ... }` **must immediately precede** the target typ
 // INVALID: Suffix or wrapped metadata placement
 :BadPort1 :Uint16 { #minIncl 1 }       // FATAL: Syntax error
 :BadPort2 (:Uint16 { #minIncl 1 })     // FATAL: Syntax error
+
+// INVALID: Ungrounded empty metadata block (Section 3.5.1)
+:BadPort3 {} :Uint16                   // FATAL: ERR_EMPTY_METADATA_BLOCK
+#BAD_CONST {} :Uint16 80               // FATAL: ERR_EMPTY_METADATA_BLOCK
 ```
+
+#### 3.5.1 Empty Metadata Block Prohibition
+Empty metadata blocks (`{}`) are prohibited on type definitions and constant definitions. An author must omit the `{}` tokens or specify valid metadata facets. Violations emit diagnostic `ERR_EMPTY_METADATA_BLOCK`.
 
 ---
 
@@ -356,6 +365,9 @@ All `:include` directives inside a `:defs` block **must** be enclosed within squ
 ```
 
 The `#strip` facet is an atomic unary flag without optional string arguments. Supplying string arguments fails at the parser gate. Unary `#strip` executes deterministic terminal segment slicing across all slash-delimited nominal types (`:org/example/Port` -> `:Port`) and value constants (`#org/example/TIMEOUT` -> `#TIMEOUT`). Leading sigils are strictly preserved. Single-segment identifiers are preserved idempotently.
+
+#### 3.6.1 Empty Directive Block Prohibition
+Empty option blocks or alias blocks (`{}`) in `:use` and `:include` directives are prohibited. An author must specify valid directive facets (`{#strip}`), valid alias pairs, or remove `{}`. Violations emit diagnostic `ERR_EMPTY_DIRECTIVE_BLOCK`.
 
 ---
 
@@ -786,16 +798,32 @@ Represents an immutable regulatory event recording both the observed instant off
 
 ## 6. Trait Capability Calculus & Metadata Constraints
 
-### 6.1 Metadata Target Constraints
+### 6.1 Metadata Target Constraints & Facet Governance
 
-Metadata annotations appear inside `{ ... }` blocks immediately following a type identifier:
+Metadata constraint blocks `{ ... }` configure nominal type definitions and compile-time constants. The compiler enforces strict target type governance across all metadata facets.
 
-* `#equatable`: Declares that the type supports stable equality and hashing.
-* `#comparable`: Declares that the type supports deterministic ordinal comparison.
-* `#minIncl` / `#minExcl`: Lower numeric bounds (inclusive or exclusive). Must match the underlying numeric scalar type.
-* `#maxIncl` / `#maxExcl`: Upper numeric bounds (inclusive or exclusive). Must match the underlying numeric scalar type.
-* `#regex`: Regular expression pattern constraint for string types (evaluated using standard Java regex syntax).
-* `#preserveIndent`: String whitespace rule for multi-line block literals. `#TRUE` keeps exact indentation; `#FALSE` (default) strips common indentation.
+#### Facet Target Governance Matrix
+
+| Facet Group | Permitted Facets | Permitted Target Entities | Prohibited Targets | Diagnostic Code |
+|:---|:---|:---|:---|:---|
+| **Numeric Bounds** | `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl` | Numeric types (`:Int*`, `:Uint*`, `:Float*`, `:FloatExact`) | String types, `:Boolean`, `:Enum`, `:Tuple`, collections | `ERR_INVALID_METADATA_FACET` |
+| **String Constraints** | `#regex`, `#preserveIndent` | String types (`:String*`, `:StringFixed*`, `:StringNonEmpty*`) | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, collections | `ERR_INVALID_METADATA_FACET` |
+| **Enum Subsetting** | `#filterIncl`, `#filterExcl` | Nominal aliases of `:Enum` and existing enum subsets | Inline enum constructors, scalar primitives, constants | `ERR_INVALID_METADATA_FACET` |
+| **Directive Options** | `#strip` | Directive blocks in `:use` and `:include` statements | Type definitions, constant definitions | `ERR_INVALID_METADATA_FACET` |
+| **Trait Overrides** | `#equatable`, `#comparable` | Nominal type definitions | Constant definitions, collection instances | `ERR_INVALID_METADATA_FACET` |
+
+#### Empty Block Invariants
+
+1. **Empty Metadata Blocks:** Specifying `{}` on a nominal type definition or compile-time constant definition is prohibited. When `{}` contains zero facet entries, the compiler emits `ERR_EMPTY_METADATA_BLOCK`. Authors must remove `{}` or specify valid facets.
+2. **Empty Directive Blocks:** Specifying `{}` within a `:use` or `:include` statement is prohibited. When `{}` contains zero options or alias mappings, the compiler emits `ERR_EMPTY_DIRECTIVE_BLOCK`. Authors must remove `{}` or specify valid options (`{#strip}`) or alias pairs.
+
+#### Diagnostic Reporting Invariant
+
+When an author applies a facet to an incompatible target entity, the compiler emits `ERR_INVALID_METADATA_FACET`. The diagnostic payload explicitly enumerates the permitted facets for the target domain:
+- For numeric bounds violations on non-numeric types: `permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]`
+- For string constraint violations on non-string types: `permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]`
+- For enum filter violations on non-enum types: `filter facets are permitted strictly on nominal aliases of :Enum and enum subsets`
+- For directive facet violations on type definitions: `directive facet '#strip' is not permitted on type declarations; directive facets are valid strictly in :use and :include blocks`
 
 ### 6.2 Trait Capability Matrix
 
@@ -1844,19 +1872,42 @@ stvnDocument : LBRACE documentBody RBRACE EOF ;
 documentBody : defsEntry? (typeEntry bodyEntry)? ;
 
 // Inclusion definitions integrated alongside type structures
-defsEntry : KW_DEFS LBRACE ( includeStmt | typeDefinition | constantDefinition )* RBRACE ;
+defsEntry : KW_DEFS LBRACE defsElement* RBRACE ;
+
+defsElement : includeStmt
+            | packageEnclosure
+            | useStmt
+            | typeDefinition
+            | constantDefinition
+            ;
+
+packageEnclosure : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
+packagePath      : typeKeyword ;
+packageElement   : useStmt
+                 | typeDefinition
+                 | constantDefinition
+                 | nestedPackageIllegal
+                 ;
+nestedPackageIllegal : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
+
+useStmt : KW_USE LBRACK useTarget useOptionsBlock? useAliasBlock? RBRACK ;
+useTarget : typeKeyword | useTargetIllegal ;
+useTargetIllegal : typeKeyword FSLASH+ ;
+useOptionsBlock : LBRACE KW_STRIP* RBRACE ;
+useAliasBlock   : LBRACE useMapAlias* RBRACE ;
+useMapAlias     : typeKeyword typeKeyword | valueKeyword valueKeyword ;
 
 includeStmt       : KW_INCLUDE LBRACK includeElement+ RBRACK ;
 
 includeElement      : stringLiteral includeOptionsBlock? includeAliasBlock? ;
 
-includeOptionsBlock : LBRACE includeOption+ RBRACE ;
+includeOptionsBlock : LBRACE includeOption* RBRACE ;
 
-includeOption       : KW_STRIP ( stringLiteral )? ;
+includeOption       : KW_STRIP ;
 
-includeAliasBlock : LBRACE includeMapAlias+ RBRACE ;
+includeAliasBlock   : LBRACE includeMapAlias* RBRACE ;
 
-includeMapAlias   : typeKeyword typeKeyword ;
+includeMapAlias     : typeKeyword typeKeyword ;
 
 typeEntry : KW_TYPE schemaType ;
 bodyEntry : KW_BODY value ;
@@ -1868,10 +1919,14 @@ constantDefinition : valueKeyword metadataMap? schemaType value ;
 metadataMap    : LBRACE metadataEntry* RBRACE ;
 
 // Enforced structural type verification branches
-metadataEntry  : metadataBool | metadataNum | metadataString ;
-metadataBool   : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) metadataValue ;
-metadataNum    : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
-metadataString : KW_REGEX metadataValue ;
+metadataEntry     : metadataBool | metadataNum | metadataString | metadataFilter | metadataDirective ;
+metadataDirective : KW_STRIP ;
+metadataBool      : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) metadataValue ;
+metadataNum       : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
+metadataString    : KW_REGEX metadataValue ;
+metadataFilter    : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
+
+variantList    : LBRACK valueKeyword* RBRACK ;
 
 metadataValue  : booleanLiteral
                | integerLiteral

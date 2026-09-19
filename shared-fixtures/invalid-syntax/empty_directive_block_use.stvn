@@ -1,0 +1,11 @@
+{
+  // empty_directive_block_use.stvn
+  :defs {
+    :package :Network {
+      :Port :Uint16
+    }
+    :use [ :Network {} ]
+  }
+  :type :Network/Port
+  :body 8080
+}

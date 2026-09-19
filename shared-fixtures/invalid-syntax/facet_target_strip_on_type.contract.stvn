@@ -1,5 +1,5 @@
 {
-  // enum_subset_attachment_non_enum_primitive.contract.stvn
+  // facet_target_strip_on_type.contract.stvn
   :defs {
     :include [ "error_contract.stvn_inclf" ]
   }
@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "facet 'filterIncl' is not permitted on :Int32"
+    "directive facet '#strip' is not permitted on type declarations"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

@@ -1,0 +1,14 @@
+{
+  // facet_target_numeric_on_string.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "facet 'minIncl' is not permitted on :String; permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

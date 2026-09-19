@@ -1476,7 +1476,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "admin" ]
                 }
                 """,
-            "Constraint violation (:username): minIncl is not allowed on :String"
+            "facet 'minIncl' is not permitted on :String"
         ),
 
         TestProfile.createError(
@@ -1490,7 +1490,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 90210 ]
                 }
                 """,
-            "Constraint violation (:postalCode): regex is not allowed on :Int32"
+            "facet 'regex' is not permitted on :Int32"
         ),
 
         TestProfile.createError(
@@ -1504,7 +1504,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 1.1 ]
                 }
                 """,
-            "Constraint violation (:matrix): preserveIndent is not allowed on :Float32"
+            "facet 'preserveIndent' is not permitted on :Float32"
         ),
 
         TestProfile.createError(

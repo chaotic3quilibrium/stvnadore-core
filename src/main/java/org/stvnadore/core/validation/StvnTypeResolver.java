@@ -506,6 +506,28 @@ public class StvnTypeResolver {
           }
           if (includeStmt.includeElement() != null) {
             for (var element : includeStmt.includeElement()) {
+              if (element.includeOptionsBlock() != null && element.includeOptionsBlock().includeOption().isEmpty()) {
+                diagnosticBag.addError(
+                    "Empty directive block in :use or :include statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
+                    element.includeOptionsBlock().getStart().getStartIndex(),
+                    element.includeOptionsBlock().getStop().getStopIndex() + 1,
+                    element.includeOptionsBlock().getStart().getLine(),
+                    element.includeOptionsBlock().getStart().getCharPositionInLine(),
+                    null,
+                    DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
+                );
+              }
+              if (element.includeAliasBlock() != null && element.includeAliasBlock().includeMapAlias().isEmpty()) {
+                diagnosticBag.addError(
+                    "Empty directive block in :use or :include statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
+                    element.includeAliasBlock().getStart().getStartIndex(),
+                    element.includeAliasBlock().getStop().getStopIndex() + 1,
+                    element.includeAliasBlock().getStart().getLine(),
+                    element.includeAliasBlock().getStart().getCharPositionInLine(),
+                    null,
+                    DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
+                );
+              }
               var rawPathStr = element.stringLiteral().getText();
               var pathVal = extractRawStringValue(rawPathStr);
 
@@ -654,18 +676,7 @@ public class StvnTypeResolver {
         } else if (child instanceof StvnParser.PackageEnclosureContext pkgEnc) {
           processPackageEnclosure(pkgEnc, accumulator, constAccumulator, diagnosticBag);
         } else if (child instanceof StvnParser.UseStmtContext useStmt) {
-          if (useStmt.useTarget() != null && useStmt.useTarget().useTargetIllegal() != null) {
-            var illegalTarget = useStmt.useTarget().useTargetIllegal();
-            diagnosticBag.addError(
-                "Trailing slash prohibited in :use target: " + illegalTarget.getText(),
-                illegalTarget.getStart().getStartIndex(),
-                illegalTarget.getStop().getStopIndex() + 1,
-                illegalTarget.getStart().getLine(),
-                illegalTarget.getStart().getCharPositionInLine(),
-                null,
-                DiagnosticBag.ERR_TRAILING_SLASH_PROHIBITED
-            );
-          }
+          validateUseStmt(useStmt, diagnosticBag);
         }
       }
     }
@@ -813,19 +824,45 @@ public class StvnTypeResolver {
         constAccumulator.computeIfAbsent(fqni, k -> new ArrayList<>())
             .add(new NamespaceClaim<>(fqni, constDef, "Inline Document", ClaimType.LOCAL));
       } else if (pe.useStmt() != null) {
-        if (pe.useStmt().useTarget() != null && pe.useStmt().useTarget().useTargetIllegal() != null) {
-          var illegalTarget = pe.useStmt().useTarget().useTargetIllegal();
-          diagnosticBag.addError(
-              "Trailing slash prohibited in :use target: " + illegalTarget.getText(),
-              illegalTarget.getStart().getStartIndex(),
-              illegalTarget.getStop().getStopIndex() + 1,
-              illegalTarget.getStart().getLine(),
-              illegalTarget.getStart().getCharPositionInLine(),
-              null,
-              DiagnosticBag.ERR_TRAILING_SLASH_PROHIBITED
-          );
-        }
+        validateUseStmt(pe.useStmt(), diagnosticBag);
       }
+    }
+  }
+
+  private static void validateUseStmt(StvnParser.UseStmtContext useStmt, DiagnosticBag diagnosticBag) {
+    if (useStmt.useTarget() != null && useStmt.useTarget().useTargetIllegal() != null) {
+      var illegalTarget = useStmt.useTarget().useTargetIllegal();
+      diagnosticBag.addError(
+          "Trailing slash prohibited in :use target: " + illegalTarget.getText(),
+          illegalTarget.getStart().getStartIndex(),
+          illegalTarget.getStop().getStopIndex() + 1,
+          illegalTarget.getStart().getLine(),
+          illegalTarget.getStart().getCharPositionInLine(),
+          null,
+          DiagnosticBag.ERR_TRAILING_SLASH_PROHIBITED
+      );
+    }
+    if (useStmt.useOptionsBlock() != null && useStmt.useOptionsBlock().KW_STRIP().isEmpty()) {
+      diagnosticBag.addError(
+          "Empty directive block in :use or :include statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
+          useStmt.useOptionsBlock().getStart().getStartIndex(),
+          useStmt.useOptionsBlock().getStop().getStopIndex() + 1,
+          useStmt.useOptionsBlock().getStart().getLine(),
+          useStmt.useOptionsBlock().getStart().getCharPositionInLine(),
+          null,
+          DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
+      );
+    }
+    if (useStmt.useAliasBlock() != null && useStmt.useAliasBlock().useMapAlias().isEmpty()) {
+      diagnosticBag.addError(
+          "Empty directive block in :use or :include statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
+          useStmt.useAliasBlock().getStart().getStartIndex(),
+          useStmt.useAliasBlock().getStop().getStopIndex() + 1,
+          useStmt.useAliasBlock().getStart().getLine(),
+          useStmt.useAliasBlock().getStart().getCharPositionInLine(),
+          null,
+          DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
+      );
     }
   }
 
@@ -849,7 +886,7 @@ public class StvnTypeResolver {
         continue;
       }
       var target = useStmt.useTarget().getText();
-      boolean hasStrip = useStmt.useOptionsBlock() != null && useStmt.useOptionsBlock().KW_STRIP() != null;
+      boolean hasStrip = useStmt.useOptionsBlock() != null && !useStmt.useOptionsBlock().KW_STRIP().isEmpty();
       var typeAliasMap = new LinkedHashMap<String, String>();
       var constAliasMap = new LinkedHashMap<String, String>();
       if (useStmt.useAliasBlock() != null && useStmt.useAliasBlock().useMapAlias() != null) {
@@ -3115,7 +3152,9 @@ public class StvnTypeResolver {
         int col = doc.documentBody().typeEntry().schemaType().getStart().getCharPositionInLine();
         String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))
             ? DiagnosticBag.ERR_UNKNOWN_TYPE
-            : DiagnosticBag.ERR_MALFORMED_SCHEMA;
+            : (e.getMessage() != null && e.getMessage().contains("filter facets")
+                ? DiagnosticBag.ERR_INVALID_METADATA_FACET
+                : DiagnosticBag.ERR_MALFORMED_SCHEMA);
         diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       } catch (CircularReferenceException e) {
         int start = doc.documentBody().typeEntry().schemaType().getStart().getStartIndex();
@@ -3228,7 +3267,9 @@ public class StvnTypeResolver {
       int end = e.endOffset() >= 0 ? e.endOffset() : typeDef.getStop().getStopIndex() + 1;
       String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))
           ? DiagnosticBag.ERR_UNKNOWN_TYPE
-          : DiagnosticBag.ERR_MALFORMED_SCHEMA;
+          : (e.getMessage() != null && e.getMessage().contains("filter facets")
+              ? DiagnosticBag.ERR_INVALID_METADATA_FACET
+              : DiagnosticBag.ERR_MALFORMED_SCHEMA);
       diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       markTypePoisoned(doc, typeName);
       return;
@@ -3237,6 +3278,17 @@ public class StvnTypeResolver {
     validateSchemaSumTypeUniqueness(doc, typeDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     validateSchemaCapabilities(doc, typeDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     if (typeDef.metadataMap() != null) {
+      if (typeDef.metadataMap().metadataEntry().isEmpty()) {
+        diagnosticBag.addError(
+            "Empty metadata block is invalid; remove '{}' or specify valid facets",
+            typeDef.metadataMap().getStart().getStartIndex(),
+            typeDef.metadataMap().getStop().getStopIndex() + 1,
+            typeDef.metadataMap().getStart().getLine(),
+            typeDef.metadataMap().getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
+        );
+      }
       validateMetadataMapConstraints(typeName, typeDef.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
     }
   }
@@ -3294,7 +3346,9 @@ public class StvnTypeResolver {
       int end = e.endOffset() >= 0 ? e.endOffset() : constDef.getStop().getStopIndex() + 1;
       String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))
           ? DiagnosticBag.ERR_UNKNOWN_TYPE
-          : DiagnosticBag.ERR_MALFORMED_SCHEMA;
+          : (e.getMessage() != null && e.getMessage().contains("filter facets")
+              ? DiagnosticBag.ERR_INVALID_METADATA_FACET
+              : DiagnosticBag.ERR_MALFORMED_SCHEMA);
       diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       return;
     }
@@ -3302,18 +3356,29 @@ public class StvnTypeResolver {
     validateSchemaSumTypeUniqueness(doc, constDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     validateSchemaCapabilities(doc, constDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     if (constDef.metadataMap() != null) {
+      if (constDef.metadataMap().metadataEntry().isEmpty()) {
+        diagnosticBag.addError(
+            "Empty metadata block is invalid; remove '{}' or specify valid facets",
+            constDef.metadataMap().getStart().getStartIndex(),
+            constDef.metadataMap().getStop().getStopIndex() + 1,
+            constDef.metadataMap().getStart().getLine(),
+            constDef.metadataMap().getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
+        );
+      }
       for (var entry : constDef.metadataMap().metadataEntry()) {
         if (entry.metadataFilter() != null) {
           var f = entry.metadataFilter();
           var constraintName = f.KW_FILTER_INCL() != null ? "filterIncl" : "filterExcl";
           diagnosticBag.addError(
-              "Constraint violation (" + constName + "): " + constraintName + " is not allowed on constants",
+              "Constraint violation (" + constName + "): " + constraintName + " is not allowed on constants; filter facets are prohibited on constants; permitted facets: []",
               f.getStart().getStartIndex(),
               f.getStop().getStopIndex() + 1,
               f.getStart().getLine(),
               f.getStart().getCharPositionInLine(),
               null,
-              DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+              DiagnosticBag.ERR_INVALID_METADATA_FACET
           );
         }
       }
@@ -3483,13 +3548,13 @@ public class StvnTypeResolver {
 
         if (!isNumeric) {
           diagnosticBag.addError(
-              "Constraint violation (" + name + "): " + constraintName + " is not allowed on " + baseType,
+              "Constraint violation (" + name + "): facet '" + constraintName + "' is not permitted on " + baseType + "; permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]",
               numCtx.getStart().getStartIndex(),
               numCtx.getStop().getStopIndex() + 1,
               numCtx.getStart().getLine(),
               numCtx.getStart().getCharPositionInLine(),
               null,
-              DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+              DiagnosticBag.ERR_INVALID_METADATA_FACET
           );
         }
 
@@ -3563,13 +3628,13 @@ public class StvnTypeResolver {
           if (strCtx.KW_REGEX() != null) {
             if (!isStringType) {
               diagnosticBag.addError(
-                  "Constraint violation (" + name + "): regex is not allowed on " + baseType,
+                  "Constraint violation (" + name + "): facet 'regex' is not permitted on " + baseType + "; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]",
                   strCtx.getStart().getStartIndex(),
                   strCtx.getStop().getStopIndex() + 1,
                   strCtx.getStart().getLine(),
                   strCtx.getStart().getCharPositionInLine(),
                   null,
-                  DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+                  DiagnosticBag.ERR_INVALID_METADATA_FACET
               );
             }
             if (mv.stringLiteral() == null) {
@@ -3609,13 +3674,13 @@ public class StvnTypeResolver {
 
         if (boolCtx.KW_PRESERVE_INDENT() != null && !isStringType) {
           diagnosticBag.addError(
-              "Constraint violation (" + name + "): preserveIndent is not allowed on " + baseType,
+              "Constraint violation (" + name + "): facet 'preserveIndent' is not permitted on " + baseType + "; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]",
               boolCtx.getStart().getStartIndex(),
               boolCtx.getStop().getStopIndex() + 1,
               boolCtx.getStart().getLine(),
               boolCtx.getStart().getCharPositionInLine(),
               null,
-              DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+              DiagnosticBag.ERR_INVALID_METADATA_FACET
           );
         }
 
@@ -3645,15 +3710,27 @@ public class StvnTypeResolver {
         var constraintName = filterCtx.KW_FILTER_INCL() != null ? "filterIncl" : "filterExcl";
         if (!":Enum".equals(baseType)) {
           diagnosticBag.addError(
-              "Constraint violation (" + name + "): " + constraintName + " is not allowed on " + baseType,
+              "Constraint violation (" + name + "): facet '" + constraintName + "' is not permitted on " + baseType + "; filter facets are permitted strictly on nominal aliases of :Enum and enum subsets",
               filterCtx.getStart().getStartIndex(),
               filterCtx.getStop().getStopIndex() + 1,
               filterCtx.getStart().getLine(),
               filterCtx.getStart().getCharPositionInLine(),
               null,
-              DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+              DiagnosticBag.ERR_INVALID_METADATA_FACET
           );
         }
+      }
+      if (entry.metadataDirective() != null) {
+        var d = entry.metadataDirective();
+        diagnosticBag.addError(
+            "Constraint violation (" + name + "): directive facet '#strip' is not permitted on type declarations; directive facets are valid strictly in :use and :include blocks",
+            d.getStart().getStartIndex(),
+            d.getStop().getStopIndex() + 1,
+            d.getStart().getLine(),
+            d.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_INVALID_METADATA_FACET
+        );
       }
     }
 

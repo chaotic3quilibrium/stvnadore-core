@@ -6,7 +6,7 @@
 
     <groupId>io.github.chaotic3quilibrium</groupId>
     <artifactId>stvnadore-core</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.1-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>STVN Core SDK</name>
     <description>Universal SDK and Zero-Copy Protocol Engine for STVN</description>
@@ -160,6 +160,7 @@
                         <arg>-Xlint:-missing-explicit-ctor</arg>
                         <arg>-Xlint:-requires-automatic</arg>
                         <arg>-Xlint:-module</arg>
+                        <arg>-Xlint:-processing</arg>
                         <arg>-Werror</arg>
                     </compilerArgs>
                 </configuration>

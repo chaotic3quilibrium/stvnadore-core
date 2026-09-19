@@ -66,6 +66,12 @@ public final class DiagnosticBag {
   public static final String ERR_TAB_CHARACTER_FORBIDDEN = "ERR_TAB_CHARACTER_FORBIDDEN";
   /** Error code emitted when a nominal string capacity suffix violates architectural bounds. */
   public static final String ERR_INVALID_STRING_CAPACITY = "ERR_INVALID_STRING_CAPACITY";
+  /** Error code emitted when an empty metadata block '{}' is encountered on a type or constant definition. */
+  public static final String ERR_EMPTY_METADATA_BLOCK = "ERR_EMPTY_METADATA_BLOCK";
+  /** Error code emitted when an empty directive block '{}' is encountered in :use or :include. */
+  public static final String ERR_EMPTY_DIRECTIVE_BLOCK = "ERR_EMPTY_DIRECTIVE_BLOCK";
+  /** Error code emitted when a metadata facet is applied to an incompatible target entity kind. */
+  public static final String ERR_INVALID_METADATA_FACET = "ERR_INVALID_METADATA_FACET";
 
   private final int maxDiagnostics;
   private final List<StvnDiagnostic> diagnostics;

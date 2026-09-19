@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Constraint violation (:BadString): minIncl is not allowed on :String"
+    "facet 'minIncl' is not permitted on :String"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }
