@@ -685,7 +685,7 @@ Every fenced string literal must adhere to **Rule STR-04**:
 
 1. **Opening Delimiter:**
    `"""[TAG]` (Canonical)  
-   `"""->[TAG]` (**DEPRECATED as of 1.1.1; scheduled for removal in 1.3.0**)  
+   `"""->[TAG]` (**DEPRECATED as of 1.1.1; scheduled for removal in 2.0.0**)  
    The directional arrow `->` is deprecated. Compilers emit a `WARNING` diagnostic when `->` is encountered. The opening delimiter must be followed by optional horizontal whitespace and a newline.
 
 2. **Closing Delimiter:**
