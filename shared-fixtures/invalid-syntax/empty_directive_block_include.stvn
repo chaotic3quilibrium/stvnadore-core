@@ -1,0 +1,8 @@
+{
+  // empty_directive_block_include.stvn
+  :defs {
+    :include [ "module_raw_a.stvn_incl" {} ]
+  }
+  :type :String
+  :body "test"
+}

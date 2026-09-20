@@ -1,0 +1,8 @@
+{
+  // facet_target_strip_on_type.stvn
+  :defs {
+    :IllegalType { #strip } :Int32
+  }
+  :type :IllegalType
+  :body 42
+}

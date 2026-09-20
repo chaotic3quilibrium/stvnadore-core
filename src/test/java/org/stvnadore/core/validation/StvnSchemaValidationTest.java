@@ -309,7 +309,7 @@ public class StvnSchemaValidationTest {
 
     Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_INVERTED_RANGE), "Missing ERR_INVERTED_RANGE");
     Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_CAPACITY_OVERFLOW), "Missing ERR_CAPACITY_OVERFLOW");
-    Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_INCOMPATIBLE_TYPE), "Missing ERR_INCOMPATIBLE_TYPE");
+    Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_INVALID_METADATA_FACET), "Missing ERR_INVALID_METADATA_FACET");
     Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_INVALID_REGEX), "Missing ERR_INVALID_REGEX");
   }
 
@@ -353,5 +353,62 @@ public class StvnSchemaValidationTest {
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
     Assertions.assertEquals(3, result.diagnostics().size(), "Must report all 3 header definition errors");
+  }
+
+  @Test
+  @DisplayName("Facet governance: Numeric facet on String emits ERR_INVALID_METADATA_FACET with permitted facet list")
+  void testNumericFacetOnStringEmitsInvalidFacetDiagnostic() {
+    String input = """
+        {
+          :defs {
+            :BadStr { #minIncl 1 } :String
+          }
+          :type :BadStr
+          :body "test"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, diag.errorCode().orElse(""));
+    Assertions.assertTrue(diag.message().contains("permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]"));
+  }
+
+  @Test
+  @DisplayName("Facet governance: String facet on Int32 emits ERR_INVALID_METADATA_FACET with permitted facet list")
+  void testStringFacetOnIntEmitsInvalidFacetDiagnostic() {
+    String input = """
+        {
+          :defs {
+            :BadInt { #regex "^[0-9]+$" } :Int32
+          }
+          :type :BadInt
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, diag.errorCode().orElse(""));
+    Assertions.assertTrue(diag.message().contains("permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]"));
+  }
+
+  @Test
+  @DisplayName("Facet governance: Directive facet #strip on type definition emits ERR_INVALID_METADATA_FACET")
+  void testStripFacetOnTypeEmitsInvalidFacetDiagnostic() {
+    String input = """
+        {
+          :defs {
+            :BadType { #strip } :Int32
+          }
+          :type :BadType
+          :body 1
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, diag.errorCode().orElse(""));
+    Assertions.assertTrue(diag.message().contains("directive facet '#strip' is not permitted on type declarations"));
   }
 }

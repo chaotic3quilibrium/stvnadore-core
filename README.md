@@ -1,8 +1,8 @@
 # STVN Core SDK (`stvnadore-core`)
 
-[![STVN Core SDK](https://img.shields.io/badge/STVN-1.3.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
+[![STVN Core SDK](https://img.shields.io/badge/STVN-1.3.1--SNAPSHOT-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
 [![Java Version Compatibility](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
-[![Build Verification Status](https://img.shields.io/badge/Tests-595%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
+[![Build Verification Status](https://img.shields.io/badge/Tests-615%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
 [![Null Safety](https://img.shields.io/badge/NullMarked-Tier%201%20Soundness-brightgreen.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md)
 
 `stvnadore-core` is the high-performance, strongly typed value notation (STVN) engine and SDK for Java 21. Tailored for safety-critical environments demanding zero-copy binary serialization, algebraic type safety, deterministic content-addressable storage (CAS) fingerprinting, and value-oriented programming (VOP) models, `stvnadore-core` eliminates reference nulls and uninitialized states at compile-time and serialization boundaries.
@@ -11,7 +11,7 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
 
 ---
 
-- Version: 1.3.0 - 2026.09.17
+- Version: 1.3.1-SNAPSHOT - 2026.09.18
 
 ---
 
@@ -41,13 +41,14 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
   * [Build & Verification](#build--verification)
     * [Execute Test Suite](#execute-test-suite)
     * [Compiler Quality Invariants](#compiler-quality-invariants)
-* [Support](#support)
+  * [Support](#support)
   * [License](#license)
     * [GNU AFFERO GENERAL PUBLIC LICENSE](#gnu-affero-general-public-license)
     * [REALLY HATE the GNU AFFERO GENERAL PUBLIC LICENSE, a.k.a. AGPLv3?](#really-hate-the-gnu-affero-general-public-license-aka-agplv3)
     * [FYI, I'd prefer to move stvnadore-core to an Apache 2.0 license](#fyi-id-prefer-to-move-stvnadore-core-to-an-apache-20-license)
     * [I'm not looking to win the lottery, I just don't want to work for free](#im-not-looking-to-win-the-lottery-i-just-dont-want-to-work-for-free)
 * [Version History](#version-history)
+  * [v1.3.1](#v131)
   * [v1.3.0](#v130)
   * [v1.2.0](#v120)
   * [v1.1.1](#v111)
@@ -65,7 +66,7 @@ Add the following Maven dependency to your `pom.xml`:
 <dependency>
     <groupId>org.stvnadore</groupId>
     <artifactId>stvnadore-core</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.1-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -390,6 +391,15 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 ---
 
 # Version History
+
+## v1.3.1
+
+- 2026.09.18
+- Tolerant grammar recovery: Supported empty blocks (`{}`) in `:use`, `:include`, and metadata maps with dedicated semantic diagnostics (`ERR_EMPTY_METADATA_BLOCK`, `ERR_EMPTY_DIRECTIVE_BLOCK`)
+- Facet target matrix governance: Enforced target domain boundaries emitting `ERR_INVALID_METADATA_FACET` with permitted facet lists
+- Compiler coordinate span normalization: Half-open interval `[startOffset, endOffset)` calculation aligned with `stopIndex + 1` across parser syntax and semantic error listeners
+- Cross-file package enclave isolation: Verified private packaged symbols fail closed with `ERR_UNKNOWN_TYPE` across module boundaries
+- Zero-warning compiler compliance under `-Werror` with `-Xlint:-processing`
 
 ## v1.3.0
 

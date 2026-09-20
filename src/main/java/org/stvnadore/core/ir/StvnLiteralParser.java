@@ -27,6 +27,32 @@ public final class StvnLiteralParser {
    */
   public static final Pattern FENCE_TAG_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{1,256}$");
 
+  /**
+   * Parses an STVN union variant tag prefix (e.g. {@code "#1"}, {@code "#2"}) into its 1-based
+   * numeric index, strictly enforcing Rule G lexical bounds.
+   *
+   * @param rawText the raw string representation of the union tag token (e.g. {@code "#3"})
+   * @return the 1-based integer index
+   * @throws IllegalArgumentException if {@code rawText} is null, empty, or does not match pattern {@code #[1-9][0-9]*}
+   */
+  public static int parseUnionTagIndex(String rawText) {
+    if (rawText == null || rawText.length() < 2 || !rawText.startsWith("#")) {
+      throw new IllegalArgumentException("Rule G violation: Invalid union tag literal '" + rawText + "'");
+    }
+    int val = 0;
+    for (int i = 1; i < rawText.length(); i++) {
+      char c = rawText.charAt(i);
+      if (c < '0' || c > '9') {
+        throw new IllegalArgumentException("Rule G violation: Non-digit character in union tag '" + rawText + "'");
+      }
+      val = val * 10 + (c - '0');
+    }
+    if (val <= 0) {
+      throw new IllegalArgumentException("Rule G violation: Union tag index must be positive (got #" + val + ")");
+    }
+    return val;
+  }
+
   private StvnLiteralParser() {
     throw new UnsupportedOperationException("Utility class cannot be instantiated");
   }

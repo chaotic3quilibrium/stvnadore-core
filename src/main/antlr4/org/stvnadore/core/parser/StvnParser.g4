@@ -34,19 +34,19 @@ nestedPackageIllegal : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
 useStmt : KW_USE LBRACK useTarget useOptionsBlock? useAliasBlock? RBRACK ;
 useTarget : typeKeyword | useTargetIllegal ;
 useTargetIllegal : typeKeyword FSLASH+ ;
-useOptionsBlock : LBRACE KW_STRIP RBRACE ;
-useAliasBlock   : LBRACE useMapAlias+ RBRACE ;
+useOptionsBlock : LBRACE KW_STRIP* RBRACE ;
+useAliasBlock   : LBRACE useMapAlias* RBRACE ;
 useMapAlias     : typeKeyword typeKeyword | valueKeyword valueKeyword ;
 
 includeStmt       : KW_INCLUDE LBRACK includeElement+ RBRACK ;
 
 includeElement      : stringLiteral includeOptionsBlock? includeAliasBlock? ;
 
-includeOptionsBlock : LBRACE includeOption+ RBRACE ;
+includeOptionsBlock : LBRACE includeOption* RBRACE ;
 
 includeOption       : KW_STRIP ;
 
-includeAliasBlock   : LBRACE includeMapAlias+ RBRACE ;
+includeAliasBlock   : LBRACE includeMapAlias* RBRACE ;
 
 includeMapAlias     : typeKeyword typeKeyword ;
 
@@ -60,8 +60,9 @@ constantDefinition : valueKeyword metadataMap? schemaType value ;
 metadataMap    : LBRACE metadataEntry* RBRACE ;
 
 // Enforced structural type verification branches
-metadataEntry  : metadataBool | metadataNum | metadataString | metadataFilter ;
-metadataBool   : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) metadataValue ;
+metadataEntry     : metadataBool | metadataNum | metadataString | metadataFilter | metadataDirective ;
+metadataDirective : KW_STRIP ;
+metadataBool      : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) metadataValue ;
 metadataNum    : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
 metadataString : KW_REGEX metadataValue ;
 metadataFilter : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;

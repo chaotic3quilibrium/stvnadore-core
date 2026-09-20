@@ -451,6 +451,8 @@ if (result.isRecoveredPartialAst()) {
 ```
 
 * **Memory Bounding:** `DiagnosticBag` caps accumulated diagnostics at `maxDiagnostics` (default 100). Once reached, it appends a single `STVN_DIAG_LIMIT_EXCEEDED` warning and suppresses further allocation to prevent heap exhaustion.
+* **Coordinate Span Normalization:** Syntax errors and semantic diagnostics report standard 0-based half-open intervals `[startOffset, endOffset)` where length is $endOffset - startOffset$. `endOffset` maps to `token.getStopIndex() + 1` (or `startOffset` for `EOF`), ensuring IDE squiggly lines cover complete tokens without character truncation.
+* **Tolerant Semantic Audits:** Tolerant grammar productions allow empty blocks (`{}`) in `:use`, `:include`, and metadata maps to parse cleanly, delegating validation to semantic passes that emit dedicated diagnostics (`ERR_EMPTY_METADATA_BLOCK`, `ERR_EMPTY_DIRECTIVE_BLOCK`, and `ERR_INVALID_METADATA_FACET`).
 * **Error Leaves (`StvnError`):** Invalid elements within sequences, sets, tuples, or maps are wrapped into `StvnError` nodes containing raw text and exact character spans, allowing valid sibling nodes to compile cleanly.
 
 ---

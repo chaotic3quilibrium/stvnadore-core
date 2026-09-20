@@ -38,6 +38,16 @@ public class StvnCollectionCollisionException extends RuntimeException {
   }
 
   /**
+   * Constructs a new StvnCollectionCollisionException with the specified message and unlocated offsets.
+   *
+   * @param message the detail message describing the validation failure
+   * @since 1.3.1
+   */
+  public StvnCollectionCollisionException(String message) {
+    this(message, -1, -1);
+  }
+
+  /**
    * Returns the start character offset of the duplicate token.
    *
    * @return the start character offset

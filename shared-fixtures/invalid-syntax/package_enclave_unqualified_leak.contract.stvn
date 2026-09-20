@@ -1,5 +1,5 @@
 {
-  // enum_subset_attachment_non_enum_primitive.contract.stvn
+  // package_enclave_unqualified_leak.contract.stvn
   :defs {
     :include [ "error_contract.stvn_inclf" ]
   }
@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "facet 'filterIncl' is not permitted on :Int32"
+    "Undefined type: :LocalPort"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

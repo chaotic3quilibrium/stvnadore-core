@@ -1,0 +1,9 @@
+{
+  // either_duplicate_branches_untagged.stvn
+  :defs {
+    :IdenticalEither :Either( :Uint32 :Uint32 )
+  }
+
+  :type :IdenticalEither
+  :body 42
+}

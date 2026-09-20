@@ -1,0 +1,8 @@
+{
+  // facet_target_numeric_on_string.stvn
+  :defs {
+    :InvalidString { #minIncl 1 } :String
+  }
+  :type :InvalidString
+  :body "test"
+}

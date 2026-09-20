@@ -1,6 +1,7 @@
 package org.stvnadore.core.ir;
 
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.ir.StvnValue.*;
@@ -1295,16 +1296,24 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     if (baseType.equals(":Union")) {
       List<ResolvedSchema> candidates = StvnTypeResolver.resolveCandidateSchemas(documentContext, schema.node());
       if (item instanceof UnionTagItem unionTag) {
-        int tagNum = Integer.parseInt(unionTag.tag().substring(1));
+        int tagNum = StvnLiteralParser.parseUnionTagIndex(unionTag.tag());
         int branchIndex = tagNum - 1;
-        if (branchIndex < 0 || branchIndex >= candidates.size()) {
-          int start = unionTag.sourceCtx() != null && unionTag.sourceCtx().getStart() != null
-              ? unionTag.sourceCtx().getStart().getStartIndex()
-              : -1;
-          int end = unionTag.sourceCtx() != null && unionTag.sourceCtx().getStop() != null
-              ? unionTag.sourceCtx().getStop().getStopIndex() + 1
-              : -1;
-          throw new org.stvnadore.core.validation.StvnMalformedLiteralException("Union tag #" + tagNum + " out of bounds for " + candidates.size() + "-branch union", start, end);
+        if (branchIndex < 0 || tagNum > candidates.size()) {
+          int start = -1;
+          int end = -1;
+          if (unionTag.sourceCtx() instanceof StvnParser.ExplicitUnionValueContext euv && euv.UNION_TAG_PREFIX() != null) {
+            Token tagToken = euv.UNION_TAG_PREFIX().getSymbol();
+            start = tagToken.getStartIndex();
+            end = tagToken.getStopIndex() + 1;
+          } else if (unionTag.sourceCtx() != null && unionTag.sourceCtx().getStart() != null) {
+            start = unionTag.sourceCtx().getStart().getStartIndex();
+            end = start + unionTag.tag().length();
+          }
+          throw new org.stvnadore.core.validation.StvnMalformedLiteralException(
+              "Union variant tag '#" + tagNum + "' exceeds branch count (" + candidates.size() + ")",
+              start,
+              end
+          );
         }
         if (unionTag.childValue() != null) {
           queue.addFirst(toStreamItem(unionTag.childValue()));
@@ -1699,7 +1708,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         int prevSize = queue.size();
         ResolvedSchema elSchema = (targetIndex < elementSchemas.size())
             ? elementSchemas.get(targetIndex)
-            : null;
+            : ensureSchema(null);
         targetIndex++;
         try {
           StvnValue elVal = evaluateNextItem(queue, elSchema);
@@ -1711,9 +1720,14 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           int start = getStartOffset(t, item.sourceCtx());
           int end = getEndOffset(t, item.sourceCtx());
           int[] pos = getLineCol(item.sourceCtx());
+          Optional<String> errCode = Optional.empty();
+          if (t instanceof org.stvnadore.core.validation.StvnMalformedLiteralException mle
+              && mle.getMessage() != null && mle.getMessage().contains("exceeds branch count")) {
+            errCode = Optional.of("UNION_BRANCH_OVERFLOW");
+          }
           var diag = new StvnDiagnostic(t.getMessage() != null
               ? t.getMessage()
-              : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t);
+              : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t, errCode);
           diagnosticBag.add(diag);
           String rawText = item.sourceCtx() != null
               ? item.sourceCtx().getText()
@@ -1723,13 +1737,40 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
 
       if (expected > 0 && expected != elements.size()) {
-        int start = ctx.start.getStartIndex();
-        int end = ctx.stop.getStopIndex() + 1;
-        int[] pos = getLineCol(ctx);
+        int start;
+        int end;
+        int line;
+        int col;
+        if (elements.size() < expected) {
+          // Underflow: Clamp strictly to the closing parenthesis delimiter ')'
+          Token rparen = (ctx.RPAREN() != null && ctx.RPAREN().getSymbol() != null)
+              ? ctx.RPAREN().getSymbol()
+              : ctx.stop;
+          start = rparen.getStartIndex();
+          end = rparen.getStopIndex() + 1;
+          line = rparen.getLine();
+          col = rparen.getCharPositionInLine();
+        } else {
+          // Overflow: Clamp across extraneous elements (from index expected through elements.size() - 1)
+          if (ctx.value() != null && ctx.value().size() > expected) {
+            var firstExtraneous = ctx.value(expected);
+            var lastExtraneous = ctx.value(ctx.value().size() - 1);
+            start = firstExtraneous.getStart().getStartIndex();
+            end = lastExtraneous.getStop().getStopIndex() + 1;
+            line = firstExtraneous.getStart().getLine();
+            col = firstExtraneous.getStart().getCharPositionInLine();
+          } else {
+            Token stop = ctx.stop != null ? ctx.stop : ctx.start;
+            start = stop.getStartIndex();
+            end = stop.getStopIndex() + 1;
+            line = stop.getLine();
+            col = stop.getCharPositionInLine();
+          }
+        }
         var ex = new MalformedPayloadException("Tuple arity mismatch: Expected " + expected + " elements, got " + elements.size(), start, end);
         var diag = new StvnDiagnostic(
             ex.getMessage(),
-            StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, ex, Optional.of("TUPLE_ARITY_MISMATCH")
+            StvnDiagnostic.DiagnosticSeverity.ERROR, line, col, start, end, ex, Optional.of("TUPLE_ARITY_MISMATCH")
         );
         diagnosticBag.add(diag);
       }
@@ -1830,7 +1871,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       if (childSchemas.size() >= 2) {
         String leftBase = StvnTypeResolver.getPrimitiveBaseType(childSchemas.get(0).node());
         String rightBase = StvnTypeResolver.getPrimitiveBaseType(childSchemas.get(1).node());
-        if (leftBase != null && leftBase.equals(rightBase)) {
+        if ((leftBase != null && leftBase.equals(rightBase))
+            || StvnTypeResolver.isSameSchemaNode(documentContext, childSchemas.get(0).node(), childSchemas.get(1).node())) {
           isAmbiguous = true;
         }
       }
@@ -1842,27 +1884,26 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
 
   private StvnUnion buildUnion(StvnParser.ExplicitUnionValueContext ctx, ResolvedSchema schema) {
     String tagText = ctx.UNION_TAG_PREFIX().getText();
-    int tagIndex = 0;
-    for (int i = 1; i < tagText.length(); i++) {
-      tagIndex = tagIndex * 10 + (tagText.charAt(i) - '0');
-    }
+    int tagIndex = StvnLiteralParser.parseUnionTagIndex(tagText);
     int zeroBasedIndex = tagIndex - 1;
     List<ResolvedSchema> childSchemas = StvnTypeResolver.resolveCandidateSchemas(documentContext, schema.node());
     int maxBranchCapacity = childSchemas.size();
-    if (zeroBasedIndex < 0 || zeroBasedIndex >= maxBranchCapacity) {
-      int start = ctx.start.getStartIndex();
-      int end = ctx.stop.getStopIndex() + 1;
-      int[] pos = getLineCol(ctx);
+    if (zeroBasedIndex < 0 || tagIndex > maxBranchCapacity) {
+      Token tagToken = ctx.UNION_TAG_PREFIX().getSymbol();
+      int start = tagToken.getStartIndex();
+      int end = tagToken.getStopIndex() + 1;
+      int line = tagToken.getLine();
+      int col = tagToken.getCharPositionInLine();
       var ex = new org.stvnadore.core.validation.StvnMalformedLiteralException(
-          "Explicit branch tag #" + tagIndex + " overflows union schema constraints. Maximum branch capacity is " + maxBranchCapacity + ".",
+          "Union variant tag '#" + tagIndex + "' exceeds branch count (" + maxBranchCapacity + ")",
           start,
           end
       );
       var diag = new StvnDiagnostic(
           ex.getMessage(),
           StvnDiagnostic.DiagnosticSeverity.ERROR,
-          pos[0],
-          pos[1],
+          line,
+          col,
           start,
           end,
           ex,
@@ -1970,10 +2011,21 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
       return 0;
     } else if (baseType.equals(":Union")) {
+      int matchCount = 0;
+      int matchedIndex = -1;
       for (var i = 0; i < candidates.size(); i++) {
         if (matchesSchema(val, candidates.get(i))) {
-          return i;
+          matchCount++;
+          matchedIndex = i;
         }
+      }
+      if (matchCount > 1) {
+        throw new org.stvnadore.core.validation.StvnCollectionCollisionException(
+            "Ambiguous implicit resolution: Value matches multiple branches"
+        );
+      }
+      if (matchCount == 1) {
+        return matchedIndex;
       }
     }
     return 0;
@@ -2467,15 +2519,24 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
 
       var candidates = StvnTypeResolver.resolveCandidateSchemas(documentContext, rootSchema.node());
 
+      int schemaMatchCount = 0;
       ResolvedSchema matchedCand = null;
       var matchedIndex = -1;
       for (var i = 0; i < candidates.size(); i++) {
         var cand = candidates.get(i);
         if (val.schema() != null && StvnTypeResolver.isSameSchemaNode(documentContext, val.schema().node(), cand.node())) {
+          schemaMatchCount++;
           matchedCand = cand;
           matchedIndex = i;
-          break;
         }
+      }
+
+      if (schemaMatchCount > 1) {
+        throw new org.stvnadore.core.validation.StvnCollectionCollisionException(
+            "Ambiguous implicit resolution: Value matches multiple branches",
+            startOffset,
+            endOffset
+        );
       }
 
       if (matchedCand != null) {

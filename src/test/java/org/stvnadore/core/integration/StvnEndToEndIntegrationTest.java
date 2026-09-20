@@ -1193,7 +1193,7 @@ public class StvnEndToEndIntegrationTest {
               :body 42
             }
             """,
-        "Two member branches within a single sum type share identical nominal type identities: :Option"
+        "Ambiguous implicit resolution: Value matches both Left and Right branches of :Either"
     );
 
     var nominalEitherSubstringTest = TestProfile.create(
@@ -1260,7 +1260,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "world" ]
                 }
                 """,
-            "Two member branches within a single sum type share identical nominal type identities: :String"),
+            "Ambiguous implicit either: Both sides are identical (:String), explicit #Left or #Right tag is required"),
 
         TestProfile.createError(
             "Rogue Wrappers - Option Tags Enforced on Primitives",
@@ -1476,7 +1476,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "admin" ]
                 }
                 """,
-            "Constraint violation (:username): minIncl is not allowed on :String"
+            "facet 'minIncl' is not permitted on :String"
         ),
 
         TestProfile.createError(
@@ -1490,7 +1490,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 90210 ]
                 }
                 """,
-            "Constraint violation (:postalCode): regex is not allowed on :Int32"
+            "facet 'regex' is not permitted on :Int32"
         ),
 
         TestProfile.createError(
@@ -1504,7 +1504,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 1.1 ]
                 }
                 """,
-            "Constraint violation (:matrix): preserveIndent is not allowed on :Float32"
+            "facet 'preserveIndent' is not permitted on :Float32"
         ),
 
         TestProfile.createError(

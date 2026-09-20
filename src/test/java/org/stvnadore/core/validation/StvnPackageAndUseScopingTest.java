@@ -213,4 +213,38 @@ public class StvnPackageAndUseScopingTest {
         .anyMatch(d -> DiagnosticBag.ERR_TRAILING_SLASH_PROHIBITED.equals(d.errorCode().orElse(null))),
         "Must record ERR_TRAILING_SLASH_PROHIBITED: " + result.diagnostics());
   }
+
+  @Test
+  @DisplayName("Package enclave barrier: Unqualified reference to packaged symbol across include fails closed with ERR_UNKNOWN_TYPE")
+  void testPackagedTypeUnqualifiedLeakFailsClosed(@TempDir Path tempDir) throws IOException {
+    Path modFile = tempDir.resolve("network.stvn_incl");
+    String modContent = """
+        {
+          :defs {
+            :package :Network {
+              :Port :Uint16
+            }
+          }
+        }
+        """;
+    Files.writeString(modFile, modContent);
+
+    String docContent = """
+        {
+          :defs {
+            :include [ "network.stvn_incl" ]
+          }
+          :type :Port
+          :body 8080
+        }
+        """;
+    Path docFile = tempDir.resolve("main.stvn");
+    Files.writeString(docFile, docContent);
+
+    var result = StvnCompiler.compileToResult(docContent, docFile.toString());
+    Assertions.assertFalse(result.isSuccess(), "Bare reference to packaged type must fail closed");
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_UNKNOWN_TYPE, diag.errorCode().orElse(""));
+    Assertions.assertTrue(diag.message().contains("Undefined type: :Port"));
+  }
 }

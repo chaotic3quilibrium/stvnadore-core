@@ -114,4 +114,181 @@ public class StvnCompilerTest {
     Assertions.assertTrue(pretty.contains(":org/example/geo/Coord :Float64"));
     Assertions.assertTrue(pretty.contains(":Point :Tuple(:org/example/geo/Coord :org/example/geo/Coord)"));
   }
+
+  @Test
+  @DisplayName("TC-COMP-04: Sum types with duplicate branches compile cleanly with explicit tags")
+  void testDuplicateBranchesCompileWithExplicitTags() {
+    String source = """
+        {
+          :defs {
+            :MyEither :Either( :Uint32 :Uint32 )
+            :MyUnion  :Union( :Uint32 :Uint32 )
+            :RootPayload :Tuple( :MyEither :MyEither :MyUnion :MyUnion )
+          }
+          :type :RootPayload
+          :body (
+            #Left 42
+            #Right 84
+            #1 100
+            #2 200
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.isSuccess(), "Compilation must succeed with explicit tags: " + result.diagnostics());
+    Assertions.assertTrue(result.diagnostics().isEmpty());
+  }
+
+  @Test
+  @DisplayName("TC-COMP-05: Untagged payload matching duplicate Either branches fails with ERR_AMBIGUOUS_SUM_INFERENCE")
+  void testUntaggedEitherDuplicateBranchesFailsClosed() {
+    String source = """
+        {
+          :defs {
+            :MyEither :Either( :Uint32 :Uint32 )
+          }
+          :type :MyEither
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertTrue(
+        result.diagnostics().stream().anyMatch(d ->
+            org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE.equals(d.errorCode().orElse(null))
+        ),
+        "Must emit ERR_AMBIGUOUS_SUM_INFERENCE: " + result.diagnostics()
+    );
+  }
+
+  @Test
+  @DisplayName("TC-COMP-06: Untagged payload matching duplicate Union branches fails with ERR_AMBIGUOUS_SUM_INFERENCE")
+  void testUntaggedUnionDuplicateBranchesFailsClosed() {
+    String source = """
+        {
+          :defs {
+            :MyUnion :Union( :Uint32 :Uint32 )
+          }
+          :type :MyUnion
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertTrue(
+        result.diagnostics().stream().anyMatch(d ->
+            org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE.equals(d.errorCode().orElse(null))
+        ),
+        "Must emit ERR_AMBIGUOUS_SUM_INFERENCE: " + result.diagnostics()
+    );
+  }
+
+  @Test
+  @DisplayName("TC-COMP-07: Tuple arity underflow clamps coordinate strictly to closing delimiter ')'")
+  void testTupleArityUnderflowClampsToClosingDelimiter() {
+    String source = """
+        {
+          :type :Tuple(:Int32 :String :Boolean)
+          :body (
+            42
+            "test"
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    var diag = result.diagnostics().stream()
+        .filter(d -> "TUPLE_ARITY_MISMATCH".equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("Expected TUPLE_ARITY_MISMATCH diagnostic"));
+
+    int rparenOffset = source.lastIndexOf(')');
+    Assertions.assertEquals(rparenOffset, diag.startOffset(), "startOffset must clamp to closing delimiter ')'");
+    Assertions.assertEquals(rparenOffset + 1, diag.endOffset(), "endOffset must clamp to closing delimiter ')' + 1");
+    Assertions.assertTrue(diag.message().contains("Tuple arity mismatch: Expected 3 elements, got 2"));
+  }
+
+  @Test
+  @DisplayName("TC-COMP-08: Tuple arity overflow clamps coordinate across extraneous elements")
+  void testTupleArityOverflowClampsToExtraneousElements() {
+    String source = """
+        {
+          :type :Tuple(:Int32 :String)
+          :body (
+            42
+            "valid"
+            #TRUE
+            100
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    var diag = result.diagnostics().stream()
+        .filter(d -> "TUPLE_ARITY_MISMATCH".equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("Expected TUPLE_ARITY_MISMATCH diagnostic"));
+
+    int expectedStart = source.indexOf("#TRUE");
+    int expectedEnd = source.indexOf("100") + "100".length();
+    Assertions.assertEquals(expectedStart, diag.startOffset(), "startOffset must match first extraneous element");
+    Assertions.assertEquals(expectedEnd, diag.endOffset(), "endOffset must match end of last extraneous element");
+    Assertions.assertTrue(diag.message().contains("Tuple arity mismatch: Expected 2 elements, got 4"));
+  }
+
+  @Test
+  @DisplayName("TC-COMP-09: Bare '#' followed by newline clamps strictly to single '#' without newline spillover")
+  void testBareHashLexerErrorClampsWithoutNewlineSpillover() {
+    String source = "{\n  :type :Int32\n  :body #\n}\n";
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    int hashOffset = source.indexOf('#');
+    Assertions.assertEquals(hashOffset, diag.startOffset(), "startOffset must pin directly to '#'");
+    Assertions.assertEquals(hashOffset + 1, diag.endOffset(), "endOffset must pin directly to '#' + 1");
+    Assertions.assertEquals(3, diag.line());
+    Assertions.assertFalse(diag.message().contains("\n"), "Sanitized diagnostic message must not contain raw '\\n'");
+    Assertions.assertFalse(diag.message().contains("\r"), "Sanitized diagnostic message must not contain raw '\\r'");
+    Assertions.assertFalse(diag.message().contains("\\n"), "Sanitized diagnostic message must not contain escaped '\\\\n'");
+    Assertions.assertFalse(diag.message().contains("\\r"), "Sanitized diagnostic message must not contain escaped '\\\\r'");
+    Assertions.assertTrue(diag.message().contains("token recognition error at: '#'"), "Must display clean token text '#'");
+  }
+
+  @Test
+  @DisplayName("TC-COMP-10: Tuple child error isolation preserves element count and suppresses arity underflow on ')'")
+  void testTupleChildErrorIsolationPreservesElementCountAndSuppressesArityUnderflow() {
+    String source = """
+        {
+          :defs {
+            :UnionLikeEitherC :Union(:Uint32 :Uint33)
+          }
+          :type :Tuple(:Uint32 :Uint32 :UnionLikeEitherC :Uint32 :Uint32 :Uint32)
+          :body (
+            1
+            2
+            #3 3
+            4
+            5
+            6
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Must isolate error strictly to malformed child without cascading diagnostics");
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertTrue(diag.message().contains("Union variant tag '#3' exceeds branch count (2)"));
+    int tagOffset = source.indexOf("#3");
+    Assertions.assertEquals(tagOffset, diag.startOffset(), "Diagnostic must pin strictly to UNION_TAG_PREFIX start");
+    Assertions.assertEquals(tagOffset + 2, diag.endOffset(), "Diagnostic must pin strictly to UNION_TAG_PREFIX stop + 1");
+    Assertions.assertFalse(
+        result.diagnostics().stream().anyMatch(d -> "TUPLE_ARITY_MISMATCH".equals(d.errorCode().orElse(null))),
+        "Must not emit spurious TUPLE_ARITY_MISMATCH on closing delimiter ')'"
+    );
+    Assertions.assertTrue(result.document().isPresent());
+    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnTuple.class, result.document().get());
+    var tuple = (org.stvnadore.core.ir.StvnValue.StvnTuple) result.document().get();
+    Assertions.assertEquals(6, tuple.elements().size(), "Tuple must maintain full element cardinality");
+    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnError.class, tuple.elements().get(2), "Malformed child element must be recorded as StvnError");
+  }
 }

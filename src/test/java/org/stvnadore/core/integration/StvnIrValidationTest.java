@@ -322,29 +322,29 @@ public class StvnIrValidationTest {
         ValidationTestCase.success(
             "Implied Option - Scalar Integer Implied Some",
             "{ :type :Option(:Int32) :body 42 }",
-            "StvnOption[schema=ResolvedSchema[node=[257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnInteger[schema=ResolvedSchema[node=[363 329 322 257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=0, sumTypeNode=[329 322 257 126 119], underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false]]]"
+            "StvnOption[schema=ResolvedSchema[node=[267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnInteger[schema=ResolvedSchema[node=[376 342 335 267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=0, sumTypeNode=[342 335 267 128 121], underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false]]]"
         ),
         ValidationTestCase.success(
             "Implied Either - Scalar Right Implied Route",
             "{ :type :Either(:Int32 :String) :body \"right-value\" }",
-            "StvnEither[schema=ResolvedSchema[node=[257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnString[schema=ResolvedSchema[node=[371 329 322 257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=1, sumTypeNode=[329 322 257 126 119], underlyingSchema=null, localConstraints=null, enumSubset=null], value=right-value, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]], isRight=true, isAmbiguous=false]"
+            "StvnEither[schema=ResolvedSchema[node=[267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnString[schema=ResolvedSchema[node=[384 342 335 267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=1, sumTypeNode=[342 335 267 128 121], underlyingSchema=null, localConstraints=null, enumSubset=null], value=right-value, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]], isRight=true, isAmbiguous=false]"
         ),
 
         // --- 2b) Explicit Disambiguation Vector ---
         ValidationTestCase.success(
             "Explicit Option - Explicit Some Tag",
             "{ :type :Option(:Int32) :body #Some 42 }",
-            "StvnOption[schema=ResolvedSchema[node=[257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnInteger[schema=ResolvedSchema[node=[363 329 322 257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false]]]"
+            "StvnOption[schema=ResolvedSchema[node=[267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnInteger[schema=ResolvedSchema[node=[376 342 335 267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false]]]"
         ),
         ValidationTestCase.success(
             "Explicit Option - Explicit None Tag",
             "{ :type :Option(:Int32) :body #None }",
-            "StvnOption[schema=ResolvedSchema[node=[257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional.empty]"
+            "StvnOption[schema=ResolvedSchema[node=[267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional.empty]"
         ),
         ValidationTestCase.success(
             "Explicit Either - Left Variant Tagged",
             "{ :type :Either(:Int32 :String) :body #Left 42 }",
-            "StvnEither[schema=ResolvedSchema[node=[257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnInteger[schema=ResolvedSchema[node=[370 329 322 257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false], isRight=false, isAmbiguous=false]"
+            "StvnEither[schema=ResolvedSchema[node=[267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnInteger[schema=ResolvedSchema[node=[383 342 335 267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false], isRight=false, isAmbiguous=false]"
         ),
         ValidationTestCase.success(
             "Explicit Disambiguation - Enum Variant Clash via Double Tagging",
@@ -355,14 +355,14 @@ public class StvnIrValidationTest {
               :body #Left #Left
             }
             """,
-            "StvnEither[schema=ResolvedSchema[node=[257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnEnum[schema=ResolvedSchema[node=[266 144 133 123 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=:Status, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=ResolvedSchema[node=[266 144 133 123 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], localConstraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=null, comparable=null, explicitOverrides=[], filterIncl=null, filterExcl=null], enumSubset=null], keyword=#Left, sequentialIndex=0, variantCount=3], isRight=false, isAmbiguous=false]"
+            "StvnEither[schema=ResolvedSchema[node=[267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnEnum[schema=ResolvedSchema[node=[276 146 135 125 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=:Status, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=ResolvedSchema[node=[276 146 135 125 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], localConstraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=null, comparable=null, explicitOverrides=[], filterIncl=null, filterExcl=null], enumSubset=null], keyword=#Left, sequentialIndex=0, variantCount=3], isRight=false, isAmbiguous=false]"
         ),
 
         // --- 2c) Rule C Failure Vector ---
         ValidationTestCase.failure(
             "Rule C Failure - Ambiguous Either Identical Sides (String)",
-            "{ :type :Either(:String :String) :body [ \"world\" ] }",
-            "share identical nominal type identities"
+            "{ :type :Either(:String :String) :body \"world\" }",
+            "Ambiguous implicit either: Both sides are identical (:String), explicit #Left or #Right tag is required"
         ),
         ValidationTestCase.failure(
             "Rule C Failure - Ambiguous Option Keyword Clash with Enum Value",
@@ -391,12 +391,12 @@ public class StvnIrValidationTest {
         ValidationTestCase.success(
             "Nested Implicit Evaluation - Option Either Right",
             "{ :type :Option(:Either(:Int32 :String)) :body \"nested-implicit-right\" }",
-            "StvnOption[schema=ResolvedSchema[node=[257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnEither[schema=ResolvedSchema[node=[363 329 322 257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnString[schema=ResolvedSchema[node=[371 329 322 363 329 322 257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=1, sumTypeNode=[329 322 363 329 322 257 126 119], underlyingSchema=null, localConstraints=null, enumSubset=null], value=nested-implicit-right, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]], isRight=true, isAmbiguous=false]]]"
+            "StvnOption[schema=ResolvedSchema[node=[267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnEither[schema=ResolvedSchema[node=[376 342 335 267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnString[schema=ResolvedSchema[node=[384 342 335 376 342 335 267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=1, sumTypeNode=[342 335 376 342 335 267 128 121], underlyingSchema=null, localConstraints=null, enumSubset=null], value=nested-implicit-right, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]], isRight=true, isAmbiguous=false]]]"
         ),
         ValidationTestCase.success(
             "Hybrid Nested Tagging - Explicit Either Implicit Option Some",
             "{ :type :Either(:Int32 :Option(:String)) :body #Right \"implicit-inner-some\" }",
-            "StvnEither[schema=ResolvedSchema[node=[257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnOption[schema=ResolvedSchema[node=[371 329 322 257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnString[schema=ResolvedSchema[node=[363 329 322 371 329 322 257 126 119], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=0, sumTypeNode=[329 322 371 329 322 257 126 119], underlyingSchema=null, localConstraints=null, enumSubset=null], value=implicit-inner-some, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]]]], isRight=true, isAmbiguous=false]"
+            "StvnEither[schema=ResolvedSchema[node=[267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnOption[schema=ResolvedSchema[node=[384 342 335 267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnString[schema=ResolvedSchema[node=[376 342 335 384 342 335 267 128 121], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=0, sumTypeNode=[342 335 384 342 335 267 128 121], underlyingSchema=null, localConstraints=null, enumSubset=null], value=implicit-inner-some, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]]]], isRight=true, isAmbiguous=false]"
         ),
         ValidationTestCase.failure(
             "Deep Rule C Failure Propagation - Sequence Option Keyword Clash",
@@ -422,5 +422,38 @@ public class StvnIrValidationTest {
     var astStr = ast.toString();
     Assertions.assertTrue(astStr.contains("ConflictType"));
     Assertions.assertTrue(astStr.contains("ConflictTypeB"));
+  }
+
+  @org.junit.jupiter.api.Test
+  @org.junit.jupiter.api.DisplayName("TC-IR-TUPLE-01: Tuple arity mismatch throws MalformedPayloadException with pinned coordinates")
+  void testTupleArityMismatchCoordinatesInStrictCompile() {
+    String underflow = """
+        {
+          :type :Tuple(:Int32 :Int32)
+          :body ( 42 )
+        }
+        """;
+    var exUnderflow = org.junit.jupiter.api.Assertions.assertThrows(
+        org.stvnadore.core.validation.MalformedPayloadException.class,
+        () -> org.stvnadore.core.StvnCompiler.compile(underflow)
+    );
+    int rparen = underflow.lastIndexOf(')');
+    org.junit.jupiter.api.Assertions.assertEquals(rparen, exUnderflow.startOffset());
+    org.junit.jupiter.api.Assertions.assertEquals(rparen + 1, exUnderflow.endOffset());
+
+    String overflow = """
+        {
+          :type :Tuple(:Int32)
+          :body ( 42 84 126 )
+        }
+        """;
+    var exOverflow = org.junit.jupiter.api.Assertions.assertThrows(
+        org.stvnadore.core.validation.MalformedPayloadException.class,
+        () -> org.stvnadore.core.StvnCompiler.compile(overflow)
+    );
+    int startExcess = overflow.indexOf("84");
+    int endExcess = overflow.indexOf("126") + "126".length();
+    org.junit.jupiter.api.Assertions.assertEquals(startExcess, exOverflow.startOffset());
+    org.junit.jupiter.api.Assertions.assertEquals(endExcess, exOverflow.endOffset());
   }
 }

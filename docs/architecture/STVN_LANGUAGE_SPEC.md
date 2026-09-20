@@ -1,6 +1,6 @@
 # STVN Language Specification
 
-- **Version:** 1.3.0
+- **Version:** 1.3.1
 - **Status:** Formal Technical Specification
 - **Target Audience:** Lexer, Parser, AST Analyzer, and Codec Implementers (Java, Kotlin, Scala, Rust, TypeScript, C++)
 
@@ -23,7 +23,9 @@
     * [3.3 Whitespace Discipline and the Strict Zero-Tab Invariant](#33-whitespace-discipline-and-the-strict-zero-tab-invariant)
     * [3.4 Comment Tokens](#34-comment-tokens)
     * [3.5 Metadata Annotation Placement Rules](#35-metadata-annotation-placement-rules)
+      * [3.5.1 Empty Metadata Block Prohibition](#351-empty-metadata-block-prohibition)
     * [3.6 Module Include Directive Syntax](#36-module-include-directive-syntax)
+      * [3.6.1 Empty Directive Block Prohibition](#361-empty-directive-block-prohibition)
     * [3.7 Namespaced and Path-Delimited Identifiers](#37-namespaced-and-path-delimited-identifiers)
       * [3.7.1 Lexical and Syntactic Grammar Rules](#371-lexical-and-syntactic-grammar-rules)
       * [3.7.2 Semantics & Scoping Invariants](#372-semantics--scoping-invariants)
@@ -58,7 +60,10 @@
       * [5.6.4 Compliance & Audit Record: `:org/stvnadore/prelude/DateTimeAudited`](#564-compliance--audit-record-orgstvnadorepreludedatetimeaudited)
       * [5.6.5 Tripartite Invariant Comparison Matrix](#565-tripartite-invariant-comparison-matrix)
   * [6. Trait Capability Calculus & Metadata Constraints](#6-trait-capability-calculus--metadata-constraints)
-    * [6.1 Metadata Target Constraints](#61-metadata-target-constraints)
+    * [6.1 Metadata Target Constraints & Facet Governance](#61-metadata-target-constraints--facet-governance)
+      * [Facet Target Governance Matrix](#facet-target-governance-matrix)
+      * [Empty Block Invariants](#empty-block-invariants)
+      * [Diagnostic Reporting Invariant](#diagnostic-reporting-invariant)
     * [6.2 Trait Capability Matrix](#62-trait-capability-matrix)
     * [6.3 Trait Derivation and Override Rules](#63-trait-derivation-and-override-rules)
   * [7. Value-Oriented Protocol (VOP) Invariants](#7-value-oriented-protocol-vop-invariants)
@@ -334,7 +339,14 @@ Metadata constraint blocks `{ ... }` **must immediately precede** the target typ
 // INVALID: Suffix or wrapped metadata placement
 :BadPort1 :Uint16 { #minIncl 1 }       // FATAL: Syntax error
 :BadPort2 (:Uint16 { #minIncl 1 })     // FATAL: Syntax error
+
+// INVALID: Ungrounded empty metadata block (Section 3.5.1)
+:BadPort3 {} :Uint16                   // FATAL: ERR_EMPTY_METADATA_BLOCK
+#BAD_CONST {} :Uint16 80               // FATAL: ERR_EMPTY_METADATA_BLOCK
 ```
+
+#### 3.5.1 Empty Metadata Block Prohibition
+Empty metadata blocks (`{}`) are prohibited on type definitions and constant definitions. An author must omit the `{}` tokens or specify valid metadata facets. Violations emit diagnostic `ERR_EMPTY_METADATA_BLOCK`.
 
 ---
 
@@ -356,6 +368,9 @@ All `:include` directives inside a `:defs` block **must** be enclosed within squ
 ```
 
 The `#strip` facet is an atomic unary flag without optional string arguments. Supplying string arguments fails at the parser gate. Unary `#strip` executes deterministic terminal segment slicing across all slash-delimited nominal types (`:org/example/Port` -> `:Port`) and value constants (`#org/example/TIMEOUT` -> `#TIMEOUT`). Leading sigils are strictly preserved. Single-segment identifiers are preserved idempotently.
+
+#### 3.6.1 Empty Directive Block Prohibition
+Empty option blocks or alias blocks (`{}`) in `:use` and `:include` directives are prohibited. An author must specify valid directive facets (`{#strip}`), valid alias pairs, or remove `{}`. Violations emit diagnostic `ERR_EMPTY_DIRECTIVE_BLOCK`.
 
 ---
 
@@ -642,7 +657,7 @@ STVN supports arbitrary bit-width integers ($n \ge 1$). Integers are not limited
 ### 5.2 Algebraic Sum Types
 
 * **`:Option( T )`**: Optional wrapper. Recognizes `#Some v` (or `#S v`) and `#None` (or `#N`).
-* **`:Either( L R )`**: Disjoint union with right bias. Recognizes `#Left v` (or `#L v`) and `#Right v` (or `#R v`).
+* **`:Either( L R )`**: Disjoint union with right bias. Recognizes `#Left v` (or `#L v`) and `#Right v` (or `#R v`). In accordance with Value-Oriented Programming (VOP) principles, `:Either` is fundamentally right-biased: candidate branch evaluation, diagnostic enumeration, and tooling intention actions are strictly **right-first** ($R$ precedes $L$).
 * **`:Union( T1 T2 ... Tn )`**: N-way disjoint variant plane. Variants use 1-based indexing (`#1`, `#2`, ... `#n`).
 * **`:Enum[ #VAL1 #VAL2 ... #VALn ]`**: Bounded set of nominal keyword constants. Stored internally as 0-based sequential integers.
 
@@ -786,16 +801,32 @@ Represents an immutable regulatory event recording both the observed instant off
 
 ## 6. Trait Capability Calculus & Metadata Constraints
 
-### 6.1 Metadata Target Constraints
+### 6.1 Metadata Target Constraints & Facet Governance
 
-Metadata annotations appear inside `{ ... }` blocks immediately following a type identifier:
+Metadata constraint blocks `{ ... }` configure nominal type definitions and compile-time constants. The compiler enforces strict target type governance across all metadata facets.
 
-* `#equatable`: Declares that the type supports stable equality and hashing.
-* `#comparable`: Declares that the type supports deterministic ordinal comparison.
-* `#minIncl` / `#minExcl`: Lower numeric bounds (inclusive or exclusive). Must match the underlying numeric scalar type.
-* `#maxIncl` / `#maxExcl`: Upper numeric bounds (inclusive or exclusive). Must match the underlying numeric scalar type.
-* `#regex`: Regular expression pattern constraint for string types (evaluated using standard Java regex syntax).
-* `#preserveIndent`: String whitespace rule for multi-line block literals. `#TRUE` keeps exact indentation; `#FALSE` (default) strips common indentation.
+#### Facet Target Governance Matrix
+
+| Facet Group            | Permitted Facets                               | Permitted Target Entities                                      | Prohibited Targets                                        | Diagnostic Code              |
+|:-----------------------|:-----------------------------------------------|:---------------------------------------------------------------|:----------------------------------------------------------|:-----------------------------|
+| **Numeric Bounds**     | `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl` | Numeric types (`:Int*`, `:Uint*`, `:Float*`, `:FloatExact`)    | String types, `:Boolean`, `:Enum`, `:Tuple`, collections  | `ERR_INVALID_METADATA_FACET` |
+| **String Constraints** | `#regex`, `#preserveIndent`                    | String types (`:String*`, `:StringFixed*`, `:StringNonEmpty*`) | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, collections | `ERR_INVALID_METADATA_FACET` |
+| **Enum Subsetting**    | `#filterIncl`, `#filterExcl`                   | Nominal aliases of `:Enum` and existing enum subsets           | Inline enum constructors, scalar primitives, constants    | `ERR_INVALID_METADATA_FACET` |
+| **Directive Options**  | `#strip`                                       | Directive blocks in `:use` and `:include` statements           | Type definitions, constant definitions                    | `ERR_INVALID_METADATA_FACET` |
+| **Trait Overrides**    | `#equatable`, `#comparable`                    | Nominal type definitions                                       | Constant definitions, collection instances                | `ERR_INVALID_METADATA_FACET` |
+
+#### Empty Block Invariants
+
+1. **Empty Metadata Blocks:** Specifying `{}` on a nominal type definition or compile-time constant definition is prohibited. When `{}` contains zero facet entries, the compiler emits `ERR_EMPTY_METADATA_BLOCK`. Authors must remove `{}` or specify valid facets.
+2. **Empty Directive Blocks:** Specifying `{}` within a `:use` or `:include` statement is prohibited. When `{}` contains zero options or alias mappings, the compiler emits `ERR_EMPTY_DIRECTIVE_BLOCK`. Authors must remove `{}` or specify valid options (`{#strip}`) or alias pairs.
+
+#### Diagnostic Reporting Invariant
+
+When an author applies a facet to an incompatible target entity, the compiler emits `ERR_INVALID_METADATA_FACET`. The diagnostic payload explicitly enumerates the permitted facets for the target domain:
+- For numeric bounds violations on non-numeric types: `permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]`
+- For string constraint violations on non-string types: `permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]`
+- For enum filter violations on non-enum types: `filter facets are permitted strictly on nominal aliases of :Enum and enum subsets`
+- For directive facet violations on type definitions: `directive facet '#strip' is not permitted on type declarations; directive facets are valid strictly in :use and :include blocks`
 
 ### 6.2 Trait Capability Matrix
 
@@ -829,7 +860,7 @@ Metadata annotations appear inside `{ ... }` blocks immediately following a type
 2. **Zero-Shadowing:** A nominal type definition in a `:defs` block must not redefine or shadow another type identifier in the same file context.
 3. **Nominal Type Isolation:** Types with identical structural layouts remain incompatible if their names differ. Compatibility requires matching nominal type identifiers.
 4. **Nominal Bounding:** Recursive or cyclical type structures must not be defined anonymously at the raw payload tier. Recursive types must be anchored through a named definition in a `:defs` block.
-5. **Sum Type Variant Uniqueness:** All candidate branches in `:Either` or `:Union` types must possess unique nominal type names. If two branches share the same underlying structure, the developer must register unique aliases in `:defs`. Duplicate branch types cause a `MalformedSchemaException`.
+5. **Sum Type Variant Soundness (Coproduct Invariant):** Sum types (`:Either`, `:Union`) are mathematically valid coproducts even when candidate branches share identical nominal types or intersecting value domains. When candidate branches share identical nominal types or intersecting domains, implicit payload inference (Rules B, C) is disabled for those branches. Payloads matching intersecting or duplicate branches must provide explicit variant tags (`#Left`, `#Right`, `#1`, `#2`, etc.).
 
 ---
 
@@ -840,8 +871,8 @@ STVN decoders support implicit tagging for sum types when the payload value is u
 ### 8.1 Inference Rules
 
 * **Rule A (Implied Option `#Some`):** For schema `:Option( T )`, an untagged value matching type `T` is automatically parsed as `#Some value`.
-* **Rule B (Implied Either `#Right`):** For schema `:Either( L R )`, an untagged value matching type `R` is automatically parsed as `#Right value`.
-* **Rule C (Implied Union Branch):** For schema `:Union( T1 T2 ... Tn )`, an untagged value matching the distinct structural domain of exactly one branch `Tk` is automatically parsed as `#k value`.
+* **Rule B (Implied Either `#Right`):** For schema `:Either( L R )`, an untagged value matching type `R` is automatically parsed as `#Right value` if and only if `L` and `R` have non-intersecting value domains and distinct nominal identities. If `L` and `R` share identical nominal types or intersecting domains, implicit inference is disabled; untagged values trigger `ERR_AMBIGUOUS_SUM_INFERENCE` (`MalformedPayloadException`).
+* **Rule C (Implied Union Branch):** For schema `:Union( T1 T2 ... Tn )`, an untagged value matching the distinct structural domain of exactly one branch `Tk` is automatically parsed as `#k value`. If the untagged value matches more than one candidate branch, implicit inference is disabled; untagged values trigger `ERR_AMBIGUOUS_SUM_INFERENCE` (`StvnCollectionCollisionException`).
 * **Rule D (Ambiguity Resolution):** If an untagged value is structurally valid as both an explicit variant tag (e.g., enum or constant value token `#None`, `#Right`, etc.) and an inner scalar type `T`, explicit tagging is **mandatory**.
 * **Rule E (Asymmetric Non-Inferability):** The tags `#Left` and `#None` **must never be inferred**.
     * Untagged values matching type `L` in an `:Either( L R )` schema trigger a fatal type error (`MalformedPayloadException`).
@@ -861,8 +892,8 @@ STVN decoders support implicit tagging for sum types when the payload value is u
 [ 42.5 ] // Inferred as #Some #Right 42.5
 ```
 * **Rule G (Union Branch Indexing):** Union variants use 1-based indexing prefixes matching lexer pattern `#` `[1-9][0-9]*` (e.g., `#1 42`, `#2 "text"`). Tag `#0` and negative tags are illegal. Indices exceeding the union branch count throw `StvnMalformedLiteralException`.
-* **Rule H (Two-Branch Union vs. Either):** A 2-branch `:Union( A B )` has no structural bias and allows implicit bidirectional matching across distinct token domains via Rule C. In contrast, `:Either( L R )` is right-biased and requires explicit `#Left` tagging.
-* **Rule I (Intersection Clusters):** If an untagged value matches multiple candidate branches in a union, implicit resolution is disabled. The payload must provide an explicit branch tag (`#1`), or the parser throws `StvnCollectionCollisionException`.
+* **Rule H (Right-First Precedence & Either vs. Union):** A 2-branch `:Union( A B )` has no structural bias and allows implicit bidirectional matching across distinct token domains via Rule C. In contrast, `:Either( L R )` is fundamentally right-biased ($R$ precedes $L$). Across all compiler validation passes, diagnostic message enumerations, candidate resolutions, and interactive IDE intention actions/quick-fixes, branch $R$ is evaluated and presented prior to branch $L$. In IDE quick-fixes for ambiguous `:Either` payloads, `Wrap with #Right (-> R)` must always be registered as the primary (top) intention action, followed by `Wrap with #Left (-> L)`.
+* **Rule I (Intersection Clusters & Duplicate Branches):** If an untagged value matches multiple candidate branches in a sum type (due to intersecting structural domains or duplicate nominal types such as `:Union( :Uint32 :Uint32 )`), implicit resolution is disabled. The payload must provide an explicit branch tag (`#Left`, `#Right`, `#1`, `#2`, etc.), or the parser emits `ERR_AMBIGUOUS_SUM_INFERENCE` (`StvnCollectionCollisionException` for `:Union`, `MalformedPayloadException` for `:Either`).
 * **Rule J (Semantic Guard Tracking):** If an explicit branch tag is syntactically valid but the value violates a localized constraint (e.g., a `#regex` mismatch), the AST node is lowered into a monadic diagnostic framework (`StvnAnalysisResult`). The error is tracked in a `StvnDiagnostic` frame with text coordinates for IDE highlighting without crashing the AST pipeline.
 
 ---
@@ -1844,19 +1875,42 @@ stvnDocument : LBRACE documentBody RBRACE EOF ;
 documentBody : defsEntry? (typeEntry bodyEntry)? ;
 
 // Inclusion definitions integrated alongside type structures
-defsEntry : KW_DEFS LBRACE ( includeStmt | typeDefinition | constantDefinition )* RBRACE ;
+defsEntry : KW_DEFS LBRACE defsElement* RBRACE ;
+
+defsElement : includeStmt
+            | packageEnclosure
+            | useStmt
+            | typeDefinition
+            | constantDefinition
+            ;
+
+packageEnclosure : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
+packagePath      : typeKeyword ;
+packageElement   : useStmt
+                 | typeDefinition
+                 | constantDefinition
+                 | nestedPackageIllegal
+                 ;
+nestedPackageIllegal : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
+
+useStmt : KW_USE LBRACK useTarget useOptionsBlock? useAliasBlock? RBRACK ;
+useTarget : typeKeyword | useTargetIllegal ;
+useTargetIllegal : typeKeyword FSLASH+ ;
+useOptionsBlock : LBRACE KW_STRIP* RBRACE ;
+useAliasBlock   : LBRACE useMapAlias* RBRACE ;
+useMapAlias     : typeKeyword typeKeyword | valueKeyword valueKeyword ;
 
 includeStmt       : KW_INCLUDE LBRACK includeElement+ RBRACK ;
 
 includeElement      : stringLiteral includeOptionsBlock? includeAliasBlock? ;
 
-includeOptionsBlock : LBRACE includeOption+ RBRACE ;
+includeOptionsBlock : LBRACE includeOption* RBRACE ;
 
-includeOption       : KW_STRIP ( stringLiteral )? ;
+includeOption       : KW_STRIP ;
 
-includeAliasBlock : LBRACE includeMapAlias+ RBRACE ;
+includeAliasBlock   : LBRACE includeMapAlias* RBRACE ;
 
-includeMapAlias   : typeKeyword typeKeyword ;
+includeMapAlias     : typeKeyword typeKeyword ;
 
 typeEntry : KW_TYPE schemaType ;
 bodyEntry : KW_BODY value ;
@@ -1868,10 +1922,14 @@ constantDefinition : valueKeyword metadataMap? schemaType value ;
 metadataMap    : LBRACE metadataEntry* RBRACE ;
 
 // Enforced structural type verification branches
-metadataEntry  : metadataBool | metadataNum | metadataString ;
-metadataBool   : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) metadataValue ;
-metadataNum    : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
-metadataString : KW_REGEX metadataValue ;
+metadataEntry     : metadataBool | metadataNum | metadataString | metadataFilter | metadataDirective ;
+metadataDirective : KW_STRIP ;
+metadataBool      : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) metadataValue ;
+metadataNum       : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
+metadataString    : KW_REGEX metadataValue ;
+metadataFilter    : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
+
+variantList    : LBRACK valueKeyword* RBRACK ;
 
 metadataValue  : booleanLiteral
                | integerLiteral

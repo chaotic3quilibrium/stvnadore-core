@@ -56,6 +56,8 @@ public final class DiagnosticBag {
   public static final String ERR_TRAILING_SLASH_PROHIBITED = "ERR_TRAILING_SLASH_PROHIBITED";
   /** Error code emitted when algebraic sum type branches share duplicate tag identifiers. */
   public static final String ERR_SUM_TYPE_COLLISION = "SUM_TYPE_TAG_COLLISION";
+  /** Error code emitted when implicit sum type payload inference is ambiguous due to duplicate nominal types or intersecting domains. */
+  public static final String ERR_AMBIGUOUS_SUM_INFERENCE = "ERR_AMBIGUOUS_SUM_INFERENCE";
   /** Error code emitted when structural trait constraints are violated. */
   public static final String ERR_TRAIT_VIOLATION = "TRAIT_VIOLATION";
   /** Error code emitted when a schema definition contains malformed syntax or illegal nesting. */
@@ -66,6 +68,12 @@ public final class DiagnosticBag {
   public static final String ERR_TAB_CHARACTER_FORBIDDEN = "ERR_TAB_CHARACTER_FORBIDDEN";
   /** Error code emitted when a nominal string capacity suffix violates architectural bounds. */
   public static final String ERR_INVALID_STRING_CAPACITY = "ERR_INVALID_STRING_CAPACITY";
+  /** Error code emitted when an empty metadata block '{}' is encountered on a type or constant definition. */
+  public static final String ERR_EMPTY_METADATA_BLOCK = "ERR_EMPTY_METADATA_BLOCK";
+  /** Error code emitted when an empty directive block '{}' is encountered in :use or :include. */
+  public static final String ERR_EMPTY_DIRECTIVE_BLOCK = "ERR_EMPTY_DIRECTIVE_BLOCK";
+  /** Error code emitted when a metadata facet is applied to an incompatible target entity kind. */
+  public static final String ERR_INVALID_METADATA_FACET = "ERR_INVALID_METADATA_FACET";
 
   private final int maxDiagnostics;
   private final List<StvnDiagnostic> diagnostics;
