@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "directive facet '#strip' is not permitted on type declarations"
+    "Constraint violation (:IllegalType): directive facet '#strip' is not permitted on type declarations; directive facets are valid strictly in :use and :include blocks"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

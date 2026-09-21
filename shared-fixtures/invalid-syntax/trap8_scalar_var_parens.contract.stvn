@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_PAYLOAD
-    "Type mismatch: Expected scalar (:Int32), got Tuple (parenthesized product syntax is strictly reserved for :Tuple)"
+    "Type mismatch: Expected scalar (:Int), got Tuple (parenthesized product syntax is strictly reserved for :Tuple)"
     "org.stvnadore.core.validation.MalformedPayloadException"
   )
 }

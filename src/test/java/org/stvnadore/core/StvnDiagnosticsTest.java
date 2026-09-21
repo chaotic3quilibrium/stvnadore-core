@@ -129,11 +129,11 @@ public class StvnDiagnosticsTest {
   }
 
   @Test
-  @DisplayName("Nested empty enum in :Union(:Int32 :Enum[]) fails with clean syntax error")
+  @DisplayName("Nested empty enum in :Union(:Int :Enum[]) fails with clean syntax error")
   void testNestedEmptyEnumInUnionFails() {
     String input = """
         {
-          :type :Union(:Int32 :Enum[])
+          :type :Union(:Int :Enum[])
           :body #1 42
         }
         """;
@@ -310,7 +310,7 @@ public class StvnDiagnosticsTest {
       "{ :type :Tuple() :body ( 1 ) }",
       "{ :type :Union() :body #1 1 }",
       "{ :type :Enum[] :body #A }",
-      "{ :type :Tuple(:Int32 :) :body ( 1 ) }",
+      "{ :type :Tuple(:Int :) :body ( 1 ) }",
       "{ :type :Seq() :body [ 1 ] }",
       "{ :type :Set() :body [] }",
       "{ :type :SetNonEmpty() :body [ 1 ] }",
@@ -350,6 +350,8 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
+            :Int32 { #size 32 } :Int
+            :Uint32 { #unsigned #size 32 } :Int
             :EitherRepeat :Either( :Int32 :Uint32 )
           }
           :type :EitherRepeat
@@ -372,6 +374,8 @@ public class StvnDiagnosticsTest {
     String leftInput = """
         {
           :defs {
+            :Int32 { #size 32 } :Int
+            :Uint32 { #unsigned #size 32 } :Int
             :EitherRepeat :Either( :Int32 :Uint32 )
           }
           :type :EitherRepeat
@@ -389,6 +393,8 @@ public class StvnDiagnosticsTest {
     String rightInput = """
         {
           :defs {
+            :Int32 { #size 32 } :Int
+            :Uint32 { #unsigned #size 32 } :Int
             :EitherRepeat :Either( :Int32 :Uint32 )
           }
           :type :EitherRepeat
@@ -409,7 +415,7 @@ public class StvnDiagnosticsTest {
   void testEitherRuleEViolationUntaggedLeftBranch() {
     String input = """
         {
-          :type :Either( :Int32 :String )
+          :type :Either( :Int :String )
           :body 42
         }
         """;
@@ -481,7 +487,7 @@ public class StvnDiagnosticsTest {
   void testEitherRuleEViolationInTuple() {
     String input = """
         {
-          :type :Tuple( :Either( :Int32 :String ) :Either( :Int32 :String ) )
+          :type :Tuple( :Either( :Int :String ) :Either( :Int :String ) )
           :body ( 1 "a" )
         }
         """;
@@ -499,7 +505,7 @@ public class StvnDiagnosticsTest {
   void testEitherExplicitLeftAndImpliedRightInTuple() {
     String input = """
         {
-          :type :Tuple( :Either( :Int32 :String ) :Either( :Int32 :String ) )
+          :type :Tuple( :Either( :Int :String ) :Either( :Int :String ) )
           :body ( #Left 1 "a" )
         }
         """;
@@ -519,6 +525,10 @@ public class StvnDiagnosticsTest {
   void testEitherAmbiguityFloatOverlap() {
     String input = """
         {
+          :defs {
+            :Float32 { #size 32 } :Float
+            :Float64 { #size 64 } :Float
+          }
           :type :Either( :Float32 :Float64 )
           :body 1.5
         }
@@ -538,8 +548,8 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :UserId :Int32
-            :AccountId :Uint32
+            :UserId { #size 32 } :Int
+            :AccountId { #unsigned #size 32 } :Int
           }
           :type :Either( :UserId :AccountId )
           :body 100
@@ -559,6 +569,10 @@ public class StvnDiagnosticsTest {
   void testEitherAmbiguityNestedInOption() {
     String input = """
         {
+          :defs {
+            :Int32 { #size 32 } :Int
+            :Uint32 { #unsigned #size 32 } :Int
+          }
           :type :Option( :Either( :Int32 :Uint32 ) )
           :body 1
         }
@@ -578,6 +592,8 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
+            :Int32 { #size 32 } :Int
+            :Uint32 { #unsigned #size 32 } :Int
             #CONST_VAL :Int32 100
           }
           :type :Either( :Int32 :Uint32 )
@@ -599,9 +615,9 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :type :String
-          :body ""\"->[]
+          :body \"\"\"[]
           SELECT * FROM users WHERE active = TRUE;
-          []""\"
+          []\"\"\"
         }
         """;
     var result = StvnCompiler.compileToResult(input);
@@ -675,7 +691,7 @@ public class StvnDiagnosticsTest {
   }
 
   @Test
-  @DisplayName("Rule STR-04 Deprecation: Encountering '->' emits WARNING diagnostic and succeeds compilation")
+  @DisplayName("Rule STR-04 Deprecation: Encountering '->' emits ERROR diagnostic and fails compilation")
   void testFencedStringArrowDelimiterEmitsDeprecationWarning() {
     String input = """
         {
@@ -687,18 +703,17 @@ public class StvnDiagnosticsTest {
         """;
 
     var result = StvnCompiler.compileToResult(input);
-    Assertions.assertTrue(result.isSuccess(), "Compilation must succeed despite deprecation warning");
-    Assertions.assertFalse(result.hasErrors(), "Must contain zero ERROR diagnostics");
-    Assertions.assertTrue(result.hasWarnings(), "Must flag warning diagnostic");
+    Assertions.assertFalse(result.isSuccess(), "Compilation must fail when deprecated arrow delimiter is used");
+    Assertions.assertTrue(result.hasErrors(), "Must contain ERROR diagnostics");
     Assertions.assertEquals(1, result.diagnostics().size());
 
     var diag = result.diagnostics().getFirst();
-    Assertions.assertEquals(StvnDiagnostic.DiagnosticSeverity.WARNING, diag.severity());
-    Assertions.assertEquals(
-        "Rule STR-04 deprecation: The '->' arrow delimiter in fenced strings is deprecated; use '\"\"\"[TAG]' instead.",
+    Assertions.assertEquals(StvnDiagnostic.DiagnosticSeverity.ERROR, diag.severity());
+    Assertions.assertTrue(
+        diag.message().contains("Rule STR-04 deprecation: The '->' arrow delimiter in fenced strings is deprecated; use '\"\"\"[TAG]' instead."),
         diag.message()
     );
-    Assertions.assertEquals("RULE_STR_04_DEPRECATED_ARROW", diag.errorCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_DEPRECATED_FENCE_ARROW, diag.errorCode().orElse(""));
     Assertions.assertEquals(3, diag.line());
   }
 
@@ -726,7 +741,7 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :Port {} :Uint16
+            :Port {} :Int
           }
           :type :Port
           :body 8080
@@ -751,9 +766,9 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            #DEFAULT_PORT {} :Uint16 8080
+            #DEFAULT_PORT {} :Int 8080
           }
-          :type :Uint16
+          :type :Int
           :body #DEFAULT_PORT
         }
         """;
@@ -770,7 +785,7 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :package :Network { :Port :Uint16 }
+            :package :Network { :Port :Int }
             :use [ :Network {} ]
           }
           :type :Network/Port

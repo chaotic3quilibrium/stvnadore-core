@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Constraint violation: Leading zeros are forbidden in type suffix dimensions: :Int08"
+    "Compound integer keyword ':Int08' is deprecated in 2.0.0; use '{ #size 08 } :Int'"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

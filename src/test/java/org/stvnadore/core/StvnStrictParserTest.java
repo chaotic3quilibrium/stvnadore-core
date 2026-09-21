@@ -18,7 +18,7 @@ class StvnStrictParserTest {
   void testStrictParserRejectsIllegalFloatSuffixInCompile() {
     var input = """
         {
-          :type :Float32
+          :type :Float
           :body 1.0f
         }
         """;
@@ -35,7 +35,7 @@ class StvnStrictParserTest {
   void testStrictParserRejectsIllegalFloatSuffixInAnalyze() {
     var input = """
         {
-          :type :Float32
+          :type :Float
           :body 1.0f
         }
         """;
@@ -56,7 +56,7 @@ class StvnStrictParserTest {
   void testStrictParserAcceptsCompliantFloat() {
     var input = """
         {
-          :type :Float32
+          :type :Float
           :body 1.0
         }
         """;
@@ -69,7 +69,7 @@ class StvnStrictParserTest {
   void testDefaultNonStrictParserAllowsParsingRecoveredAst() {
     var input = """
         {
-          :type :Seq(:Option(:Tuple(:Int32)))
+          :type :Seq(:Option(:Tuple(:Int)))
           :body [ #Some ( ) ]
         }
         """;
@@ -83,7 +83,7 @@ class StvnStrictParserTest {
   void testStrictParserRejectsBrokenSyntaxImmediately() {
     var input = """
         {
-          :type :Int32
+          :type :Int
           :body @
         }
         """;
@@ -102,6 +102,8 @@ class StvnStrictParserTest {
     var input = """
         {
           :defs {
+            :Int32 { #size 32 } :Int
+            :Uint32 { #unsigned #size 32 } :Int
             :EitherRepeat :Either( :Int32 :Uint32 )
           }
           :type :EitherRepeat
@@ -125,7 +127,7 @@ class StvnStrictParserTest {
   void testStrictParserRejectsRuleEViolation() {
     var input = """
         {
-          :type :Either( :Int32 :String )
+          :type :Either( :Int :String )
           :body 100
         }
         """;

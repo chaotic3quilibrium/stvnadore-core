@@ -10,11 +10,11 @@ class StvnCompilerMonadicTest {
 
   @Test
   void testSuccessfulAnalysis() {
-    var source = "{ :type :Int32 :body 42 }";
+    var source = "{ :type :Int :body 42 }";
     var result = StvnCompiler.analyze(source);
     Assertions.assertTrue(result.value().isPresent());
     Assertions.assertTrue(result.diagnostics().isEmpty());
-    Assertions.assertEquals("{:type :Int32 :body 42}", StvnCompiler.toCanonicalString(result.value().get()));
+    Assertions.assertEquals("{:type :Int :body 42}", StvnCompiler.toCanonicalString(result.value().get()));
   }
 
   @Test
@@ -27,7 +27,7 @@ class StvnCompilerMonadicTest {
 
   @Test
   void testSyntaxErrorMissingBrace() {
-    var source = "{ :type :Int32 :body 42";
+    var source = "{ :type :Int :body 42";
     var result = StvnCompiler.analyze(source);
     Assertions.assertTrue(result.value().isEmpty());
     Assertions.assertFalse(result.diagnostics().isEmpty());
@@ -40,7 +40,7 @@ class StvnCompilerMonadicTest {
 
   @Test
   void testSyntaxErrorInvalidToken() {
-    var source = "{ :type :Int32 :body @ }";
+    var source = "{ :type :Int :body @ }";
     var result = StvnCompiler.analyze(source);
     Assertions.assertTrue(result.value().isEmpty());
     Assertions.assertFalse(result.diagnostics().isEmpty());
@@ -48,8 +48,8 @@ class StvnCompilerMonadicTest {
     var diagnostic = result.diagnostics().get(0);
     Assertions.assertTrue(diagnostic.message().contains("STVN Syntax Error") || diagnostic.message().contains("token recognition error"));
     Assertions.assertEquals(1, diagnostic.line());
-    Assertions.assertEquals(21, diagnostic.column());
-    Assertions.assertEquals(21, diagnostic.startOffset());
+    Assertions.assertEquals(source.indexOf('@'), diagnostic.column());
+    Assertions.assertEquals(source.indexOf('@'), diagnostic.startOffset());
   }
 
   @Test
@@ -102,7 +102,7 @@ class StvnCompilerMonadicTest {
   void testUnionBranchTypeMismatchExactCoordinates() {
     var source = """
         {
-          :type :Union(:Int32 :String)
+          :type :Union(:Int :String)
           :body #1 1024.0
         }
         """;

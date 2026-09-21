@@ -228,7 +228,7 @@ public class StvnEnumSubsetTest {
     String stvn = """
         {
           :defs {
-            :Illegal { #filterIncl [ #A ] } :Int32
+            :Illegal { #filterIncl [ #A ] } :Int
           }
           :type :Illegal
           :body 42
@@ -236,7 +236,7 @@ public class StvnEnumSubsetTest {
         """;
     StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
     assertFalse(result.isSuccess());
-    assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("filter facets are not allowed on :Int32")));
+    assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("filter facets are not allowed on :Int")));
   }
 
   @Test

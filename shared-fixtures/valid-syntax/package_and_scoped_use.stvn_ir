@@ -1,22 +1,22 @@
 TypeRegistry:
   - :org/example/network/Port
       schema:
-        node: :Uint16
+        node: :Int
         aliasName: :org/example/network/Port
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Uint16
+          node: :Int
   - :org/example/network/HostName
       schema:
-        node: :StringNonEmpty
+        node: :String
         aliasName: :org/example/network/HostName
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :StringNonEmpty
+          node: :String
   - :org/example/service/ServiceConfig
       schema:
         node: :Tuple(:HostName:Port)

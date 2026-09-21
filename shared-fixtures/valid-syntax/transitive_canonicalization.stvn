@@ -1,8 +1,8 @@
 {
   :defs {
     :package :org/stvnadore/finance {
-      :Transaction :Tuple(:Int64 :Float64)
-      :CreationTime :Int64
+      :Transaction :Tuple(:Int :Float)
+      :CreationTime :Int
     }
     :use [ :org/stvnadore/finance { :Transaction :LocalTx } ]
     :A :String

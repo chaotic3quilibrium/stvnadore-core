@@ -1,0 +1,7 @@
+{
+  :defs {
+    :Timestamp :org/stvnadore/prelude/TimeEpoch
+  }
+  :type :Timestamp
+  :body 1710500000
+}

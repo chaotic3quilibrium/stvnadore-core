@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "#filterIncl and #filterExcl are mutually exclusive"
+    "Constraint violation (:ConflictFilter): #filterIncl and #filterExcl are mutually exclusive"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

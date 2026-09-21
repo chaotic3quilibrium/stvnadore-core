@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Constraint violation: Type suffix dimension overflows signed 32-bit integer limit: :Int4294967296"
+    "Compound integer keyword ':Int4294967296' is deprecated in 2.0.0; use '{ #size 4294967296 } :Int'"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

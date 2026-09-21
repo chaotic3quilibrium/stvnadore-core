@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "facet 'minIncl' is not permitted on :String; permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]"
+    "Constraint violation (:InvalidString): facet 'minIncl' is not permitted on :String; permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

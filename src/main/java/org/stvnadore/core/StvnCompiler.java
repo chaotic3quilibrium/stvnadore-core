@@ -54,7 +54,7 @@ public final class StvnCompiler {
    * <p>
    * <b>Example Usage:</b>
    * <pre>{@code
-   * String rawStvn = "{ :type :Int32 :body 42 }";
+   * String rawStvn = "{ :type :Int :body 42 }";
    * Optional<StvnValue> ast = StvnCompiler.compile(rawStvn);
    * ast.ifPresent(val -> System.out.println("Parsed integer: " + val));
    * }</pre>
@@ -305,7 +305,7 @@ public final class StvnCompiler {
         if (t instanceof org.stvnadore.core.validation.MalformedSchemaException e) {
           startOffset = e.startOffset();
           endOffset = e.endOffset();
-          if (e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))) {
+          if (e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type") || e.getMessage().contains("deprecated in 2.0.0"))) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_UNKNOWN_TYPE;
           } else if (e.getMessage() != null && e.getMessage().contains("filter facets")) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_INVALID_METADATA_FACET;

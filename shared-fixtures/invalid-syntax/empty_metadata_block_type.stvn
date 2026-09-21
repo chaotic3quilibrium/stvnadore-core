@@ -1,7 +1,7 @@
 {
   // empty_metadata_block_type.stvn
   :defs {
-    :InvalidPort {} :Uint16
+    :InvalidPort {} :Int
   }
   :type :InvalidPort
   :body 8080

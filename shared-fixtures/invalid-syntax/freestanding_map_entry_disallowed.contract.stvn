@@ -8,7 +8,7 @@
 
   :body (
     #SYNTAX_ERROR
-    "STVN Syntax Error: mismatched input ':MapEntry'"
+    "STVN Syntax Error: mismatched input ':MapEntry' expecting <schema type>"
     "java.lang.RuntimeException"
   )
 }

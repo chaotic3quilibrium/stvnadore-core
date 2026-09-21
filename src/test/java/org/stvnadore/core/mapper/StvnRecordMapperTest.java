@@ -208,7 +208,7 @@ class StvnRecordMapperTest {
   @Test
   void testStvnBitsValidationAndInference() {
     var record = new BitsRecord(java.math.BigInteger.valueOf(127), java.math.BigInteger.TEN);
-    var doc = StvnCompiler.compile("{ :type :Tuple( :Uint7 :Int128 ) :body [0 0] }").orElseThrow();
+    var doc = StvnCompiler.compile("{ :defs { :U7 { #unsigned #size 7 } :Int :I128 { #size 128 } :Int } :type :Tuple( :U7 :I128 ) :body [0 0] }").orElseThrow();
     var schema = doc.schema();
 
     var mapped = StvnMapper.toValue(record, schema).orElseThrow();
@@ -223,7 +223,7 @@ class StvnRecordMapperTest {
       StvnMapper.toValue(recordOverrun, schema);
     });
 
-    var docUnannotated = StvnCompiler.compile("{ :type :Tuple( :Int32 ) :body [0] }").orElseThrow();
+    var docUnannotated = StvnCompiler.compile("{ :type :Tuple( :Int ) :body [0] }").orElseThrow();
     var schemaUnannotated = docUnannotated.schema();
     var unannotatedRecord = new UnannotatedBigIntRecord(42, java.math.BigInteger.TEN);
     assertThrows(MalformedPayloadException.class, () -> {

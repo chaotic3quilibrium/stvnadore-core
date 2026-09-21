@@ -4,6 +4,6 @@
       "include_cyclic_three_deep_b.stvn_incl"
     ]
   }
-  :type :Int32
+  :type :Int
   :body 42
 }

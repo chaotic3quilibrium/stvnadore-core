@@ -74,6 +74,14 @@ public final class DiagnosticBag {
   public static final String ERR_EMPTY_DIRECTIVE_BLOCK = "ERR_EMPTY_DIRECTIVE_BLOCK";
   /** Error code emitted when a metadata facet is applied to an incompatible target entity kind. */
   public static final String ERR_INVALID_METADATA_FACET = "ERR_INVALID_METADATA_FACET";
+  /** Error code emitted when a discrete type (:Int or { #exact } :Float) declares #maxIncl or #minExcl. */
+  public static final String ERR_DISCRETE_BOUND_KIND_PROHIBITED = "ERR_DISCRETE_BOUND_KIND_PROHIBITED";
+  /** Error code emitted when two incompatible nominal types are unified or compared. */
+  public static final String ERR_INCOMPATIBLE_NOMINAL_TYPE = "ERR_INCOMPATIBLE_NOMINAL_TYPE";
+  /** Error code emitted when a temporal type (:TimeEpoch or :DateTime) lacks required mode or unit facets. */
+  public static final String ERR_MISSING_TEMPORAL_FACET = "ERR_MISSING_TEMPORAL_FACET";
+  /** Error code emitted when a deprecated fenced string delimiter arrow is encountered under Rule STR-04. */
+  public static final String ERR_DEPRECATED_FENCE_ARROW = "ERR_DEPRECATED_FENCE_ARROW";
 
   private final int maxDiagnostics;
   private final List<StvnDiagnostic> diagnostics;

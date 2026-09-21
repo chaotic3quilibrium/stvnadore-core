@@ -1,43 +1,43 @@
 {
   // canonical_scalars.stvn
   :defs {
-    :IntBit1        :Int1
-    :IntBit7        :Int7
-    :IntBit24       :Int24
-    :IntBit64       :Int64
-    :IntBit128      :Int128
+    :IntBit1        { #size 1 } :Int
+    :IntBit7        { #size 7 } :Int
+    :IntBit24       { #size 24 } :Int
+    :IntBit64       { #size 64 } :Int
+    :IntBit128      { #size 128 } :Int
     :DefaultSigned  :Int
 
-    :UintBit1       :Uint1
-    :UintBit3       :Uint3
-    :UintBit49      :Uint49
-    :UintBit64      :Uint64
-    :UintBit128     :Uint128
-    :DefaultUnsigned :Uint
+    :UintBit1       { #unsigned #size 1 } :Int
+    :UintBit3       { #unsigned #size 3 } :Int
+    :UintBit49      { #unsigned #size 49 } :Int
+    :UintBit64      { #unsigned #size 64 } :Int
+    :UintBit128     { #unsigned #size 128 } :Int
+    :DefaultUnsigned { #unsigned } :Int
 
     :DefaultFloat   :Float
-    :SingleFloat    :Float32
-    :DoubleFloat    :Float64
-    :FinancialValue :FloatExact
+    :SingleFloat    { #size 32 } :Float
+    :DoubleFloat    { #size 64 } :Float
+    :FinancialValue { #exact } :Float
 
     :UnboundedText  :String
-    :BoundedText    :String64
-    :BoundedText4k  :String4096
-    :MaxCapacityText :String16777216
-    :ExtendedCapacityText :String33554432
-    :MandatoryText  :StringNonEmpty128
-    :ExactKeyText   :StringFixed16
+    :BoundedText    { #maxSize 64 } :String
+    :BoundedText4k  { #maxSize 4096 } :String
+    :MaxCapacityText { #maxSize 16777216 } :String
+    :ExtendedCapacityText { #maxSize 33554432 } :String
+    :MandatoryText  { #minSize 1 #maxSize 128 } :String
+    :ExactKeyText   { #minSize 16 #maxSize 16 } :String
 
     :FlagState      :Boolean
     :ServerState    :Enum [ #INITIALIZING #ACTIVE #DEGRADED #OFFLINE ]
   }
 
   :type :Tuple(
-    :Int1 :Int7 :Int24 :Int64 :Int128 :Int
-    :Uint1 :Uint3 :Uint49 :Uint64 :Uint128 :Uint
-    :Float :Float32 :Float64 :FloatExact
-    :String :String64 :String4096 :String16777216 :String33554432 :StringNonEmpty128 :StringFixed16
-    :Boolean :Boolean :ServerState
+    :IntBit1 :IntBit7 :IntBit24 :IntBit64 :IntBit128 :DefaultSigned
+    :UintBit1 :UintBit3 :UintBit49 :UintBit64 :UintBit128 :DefaultUnsigned
+    :DefaultFloat :SingleFloat :DoubleFloat :FinancialValue
+    :UnboundedText :BoundedText :BoundedText4k :MaxCapacityText :ExtendedCapacityText :MandatoryText :ExactKeyText
+    :FlagState :FlagState :ServerState
   )
 
   :body (

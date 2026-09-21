@@ -25,8 +25,8 @@ public class StvnPackageAndUseScopingTest {
         {
           :defs {
             :package :org/example/network {
-              :Port :Uint16
-              #DEFAULT_PORT :Uint16 8080
+              :Port :Int
+              #DEFAULT_PORT :Port 8080
             }
           }
           :type :org/example/network/Port
@@ -96,7 +96,7 @@ public class StvnPackageAndUseScopingTest {
         {
           :defs {
             :package :PkgA { :Model :String }
-            :package :PkgB { :Model :Int64 }
+            :package :PkgB { :Model :Int }
             :use [ :PkgA { #strip } ]
             :use [ :PkgB { #strip } ]
           }
@@ -130,7 +130,7 @@ public class StvnPackageAndUseScopingTest {
         {
           :defs {
             :package :PkgA { :Model :String }
-            :package :PkgB { :Model :Int64 }
+            :package :PkgB { :Model :Int }
             :use [ :PkgA { #strip } ]
             :use [ :PkgB { :Model :PkgBModel } ]
           }
@@ -149,8 +149,8 @@ public class StvnPackageAndUseScopingTest {
         {
           :defs {
             :package :org/example/config {
-              #DEFAULT_TIMEOUT :Uint32 5000
-              :Timeout :Uint32
+              :Timeout :Int
+              #DEFAULT_TIMEOUT :Timeout 5000
             }
             :use [ :org/example/config { #strip } ]
           }
@@ -185,7 +185,7 @@ public class StvnPackageAndUseScopingTest {
           :defs {
             :include [ "module.stvn_incl" { #strip "pkg/sub/" } ]
           }
-          :type :Int32
+          :type :Int
           :body 1
         }
         """;
@@ -202,7 +202,7 @@ public class StvnPackageAndUseScopingTest {
           :defs {
             :use [ :org/stvnadore/prelude/ { #strip } ]
           }
-          :type :Int32
+          :type :Int
           :body 1
         }
         """;
@@ -222,7 +222,7 @@ public class StvnPackageAndUseScopingTest {
         {
           :defs {
             :package :Network {
-              :Port :Uint16
+              :Port :Int
             }
           }
         }

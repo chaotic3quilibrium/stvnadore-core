@@ -1,6 +1,6 @@
 {
   :defs {
-    :OptInt :Option( :Int32 )
+    :OptInt :Option( :Int )
   }
   :type :OptInt
   :body #Some ( 42 )

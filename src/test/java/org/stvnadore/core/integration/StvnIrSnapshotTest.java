@@ -76,35 +76,24 @@ public class StvnIrSnapshotTest {
   }
 
   @Test
-  @DisplayName("Rule STR-04 Invariant: Modern and legacy arrow fenced strings produce identical IR and expected diagnostics")
-  public void testFencedStringArrowDeprecationParity() throws IOException {
-    Path modernPath = FIXTURES_DIR.resolve("fenced_string_nested.stvn");
-    Path legacyPath = FIXTURES_DIR.resolve("fenced_string_deprecated_arrow.stvn");
-
-    Assertions.assertTrue(Files.exists(modernPath), "Missing modern fixture: " + modernPath);
-    Assertions.assertTrue(Files.exists(legacyPath), "Missing legacy fixture: " + legacyPath);
-
-    String modernContent = Files.readString(modernPath).replace("\r\n", "\n");
-    String legacyContent = Files.readString(legacyPath).replace("\r\n", "\n");
-
-    var modernResult = StvnCompiler.compileToResult(modernContent, modernPath.toString());
-    var legacyResult = StvnCompiler.compileToResult(legacyContent, legacyPath.toString());
-
-    Assertions.assertTrue(modernResult.isSuccess(), "Modern fenced string compilation must succeed cleanly");
-    Assertions.assertTrue(legacyResult.isSuccess(), "Legacy arrow fenced string compilation must succeed");
-
-    // Assert zero diagnostics on canonical syntax
-    Assertions.assertEquals(0, modernResult.diagnostics().size(), "Modern syntax must emit 0 diagnostics");
-
-    // Assert exactly 1 warning on legacy syntax
-    Assertions.assertTrue(legacyResult.hasWarnings(), "Legacy syntax must record warning diagnostic");
-    Assertions.assertEquals(1, legacyResult.diagnostics().size(), "Expected exactly 1 diagnostic for legacy arrow");
-    var diag = legacyResult.diagnostics().getFirst();
-    Assertions.assertEquals(org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity.WARNING, diag.severity());
-    Assertions.assertTrue(diag.message().contains("Rule STR-04 deprecation: The '->' arrow delimiter in fenced strings is deprecated; use '\"\"\"[TAG]' instead."));
-
-    // Assert mathematical AST identity
-    Assertions.assertEquals(modernResult.document().get(), legacyResult.document().get(), "Modern and legacy AST representations must be identical");
+  @DisplayName("Rule STR-04 Invariant: Arrow fenced strings (\"\"\"->[TAG]) are rejected with fatal syntax error")
+  public void testFencedStringArrowFatalRejection() {
+    String payload = """
+        {
+          :type :String
+          :body \"\"\"->[XML]
+          <note>deprecated arrow</note>
+          \"\"\"[XML]
+        }
+        """;
+    var result = StvnCompiler.compileToResult(payload);
+    Assertions.assertTrue(result.hasErrors(), "Legacy arrow delimiter must be rejected as an error");
+    Assertions.assertTrue(
+        result.diagnostics().stream().anyMatch(d ->
+            d.errorCode().map(c -> c.equals(org.stvnadore.core.validation.DiagnosticBag.ERR_DEPRECATED_FENCE_ARROW)).orElse(false)
+            || d.message().contains("Rule STR-04 deprecation")),
+        "Expected ERR_DEPRECATED_FENCE_ARROW diagnostic"
+    );
   }
 
   private static Stream<Arguments> provideFixtureFiles() throws IOException {

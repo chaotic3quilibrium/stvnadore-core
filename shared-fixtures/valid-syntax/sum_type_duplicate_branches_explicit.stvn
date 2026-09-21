@@ -2,8 +2,8 @@
   // sum_type_duplicate_branches_explicit.stvn
   // Verifies that sum types with duplicate nominal branches compile cleanly when explicit tags are used.
   :defs {
-    :IdenticalEither :Either( :Uint32 :Uint32 )
-    :IdenticalUnion  :Union( :Uint32 :Uint32 :Uint32 )
+    :IdenticalEither :Either( :Int :Int )
+    :IdenticalUnion  :Union( :Int :Int :Int )
     :RootPayload     :Tuple(
       :IdenticalEither
       :IdenticalEither

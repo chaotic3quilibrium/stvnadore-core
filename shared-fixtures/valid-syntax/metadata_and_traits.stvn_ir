@@ -1,18 +1,18 @@
 TypeRegistry:
   - :RestrictedPort
       schema:
-        node: :Uint16
+        node: :Int
         aliasName: :RestrictedPort
         constraints:
           equatable: true (default)
           comparable: true (default)
           minIncl: 1024 (explicit)
-          maxIncl: 65535 (explicit)
+          maxExcl: 65536 (explicit)
         underlyingSchema:
-          node: :Uint16
+          node: :Int
   - :ScoreRange
       schema:
-        node: :Float64
+        node: :Float
         aliasName: :ScoreRange
         constraints:
           equatable: false (default)
@@ -20,10 +20,10 @@ TypeRegistry:
           minExcl: 0.0 (explicit)
           maxIncl: 10.0 (explicit)
         underlyingSchema:
-          node: :Float64
+          node: :Float
   - :NegativeOffset
       schema:
-        node: :Int32
+        node: :Int
         aliasName: :NegativeOffset
         constraints:
           equatable: true (default)
@@ -31,17 +31,17 @@ TypeRegistry:
           minIncl: -100 (explicit)
           maxExcl: 0 (explicit)
         underlyingSchema:
-          node: :Int32
+          node: :Int
   - :RegexIdentifier
       schema:
-        node: :StringNonEmpty32
+        node: :String
         aliasName: :RegexIdentifier
         constraints:
           equatable: true (default)
           comparable: true (default)
           regex: "^[a-z][a-z0-9_-]{2,31}$" (explicit)
         underlyingSchema:
-          node: :StringNonEmpty32
+          node: :String
   - :RawScriptBlock
       schema:
         node: :String
@@ -54,22 +54,22 @@ TypeRegistry:
           node: :String
   - :BitwiseFloat
       schema:
-        node: :Float64
+        node: :Float
         aliasName: :BitwiseFloat
         constraints:
           equatable: true (explicit override)
           comparable: true (default)
         underlyingSchema:
-          node: :Float64
+          node: :Float
   - :NonEquatableInt
       schema:
-        node: :Int32
+        node: :Int
         aliasName: :NonEquatableInt
         constraints:
           equatable: false (explicit override)
           comparable: true (default)
         underlyingSchema:
-          node: :Int32
+          node: :Int
   - <:type>
       schema:
         node: :Tuple(:RestrictedPort:ScoreRange:NegativeOffset:RegexIdentifier:RawScriptBlock:BitwiseFloat:NonEquatableInt)

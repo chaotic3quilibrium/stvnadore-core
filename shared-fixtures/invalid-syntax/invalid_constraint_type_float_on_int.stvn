@@ -1,6 +1,6 @@
 {
   :defs {
-    :BadInt {#minIncl 5.0} :Int32
+    :BadInt {#minIncl 5.0} :Int
   }
   :type :BadInt
   :body 10

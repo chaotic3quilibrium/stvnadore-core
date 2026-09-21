@@ -1,6 +1,6 @@
 {
   :defs {
-    :Port :Uint16 { #minIncl 1 #maxIncl 65535 }
+    :Port :Int { #minIncl 1 #maxExcl 65536 }
   }
   :type :Port
   :body 8080

@@ -2,7 +2,7 @@
   // packaged_module.stvn_incl
   :defs {
     :package :Remote {
-      :LocalPort :Uint16
+      :LocalPort :Int
     }
   }
 }

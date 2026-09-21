@@ -1,6 +1,6 @@
 {
   :defs {
-    :SimpleUnion :Union(:Int32 :String)
+    :SimpleUnion :Union(:Int :String)
   }
   :type :SimpleUnion
   :body #3 42

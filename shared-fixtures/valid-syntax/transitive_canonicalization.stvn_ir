@@ -1,22 +1,22 @@
 TypeRegistry:
   - :org/stvnadore/finance/Transaction
       schema:
-        node: :Tuple(:Int64:Float64)
+        node: :Tuple(:Int:Float)
         aliasName: :org/stvnadore/finance/Transaction
         constraints:
-          equatable: false (derived from :Float64)
+          equatable: false (derived from :Float)
           comparable: true (default)
         underlyingSchema:
-          node: :Tuple(:Int64:Float64)
+          node: :Tuple(:Int:Float)
   - :org/stvnadore/finance/CreationTime
       schema:
-        node: :Int64
+        node: :Int
         aliasName: :org/stvnadore/finance/CreationTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int64
+          node: :Int
   - :A
       schema:
         node: :String
@@ -49,6 +49,6 @@ ValuePayload:
     elements:
       - StvnTuple
           elements:
-            - StvnInteger(:Int64): 1001
-            - StvnFloat(:Float64): 49.99
+            - StvnInteger(:Int): 1001
+            - StvnFloat(:Float): 49.99
       - StvnString(:A): "a"

@@ -90,19 +90,18 @@ class CanonicalLayoutWriterTest {
         }
         """;
 
-    var legacyAst = StvnCompiler.compile(legacySource).orElseThrow();
+    Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compile(legacySource),
+        "Legacy '->' arrow delimiter must be rejected under Rule STR-04");
+
     var modernAst = StvnCompiler.compile(modernSource).orElseThrow();
 
-    // 1. Assert byte-for-byte identical canonical serialized output
-    String canonicalLegacy = StvnCompiler.toCanonicalString(legacyAst);
+    // 1. Assert byte-for-byte canonical serialized output
     String canonicalModern = StvnCompiler.toCanonicalString(modernAst);
-    Assertions.assertEquals(canonicalModern, canonicalLegacy);
-    Assertions.assertFalse(canonicalLegacy.contains("->[SQL]"), "Canonical output must strictly omit '->' arrow");
-    Assertions.assertTrue(canonicalLegacy.contains("\"\"\"[SQL]"), "Canonical output must format as '\"\"\"[TAG]'");
+    Assertions.assertFalse(canonicalModern.contains("->[SQL]"), "Canonical output must strictly omit '->' arrow");
+    Assertions.assertTrue(canonicalModern.contains("\"\"\"[SQL]"), "Canonical output must format as '\"\"\"[TAG]'");
 
-    // 2. Assert byte-for-byte identical SHA-256 CAS fingerprints
-    byte[] hashLegacy = StvnCompiler.computeCasFingerprint(legacyAst);
+    // 2. Assert SHA-256 CAS fingerprint generation
     byte[] hashModern = StvnCompiler.computeCasFingerprint(modernAst);
-    Assertions.assertArrayEquals(hashModern, hashLegacy, "Both legacy and modern inputs must generate identical CAS fingerprints");
+    Assertions.assertNotNull(hashModern);
   }
 }

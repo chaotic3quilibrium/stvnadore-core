@@ -551,7 +551,17 @@ public class StvnBinaryDecoder {
       case ":Boolean" -> 1;
       case ":Float32" -> 4;
       case ":Float64", ":TimeEpochS", ":TimeEpochMs", ":TimeEpochNs" -> 8;
+      case ":Float" -> {
+        if (schema.constraints().exact()) yield 0;
+        yield schema.constraints().size().orElse(64) == 32 ? 4 : 8;
+      }
+      case String s when (schema != null && (schema.constraints().unit().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch")) || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().aliasName().isPresent() && schema.underlyingSchema().get().aliasName().get().contains("TimeEpoch")))) || s.startsWith(":TimeEpoch") || s.contains("TimeEpoch") -> 8;
       case String s when s.startsWith(":Int") || s.startsWith(":Uint") -> {
+        var sizeOpt = schema.constraints().size()
+            .or(() -> schema.underlyingSchema().flatMap(u -> u.constraints().size()));
+        if (sizeOpt.isPresent()) {
+          yield (sizeOpt.get() + 7) / 8;
+        }
         String w = s.replaceAll("[^0-9]", "");
         yield w.isEmpty()
             ? 4
@@ -594,6 +604,14 @@ public class StvnBinaryDecoder {
       case ":Boolean" -> new StvnValue.StvnBoolean(schema, ctx.buffer().get(offset) != 0);
       case ":Float32" -> new StvnValue.StvnFloat(schema, ctx.buffer().getFloat(offset));
       case ":Float64" -> new StvnValue.StvnFloat(schema, ctx.buffer().getDouble(offset));
+      case ":Float" -> {
+        int size = schema.constraints().size().orElse(64);
+        if (size == 32) {
+          yield new StvnValue.StvnFloat(schema, ctx.buffer().getFloat(offset));
+        } else {
+          yield new StvnValue.StvnFloat(schema, ctx.buffer().getDouble(offset));
+        }
+      }
       case ":TimeEpochS", ":TimeEpochMs", ":TimeEpochNs" -> {
         long epochVal = ctx.buffer().getLong(offset);
         // Treat as 64-bit unsigned
@@ -603,6 +621,20 @@ public class StvnBinaryDecoder {
           case ":TimeEpochMs" -> StvnValue.TimeKind.EPOCH_MS;
           case ":TimeEpochNs" -> StvnValue.TimeKind.EPOCH_NS;
           default -> throw new IllegalStateException();
+        };
+        yield new StvnValue.StvnTime(schema, unsignedVal, kind);
+      }
+      case String s when (schema != null && (schema.constraints().unit().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch")) || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().aliasName().isPresent() && schema.underlyingSchema().get().aliasName().get().contains("TimeEpoch")))) || s.startsWith(":TimeEpoch") || s.contains("TimeEpoch") -> {
+        long epochVal = ctx.buffer().getLong(offset);
+        java.math.BigInteger unsignedVal = new java.math.BigInteger(1, java.nio.ByteBuffer.allocate(8).putLong(epochVal).array());
+        String unit = schema.constraints().unit()
+            .or(() -> schema.underlyingSchema().flatMap(u -> u.constraints().unit()))
+            .orElse("s");
+        StvnValue.TimeKind kind = switch (unit) {
+          case "#s", "s" -> StvnValue.TimeKind.EPOCH_S;
+          case "#ms", "ms" -> StvnValue.TimeKind.EPOCH_MS;
+          case "#ns", "ns" -> StvnValue.TimeKind.EPOCH_NS;
+          default -> StvnValue.TimeKind.EPOCH_MS;
         };
         yield new StvnValue.StvnTime(schema, unsignedVal, kind);
       }
@@ -621,11 +653,20 @@ public class StvnBinaryDecoder {
           bigEndian[i] = littleEndian[size - 1 - i];
         }
 
-        boolean isUnsigned = s.startsWith(":Uint");
-        String widthStr = s.replaceAll("[^0-9]", "");
-        int bitWidth = widthStr.isEmpty()
-            ? (size * 8)
-            : Integer.parseInt(widthStr);
+        boolean isUnsigned = s.startsWith(":Uint")
+            || (schema != null && (schema.constraints().unsigned()
+                || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().constraints().unsigned())));
+        int bitWidth;
+        if (schema != null && schema.constraints().size().isPresent()) {
+          bitWidth = schema.constraints().size().get();
+        } else if (schema != null && schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().constraints().size().isPresent()) {
+          bitWidth = schema.underlyingSchema().get().constraints().size().get();
+        } else {
+          String widthStr = s.replaceAll("[^0-9]", "");
+          bitWidth = widthStr.isEmpty()
+              ? (size * 8)
+              : Integer.parseInt(widthStr);
+        }
 
         // High-bit mask verification for arbitrary bit-widths (n mod 8 != 0)
         validateHighBitMask(bigEndian[0], bitWidth, isUnsigned);
@@ -686,10 +727,15 @@ public class StvnBinaryDecoder {
       throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Unknown base type under schema.");
     }
 
+    boolean isDateTime = (baseType != null && (baseType.equals(":DateTimeOffset") || baseType.equals(":DateTimeZoned") || baseType.equals(":DateTimeAudited") || baseType.equals(":DateTime") || baseType.endsWith("/DateTime")))
+        || (schema.constraints() != null && (schema.constraints().offset() || schema.constraints().zoned() || schema.constraints().audited()))
+        || (schema.aliasName().map(a -> a.contains("DateTime")).orElse(false))
+        || (schema.underlyingSchema().flatMap(u -> u.aliasName()).map(a -> a.contains("DateTime")).orElse(false));
+
     // -------------------------------------------------------------------------
     // 1. STRINGS
     // -------------------------------------------------------------------------
-    if (baseType.startsWith(":String") || baseType.equals(":Uuid")) {
+    if (!isDateTime && (baseType.startsWith(":String") || baseType.equals(":Uuid"))) {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int totalLength = lr.length();
       int dataStartOffset = offset + lr.bytesConsumed();
@@ -736,6 +782,22 @@ public class StvnBinaryDecoder {
         maxLength = Integer.parseInt(baseType.substring(7));
       }
 
+      if (schema != null && schema.constraints() != null) {
+        var c = schema.constraints();
+        if (c.minSize().isPresent() && c.maxSize().isPresent() && c.minSize().get().equals(c.maxSize().get())) {
+          isFixed = true;
+          fixedLength = c.minSize().get();
+        } else {
+          if (c.minSize().isPresent() && c.minSize().get() >= 1) {
+            isNonEmpty = true;
+          }
+          if (c.maxSize().isPresent()) {
+            isBounded = true;
+            maxLength = c.maxSize().get();
+          }
+        }
+      }
+
       StvnValue.StringTrait trait = new StvnValue.StringTrait(fixedLength, maxLength, isNonEmpty);
       return new StvnValue.StvnString(schema, rawText, style, Optional.ofNullable(fenceTag), trait);
     }
@@ -743,7 +805,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 1.5 EXACT FLOATS
     // -------------------------------------------------------------------------
-    if (baseType != null && baseType.equals(":FloatExact")) {
+    if (baseType != null && (baseType.equals(":FloatExact") || (baseType.equals(":Float") && schema.constraints().exact()))) {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int dataStartOffset = offset + lr.bytesConsumed();
 
@@ -761,7 +823,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 1.6 OUTLINED TIME (ZONED / OFFSET / AUDITED / DATETIME)
     // -------------------------------------------------------------------------
-    if (baseType != null && (baseType.equals(":DateTimeOffset") || baseType.equals(":DateTimeZoned") || baseType.equals(":DateTimeAudited") || baseType.equals(":DateTime"))) {
+    if (isDateTime) {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int dataStartOffset = offset + lr.bytesConsumed();
 
@@ -773,13 +835,13 @@ public class StvnBinaryDecoder {
       ctx.buffer().get(payloadOffset, textBytes);
       String rawText = new String(textBytes, StandardCharsets.UTF_8);
 
-      if (baseType.equals(":DateTimeOffset")) {
+      if (schema.constraints().offset() || baseType.equals(":DateTimeOffset")) {
         var parsed = StvnLiteralParser.parseDateTimeOffset("\"" + rawText + "\"");
         return new StvnValue.StvnDateTimeOffset(schema, parsed.value());
-      } else if (baseType.equals(":DateTimeZoned")) {
+      } else if (schema.constraints().zoned() || baseType.equals(":DateTimeZoned")) {
         var parsed = StvnLiteralParser.parseDateTimeZoned("\"" + rawText + "\"");
         return new StvnValue.StvnDateTimeZoned(schema, parsed.localDateTime(), parsed.zoneId());
-      } else if (baseType.equals(":DateTimeAudited")) {
+      } else if (schema.constraints().audited() || baseType.equals(":DateTimeAudited")) {
         var parsed = StvnLiteralParser.parseDateTimeAudited("\"" + rawText + "\"");
         return new StvnValue.StvnDateTimeAudited(schema, parsed.offsetDateTime(), parsed.zoneId());
       } else {
@@ -810,11 +872,20 @@ public class StvnBinaryDecoder {
         bytes[i] = ctx.buffer().get(dataStartOffset + i);
       }
 
-      boolean isUnsigned = baseType.startsWith(":Uint");
-      String widthStr = baseType.replaceAll("[^0-9]", "");
-      int bitWidth = widthStr.isEmpty()
-          ? (bytes.length * 8)
-          : Integer.parseInt(widthStr);
+      boolean isUnsigned = baseType.startsWith(":Uint")
+          || (schema != null && (schema.constraints().unsigned()
+              || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().constraints().unsigned())));
+      int bitWidth;
+      if (schema != null && schema.constraints().size().isPresent()) {
+        bitWidth = schema.constraints().size().get();
+      } else if (schema != null && schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().constraints().size().isPresent()) {
+        bitWidth = schema.underlyingSchema().get().constraints().size().get();
+      } else {
+        String widthStr = baseType.replaceAll("[^0-9]", "");
+        bitWidth = widthStr.isEmpty()
+            ? (bytes.length * 8)
+            : Integer.parseInt(widthStr);
+      }
       if (bytes.length > 0) {
         validateHighBitMask(bytes[0], bitWidth, isUnsigned);
       }
@@ -828,7 +899,7 @@ public class StvnBinaryDecoder {
       } else {
         val = new java.math.BigInteger(bytes);
       }
-      return new StvnValue.StvnInteger(schema, val, 0, isUnsigned);
+      return new StvnValue.StvnInteger(schema, val, bitWidth, isUnsigned);
     }
 
     // -------------------------------------------------------------------------
@@ -886,7 +957,9 @@ public class StvnBinaryDecoder {
               : readOutlinedNode(ctx, payloadOffset, elementSchema));
         }
       }
-      return new StvnValue.StvnSeq(schema, elements, baseType.endsWith("NonEmpty"));
+      boolean isNonEmpty = baseType.endsWith("NonEmpty")
+          || (schema != null && schema.constraints().minSize().orElse(0) >= 1);
+      return new StvnValue.StvnSeq(schema, elements, isNonEmpty);
     }
 
     // -------------------------------------------------------------------------
@@ -917,32 +990,34 @@ public class StvnBinaryDecoder {
               : readOutlinedNode(ctx, payloadOffset, elementSchema));
         }
       }
-      return new StvnValue.StvnSet(schema, elements, baseType.endsWith("NonEmpty"));
+      boolean isNonEmpty = baseType.endsWith("NonEmpty")
+          || (schema != null && schema.constraints().minSize().orElse(0) >= 1);
+      return new StvnValue.StvnSet(schema, elements, isNonEmpty);
     }
 
     // -------------------------------------------------------------------------
     // 5. MAPS
     // -------------------------------------------------------------------------
-    if (baseType != null && baseType.startsWith(":Map")) {
+    if (baseType != null && (baseType.startsWith(":Map") || baseType.startsWith(":MapInv"))) {
       StvnMapReader reader = new StvnMapReader(ctx, offset, schema);
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
-      ResolvedSchema keySchema = childSchemas.size() > 0
-          ? childSchemas.get(0)
-          : null;
-      ResolvedSchema valSchema = childSchemas.size() > 1
-          ? childSchemas.get(1)
-          : null;
+      ResolvedSchema keySchema = childSchemas.isEmpty()
+          ? null
+          : childSchemas.get(0);
+      ResolvedSchema valSchema = childSchemas.size() < 2
+          ? null
+          : childSchemas.get(1);
       java.util.LinkedHashMap<StvnValue, StvnValue> entries = new java.util.LinkedHashMap<>();
 
       if (reader.size() > 0) {
-        // PATHWAY B: Wire safeguard to verify Map key and value schemas before unpacking payload
+        // PATHWAY B: Wire safeguard to verify Map key/val schema before unpacking payload
         if (keySchema == null || valSchema == null)
-          throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing schemas.");
+          throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing map key or value schema.");
         int keyInline = getInlineSize(keySchema);
         int valInline = getInlineSize(valSchema);
 
         for (int i = 0; i < reader.size(); i++) {
-          // Note: Adjust 'getKeyOffset' to match your MapReader's actual method name!
+          // A) Decode Key
           int keySlot = reader.keys.getAbsoluteOffset(i);
           int keyPayload = (keyInline > 0)
               ? keySlot
@@ -951,6 +1026,7 @@ public class StvnBinaryDecoder {
               ? readInlineNode(ctx, keyPayload, keySchema)
               : readOutlinedNode(ctx, keyPayload, keySchema);
 
+          // B) Decode Value
           // Note: Adjust 'getValueOffset' to match your MapReader's actual method name!
           int valSlot = reader.values.getAbsoluteOffset(i);
           int valPayload = (valInline > 0)
@@ -963,8 +1039,9 @@ public class StvnBinaryDecoder {
           entries.put(key, value);
         }
       }
-      boolean isInverse = baseType.startsWith(":MapInv");
-      return new StvnValue.StvnMap(schema, entries, baseType.endsWith("NonEmpty"), isInverse);
+      boolean isInverse = baseType.startsWith(":MapInv") || (schema != null && schema.constraints().invertible());
+      boolean isNonEmpty = baseType.endsWith("NonEmpty") || (schema != null && schema.constraints().minSize().orElse(0) >= 1);
+      return new StvnValue.StvnMap(schema, entries, isNonEmpty, isInverse);
     }
 
     // -------------------------------------------------------------------------

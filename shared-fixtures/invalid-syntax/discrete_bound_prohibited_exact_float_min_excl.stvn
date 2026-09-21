@@ -1,0 +1,7 @@
+{
+  :defs {
+    :Rate { #exact #minExcl 0.0 #maxExcl 1.0 } :Float
+  }
+  :type :Rate
+  :body 0.5
+}

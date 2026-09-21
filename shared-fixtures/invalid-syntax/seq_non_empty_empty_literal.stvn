@@ -1,4 +1,7 @@
 {
-  :type :SeqNonEmpty(:Int32)
+  :defs {
+    :NonEmptySeq { #minSize 1 } :Seq(:Int)
+  }
+  :type :NonEmptySeq
   :body []
 }

@@ -1,0 +1,14 @@
+{
+  // temporal_datetime_missing_mode.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Temporal type ':DateTime' requires exactly one mode facet: '#offset', '#zoned', or '#audited'"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

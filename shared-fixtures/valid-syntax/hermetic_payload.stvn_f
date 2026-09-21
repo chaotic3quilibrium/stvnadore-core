@@ -4,9 +4,9 @@
   // Specification: STVN v1.2.0 (ECD-2026-04-A1)
   :defs {
     :package :org/stvnadore/payload {
-      :TransactionId :StringFixed16
-      :StatusCode :Uint16
-      #STATUS_SUCCESS :Uint16 200
+      :TransactionId { #minSize 16 #maxSize 16 } :String
+      :StatusCode { #unsigned #size 16 } :Int
+      #STATUS_SUCCESS :StatusCode 200
     }
 
     :Response :Tuple( :org/stvnadore/payload/TransactionId :org/stvnadore/payload/StatusCode )

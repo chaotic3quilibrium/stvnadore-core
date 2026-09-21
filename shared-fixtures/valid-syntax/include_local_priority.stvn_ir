@@ -1,21 +1,21 @@
 TypeRegistry:
   - :ConflictType
       schema:
-        node: :Int32
+        node: :Int
         aliasName: :ConflictType
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int32
+          node: :Int
   - <:type>
       schema:
-        node: :Int32
+        node: :Int
         aliasName: :ConflictType
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int32
+          node: :Int
 ValuePayload:
   StvnInteger(:ConflictType): 42

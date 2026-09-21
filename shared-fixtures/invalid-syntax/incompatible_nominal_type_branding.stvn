@@ -1,0 +1,9 @@
+{
+  :defs {
+    :UserId :Int
+    :AccountId :Int
+    #AccId :AccountId 20
+  }
+  :type :UserId
+  :body #AccId
+}

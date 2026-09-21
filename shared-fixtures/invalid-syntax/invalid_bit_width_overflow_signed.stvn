@@ -1,6 +1,6 @@
 {
   :defs {
-    :SignedType {#maxIncl 128} :Int8
+    :SignedType {#size 8 #maxExcl 129} :Int
   }
   :type :SignedType
   :body 10

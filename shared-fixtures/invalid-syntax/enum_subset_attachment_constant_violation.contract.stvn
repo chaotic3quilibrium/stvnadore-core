@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "filterIncl is not allowed on constants"
+    "Constraint violation (#DEFAULT_PRIORITY): filterIncl is not allowed on constants; filter facets are prohibited on constants; permitted facets: []"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

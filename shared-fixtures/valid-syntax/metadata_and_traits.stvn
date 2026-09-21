@@ -1,16 +1,16 @@
 {
   // metadata_and_traits.stvn
   :defs {
-    :RestrictedPort   { #minIncl 1024 #maxIncl 65535 } :Uint16
-    :ScoreRange       { #minExcl 0.0 #maxIncl 10.0 } :Float64
-    :NegativeOffset   { #minIncl -100 #maxExcl 0 } :Int32
+    :RestrictedPort   { #unsigned #size 16 #minIncl 1024 #maxExcl 65536 } :Int
+    :ScoreRange       { #size 64 #minExcl 0.0 #maxIncl 10.0 } :Float
+    :NegativeOffset   { #size 32 #minIncl -100 #maxExcl 0 } :Int
 
-    :RegexIdentifier  { #regex "^[a-z][a-z0-9_-]{2,31}$" } :StringNonEmpty32
+    :RegexIdentifier  { #minSize 1 #maxSize 32 #regex "^[a-z][a-z0-9_-]{2,31}$" } :String
 
     :RawScriptBlock   { #preserveIndent #TRUE } :String
 
-    :BitwiseFloat     { #equatable #TRUE } :Float64
-    :NonEquatableInt  { #equatable #FALSE } :Int32
+    :BitwiseFloat     { #size 64 #equatable #TRUE } :Float
+    :NonEquatableInt  { #size 32 #equatable #FALSE } :Int
   }
 
   :type :Tuple(

@@ -23,7 +23,7 @@ class StvnBinaryDecoderBitMaskTest {
 
   @Test
   void testUint1BitMaskValidAndCorrupted() {
-    var doc = StvnCompiler.compile("{ :type :Uint1 :body 1 }").orElseThrow();
+    var doc = StvnCompiler.compile("{ :defs { :Uint1 { #unsigned #size 1 } :Int } :type :Uint1 :body 1 }").orElseThrow();
     var schema = doc.schema();
 
     // Valid: bit-0 is 1, upper 7 bits are 0
@@ -51,7 +51,7 @@ class StvnBinaryDecoderBitMaskTest {
 
   @Test
   void testUint3BitMaskValidAndCorrupted() {
-    var doc = StvnCompiler.compile("{ :type :Uint3 :body 7 }").orElseThrow();
+    var doc = StvnCompiler.compile("{ :defs { :Uint3 { #unsigned #size 3 } :Int } :type :Uint3 :body 7 }").orElseThrow();
     var schema = doc.schema();
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -77,7 +77,7 @@ class StvnBinaryDecoderBitMaskTest {
 
   @Test
   void testInt7BitMaskValidAndCorrupted() {
-    var doc = StvnCompiler.compile("{ :type :Int7 :body 63 }").orElseThrow();
+    var doc = StvnCompiler.compile("{ :defs { :Int7 { #size 7 } :Int } :type :Int7 :body 63 }").orElseThrow();
     var schema = doc.schema();
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -104,7 +104,7 @@ class StvnBinaryDecoderBitMaskTest {
   @Test
   void testUint49BitMaskValidAndCorrupted() {
     // 49 bits -> 7 bytes. 49 % 8 = 1. Valid mask for the 7th byte (highest byte) is 0x01.
-    var doc = StvnCompiler.compile("{ :type :Uint49 :body 1 }").orElseThrow();
+    var doc = StvnCompiler.compile("{ :defs { :Uint49 { #unsigned #size 49 } :Int } :type :Uint49 :body 1 }").orElseThrow();
     var schema = doc.schema();
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -131,7 +131,7 @@ class StvnBinaryDecoderBitMaskTest {
 
   @Test
   void testControlByte0x07TamperingThrowsPoisonedRegistryPayloadException() {
-    var ir = StvnCompiler.compile("{ :type :Int32 :body 42 }").orElseThrow();
+    var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
     var schema = ir.schema();
     byte[] correctHash = StvnSchemaHasher.computeSha256(schema);
 
@@ -166,7 +166,10 @@ class StvnBinaryDecoderBitMaskTest {
     var source = """
         {
           :defs {
-            :AuditRecord :Tuple( :org/stvnadore/prelude/DateTimeOffset :org/stvnadore/prelude/DateTimeZoned :org/stvnadore/prelude/DateTimeAudited )
+            :DTOffset { #offset } :org/stvnadore/prelude/DateTime
+            :DTZoned { #zoned } :org/stvnadore/prelude/DateTime
+            :DTAudited { #audited } :org/stvnadore/prelude/DateTime
+            :AuditRecord :Tuple( :DTOffset :DTZoned :DTAudited )
           }
           :type :AuditRecord
           :body (

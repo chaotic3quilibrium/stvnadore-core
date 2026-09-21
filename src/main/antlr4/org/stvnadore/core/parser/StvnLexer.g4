@@ -43,6 +43,16 @@ KW_MAX_EXCL        : '#maxExcl' ;
 KW_REGEX           : '#regex' ;
 KW_FILTER_INCL     : '#filterIncl' ;
 KW_FILTER_EXCL     : '#filterExcl' ;
+KW_SIZE            : '#size' ;
+KW_UNSIGNED        : '#unsigned' ;
+KW_EXACT           : '#exact' ;
+KW_MIN_SIZE        : '#minSize' ;
+KW_MAX_SIZE        : '#maxSize' ;
+KW_INVERTIBLE      : '#invertible' ;
+KW_UNIT            : '#unit' ;
+KW_OFFSET          : '#offset' ;
+KW_ZONED           : '#zoned' ;
+KW_AUDITED         : '#audited' ;
 
 KW_TUPLE     : ':Tuple' ;
 KW_ENUM      : ':Enum' ;
@@ -67,22 +77,13 @@ KW_LEFT_SHORT  : '#L' ;
 KW_RIGHT_SHORT : '#R' ;
 
 ATOM_BOOLEAN          : ':Boolean' ;
-ATOM_UINT             : ':Uint' [0-9]* ;
-ATOM_INT              : ':Int' [0-9]* ;
-ATOM_FLOAT_EXACT      : ':FloatExact' ;
-ATOM_FLOAT            : ':Float' [0-9]* ;
-ATOM_STRING_FIXED     : ':StringFixed' [0-9]* ;
-ATOM_STRING           : ':String' [0-9]* ;
-ATOM_STRING_NON_EMPTY : ':StringNonEmpty' [0-9]* ;
+ATOM_INT              : ':Int' ;
+ATOM_FLOAT            : ':Float' ;
+ATOM_STRING           : ':String' ;
 
 COLL_SEQ               : ':Seq' ;
-COLL_SEQ_NON_EMPTY    : ':SeqNonEmpty' ;
 COLL_SET               : ':Set' ;
-COLL_SET_NON_EMPTY    : ':SetNonEmpty' ;
 COLL_MAP               : ':Map' ;
-COLL_MAP_NON_EMPTY    : ':MapNonEmpty' ;
-COLL_MAP_INV           : ':MapInv' ;
-COLL_MAP_INV_NON_EMPTY : ':MapInvNonEmpty' ;
 
 UNION_TAG_PREFIX : '#' [1-9] [0-9]* ;
 
@@ -97,7 +98,7 @@ LITERAL_STRING_SIMPLE : '"' (~["\\\r\n] | '\\' .)* '"' ;
 
 fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
 
-FENCE_START : '"""' '->'? '[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
+FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     String text = getText();
     int start = text.indexOf('[') + 1;
     int end = text.indexOf(']', start);
@@ -111,7 +112,12 @@ FENCE_START : '"""' '->'? '[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     }
 } ;
 
-MALFORMED_FENCE_OPEN : '"""' '->'? '[' ~[\r\n]* '\n' {
+DEPRECATED_FENCE_START : '"""->[' ~[\r\n]* '\n' {
+    setType(MALFORMED_FENCE_OPEN);
+    pushMode(MALFORMED_FENCED_STRING);
+} ;
+
+MALFORMED_FENCE_OPEN : '"""[' ~[\r\n]* '\n' {
     pushMode(MALFORMED_FENCED_STRING);
 } ;
 

@@ -8,7 +8,7 @@
 
   :body (
     #CYCLIC_DEPENDENCY
-    "Cycle detected: include_cyclic_three_deep"
+    "Cycle detected: include_cyclic_three_deep_a.stvn -> include_cyclic_three_deep_b.stvn_incl -> include_cyclic_three_deep_c.stvn_incl -> include_cyclic_three_deep_a.stvn"
     "org.stvnadore.core.validation.CyclicDependencyException"
   )
 }

@@ -1,4 +1,7 @@
 {
-  :type :SetNonEmpty(:Int32)
+  :defs {
+    :NonEmptySet { #minSize 1 } :Set(:Int)
+  }
+  :type :NonEmptySet
   :body []
 }

@@ -57,15 +57,15 @@ class StvnTextPrinterTest {
     var matrixAll = new VisualMatrix(
         """
             {
-              :type :Int32
+              :type :Int
               :body 42
             }
             """,
         optionsAll,
-        "{:type :Int32 :body 42}",
+        "{:type :Int :body 42}",
         """
             {
-                :type :Int32
+                :type :Int
                 :body 42
             }"""
     );
@@ -80,7 +80,7 @@ class StvnTextPrinterTest {
     var matrixBody = new VisualMatrix(
         """
             {
-              :type :Int32
+              :type :Int
               :body 42
             }
             """,
@@ -93,17 +93,17 @@ class StvnTextPrinterTest {
     var matrixMapAll = new VisualMatrix(
         """
             {
-              :type :Map( :String :Int32 )
+              :type :Map( :String :Int )
               :body {
                 [ "a" 1 ]
               }
             }
             """,
         optionsAll,
-        "{:type :Map(:String :Int32) :body {[\"a\" 1]}}",
+        "{:type :Map(:String :Int) :body {[\"a\" 1]}}",
         """
             {
-                :type :Map(:String :Int32)
+                :type :Map(:String :Int)
                 :body {
                     ["a" 1]
                 }
@@ -114,7 +114,7 @@ class StvnTextPrinterTest {
     var matrixMapBody = new VisualMatrix(
         """
             {
-              :type :Map( :String :Int32 )
+              :type :Map( :String :Int )
               :body {
                 [ "a" 1 ]
               }
@@ -141,7 +141,7 @@ class StvnTextPrinterTest {
     var matrix2 = new VisualMatrix(
         """
             {
-              :type :Map( :String :Int32 )
+              :type :Map( :String :Int )
               :body {
                 [ "x" 10 ]
                 [ "y" 20 ]
@@ -149,10 +149,10 @@ class StvnTextPrinterTest {
             }
             """,
         options2,
-        "{:type :Map(:String :Int32) :body {[\"x\" 10] [\"y\" 20]}}",
+        "{:type :Map(:String :Int) :body {[\"x\" 10] [\"y\" 20]}}",
         """
             {
-              :type :Map(:String :Int32)
+              :type :Map(:String :Int)
               :body {
                 ["x" 10]
                 ["y" 20]
@@ -170,7 +170,7 @@ class StvnTextPrinterTest {
     var matrix4 = new VisualMatrix(
         """
             {
-              :type :Map( :String :Int32 )
+              :type :Map( :String :Int )
               :body {
                 [ "x" 10 ]
                 [ "y" 20 ]
@@ -178,10 +178,10 @@ class StvnTextPrinterTest {
             }
             """,
         options4,
-        "{:type :Map(:String :Int32) :body {[\"x\" 10] [\"y\" 20]}}",
+        "{:type :Map(:String :Int) :body {[\"x\" 10] [\"y\" 20]}}",
         """
             {
-                :type :Map(:String :Int32)
+                :type :Map(:String :Int)
                 :body {
                     ["x" 10]
                     ["y" 20]
@@ -240,7 +240,7 @@ class StvnTextPrinterTest {
     var matrixOptInferred = new VisualMatrix(
         """
             {
-              :type :Option( :Int32 )
+              :type :Option( :Int )
               :body 42
             }
             """,
@@ -259,7 +259,7 @@ class StvnTextPrinterTest {
     var matrixOptExplicitLong = new VisualMatrix(
         """
             {
-              :type :Option( :Int32 )
+              :type :Option( :Int )
               :body 42
             }
             """,
@@ -278,7 +278,7 @@ class StvnTextPrinterTest {
     var matrixOptExplicitShort = new VisualMatrix(
         """
             {
-              :type :Option( :Int32 )
+              :type :Option( :Int )
               :body 42
             }
             """,
@@ -291,7 +291,7 @@ class StvnTextPrinterTest {
     var matrixNoneLong = new VisualMatrix(
         """
             {
-              :type :Option( :Int32 )
+              :type :Option( :Int )
               :body #None
             }
             """,
@@ -304,7 +304,7 @@ class StvnTextPrinterTest {
     var matrixNoneShort = new VisualMatrix(
         """
             {
-              :type :Option( :Int32 )
+              :type :Option( :Int )
               :body #None
             }
             """,
@@ -339,7 +339,7 @@ class StvnTextPrinterTest {
     var matrixEitherInferred = new VisualMatrix(
         """
             {
-              :type :Either( :Int32 :String )
+              :type :Either( :Int :String )
               :body "hello"
             }
             """,
@@ -352,7 +352,7 @@ class StvnTextPrinterTest {
     var matrixEitherExplicitLong = new VisualMatrix(
         """
             {
-              :type :Either( :Int32 :String )
+              :type :Either( :Int :String )
               :body "hello"
             }
             """,
@@ -365,7 +365,7 @@ class StvnTextPrinterTest {
     var matrixEitherExplicitShort = new VisualMatrix(
         """
             {
-              :type :Either( :Int32 :String )
+              :type :Either( :Int :String )
               :body "hello"
             }
             """,
@@ -378,7 +378,7 @@ class StvnTextPrinterTest {
     var matrixLeftLong = new VisualMatrix(
         """
             {
-              :type :Either( :Int32 :String )
+              :type :Either( :Int :String )
               :body #Left 42
             }
             """,
@@ -391,7 +391,7 @@ class StvnTextPrinterTest {
     var matrixLeftShort = new VisualMatrix(
         """
             {
-              :type :Either( :Int32 :String )
+              :type :Either( :Int :String )
               :body #Left 42
             }
             """,
@@ -435,16 +435,16 @@ class StvnTextPrinterTest {
     var matrixStringAmbiguity = new VisualMatrix(
         """
             {
-              :type :Either( :Int8 :String )
+              :type :Either( :Int :String )
               :body #Right "#Left"
             }
             """,
         optLong,
         """
-            {:type :Either(:Int8 :String) :body #Right "#Left"}""",
+            {:type :Either(:Int :String) :body #Right "#Left"}""",
         """
             {
-                :type :Either(:Int8 :String)
+                :type :Either(:Int :String)
                 :body #Right "#Left"
             }"""
     );
@@ -453,7 +453,7 @@ class StvnTextPrinterTest {
     var matrixStringAmbiguityShort = new VisualMatrix(
         """
             {
-              :type :Either( :Int8 :String )
+              :type :Either( :Int :String )
               :body #Right "#L"
             }
             """,
@@ -464,10 +464,10 @@ class StvnTextPrinterTest {
             PrinterOptions.SumTypePolicy.HAPPY_PATH_INFERRED
         ),
         """
-            {:type :Either(:Int8 :String) :body #R "#L"}""",
+            {:type :Either(:Int :String) :body #R "#L"}""",
         """
             {
-                :type :Either(:Int8 :String)
+                :type :Either(:Int :String)
                 :body #R "#L"
             }"""
     );
@@ -514,7 +514,7 @@ class StvnTextPrinterTest {
         """
             {
               :type :String
-              :body ""\"->[CUSTOM_FENCE]
+              :body ""\"[CUSTOM_FENCE]
                   Nested fenced content
                   [CUSTOM_FENCE]""\"
             }
@@ -537,16 +537,16 @@ class StvnTextPrinterTest {
     var matrixCollections = new VisualMatrix(
         """
             {
-              :type :Tuple( :Int32 :String :Boolean )
+              :type :Tuple( :Int :String :Boolean )
               :body ( 42 "Answer" #FALSE )
             }
             """,
         optDefault,
         """
-            {:type :Tuple(:Int32 :String :Boolean) :body (42 "Answer" #FALSE)}""",
+            {:type :Tuple(:Int :String :Boolean) :body (42 "Answer" #FALSE)}""",
         """
             {
-                :type :Tuple(:Int32 :String :Boolean)
+                :type :Tuple(:Int :String :Boolean)
                 :body (42 "Answer" #FALSE)
             }"""
     );
@@ -566,21 +566,21 @@ class StvnTextPrinterTest {
         """
             {
               :defs {
-                :age { #minIncl 0 #maxIncl 120 } :Int8
+                :age { #minIncl 0 #maxExcl 121 } :Int
               }
               :type :age
               :body 42
             }
             """,
         optDefault,
-        "{:defs {:age {#minIncl 0 #maxIncl 120} :Int8} :type :age :body 42}",
+        "{:defs {:age {#minIncl 0 #maxExcl 121} :Int} :type :age :body 42}",
         """
             {
                 :defs {
                     :age {
                         #minIncl 0
-                        #maxIncl 120
-                    } :Int8
+                        #maxExcl 121
+                    } :Int
                 }
                 :type :age
                 :body 42
@@ -647,18 +647,18 @@ class StvnTextPrinterTest {
         """
             {
               :defs {
-                :myFloat { #equatable #TRUE } :Float32
+                :myFloat { #equatable #TRUE } :Float
               }
               :type :myFloat
               :body 3.14
             }
             """,
         optDefault,
-        "{:defs {:myFloat {#equatable #TRUE} :Float32} :type :myFloat :body 3.14}",
+        "{:defs {:myFloat {#equatable #TRUE} :Float} :type :myFloat :body 3.14}",
         """
             {
                 :defs {
-                    :myFloat {#equatable #TRUE} :Float32
+                    :myFloat {#equatable #TRUE} :Float
                 }
                 :type :myFloat
                 :body 3.14
@@ -670,18 +670,18 @@ class StvnTextPrinterTest {
         """
             {
               :defs {
-                :mySeq { #comparable #FALSE } :Seq( :Float32 )
+                :mySeq { #comparable #FALSE } :Seq( :Float )
               }
               :type :mySeq
               :body [ 1.0 2.0 ]
             }
             """,
         optDefault,
-        "{:defs {:mySeq {#comparable #FALSE} :Seq(:Float32)} :type :mySeq :body [1.0 2.0]}",
+        "{:defs {:mySeq {#comparable #FALSE} :Seq(:Float)} :type :mySeq :body [1.0 2.0]}",
         """
             {
                 :defs {
-                    :mySeq {#comparable #FALSE} :Seq(:Float32)
+                    :mySeq {#comparable #FALSE} :Seq(:Float)
                 }
                 :type :mySeq
                 :body [1.0 2.0]
@@ -736,8 +736,8 @@ class StvnTextPrinterTest {
         """
             {
               :defs {
-                :baseInt { #minIncl 10 } :Int32
-                :restrictedInt { #maxIncl 100 #comparable #FALSE } :baseInt
+                :baseInt { #minIncl 10 } :Int
+                :restrictedInt { #maxExcl 101 #comparable #FALSE } :baseInt
                 :finalInt { #comparable #TRUE } :restrictedInt
               }
               :type :finalInt
@@ -745,13 +745,13 @@ class StvnTextPrinterTest {
             }
             """,
         optDefault,
-        "{:defs {:baseInt {#minIncl 10} :Int32 :restrictedInt {#maxIncl 100 #comparable #FALSE} :baseInt :finalInt {#comparable #TRUE} :restrictedInt} :type :finalInt :body 42}",
+        "{:defs {:baseInt {#minIncl 10} :Int :restrictedInt {#maxExcl 101 #comparable #FALSE} :baseInt :finalInt {#comparable #TRUE} :restrictedInt} :type :finalInt :body 42}",
         """
             {
                 :defs {
-                    :baseInt {#minIncl 10} :Int32
+                    :baseInt {#minIncl 10} :Int
                     :restrictedInt {
-                        #maxIncl 100
+                        #maxExcl 101
                         #comparable #FALSE
                     } :baseInt
                     :finalInt {#comparable #TRUE} :restrictedInt
@@ -772,10 +772,10 @@ class StvnTextPrinterTest {
       "{ :type :Boolean :body #FALSE }",
       "{ :type :Option(:Boolean) :body #N }",
       "{ :type :Option(:Boolean) :body #None }",
-      "{ :type :Either(:Int32 :String) :body #L 1 }",
-      "{ :type :Either(:Int32 :String) :body #Left 1 }",
-      "{ :type :Either(:Int32 :String) :body #Right \"a\" }",
-      "{ :type :Either(:Int32 :String) :body #R \"a\" }",
+      "{ :type :Either(:Int :String) :body #L 1 }",
+      "{ :type :Either(:Int :String) :body #Left 1 }",
+      "{ :type :Either(:Int :String) :body #Right \"a\" }",
+      "{ :type :Either(:Int :String) :body #R \"a\" }",
       "{ :type :Option(:Enum[#Y #N]) :body #Some #N }",
       "{ :type :Option(:Enum[#Y #N]) :body #S #N }"
     };
@@ -787,10 +787,10 @@ class StvnTextPrinterTest {
       "{:type :Boolean :body #FALSE}",
       "{:type :Option(:Boolean):body #None}",
       "{:type :Option(:Boolean):body #None}",
-      "{:type :Either(:Int32 :String):body #Left 1}",
-      "{:type :Either(:Int32 :String):body #Left 1}",
-      "{:type :Either(:Int32 :String):body \"a\"}",
-      "{:type :Either(:Int32 :String):body \"a\"}",
+      "{:type :Either(:Int :String):body #Left 1}",
+      "{:type :Either(:Int :String):body #Left 1}",
+      "{:type :Either(:Int :String):body \"a\"}",
+      "{:type :Either(:Int :String):body \"a\"}",
       "{:type :Option(:Enum[#Y #N]):body #Some #N}",
       "{:type :Option(:Enum[#Y #N]):body #Some #N}"
     };
@@ -816,18 +816,18 @@ class StvnTextPrinterTest {
         """
         {
           :defs {
-            :myInt :Int32
+            :myInt :Int
           }
           :type :myInt
           :body 42
         }
         """,
         optShort,
-        "{:defs {:myInt :Int32} :type :myInt :body 42}",
+        "{:defs {:myInt :Int} :type :myInt :body 42}",
         """
         {
             :defs {
-                :myInt :Int32
+                :myInt :Int
             }
             :type :myInt
             :body 42
@@ -849,21 +849,21 @@ class StvnTextPrinterTest {
         """
         {
           :defs {
-            :myInt { #equatable #TRUE #comparable #FALSE } :Int32
+            :myInt { #equatable #TRUE #comparable #FALSE } :Int
           }
           :type :myInt
           :body 42
         }
         """,
         optShort,
-        "{:defs {:myInt {#equatable #T #comparable #F} :Int32} :type :myInt :body 42}",
+        "{:defs {:myInt {#equatable #T #comparable #F} :Int} :type :myInt :body 42}",
         """
         {
             :defs {
                 :myInt {
                     #equatable #T
                     #comparable #F
-                } :Int32
+                } :Int
             }
             :type :myInt
             :body 42
@@ -927,15 +927,15 @@ class StvnTextPrinterTest {
     var matrixEitherExplicit = new VisualMatrix(
         """
         {
-          :type :Tuple( :Either( :Int32 :String ) :Either( :Int32 :String ) )
+          :type :Tuple( :Either( :Int :String ) :Either( :Int :String ) )
           :body ( #Left 42 #Right "hello" )
         }
         """,
         optShortExplicit,
-        "{:type :Tuple(:Either(:Int32 :String) :Either(:Int32 :String)) :body (#L 42 #R \"hello\")}",
+        "{:type :Tuple(:Either(:Int :String) :Either(:Int :String)) :body (#L 42 #R \"hello\")}",
         """
         {
-            :type :Tuple(:Either(:Int32 :String) :Either(:Int32 :String))
+            :type :Tuple(:Either(:Int :String) :Either(:Int :String))
             :body (#L 42 #R "hello")
         }"""
     );
@@ -944,15 +944,15 @@ class StvnTextPrinterTest {
     var matrixEitherInferred = new VisualMatrix(
         """
         {
-          :type :Tuple( :Either( :Int32 :String ) :Either( :Int32 :String ) )
+          :type :Tuple( :Either( :Int :String ) :Either( :Int :String ) )
           :body ( #Left 42 #Right "hello" )
         }
         """,
         optShortInferred,
-        "{:type :Tuple(:Either(:Int32 :String) :Either(:Int32 :String)) :body (#L 42 \"hello\")}",
+        "{:type :Tuple(:Either(:Int :String) :Either(:Int :String)) :body (#L 42 \"hello\")}",
         """
         {
-            :type :Tuple(:Either(:Int32 :String) :Either(:Int32 :String))
+            :type :Tuple(:Either(:Int :String) :Either(:Int :String))
             :body (#L 42 "hello")
         }"""
     );
@@ -970,7 +970,12 @@ class StvnTextPrinterTest {
     var matrix = new VisualMatrix(
         """
         {
-          :type :Tuple( :org/stvnadore/prelude/DateTimeOffset :org/stvnadore/prelude/DateTimeZoned :org/stvnadore/prelude/DateTimeAudited )
+          :defs {
+            :OffsetDateTime { #offset } :org/stvnadore/prelude/DateTime
+            :ZonedDateTime { #zoned } :org/stvnadore/prelude/DateTime
+            :AuditedDateTime { #audited } :org/stvnadore/prelude/DateTime
+          }
+          :type :Tuple( :OffsetDateTime :ZonedDateTime :AuditedDateTime )
           :body (
             "2026-03-15T08:00:00-05:00"
             "2026-03-15T08:00:00[America/Chicago]"
@@ -979,10 +984,16 @@ class StvnTextPrinterTest {
         }
         """,
         options,
-        "{:type :Tuple(:org/stvnadore/prelude/DateTimeOffset :org/stvnadore/prelude/DateTimeZoned :org/stvnadore/prelude/DateTimeAudited) :body (\"2026-03-15T08:00:00-05:00\" \"2026-03-15T08:00:00[America/Chicago]\" \"2026-03-15T08:00:00-05:00[America/Chicago]\")}",
+        "{:defs {:org/stvnadore/prelude/DateTime :String :OffsetDateTime {#offset} :org/stvnadore/prelude/DateTime :ZonedDateTime {#zoned} :org/stvnadore/prelude/DateTime :AuditedDateTime {#audited} :org/stvnadore/prelude/DateTime} :type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime) :body (\"2026-03-15T08:00:00-05:00\" \"2026-03-15T08:00:00[America/Chicago]\" \"2026-03-15T08:00:00-05:00[America/Chicago]\")}",
         """
         {
-            :type :Tuple(:org/stvnadore/prelude/DateTimeOffset :org/stvnadore/prelude/DateTimeZoned :org/stvnadore/prelude/DateTimeAudited)
+            :defs {
+                :org/stvnadore/prelude/DateTime :String
+                :OffsetDateTime {#offset} :org/stvnadore/prelude/DateTime
+                :ZonedDateTime {#zoned} :org/stvnadore/prelude/DateTime
+                :AuditedDateTime {#audited} :org/stvnadore/prelude/DateTime
+            }
+            :type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime)
             :body ("2026-03-15T08:00:00-05:00" "2026-03-15T08:00:00[America/Chicago]" "2026-03-15T08:00:00-05:00[America/Chicago]")
         }"""
     );

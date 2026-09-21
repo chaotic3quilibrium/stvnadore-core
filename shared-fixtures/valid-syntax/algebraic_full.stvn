@@ -2,9 +2,9 @@
   // algebraic_full.stvn
   :defs {
     :OptText       :Option( :String )
-    :EitherResult  :Either( :Int32 :String )
-    :DisjointUnion :Union( :Int32 :Boolean :Float64 :String )
-    :ProductData   :Tuple( :Int32 :String :Boolean )
+    :EitherResult  :Either( :Int :String )
+    :DisjointUnion :Union( :Int :Boolean :Float :String )
+    :ProductData   :Tuple( :Int :String :Boolean )
   }
 
   :type :Tuple(

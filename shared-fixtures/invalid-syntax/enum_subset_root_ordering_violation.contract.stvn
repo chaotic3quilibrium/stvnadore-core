@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Root ordering violation: variant #MEDIUM does not match relative declaration order of root :Enum :Priority"
+    "Constraint violation (:InvalidOrder): Root ordering violation: variant #MEDIUM does not match relative declaration order of root :Enum :Priority"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

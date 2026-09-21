@@ -1,7 +1,7 @@
 {
   // either_duplicate_branches_untagged.stvn
   :defs {
-    :IdenticalEither :Either( :Uint32 :Uint32 )
+    :IdenticalEither :Either( :Int :Int )
   }
 
   :type :IdenticalEither

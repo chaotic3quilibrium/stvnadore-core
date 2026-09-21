@@ -1,6 +1,6 @@
 {
   :defs {
-    :ShiftedType {#minExcl 5 #maxExcl 6} :Int32
+    :ShiftedType {#minIncl 6 #maxExcl 6} :Int
   }
   :type :ShiftedType
   :body 6

@@ -1,6 +1,6 @@
 {
   :defs {
-    :BadType { #preserveIndent #TRUE } :Int32
+    :BadType { #preserveIndent #TRUE } :Int
   }
   :type :BadType
   :body 42

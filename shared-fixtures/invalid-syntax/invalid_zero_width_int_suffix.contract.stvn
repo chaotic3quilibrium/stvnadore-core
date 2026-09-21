@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Constraint violation: Type suffix dimensions must be strictly positive (N >= 1): :Int0"
+    "Compound integer keyword ':Int0' is deprecated in 2.0.0; use '{ #size 0 } :Int'"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

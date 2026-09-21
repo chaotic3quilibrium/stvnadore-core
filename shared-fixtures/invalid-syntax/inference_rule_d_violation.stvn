@@ -1,6 +1,7 @@
 {
   :defs {
-    :Result :Either( :Int32 :Uint32 )
+    :UintVal { #unsigned } :Int
+    :Result :Either( :Int :UintVal )
   }
   :type :Result
   :body 42

@@ -1,6 +1,6 @@
 {
   :defs {
-    :Config :Map( :String :Int32 )
+    :Config :Map( :String :Int )
   }
   :type :Config
   :body [ "port" 8080 "timeout" 30 ]

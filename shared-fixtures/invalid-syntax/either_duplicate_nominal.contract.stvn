@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_PAYLOAD
-    "Ambiguous implicit either: Both sides are identical (:String), explicit #Left or #Right tag is required"
+    "Ambiguous implicit resolution: Value matches both Left and Right branches of :Either"
     "org.stvnadore.core.validation.MalformedPayloadException"
   )
 }

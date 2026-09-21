@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Nested packages are prohibited"
+    "Nested packages are prohibited: :Inner"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

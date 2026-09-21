@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Complete exclusion violation: enum subset results in empty variant list"
+    "Constraint violation (:NoVariantsLeft): Complete exclusion violation: enum subset results in empty variant list"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

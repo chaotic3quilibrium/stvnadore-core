@@ -1,0 +1,7 @@
+{
+  :defs {
+    :BadString { #size 32 } :String
+  }
+  :type :BadString
+  :body "hello"
+}

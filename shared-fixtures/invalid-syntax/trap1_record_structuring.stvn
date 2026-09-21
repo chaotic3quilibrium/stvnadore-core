@@ -1,6 +1,6 @@
 {
   :defs {
-    :User { :name :String :age :Uint32 }
+    :User { :name :String :age :Int }
   }
   :type :User
   :body ( "Alice" 30 )

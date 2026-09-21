@@ -158,6 +158,29 @@ public class StvnSchemaHasher {
       constraints.equatable().ifPresent(val -> digest.update(("equatable:" + val).getBytes(StandardCharsets.UTF_8)));
       constraints.comparable().ifPresent(val -> digest.update(("comparable:" + val).getBytes(StandardCharsets.UTF_8)));
 
+      constraints.size().ifPresent(val -> digest.update(("size:" + val).getBytes(StandardCharsets.UTF_8)));
+      if (constraints.unsigned()) {
+        digest.update("unsigned:true".getBytes(StandardCharsets.UTF_8));
+      }
+      if (constraints.exact()) {
+        digest.update("exact:true".getBytes(StandardCharsets.UTF_8));
+      }
+      constraints.minSize().ifPresent(val -> digest.update(("minSize:" + val).getBytes(StandardCharsets.UTF_8)));
+      constraints.maxSize().ifPresent(val -> digest.update(("maxSize:" + val).getBytes(StandardCharsets.UTF_8)));
+      if (constraints.invertible()) {
+        digest.update("invertible:true".getBytes(StandardCharsets.UTF_8));
+      }
+      constraints.unit().ifPresent(val -> digest.update(("unit:" + val).getBytes(StandardCharsets.UTF_8)));
+      if (constraints.offset()) {
+        digest.update("offset:true".getBytes(StandardCharsets.UTF_8));
+      }
+      if (constraints.zoned()) {
+        digest.update("zoned:true".getBytes(StandardCharsets.UTF_8));
+      }
+      if (constraints.audited()) {
+        digest.update("audited:true".getBytes(StandardCharsets.UTF_8));
+      }
+
       // 3. Recursively digest structural children (e.g., Tuple elements, Map Key/Values)
       List<ResolvedSchema> children = StvnBinaryDecoder.extractChildSchemas(schema);
       for (ResolvedSchema child : children) {

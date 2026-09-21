@@ -1,0 +1,14 @@
+{
+  // temporal_epoch_missing_unit.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Temporal type ':TimeEpoch' requires a unit facet: '#unit #s', '#unit #ms', or '#unit #ns'"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

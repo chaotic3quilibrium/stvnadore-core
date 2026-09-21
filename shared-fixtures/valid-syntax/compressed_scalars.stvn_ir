@@ -19,13 +19,13 @@ TypeRegistry:
           node: :Option(:String)
   - :ChoiceVal
       schema:
-        node: :Either(:Int32:String)
+        node: :Either(:Int:String)
         aliasName: :ChoiceVal
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Either(:Int32:String)
+          node: :Either(:Int:String)
   - <:type>
       schema:
         node: :Tuple(:BoolFlag:BoolFlag:OptVal:OptVal:ChoiceVal:ChoiceVal)
@@ -43,7 +43,7 @@ ValuePayload:
           value: null
       - StvnEither
           isRight: false
-          value: StvnInteger(:Int32): -100
+          value: StvnInteger(:Int): -100
       - StvnEither
           isRight: true
           value: StvnString(:String): "Success"

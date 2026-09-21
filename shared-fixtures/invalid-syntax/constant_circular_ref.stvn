@@ -1,8 +1,8 @@
 {
   :defs {
-    #CONST_A :Uint16 #CONST_B
-    #CONST_B :Uint16 #CONST_A
+    #CONST_A :Int #CONST_B
+    #CONST_B :Int #CONST_A
   }
-  :type :Uint16
+  :type :Int
   :body #CONST_A
 }

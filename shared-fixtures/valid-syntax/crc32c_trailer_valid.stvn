@@ -7,12 +7,12 @@
   }
 
   :type :Tuple(
-    :Int32
-    :Float64
+    :Int
+    :Float
     :String
     :Boolean
     :Seq( :String )
-    :Map( :String :Int32 )
+    :Map( :String :Int )
     :DeployEnv
   )
 

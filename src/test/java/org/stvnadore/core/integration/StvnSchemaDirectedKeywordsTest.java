@@ -61,10 +61,10 @@ public class StvnSchemaDirectedKeywordsTest {
     String payload = """
         {
           :defs {
-            #Some :Uint7 10
-            #Left :Uint7 20
+            #Some :Int 10
+            #Left :Int 20
           }
-          :type :Tuple( :Uint7 :Uint7 )
+          :type :Tuple( :Int :Int )
           :body ( #Some #Left )
         }
         """;
@@ -92,9 +92,9 @@ public class StvnSchemaDirectedKeywordsTest {
         {
           :defs {
             :Mode :Enum [ #Left #Right ]
-            #Left :Uint7 99
+            #Left :Int 99
           }
-          :type :Tuple( :Mode :Uint7 )
+          :type :Tuple( :Mode :Int )
           :body ( #Left #Left )
         }
         """;
@@ -113,7 +113,7 @@ public class StvnSchemaDirectedKeywordsTest {
     Assertions.assertEquals("#Left", enumVal.keyword());
     Assertions.assertEquals(0, enumVal.sequentialIndex());
 
-    // Element 1: Dimension 2 (Target :Uint7 -> StvnInteger constant substitution)
+    // Element 1: Dimension 2 (Target :Int -> StvnInteger constant substitution)
     Assertions.assertInstanceOf(StvnInteger.class, tuple.elements().get(1));
     var intVal = (StvnInteger) tuple.elements().get(1);
     Assertions.assertEquals(99L, intVal.value().longValue());
@@ -127,9 +127,9 @@ public class StvnSchemaDirectedKeywordsTest {
     String payload = """
         {
           :defs {
-            #None :Uint7 0
+            #None :Int 0
           }
-          :type :Option( :Uint7 )
+          :type :Option( :Int )
           :body #None
         }
         """;
@@ -150,9 +150,9 @@ public class StvnSchemaDirectedKeywordsTest {
     String payload = """
         {
           :defs {
-            #None :Uint7 0
+            #None :Int 0
           }
-          :type :Option( :Uint7 )
+          :type :Option( :Int )
           :body #Some #None
         }
         """;
@@ -175,9 +175,9 @@ public class StvnSchemaDirectedKeywordsTest {
     String payload = """
         {
           :defs {
-            #VAL :Uint7 5
+            #VAL :Int 5
           }
-          :type :Option( :Uint7 )
+          :type :Option( :Int )
           :body #VAL
         }
         """;
@@ -200,9 +200,9 @@ public class StvnSchemaDirectedKeywordsTest {
     String payload = """
         {
           :defs {
-            #ERR :Uint16 404
+            #ERR :Int 404
           }
-          :type :Either( :Uint16 :String )
+          :type :Either( :Int :String )
           :body #Left #ERR
         }
         """;
@@ -226,9 +226,9 @@ public class StvnSchemaDirectedKeywordsTest {
     String payloadUntagged = """
         {
           :defs {
-            #ERR :Uint16 404
+            #ERR :Int 404
           }
-          :type :Either( :Uint16 :String )
+          :type :Either( :Int :String )
           :body #ERR
         }
         """;
@@ -245,9 +245,9 @@ public class StvnSchemaDirectedKeywordsTest {
     String payloadExplicit = """
         {
           :defs {
-            #ERR :Uint16 404
+            #ERR :Int 404
           }
-          :type :Either( :Uint16 :String )
+          :type :Either( :Int :String )
           :body #Left #ERR
         }
         """;
@@ -272,7 +272,7 @@ public class StvnSchemaDirectedKeywordsTest {
           :defs {
             #MSG :String "OK"
           }
-          :type :Either( :Uint7 :String )
+          :type :Either( :Int :String )
           :body #MSG
         }
         """;
@@ -297,7 +297,7 @@ public class StvnSchemaDirectedKeywordsTest {
           :defs {
             #FLAG :Boolean #TRUE
           }
-          :type :Union( :Int32 :String :Boolean )
+          :type :Union( :Int :String :Boolean )
           :body #FLAG
         }
         """;
@@ -320,16 +320,16 @@ public class StvnSchemaDirectedKeywordsTest {
     String payload = """
         {
           :defs {
-            #Some  :Uint5 1
-            #None  :Uint5 2
-            #Left  :Uint5 3
-            #Right :Uint5 4
-            #TRUE  :Uint5 5
-            #FALSE :Uint5 6
-            #True  :Uint5 7
-            #False :Uint5 8
+            #Some  :Int 1
+            #None  :Int 2
+            #Left  :Int 3
+            #Right :Int 4
+            #TRUE  :Int 5
+            #FALSE :Int 6
+            #True  :Int 7
+            #False :Int 8
           }
-          :type :Tuple( :Uint5 :Uint5 :Uint5 :Uint5 :Uint5 :Uint5 :Uint5 :Uint5 )
+          :type :Tuple( :Int :Int :Int :Int :Int :Int :Int :Int )
           :body ( #Some #None #Left #Right #TRUE #FALSE #True #False )
         }
         """;

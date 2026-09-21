@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Constraint violation (:BadInt): minIncl for :Int32 requires an integer literal"
+    "Constraint violation (:BadInt): minIncl for :Int requires an integer literal"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

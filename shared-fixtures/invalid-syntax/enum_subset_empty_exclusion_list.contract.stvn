@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "enum filter variant list cannot be empty"
+    "Constraint violation (:EmptySubset): enum filter variant list cannot be empty"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

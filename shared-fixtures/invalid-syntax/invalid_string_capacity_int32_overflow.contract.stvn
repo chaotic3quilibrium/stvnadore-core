@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Constraint violation: Type suffix dimension overflows signed 32-bit integer limit: :String2147483648"
+    "Undefined type: :String2147483648"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

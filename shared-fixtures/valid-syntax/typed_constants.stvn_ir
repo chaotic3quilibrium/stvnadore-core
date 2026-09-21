@@ -1,22 +1,49 @@
 TypeRegistry:
+  - :RetryCount
+      schema:
+        node: :Int
+        aliasName: :RetryCount
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int
+  - :PortNum
+      schema:
+        node: :Int
+        aliasName: :PortNum
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int
+  - :CoordFloat
+      schema:
+        node: :Float
+        aliasName: :CoordFloat
+        constraints:
+          equatable: false (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Float
   - <:type>
       schema:
-        node: :Tuple(:Uint8:String:Uint16:Tuple(:Float32:Float32):Seq(:Uint16))
+        node: :Tuple(:RetryCount:String:PortNum:Tuple(:CoordFloat:CoordFloat):Seq(:PortNum))
         constraints:
-          equatable: false (derived from :Tuple(:Float32:Float32))
+          equatable: false (derived from :Tuple(:CoordFloat:CoordFloat))
           comparable: true (default)
 ValuePayload:
   StvnTuple
     elements:
-      - StvnInteger(:Uint8): 3
+      - StvnInteger(:RetryCount): 3
       - StvnString(:String): "api.internal.net"
-      - StvnInteger(:Uint16): 8000
+      - StvnInteger(:PortNum): 8000
       - StvnTuple
           elements:
-            - StvnFloat(:Float32): 12.34
-            - StvnFloat(:Float32): 56.78
+            - StvnFloat(:CoordFloat): 12.34
+            - StvnFloat(:CoordFloat): 56.78
       - StvnSeq
           elements:
-            - StvnInteger(:Uint16): 80
-            - StvnInteger(:Uint16): 443
-            - StvnInteger(:Uint16): 8080
+            - StvnInteger(:PortNum): 80
+            - StvnInteger(:PortNum): 443
+            - StvnInteger(:PortNum): 8080

@@ -20,15 +20,15 @@ TypeRegistry:
           aliasName: :Environment
   - <:type>
       schema:
-        node: :Tuple(:Int32:Float64:String:Boolean:Seq(:String):Map(:String:Int32):DeployEnv)
+        node: :Tuple(:Int:Float:String:Boolean:Seq(:String):Map(:String:Int):DeployEnv)
         constraints:
-          equatable: false (derived from :Float64)
-          comparable: false (derived from :Map(:String:Int32))
+          equatable: false (derived from :Float)
+          comparable: false (derived from :Map(:String:Int))
 ValuePayload:
   StvnTuple
     elements:
-      - StvnInteger(:Int32): 42
-      - StvnFloat(:Float64): 3.141592653589793
+      - StvnInteger(:Int): 42
+      - StvnFloat(:Float): 3.141592653589793
       - StvnString(:String): "STVN Protocol Engine"
       - StvnBoolean(:Boolean): true
       - StvnSeq
@@ -40,8 +40,8 @@ ValuePayload:
           entries:
             - pair:
                 key: StvnString(:String): "timeout_ms"
-                value: StvnInteger(:Int32): 5000
+                value: StvnInteger(:Int): 5000
             - pair:
                 key: StvnString(:String): "retry_limit"
-                value: StvnInteger(:Int32): 3
+                value: StvnInteger(:Int): 3
       - StvnEnum(:DeployEnv): #STAGING

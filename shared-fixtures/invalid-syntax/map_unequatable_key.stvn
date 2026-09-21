@@ -1,5 +1,5 @@
 {
-  :type :Map(:Float :Int32)
+  :type :Map(:Float :Int)
   :body {
     [1.0 42]
   }

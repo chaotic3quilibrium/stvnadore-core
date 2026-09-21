@@ -49,17 +49,11 @@ public interface StvnTextPrinter {
    * @param col the ANTLR context representing the collection type
    * @return the schema type keyword string (e.g. {@code :Seq}, {@code :MapNonEmpty})
    */
-  @SuppressWarnings("ConstantValue")
   default String resolveCollectionType(StvnParser.CollectionTypeContext col) {
     var colType = "";
     if (col.COLL_SEQ() != null) colType = ":Seq";
-    else if (col.COLL_SEQ_NON_EMPTY() != null) colType = ":SeqNonEmpty";
     else if (col.COLL_SET() != null) colType = ":Set";
-    else if (col.COLL_SET_NON_EMPTY() != null) colType = ":SetNonEmpty";
     else if (col.COLL_MAP() != null) colType = ":Map";
-    else if (col.COLL_MAP_NON_EMPTY() != null) colType = ":MapNonEmpty";
-    else if (col.COLL_MAP_INV() != null) colType = ":MapInv";
-    else if (col.COLL_MAP_INV_NON_EMPTY() != null) colType = ":MapInvNonEmpty";
 
     return colType;
   }

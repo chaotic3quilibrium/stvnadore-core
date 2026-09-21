@@ -1160,6 +1160,8 @@ public class StvnTypeResolver {
   }
 
   private static final Set<String> TYPES_TIME = Set.of(
+      ":TimeEpoch",
+      ":org/stvnadore/prelude/TimeEpoch",
       ":TimeEpochS",
       ":TimeEpochMs",
       ":TimeEpochNs");
@@ -1170,6 +1172,7 @@ public class StvnTypeResolver {
 
   private static final Set<String> TYPES_DATE_TIME = Set.of(
       ":DateTime",
+      ":org/stvnadore/prelude/DateTime",
       ":DateTimeOffset",
       ":DateTimeZoned",
       ":DateTimeAudited");
@@ -1258,6 +1261,16 @@ public class StvnTypeResolver {
    * @param explicitOverrides list of explicit traits overridden by the developer
    * @param filterIncl        optional immutable list of variants included in enum subset
    * @param filterExcl        optional immutable list of variants excluded from enum subset
+   * @param size              optional bit-width or size constraint
+   * @param unsigned          if true, integer type is unsigned
+   * @param exact             if true, float type enforces exact arbitrary-precision decimal representation
+   * @param minSize           optional minimum collection or string cardinality
+   * @param maxSize           optional maximum collection or string cardinality
+   * @param invertible        if true, map is bidirectional and invertible
+   * @param unit              optional temporal epoch time unit (s, ms, ns)
+   * @param offset            if true, temporal datetime has numerical offset
+   * @param zoned             if true, temporal datetime has timezone identifier
+   * @param audited           if true, temporal datetime retains full audited representation
    */
   public record StvnConstraints(
       Optional<BigDecimal> minIncl,
@@ -1270,20 +1283,30 @@ public class StvnTypeResolver {
       Optional<Boolean> comparable,
       java.util.List<String> explicitOverrides,
       Optional<List<String>> filterIncl,
-      Optional<List<String>> filterExcl
+      Optional<List<String>> filterExcl,
+      Optional<Integer> size,
+      boolean unsigned,
+      boolean exact,
+      Optional<Integer> minSize,
+      Optional<Integer> maxSize,
+      boolean invertible,
+      Optional<String> unit,
+      boolean offset,
+      boolean zoned,
+      boolean audited
   ) {
     /**
-     * Backward-compatible 9-parameter constructor defaulting filterIncl and filterExcl to empty.
+     * Backward-compatible 9-parameter constructor defaulting filterIncl, filterExcl, and 2.0.0 facets to empty.
      *
-     * @param minIncl           optional minimum inclusive value
-     * @param minExcl           optional minimum exclusive value
-     * @param maxIncl           optional maximum inclusive value
-     * @param maxExcl           optional maximum exclusive value
-     * @param regex             optional regular expression pattern
-     * @param preserveIndent    flag to preserve indentation
-     * @param equatable         optional equatable requirement
-     * @param comparable        optional comparable requirement
-     * @param explicitOverrides optional list of explicit constraint overrides
+     * @param minIncl           optional inclusive minimum value boundary
+     * @param minExcl           optional exclusive minimum value boundary
+     * @param maxIncl           optional inclusive maximum value boundary
+     * @param maxExcl           optional exclusive maximum value boundary
+     * @param regex             optional regular expression pattern to validate strings
+     * @param preserveIndent    if true, preserves formatting indentation for multi-line block strings
+     * @param equatable         optional user override for the {@code #equatable} trait
+     * @param comparable        optional user override for the {@code #comparable} trait
+     * @param explicitOverrides list of explicit traits overridden by the developer
      */
     public StvnConstraints(
         Optional<BigDecimal> minIncl,
@@ -1296,23 +1319,24 @@ public class StvnTypeResolver {
         Optional<Boolean> comparable,
         @Nullable List<String> explicitOverrides
     ) {
-      this(minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides, Optional.empty(), Optional.empty());
+      this(minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides, Optional.empty(), Optional.empty(),
+          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false);
     }
 
     /**
-     * Canonical constructor validating that all optional parameters are non-null and copying lists.
+     * Backward-compatible 11-parameter constructor defaulting 2.0.0 facets to empty.
      *
-     * @param minIncl           optional minimum inclusive value
-     * @param minExcl           optional minimum exclusive value
-     * @param maxIncl           optional maximum inclusive value
-     * @param maxExcl           optional maximum exclusive value
-     * @param regex             optional regular expression pattern
-     * @param preserveIndent    flag to preserve indentation
-     * @param equatable         optional equatable requirement
-     * @param comparable        optional comparable requirement
-     * @param explicitOverrides optional list of explicit constraint overrides
-     * @param filterIncl        optional enum inclusion filter list
-     * @param filterExcl        optional enum exclusion filter list
+     * @param minIncl           optional inclusive minimum value boundary
+     * @param minExcl           optional exclusive minimum value boundary
+     * @param maxIncl           optional inclusive maximum value boundary
+     * @param maxExcl           optional exclusive maximum value boundary
+     * @param regex             optional regular expression pattern to validate strings
+     * @param preserveIndent    if true, preserves formatting indentation for multi-line block strings
+     * @param equatable         optional user override for the {@code #equatable} trait
+     * @param comparable        optional user override for the {@code #comparable} trait
+     * @param explicitOverrides list of explicit traits overridden by the developer
+     * @param filterIncl        optional immutable list of variants included in enum subset
+     * @param filterExcl        optional immutable list of variants excluded from enum subset
      */
     public StvnConstraints(
         Optional<BigDecimal> minIncl,
@@ -1327,6 +1351,58 @@ public class StvnTypeResolver {
         Optional<List<String>> filterIncl,
         Optional<List<String>> filterExcl
     ) {
+      this(minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides, filterIncl, filterExcl,
+          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false);
+    }
+
+    /**
+     * Canonical constructor validating that all optional parameters are non-null and copying lists.
+     *
+     * @param minIncl           optional inclusive minimum value boundary
+     * @param minExcl           optional exclusive minimum value boundary
+     * @param maxIncl           optional inclusive maximum value boundary
+     * @param maxExcl           optional exclusive maximum value boundary
+     * @param regex             optional regular expression pattern to validate strings
+     * @param preserveIndent    if true, preserves formatting indentation for multi-line block strings
+     * @param equatable         optional user override for the {@code #equatable} trait
+     * @param comparable        optional user override for the {@code #comparable} trait
+     * @param explicitOverrides list of explicit traits overridden by the developer
+     * @param filterIncl        optional immutable list of variants included in enum subset
+     * @param filterExcl        optional immutable list of variants excluded from enum subset
+     * @param size              optional bit-width or size constraint
+     * @param unsigned          if true, integer type is unsigned
+     * @param exact             if true, float type enforces exact arbitrary-precision decimal representation
+     * @param minSize           optional minimum collection or string cardinality
+     * @param maxSize           optional maximum collection or string cardinality
+     * @param invertible        if true, map is bidirectional and invertible
+     * @param unit              optional temporal epoch time unit (s, ms, ns)
+     * @param offset            if true, temporal datetime has numerical offset
+     * @param zoned             if true, temporal datetime has timezone identifier
+     * @param audited           if true, temporal datetime retains full audited representation
+     */
+    public StvnConstraints(
+        Optional<BigDecimal> minIncl,
+        Optional<BigDecimal> minExcl,
+        Optional<BigDecimal> maxIncl,
+        Optional<BigDecimal> maxExcl,
+        Optional<String> regex,
+        boolean preserveIndent,
+        Optional<Boolean> equatable,
+        Optional<Boolean> comparable,
+        @Nullable List<String> explicitOverrides,
+        Optional<List<String>> filterIncl,
+        Optional<List<String>> filterExcl,
+        Optional<Integer> size,
+        boolean unsigned,
+        boolean exact,
+        Optional<Integer> minSize,
+        Optional<Integer> maxSize,
+        boolean invertible,
+        Optional<String> unit,
+        boolean offset,
+        boolean zoned,
+        boolean audited
+    ) {
       this.minIncl = java.util.Objects.requireNonNull(minIncl);
       this.minExcl = java.util.Objects.requireNonNull(minExcl);
       this.maxIncl = java.util.Objects.requireNonNull(maxIncl);
@@ -1340,6 +1416,16 @@ public class StvnTypeResolver {
           : java.util.List.of();
       this.filterIncl = java.util.Objects.requireNonNull(filterIncl).map(java.util.List::copyOf);
       this.filterExcl = java.util.Objects.requireNonNull(filterExcl).map(java.util.List::copyOf);
+      this.size = java.util.Objects.requireNonNull(size);
+      this.unsigned = unsigned;
+      this.exact = exact;
+      this.minSize = java.util.Objects.requireNonNull(minSize);
+      this.maxSize = java.util.Objects.requireNonNull(maxSize);
+      this.invertible = invertible;
+      this.unit = java.util.Objects.requireNonNull(unit);
+      this.offset = offset;
+      this.zoned = zoned;
+      this.audited = audited;
     }
 
     /**
@@ -1351,7 +1437,102 @@ public class StvnTypeResolver {
       return new StvnConstraints(
           Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
           Optional.empty(), false, Optional.empty(), Optional.empty(), java.util.List.of(),
-          Optional.empty(), Optional.empty()
+          Optional.empty(), Optional.empty(),
+          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false
+      );
+    }
+
+    /**
+     * Returns a copy with the specified size bit-width facet.
+     *
+     * @param bitWidth the bit-width to set
+     * @return a new {@link StvnConstraints} instance
+     */
+    public StvnConstraints withSize(int bitWidth) {
+      return new StvnConstraints(
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          filterIncl, filterExcl, Optional.of(bitWidth), unsigned, exact, minSize, maxSize, invertible, unit, offset, zoned, audited
+      );
+    }
+
+    /**
+     * Returns a copy with the specified unsigned flag facet.
+     *
+     * @param isUnsigned true if unsigned
+     * @return a new {@link StvnConstraints} instance
+     */
+    public StvnConstraints withUnsigned(boolean isUnsigned) {
+      return new StvnConstraints(
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          filterIncl, filterExcl, size, isUnsigned, exact, minSize, maxSize, invertible, unit, offset, zoned, audited
+      );
+    }
+
+    /**
+     * Returns a copy with the specified exact decimal facet.
+     *
+     * @param isExact true if exact
+     * @return a new {@link StvnConstraints} instance
+     */
+    public StvnConstraints withExact(boolean isExact) {
+      return new StvnConstraints(
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          filterIncl, filterExcl, size, unsigned, isExact, minSize, maxSize, invertible, unit, offset, zoned, audited
+      );
+    }
+
+    /**
+     * Returns a copy with the specified invertible map facet.
+     *
+     * @param isInvertible true if invertible
+     * @return a new {@link StvnConstraints} instance
+     */
+    public StvnConstraints withInvertible(boolean isInvertible) {
+      return new StvnConstraints(
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, isInvertible, unit, offset, zoned, audited
+      );
+    }
+
+    /**
+     * Returns a copy with the specified regex constraint pattern.
+     *
+     * @param regex optional regular expression pattern
+     * @return a new {@link StvnConstraints} instance
+     */
+    public StvnConstraints withRegex(Optional<String> regex) {
+      return new StvnConstraints(
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, unit, offset, zoned, audited
+      );
+    }
+
+    /**
+     * Returns a copy with the specified preserveIndent formatting flag.
+     *
+     * @param preserveIndent    true if indent preservation is enabled
+     * @param explicitOverrides list of explicit developer overrides
+     * @return a new {@link StvnConstraints} instance
+     */
+    public StvnConstraints withPreserveIndent(boolean preserveIndent, List<String> explicitOverrides) {
+      return new StvnConstraints(
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, unit, offset, zoned, audited
+      );
+    }
+
+    /**
+     * Returns a copy with the specified trait overrides.
+     *
+     * @param equatable         optional equatable trait override
+     * @param comparable        optional comparable trait override
+     * @param explicitOverrides list of explicit developer overrides
+     * @return a new {@link StvnConstraints} instance
+     */
+    public StvnConstraints withTraits(Optional<Boolean> equatable, Optional<Boolean> comparable, List<String> explicitOverrides) {
+      return new StvnConstraints(
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, unit, offset, zoned, audited
       );
     }
 
@@ -1414,6 +1595,25 @@ public class StvnTypeResolver {
           ? this.filterExcl
           : inner.filterExcl;
 
+      Optional<Integer> resSize = this.explicitOverrides.contains("size") || this.size.isPresent()
+          ? this.size
+          : inner.size;
+      boolean resUnsigned = this.explicitOverrides.contains("unsigned") ? this.unsigned : (this.unsigned || inner.unsigned);
+      boolean resExact = this.explicitOverrides.contains("exact") ? this.exact : (this.exact || inner.exact);
+      Optional<Integer> resMinSize = this.explicitOverrides.contains("minSize") || this.minSize.isPresent()
+          ? this.minSize
+          : inner.minSize;
+      Optional<Integer> resMaxSize = this.explicitOverrides.contains("maxSize") || this.maxSize.isPresent()
+          ? this.maxSize
+          : inner.maxSize;
+      boolean resInvertible = this.explicitOverrides.contains("invertible") ? this.invertible : (this.invertible || inner.invertible);
+      Optional<String> resUnit = this.explicitOverrides.contains("unit") || this.unit.isPresent()
+          ? this.unit
+          : inner.unit;
+      boolean resOffset = this.explicitOverrides.contains("offset") ? this.offset : (this.offset || inner.offset);
+      boolean resZoned = this.explicitOverrides.contains("zoned") ? this.zoned : (this.zoned || inner.zoned);
+      boolean resAudited = this.explicitOverrides.contains("audited") ? this.audited : (this.audited || inner.audited);
+
       return new StvnConstraints(
           resMinIncl, resMinExcl, resMaxIncl, resMaxExcl,
           resRegex,
@@ -1422,7 +1622,17 @@ public class StvnTypeResolver {
           resComparable,
           java.util.List.copyOf(mergedOverrides),
           resFilterIncl,
-          resFilterExcl
+          resFilterExcl,
+          resSize,
+          resUnsigned,
+          resExact,
+          resMinSize,
+          resMaxSize,
+          resInvertible,
+          resUnit,
+          resOffset,
+          resZoned,
+          resAudited
       );
     }
 
@@ -1647,6 +1857,16 @@ public class StvnTypeResolver {
     var explicitOverrides = new java.util.ArrayList<String>();
     List<String> filterIncl = null;
     List<String> filterExcl = null;
+    Integer size = null;
+    boolean unsigned = false;
+    boolean exact = false;
+    Integer minSize = null;
+    Integer maxSize = null;
+    boolean invertible = false;
+    String unit = null;
+    boolean offset = false;
+    boolean zoned = false;
+    boolean audited = false;
 
     for (StvnParser.MetadataEntryContext entry : metadataMap.metadataEntry()) {
       if (entry.metadataFilter() != null) {
@@ -1704,6 +1924,56 @@ public class StvnTypeResolver {
             }
           }
         }
+      } else if (entry.metadataSize() != null) {
+        var sizeCtx = entry.metadataSize();
+        Integer sz = null;
+        if (sizeCtx.metadataValue() != null && sizeCtx.metadataValue().integerLiteral() != null) {
+          try {
+            sz = Integer.parseInt(sizeCtx.metadataValue().integerLiteral().getText());
+          } catch (NumberFormatException ignored) {}
+        }
+        if (sizeCtx.KW_SIZE() != null) {
+          size = sz;
+          explicitOverrides.add("size");
+        } else if (sizeCtx.KW_MIN_SIZE() != null) {
+          minSize = sz;
+          explicitOverrides.add("minSize");
+        } else if (sizeCtx.KW_MAX_SIZE() != null) {
+          maxSize = sz;
+          explicitOverrides.add("maxSize");
+        }
+      } else if (entry.metadataFlag() != null) {
+        var flagCtx = entry.metadataFlag();
+        boolean flagVal = true;
+        if (flagCtx.booleanLiteral() != null) {
+          var bLit = flagCtx.booleanLiteral();
+          flagVal = bLit.KW_TRUE() != null || bLit.KW_TRUE_SHORT() != null;
+        }
+        if (flagCtx.KW_UNSIGNED() != null) {
+          unsigned = flagVal;
+          explicitOverrides.add("unsigned");
+        } else if (flagCtx.KW_EXACT() != null) {
+          exact = flagVal;
+          explicitOverrides.add("exact");
+        } else if (flagCtx.KW_INVERTIBLE() != null) {
+          invertible = flagVal;
+          explicitOverrides.add("invertible");
+        } else if (flagCtx.KW_OFFSET() != null) {
+          offset = flagVal;
+          explicitOverrides.add("offset");
+        } else if (flagCtx.KW_ZONED() != null) {
+          zoned = flagVal;
+          explicitOverrides.add("zoned");
+        } else if (flagCtx.KW_AUDITED() != null) {
+          audited = flagVal;
+          explicitOverrides.add("audited");
+        }
+      } else if (entry.metadataUnit() != null) {
+        var unitCtx = entry.metadataUnit();
+        if (unitCtx.valueKeyword() != null) {
+          unit = unitCtx.valueKeyword().getText();
+          explicitOverrides.add("unit");
+        }
       }
     }
     return new StvnConstraints(
@@ -1717,7 +1987,17 @@ public class StvnTypeResolver {
         Optional.ofNullable(comparable),
         java.util.List.copyOf(explicitOverrides),
         Optional.ofNullable(filterIncl),
-        Optional.ofNullable(filterExcl)
+        Optional.ofNullable(filterExcl),
+        Optional.ofNullable(size),
+        unsigned,
+        exact,
+        Optional.ofNullable(minSize),
+        Optional.ofNullable(maxSize),
+        invertible,
+        Optional.ofNullable(unit),
+        offset,
+        zoned,
+        audited
     );
   }
 
@@ -1977,6 +2257,22 @@ public class StvnTypeResolver {
         }
 
         final var finalSubset = derivedSubset;
+        if (innerRes.isPresent()) {
+          var resolvedSchema = innerRes.get();
+          var merged = meta.merge(resolvedSchema.constraints());
+          if (merged.invertible()) {
+            var base = getPrimitiveBaseType(resolvedSchema.node());
+            if (base != null && isMapType(base)) {
+              var inner = getInnerSchemas(resolvedSchema.node());
+              if (inner.size() >= 2) {
+                var valOpt = resolvePrimitiveSchema(doc, inner.get(1), visited, true);
+                if (valOpt.isPresent() && valOpt.get().constraints().equatable().equals(Optional.of(false))) {
+                  throw new MalformedSchemaException("Inverted map values require types to be #equatable #TRUE");
+                }
+              }
+            }
+          }
+        }
         return innerRes
             .map(resolvedSchema ->
                 applyDefaults(new ResolvedSchema(resolvedSchema.node(), meta.merge(resolvedSchema.constraints()), Optional.of(kw), Optional.empty(), Optional.empty(), Optional.of(resolvedSchema), Optional.of(meta), resolvedSchema.isPoisonedSentinel(), finalSubset)))
@@ -1985,7 +2281,12 @@ public class StvnTypeResolver {
             .map(StvnTypeResolver::validateResolvedSchema);
       } else {
         markTypePoisoned(doc, kw);
-        throw new MalformedSchemaException("Undefined type: " + kw,
+        String legacyMsg = getLegacyTypeDeprecationMessage(rawKw);
+        if (legacyMsg == null) {
+          legacyMsg = getLegacyTypeDeprecationMessage(kw);
+        }
+        String errMsg = legacyMsg != null ? legacyMsg : ("Undefined type: " + kw);
+        throw new MalformedSchemaException(errMsg,
             schemaNode.getStart().getStartIndex(),
             schemaNode.getStop().getStopIndex() + 1);
       }
@@ -2081,21 +2382,13 @@ public class StvnTypeResolver {
     if (constraints.regex().isPresent()) {
       var regexStr = constraints.regex().get();
       if (baseType == null || !isStringType(baseType)) {
-        var cleanConstraints = new StvnConstraints(
-            constraints.minIncl(), constraints.minExcl(), constraints.maxIncl(), constraints.maxExcl(),
-            Optional.empty(), constraints.preserveIndent(), constraints.equatable(), constraints.comparable(),
-            constraints.explicitOverrides(), constraints.filterIncl(), constraints.filterExcl()
-        );
+        var cleanConstraints = constraints.withRegex(Optional.empty());
         return new ResolvedSchema(rs.node(), cleanConstraints, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel(), rs.enumSubset());
       }
       try {
         java.util.regex.Pattern.compile(regexStr);
       } catch (java.util.regex.PatternSyntaxException e) {
-        var cleanConstraints = new StvnConstraints(
-            constraints.minIncl(), constraints.minExcl(), constraints.maxIncl(), constraints.maxExcl(),
-            Optional.empty(), constraints.preserveIndent(), constraints.equatable(), constraints.comparable(),
-            constraints.explicitOverrides(), constraints.filterIncl(), constraints.filterExcl()
-        );
+        var cleanConstraints = constraints.withRegex(Optional.empty());
         return new ResolvedSchema(rs.node(), cleanConstraints, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel(), rs.enumSubset());
       }
     }
@@ -2104,11 +2397,7 @@ public class StvnTypeResolver {
       if (ultimateBase == null || !isStringType(ultimateBase)) {
         var cleanOverrides = new ArrayList<>(constraints.explicitOverrides());
         cleanOverrides.remove("preserveIndent");
-        var cleanConstraints = new StvnConstraints(
-            constraints.minIncl(), constraints.minExcl(), constraints.maxIncl(), constraints.maxExcl(),
-            constraints.regex(), false, constraints.equatable(), constraints.comparable(),
-            cleanOverrides, constraints.filterIncl(), constraints.filterExcl()
-        );
+        var cleanConstraints = constraints.withPreserveIndent(false, cleanOverrides);
         return new ResolvedSchema(rs.node(), cleanConstraints, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel(), rs.enumSubset());
       }
     }
@@ -2153,14 +2442,7 @@ public class StvnTypeResolver {
     }
 
     if (changed) {
-      var updatedC = new StvnConstraints(
-          rs.constraints().minIncl(), rs.constraints().minExcl(),
-          rs.constraints().maxIncl(), rs.constraints().maxExcl(),
-          rs.constraints().regex(), rs.constraints().preserveIndent(),
-          equatable, comparable,
-          rs.constraints().explicitOverrides(),
-          rs.constraints().filterIncl(), rs.constraints().filterExcl()
-      );
+      var updatedC = rs.constraints().withTraits(equatable, comparable, rs.constraints().explicitOverrides());
       return new ResolvedSchema(rs.node(), updatedC, rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), rs.localConstraints(), rs.isPoisonedSentinel(), rs.enumSubset());
     }
     return rs;
@@ -2240,13 +2522,7 @@ public class StvnTypeResolver {
       return parent;
     }
 
-    var updatedC = new StvnConstraints(
-        constraints.minIncl(), constraints.minExcl(),
-        constraints.maxIncl(), constraints.maxExcl(),
-        constraints.regex(), constraints.preserveIndent(),
-        equatable, comparable, overrides,
-        constraints.filterIncl(), constraints.filterExcl()
-    );
+    var updatedC = constraints.withTraits(equatable, comparable, overrides);
 
     return new ResolvedSchema(parent.node(), updatedC, parent.aliasName(), parent.implicitUnionTag(), parent.sumTypeNode(), parent.underlyingSchema(), parent.localConstraints(), parent.isPoisonedSentinel(), parent.enumSubset());
   }
@@ -2265,13 +2541,8 @@ public class StvnTypeResolver {
       if (ctor.atomicType() != null) return ctor.atomicType().getText();
       if (ctor.collectionType() != null) {
         if (ctor.collectionType().COLL_SEQ() != null) return ":Seq";
-        if (ctor.collectionType().COLL_SEQ_NON_EMPTY() != null) return ":SeqNonEmpty";
         if (ctor.collectionType().COLL_SET() != null) return ":Set";
-        if (ctor.collectionType().COLL_SET_NON_EMPTY() != null) return ":SetNonEmpty";
         if (ctor.collectionType().COLL_MAP() != null) return ":Map";
-        if (ctor.collectionType().COLL_MAP_NON_EMPTY() != null) return ":MapNonEmpty";
-        if (ctor.collectionType().COLL_MAP_INV() != null) return ":MapInv";
-        if (ctor.collectionType().COLL_MAP_INV_NON_EMPTY() != null) return ":MapInvNonEmpty";
       }
       if (ctor.productType() != null) {
         if (ctor.productType() instanceof StvnParser.TupleTypeContext) return ":Tuple";
@@ -2435,8 +2706,7 @@ public class StvnTypeResolver {
         // collection inner type
         if (rs.node().schemaConstructor() != null && rs.node().schemaConstructor().collectionType() != null) {
           var col = rs.node().schemaConstructor().collectionType();
-          var isMap = col.COLL_MAP() != null || col.COLL_MAP_NON_EMPTY() != null
-              || col.COLL_MAP_INV() != null || col.COLL_MAP_INV_NON_EMPTY() != null;
+          var isMap = col.COLL_MAP() != null;
           if (isMap) {
             rsOpt = Optional.of(rs);
           } else {
@@ -2587,40 +2857,11 @@ public class StvnTypeResolver {
     if (n1 == n2) return true;
     if (n1 == null || n2 == null) return false;
 
-    // Follow alias references
-    if (n1.typeKeyword() != null) {
-      var kw1 = n1.typeKeyword().getText();
-      if (!visited1.contains(kw1)) {
-        visited1.add(kw1);
-        var typeDefOpt1 = findTypeDefinition(doc, kw1, n1);
-        if (typeDefOpt1.isPresent()) {
-          var res = isSameSchemaNodeRecursive(doc, typeDefOpt1.get().schemaType(), n2, visited1, visited2);
-          visited1.remove(kw1);
-          return res;
-        }
-        visited1.remove(kw1);
-      }
-    }
-
-    if (n2.typeKeyword() != null) {
-      var kw2 = n2.typeKeyword().getText();
-      if (!visited2.contains(kw2)) {
-        visited2.add(kw2);
-        var typeDefOpt2 = findTypeDefinition(doc, kw2, n2);
-        if (typeDefOpt2.isPresent()) {
-          var res = isSameSchemaNodeRecursive(doc, n1, typeDefOpt2.get().schemaType(), visited1, visited2);
-          visited2.remove(kw2);
-          return res;
-        }
-        visited2.remove(kw2);
-      }
-    }
-
-    // Now both n1 and n2 are resolved to their underlying/primitive schemas (or self-referential keywords)
-    if (n1.typeKeyword() != null && n2.typeKeyword() != null) {
-      return n1.typeKeyword().getText().equals(n2.typeKeyword().getText());
-    }
+    // Opaque Nominal Branding: Nominal types must match by exact nominal identifier
     if (n1.typeKeyword() != null || n2.typeKeyword() != null) {
+      if (n1.typeKeyword() != null && n2.typeKeyword() != null) {
+        return n1.typeKeyword().getText().equals(n2.typeKeyword().getText());
+      }
       return false;
     }
 
@@ -2749,13 +2990,17 @@ public class StvnTypeResolver {
                 if (isSameSchemaNode(doc, resolved.node(), constSchemaOpt.get().node())) {
                   yield true;
                 }
-                if (isIntegerType(baseType) && isIntegerType(constBaseType)) yield true;
-                if (isStringType(baseType) && isStringType(constBaseType)) yield true;
-                if (isFloatType(baseType) && isFloatType(constBaseType)) yield true;
-                if (baseType.equals(":Boolean") && constBaseType.equals(":Boolean")) yield true;
-                if (baseType.equals(":Tuple") && constBaseType.equals(":Tuple")) yield true;
-                if ((isSeqType(baseType) || isSetType(baseType)) && (isSeqType(constBaseType) || isSetType(constBaseType))) yield true;
-                if (isMapType(baseType) && isMapType(constBaseType)) yield true;
+                boolean targetNominal = resolved.node().typeKeyword() != null || resolved.aliasName().isPresent();
+                boolean constNominal = constSchemaOpt.get().node().typeKeyword() != null || constSchemaOpt.get().aliasName().isPresent();
+                if (!targetNominal && !constNominal) {
+                  if (isIntegerType(baseType) && isIntegerType(constBaseType)) yield true;
+                  if (isStringType(baseType) && isStringType(constBaseType)) yield true;
+                  if (isFloatType(baseType) && isFloatType(constBaseType)) yield true;
+                  if (baseType.equals(":Boolean") && constBaseType.equals(":Boolean")) yield true;
+                  if (baseType.equals(":Tuple") && constBaseType.equals(":Tuple")) yield true;
+                  if ((isSeqType(baseType) || isSetType(baseType)) && (isSeqType(constBaseType) || isSetType(constBaseType))) yield true;
+                  if (isMapType(baseType) && isMapType(constBaseType)) yield true;
+                }
               }
             }
           }
@@ -2851,7 +3096,7 @@ public class StvnTypeResolver {
         var col = ctor.collectionType();
         for (var st : col.schemaType()) {
           if (!isValidSchemaType(st)) {
-            throw new MalformedSchemaException("Collection type schema requires a parameter type definition (e.g. :Seq(:Int32))");
+            throw new MalformedSchemaException("Collection type schema requires a parameter type definition (e.g. :Seq(:Int))");
           }
         }
         return col.schemaType();
@@ -3100,6 +3345,9 @@ public class StvnTypeResolver {
       }
     }
     if (doc.documentBody().typeEntry() != null) {
+      if (doc != StvnPrelude.getPreludeDocument()) {
+        validateTemporalTypeConstraints(doc.documentBody().typeEntry().schemaType(), null, null, diagnosticBag);
+      }
       try {
         resolvePrimitiveSchema(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>());
       } catch (MalformedSchemaException e) {
@@ -3107,7 +3355,7 @@ public class StvnTypeResolver {
         int end = e.endOffset() >= 0 ? e.endOffset() : doc.documentBody().typeEntry().schemaType().getStop().getStopIndex() + 1;
         int line = doc.documentBody().typeEntry().schemaType().getStart().getLine();
         int col = doc.documentBody().typeEntry().schemaType().getStart().getCharPositionInLine();
-        String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))
+        String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type") || e.getMessage().contains("deprecated in 2.0.0"))
             ? DiagnosticBag.ERR_UNKNOWN_TYPE
             : (e.getMessage() != null && e.getMessage().contains("filter facets")
                 ? DiagnosticBag.ERR_INVALID_METADATA_FACET
@@ -3221,7 +3469,7 @@ public class StvnTypeResolver {
       int col = typeDef.getStart().getCharPositionInLine();
       int start = e.startOffset() >= 0 ? e.startOffset() : typeDef.getStart().getStartIndex();
       int end = e.endOffset() >= 0 ? e.endOffset() : typeDef.getStop().getStopIndex() + 1;
-      String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))
+      String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type") || e.getMessage().contains("deprecated in 2.0.0"))
           ? DiagnosticBag.ERR_UNKNOWN_TYPE
           : (e.getMessage() != null && e.getMessage().contains("filter facets")
               ? DiagnosticBag.ERR_INVALID_METADATA_FACET
@@ -3245,6 +3493,31 @@ public class StvnTypeResolver {
         );
       }
       validateMetadataMapConstraints(typeName, typeDef.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
+      if (resolvedOpt.isPresent()) {
+        var metaConstraints = extractConstraints(typeDef.metadataMap());
+        if (metaConstraints.invertible()) {
+          var baseType = getPrimitiveBaseType(resolvedOpt.get().node());
+          if (baseType != null && isMapType(baseType)) {
+            var inner = getInnerSchemas(resolvedOpt.get().node());
+            if (inner.size() >= 2) {
+              var valOpt = resolvePrimitiveSchema(doc, inner.get(1), new java.util.HashSet<>());
+              if (valOpt.isPresent() && !valOpt.get().constraints().equatable().orElse(false)) {
+                int line = typeDef.metadataMap().getStart().getLine();
+                int col = typeDef.metadataMap().getStart().getCharPositionInLine();
+                int start = typeDef.metadataMap().getStart().getStartIndex();
+                int end = typeDef.metadataMap().getStop().getStopIndex() + 1;
+                diagnosticBag.addError(
+                    "Inverted map values require types to be #equatable #TRUE",
+                    start, end, line, col, null, DiagnosticBag.ERR_TRAIT_VIOLATION
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+    if (doc != StvnPrelude.getPreludeDocument()) {
+      validateTemporalTypeConstraints(typeDef.schemaType(), typeDef.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
     }
   }
 
@@ -3299,7 +3572,7 @@ public class StvnTypeResolver {
       int col = constDef.getStart().getCharPositionInLine();
       int start = e.startOffset() >= 0 ? e.startOffset() : constDef.getStart().getStartIndex();
       int end = e.endOffset() >= 0 ? e.endOffset() : constDef.getStop().getStopIndex() + 1;
-      String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type"))
+      String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type") || e.getMessage().contains("deprecated in 2.0.0"))
           ? DiagnosticBag.ERR_UNKNOWN_TYPE
           : (e.getMessage() != null && e.getMessage().contains("filter facets")
               ? DiagnosticBag.ERR_INVALID_METADATA_FACET
@@ -3349,7 +3622,7 @@ public class StvnTypeResolver {
           : StvnConstraints.empty();
       var effectiveConstraints = localConstraints.merge(resolvedOpt.get().constraints());
       validateConstantValueConstraints(constName, constDef.value(), effectiveConstraints, diagnosticBag);
-      validateConstantBitWidthCapacity(constName, resolvedOpt.get(), constDef.value(), diagnosticBag);
+      validateConstantBitWidthCapacity(constName, resolvedOpt.get(), effectiveConstraints, constDef.value(), diagnosticBag);
     }
   }
 
@@ -3478,6 +3751,28 @@ public class StvnTypeResolver {
       );
     }
 
+    StvnParser.MetadataFlagContext firstModeCtx = null;
+    for (var entry : metadataMap.metadataEntry()) {
+      if (entry.metadataFlag() != null) {
+        var flag = entry.metadataFlag();
+        if (flag.KW_OFFSET() != null || flag.KW_ZONED() != null || flag.KW_AUDITED() != null) {
+          if (firstModeCtx == null) {
+            firstModeCtx = flag;
+          } else {
+            diagnosticBag.addError(
+                "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive",
+                flag.getStart().getStartIndex(),
+                flag.getStop().getStopIndex() + 1,
+                flag.getStart().getLine(),
+                flag.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+          }
+        }
+      }
+    }
+
     if (resolved == null) {
       return;
     }
@@ -3509,6 +3804,24 @@ public class StvnTypeResolver {
               numCtx.getStart().getCharPositionInLine(),
               null,
               DiagnosticBag.ERR_INVALID_METADATA_FACET
+          );
+        }
+
+        var consolidatedConstraints = extractConstraints(metadataMap).merge(resolved.constraints());
+        // Enforce discrete half-open intervals: :Int and { #exact } :Float reject #maxIncl and #minExcl
+        if ((isIntegerType || (isFloatType && consolidatedConstraints.exact())) &&
+            (numCtx.KW_MAX_INCL() != null || numCtx.KW_MIN_EXCL() != null)) {
+          var illegalFacet = numCtx.KW_MAX_INCL() != null ? "#maxIncl" : "#minExcl";
+          var suggested = numCtx.KW_MAX_INCL() != null ? "#maxExcl" : "#minIncl";
+          var typeDesc = isIntegerType ? "Discrete type ':Int'" : "Discrete exact float '{ #exact } :Float'";
+          diagnosticBag.addError(
+              typeDesc + " prohibits bound '" + illegalFacet + "'; use half-open bound '" + suggested + "'",
+              numCtx.getStart().getStartIndex(),
+              numCtx.getStop().getStopIndex() + 1,
+              numCtx.getStart().getLine(),
+              numCtx.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_DISCRETE_BOUND_KIND_PROHIBITED
           );
         }
 
@@ -3686,19 +3999,35 @@ public class StvnTypeResolver {
             DiagnosticBag.ERR_INVALID_METADATA_FACET
         );
       }
+
+      // String Cardinality Governance (MCT § 3.1.3): Prohibit #size on :String
+      if (isStringType && entry.metadataSize() != null && entry.metadataSize().KW_SIZE() != null) {
+        diagnosticBag.addError(
+            "Facet '#size' is prohibited on :String; use '#minSize' and '#maxSize' (e.g. { #minSize N #maxSize N } :String)",
+            entry.metadataSize().getStart().getStartIndex(),
+            entry.metadataSize().getStop().getStopIndex() + 1,
+            entry.metadataSize().getStart().getLine(),
+            entry.metadataSize().getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_INVALID_METADATA_FACET
+        );
+      }
     }
 
     if (isIntegerType) {
-      var bitWidth = 32;
-      if (baseType.startsWith(":Int") && baseType.length() > 4 && Character.isDigit(baseType.charAt(4))) {
-        bitWidth = Integer.parseInt(baseType.substring(4));
-      } else if (baseType.startsWith(":Uint") && baseType.length() > 5 && Character.isDigit(baseType.charAt(5))) {
-        bitWidth = Integer.parseInt(baseType.substring(5));
-      } else if (isTimeEpochType(baseType)) {
-        bitWidth = 64;
+      var consolidated = extractConstraints(metadataMap).merge(resolved.constraints());
+      var bitWidth = consolidated.size().orElse(32);
+      if (consolidated.size().isEmpty()) {
+        if (baseType.startsWith(":Int") && baseType.length() > 4 && Character.isDigit(baseType.charAt(4))) {
+          bitWidth = Integer.parseInt(baseType.substring(4));
+        } else if (baseType.startsWith(":Uint") && baseType.length() > 5 && Character.isDigit(baseType.charAt(5))) {
+          bitWidth = Integer.parseInt(baseType.substring(5));
+        } else if (isTimeEpochType(baseType)) {
+          bitWidth = 64;
+        }
       }
 
-      var isUnsigned = baseType.startsWith(":Uint");
+      var isUnsigned = consolidated.unsigned() || baseType.startsWith(":Uint");
 
       var minPhys = java.math.BigInteger.ZERO;
       var maxPhys = java.math.BigInteger.ZERO;
@@ -3722,7 +4051,9 @@ public class StvnTypeResolver {
           var mv = numCtx.metadataValue();
           if (mv != null && mv.integerLiteral() != null) {
             var valBI = new java.math.BigInteger(mv.integerLiteral().getText());
-            if (valBI.compareTo(minPhys) < 0 || valBI.compareTo(maxPhys) > 0) {
+            var maxBound = constraintName.equals("maxExcl") ? maxPhys.add(java.math.BigInteger.ONE) : maxPhys;
+            var minBound = constraintName.equals("minExcl") ? minPhys.subtract(java.math.BigInteger.ONE) : minPhys;
+            if (valBI.compareTo(minBound) < 0 || valBI.compareTo(maxBound) > 0) {
               diagnosticBag.addError(
                   "Constraint violation (" + name + "): #" + constraintName + " value " + valBI + " is out of bounds for physical capacity of " + baseType + " (" + minPhys + " to " + maxPhys + ")",
                   mv.integerLiteral().getStart().getStartIndex(),
@@ -3737,7 +4068,6 @@ public class StvnTypeResolver {
         }
       }
 
-      var consolidated = extractConstraints(metadataMap).merge(resolved.constraints());
       var minEff = consolidated.minIncl().isPresent()
           ? consolidated.minIncl().get().toBigIntegerExact()
           : (consolidated.minExcl().isPresent()
@@ -3766,11 +4096,13 @@ public class StvnTypeResolver {
     }
 
     if (isFloatType) {
-      var isExact = baseType.equals(":FloatExact");
+      var consolidated = extractConstraints(metadataMap).merge(resolved.constraints());
+      var isExact = consolidated.exact() || baseType.equals(":FloatExact");
       if (!isExact) {
         var minPhys = BigDecimal.ZERO;
         var maxPhys = BigDecimal.ZERO;
-        if (baseType.equals(":Float32")) {
+        var bitWidth = consolidated.size().orElse(64);
+        if (bitWidth == 32 || baseType.equals(":Float32")) {
           minPhys = BigDecimal.valueOf(-Float.MAX_VALUE);
           maxPhys = BigDecimal.valueOf(Float.MAX_VALUE);
         } else {
@@ -3806,7 +4138,6 @@ public class StvnTypeResolver {
         }
       }
 
-      var consolidated = extractConstraints(metadataMap).merge(resolved.constraints());
       var minVal = consolidated.minIncl().isPresent()
           ? consolidated.minIncl().get()
           : (consolidated.minExcl().isPresent() ? consolidated.minExcl().get() : null);
@@ -3842,6 +4173,62 @@ public class StvnTypeResolver {
             );
           }
         }
+      }
+    }
+  }
+
+  private static void validateTemporalTypeConstraints(
+      @Nullable SchemaTypeContext schemaType,
+      @Nullable MetadataMapContext metadataMap,
+      @Nullable ResolvedSchema resolved,
+      DiagnosticBag diagnosticBag) {
+    if (schemaType == null) return;
+    String typeText = schemaType.getText();
+    boolean isEpoch = typeText.equals(":TimeEpoch") || typeText.equals(":org/stvnadore/prelude/TimeEpoch") || typeText.endsWith("/TimeEpoch");
+    boolean isDateTime = typeText.equals(":DateTime") || typeText.equals(":org/stvnadore/prelude/DateTime") || typeText.endsWith("/DateTime");
+    if (!isEpoch && !isDateTime) return;
+
+    var localConstraints = extractConstraints(metadataMap);
+    var consolidated = resolved != null ? localConstraints.merge(resolved.constraints()) : localConstraints;
+
+    int start = schemaType.getStart().getStartIndex();
+    int end = schemaType.getStop().getStopIndex() + 1;
+    int line = schemaType.getStart().getLine();
+    int col = schemaType.getStart().getCharPositionInLine();
+
+    if (isEpoch) {
+      if (!consolidated.unit().isPresent()) {
+        diagnosticBag.addError(
+            "Temporal type ':TimeEpoch' requires a unit facet: '#unit #s', '#unit #ms', or '#unit #ns'",
+            start, end, line, col, null,
+            DiagnosticBag.ERR_MISSING_TEMPORAL_FACET
+        );
+      } else {
+        String u = consolidated.unit().get();
+        if (!u.equals("#s") && !u.equals("#ms") && !u.equals("#ns") && !u.equals("s") && !u.equals("ms") && !u.equals("ns")) {
+          diagnosticBag.addError(
+              "Invalid unit facet '" + u + "' for ':TimeEpoch'; permitted units: [#s, #ms, #ns]",
+              start, end, line, col, null,
+              DiagnosticBag.ERR_INVALID_METADATA_FACET
+          );
+        }
+      }
+    } else if (isDateTime) {
+      int modes = (consolidated.offset() ? 1 : 0) + (consolidated.zoned() ? 1 : 0) + (consolidated.audited() ? 1 : 0);
+      if (modes == 0) {
+        diagnosticBag.addError(
+            "Temporal type ':DateTime' requires exactly one mode facet: '#offset', '#zoned', or '#audited'",
+            start, end, line, col, null,
+            DiagnosticBag.ERR_MISSING_TEMPORAL_FACET
+        );
+      } else if (modes > 1) {
+        diagnosticBag.addError(
+            "Constraint violation: '#offset', '#zoned', and '#audited' are mutually exclusive",
+            metadataMap != null ? metadataMap.getStart().getStartIndex() : start,
+            metadataMap != null ? metadataMap.getStop().getStopIndex() + 1 : end,
+            line, col, null,
+            DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+        );
       }
     }
   }
@@ -3900,20 +4287,41 @@ public class StvnTypeResolver {
       StvnParser.ValueContext valueCtx,
       DiagnosticBag diagnosticBag
   ) {
+    validateConstantBitWidthCapacity(constName, resolved, resolved.constraints(), valueCtx, diagnosticBag);
+  }
+
+  /**
+   * Validates that an integer literal assigned to a typed constant fits within the declared bit-width bounds.
+   *
+   * @param constName the constant name
+   * @param resolved the resolved schema of the constant
+   * @param effectiveConstraints the effective merged constraints
+   * @param valueCtx the AST value context containing the integer literal
+   * @param diagnosticBag the accumulator bag for recording semantic diagnostics
+   */
+  public static void validateConstantBitWidthCapacity(
+      String constName,
+      ResolvedSchema resolved,
+      StvnConstraints effectiveConstraints,
+      StvnParser.ValueContext valueCtx,
+      DiagnosticBag diagnosticBag
+  ) {
     if (valueCtx.integerLiteral() == null || resolved.node() == null) {
       return;
     }
     String baseType = getPrimitiveBaseType(resolved.node());
     if (baseType == null) return;
 
-    boolean isUnsigned = baseType.startsWith(":Uint");
-    boolean isSigned = baseType.startsWith(":Int");
+    boolean isUnsigned = effectiveConstraints.unsigned() || baseType.startsWith(":Uint");
+    boolean isSigned = (baseType.startsWith(":Int") || baseType.equals(":Int")) && !isUnsigned;
     if (!isUnsigned && !isSigned) return;
 
-    int bitWidth = 32;
-    String suffix = isUnsigned ? baseType.substring(5) : baseType.substring(4);
-    if (!suffix.isEmpty() && suffix.matches("\\d+")) {
-      bitWidth = Integer.parseInt(suffix);
+    int bitWidth = effectiveConstraints.size().orElse(32);
+    if (effectiveConstraints.size().isEmpty()) {
+      String suffix = isUnsigned && baseType.startsWith(":Uint") ? baseType.substring(5) : (baseType.startsWith(":Int") ? baseType.substring(4) : "");
+      if (!suffix.isEmpty() && suffix.matches("\\d+")) {
+        bitWidth = Integer.parseInt(suffix);
+      }
     }
 
     java.math.BigInteger val = StvnLiteralParser.parseBigInteger(valueCtx.integerLiteral().getText());
@@ -3929,8 +4337,9 @@ public class StvnTypeResolver {
       int col = valueCtx.getStart().getCharPositionInLine();
       int start = valueCtx.getStart().getStartIndex();
       int end = valueCtx.getStop().getStopIndex() + 1;
+      String displayType = resolved.aliasName().orElse(baseType);
       diagnosticBag.addError(
-          "Integer literal " + val + " out of range for " + baseType + " [" + min + ", " + max + "]",
+          "Integer literal " + val + " out of range for " + displayType + " [" + min + ", " + max + "]",
           start, end, line, col, null, DiagnosticBag.ERR_INTEGER_OVERFLOW
       );
     }
@@ -3943,22 +4352,15 @@ public class StvnTypeResolver {
    * @return {@code true} if the name is a reserved fundamental type keyword, {@code false} otherwise
    */
   public static boolean isReservedFundamentalType(String name) {
-    if (name.equals(":Boolean") || name.equals(":FloatExact") ||
+    if (name.equals(":Boolean") || name.equals(":Int") || name.equals(":Float") || name.equals(":String") ||
         name.equals(":Tuple") || name.equals(":Enum") || name.equals(":Option") ||
         name.equals(":Either") || name.equals(":Union") || name.equals(":MapEntry") ||
         name.equals(":Seq") || name.equals(":SeqNonEmpty") || name.equals(":Set") ||
         name.equals(":SetNonEmpty") || name.equals(":Map") || name.equals(":MapNonEmpty") ||
-        name.equals(":MapInv") || name.equals(":MapInvNonEmpty") ||
         name.equals(":defs") || name.equals(":type") || name.equals(":body") || name.equals(":include") ||
         name.equals(":package") || name.equals(":use")) {
       return true;
     }
-    if (name.startsWith(":Uint") && name.substring(5).matches("\\d*")) return true;
-    if (name.startsWith(":Int") && name.substring(4).matches("\\d*")) return true;
-    if (name.startsWith(":Float") && name.substring(6).matches("\\d*")) return true;
-    if (name.startsWith(":StringFixed") && name.substring(12).matches("\\d*")) return true;
-    if (name.startsWith(":StringNonEmpty") && name.substring(15).matches("\\d*")) return true;
-    if (name.startsWith(":String") && !name.startsWith(":StringFixed") && !name.startsWith(":StringNonEmpty") && name.substring(7).matches("\\d*")) return true;
     return false;
   }
 
@@ -4020,5 +4422,63 @@ public class StvnTypeResolver {
       throw new StvnCollectionCollisionException(
           "Duplicate set element detected", startOffset, endOffset);
     }
+  }
+
+  /**
+   * Translates a legacy compound type keyword into an actionable migration message.
+   *
+   * @param kw the type keyword to evaluate
+   * @return the deprecation error message, or {@code null} if the keyword does not match a legacy compound type
+   */
+  public static @Nullable String getLegacyTypeDeprecationMessage(@Nullable String kw) {
+    if (kw == null) {
+      return null;
+    }
+    String unqualified = kw.contains("/") ? (":" + kw.substring(kw.lastIndexOf('/') + 1)) : kw;
+    if (unqualified.matches("^:Int[0-9]+$")) {
+      String width = unqualified.substring(4);
+      return "Compound integer keyword '" + unqualified + "' is deprecated in 2.0.0; use '{ #size " + width + " } :Int'";
+    }
+    if (unqualified.matches("^:Uint[0-9]*$")) {
+      String width = unqualified.substring(5);
+      String sizeClause = width.isEmpty() ? "" : " #size " + width;
+      return "Compound unsigned integer keyword '" + unqualified + "' is deprecated in 2.0.0; use '{ #unsigned" + sizeClause + " } :Int'";
+    }
+    if (unqualified.matches("^:Float(32|64)$")) {
+      String width = unqualified.substring(6);
+      return "Compound float keyword '" + unqualified + "' is deprecated in 2.0.0; use '{ #size " + width + " } :Float'";
+    }
+    if (unqualified.equals(":FloatExact")) {
+      return "Compound float keyword ':FloatExact' is deprecated in 2.0.0; use '{ #exact } :Float'";
+    }
+    if (unqualified.matches("^:StringFixed[0-9]+$")) {
+      String len = unqualified.substring(12);
+      return "Compound string keyword '" + unqualified + "' is deprecated in 2.0.0; use '{ #minSize " + len + " #maxSize " + len + " } :String'";
+    }
+    if (unqualified.equals(":StringNonEmpty")) {
+      return "Compound string keyword ':StringNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :String'";
+    }
+    if (unqualified.equals(":SeqNonEmpty")) {
+      return "Compound collection keyword ':SeqNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Seq'";
+    }
+    if (unqualified.equals(":SetNonEmpty")) {
+      return "Compound collection keyword ':SetNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Set'";
+    }
+    if (unqualified.equals(":MapNonEmpty")) {
+      return "Compound collection keyword ':MapNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Map'";
+    }
+    if (unqualified.equals(":MapInv")) {
+      return "Compound collection keyword ':MapInv' is deprecated in 2.0.0; use '{ #invertible } :Map'";
+    }
+    if (unqualified.equals(":MapInvNonEmpty")) {
+      return "Compound collection keyword ':MapInvNonEmpty' is deprecated in 2.0.0; use '{ #invertible #minSize 1 } :Map'";
+    }
+    if (unqualified.matches("^:TimeEpoch[A-Za-z0-9_]+$")) {
+      return "Legacy temporal epoch keyword is deprecated in 2.0.0; use ':TimeEpoch' with mandatory facet '{ #unit #s }', '{ #unit #ms }', or '{ #unit #ns }'";
+    }
+    if (unqualified.equals(":DateTimeOffset") || unqualified.equals(":DateTimeZoned") || unqualified.equals(":DateTimeAudited")) {
+      return "Legacy datetime keyword is deprecated in 2.0.0; use ':DateTime' with mode facet '{ #offset }', '{ #zoned }', or '{ #audited }'";
+    }
+    return null;
   }
 }

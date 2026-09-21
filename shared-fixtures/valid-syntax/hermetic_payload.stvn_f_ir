@@ -1,22 +1,22 @@
 TypeRegistry:
   - :org/stvnadore/payload/TransactionId
       schema:
-        node: :StringFixed16
+        node: :String
         aliasName: :org/stvnadore/payload/TransactionId
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :StringFixed16
+          node: :String
   - :org/stvnadore/payload/StatusCode
       schema:
-        node: :Uint16
+        node: :Int
         aliasName: :org/stvnadore/payload/StatusCode
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Uint16
+          node: :Int
   - :Response
       schema:
         node: :Tuple(:org/stvnadore/payload/TransactionId:org/stvnadore/payload/StatusCode)

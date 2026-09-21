@@ -1,23 +1,23 @@
 TypeRegistry:
   - :MyUnion
       schema:
-        node: :Union(:Int32:String)
+        node: :Union(:Int:String)
         aliasName: :MyUnion
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Union(:Int32:String)
+          node: :Union(:Int:String)
   - <:type>
       schema:
-        node: :Union(:Int32:String)
+        node: :Union(:Int:String)
         aliasName: :MyUnion
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Union(:Int32:String)
+          node: :Union(:Int:String)
 ValuePayload:
   StvnUnion
     tagIndex: 0
-    value: StvnInteger(:Int32): 42
+    value: StvnInteger(:Int): 42

@@ -19,7 +19,7 @@ class StvnUnionValidationTest {
     String input = """
         {
           :defs {
-            :MyUnion :Union(:Int32 :String)
+            :MyUnion :Union(:Int :String)
           }
           :type :MyUnion
           :body #1 42
@@ -38,7 +38,7 @@ class StvnUnionValidationTest {
     String input = """
         {
           :defs {
-            :MyUnion :Union(:Int32 :String)
+            :MyUnion :Union(:Int :String)
           }
           :type :MyUnion
           :body "hello"
@@ -57,7 +57,7 @@ class StvnUnionValidationTest {
     String input = """
         {
           :defs {
-            :MyUnion :Union(:Int32 :String)
+            :MyUnion :Union(:Int :String)
           }
           :type :MyUnion
           :body #3 42
@@ -77,7 +77,7 @@ class StvnUnionValidationTest {
     String input = """
         {
           :defs {
-            :MyUnion :Union(:Int32 :Int)
+            :MyUnion :Union(:Int :Int)
           }
           :type :MyUnion
           :body 42
@@ -94,7 +94,7 @@ class StvnUnionValidationTest {
     String input = """
         {
           :defs {
-            :MyInt { #minIncl 1 } :Int32
+            :MyInt { #minIncl 1 } :Int
             :MyUnion :Union(:MyInt :MyInt)
           }
           :type :MyUnion
@@ -112,7 +112,7 @@ class StvnUnionValidationTest {
     String input = """
         {
           :defs {
-            :MyInt { #minIncl 1 } :Int32
+            :MyInt { #minIncl 1 } :Int
             :MyEither :Either(:MyInt :MyInt)
           }
           :type :MyEither
@@ -132,7 +132,7 @@ class StvnUnionValidationTest {
     String input = """
         {
           :defs {
-            :MyUnion :Union(:Int32 :String)
+            :MyUnion :Union(:Int :String)
           }
           :type :MyUnion
           :body #1 42
@@ -155,7 +155,7 @@ class StvnUnionValidationTest {
     String input = """
         {
           :defs {
-            :MyUnion :Union(:Float32 :String)
+            :MyUnion :Union(:Float :String)
           }
           :type :MyUnion
           :body #2 "test"
@@ -178,7 +178,7 @@ class StvnUnionValidationTest {
     String input = """
         {
           :defs {
-            :MyUnion { #equatable #FALSE #comparable #FALSE } :Union(:Int32 :String)
+            :MyUnion { #equatable #FALSE #comparable #FALSE } :Union(:Int :String)
           }
           :type :MyUnion
           :body #1 42

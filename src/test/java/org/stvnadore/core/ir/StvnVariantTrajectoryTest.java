@@ -25,7 +25,7 @@ class StvnVariantTrajectoryTest {
     // 1. Long form: #Some 42
     var longFormInput = """
         {
-          :type :Option(:Int32)
+          :type :Option(:Int)
           :body #Some 42
         }
         """;
@@ -40,7 +40,7 @@ class StvnVariantTrajectoryTest {
     // 2. Short form: #S 42
     var shortFormInput = """
         {
-          :type :Option(:Int32)
+          :type :Option(:Int)
           :body #S 42
         }
         """;
@@ -55,7 +55,7 @@ class StvnVariantTrajectoryTest {
     // 3. Long form None: #None
     var noneLongInput = """
         {
-          :type :Option(:Int32)
+          :type :Option(:Int)
           :body #None
         }
         """;
@@ -70,7 +70,7 @@ class StvnVariantTrajectoryTest {
     // 4. Short form None: #N
     var noneShortInput = """
         {
-          :type :Option(:Int32)
+          :type :Option(:Int)
           :body #N
         }
         """;
@@ -87,7 +87,7 @@ class StvnVariantTrajectoryTest {
   void testImpliedOptionTagIsInferred() {
     var input = """
         {
-          :type :Option(:Int32)
+          :type :Option(:Int)
           :body 42
         }
         """;
@@ -105,7 +105,7 @@ class StvnVariantTrajectoryTest {
     // 1. Long form Right: #Right 42
     var rightLongInput = """
         {
-          :type :Either(:String :Int32)
+          :type :Either(:String :Int)
           :body #Right 42
         }
         """;
@@ -120,7 +120,7 @@ class StvnVariantTrajectoryTest {
     // 2. Short form Right: #R 42
     var rightShortInput = """
         {
-          :type :Either(:String :Int32)
+          :type :Either(:String :Int)
           :body #R 42
         }
         """;
@@ -135,7 +135,7 @@ class StvnVariantTrajectoryTest {
     // 3. Long form Left: #Left "err"
     var leftLongInput = """
         {
-          :type :Either(:String :Int32)
+          :type :Either(:String :Int)
           :body #Left "err"
         }
         """;
@@ -150,7 +150,7 @@ class StvnVariantTrajectoryTest {
     // 4. Short form Left: #L "err"
     var leftShortInput = """
         {
-          :type :Either(:String :Int32)
+          :type :Either(:String :Int)
           :body #L "err"
         }
         """;
@@ -167,7 +167,7 @@ class StvnVariantTrajectoryTest {
   void testImpliedEitherTagIsInferred() {
     var input = """
         {
-          :type :Either(:String :Int32)
+          :type :Either(:String :Int)
           :body 42
         }
         """;

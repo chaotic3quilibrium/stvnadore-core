@@ -421,28 +421,47 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
 
   private StvnValue buildIntegerOrTime(StvnParser.IntegerLiteralContext ctx, ResolvedSchema schema, String baseType, String aliasOrBase) {
     var rawValue = StvnLiteralParser.parseBigInteger(ctx.getText());
-    if (baseType.equals(":TimeEpoch") || baseType.equals(":TimeEpochS") || baseType.equals(":TimeEpochMs") || baseType.equals(":TimeEpochNs")) {
-      var kind = switch (baseType) {
-        case ":TimeEpochS" -> TimeKind.EPOCH_S;
-        case ":TimeEpochMs" -> TimeKind.EPOCH_MS;
-        default -> TimeKind.EPOCH_NS;
-      };
+    boolean isTimeEpoch = baseType.equals(":TimeEpoch") || baseType.equals(":TimeEpochS") || baseType.equals(":TimeEpochMs") || baseType.equals(":TimeEpochNs")
+        || (schema != null && (schema.constraints().unit().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch"))));
+    if (isTimeEpoch) {
+      TimeKind kind = TimeKind.EPOCH_S;
+      if (schema != null && schema.constraints().unit().isPresent()) {
+        String u = schema.constraints().unit().get();
+        if (u.contains("ms")) kind = TimeKind.EPOCH_MS;
+        else if (u.contains("ns")) kind = TimeKind.EPOCH_NS;
+        else kind = TimeKind.EPOCH_S;
+      } else if (baseType.equals(":TimeEpochMs")) {
+        kind = TimeKind.EPOCH_MS;
+      } else if (baseType.equals(":TimeEpochNs")) {
+        kind = TimeKind.EPOCH_NS;
+      }
       return new StvnTime(schema, rawValue, kind);
     }
     var isUnsigned = baseType.equals(":Uint") || (baseType.startsWith(":Uint") && isNumeric(baseType.substring(5)));
     var bitWidth = 32;
-    if (baseType.startsWith(":Int") && baseType.length() > 4) {
-      var suffix = baseType.substring(4);
-      if (isNumeric(suffix)) {
-        bitWidth = Integer.parseInt(suffix);
+    if (schema != null && schema.constraints() != null) {
+      if (schema.constraints().unsigned()) {
+        isUnsigned = true;
       }
-    } else if (baseType.startsWith(":Uint") && baseType.length() > 5) {
-      var suffix = baseType.substring(5);
-      if (isNumeric(suffix)) {
-        bitWidth = Integer.parseInt(suffix);
+      if (schema.constraints().size().isPresent()) {
+        bitWidth = schema.constraints().size().get();
       }
-    } else if (!baseType.equals(":Int") && !baseType.equals(":Uint")) {
-      bitWidth = 0;
+    }
+    if (bitWidth == 32 && !isUnsigned) {
+      if (baseType.startsWith(":Int") && baseType.length() > 4) {
+        var suffix = baseType.substring(4);
+        if (isNumeric(suffix)) {
+          bitWidth = Integer.parseInt(suffix);
+        }
+      } else if (baseType.startsWith(":Uint") && baseType.length() > 5) {
+        var suffix = baseType.substring(5);
+        if (isNumeric(suffix)) {
+          bitWidth = Integer.parseInt(suffix);
+          isUnsigned = true;
+        }
+      } else if (!baseType.equals(":Int") && !baseType.equals(":Uint")) {
+        bitWidth = 0;
+      }
     }
 
     // VALIDATE BOUNDS NOW (as requested)
@@ -510,11 +529,18 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   }
 
   private StvnFloat buildFloat(StvnParser.FloatLiteralContext ctx, ResolvedSchema schema, String baseType, String aliasOrBase) {
-    FloatPrecision precision = switch (baseType) {
-      case ":Float32" -> FloatPrecision.FLOAT32;
-      case ":FloatExact" -> FloatPrecision.EXACT;
-      default -> FloatPrecision.FLOAT64;
-    };
+    FloatPrecision precision = FloatPrecision.FLOAT64;
+    if (schema != null && schema.constraints() != null) {
+      if (schema.constraints().exact() || baseType.equals(":FloatExact")) {
+        precision = FloatPrecision.EXACT;
+      } else if (schema.constraints().size().orElse(64) == 32 || baseType.equals(":Float32")) {
+        precision = FloatPrecision.FLOAT32;
+      }
+    } else if (baseType.equals(":Float32")) {
+      precision = FloatPrecision.FLOAT32;
+    } else if (baseType.equals(":FloatExact")) {
+      precision = FloatPrecision.EXACT;
+    }
     var rawVal = StvnLiteralParser.parseFloat(ctx.getText());
     // Basic bounds checking for Float64 overflow/underflow if requested
     if (precision == FloatPrecision.FLOAT64) {
@@ -575,7 +601,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var preserveIndent = schema.constraints().preserveIndent();
     var parsedString = StvnLiteralParser.parseStringNew(ctx.getText(), preserveIndent);
 
-    if (isDateTimeType(baseType)) {
+    if (isDateTimeType(schema, baseType)) {
       return buildDateTime(ctx, schema, baseType, aliasOrBase);
     }
 
@@ -593,6 +619,22 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       maxLength = Integer.parseInt(baseType.substring(15));
     } else if (isBounded && baseType.length() > 7) {
       maxLength = Integer.parseInt(baseType.substring(7));
+    }
+
+    if (schema != null && schema.constraints() != null) {
+      var c = schema.constraints();
+      if (c.minSize().isPresent() && c.maxSize().isPresent() && c.minSize().get().equals(c.maxSize().get())) {
+        isFixed = true;
+        fixedLength = c.minSize().get();
+      } else {
+        if (c.minSize().isPresent() && c.minSize().get() >= 1) {
+          isNonEmpty = true;
+        }
+        if (c.maxSize().isPresent()) {
+          isBounded = true;
+          maxLength = c.maxSize().get();
+        }
+      }
     }
 
     int textLength = parsedString.text().length();
@@ -654,6 +696,16 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var rawText = ctx.getText();
     var startIndex = ctx.getStart().getStartIndex();
     var stopIndex = ctx.getStop().getStopIndex() + 1;
+
+    if (schema != null && schema.constraints() != null) {
+      if (schema.constraints().offset()) {
+        baseType = ":DateTimeOffset";
+      } else if (schema.constraints().zoned()) {
+        baseType = ":DateTimeZoned";
+      } else if (schema.constraints().audited()) {
+        baseType = ":DateTimeAudited";
+      }
+    }
 
     switch (baseType) {
       case ":DateTimeOffset" -> {
@@ -762,7 +814,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         return new StvnDateTimeAudited(schema, parsed.offsetDateTime(), parsed.zoneId());
       }
 
-      case ":DateTime" -> {
+      default -> {
         if (rawText.contains("[")) {
           if (StvnLiteralParser.DATETIME_AUDITED_PATTERN.matcher(rawText).matches()) {
             return buildDateTime(ctx, schema, ":DateTimeAudited", aliasOrBase);
@@ -773,8 +825,6 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           return buildDateTime(ctx, schema, ":DateTimeOffset", aliasOrBase);
         }
       }
-
-      default -> throw new IllegalStateException("Unexpected temporal type: " + baseType);
     }
   }
 
@@ -931,6 +981,40 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var constDefOpt = StvnTypeResolver.findConstantDefinition(documentContext, text);
     if (constDefOpt.isPresent()) {
       var constDef = constDefOpt.get();
+      var constSchemaOpt = StvnTypeResolver.resolvePrimitiveSchema(documentContext, constDef.schemaType(), Set.of());
+      if (constSchemaOpt.isPresent() && schema != null && schema.node() != null) {
+        boolean targetNominal = schema.node().typeKeyword() != null || schema.aliasName().isPresent();
+        boolean sourceNominal = constSchemaOpt.get().node().typeKeyword() != null || constSchemaOpt.get().aliasName().isPresent();
+        boolean nominalMismatch = false;
+        if (targetNominal || sourceNominal) {
+          String targetNominalName = schema.aliasName().orElseGet(() -> schema.node().typeKeyword() != null ? schema.node().typeKeyword().getText() : null);
+          String sourceNominalName = constSchemaOpt.get().aliasName().orElseGet(() -> constSchemaOpt.get().node().typeKeyword() != null ? constSchemaOpt.get().node().typeKeyword().getText() : null);
+          if (!java.util.Objects.equals(targetNominalName, sourceNominalName)) {
+            nominalMismatch = true;
+          }
+        }
+        if (nominalMismatch || !StvnTypeResolver.isSameSchemaNode(documentContext, schema.node(), constSchemaOpt.get().node())) {
+          int errStart = ctx != null && ctx.getStart() != null ? ctx.getStart().getStartIndex() : -1;
+          int errEnd = ctx != null && ctx.getStop() != null ? ctx.getStop().getStopIndex() + 1 : -1;
+          int errLine = ctx != null && ctx.getStart() != null ? ctx.getStart().getLine() : -1;
+          int errCol = ctx != null && ctx.getStart() != null ? ctx.getStart().getCharPositionInLine() : -1;
+          diagnosticBag.addError(
+              "Incompatible nominal type: constant '" + text + "' of nominal type '" +
+              constSchemaOpt.get().aliasName().orElse(constDef.schemaType().getText()) +
+              "' cannot be assigned to target nominal type '" +
+              schema.aliasName().orElse(schema.node().getText()) + "'",
+              errStart, errEnd, errLine, errCol, null,
+              org.stvnadore.core.validation.DiagnosticBag.ERR_INCOMPATIBLE_NOMINAL_TYPE
+          );
+          throw new MalformedPayloadException(
+              "Incompatible nominal type: constant '" + text + "' of nominal type '" +
+              constSchemaOpt.get().aliasName().orElse(constDef.schemaType().getText()) +
+              "' cannot be assigned to target nominal type '" +
+              schema.aliasName().orElse(schema.node().getText()) + "'",
+              errStart, errEnd
+          );
+        }
+      }
       if (!baseType.equals(":Option") && !baseType.equals(":Either") && !baseType.equals(":Union")) {
         return visitChildValue(constDef.value(), schema);
       } else if (baseType.equals(":Option")) {
@@ -1440,7 +1524,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     currentTrajectory.clear();
     try {
       var isSet = baseType.equals(":Set") || baseType.equals(":SetNonEmpty");
-      var isNonEmpty = baseType.equals(":SeqNonEmpty") || baseType.equals(":SetNonEmpty");
+      var isNonEmpty = baseType.equals(":SeqNonEmpty") || baseType.equals(":SetNonEmpty")
+          || (schema != null && schema.constraints().minSize().orElse(0) >= 1);
 
       ResolvedSchema elementSchema;
       List<StvnParser.SchemaTypeContext> inner = (schema != null && schema.node() != null)
@@ -1453,7 +1538,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         int start = ctx.start.getStartIndex();
         int end = ctx.stop.getStopIndex() + 1;
         int[] pos = getLineCol(ctx);
-        var ex = new MalformedPayloadException("List/Set schema lacks element type definition", start, end);
+        var ex = new MalformedPayloadException("Collection schema must contain an inner element type", start, end);
         var diag = new StvnDiagnostic(ex.getMessage(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, ex);
         diagnosticBag.add(diag);
         elementSchema = ensureSchema(null);
@@ -1484,11 +1569,14 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
               ? t.getMessage()
               : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t);
           diagnosticBag.add(diag);
-          if (!isSet) {
-            String rawText = item.sourceCtx() != null
-                ? item.sourceCtx().getText()
-                : "<error>";
-            elements.add(new StvnError(ensureSchema(elementSchema), rawText, start, end, List.of(diag)));
+          String rawText = item.sourceCtx() != null
+              ? item.sourceCtx().getText()
+              : "<error>";
+          var errNode = new StvnError(ensureSchema(elementSchema), rawText, start, end, List.of(diag));
+          if (isSet) {
+            setElements.add(errNode);
+          } else {
+            elements.add(errNode);
           }
         }
       }
@@ -1524,7 +1612,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       ParserRuleContext ctx
   ) {
     if (isSet) {
-      if (!setElements.add(val)) {
+      if (!setElements.add(val) && !(val instanceof StvnError)) {
         int startOffset = ctx.getStart() != null
             ? ctx.getStart().getStartIndex()
             : -1;
@@ -1544,8 +1632,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var saved = List.copyOf(currentTrajectory);
     currentTrajectory.clear();
     try {
-      var isNonEmpty = baseType.equals(":MapNonEmpty") || baseType.equals(":MapInvNonEmpty");
-      var isInverted = baseType.equals(":MapInv") || baseType.equals(":MapInvNonEmpty");
+      var isNonEmpty = baseType.equals(":MapNonEmpty") || baseType.equals(":MapInvNonEmpty")
+          || (schema != null && schema.constraints().minSize().orElse(0) >= 1);
+      var isInverted = baseType.equals(":MapInv") || baseType.equals(":MapInvNonEmpty")
+          || (schema != null && schema.constraints().invertible());
 
       ResolvedSchema keySchema;
       ResolvedSchema valSchema;
@@ -1584,6 +1674,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           var ex = new org.stvnadore.core.validation.MalformedAstContextException("Map entry contains a null or malformed key or value node (malformed syntax or parser recovery leak)");
           var diag = new StvnDiagnostic(ex.getMessage(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, ex);
           diagnosticBag.add(diag);
+          var errKey = new StvnError(ensureSchema(keySchema), child != null && child.value(0) != null ? child.value(0).getText() : "<error>", start, end, List.of(diag));
+          var errVal = new StvnError(ensureSchema(valSchema), child != null && child.value(1) != null ? child.value(1).getText() : "<error>", start, end, List.of(diag));
+          entries.put(errKey, errVal);
           continue;
         }
 
@@ -2615,9 +2708,29 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   }
 
   private static boolean isDateTimeType(String baseType) {
-    return baseType.equals(":DateTime")
+    return isDateTimeType(null, baseType);
+  }
+
+  private static boolean isDateTimeType(@Nullable ResolvedSchema schema, String baseType) {
+    if (baseType.equals(":DateTime")
         || baseType.equals(":DateTimeOffset")
         || baseType.equals(":DateTimeZoned")
-        || baseType.equals(":DateTimeAudited");
+        || baseType.equals(":DateTimeAudited")
+        || baseType.equals(":org/stvnadore/prelude/DateTime")
+        || baseType.endsWith("/DateTime")) {
+      return true;
+    }
+    if (schema != null) {
+      if (schema.constraints() != null && (schema.constraints().offset() || schema.constraints().zoned() || schema.constraints().audited())) {
+        return true;
+      }
+      if (schema.aliasName().map(a -> a.contains("DateTime")).orElse(false)) {
+        return true;
+      }
+      if (schema.underlyingSchema().flatMap(u -> u.aliasName()).map(a -> a.contains("DateTime")).orElse(false)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

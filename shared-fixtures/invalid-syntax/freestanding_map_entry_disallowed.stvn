@@ -1,4 +1,4 @@
 {
-  :type :MapEntry(:String :Int32)
+  :type :MapEntry(:String :Int)
   :body [ "key" 42 ]
 }

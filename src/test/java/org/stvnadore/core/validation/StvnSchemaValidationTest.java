@@ -48,7 +48,7 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :InvalidRange { #minIncl 100 #maxIncl 10 } :Int32
+            :InvalidRange { #minIncl 100 #maxExcl 10 } :Int
           }
           :type :String
           :body "valid string"
@@ -73,7 +73,7 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :BadType { #minIncl "abc" } :Int32
+            :BadType { #minIncl "abc" } :Int
           }
           :type :String
           :body "valid string"
@@ -98,7 +98,7 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :BadInt { #minIncl 5.5 } :Int32
+            :BadInt { #minIncl 5.5 } :Int
           }
           :type :String
           :body "hello"
@@ -111,7 +111,7 @@ public class StvnSchemaValidationTest {
 
     var diag = result.diagnostics().getFirst();
     Assertions.assertTrue(
-        diag.message().contains("minIncl for :Int32 requires an integer literal"),
+        diag.message().contains("minIncl for :Int requires an integer literal"),
         "Message: " + diag.message()
     );
   }
@@ -122,7 +122,7 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :BadFloat { #minIncl 5 } :Float64
+            :BadFloat { #minIncl 5 } :Float
           }
           :type :String
           :body "hello"
@@ -135,7 +135,7 @@ public class StvnSchemaValidationTest {
 
     var diag = result.diagnostics().getFirst();
     Assertions.assertTrue(
-        diag.message().contains("minIncl for :Float64 requires a float literal"),
+        diag.message().contains("minIncl for :Float requires a float literal"),
         "Message: " + diag.message()
     );
   }
@@ -146,7 +146,7 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :BadPort { #minIncl 70000 } :Uint16
+            :BadPort { #unsigned #size 16 #minIncl 70000 } :Int
           }
           :type :String
           :body "hello"
@@ -159,7 +159,7 @@ public class StvnSchemaValidationTest {
 
     var diag = result.diagnostics().getFirst();
     Assertions.assertTrue(
-        diag.message().contains("out of bounds for physical capacity of :Uint16"),
+        diag.message().contains("out of bounds for physical capacity of :Int"),
         "Message: " + diag.message()
     );
   }
@@ -170,7 +170,7 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :Shifted { #minExcl 5 #maxExcl 6 } :Int32
+            :Shifted { #minExcl 5.0 #maxExcl 5.0 } :Float
           }
           :type :String
           :body "hello"
@@ -241,7 +241,7 @@ public class StvnSchemaValidationTest {
         {
           :defs {
             :UnusedType { #regex "^[0-9]+$" } :String
-            :UnusedPort { #minIncl 1 #maxIncl 65535 } :Uint16
+            :UnusedPort { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
           }
           :type :String
           :body "active"
@@ -288,8 +288,8 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :InvertedRange { #minIncl 10 #maxIncl 2 } :Int32
-            :CapOverflow   { #minIncl -1 } :Uint8
+            :InvertedRange { #minIncl 10 #maxExcl 2 } :Int
+            :CapOverflow   { #unsigned #size 8 #minIncl -1 } :Int
             :BadStringMeta { #minIncl 5 } :String
             :InvalidRegex  { #regex "[a-z" } :String
           }
@@ -342,9 +342,9 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :BrokenA { #minIncl 10 #maxIncl 1 } :Int32
+            :BrokenA { #minIncl 10 #maxExcl 1 } :Int
             :BrokenB { #regex "[" } :String
-            :BrokenC { #preserveIndent #TRUE } :Int32
+            :BrokenC { #preserveIndent #TRUE } :Int
           }
         }
         """;
@@ -375,12 +375,12 @@ public class StvnSchemaValidationTest {
   }
 
   @Test
-  @DisplayName("Facet governance: String facet on Int32 emits ERR_INVALID_METADATA_FACET with permitted facet list")
+  @DisplayName("Facet governance: String facet on Int emits ERR_INVALID_METADATA_FACET with permitted facet list")
   void testStringFacetOnIntEmitsInvalidFacetDiagnostic() {
     String input = """
         {
           :defs {
-            :BadInt { #regex "^[0-9]+$" } :Int32
+            :BadInt { #regex "^[0-9]+$" } :Int
           }
           :type :BadInt
           :body 42
@@ -399,7 +399,7 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :BadType { #strip } :Int32
+            :BadType { #strip } :Int
           }
           :type :BadType
           :body 1

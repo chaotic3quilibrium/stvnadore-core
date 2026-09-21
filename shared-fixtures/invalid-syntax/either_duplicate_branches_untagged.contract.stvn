@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_PAYLOAD
-    "Ambiguous implicit either: Both sides are identical (:Uint32), explicit #Left or #Right tag is required"
+    "Ambiguous implicit either: Both sides are identical (:Int), explicit #Left or #Right tag is required"
     "org.stvnadore.core.validation.MalformedPayloadException"
   )
 }

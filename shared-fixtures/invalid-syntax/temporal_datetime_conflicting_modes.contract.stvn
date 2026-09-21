@@ -1,0 +1,14 @@
+{
+  // temporal_datetime_conflicting_modes.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

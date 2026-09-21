@@ -1,9 +1,9 @@
 {
   :defs {
-    :NominalA :Int32
-    :NominalB :Int32
+    :NominalA :Int
+    :NominalB :Int
     :UnionVal :Union(:NominalA :NominalB)
-    :MyMap :MapInv(:String :UnionVal)
+    :MyMap { #invertible } :Map(:String :UnionVal)
   }
   :type :MyMap
   :body {

@@ -3,7 +3,7 @@
   :defs {
     :BoolFlag   :Boolean
     :OptVal     :Option( :String )
-    :ChoiceVal  :Either( :Int32 :String )
+    :ChoiceVal  :Either( :Int :String )
   }
 
   :type :Tuple(

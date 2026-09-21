@@ -1,14 +1,14 @@
 {
   :defs {
     // 1. Grandparent: Establishes explicit boundaries and relies on implicit defaults
-    :HumanAge { #minIncl 0 #maxIncl 120 } :Int32
+    :HumanAge { #minIncl 0 #maxExcl 121 } :Int
 
     // 2. Parent: Inherits from grandparent, narrows maxExcl (explicit), and explicitly overrides comparable
     :ParentAge { #maxExcl 99 #comparable #F } :HumanAge
 
     // 3. Child: Narrows the inherited minIncl boundary via a fresh explicit override,
-    //    and introduces an explicit, separate maximum inclusive ceiling that safely fits inside the parent's contract.
-    :StrictChildAge { #minIncl 18 #maxIncl 50 } :ParentAge
+    //    and introduces an explicit, separate maximum exclusive ceiling that safely fits inside the parent's contract.
+    :StrictChildAge { #minIncl 18 #maxExcl 51 } :ParentAge
   }
 
   :type :Seq( :StrictChildAge )

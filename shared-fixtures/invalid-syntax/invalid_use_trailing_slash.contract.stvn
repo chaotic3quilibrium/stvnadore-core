@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Trailing slash prohibited in :use target"
+    "Trailing slash prohibited in :use target: :org/example/models/"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

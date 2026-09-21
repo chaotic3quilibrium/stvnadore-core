@@ -4,6 +4,6 @@
       "include_cyclic_indirect_b.stvn_incl"
     ]
   }
-  :type :Int32
+  :type :Int
   :body 42
 }

@@ -17,11 +17,11 @@ class StvnStrictProductTypingTest {
   class PositiveTests {
 
     @Test
-    @DisplayName("Option: Bare scalar value matches :Option( :Uint32 )")
+    @DisplayName("Option: Bare scalar value matches :Option( :Int )")
     void testScalarOptionSomeBareValue() {
       var input = """
           {
-            :type :Option( :Uint32 )
+            :type :Option( :Int )
             :body #Some 42
           }
           """;
@@ -34,11 +34,11 @@ class StvnStrictProductTypingTest {
     }
 
     @Test
-    @DisplayName("Option: 1-element tuple matches :Option( :Tuple( :Uint32 ) )")
+    @DisplayName("Option: 1-element tuple matches :Option( :Tuple( :Int ) )")
     void test1TupleOptionSomeProduct() {
       var input = """
           {
-            :type :Option( :Tuple( :Uint32 ) )
+            :type :Option( :Tuple( :Int ) )
             :body #Some ( 42 )
           }
           """;
@@ -53,11 +53,11 @@ class StvnStrictProductTypingTest {
     }
 
     @Test
-    @DisplayName("Option: Multi-element tuple matches :Option( :Tuple( :Uint32 :Uint32 ) )")
+    @DisplayName("Option: Multi-element tuple matches :Option( :Tuple( :Int :Int ) )")
     void testMultiTupleOptionSomeProduct() {
       var input = """
           {
-            :type :Option( :Tuple( :Uint32 :Uint32 ) )
+            :type :Option( :Tuple( :Int :Int ) )
             :body #Some ( 10 20 )
           }
           """;
@@ -73,11 +73,11 @@ class StvnStrictProductTypingTest {
     }
 
     @Test
-    @DisplayName("Either: Bare scalar matches :Either( :Int32 :String )")
+    @DisplayName("Either: Bare scalar matches :Either( :Int :String )")
     void testScalarEitherRightBareValue() {
       var input = """
           {
-            :type :Either( :Int32 :String )
+            :type :Either( :Int :String )
             :body #Right "OK"
           }
           """;
@@ -90,11 +90,11 @@ class StvnStrictProductTypingTest {
     }
 
     @Test
-    @DisplayName("Either: 1-element tuple matches :Either( :Int32 :Tuple( :String ) )")
+    @DisplayName("Either: 1-element tuple matches :Either( :Int :Tuple( :String ) )")
     void testProductEitherRightTuple() {
       var input = """
           {
-            :type :Either( :Int32 :Tuple( :String ) )
+            :type :Either( :Int :Tuple( :String ) )
             :body #Right ( "OK" )
           }
           """;
@@ -109,11 +109,11 @@ class StvnStrictProductTypingTest {
     }
 
     @Test
-    @DisplayName("Union: Bare scalar matches :Union( :Int32 :String )")
+    @DisplayName("Union: Bare scalar matches :Union( :Int :String )")
     void testScalarUnionBareValue() {
       var input = """
           {
-            :type :Union( :Int32 :String )
+            :type :Union( :Int :String )
             :body #1 1024
           }
           """;
@@ -131,11 +131,11 @@ class StvnStrictProductTypingTest {
   class NegativeTests {
 
     @Test
-    @DisplayName("Reject: #Some ( 42 ) targeting scalar :Option( :Uint32 )")
+    @DisplayName("Reject: #Some ( 42 ) targeting scalar :Option( :Int )")
     void testScalarOptionRejectsParenthesizedTuple() {
       var input = """
           {
-            :type :Option( :Uint32 )
+            :type :Option( :Int )
             :body #Some ( 42 )
           }
           """;
@@ -144,11 +144,11 @@ class StvnStrictProductTypingTest {
     }
 
     @Test
-    @DisplayName("Reject: #Right ( \"OK\" ) targeting scalar :Either( :Int32 :String )")
+    @DisplayName("Reject: #Right ( \"OK\" ) targeting scalar :Either( :Int :String )")
     void testScalarEitherRejectsParenthesizedTuple() {
       var input = """
           {
-            :type :Either( :Int32 :String )
+            :type :Either( :Int :String )
             :body #Right ( "OK" )
           }
           """;
@@ -157,11 +157,11 @@ class StvnStrictProductTypingTest {
     }
 
     @Test
-    @DisplayName("Reject: #1 ( 1024 ) targeting scalar :Union( :Int32 :String )")
+    @DisplayName("Reject: #1 ( 1024 ) targeting scalar :Union( :Int :String )")
     void testScalarUnionRejectsParenthesizedTuple() {
       var input = """
           {
-            :type :Union( :Int32 :String )
+            :type :Union( :Int :String )
             :body #1 ( 1024 )
           }
           """;
@@ -170,11 +170,11 @@ class StvnStrictProductTypingTest {
     }
 
     @Test
-    @DisplayName("Reject: Bare scalar 42 targeting product :Tuple( :Uint32 )")
+    @DisplayName("Reject: Bare scalar 42 targeting product :Tuple( :Int )")
     void testBareScalarRejectsProductSchema() {
       var input = """
           {
-            :type :Tuple( :Uint32 )
+            :type :Tuple( :Int )
             :body 42
           }
           """;

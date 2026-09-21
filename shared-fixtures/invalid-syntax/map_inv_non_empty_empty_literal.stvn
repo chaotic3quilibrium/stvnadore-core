@@ -1,4 +1,7 @@
 {
-  :type :MapInvNonEmpty(:String :Int32)
+  :defs {
+    :NonEmptyMapInv { #invertible #minSize 1 } :Map( :String :Int )
+  }
+  :type :NonEmptyMapInv
   :body {}
 }

@@ -35,11 +35,14 @@ class StvnTemporalRootClearanceTest {
   }
 
   @Test
-  @DisplayName("Canonical prelude path :org/stvnadore/prelude/DateTimeOffset compiles cleanly")
+  @DisplayName("Canonical prelude path :org/stvnadore/prelude/DateTime with #offset facet compiles cleanly")
   void testCanonicalPreludeDateTimeOffset() {
     String source = """
         {
-          :type :org/stvnadore/prelude/DateTimeOffset
+          :defs {
+            :EventTime { #offset } :org/stvnadore/prelude/DateTime
+          }
+          :type :EventTime
           :body "2026-03-15T08:00:00-05:00"
         }
         """;
@@ -54,9 +57,9 @@ class StvnTemporalRootClearanceTest {
     String source = """
         {
           :defs {
-            :DateTimeOffset :org/stvnadore/prelude/DateTimeOffset
+            :MyDateTime { #offset } :org/stvnadore/prelude/DateTime
           }
-          :type :DateTimeOffset
+          :type :MyDateTime
           :body "2026-03-15T08:00:00-05:00"
         }
         """;
@@ -70,7 +73,10 @@ class StvnTemporalRootClearanceTest {
   void testInvalidRegexFormatOnCanonicalDateTimeOffset() {
     String source = """
         {
-          :type :org/stvnadore/prelude/DateTimeOffset
+          :defs {
+            :EventTime { #offset } :org/stvnadore/prelude/DateTime
+          }
+          :type :EventTime
           :body "not-a-valid-datetime"
         }
         """;

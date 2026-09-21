@@ -10,31 +10,31 @@ TypeRegistry:
           node: :Option(:String)
   - :EitherResult
       schema:
-        node: :Either(:Int32:String)
+        node: :Either(:Int:String)
         aliasName: :EitherResult
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Either(:Int32:String)
+          node: :Either(:Int:String)
   - :DisjointUnion
       schema:
-        node: :Union(:Int32:Boolean:Float64:String)
+        node: :Union(:Int:Boolean:Float:String)
         aliasName: :DisjointUnion
         constraints:
-          equatable: false (derived from :Float64)
+          equatable: false (derived from :Float)
           comparable: true (default)
         underlyingSchema:
-          node: :Union(:Int32:Boolean:Float64:String)
+          node: :Union(:Int:Boolean:Float:String)
   - :ProductData
       schema:
-        node: :Tuple(:Int32:String:Boolean)
+        node: :Tuple(:Int:String:Boolean)
         aliasName: :ProductData
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Tuple(:Int32:String:Boolean)
+          node: :Tuple(:Int:String:Boolean)
   - <:type>
       schema:
         node: :Tuple(:OptText:OptText:OptText:OptText:OptText:EitherResult:EitherResult:EitherResult:EitherResult:EitherResult:DisjointUnion:DisjointUnion:DisjointUnion:DisjointUnion:ProductData)
@@ -56,10 +56,10 @@ ValuePayload:
           value: StvnString(:String): "Implicitly wrapped option"
       - StvnEither
           isRight: false
-          value: StvnInteger(:Int32): 404
+          value: StvnInteger(:Int): 404
       - StvnEither
           isRight: false
-          value: StvnInteger(:Int32): 500
+          value: StvnInteger(:Int): 500
       - StvnEither
           isRight: true
           value: StvnString(:String): "Explicit long right"
@@ -71,18 +71,18 @@ ValuePayload:
           value: StvnString(:String): "Implicitly wrapped right"
       - StvnUnion
           tagIndex: 0
-          value: StvnInteger(:Int32): 1024
+          value: StvnInteger(:Int): 1024
       - StvnUnion
           tagIndex: 1
           value: StvnBoolean(:Boolean): true
       - StvnUnion
           tagIndex: 2
-          value: StvnFloat(:Float64): 99.95
+          value: StvnFloat(:Float): 99.95
       - StvnUnion
           tagIndex: 3
           value: StvnString(:String): "Union payload text"
       - StvnTuple
           elements:
-            - StvnInteger(:Int32): 200
+            - StvnInteger(:Int): 200
             - StvnString(:String): "OK"
             - StvnBoolean(:Boolean): true

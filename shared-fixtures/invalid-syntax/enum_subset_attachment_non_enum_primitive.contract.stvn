@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "facet 'filterIncl' is not permitted on :Int32"
+    "Constraint violation (:IllegalScalar): facet 'filterIncl' is not permitted on :Int; filter facets are permitted strictly on nominal aliases of :Enum and enum subsets"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

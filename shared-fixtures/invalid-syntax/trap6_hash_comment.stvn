@@ -1,5 +1,5 @@
 {
   # This is an invalid comment format
-  :type :Int32
+  :type :Int
   :body 42
 }

@@ -76,7 +76,7 @@ class StvnTypeResolverRegressionTest {
   void testMalformedListThrowsMalformedAstContextException() {
     var input = """
         {
-          :type :Seq(:Option(:Tuple(:Int32)))
+          :type :Seq(:Option(:Tuple(:Int)))
           :body [ #Some ( ) ]
         }
         """;
@@ -92,7 +92,7 @@ class StvnTypeResolverRegressionTest {
   void testMalformedMapThrowsMalformedAstContextException() {
     var input = """
         {
-          :type :Map(:String :Int32)
+          :type :Map(:String :Int)
           :body { [ "key" ] }
         }
         """;
@@ -108,7 +108,7 @@ class StvnTypeResolverRegressionTest {
   void testMalformedTupleThrowsMalformedAstContextException() {
     var input = """
         {
-          :type :Tuple(:Option(:Tuple(:Int32)))
+          :type :Tuple(:Option(:Tuple(:Int)))
           :body ( #Some ( ) )
         }
         """;
@@ -146,7 +146,7 @@ class StvnTypeResolverRegressionTest {
   void testDuplicateKeysMap() {
     var input = """
         {
-          :type :Map(:String :Int32)
+          :type :Map(:String :Int)
           :body { ["a" 1] ["a" 2] }
         }
         """;
@@ -154,15 +154,19 @@ class StvnTypeResolverRegressionTest {
     var bodyEntry = doc.documentBody().bodyEntry();
     var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
     Assertions.assertEquals("Duplicate map key detected", ex.getMessage());
-    Assertions.assertEquals(50, ex.startOffset());
-    Assertions.assertEquals(53, ex.endOffset());
+    int expectedStart = input.lastIndexOf("\"a\"");
+    Assertions.assertEquals(expectedStart, ex.startOffset());
+    Assertions.assertEquals(expectedStart + "\"a\"".length(), ex.endOffset());
   }
 
   @Test
   void testDuplicateKeysMapNonEmpty() {
     var input = """
         {
-          :type :MapNonEmpty(:String :Int32)
+          :defs {
+            :MapNE { #minSize 1 } :Map(:String :Int)
+          }
+          :type :MapNE
           :body { ["a" 1] ["a" 2] }
         }
         """;
@@ -170,15 +174,19 @@ class StvnTypeResolverRegressionTest {
     var bodyEntry = doc.documentBody().bodyEntry();
     var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
     Assertions.assertEquals("Duplicate map key detected", ex.getMessage());
-    Assertions.assertEquals(58, ex.startOffset());
-    Assertions.assertEquals(61, ex.endOffset());
+    int expectedStart = input.lastIndexOf("\"a\"");
+    Assertions.assertEquals(expectedStart, ex.startOffset());
+    Assertions.assertEquals(expectedStart + "\"a\"".length(), ex.endOffset());
   }
 
   @Test
   void testDuplicateKeysMapInv() {
     var input = """
         {
-          :type :MapInv(:String :Int32)
+          :defs {
+            :MapInv { #invertible } :Map(:String :Int)
+          }
+          :type :MapInv
           :body { ["a" 1] ["a" 2] }
         }
         """;
@@ -186,15 +194,19 @@ class StvnTypeResolverRegressionTest {
     var bodyEntry = doc.documentBody().bodyEntry();
     var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
     Assertions.assertEquals("Duplicate map key detected", ex.getMessage());
-    Assertions.assertEquals(53, ex.startOffset());
-    Assertions.assertEquals(56, ex.endOffset());
+    int expectedStart = input.lastIndexOf("\"a\"");
+    Assertions.assertEquals(expectedStart, ex.startOffset());
+    Assertions.assertEquals(expectedStart + "\"a\"".length(), ex.endOffset());
   }
 
   @Test
   void testDuplicateKeysMapInvNonEmpty() {
     var input = """
         {
-          :type :MapInvNonEmpty(:String :Int32)
+          :defs {
+            :MapInvNE { #invertible #minSize 1 } :Map(:String :Int)
+          }
+          :type :MapInvNE
           :body { ["a" 1] ["a" 2] }
         }
         """;
@@ -202,15 +214,21 @@ class StvnTypeResolverRegressionTest {
     var bodyEntry = doc.documentBody().bodyEntry();
     var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
     Assertions.assertEquals("Duplicate map key detected", ex.getMessage());
-    Assertions.assertEquals(61, ex.startOffset());
-    Assertions.assertEquals(64, ex.endOffset());
+    int expectedStart = input.lastIndexOf("\"a\"");
+    Assertions.assertEquals(expectedStart, ex.startOffset());
+    Assertions.assertEquals(expectedStart + "\"a\"".length(), ex.endOffset());
   }
 
   @Test
   void testDuplicateValuesMapInv() {
     var input = """
         {
-          :type :MapInv(:StringFixed3 :Int8)
+          :defs {
+            :StringFixed3 { #minSize 3 #maxSize 3 } :String
+            :Int8 { #size 8 } :Int
+            :MapInv { #invertible } :Map(:StringFixed3 :Int8)
+          }
+          :type :MapInv
           :body {
             ["ABC" 1]
             ["EFG" 2]
@@ -222,15 +240,21 @@ class StvnTypeResolverRegressionTest {
     var bodyEntry = doc.documentBody().bodyEntry();
     var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
     Assertions.assertEquals("Duplicate inverted map value detected", ex.getMessage());
-    Assertions.assertEquals(88, ex.startOffset());
-    Assertions.assertEquals(89, ex.endOffset());
+    int expectedStart = input.lastIndexOf(" 1]") + 1;
+    Assertions.assertEquals(expectedStart, ex.startOffset());
+    Assertions.assertEquals(expectedStart + 1, ex.endOffset());
   }
 
   @Test
   void testDuplicateValuesMapInvNonEmpty() {
     var input = """
         {
-          :type :MapInvNonEmpty(:StringFixed3 :Int8)
+          :defs {
+            :StringFixed3 { #minSize 3 #maxSize 3 } :String
+            :Int8 { #size 8 } :Int
+            :MapInvNE { #invertible #minSize 1 } :Map(:StringFixed3 :Int8)
+          }
+          :type :MapInvNE
           :body {
             ["ABC" 1]
             ["EFG" 2]
@@ -242,8 +266,9 @@ class StvnTypeResolverRegressionTest {
     var bodyEntry = doc.documentBody().bodyEntry();
     var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
     Assertions.assertEquals("Duplicate inverted map value detected", ex.getMessage());
-    Assertions.assertEquals(96, ex.startOffset());
-    Assertions.assertEquals(97, ex.endOffset());
+    int expectedStart = input.lastIndexOf(" 1]") + 1;
+    Assertions.assertEquals(expectedStart, ex.startOffset());
+    Assertions.assertEquals(expectedStart + 1, ex.endOffset());
   }
 
   @Test
@@ -251,7 +276,8 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :MyMap :Map(:Float32 :Int32)
+            :Float32 { #size 32 } :Float
+            :MyMap :Map(:Float32 :Int)
           }
           :type :MyMap
           :body { [1.0 1] }
@@ -267,7 +293,8 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :MyMapInv :MapInv(:Int32 :Float32)
+            :Float32 { #size 32 } :Float
+            :MyMapInv { #invertible } :Map(:Int :Float32)
           }
           :type :MyMapInv
           :body { [1 1.0] }
@@ -283,6 +310,7 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
+            :Float32 { #size 32 } :Float
             :MySet :Set(:Float32)
           }
           :type :MySet
@@ -298,7 +326,7 @@ class StvnTypeResolverRegressionTest {
   void testNestedExplicitOptionAlignment() {
     var input = """
         {
-          :type :Option(:Option(:Int32))
+          :type :Option(:Option(:Int))
           :body #Some #Some 42
         }
         """;
@@ -321,7 +349,7 @@ class StvnTypeResolverRegressionTest {
   void testDeeplyNestedImplicitInference() {
     var input = """
         {
-          :type :Option(:Option(:Either(:Int32 :String)))
+          :type :Option(:Option(:Either(:Int :String)))
           :body #Left 42
         }
         """;
@@ -391,6 +419,10 @@ class StvnTypeResolverRegressionTest {
   void testAmbiguousEitherInference_OverlappingBranches_Fails() {
     var input = """
         {
+          :defs {
+            :Int32 { #size 32 } :Int
+            :Uint32 { #unsigned #size 32 } :Int
+          }
           :type :Seq(:Either(:Int32 :Uint32))
           :body [ 1 ]
         }
@@ -406,7 +438,7 @@ class StvnTypeResolverRegressionTest {
   void testAsymmetricInference_InferredNone_Fails() {
     var input = """
         {
-          :type :Option(:Int32)
+          :type :Option(:Int)
           :body #Some
         }
         """;
@@ -421,7 +453,7 @@ class StvnTypeResolverRegressionTest {
   void testVariantTrajectory_NestedImplicitExplicitOptionEither() {
     var input = """
         {
-          :type :Option(:Either(:String :Int32))
+          :type :Option(:Either(:String :Int))
           :body 42
         }
         """;
@@ -451,7 +483,7 @@ class StvnTypeResolverRegressionTest {
   void testVariantTrajectory_CollectionBoundaryIsolation() {
     var input = """
         {
-          :type :Option(:Seq(:Option(:Int32)))
+          :type :Option(:Seq(:Option(:Int)))
           :body [ 42 ]
         }
         """;

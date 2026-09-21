@@ -7,8 +7,8 @@
   :type :ErrorContract
 
   :body (
-    #COLLECTION_COLLISION
-    "Ambiguous implicit resolution: Value matches multiple branches"
-    "org.stvnadore.core.validation.StvnCollectionCollisionException"
+    #MALFORMED_SCHEMA
+    "Compound integer keyword ':Int32' is deprecated in 2.0.0; use '{ #size 32 } :Int'"
+    "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

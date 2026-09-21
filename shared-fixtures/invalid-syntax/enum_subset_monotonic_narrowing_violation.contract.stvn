@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Monotonic narrowing violation: variant #CRITICAL does not exist in immediate parent type :StandardPriority"
+    "Constraint violation (:IllegalReintroduction): Monotonic narrowing violation: variant #CRITICAL does not exist in immediate parent type :StandardPriority"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

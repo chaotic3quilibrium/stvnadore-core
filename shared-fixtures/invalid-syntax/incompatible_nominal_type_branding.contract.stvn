@@ -1,0 +1,14 @@
+{
+  // incompatible_nominal_type_branding.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Incompatible nominal type: constant '#AccId' of nominal type ':AccountId' cannot be assigned to target nominal type ':UserId'"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

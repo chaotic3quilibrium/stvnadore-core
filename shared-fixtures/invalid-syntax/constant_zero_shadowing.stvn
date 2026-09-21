@@ -1,7 +1,7 @@
 {
   :defs {
-    #LOCAL_TIMEOUT :Uint16 30
-    :ServiceConfig :Tuple( :Uint16 )
+    #LOCAL_TIMEOUT :Int 30
+    :ServiceConfig :Tuple( :Int )
   }
   :type :ServiceConfig
   :body ( #NON_EXISTENT_CONST )

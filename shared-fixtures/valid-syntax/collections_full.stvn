@@ -1,17 +1,17 @@
 {
   // collections_full.stvn
   :defs {
-    :IntSequence       :Seq( :Int32 )
-    :NonEmptySequence  :SeqNonEmpty( :String )
+    :IntSequence       :Seq( :Int )
+    :NonEmptySequence  { #minSize 1 } :Seq( :String )
 
-    :IntSet            :Set( :Int32 )
-    :NonEmptySet       :SetNonEmpty( :String )
+    :IntSet            :Set( :Int )
+    :NonEmptySet       { #minSize 1 } :Set( :String )
 
-    :LookupMap         :Map( :String :Int32 )
-    :NonEmptyMap       :MapNonEmpty( :String :Int32 )
+    :LookupMap         :Map( :String :Int )
+    :NonEmptyMap       { #minSize 1 } :Map( :String :Int )
 
-    :BiDirectionalMap  :MapInv( :String :Int32 )
-    :NonEmptyBiMap     :MapInvNonEmpty( :String :Int32 )
+    :BiDirectionalMap  { #invertible } :Map( :String :Int )
+    :NonEmptyBiMap     { #invertible #minSize 1 } :Map( :String :Int )
   }
 
   :type :Tuple(

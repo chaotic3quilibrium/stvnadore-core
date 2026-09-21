@@ -60,12 +60,16 @@ constantDefinition : valueKeyword metadataMap? schemaType value ;
 metadataMap    : LBRACE metadataEntry* RBRACE ;
 
 // Enforced structural type verification branches
-metadataEntry     : metadataBool | metadataNum | metadataString | metadataFilter | metadataDirective ;
+metadataEntry     : metadataBool | metadataNum | metadataString | metadataFilter | metadataDirective
+                  | metadataSize | metadataFlag | metadataUnit ;
 metadataDirective : KW_STRIP ;
 metadataBool      : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) metadataValue ;
 metadataNum    : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
 metadataString : KW_REGEX metadataValue ;
 metadataFilter : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
+metadataSize   : (KW_SIZE | KW_MIN_SIZE | KW_MAX_SIZE) metadataValue ;
+metadataFlag   : (KW_UNSIGNED | KW_EXACT | KW_INVERTIBLE | KW_OFFSET | KW_ZONED | KW_AUDITED) booleanLiteral? ;
+metadataUnit   : KW_UNIT valueKeyword ;
 
 variantList    : LBRACK valueKeyword* RBRACK ;
 
@@ -81,19 +85,15 @@ schemaType : schemaConstructor | typeKeyword ;
 schemaConstructor : atomicType | collectionType | productType | sumType ;
 
 atomicType : ATOM_BOOLEAN
-           | ATOM_UINT
            | ATOM_INT
            | ATOM_FLOAT
-           | ATOM_FLOAT_EXACT
-           | ATOM_STRING_FIXED
            | ATOM_STRING
-           | ATOM_STRING_NON_EMPTY
            ;
 
 collectionType
-    : (COLL_SEQ | COLL_SEQ_NON_EMPTY) LPAREN schemaType RPAREN
-    | (COLL_SET | COLL_SET_NON_EMPTY) LPAREN schemaType RPAREN
-    | (COLL_MAP | COLL_MAP_NON_EMPTY | COLL_MAP_INV | COLL_MAP_INV_NON_EMPTY) LPAREN schemaType schemaType RPAREN
+    : COLL_SEQ LPAREN schemaType RPAREN
+    | COLL_SET LPAREN schemaType RPAREN
+    | COLL_MAP LPAREN schemaType schemaType RPAREN
     ;
 
 productType
@@ -147,21 +147,12 @@ typeKeyword : typeKeywordStart ( FSLASH IDENTIFIER )* ;
 typeKeywordStart : TYPE_KEYWORD_BASE ;
 
 reservedKeyword : ATOM_BOOLEAN
-                | ATOM_UINT
                 | ATOM_INT
                 | ATOM_FLOAT
-                | ATOM_FLOAT_EXACT
-                | ATOM_STRING_FIXED
                 | ATOM_STRING
-                | ATOM_STRING_NON_EMPTY
                 | COLL_SEQ
-                | COLL_SEQ_NON_EMPTY
                 | COLL_SET
-                | COLL_SET_NON_EMPTY
                 | COLL_MAP
-                | COLL_MAP_NON_EMPTY
-                | COLL_MAP_INV
-                | COLL_MAP_INV_NON_EMPTY
                 | KW_DEFS
                 | KW_TYPE
                 | KW_BODY
@@ -190,4 +181,7 @@ valueKeywordStart : VALUE_KEYWORD_BASE
                   | KW_MAX_INCL | KW_MAX_EXCL
                   | KW_REGEX
                   | KW_FILTER_INCL | KW_FILTER_EXCL
+                  | KW_SIZE | KW_UNSIGNED | KW_EXACT
+                  | KW_MIN_SIZE | KW_MAX_SIZE | KW_INVERTIBLE
+                  | KW_UNIT | KW_OFFSET | KW_ZONED | KW_AUDITED
                   ;

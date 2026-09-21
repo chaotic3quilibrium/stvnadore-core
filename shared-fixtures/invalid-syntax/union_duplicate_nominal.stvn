@@ -1,6 +1,6 @@
 {
   :defs {
-    :MyInt { #minIncl 1 } :Int32
+    :MyInt { #minIncl 1 } :Int
     :BadUnion :Union(:MyInt :MyInt)
   }
   :type :BadUnion

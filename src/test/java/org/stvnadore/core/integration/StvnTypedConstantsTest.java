@@ -25,12 +25,12 @@ public class StvnTypedConstantsTest {
     String payload = """
         {
           :defs {
-            #MAX_RETRY :Int8 3
+            #MAX_RETRY :Int 3
             #APP_NAME :String "STVN Core"
-            #PI :Float32 3.14
+            #PI :Float 3.14
             #IS_ENABLED :Boolean #TRUE
           }
-          :type :Tuple( :Int8 :String :Float32 :Boolean )
+          :type :Tuple( :Int :String :Float :Boolean )
           :body ( #MAX_RETRY #APP_NAME #PI #IS_ENABLED )
         }
         """;
@@ -59,10 +59,10 @@ public class StvnTypedConstantsTest {
     String payload = """
         {
           :defs {
-            #DEFAULT_COORDINATES :Tuple( :Float32 :Float32 ) ( 12.34 56.78 )
-            #ALLOWED_PORTS :Seq( :Int16 ) [ 80 443 8080 ]
+            #DEFAULT_COORDINATES :Tuple( :Float :Float ) ( 12.34 56.78 )
+            #ALLOWED_PORTS :Seq( :Int ) [ 80 443 8080 ]
           }
-          :type :Tuple( :Tuple( :Float32 :Float32 ) :Seq( :Int16 ) )
+          :type :Tuple( :Tuple( :Float :Float ) :Seq( :Int ) )
           :body ( #DEFAULT_COORDINATES #ALLOWED_PORTS )
         }
         """;
@@ -78,10 +78,10 @@ public class StvnTypedConstantsTest {
     String payload = """
         {
           :defs {
-            #BASE_PORT :Int16 8000
-            #SERVICE_PORT :Int16 #BASE_PORT
+            #BASE_PORT :Int 8000
+            #SERVICE_PORT :Int #BASE_PORT
           }
-          :type :Int16
+          :type :Int
           :body #SERVICE_PORT
         }
         """;
@@ -98,9 +98,9 @@ public class StvnTypedConstantsTest {
     String payload = """
         {
           :defs {
-            #HTTP_PORT { #minIncl 1024 #maxIncl 65535 } :Int32 8080
+            #HTTP_PORT { #minIncl 1024 #maxExcl 65536 } :Int 8080
           }
-          :type :Int32
+          :type :Int
           :body #HTTP_PORT
         }
         """;
@@ -115,9 +115,9 @@ public class StvnTypedConstantsTest {
     String payload = """
         {
           :defs {
-            #HTTP_PORT { #minIncl 1024 #maxIncl 65535 } :Int32 80
+            #HTTP_PORT { #minIncl 1024 #maxExcl 65536 } :Int 80
           }
-          :type :Int32
+          :type :Int
           :body #HTTP_PORT
         }
         """;
@@ -147,10 +147,10 @@ public class StvnTypedConstantsTest {
     String payload = """
         {
           :defs {
-            #CONST_A :Int32 #CONST_B
-            #CONST_B :Int32 #CONST_A
+            #CONST_A :Int #CONST_B
+            #CONST_B :Int #CONST_A
           }
-          :type :Int32
+          :type :Int
           :body #CONST_A
         }
         """;
@@ -164,10 +164,10 @@ public class StvnTypedConstantsTest {
     String payload = """
         {
           :defs {
-            #MAX_LIMIT :Int32 100
-            #MAX_LIMIT :Int32 200
+            #MAX_LIMIT :Int 100
+            #MAX_LIMIT :Int 200
           }
-          :type :Int32
+          :type :Int
           :body #MAX_LIMIT
         }
         """;
@@ -181,9 +181,9 @@ public class StvnTypedConstantsTest {
     String payload = """
         {
           :defs {
-            :MyType :Int32
+            :MyType :Int
           }
-          :type :Int32
+          :type :Int
           :body :MyType
         }
         """;
@@ -197,9 +197,9 @@ public class StvnTypedConstantsTest {
     String payload = """
         {
           :defs {
-            :MAX_RETRY :Int8 3
+            :MAX_RETRY :Int 3
           }
-          :type :Int8
+          :type :Int
           :body :MAX_RETRY
         }
         """;
@@ -212,7 +212,7 @@ public class StvnTypedConstantsTest {
   public void testUndeclaredValueKeywordInPayloadPositionFails() {
     String payload = """
         {
-          :type :Int32
+          :type :Int
           :body #UNDECLARED_CONST
         }
         """;

@@ -1,0 +1,14 @@
+{
+  // discrete_bound_prohibited_int_max_incl.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

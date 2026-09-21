@@ -1,34 +1,34 @@
 TypeRegistry:
   - :EpochSeconds
       schema:
-        node: :Int64
+        node: :Int
         aliasName: :EpochSeconds
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int64
-          aliasName: :org/stvnadore/prelude/TimeEpochS
+          node: :Int
+          aliasName: :org/stvnadore/prelude/TimeEpoch
   - :EpochMillis
       schema:
-        node: :Int64
+        node: :Int
         aliasName: :EpochMillis
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int64
-          aliasName: :org/stvnadore/prelude/TimeEpochMs
+          node: :Int
+          aliasName: :org/stvnadore/prelude/TimeEpoch
   - :EpochNanos
       schema:
-        node: :Int128
+        node: :Int
         aliasName: :EpochNanos
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int128
-          aliasName: :org/stvnadore/prelude/TimeEpochNs
+          node: :Int
+          aliasName: :org/stvnadore/prelude/TimeEpoch
   - :OffsetDateTime
       schema:
         node: :String
@@ -36,10 +36,9 @@ TypeRegistry:
         constraints:
           equatable: true (default)
           comparable: true (default)
-          regex: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$" (inherited from :org/stvnadore/prelude/DateTimeOffset)
         underlyingSchema:
           node: :String
-          aliasName: :org/stvnadore/prelude/DateTimeOffset
+          aliasName: :org/stvnadore/prelude/DateTime
   - :ZonedDateTime
       schema:
         node: :String
@@ -47,10 +46,9 @@ TypeRegistry:
         constraints:
           equatable: true (default)
           comparable: true (default)
-          regex: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" (inherited from :org/stvnadore/prelude/DateTimeZoned)
         underlyingSchema:
           node: :String
-          aliasName: :org/stvnadore/prelude/DateTimeZoned
+          aliasName: :org/stvnadore/prelude/DateTime
   - :AuditedDateTime
       schema:
         node: :String
@@ -58,42 +56,41 @@ TypeRegistry:
         constraints:
           equatable: true (default)
           comparable: true (default)
-          regex: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" (inherited from :org/stvnadore/prelude/DateTimeAudited)
         underlyingSchema:
           node: :String
-          aliasName: :org/stvnadore/prelude/DateTimeAudited
+          aliasName: :org/stvnadore/prelude/DateTime
   - :IdUuid
       schema:
-        node: :StringFixed36
+        node: :String
         aliasName: :IdUuid
         constraints:
           equatable: true (default)
           comparable: true (default)
           regex: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" (inherited from :org/stvnadore/prelude/Uuid)
         underlyingSchema:
-          node: :StringFixed36
+          node: :String
           aliasName: :org/stvnadore/prelude/Uuid
   - :IdUlid
       schema:
-        node: :StringFixed26
+        node: :String
         aliasName: :IdUlid
         constraints:
           equatable: true (default)
           comparable: true (default)
           regex: "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" (inherited from :org/stvnadore/prelude/Ulid)
         underlyingSchema:
-          node: :StringFixed26
+          node: :String
           aliasName: :org/stvnadore/prelude/Ulid
   - :HashSha256
       schema:
-        node: :StringFixed64
+        node: :String
         aliasName: :HashSha256
         constraints:
           equatable: true (default)
           comparable: true (default)
           regex: "^[0-9a-fA-F]{64}$" (inherited from :org/stvnadore/prelude/Sha256)
         underlyingSchema:
-          node: :StringFixed64
+          node: :String
           aliasName: :org/stvnadore/prelude/Sha256
   - :VersionSemVer
       schema:
@@ -130,19 +127,19 @@ TypeRegistry:
           aliasName: :org/stvnadore/prelude/IPv4
   - :NetworkPort
       schema:
-        node: :Uint16
+        node: :Int
         aliasName: :NetworkPort
         constraints:
           equatable: true (default)
           comparable: true (default)
           minIncl: 1 (inherited from :org/stvnadore/prelude/Port)
-          maxIncl: 65535 (inherited from :org/stvnadore/prelude/Port)
+          maxExcl: 65536 (inherited from :org/stvnadore/prelude/Port)
         underlyingSchema:
-          node: :Uint16
+          node: :Int
           aliasName: :org/stvnadore/prelude/Port
   - :RatioPercent
       schema:
-        node: :Float64
+        node: :Float
         aliasName: :RatioPercent
         constraints:
           equatable: false (default)
@@ -150,11 +147,11 @@ TypeRegistry:
           minIncl: 0.0 (inherited from :org/stvnadore/prelude/Percentage)
           maxIncl: 100.0 (inherited from :org/stvnadore/prelude/Percentage)
         underlyingSchema:
-          node: :Float64
+          node: :Float
           aliasName: :org/stvnadore/prelude/Percentage
   - :RatioProb
       schema:
-        node: :Float64
+        node: :Float
         aliasName: :RatioProb
         constraints:
           equatable: false (default)
@@ -162,21 +159,21 @@ TypeRegistry:
           minIncl: 0.0 (inherited from :org/stvnadore/prelude/Probability)
           maxIncl: 1.0 (inherited from :org/stvnadore/prelude/Probability)
         underlyingSchema:
-          node: :Float64
+          node: :Float
           aliasName: :org/stvnadore/prelude/Probability
   - :MoneyAmount
       schema:
-        node: :FloatExact
+        node: :Float
         aliasName: :MoneyAmount
         constraints:
-          equatable: true (default)
+          equatable: false (default)
           comparable: true (default)
         underlyingSchema:
-          node: :FloatExact
+          node: :Float
           aliasName: :org/stvnadore/prelude/Currency
   - :GeoLat
       schema:
-        node: :Float64
+        node: :Float
         aliasName: :GeoLat
         constraints:
           equatable: false (default)
@@ -184,11 +181,11 @@ TypeRegistry:
           minIncl: -90.0 (inherited from :org/stvnadore/prelude/Latitude)
           maxIncl: 90.0 (inherited from :org/stvnadore/prelude/Latitude)
         underlyingSchema:
-          node: :Float64
+          node: :Float
           aliasName: :org/stvnadore/prelude/Latitude
   - :GeoLon
       schema:
-        node: :Float64
+        node: :Float
         aliasName: :GeoLon
         constraints:
           equatable: false (default)
@@ -196,7 +193,7 @@ TypeRegistry:
           minIncl: -180.0 (inherited from :org/stvnadore/prelude/Longitude)
           maxIncl: 180.0 (inherited from :org/stvnadore/prelude/Longitude)
         underlyingSchema:
-          node: :Float64
+          node: :Float
           aliasName: :org/stvnadore/prelude/Longitude
   - <:type>
       schema:
@@ -207,12 +204,12 @@ TypeRegistry:
 ValuePayload:
   StvnTuple
     elements:
-      - StvnInteger(:EpochSeconds): 1773532800
-      - StvnInteger(:EpochMillis): 1773532800000
-      - StvnInteger(:EpochNanos): 1773532800000000000
-      - StvnString(:OffsetDateTime): "2026-03-15T08:00:00-05:00"
-      - StvnString(:ZonedDateTime): "2026-03-15T08:00:00[America/Chicago]"
-      - StvnString(:AuditedDateTime): "2026-03-15T08:00:00-05:00[America/Chicago]"
+      - StvnTime(:EpochSeconds): 1773532800
+      - StvnTime(:EpochMillis): 1773532800000
+      - StvnTime(:EpochNanos): 1773532800000000000
+      - StvnDateTimeOffset(:OffsetDateTime): 2026-03-15T08:00-05:00
+      - StvnDateTimeZoned(:ZonedDateTime): 2026-03-15T08:00[America/Chicago]
+      - StvnDateTimeAudited(:AuditedDateTime): 2026-03-15T08:00-05:00[America/Chicago]
       - StvnString(:IdUuid): "123e4567-e89b-12d3-a456-426614174000"
       - StvnString(:IdUlid): "01ARZ3NDEKTSV4RRFFQ69G5FAV"
       - StvnString(:HashSha256): "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"

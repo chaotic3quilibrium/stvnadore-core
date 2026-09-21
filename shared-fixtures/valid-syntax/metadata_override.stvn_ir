@@ -1,38 +1,38 @@
 TypeRegistry:
   - :HumanAge
       schema:
-        node: :Int32
+        node: :Int
         aliasName: :HumanAge
         constraints:
           equatable: true (default)
           comparable: true (default)
           minIncl: 0 (explicit)
-          maxIncl: 120 (explicit)
+          maxExcl: 121 (explicit)
         underlyingSchema:
-          node: :Int32
+          node: :Int
   - :ParentAge
       schema:
-        node: :Int32
+        node: :Int
         aliasName: :ParentAge
         constraints:
           equatable: true (default)
           comparable: false (explicit override)
           minIncl: 0 (inherited from :HumanAge)
-          maxExcl: 99 (explicit)
+          maxExcl: 99 (explicit override)
         underlyingSchema:
-          node: :Int32
+          node: :Int
           aliasName: :HumanAge
   - :StrictChildAge
       schema:
-        node: :Int32
+        node: :Int
         aliasName: :StrictChildAge
         constraints:
           equatable: true (default)
           comparable: false (inherited from :ParentAge)
           minIncl: 18 (explicit override)
-          maxIncl: 50 (explicit)
+          maxExcl: 51 (explicit override)
         underlyingSchema:
-          node: :Int32
+          node: :Int
           aliasName: :ParentAge
   - <:type>
       schema:

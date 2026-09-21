@@ -12,6 +12,7 @@ import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.StvnSyntaxCancellationException;
+import org.stvnadore.core.validation.StvnTypeResolver;
 
 import java.util.Optional;
 
@@ -132,6 +133,11 @@ public final class StvnErrorListener extends BaseErrorListener {
     Optional<String> errorCode = Optional.of("STVN_SYNTAX_ERROR");
     if (offendingToken != null && offendingToken.getType() == StvnLexer.TAB_CHARACTER) {
       errorCode = Optional.of(DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN);
+    } else if (sanitizedMessage.contains(RULE_STR_04_ARROW_DEPRECATION_MSG)
+        || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().startsWith("\"\"\"->["))) {
+      errorCode = Optional.of(DiagnosticBag.ERR_DEPRECATED_FENCE_ARROW);
+    } else if (sanitizedMessage.contains("deprecated in 2.0.0")) {
+      errorCode = Optional.of(DiagnosticBag.ERR_UNKNOWN_TYPE);
     }
 
     if (this.strict) {
@@ -228,6 +234,17 @@ public final class StvnErrorListener extends BaseErrorListener {
           }
         }
 
+        // Check if offending token is '(' preceded by a legacy type or compound collection
+        if ("(".equals(tokenText) && idx > 0) {
+          Token prev = stream.get(idx - 1);
+          if (prev != null && prev.getText() != null) {
+            String legacy = StvnTypeResolver.getLegacyTypeDeprecationMessage(prev.getText());
+            if (legacy != null) {
+              return legacy;
+            }
+          }
+        }
+
         // Check if offending token is '[' preceded by :Enum and followed by ']'
         if ("[".equals(tokenText) && idx > 0 && idx + 1 < stream.size()) {
           Token prev = stream.get(idx - 1);
@@ -319,6 +336,9 @@ public final class StvnErrorListener extends BaseErrorListener {
   }
 
   private static String formatMalformedFenceMessage(String tokenText) {
+    if (tokenText.startsWith("\"\"\"->[")) {
+      return RULE_STR_04_ARROW_DEPRECATION_MSG;
+    }
     int start = tokenText.indexOf('[');
     int end = tokenText.indexOf(']', start >= 0 ? start : 0);
     String tag = (start >= 0 && end > start) ? tokenText.substring(start + 1, end) : "";
@@ -457,9 +477,7 @@ public final class StvnErrorListener extends BaseErrorListener {
     RuleContext cur = ctx;
     while (cur != null) {
       String text = cur.getText();
-      if (text.startsWith(":Map(") || text.startsWith(":MapNonEmpty(") ||
-          text.startsWith(":MapInv(") || text.startsWith(":MapInvNonEmpty(") ||
-          text.startsWith(":Either(")) {
+      if (text.startsWith(":Map(") || text.startsWith(":Either(")) {
         return true;
       }
       cur = cur.parent;
@@ -472,19 +490,10 @@ public final class StvnErrorListener extends BaseErrorListener {
     boolean hasAtomic = tokens.contains(StvnParser.ATOM_INT) ||
                         tokens.contains(StvnParser.ATOM_STRING) ||
                         tokens.contains(StvnParser.ATOM_BOOLEAN) ||
-                        tokens.contains(StvnParser.ATOM_UINT) ||
-                        tokens.contains(StvnParser.ATOM_FLOAT) ||
-                        tokens.contains(StvnParser.ATOM_FLOAT_EXACT) ||
-                        tokens.contains(StvnParser.ATOM_STRING_FIXED) ||
-                        tokens.contains(StvnParser.ATOM_STRING_NON_EMPTY);
+                        tokens.contains(StvnParser.ATOM_FLOAT);
     boolean hasCollection = tokens.contains(StvnParser.COLL_SEQ) ||
-                            tokens.contains(StvnParser.COLL_SEQ_NON_EMPTY) ||
                             tokens.contains(StvnParser.COLL_SET) ||
-                            tokens.contains(StvnParser.COLL_SET_NON_EMPTY) ||
-                            tokens.contains(StvnParser.COLL_MAP) ||
-                            tokens.contains(StvnParser.COLL_MAP_NON_EMPTY) ||
-                            tokens.contains(StvnParser.COLL_MAP_INV) ||
-                            tokens.contains(StvnParser.COLL_MAP_INV_NON_EMPTY);
+                            tokens.contains(StvnParser.COLL_MAP);
     boolean hasTypeKw = tokens.contains(StvnParser.TYPE_KEYWORD_BASE);
     boolean hasValueKw = tokens.contains(StvnParser.VALUE_KEYWORD_BASE) ||
                          tokens.contains(StvnParser.KW_TRUE) ||
@@ -527,6 +536,47 @@ public final class StvnErrorListener extends BaseErrorListener {
     if (rawMsg == null) return "syntax error";
     if (rawMsg.contains("token recognition error at:")) {
       return sanitizeTokenRecognitionMessage(rawMsg);
+    }
+    // Intercept legacy compound tokens and translate to domain migration directives
+    if (rawMsg.contains(":Int") && rawMsg.matches(".*:Int[0-9]+.*")) {
+      String width = rawMsg.replaceAll(".*:Int([0-9]+).*", "$1");
+      return "Compound integer keyword ':Int" + width + "' is deprecated in 2.0.0; use '{ #size " + width + " } :Int'";
+    }
+    if (rawMsg.contains(":Uint")) {
+      String width = rawMsg.replaceAll(".*:Uint([0-9]*).*", "$1");
+      String sizeClause = width.isEmpty() ? "" : " #size " + width;
+      return "Compound unsigned integer keyword ':Uint" + width + "' is deprecated in 2.0.0; use '{ #unsigned" + sizeClause + " } :Int'";
+    }
+    if (rawMsg.contains(":FloatExact")) {
+      return "Compound float keyword ':FloatExact' is deprecated in 2.0.0; use '{ #exact } :Float'";
+    }
+    if (rawMsg.contains(":StringFixed")) {
+      String len = rawMsg.replaceAll(".*:StringFixed([0-9]+).*", "$1");
+      return "Compound string keyword ':StringFixed" + len + "' is deprecated in 2.0.0; use '{ #minSize " + len + " #maxSize " + len + " } :String'";
+    }
+    if (rawMsg.contains(":StringNonEmpty")) {
+      return "Compound string keyword ':StringNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :String'";
+    }
+    if (rawMsg.contains(":SeqNonEmpty")) {
+      return "Compound collection keyword ':SeqNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Seq'";
+    }
+    if (rawMsg.contains(":SetNonEmpty")) {
+      return "Compound collection keyword ':SetNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Set'";
+    }
+    if (rawMsg.contains(":MapInvNonEmpty")) {
+      return "Compound collection keyword ':MapInvNonEmpty' is deprecated in 2.0.0; use '{ #invertible #minSize 1 } :Map'";
+    }
+    if (rawMsg.contains(":MapInv")) {
+      return "Compound collection keyword ':MapInv' is deprecated in 2.0.0; use '{ #invertible } :Map'";
+    }
+    if (rawMsg.contains(":MapNonEmpty")) {
+      return "Compound collection keyword ':MapNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Map'";
+    }
+    if (rawMsg.contains(":TimeEpoch")) {
+      return "Legacy temporal epoch keyword is deprecated in 2.0.0; use ':TimeEpoch' with mandatory facet '{ #unit #s }', '{ #unit #ms }', or '{ #unit #ns }'";
+    }
+    if (rawMsg.contains(":DateTimeOffset") || rawMsg.contains(":DateTimeZoned") || rawMsg.contains(":DateTimeAudited")) {
+      return "Legacy datetime keyword is deprecated in 2.0.0; use ':DateTime' with mode facet '{ #offset }', '{ #zoned }', or '{ #audited }'";
     }
     if (rawMsg.contains("expecting {")) {
       int idx = rawMsg.indexOf("expecting {");

@@ -1,6 +1,6 @@
 {
   :defs {
-    :UnsignedType {#minIncl -5} :Uint32
+    :UnsignedType {#unsigned #size 32 #minIncl -5} :Int
   }
   :type :UnsignedType
   :body 10

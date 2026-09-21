@@ -15,8 +15,8 @@ public class StvnCompilerTest {
         {
           :defs {
             :package :org/stvnadore/finance {
-              :Transaction :Tuple(:Int64 :Float64)
-              :CreationTime :Int64
+              :Transaction :Tuple(:Int :Float)
+              :CreationTime :Int
             }
             :use [ :org/stvnadore/finance { :Transaction :LocalTx } ]
             :A :String
@@ -65,7 +65,7 @@ public class StvnCompilerTest {
     String source = """
         {
           :defs {
-            :D :Int32
+            :D :Int
             :C :Tuple(:D)
             :B :Tuple(:C)
             :A :Tuple(:B)
@@ -80,7 +80,7 @@ public class StvnCompilerTest {
     Assertions.assertTrue(result.isSuccess(), "Compilation must succeed: " + result.diagnostics());
     String canonical = StvnCompiler.toCanonicalString(result.orElseThrow());
 
-    Assertions.assertTrue(canonical.contains(":D :Int32"));
+    Assertions.assertTrue(canonical.contains(":D :Int"));
     Assertions.assertTrue(canonical.contains(":C :Tuple(:D)"));
     Assertions.assertTrue(canonical.contains(":B :Tuple(:C)"));
     Assertions.assertTrue(canonical.contains(":A :Tuple(:B)"));
@@ -97,7 +97,7 @@ public class StvnCompilerTest {
         {
           :defs {
             :package :org/example/geo {
-              :Coord :Float64
+              :Coord :Float
             }
             :use [ :org/example/geo { #strip } ]
             :Point :Tuple(:Coord :Coord)
@@ -111,7 +111,7 @@ public class StvnCompilerTest {
     Assertions.assertTrue(result.isSuccess());
     String pretty = AstPrettyPrinter.print(result.orElseThrow());
 
-    Assertions.assertTrue(pretty.contains(":org/example/geo/Coord :Float64"));
+    Assertions.assertTrue(pretty.contains(":org/example/geo/Coord :Float"));
     Assertions.assertTrue(pretty.contains(":Point :Tuple(:org/example/geo/Coord :org/example/geo/Coord)"));
   }
 
@@ -121,8 +121,8 @@ public class StvnCompilerTest {
     String source = """
         {
           :defs {
-            :MyEither :Either( :Uint32 :Uint32 )
-            :MyUnion  :Union( :Uint32 :Uint32 )
+            :MyEither :Either( :Int :Int )
+            :MyUnion  :Union( :Int :Int )
             :RootPayload :Tuple( :MyEither :MyEither :MyUnion :MyUnion )
           }
           :type :RootPayload
@@ -145,7 +145,7 @@ public class StvnCompilerTest {
     String source = """
         {
           :defs {
-            :MyEither :Either( :Uint32 :Uint32 )
+            :MyEither :Either( :Int :Int )
           }
           :type :MyEither
           :body 42
@@ -167,7 +167,7 @@ public class StvnCompilerTest {
     String source = """
         {
           :defs {
-            :MyUnion :Union( :Uint32 :Uint32 )
+            :MyUnion :Union( :Int :Int )
           }
           :type :MyUnion
           :body 42
@@ -188,7 +188,7 @@ public class StvnCompilerTest {
   void testTupleArityUnderflowClampsToClosingDelimiter() {
     String source = """
         {
-          :type :Tuple(:Int32 :String :Boolean)
+          :type :Tuple(:Int :String :Boolean)
           :body (
             42
             "test"
@@ -213,7 +213,7 @@ public class StvnCompilerTest {
   void testTupleArityOverflowClampsToExtraneousElements() {
     String source = """
         {
-          :type :Tuple(:Int32 :String)
+          :type :Tuple(:Int :String)
           :body (
             42
             "valid"
@@ -239,7 +239,7 @@ public class StvnCompilerTest {
   @Test
   @DisplayName("TC-COMP-09: Bare '#' followed by newline clamps strictly to single '#' without newline spillover")
   void testBareHashLexerErrorClampsWithoutNewlineSpillover() {
-    String source = "{\n  :type :Int32\n  :body #\n}\n";
+    String source = "{\n  :type :Int\n  :body #\n}\n";
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.hasErrors());
     var diag = result.diagnostics().getFirst();
@@ -260,9 +260,9 @@ public class StvnCompilerTest {
     String source = """
         {
           :defs {
-            :UnionLikeEitherC :Union(:Uint32 :Uint33)
+            :UnionLikeEitherC :Union(:Int :Int)
           }
-          :type :Tuple(:Uint32 :Uint32 :UnionLikeEitherC :Uint32 :Uint32 :Uint32)
+          :type :Tuple(:Int :Int :UnionLikeEitherC :Int :Int :Int)
           :body (
             1
             2

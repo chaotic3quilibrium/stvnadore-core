@@ -21,7 +21,7 @@ class StvnConstantStripTest {
     Files.writeString(module, """
         {
           :defs {
-            #pkg/sub/TIMEOUT :Int32 5000
+            #pkg/sub/TIMEOUT :Int 5000
           }
         }
         """);
@@ -32,7 +32,7 @@ class StvnConstantStripTest {
           :defs {
             :include [ "module.stvn_incl" { #strip } ]
           }
-          :type :Int32
+          :type :Int
           :body #TIMEOUT
         }
         """;
@@ -50,8 +50,8 @@ class StvnConstantStripTest {
     Files.writeString(module, """
         {
           :defs {
-            #pkg/sub/TIMEOUT :Int32 5000
-            #other/RETRIES :Int32 3
+            #pkg/sub/TIMEOUT :Int 5000
+            #other/RETRIES :Int 3
           }
         }
         """);
@@ -62,7 +62,7 @@ class StvnConstantStripTest {
           :defs {
             :include [ "module.stvn_incl" { #strip } ]
           }
-          :type :Tuple( :Int32 :Int32 )
+          :type :Tuple( :Int :Int )
           :body ( #TIMEOUT #RETRIES )
         }
         """;
@@ -79,7 +79,7 @@ class StvnConstantStripTest {
     Files.writeString(module, """
         {
           :defs {
-            #config/db/POOL_SIZE :Int32 10
+            #config/db/POOL_SIZE :Int 10
           }
         }
         """);
@@ -90,7 +90,7 @@ class StvnConstantStripTest {
           :defs {
             :include [ "module.stvn_incl" { #strip "config/db/" } ]
           }
-          :type :Int32
+          :type :Int
           :body #POOL_SIZE
         }
         """;
@@ -109,7 +109,7 @@ class StvnConstantStripTest {
     Files.writeString(modA, """
         {
           :defs {
-            #PORT :Uint16 8080
+            #PORT :Int 8080
           }
         }
         """);
@@ -118,7 +118,7 @@ class StvnConstantStripTest {
     Files.writeString(modB, """
         {
           :defs {
-            #PORT :Uint16 9090
+            #PORT :Int 9090
           }
         }
         """);
@@ -129,7 +129,7 @@ class StvnConstantStripTest {
           :defs {
             :include [ "module_a.stvn_incl" "module_b.stvn_incl" ]
           }
-          :type :Uint16
+          :type :Int
           :body #PORT
         }
         """;
@@ -148,7 +148,7 @@ class StvnConstantStripTest {
     Files.writeString(modA, """
         {
           :defs {
-            #PORT :Uint16 8080
+            #PORT :Int 8080
           }
         }
         """);
@@ -158,9 +158,9 @@ class StvnConstantStripTest {
         {
           :defs {
             :include [ "module_a.stvn_incl" ]
-            #PORT :Uint16 3000
+            #PORT :Int 3000
           }
-          :type :Uint16
+          :type :Int
           :body #PORT
         }
         """;
@@ -187,17 +187,17 @@ class StvnConstantStripTest {
         "net.stvn_incl", """
             {
               :defs {
-                #pkg/net/PORT :Uint16 8080
-                :pkg/net/Port :Uint16
+                #pkg/net/PORT :Int 8080
+                :pkg/net/Port :Int
               }
             }
             """
     );
 
     String flattened = StvnSchemaFlattener.flatten(workspace, "main.stvn");
-    Assertions.assertTrue(flattened.contains("#PORT :Uint16 8080"),
+    Assertions.assertTrue(flattened.contains("#PORT :Int 8080"),
         "Flattened output must contain stripped #PORT: " + flattened);
-    Assertions.assertTrue(flattened.contains(":Port :Uint16"),
+    Assertions.assertTrue(flattened.contains(":Port :Int"),
         "Flattened output must contain stripped :Port: " + flattened);
   }
 }

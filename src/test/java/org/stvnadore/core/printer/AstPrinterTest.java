@@ -47,11 +47,11 @@ class AstPrinterTest {
   @Test
   @DisplayName("AstPrettyPrinter accepts configurable indentation width")
   void testAstPrettyPrinterConfigurableIndent() {
-    String source = "{ :type :Int32 :body 42 }";
+    String source = "{ :type :Int :body 42 }";
     StvnValue ast = StvnCompiler.compile(source).orElseThrow();
 
     String printed4 = AstPrettyPrinter.print(ast, 4);
-    Assertions.assertTrue(printed4.contains("    :type :Int32\n    :body 42"),
+    Assertions.assertTrue(printed4.contains("    :type :Int\n    :body 42"),
         "Output must use 4-space indentation when specified:\n" + printed4);
 
     String printed0 = AstPrettyPrinter.print(ast, 0);

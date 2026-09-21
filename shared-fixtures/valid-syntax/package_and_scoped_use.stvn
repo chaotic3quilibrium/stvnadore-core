@@ -3,9 +3,9 @@
   // Specification: STVN v1.2.0 (ECD-2026-04)
   :defs {
     :package :org/example/network {
-      :Port :Uint16
-      :HostName :StringNonEmpty
-      #DEFAULT_PORT :Uint16 8080
+      :Port { #unsigned #size 16 } :Int
+      :HostName { #minSize 1 } :String
+      #DEFAULT_PORT { #unsigned #size 16 } :Int 8080
     }
 
     :package :org/example/service {

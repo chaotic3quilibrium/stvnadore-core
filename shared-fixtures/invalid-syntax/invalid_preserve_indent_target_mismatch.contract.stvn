@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "facet 'preserveIndent' is not permitted on :Int32"
+    "Constraint violation (:BadType): facet 'preserveIndent' is not permitted on :Int; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

@@ -5,6 +5,6 @@
     :include [ "module_a.stvn_incl" { #strip "pkg/sub/" } ]
   }
 
-  :type :Int32
+  :type :Int
   :body 42
 }

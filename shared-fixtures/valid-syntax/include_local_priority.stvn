@@ -3,7 +3,7 @@
     :include [
       "shared-fixtures/valid-syntax/module_local_a.stvn_incl"
     ]
-    :ConflictType :Int32
+    :ConflictType :Int
   }
   :type :ConflictType
   :body 42

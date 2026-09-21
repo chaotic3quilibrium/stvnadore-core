@@ -1,5 +1,5 @@
 {
   :defs {
-    :ConflictType :Int32
+    :ConflictType :Int
   }
 }

@@ -43,7 +43,7 @@ class StvnBinaryCrc32cTrailerTest {
   @Test
   @DisplayName("TC-CRC-01: Encode and decode with valid CRC-32C trailer")
   void testEncodeAndDecodeWithCrc32cTrailerValid() {
-    var ir = StvnCompiler.compile("{ :type :Int32 :body 42 }").orElseThrow();
+    var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
 
     var encoderNoCrc = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), false);
     ByteBuffer bufNoCrc = encoderNoCrc.encode(ir);
@@ -89,7 +89,7 @@ class StvnBinaryCrc32cTrailerTest {
   @Test
   @DisplayName("TC-CRC-03: Single-bit payload corruption triggers CRC-32C mismatch")
   void testCrc32cSingleBitPayloadCorruption() {
-    var ir = StvnCompiler.compile("{ :type :Int32 :body 42 }").orElseThrow();
+    var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), true);
     ByteBuffer buf = encoder.encode(ir);
 
@@ -110,7 +110,7 @@ class StvnBinaryCrc32cTrailerTest {
   @Test
   @DisplayName("TC-CRC-04: Trailer corruption triggers CRC-32C mismatch")
   void testCrc32cTrailerCorruption() {
-    var ir = StvnCompiler.compile("{ :type :Int32 :body 42 }").orElseThrow();
+    var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), true);
     ByteBuffer buf = encoder.encode(ir);
 
@@ -156,7 +156,7 @@ class StvnBinaryCrc32cTrailerTest {
     // 1. Test Tuple Reader
     var tupleIr = StvnCompiler.compile("""
         {
-          :type :Tuple( :Seq(:Int32) :Map(:String :Int32) )
+          :type :Tuple( :Seq(:Int) :Map(:String :Int) )
           :body ( [ 10 20 30 ] { [ "alpha" 100 ] [ "beta" 200 ] } )
         }
         """).orElseThrow();
@@ -173,14 +173,14 @@ class StvnBinaryCrc32cTrailerTest {
     assertEquals(2, tupleReader.size());
 
     // 2. Test Seq Reader directly as root
-    var seqIr = StvnCompiler.compile("{ :type :Seq(:Int32) :body [ 1 2 3 ] }").orElseThrow();
+    var seqIr = StvnCompiler.compile("{ :type :Seq(:Int) :body [ 1 2 3 ] }").orElseThrow();
     ByteBuffer seqBuf = encoder.encode(seqIr);
     var seqRoot = StvnBinaryDecoder.open(seqBuf);
     StvnSeqReader seqReader = StvnBinaryDecoder.readRootSeq(seqRoot, Optional.of(seqIr.schema()));
     assertEquals(3, seqReader.size());
 
     // 3. Test Map Reader directly as root
-    var mapIr = StvnCompiler.compile("{ :type :Map(:String :Int32) :body { [ \"x\" 1 ] [ \"y\" 2 ] } }").orElseThrow();
+    var mapIr = StvnCompiler.compile("{ :type :Map(:String :Int) :body { [ \"x\" 1 ] [ \"y\" 2 ] } }").orElseThrow();
     ByteBuffer mapBuf = encoder.encode(mapIr);
     var mapRoot = StvnBinaryDecoder.open(mapBuf);
     StvnMapReader mapReader = StvnBinaryDecoder.readRootMap(mapRoot, Optional.of(mapIr.schema()));
@@ -217,7 +217,7 @@ class StvnBinaryCrc32cTrailerTest {
   void testDirectByteBufferAndHeapByteBufferParity() {
     var ir = StvnCompiler.compile("""
         {
-          :type :Tuple( :Int32 :String )
+          :type :Tuple( :Int :String )
           :body ( 42 "direct-parity" )
         }
         """).orElseThrow();

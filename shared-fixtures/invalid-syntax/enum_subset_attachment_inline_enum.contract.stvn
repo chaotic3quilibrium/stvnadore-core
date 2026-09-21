@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "filter facets cannot be applied to inline enum constructors"
+    "Constraint violation (:IllegalInline): filter facets cannot be applied to inline enum constructors; filter facets are only allowed on nominal aliases of :Enum or existing enum subsets"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

@@ -28,27 +28,23 @@ public final class StvnPrelude {
         //Version:     0.2.0
         //Date:        2026.05.30
         :defs {
-          :org/stvnadore/prelude/Uuid { #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } :StringFixed36
-          :org/stvnadore/prelude/Ulid { #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" } :StringFixed26
-          :org/stvnadore/prelude/Sha256 { #regex "^[0-9a-fA-F]{64}$" } :StringFixed64
+          :org/stvnadore/prelude/Uuid { #minSize 36 #maxSize 36 #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } :String
+          :org/stvnadore/prelude/Ulid { #minSize 26 #maxSize 26 #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" } :String
+          :org/stvnadore/prelude/Sha256 { #minSize 64 #maxSize 64 #regex "^[0-9a-fA-F]{64}$" } :String
           :org/stvnadore/prelude/SemVer { #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
 
           :org/stvnadore/prelude/Email { #regex "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" } :String
           :org/stvnadore/prelude/IPv4  { #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" } :String
-          :org/stvnadore/prelude/Port  { #minIncl 1 #maxIncl 65535 } :Uint16
+          :org/stvnadore/prelude/Port  { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
 
-          :org/stvnadore/prelude/Percentage  { #minIncl 0.0 #maxIncl 100.0 } :Float64
-          :org/stvnadore/prelude/Probability { #minIncl 0.0 #maxIncl 1.0 }   :Float64
-          :org/stvnadore/prelude/Currency :FloatExact
-          :org/stvnadore/prelude/Latitude    { #minIncl -90.0 #maxIncl 90.0 }   :Float64
-          :org/stvnadore/prelude/Longitude   { #minIncl -180.0 #maxIncl 180.0 } :Float64
+          :org/stvnadore/prelude/Percentage  { #size 64 #minIncl 0.0 #maxIncl 100.0 } :Float
+          :org/stvnadore/prelude/Probability { #size 64 #minIncl 0.0 #maxIncl 1.0 }   :Float
+          :org/stvnadore/prelude/Currency    { #exact } :Float
+          :org/stvnadore/prelude/Latitude    { #size 64 #minIncl -90.0 #maxIncl 90.0 }   :Float
+          :org/stvnadore/prelude/Longitude   { #size 64 #minIncl -180.0 #maxIncl 180.0 } :Float
 
-          :org/stvnadore/prelude/TimeEpochS :Int64
-          :org/stvnadore/prelude/TimeEpochMs :Int64
-          :org/stvnadore/prelude/TimeEpochNs :Int128
-          :org/stvnadore/prelude/DateTimeOffset  { #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$" } :String
-          :org/stvnadore/prelude/DateTimeZoned   { #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" } :String
-          :org/stvnadore/prelude/DateTimeAudited { #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" } :String
+          :org/stvnadore/prelude/TimeEpoch :Int
+          :org/stvnadore/prelude/DateTime  :String
         }
       }""";
 

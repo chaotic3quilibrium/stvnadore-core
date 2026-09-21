@@ -27,6 +27,9 @@ public class StvnDiagnosticAccumulationTest {
   void testSequenceMultiElementDiagnosticAccumulation() {
     String input = """
         {
+          :defs {
+            :Int8 { #size 8 } :Int
+          }
           :type :Seq(:Int8)
           :body [ 10 300 20 400 30 ]
         }
@@ -65,7 +68,7 @@ public class StvnDiagnosticAccumulationTest {
   void testSetUniquenessDiagnosticAccumulation() {
     String input = """
         {
-          :type :Set(:Int32)
+          :type :Set(:Int)
           :body [ 10 20 10 30 20 40 ]
         }
         """;
@@ -92,6 +95,9 @@ public class StvnDiagnosticAccumulationTest {
   void testTupleArityAndPositionalDiagnosticAccumulation() {
     String input = """
         {
+          :defs {
+            :Int8 { #size 8 } :Int
+          }
           :type :Tuple(:Int8 :String :Boolean)
           :body ( 300 "valid" #TRUE 500 )
         }
@@ -120,6 +126,9 @@ public class StvnDiagnosticAccumulationTest {
   void testMapKeyAndValueDiagnosticAccumulation() {
     String input = """
         {
+          :defs {
+            :Int8 { #size 8 } :Int
+          }
           :type :Map(:Int8 :Int8)
           :body {
             [ 1 10 ]
@@ -148,7 +157,10 @@ public class StvnDiagnosticAccumulationTest {
   void testInvertibleMapValueCollisionAccumulation() {
     String input = """
         {
-          :type :MapInv(:String :Int32)
+          :defs {
+            :MapInvStrInt { #invertible } :Map(:String :Int)
+          }
+          :type :MapInvStrInt
           :body {
             [ "a" 10 ]
             [ "b" 20 ]
@@ -172,7 +184,7 @@ public class StvnDiagnosticAccumulationTest {
     String unionOverflowInput = """
         {
           :defs {
-            :MyUnion :Union(:Int32 :String)
+            :MyUnion :Union(:Int :String)
           }
           :type :MyUnion
           :body #5 42
@@ -189,7 +201,7 @@ public class StvnDiagnosticAccumulationTest {
 
     String eitherMismatchInput = """
         {
-          :type :Either(:Int8 :String)
+          :type :Either(:Int :String)
           :body #Right 300
         }
         """;
@@ -206,7 +218,7 @@ public class StvnDiagnosticAccumulationTest {
   @DisplayName("DiagnosticBag capacity threshold enforcement and sentinel warning generation")
   void testDiagnosticBagCapacityAndSentinelWarning() {
     StringBuilder sb = new StringBuilder();
-    sb.append("{\n  :type :Seq(:Int8)\n  :body [ ");
+    sb.append("{\n  :defs {\n    :Int8 { #size 8 } :Int\n  }\n  :type :Seq(:Int8)\n  :body [ ");
     for (int i = 0; i < 150; i++) {
       sb.append("500 ");
     }
@@ -229,7 +241,7 @@ public class StvnDiagnosticAccumulationTest {
   void testMonadicCompilerApiWorkflow() {
     String cleanInput = """
         {
-          :type :Int32
+          :type :Int
           :body 42
         }
         """;
@@ -250,6 +262,9 @@ public class StvnDiagnosticAccumulationTest {
 
     String errorInput = """
         {
+          :defs {
+            :Int8 { #size 8 } :Int
+          }
           :type :Int8
           :body 999
         }
@@ -266,6 +281,9 @@ public class StvnDiagnosticAccumulationTest {
   void testBinaryEncoderRejectsUnrecoveredErrors() {
     String input = """
         {
+          :defs {
+            :Int8 { #size 8 } :Int
+          }
           :type :Seq(:Int8)
           :body [ 10 300 20 ]
         }
@@ -286,6 +304,9 @@ public class StvnDiagnosticAccumulationTest {
   void testPrintersHandleStvnErrorNodesGracefully() throws Exception {
     String input = """
         {
+          :defs {
+            :Int8 { #size 8 } :Int
+          }
           :type :Seq(:Int8)
           :body [ 10 300 20 ]
         }

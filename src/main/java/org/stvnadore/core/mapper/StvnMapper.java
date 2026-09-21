@@ -10,6 +10,7 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.stvnadore.core.annotations.StvnInt;
 import org.stvnadore.core.annotations.StvnString;
 import org.stvnadore.core.annotations.StvnBits;
+import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
@@ -63,57 +64,61 @@ public final class StvnMapper {
 
   private static final Map<Class<?>, ResolvedSchema> PRIMITIVE_SCHEMA_REGISTRY;
 
-  private static ResolvedSchema parsePrimitiveSchema(String typeKeyword, String bodyContent) {
-    var node = new StvnParser(
+  private static SchemaTypeContext parsePrimitiveTypeNode(String typeKeyword) {
+    return new StvnParser(
         new CommonTokenStream(
-            new StvnLexer(CharStreams.fromString("{ :type " + typeKeyword + " :body " + bodyContent + " }"))))
+            new StvnLexer(CharStreams.fromString("{ :type " + typeKeyword + " :body 0 }"))))
         .stvnDocument()
         .documentBody()
         .typeEntry()
         .schemaType();
+  }
+
+  private static ResolvedSchema createPrimitiveSchema(String typeKeyword, StvnConstraints constraints) {
+    var node = parsePrimitiveTypeNode(typeKeyword);
     return new ResolvedSchema(
         node,
-        StvnConstraints.empty(),
+        constraints,
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
-        Optional.of(StvnConstraints.empty())
+        Optional.of(constraints)
     );
   }
 
   static {
     var map = new HashMap<Class<?>, ResolvedSchema>();
-    var boolSchema = parsePrimitiveSchema(":Boolean", "#FALSE");
+    var boolSchema = createPrimitiveSchema(":Boolean", StvnConstraints.empty());
     map.put(Boolean.class, boolSchema);
     map.put(boolean.class, boolSchema);
 
-    var int8Schema = parsePrimitiveSchema(":Int8", "0");
+    var int8Schema = createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(8));
     map.put(Byte.class, int8Schema);
     map.put(byte.class, int8Schema);
 
-    var int16Schema = parsePrimitiveSchema(":Int16", "0");
+    var int16Schema = createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(16));
     map.put(Short.class, int16Schema);
     map.put(short.class, int16Schema);
 
-    var int32Schema = parsePrimitiveSchema(":Int32", "0");
+    var int32Schema = createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(32));
     map.put(Integer.class, int32Schema);
     map.put(int.class, int32Schema);
 
-    var int64Schema = parsePrimitiveSchema(":Int64", "0");
+    var int64Schema = createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(64));
     map.put(Long.class, int64Schema);
     map.put(long.class, int64Schema);
 
-    var float32Schema = parsePrimitiveSchema(":Float32", "0.0");
+    var float32Schema = createPrimitiveSchema(":Float", StvnConstraints.empty().withSize(32));
     map.put(Float.class, float32Schema);
     map.put(float.class, float32Schema);
 
-    var float64Schema = parsePrimitiveSchema(":Float64", "0.0");
+    var float64Schema = createPrimitiveSchema(":Float", StvnConstraints.empty().withSize(64));
     map.put(Double.class, float64Schema);
     map.put(double.class, float64Schema);
 
-    map.put(BigDecimal.class, parsePrimitiveSchema(":FloatExact", "0.0"));
-    map.put(String.class, parsePrimitiveSchema(":String", "\"\""));
+    map.put(BigDecimal.class, createPrimitiveSchema(":Float", StvnConstraints.empty().withExact(true)));
+    map.put(String.class, createPrimitiveSchema(":String", StvnConstraints.empty()));
 
     PRIMITIVE_SCHEMA_REGISTRY = Collections.unmodifiableMap(map);
   }
@@ -280,7 +285,7 @@ public final class StvnMapper {
               .filter(idx -> idx < innerNodes.size())
               .flatMap(idx -> StvnTypeResolver.resolvePrimitiveSchema(documentContext, innerNodes.get(idx), new HashSet<>()))
               .or(() -> Optional.ofNullable(comp.bitsAnnotation())
-                  .map(bits -> parsePrimitiveSchema((bits.unsigned() ? ":Uint" : ":Int") + bits.value(), "0")));
+                  .map(bits -> createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(bits.value()).withUnsigned(bits.unsigned()))));
 
           try {
             var val = comp.accessorHandle().invoke(recordInstance);
@@ -332,7 +337,8 @@ public final class StvnMapper {
           }
         }
 
-        boolean isInvertible = baseText.filter(text -> text.startsWith(":MapInv")).isPresent();
+        boolean isInvertible = schema.constraints().invertible()
+            || baseText.filter(text -> text.startsWith(":MapInv")).isPresent();
 
         if (isInvertible) {
           var seenValues = new HashSet<StvnValue>(entries.size());
@@ -360,8 +366,8 @@ public final class StvnMapper {
         return Optional.of(new StvnValue.StvnFloat(schema, bd, precision));
       } else {
         var bi = (recordInstance instanceof BigInteger) ? (BigInteger) recordInstance : BigInteger.valueOf(n.longValue());
-        int bitWidth = 32;
-        boolean isUnsigned = false;
+        int bitWidth = schema.constraints().size().orElse(32);
+        boolean isUnsigned = schema.constraints().unsigned();
         var baseText = Optional.ofNullable(schema.node())
             .map(StvnTypeResolver::getPrimitiveBaseType);
         if (baseText.isPresent()) {
@@ -542,7 +548,7 @@ public final class StvnMapper {
               return Optional.empty();
             })
             .or(() -> Optional.ofNullable(comp.bitsAnnotation())
-                .map(bits -> parsePrimitiveSchema((bits.unsigned() ? ":Uint" : ":Int") + bits.value(), "0")));
+                .map(bits -> createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(bits.value()).withUnsigned(bits.unsigned()))));
 
         if (valNode.isEmpty()) {
           if (comp.type() == Optional.class) {

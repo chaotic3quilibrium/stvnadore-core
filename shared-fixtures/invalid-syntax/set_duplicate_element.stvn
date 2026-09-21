@@ -1,4 +1,4 @@
 {
-  :type :Set(:Int32)
+  :type :Set(:Int)
   :body [ 1 2 3 1 ]
 }

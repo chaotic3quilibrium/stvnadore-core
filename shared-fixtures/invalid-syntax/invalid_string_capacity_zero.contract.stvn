@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Constraint violation: Type suffix dimensions must be strictly positive (N >= 1): :String0"
+    "Undefined type: :String0"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

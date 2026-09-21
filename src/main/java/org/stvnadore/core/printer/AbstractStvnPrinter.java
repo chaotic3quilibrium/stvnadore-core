@@ -236,6 +236,108 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
               }
               layout.closeGroup("]");
             }
+            if (constraints.unsigned()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#unsigned");
+            }
+            if (constraints.exact()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#exact");
+            }
+            var size = constraints.size().orElse(null);
+            if (size != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#size");
+              layout.appendSeparator();
+              layout.writeLiteral(size.toString());
+            }
+            var minSize = constraints.minSize().orElse(null);
+            if (minSize != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#minSize");
+              layout.appendSeparator();
+              layout.writeLiteral(minSize.toString());
+            }
+            var maxSize = constraints.maxSize().orElse(null);
+            if (maxSize != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#maxSize");
+              layout.appendSeparator();
+              layout.writeLiteral(maxSize.toString());
+            }
+            if (constraints.invertible()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#invertible");
+            }
+            var unit = constraints.unit().orElse(null);
+            if (unit != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#unit");
+              layout.appendSeparator();
+              layout.writeLiteral(unit.startsWith("#") ? unit : "#" + unit);
+            }
+            if (constraints.offset()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#offset");
+            }
+            if (constraints.zoned()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#zoned");
+            }
+            if (constraints.audited()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#audited");
+            }
 
             if (!inline) {
               layout.outdent();
@@ -305,7 +407,10 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
 
     return !hasMinIncl && !hasMinExcl && !hasMaxIncl && !hasMaxExcl
         && !hasRegex && !hasPreserveIndent && !hasEquatable && !hasComparable
-        && c.filterIncl().isEmpty() && c.filterExcl().isEmpty();
+        && c.filterIncl().isEmpty() && c.filterExcl().isEmpty()
+        && c.size().isEmpty() && !c.unsigned() && !c.exact()
+        && c.minSize().isEmpty() && c.maxSize().isEmpty() && !c.invertible()
+        && c.unit().isEmpty() && !c.offset() && !c.zoned() && !c.audited();
   }
 
   private void writeSchemaType(StvnParser.SchemaTypeContext node, LayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext) throws IOException {
@@ -391,6 +496,16 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
     if (c.comparable().isPresent() && c.explicitOverrides().contains("comparable")) count++;
     if (c.filterIncl().isPresent()) count++;
     if (c.filterExcl().isPresent()) count++;
+    if (c.unsigned()) count++;
+    if (c.exact()) count++;
+    if (c.size().isPresent()) count++;
+    if (c.minSize().isPresent()) count++;
+    if (c.maxSize().isPresent()) count++;
+    if (c.invertible()) count++;
+    if (c.unit().isPresent()) count++;
+    if (c.offset()) count++;
+    if (c.zoned()) count++;
+    if (c.audited()) count++;
     return count;
   }
 }
