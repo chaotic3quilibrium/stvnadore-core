@@ -505,11 +505,11 @@ public final class StvnErrorListener extends BaseErrorListener {
     if (tokens.contains(StvnParser.KW_PACKAGE) || tokens.contains(StvnParser.KW_USE)) {
       return "<definition keyword>";
     }
-    if (hasValueKw && tokens.size() > 5) {
-      return "<value keyword>";
-    }
     if (tokens.contains(StvnParser.LITERAL_INTEGER) && tokens.contains(StvnParser.LITERAL_STRING_SIMPLE)) {
       return "<value>";
+    }
+    if (hasValueKw && tokens.size() > 5) {
+      return "<value keyword>";
     }
     if (tokens.contains(StvnParser.KW_EQUATABLE) || tokens.contains(StvnParser.KW_MIN_INCL) || tokens.contains(StvnParser.KW_REGEX)) {
       return "<metadata keyword>";

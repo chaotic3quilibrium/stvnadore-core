@@ -1912,10 +1912,7 @@ public class StvnTypeResolver {
           var boolLit = mv.booleanLiteral();
           if (boolLit != null) {
             var isTrue = boolLit.KW_TRUE() != null || boolLit.KW_TRUE_SHORT() != null;
-            if (boolCtx.KW_PRESERVE_INDENT() != null) {
-              preserveIndent = isTrue;
-              explicitOverrides.add("preserveIndent");
-            } else if (boolCtx.KW_EQUATABLE() != null) {
+            if (boolCtx.KW_EQUATABLE() != null) {
               equatable = isTrue;
               explicitOverrides.add("equatable");
             } else if (boolCtx.KW_COMPARABLE() != null) {
@@ -1949,7 +1946,10 @@ public class StvnTypeResolver {
           var bLit = flagCtx.booleanLiteral();
           flagVal = bLit.KW_TRUE() != null || bLit.KW_TRUE_SHORT() != null;
         }
-        if (flagCtx.KW_UNSIGNED() != null) {
+        if (flagCtx.KW_PRESERVE_INDENT() != null) {
+          preserveIndent = flagVal;
+          explicitOverrides.add("preserveIndent");
+        } else if (flagCtx.KW_UNSIGNED() != null) {
           unsigned = flagVal;
           explicitOverrides.add("unsigned");
         } else if (flagCtx.KW_EXACT() != null) {
@@ -3934,22 +3934,7 @@ public class StvnTypeResolver {
         }
       } else if (entry.metadataBool() != null) {
         var boolCtx = entry.metadataBool();
-        var constraintName = "";
-        if (boolCtx.KW_PRESERVE_INDENT() != null) constraintName = "preserveIndent";
-        else if (boolCtx.KW_EQUATABLE() != null) constraintName = "equatable";
-        else if (boolCtx.KW_COMPARABLE() != null) constraintName = "comparable";
-
-        if (boolCtx.KW_PRESERVE_INDENT() != null && !isStringType) {
-          diagnosticBag.addError(
-              "Constraint violation (" + name + "): facet 'preserveIndent' is not permitted on " + baseType + "; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]",
-              boolCtx.getStart().getStartIndex(),
-              boolCtx.getStop().getStopIndex() + 1,
-              boolCtx.getStart().getLine(),
-              boolCtx.getStart().getCharPositionInLine(),
-              null,
-              DiagnosticBag.ERR_INVALID_METADATA_FACET
-          );
-        }
+        var constraintName = boolCtx.KW_EQUATABLE() != null ? "equatable" : "comparable";
 
         var mv = boolCtx.metadataValue();
         if (mv != null) {
@@ -3971,6 +3956,19 @@ public class StvnTypeResolver {
                 DiagnosticBag.ERR_INCOMPATIBLE_TYPE
             );
           }
+        }
+      } else if (entry.metadataFlag() != null) {
+        var flagCtx = entry.metadataFlag();
+        if (flagCtx.KW_PRESERVE_INDENT() != null && !isStringType) {
+          diagnosticBag.addError(
+              "Constraint violation (" + name + "): facet 'preserveIndent' is not permitted on " + baseType + "; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]",
+              flagCtx.getStart().getStartIndex(),
+              flagCtx.getStop().getStopIndex() + 1,
+              flagCtx.getStart().getLine(),
+              flagCtx.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_INVALID_METADATA_FACET
+          );
         }
       } else if (entry.metadataFilter() != null) {
         var filterCtx = entry.metadataFilter();

@@ -1,0 +1,4 @@
+{
+  "expectedException": "org.stvnadore.core.validation.StvnSyntaxCancellationException",
+  "errorMessageSubstring": "mismatched input '}' expecting <value>"
+}

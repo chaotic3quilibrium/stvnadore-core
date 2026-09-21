@@ -1,0 +1,14 @@
+{
+  // metadata_size_missing_argument.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #SYNTAX_ERROR
+    "mismatched input '}' expecting <value>"
+    #None
+  )
+}

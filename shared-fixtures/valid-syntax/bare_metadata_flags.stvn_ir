@@ -1,0 +1,92 @@
+TypeRegistry:
+  - :IndentedBlock
+      schema:
+        node: :String
+        aliasName: :IndentedBlock
+        constraints:
+          preserveIndent: true (explicit)
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+  - :UnsignedPort
+      schema:
+        node: :Int
+        aliasName: :UnsignedPort
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Int
+  - :ExactCurrency
+      schema:
+        node: :Float
+        aliasName: :ExactCurrency
+        constraints:
+          equatable: false (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Float
+  - :BijectiveRegistry
+      schema:
+        node: :Map(:String:Int)
+        aliasName: :BijectiveRegistry
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: :Map(:String:Int)
+  - :UtcTimestamp
+      schema:
+        node: :String
+        aliasName: :UtcTimestamp
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+          aliasName: :org/stvnadore/prelude/DateTime
+  - :JurisdictionTime
+      schema:
+        node: :String
+        aliasName: :JurisdictionTime
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+          aliasName: :org/stvnadore/prelude/DateTime
+  - :AuditedEventTime
+      schema:
+        node: :String
+        aliasName: :AuditedEventTime
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+          aliasName: :org/stvnadore/prelude/DateTime
+  - <:type>
+      schema:
+        node: :Tuple(:IndentedBlock:UnsignedPort:ExactCurrency:BijectiveRegistry:UtcTimestamp:JurisdictionTime:AuditedEventTime)
+        constraints:
+          equatable: false (derived from :ExactCurrency)
+          comparable: false (derived from :BijectiveRegistry)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnString(:IndentedBlock): "      Indented block line 1\n        Indented block line 2\n    "
+      - StvnInteger(:UnsignedPort): 8080
+      - StvnFloat(:ExactCurrency): 199.99
+      - StvnMap
+          isInvertible: true
+          entries:
+            - pair:
+                key: StvnString(:String): "alpha"
+                value: StvnInteger(:Int): 1
+            - pair:
+                key: StvnString(:String): "beta"
+                value: StvnInteger(:Int): 2
+      - StvnDateTimeOffset(:UtcTimestamp): 2026-09-21T17:30Z
+      - StvnDateTimeZoned(:JurisdictionTime): 2026-09-21T17:30[America/Chicago]
+      - StvnDateTimeAudited(:AuditedEventTime): 2026-09-21T17:30-05:00[America/Chicago]

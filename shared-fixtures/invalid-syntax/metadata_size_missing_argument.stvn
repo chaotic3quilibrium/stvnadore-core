@@ -1,0 +1,11 @@
+{
+  // metadata_size_missing_argument.stvn
+  // Specification: STVN v2.0.0
+  // Asserts that parameterized facet #size cannot be declared without a numeric argument.
+  :defs {
+    :InvalidPort { #size } :Int
+  }
+
+  :type :InvalidPort
+  :body 8080
+}

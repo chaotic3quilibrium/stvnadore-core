@@ -1,0 +1,40 @@
+{
+  // bare_metadata_flags.stvn
+  // Specification: STVN v2.0.0
+  // Positive verification fixture for bare metadata flags across all supported scalar and temporal domains.
+  :defs {
+    :IndentedBlock      { #preserveIndent } :String
+    :UnsignedPort       { #unsigned #size 16 } :Int
+    :ExactCurrency      { #exact } :Float
+    :BijectiveRegistry  { #invertible } :Map(:String :Int)
+    :UtcTimestamp       { #offset } :org/stvnadore/prelude/DateTime
+    :JurisdictionTime   { #zoned } :org/stvnadore/prelude/DateTime
+    :AuditedEventTime   { #audited } :org/stvnadore/prelude/DateTime
+  }
+
+  :type :Tuple(
+    :IndentedBlock
+    :UnsignedPort
+    :ExactCurrency
+    :BijectiveRegistry
+    :UtcTimestamp
+    :JurisdictionTime
+    :AuditedEventTime
+  )
+
+  :body (
+    """
+      Indented block line 1
+        Indented block line 2
+    """
+    8080
+    199.99
+    {
+      [ "alpha" 1 ]
+      [ "beta" 2 ]
+    }
+    "2026-09-21T17:30:00Z"
+    "2026-09-21T17:30:00[America/Chicago]"
+    "2026-09-21T17:30:00-05:00[America/Chicago]"
+  )
+}

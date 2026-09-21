@@ -63,12 +63,12 @@ metadataMap    : LBRACE metadataEntry* RBRACE ;
 metadataEntry     : metadataBool | metadataNum | metadataString | metadataFilter | metadataDirective
                   | metadataSize | metadataFlag | metadataUnit ;
 metadataDirective : KW_STRIP ;
-metadataBool      : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) metadataValue ;
+metadataBool      : (KW_EQUATABLE | KW_COMPARABLE) metadataValue ;
 metadataNum    : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
 metadataString : KW_REGEX metadataValue ;
 metadataFilter : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
 metadataSize   : (KW_SIZE | KW_MIN_SIZE | KW_MAX_SIZE) metadataValue ;
-metadataFlag   : (KW_UNSIGNED | KW_EXACT | KW_INVERTIBLE | KW_OFFSET | KW_ZONED | KW_AUDITED) booleanLiteral? ;
+metadataFlag   : (KW_PRESERVE_INDENT | KW_UNSIGNED | KW_EXACT | KW_INVERTIBLE | KW_OFFSET | KW_ZONED | KW_AUDITED) booleanLiteral? ;
 metadataUnit   : KW_UNIT valueKeyword ;
 
 variantList    : LBRACK valueKeyword* RBRACK ;

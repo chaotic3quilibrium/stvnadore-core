@@ -837,6 +837,9 @@ public final class StvnSchemaFlattener {
   private static void appendConstraints(StringBuilder sb, StvnConstraints constraints) {
     if (hasConstraints(constraints)) {
       sb.append(" {");
+      if (constraints.audited() && constraints.explicitOverrides().contains("audited")) {
+        sb.append(" #audited");
+      }
       var comparable = constraints.comparable().orElse(null);
       if (comparable != null && constraints.explicitOverrides().contains("comparable")) {
         sb.append(" #comparable ").append(comparable ? "#TRUE" : "#FALSE");
@@ -844,6 +847,9 @@ public final class StvnSchemaFlattener {
       var equatable = constraints.equatable().orElse(null);
       if (equatable != null && constraints.explicitOverrides().contains("equatable")) {
         sb.append(" #equatable ").append(equatable ? "#TRUE" : "#FALSE");
+      }
+      if (constraints.exact() && constraints.explicitOverrides().contains("exact")) {
+        sb.append(" #exact");
       }
       var filterExcl = constraints.filterExcl().orElse(null);
       if (filterExcl != null) {
@@ -857,6 +863,9 @@ public final class StvnSchemaFlattener {
         for (String v : filterIncl) sb.append(" ").append(v);
         sb.append(" ]");
       }
+      if (constraints.invertible() && constraints.explicitOverrides().contains("invertible")) {
+        sb.append(" #invertible");
+      }
       var maxExcl = constraints.maxExcl().orElse(null);
       if (maxExcl != null) {
         sb.append(" #maxExcl ").append(maxExcl);
@@ -864,6 +873,10 @@ public final class StvnSchemaFlattener {
       var maxIncl = constraints.maxIncl().orElse(null);
       if (maxIncl != null) {
         sb.append(" #maxIncl ").append(maxIncl);
+      }
+      var maxSize = constraints.maxSize().orElse(null);
+      if (maxSize != null) {
+        sb.append(" #maxSize ").append(maxSize);
       }
       var minExcl = constraints.minExcl().orElse(null);
       if (minExcl != null) {
@@ -873,12 +886,33 @@ public final class StvnSchemaFlattener {
       if (minIncl != null) {
         sb.append(" #minIncl ").append(minIncl);
       }
+      var minSize = constraints.minSize().orElse(null);
+      if (minSize != null) {
+        sb.append(" #minSize ").append(minSize);
+      }
+      if (constraints.offset() && constraints.explicitOverrides().contains("offset")) {
+        sb.append(" #offset");
+      }
       if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
-        sb.append(" #preserveIndent #TRUE");
+        sb.append(" #preserveIndent");
       }
       var regex = constraints.regex().orElse(null);
       if (regex != null) {
         sb.append(" #regex \"").append(escapeString(regex)).append("\"");
+      }
+      var size = constraints.size().orElse(null);
+      if (size != null) {
+        sb.append(" #size ").append(size);
+      }
+      var unit = constraints.unit().orElse(null);
+      if (unit != null) {
+        sb.append(" #unit ").append(unit);
+      }
+      if (constraints.unsigned() && constraints.explicitOverrides().contains("unsigned")) {
+        sb.append(" #unsigned");
+      }
+      if (constraints.zoned() && constraints.explicitOverrides().contains("zoned")) {
+        sb.append(" #zoned");
       }
       sb.append(" }");
     }
@@ -953,10 +987,19 @@ public final class StvnSchemaFlattener {
     var hasPreserveIndent = c.preserveIndent() && c.explicitOverrides().contains("preserveIndent");
     var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains("equatable");
     var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains("comparable");
+    var hasAudited = c.audited() && c.explicitOverrides().contains("audited");
+    var hasExact = c.exact() && c.explicitOverrides().contains("exact");
+    var hasInvertible = c.invertible() && c.explicitOverrides().contains("invertible");
+    var hasOffset = c.offset() && c.explicitOverrides().contains("offset");
+    var hasUnsigned = c.unsigned() && c.explicitOverrides().contains("unsigned");
+    var hasZoned = c.zoned() && c.explicitOverrides().contains("zoned");
 
     return hasMinIncl || hasMinExcl || hasMaxIncl || hasMaxExcl
         || hasRegex || hasPreserveIndent || hasEquatable || hasComparable
-        || c.filterIncl().isPresent() || c.filterExcl().isPresent();
+        || c.filterIncl().isPresent() || c.filterExcl().isPresent()
+        || c.size().isPresent() || c.minSize().isPresent() || c.maxSize().isPresent()
+        || c.unit().isPresent() || hasAudited || hasExact || hasInvertible
+        || hasOffset || hasUnsigned || hasZoned;
   }
 
   private static String escapeString(String s) {
