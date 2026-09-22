@@ -151,6 +151,10 @@ public class StvnSchemaHasher {
       constraints.minExcl().ifPresent(val -> digest.update(("minExcl:" + val).getBytes(StandardCharsets.UTF_8)));
       constraints.maxIncl().ifPresent(val -> digest.update(("maxIncl:" + val).getBytes(StandardCharsets.UTF_8)));
       constraints.maxExcl().ifPresent(val -> digest.update(("maxExcl:" + val).getBytes(StandardCharsets.UTF_8)));
+      constraints.dateMinIncl().ifPresent(val -> digest.update(("dateMinIncl:" + val).getBytes(StandardCharsets.UTF_8)));
+      constraints.dateMinExcl().ifPresent(val -> digest.update(("dateMinExcl:" + val).getBytes(StandardCharsets.UTF_8)));
+      constraints.dateMaxIncl().ifPresent(val -> digest.update(("dateMaxIncl:" + val).getBytes(StandardCharsets.UTF_8)));
+      constraints.dateMaxExcl().ifPresent(val -> digest.update(("dateMaxExcl:" + val).getBytes(StandardCharsets.UTF_8)));
       constraints.regex().ifPresent(val -> digest.update(("regex:" + val).getBytes(StandardCharsets.UTF_8)));
 
       digest.update(("preserveIndent:" + constraints.preserveIndent()).getBytes(StandardCharsets.UTF_8));
@@ -170,7 +174,7 @@ public class StvnSchemaHasher {
       if (constraints.invertible()) {
         digest.update("invertible:true".getBytes(StandardCharsets.UTF_8));
       }
-      constraints.unit().ifPresent(val -> digest.update(("unit:" + val).getBytes(StandardCharsets.UTF_8)));
+      constraints.scale().ifPresent(val -> digest.update(("scale:" + (val.startsWith("#") ? val.substring(1) : val)).getBytes(StandardCharsets.UTF_8)));
       if (constraints.offset()) {
         digest.update("offset:true".getBytes(StandardCharsets.UTF_8));
       }

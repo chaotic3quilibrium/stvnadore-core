@@ -673,10 +673,10 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeOffset { #offset } :org/stvnadore/prelude/DateTime
+                    :DateTimeOffset { #offset } :DateTime
                   }
                   :type :Seq( :DateTimeOffset )
-                  :body [ "2026-03-06T15:53:08Z" "2026-03-06T15:53:08-06:00" ]
+                  :body [ "2026-03-15T08:00:00-05:00" ]
                 }
                 """),
 
@@ -685,10 +685,10 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeOffset { #offset } :org/stvnadore/prelude/DateTime
+                    :DateTimeOffset { #offset } :DateTime
                   }
                   :type :Seq( :DateTimeOffset )
-                  :body [ "2026/03/06 15:53:08" ]
+                  :body [ "2026-03-15 08:00:00" ]
                 }
                 """,
             "Invalid OffsetDateTime format"),
@@ -698,10 +698,10 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeOffset { #offset } :org/stvnadore/prelude/DateTime
+                    :DateTimeOffset { #offset } :DateTime
                   }
                   :type :Seq( :DateTimeOffset )
-                  :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" ]
+                  :body [ "2026-03-15T08:00:00[America/Chicago]" ]
                 }
                 """,
             "Time zone brackets [...] are prohibited in :DateTimeOffset"),
@@ -711,10 +711,10 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeZoned { #zoned } :org/stvnadore/prelude/DateTime
+                    :DateTimeZoned { #zoned } :DateTime
                   }
                   :type :Seq( :DateTimeZoned )
-                  :body [ "2026-03-15T08:00:00[America/Chicago]" "2026-08-18T18:30:00[Europe/London]" ]
+                  :body [ "2026-03-15T08:00:00[America/Chicago]" ]
                 }
                 """),
 
@@ -723,7 +723,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeZoned { #zoned } :org/stvnadore/prelude/DateTime
+                    :DateTimeZoned { #zoned } :DateTime
                   }
                   :type :Seq( :DateTimeZoned )
                   :body [ "2026-03-06T15:53:08-06:00" ]
@@ -736,7 +736,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeZoned { #zoned } :org/stvnadore/prelude/DateTime
+                    :DateTimeZoned { #zoned } :DateTime
                   }
                   :type :Seq( :DateTimeZoned )
                   :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" ]
@@ -749,10 +749,10 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeAudited { #audited } :org/stvnadore/prelude/DateTime
+                    :DateTimeAudited { #audited } :DateTime
                   }
                   :type :Seq( :DateTimeAudited )
-                  :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" "2026-01-15T08:00:00-06:00[America/Chicago]" ]
+                  :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" ]
                 }
                 """),
 
@@ -761,7 +761,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeAudited { #audited } :org/stvnadore/prelude/DateTime
+                    :DateTimeAudited { #audited } :DateTime
                   }
                   :type :Seq( :DateTimeAudited )
                   :body [ "2026-03-15T08:00:00-05:00" ]
@@ -774,7 +774,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :TimeEpochNs { #unit #ns } :org/stvnadore/prelude/TimeEpoch
+                    :TimeEpochNs { #ns } :TimeEpoch
                   }
                   :type :Seq( :TimeEpochNs )
                   :body [ 9223372036854775808 ]

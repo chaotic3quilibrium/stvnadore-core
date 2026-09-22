@@ -1,64 +1,58 @@
 TypeRegistry:
   - :EpochSeconds
       schema:
-        node: :Int
+        node: :TimeEpoch
         aliasName: :EpochSeconds
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
-          aliasName: :org/stvnadore/prelude/TimeEpoch
+          node: :TimeEpoch
   - :EpochMillis
       schema:
-        node: :Int
+        node: :TimeEpoch
         aliasName: :EpochMillis
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
-          aliasName: :org/stvnadore/prelude/TimeEpoch
+          node: :TimeEpoch
   - :EpochNanos
       schema:
-        node: :Int
+        node: :TimeEpoch
         aliasName: :EpochNanos
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
-          aliasName: :org/stvnadore/prelude/TimeEpoch
+          node: :TimeEpoch
   - :OffsetDateTime
       schema:
-        node: :String
+        node: :DateTime
         aliasName: :OffsetDateTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
-          aliasName: :org/stvnadore/prelude/DateTime
+          node: :DateTime
   - :ZonedDateTime
       schema:
-        node: :String
+        node: :DateTime
         aliasName: :ZonedDateTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
-          aliasName: :org/stvnadore/prelude/DateTime
+          node: :DateTime
   - :AuditedDateTime
       schema:
-        node: :String
+        node: :DateTime
         aliasName: :AuditedDateTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
-          aliasName: :org/stvnadore/prelude/DateTime
+          node: :DateTime
   - :IdUuid
       schema:
         node: :String

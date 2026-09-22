@@ -837,19 +837,96 @@ public final class StvnSchemaFlattener {
   private static void appendConstraints(StringBuilder sb, StvnConstraints constraints) {
     if (hasConstraints(constraints)) {
       sb.append(" {");
+
+      // Tier 1: Flags & Intrinsic Modes
+      if (constraints.unsigned() && constraints.explicitOverrides().contains("unsigned")) {
+        sb.append(" #unsigned");
+      }
+      if (constraints.exact() && constraints.explicitOverrides().contains("exact")) {
+        sb.append(" #exact");
+      }
+      if (constraints.invertible() && constraints.explicitOverrides().contains("invertible")) {
+        sb.append(" #invertible");
+      }
+      if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
+        sb.append(" #preserveIndent");
+      }
+      if (constraints.offset() && constraints.explicitOverrides().contains("offset")) {
+        sb.append(" #offset");
+      }
+      if (constraints.zoned() && constraints.explicitOverrides().contains("zoned")) {
+        sb.append(" #zoned");
+      }
       if (constraints.audited() && constraints.explicitOverrides().contains("audited")) {
         sb.append(" #audited");
-      }
-      var comparable = constraints.comparable().orElse(null);
-      if (comparable != null && constraints.explicitOverrides().contains("comparable")) {
-        sb.append(" #comparable ").append(comparable ? "#TRUE" : "#FALSE");
       }
       var equatable = constraints.equatable().orElse(null);
       if (equatable != null && constraints.explicitOverrides().contains("equatable")) {
         sb.append(" #equatable ").append(equatable ? "#TRUE" : "#FALSE");
       }
-      if (constraints.exact() && constraints.explicitOverrides().contains("exact")) {
-        sb.append(" #exact");
+      var comparable = constraints.comparable().orElse(null);
+      if (comparable != null && constraints.explicitOverrides().contains("comparable")) {
+        sb.append(" #comparable ").append(comparable ? "#TRUE" : "#FALSE");
+      }
+
+      // Tier 2: Temporal Scale
+      var scale = constraints.scale().orElse(null);
+      if (scale != null) {
+        sb.append(" #").append(scale.startsWith("#") ? scale.substring(1) : scale);
+      }
+
+      // Tier 3: Dimensions & Capacity
+      var size = constraints.size().orElse(null);
+      if (size != null) {
+        sb.append(" #size ").append(size);
+      }
+      var minSize = constraints.minSize().orElse(null);
+      if (minSize != null) {
+        sb.append(" #minSize ").append(minSize);
+      }
+      var maxSize = constraints.maxSize().orElse(null);
+      if (maxSize != null) {
+        sb.append(" #maxSize ").append(maxSize);
+      }
+
+      // Tier 4: Value Intervals (Lower before Upper)
+      var minIncl = constraints.minIncl().orElse(null);
+      if (minIncl != null) {
+        sb.append(" #minIncl ").append(minIncl);
+      } else if (constraints.dateMinIncl().isPresent()) {
+        sb.append(" #minIncl \"").append(escapeString(constraints.dateMinIncl().get())).append("\"");
+      }
+      var minExcl = constraints.minExcl().orElse(null);
+      if (minExcl != null) {
+        sb.append(" #minExcl ").append(minExcl);
+      } else if (constraints.dateMinExcl().isPresent()) {
+        sb.append(" #minExcl \"").append(escapeString(constraints.dateMinExcl().get())).append("\"");
+      }
+      var maxExcl = constraints.maxExcl().orElse(null);
+      if (maxExcl != null) {
+        sb.append(" #maxExcl ").append(maxExcl);
+      } else if (constraints.dateMaxExcl().isPresent()) {
+        sb.append(" #maxExcl \"").append(escapeString(constraints.dateMaxExcl().get())).append("\"");
+      }
+      var maxIncl = constraints.maxIncl().orElse(null);
+      if (maxIncl != null) {
+        sb.append(" #maxIncl ").append(maxIncl);
+      } else if (constraints.dateMaxIncl().isPresent()) {
+        sb.append(" #maxIncl \"").append(escapeString(constraints.dateMaxIncl().get())).append("\"");
+      }
+
+      // Tier 5: Pattern & Text Structure
+      var regex = constraints.regex().orElse(null);
+      if (regex != null) {
+        sb.append(" #regex \"").append(escapeString(regex)).append("\"");
+      }
+
+      // Tier 6: Set & Variant Membership
+      var filterIncl = constraints.filterIncl().orElse(null);
+      if (filterIncl != null) {
+        sb.append(" #filterIncl [");
+        for (String v : filterIncl) sb.append(" ").append(v);
+        sb.append(" ]");
       }
       var filterExcl = constraints.filterExcl().orElse(null);
       if (filterExcl != null) {
@@ -857,63 +934,7 @@ public final class StvnSchemaFlattener {
         for (String v : filterExcl) sb.append(" ").append(v);
         sb.append(" ]");
       }
-      var filterIncl = constraints.filterIncl().orElse(null);
-      if (filterIncl != null) {
-        sb.append(" #filterIncl [");
-        for (String v : filterIncl) sb.append(" ").append(v);
-        sb.append(" ]");
-      }
-      if (constraints.invertible() && constraints.explicitOverrides().contains("invertible")) {
-        sb.append(" #invertible");
-      }
-      var maxExcl = constraints.maxExcl().orElse(null);
-      if (maxExcl != null) {
-        sb.append(" #maxExcl ").append(maxExcl);
-      }
-      var maxIncl = constraints.maxIncl().orElse(null);
-      if (maxIncl != null) {
-        sb.append(" #maxIncl ").append(maxIncl);
-      }
-      var maxSize = constraints.maxSize().orElse(null);
-      if (maxSize != null) {
-        sb.append(" #maxSize ").append(maxSize);
-      }
-      var minExcl = constraints.minExcl().orElse(null);
-      if (minExcl != null) {
-        sb.append(" #minExcl ").append(minExcl);
-      }
-      var minIncl = constraints.minIncl().orElse(null);
-      if (minIncl != null) {
-        sb.append(" #minIncl ").append(minIncl);
-      }
-      var minSize = constraints.minSize().orElse(null);
-      if (minSize != null) {
-        sb.append(" #minSize ").append(minSize);
-      }
-      if (constraints.offset() && constraints.explicitOverrides().contains("offset")) {
-        sb.append(" #offset");
-      }
-      if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
-        sb.append(" #preserveIndent");
-      }
-      var regex = constraints.regex().orElse(null);
-      if (regex != null) {
-        sb.append(" #regex \"").append(escapeString(regex)).append("\"");
-      }
-      var size = constraints.size().orElse(null);
-      if (size != null) {
-        sb.append(" #size ").append(size);
-      }
-      var unit = constraints.unit().orElse(null);
-      if (unit != null) {
-        sb.append(" #unit ").append(unit);
-      }
-      if (constraints.unsigned() && constraints.explicitOverrides().contains("unsigned")) {
-        sb.append(" #unsigned");
-      }
-      if (constraints.zoned() && constraints.explicitOverrides().contains("zoned")) {
-        sb.append(" #zoned");
-      }
+
       sb.append(" }");
     }
   }
@@ -979,10 +1000,10 @@ public final class StvnSchemaFlattener {
   }
 
   private static boolean hasConstraints(StvnConstraints c) {
-    var hasMinIncl = c.minIncl().isPresent();
-    var hasMinExcl = c.minExcl().isPresent();
-    var hasMaxIncl = c.maxIncl().isPresent();
-    var hasMaxExcl = c.maxExcl().isPresent();
+    var hasMinIncl = c.minIncl().isPresent() || c.dateMinIncl().isPresent();
+    var hasMinExcl = c.minExcl().isPresent() || c.dateMinExcl().isPresent();
+    var hasMaxIncl = c.maxIncl().isPresent() || c.dateMaxIncl().isPresent();
+    var hasMaxExcl = c.maxExcl().isPresent() || c.dateMaxExcl().isPresent();
     var hasRegex = c.regex().isPresent();
     var hasPreserveIndent = c.preserveIndent() && c.explicitOverrides().contains("preserveIndent");
     var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains("equatable");
@@ -998,7 +1019,7 @@ public final class StvnSchemaFlattener {
         || hasRegex || hasPreserveIndent || hasEquatable || hasComparable
         || c.filterIncl().isPresent() || c.filterExcl().isPresent()
         || c.size().isPresent() || c.minSize().isPresent() || c.maxSize().isPresent()
-        || c.unit().isPresent() || hasAudited || hasExact || hasInvertible
+        || c.scale().isPresent() || hasAudited || hasExact || hasInvertible
         || hasOffset || hasUnsigned || hasZoned;
   }
 

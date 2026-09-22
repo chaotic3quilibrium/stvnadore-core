@@ -1,5 +1,5 @@
 {
-  // temporal_epoch_missing_unit.contract.stvn
+  // discrete_bound_prohibited_epoch_max_incl.contract.stvn
   :defs {
     :include [ "error_contract.stvn_inclf" ]
   }
@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Temporal type ':TimeEpoch' requires a scale facet: '#s', '#ms', '#us', or '#ns'"
+    "Discrete temporal type ':TimeEpoch' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

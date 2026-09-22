@@ -27,7 +27,7 @@ class StvnSchemaFlattenerTest {
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
     // Nominal sorting: :Age should come before :User
-    String expected = "{ :defs { :Age { #maxIncl 150 #minIncl 0 } :Int32 :User { #regex \"^[a-z]+$\" } :String } }";
+    String expected = "{ :defs { :Age { #minIncl 0 #maxIncl 150 } :Int32 :User { #regex \"^[a-z]+$\" } :String } }";
     Assertions.assertEquals(expected, result);
   }
 

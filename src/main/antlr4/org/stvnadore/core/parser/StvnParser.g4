@@ -60,16 +60,16 @@ constantDefinition : valueKeyword metadataMap? schemaType value ;
 metadataMap    : LBRACE metadataEntry* RBRACE ;
 
 // Enforced structural type verification branches
-metadataEntry     : metadataBool | metadataNum | metadataString | metadataFilter | metadataDirective
-                  | metadataSize | metadataFlag | metadataUnit ;
+metadataEntry     : metadataBool | metadataRange | metadataString | metadataFilter | metadataDirective
+                  | metadataSize | metadataFlag ;
 metadataDirective : KW_STRIP ;
 metadataBool      : (KW_EQUATABLE | KW_COMPARABLE) metadataValue ;
-metadataNum    : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
+metadataRange     : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
 metadataString : KW_REGEX metadataValue ;
 metadataFilter : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
 metadataSize   : (KW_SIZE | KW_MIN_SIZE | KW_MAX_SIZE) metadataValue ;
-metadataFlag   : (KW_PRESERVE_INDENT | KW_UNSIGNED | KW_EXACT | KW_INVERTIBLE | KW_OFFSET | KW_ZONED | KW_AUDITED) booleanLiteral? ;
-metadataUnit   : KW_UNIT valueKeyword ;
+metadataFlag   : (KW_PRESERVE_INDENT | KW_UNSIGNED | KW_EXACT | KW_INVERTIBLE | KW_OFFSET | KW_ZONED | KW_AUDITED
+                 | KW_SCALE_S | KW_SCALE_MS | KW_SCALE_US | KW_SCALE_NS) booleanLiteral? ;
 
 variantList    : LBRACK valueKeyword* RBRACK ;
 
@@ -88,6 +88,8 @@ atomicType : ATOM_BOOLEAN
            | ATOM_INT
            | ATOM_FLOAT
            | ATOM_STRING
+           | ATOM_TIME_EPOCH
+           | ATOM_DATE_TIME
            ;
 
 collectionType
@@ -150,6 +152,8 @@ reservedKeyword : ATOM_BOOLEAN
                 | ATOM_INT
                 | ATOM_FLOAT
                 | ATOM_STRING
+                | ATOM_TIME_EPOCH
+                | ATOM_DATE_TIME
                 | COLL_SEQ
                 | COLL_SET
                 | COLL_MAP
@@ -183,5 +187,6 @@ valueKeywordStart : VALUE_KEYWORD_BASE
                   | KW_FILTER_INCL | KW_FILTER_EXCL
                   | KW_SIZE | KW_UNSIGNED | KW_EXACT
                   | KW_MIN_SIZE | KW_MAX_SIZE | KW_INVERTIBLE
-                  | KW_UNIT | KW_OFFSET | KW_ZONED | KW_AUDITED
+                  | KW_OFFSET | KW_ZONED | KW_AUDITED
+                  | KW_SCALE_S | KW_SCALE_MS | KW_SCALE_US | KW_SCALE_NS
                   ;

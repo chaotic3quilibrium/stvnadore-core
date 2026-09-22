@@ -59,9 +59,9 @@ public class StvnBareFlagFacetValidationTest {
             :I { #unsigned #size 16 } :Int
             :F { #exact } :Float
             :M { #invertible } :Map(:String :Int)
-            :D1 { #offset } :org/stvnadore/prelude/DateTime
-            :D2 { #zoned } :org/stvnadore/prelude/DateTime
-            :D3 { #audited } :org/stvnadore/prelude/DateTime
+            :D1 { #offset } :DateTime
+            :D2 { #zoned } :DateTime
+            :D3 { #audited } :DateTime
           }
           :type :Tuple(:S :I :F :M :D1 :D2 :D3)
           :body (
@@ -82,7 +82,7 @@ public class StvnBareFlagFacetValidationTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"#size", "#minSize", "#maxSize", "#minIncl", "#maxIncl", "#minExcl", "#maxExcl", "#regex", "#unit", "#equatable", "#comparable"})
+  @ValueSource(strings = {"#size", "#minSize", "#maxSize", "#minIncl", "#maxIncl", "#minExcl", "#maxExcl", "#regex", "#equatable", "#comparable"})
   @DisplayName("TC-FLAG-04: Non-flag facets reject missing arguments with STVN_SYNTAX_ERROR")
   void testMissingArgumentRejected(String facet) {
     String source = """

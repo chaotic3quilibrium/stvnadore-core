@@ -48,7 +48,7 @@ public class StvnSchemaFlattenerV2Test {
   }
 
   @Test
-  @DisplayName("TC-FLAT-03: All v2 facets serialize in canonical alphabetical order")
+  @DisplayName("TC-FLAT-03: All v2 facets serialize in canonical 7-tier Semantic Category Order")
   void testAllFacetsAlphabeticalOrder() {
     String source = """
         {
@@ -60,8 +60,8 @@ public class StvnSchemaFlattenerV2Test {
         }
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    // Alphabetical order: #audited < #minIncl < #size < #unsigned
-    String expected = "{ :defs { :ComplexInt { #audited #minIncl 10 #size 32 #unsigned } :Int } }";
+    // 7-tier Semantic Category Order: Tier 1 (#unsigned #audited) < Tier 3 (#size 32) < Tier 4 (#minIncl 10)
+    String expected = "{ :defs { :ComplexInt { #unsigned #audited #size 32 #minIncl 10 } :Int } }";
     assertEquals(expected, flattened);
   }
 

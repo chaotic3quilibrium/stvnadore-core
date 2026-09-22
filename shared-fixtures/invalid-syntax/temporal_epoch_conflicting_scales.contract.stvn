@@ -1,5 +1,5 @@
 {
-  // temporal_epoch_missing_unit.contract.stvn
+  // temporal_epoch_conflicting_scales.contract.stvn
   :defs {
     :include [ "error_contract.stvn_inclf" ]
   }
@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Temporal type ':TimeEpoch' requires a scale facet: '#s', '#ms', '#us', or '#ns'"
+    "Temporal scale facets (#s, #ms, #us, #ns) are mutually exclusive"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

@@ -1,6 +1,6 @@
 {
   :defs {
-    :EventTime :org/stvnadore/prelude/DateTime
+    :EventTime :DateTime
   }
   :type :EventTime
   :body "2026-03-15T08:00:00Z"

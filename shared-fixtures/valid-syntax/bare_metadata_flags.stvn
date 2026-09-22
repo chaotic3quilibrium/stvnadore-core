@@ -7,9 +7,9 @@
     :UnsignedPort       { #unsigned #size 16 } :Int
     :ExactCurrency      { #exact } :Float
     :BijectiveRegistry  { #invertible } :Map(:String :Int)
-    :UtcTimestamp       { #offset } :org/stvnadore/prelude/DateTime
-    :JurisdictionTime   { #zoned } :org/stvnadore/prelude/DateTime
-    :AuditedEventTime   { #audited } :org/stvnadore/prelude/DateTime
+    :UtcTimestamp       { #offset } :DateTime
+    :JurisdictionTime   { #zoned } :DateTime
+    :AuditedEventTime   { #audited } :DateTime
   }
 
   :type :Tuple(

@@ -35,8 +35,8 @@ class StvnTemporalRootClearanceTest {
   }
 
   @Test
-  @DisplayName("Canonical prelude path :org/stvnadore/prelude/DateTime with #offset facet compiles cleanly")
-  void testCanonicalPreludeDateTimeOffset() {
+  @DisplayName("Purged prelude decoy paths trigger ERR_UNKNOWN_TYPE")
+  void testPurgedPreludeDecoyPathsFail() {
     String source = """
         {
           :defs {
@@ -48,16 +48,36 @@ class StvnTemporalRootClearanceTest {
         """;
 
     var result = StvnCompiler.compileToResult(source);
-    Assertions.assertTrue(result.isSuccess(), "Canonical prelude path must resolve cleanly: " + result.diagnostics());
+    Assertions.assertFalse(result.isSuccess(), "Purged prelude path must be rejected");
+    Assertions.assertTrue(result.diagnostics().stream()
+        .anyMatch(d -> DiagnosticBag.ERR_UNKNOWN_TYPE.equals(d.errorCode().orElse(null))),
+        "Must emit ERR_UNKNOWN_TYPE for purged prelude DateTime");
   }
 
   @Test
-  @DisplayName("Local alias to canonical prelude temporal type compiles cleanly")
+  @DisplayName("Kernel primitive :DateTime with #offset facet compiles cleanly")
+  void testKernelDateTimeOffset() {
+    String source = """
+        {
+          :defs {
+            :EventTime { #offset } :DateTime
+          }
+          :type :EventTime
+          :body "2026-03-15T08:00:00-05:00"
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source);
+    Assertions.assertTrue(result.isSuccess(), "Kernel :DateTime must resolve cleanly: " + result.diagnostics());
+  }
+
+  @Test
+  @DisplayName("Local alias to kernel primitive temporal type compiles cleanly")
   void testLocalAliasTemporalType() {
     String source = """
         {
           :defs {
-            :MyDateTime { #offset } :org/stvnadore/prelude/DateTime
+            :MyDateTime { #offset } :DateTime
           }
           :type :MyDateTime
           :body "2026-03-15T08:00:00-05:00"
@@ -69,12 +89,12 @@ class StvnTemporalRootClearanceTest {
   }
 
   @Test
-  @DisplayName("Invalid regex format on canonical DateTimeOffset triggers regex violation")
+  @DisplayName("Invalid regex format on DateTimeOffset triggers regex violation")
   void testInvalidRegexFormatOnCanonicalDateTimeOffset() {
     String source = """
         {
           :defs {
-            :EventTime { #offset } :org/stvnadore/prelude/DateTime
+            :EventTime { #offset } :DateTime
           }
           :type :EventTime
           :body "not-a-valid-datetime"

@@ -42,9 +42,6 @@ public final class StvnPrelude {
           :org/stvnadore/prelude/Currency    { #exact } :Float
           :org/stvnadore/prelude/Latitude    { #size 64 #minIncl -90.0 #maxIncl 90.0 }   :Float
           :org/stvnadore/prelude/Longitude   { #size 64 #minIncl -180.0 #maxIncl 180.0 } :Float
-
-          :org/stvnadore/prelude/TimeEpoch :Int
-          :org/stvnadore/prelude/DateTime  :String
         }
       }""";
 

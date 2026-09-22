@@ -45,7 +45,7 @@ public final class IrGeneratorUtility {
   }
 
   private static void processFixture(Path stvnFile) throws Exception {
-    String stvnContent = Files.readString(stvnFile);
+    String stvnContent = Files.readString(stvnFile).replace("\r\n", "\n");
     
     // Compile STVN input to IR
     StvnValue irNode = StvnCompiler.compile(stvnContent)
@@ -60,7 +60,8 @@ public final class IrGeneratorUtility {
     if (UPDATE_MODE) {
       Files.writeString(irSnapshotPath, generatedSnapshot);
       
-      var encoder = new org.stvnadore.core.binary.StvnBinaryEncoder(true, new org.stvnadore.core.binary.SchemaIdentityStrategy.UniversalDefault());
+      boolean isCrc = stvnFile.getFileName().toString().contains("crc32c");
+      var encoder = new org.stvnadore.core.binary.StvnBinaryEncoder(true, new org.stvnadore.core.binary.SchemaIdentityStrategy.UniversalDefault(), isCrc);
       java.nio.ByteBuffer buf = encoder.encode(irNode);
       byte[] encoded = new byte[buf.remaining()];
       buf.get(encoded);

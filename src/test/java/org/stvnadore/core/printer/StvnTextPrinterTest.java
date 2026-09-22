@@ -745,14 +745,14 @@ class StvnTextPrinterTest {
             }
             """,
         optDefault,
-        "{:defs {:baseInt {#minIncl 10} :Int :restrictedInt {#maxExcl 101 #comparable #FALSE} :baseInt :finalInt {#comparable #TRUE} :restrictedInt} :type :finalInt :body 42}",
+        "{:defs {:baseInt {#minIncl 10} :Int :restrictedInt {#comparable #FALSE #maxExcl 101} :baseInt :finalInt {#comparable #TRUE} :restrictedInt} :type :finalInt :body 42}",
         """
             {
                 :defs {
                     :baseInt {#minIncl 10} :Int
                     :restrictedInt {
-                        #maxExcl 101
                         #comparable #FALSE
+                        #maxExcl 101
                     } :baseInt
                     :finalInt {#comparable #TRUE} :restrictedInt
                 }
@@ -971,9 +971,9 @@ class StvnTextPrinterTest {
         """
         {
           :defs {
-            :OffsetDateTime { #offset } :org/stvnadore/prelude/DateTime
-            :ZonedDateTime { #zoned } :org/stvnadore/prelude/DateTime
-            :AuditedDateTime { #audited } :org/stvnadore/prelude/DateTime
+            :OffsetDateTime { #offset } :DateTime
+            :ZonedDateTime { #zoned } :DateTime
+            :AuditedDateTime { #audited } :DateTime
           }
           :type :Tuple( :OffsetDateTime :ZonedDateTime :AuditedDateTime )
           :body (
@@ -984,14 +984,13 @@ class StvnTextPrinterTest {
         }
         """,
         options,
-        "{:defs {:org/stvnadore/prelude/DateTime :String :OffsetDateTime {#offset} :org/stvnadore/prelude/DateTime :ZonedDateTime {#zoned} :org/stvnadore/prelude/DateTime :AuditedDateTime {#audited} :org/stvnadore/prelude/DateTime} :type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime) :body (\"2026-03-15T08:00:00-05:00\" \"2026-03-15T08:00:00[America/Chicago]\" \"2026-03-15T08:00:00-05:00[America/Chicago]\")}",
+        "{:defs {:OffsetDateTime {#offset} :DateTime :ZonedDateTime {#zoned} :DateTime :AuditedDateTime {#audited} :DateTime} :type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime) :body (\"2026-03-15T08:00:00-05:00\" \"2026-03-15T08:00:00[America/Chicago]\" \"2026-03-15T08:00:00-05:00[America/Chicago]\")}",
         """
         {
             :defs {
-                :org/stvnadore/prelude/DateTime :String
-                :OffsetDateTime {#offset} :org/stvnadore/prelude/DateTime
-                :ZonedDateTime {#zoned} :org/stvnadore/prelude/DateTime
-                :AuditedDateTime {#audited} :org/stvnadore/prelude/DateTime
+                :OffsetDateTime {#offset} :DateTime
+                :ZonedDateTime {#zoned} :DateTime
+                :AuditedDateTime {#audited} :DateTime
             }
             :type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime)
             :body ("2026-03-15T08:00:00-05:00" "2026-03-15T08:00:00[America/Chicago]" "2026-03-15T08:00:00-05:00[America/Chicago]")

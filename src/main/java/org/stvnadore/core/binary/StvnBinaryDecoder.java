@@ -633,6 +633,7 @@ public class StvnBinaryDecoder {
         StvnValue.TimeKind kind = switch (unit) {
           case "#s", "s" -> StvnValue.TimeKind.EPOCH_S;
           case "#ms", "ms" -> StvnValue.TimeKind.EPOCH_MS;
+          case "#us", "us" -> StvnValue.TimeKind.EPOCH_US;
           case "#ns", "ns" -> StvnValue.TimeKind.EPOCH_NS;
           default -> StvnValue.TimeKind.EPOCH_MS;
         };

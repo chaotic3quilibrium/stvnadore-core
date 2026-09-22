@@ -407,7 +407,7 @@ public class StvnBinaryEncoder {
              ? 8
               : 0);
       case StvnTime t ->
-          (t.kind() == TimeKind.EPOCH_S || t.kind() == TimeKind.EPOCH_MS || t.kind() == TimeKind.EPOCH_NS)
+          (t.kind() == TimeKind.EPOCH_S || t.kind() == TimeKind.EPOCH_MS || t.kind() == TimeKind.EPOCH_US || t.kind() == TimeKind.EPOCH_NS)
               ? 8
               : 0;
       case StvnError err -> throw new IllegalStateException("Cannot binary encode AST containing unrecovered StvnError nodes");

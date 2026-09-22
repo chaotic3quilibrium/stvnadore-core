@@ -15,57 +15,57 @@ import static org.junit.jupiter.api.Assertions.*;
 public class StvnTemporalPreludeValidationTest {
 
   @Test
-  @DisplayName("TC-TMP-01: Prohibits :TimeEpoch without mandatory #unit facet")
+  @DisplayName("TC-TMP-01: Prohibits :TimeEpoch without mandatory scale facet")
   void testEpochMissingUnit() {
     String source = """
         {
           :defs {
-            :Timestamp :org/stvnadore/prelude/TimeEpoch
+            :Timestamp :TimeEpoch
           }
           :type :Timestamp
           :body 1710500000
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation error for missing #unit facet");
+    assertTrue(result.hasErrors(), "Expected compilation error for missing scale facet");
     var error = result.diagnostics().getFirst();
     assertEquals(DiagnosticBag.ERR_MISSING_TEMPORAL_FACET, error.errorCode().orElse(null));
   }
 
   @Test
-  @DisplayName("TC-TMP-02: Accepts valid :TimeEpoch units (#s, #ms, #ns)")
+  @DisplayName("TC-TMP-02: Accepts valid :TimeEpoch scales (#s, #ms, #us, #ns)")
   void testEpochValidUnits() {
-    for (String unit : new String[]{"#s", "#ms", "#ns"}) {
+    for (String scale : new String[]{"#s", "#ms", "#us", "#ns"}) {
       String source = """
           {
             :defs {
-              :Timestamp { #unit %s } :org/stvnadore/prelude/TimeEpoch
+              :Timestamp { %s } :TimeEpoch
             }
             :type :Timestamp
             :body 1710500000
           }
-          """.formatted(unit);
+          """.formatted(scale);
       var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-      assertFalse(result.hasErrors(), "Unit " + unit + " must compile cleanly");
+      assertFalse(result.hasErrors(), "Scale " + scale + " must compile cleanly");
     }
   }
 
   @Test
-  @DisplayName("TC-TMP-03: Rejects invalid unit facet on :TimeEpoch")
+  @DisplayName("TC-TMP-03: Rejects conflicting scale facets on :TimeEpoch")
   void testEpochInvalidUnit() {
     String source = """
         {
           :defs {
-            :Timestamp { #unit #hours } :org/stvnadore/prelude/TimeEpoch
+            :Timestamp { #s #ms } :TimeEpoch
           }
           :type :Timestamp
           :body 1710500000
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Invalid unit #hours must be rejected");
+    assertTrue(result.hasErrors(), "Conflicting scales #s and #ms must be rejected");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, error.errorCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE, error.errorCode().orElse(null));
   }
 
   @Test
@@ -74,7 +74,7 @@ public class StvnTemporalPreludeValidationTest {
     String source = """
         {
           :defs {
-            :EventTime :org/stvnadore/prelude/DateTime
+            :EventTime :DateTime
           }
           :type :EventTime
           :body "2026-03-15T08:00:00Z"
@@ -92,7 +92,7 @@ public class StvnTemporalPreludeValidationTest {
     String source = """
         {
           :defs {
-            :EventTime { #offset #zoned } :org/stvnadore/prelude/DateTime
+            :EventTime { #offset #zoned } :DateTime
           }
           :type :EventTime
           :body "2026-03-15T08:00:00Z"
@@ -110,7 +110,7 @@ public class StvnTemporalPreludeValidationTest {
     String sourceOffset = """
         {
           :defs {
-            :EventTime { #offset } :org/stvnadore/prelude/DateTime
+            :EventTime { #offset } :DateTime
           }
           :type :EventTime
           :body "2026-03-15T08:00:00-05:00"
@@ -121,7 +121,7 @@ public class StvnTemporalPreludeValidationTest {
     String sourceZoned = """
         {
           :defs {
-            :EventTime { #zoned } :org/stvnadore/prelude/DateTime
+            :EventTime { #zoned } :DateTime
           }
           :type :EventTime
           :body "2026-03-15T08:00:00[America/Chicago]"
@@ -132,7 +132,7 @@ public class StvnTemporalPreludeValidationTest {
     String sourceAudited = """
         {
           :defs {
-            :EventTime { #audited } :org/stvnadore/prelude/DateTime
+            :EventTime { #audited } :DateTime
           }
           :type :EventTime
           :body "2026-03-15T08:00:00-05:00[America/Chicago]"

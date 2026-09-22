@@ -102,66 +102,34 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
             }
 
             var firstC = true;
-            
-            var minIncl = constraints.minIncl().orElse(null);
-            if (minIncl != null) {
+
+            // Tier 1: Flags & Intrinsic Modes
+            if (constraints.unsigned()) {
               if (inline) {
                 if (!firstC) layout.appendSeparator();
               } else {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#minIncl");
-              layout.appendSeparator();
-              layout.writeLiteral(minIncl.toString());
+              layout.writeLiteral("#unsigned");
             }
-            var minExcl = constraints.minExcl().orElse(null);
-            if (minExcl != null) {
+            if (constraints.exact()) {
               if (inline) {
                 if (!firstC) layout.appendSeparator();
               } else {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#minExcl");
-              layout.appendSeparator();
-              layout.writeLiteral(minExcl.toString());
+              layout.writeLiteral("#exact");
             }
-            var maxIncl = constraints.maxIncl().orElse(null);
-            if (maxIncl != null) {
+            if (constraints.invertible()) {
               if (inline) {
                 if (!firstC) layout.appendSeparator();
               } else {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#maxIncl");
-              layout.appendSeparator();
-              layout.writeLiteral(maxIncl.toString());
-            }
-            var maxExcl = constraints.maxExcl().orElse(null);
-            if (maxExcl != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral("#maxExcl");
-              layout.appendSeparator();
-              layout.writeLiteral(maxExcl.toString());
-            }
-            var regex = constraints.regex().orElse(null);
-            if (regex != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral("#regex");
-              layout.appendSeparator();
-              layout.writeSimpleString(regex);
+              layout.writeLiteral("#invertible");
             }
             if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
               if (inline) {
@@ -173,6 +141,33 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
               layout.writeLiteral("#preserveIndent");
               layout.appendSeparator();
               layout.writeBoolean(true, options.symbolStyle());
+            }
+            if (constraints.offset()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#offset");
+            }
+            if (constraints.zoned()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#zoned");
+            }
+            if (constraints.audited()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#audited");
             }
             var equatable = constraints.equatable().orElse(null);
             if (equatable != null && constraints.explicitOverrides().contains("equatable")) {
@@ -198,62 +193,21 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
               layout.appendSeparator();
               layout.writeBoolean(comparable, options.symbolStyle());
             }
-            var filterExcl = constraints.filterExcl().orElse(null);
-            if (filterExcl != null) {
+
+            // Tier 2: Temporal Scale
+            var scale = constraints.scale().orElse(null);
+            if (scale != null) {
               if (inline) {
                 if (!firstC) layout.appendSeparator();
               } else {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#filterExcl");
-              layout.appendSeparator();
-              layout.openGroup("[");
-              var firstV = true;
-              for (String v : filterExcl) {
-                if (!firstV) layout.appendSeparator();
-                firstV = false;
-                layout.writeLiteral(v);
-              }
-              layout.closeGroup("]");
+              String scaleKw = scale.startsWith("#") ? scale : "#" + scale;
+              layout.writeLiteral(scaleKw);
             }
-            var filterIncl = constraints.filterIncl().orElse(null);
-            if (filterIncl != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral("#filterIncl");
-              layout.appendSeparator();
-              layout.openGroup("[");
-              var firstV = true;
-              for (String v : filterIncl) {
-                if (!firstV) layout.appendSeparator();
-                firstV = false;
-                layout.writeLiteral(v);
-              }
-              layout.closeGroup("]");
-            }
-            if (constraints.unsigned()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral("#unsigned");
-            }
-            if (constraints.exact()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral("#exact");
-            }
+
+            // Tier 3: Dimensions & Capacity
             var size = constraints.size().orElse(null);
             if (size != null) {
               if (inline) {
@@ -290,53 +244,149 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
               layout.appendSeparator();
               layout.writeLiteral(maxSize.toString());
             }
-            if (constraints.invertible()) {
+
+            // Tier 4: Value Intervals (Lower before Upper)
+            var minIncl = constraints.minIncl().orElse(null);
+            if (minIncl != null) {
               if (inline) {
                 if (!firstC) layout.appendSeparator();
               } else {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#invertible");
-            }
-            var unit = constraints.unit().orElse(null);
-            if (unit != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral("#unit");
+              layout.writeLiteral("#minIncl");
               layout.appendSeparator();
-              layout.writeLiteral(unit.startsWith("#") ? unit : "#" + unit);
-            }
-            if (constraints.offset()) {
+              layout.writeLiteral(minIncl.toString());
+            } else if (constraints.dateMinIncl().isPresent()) {
               if (inline) {
                 if (!firstC) layout.appendSeparator();
               } else {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#offset");
+              layout.writeLiteral("#minIncl");
+              layout.appendSeparator();
+              layout.writeSimpleString(constraints.dateMinIncl().get());
             }
-            if (constraints.zoned()) {
+            var minExcl = constraints.minExcl().orElse(null);
+            if (minExcl != null) {
               if (inline) {
                 if (!firstC) layout.appendSeparator();
               } else {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#zoned");
-            }
-            if (constraints.audited()) {
+              layout.writeLiteral("#minExcl");
+              layout.appendSeparator();
+              layout.writeLiteral(minExcl.toString());
+            } else if (constraints.dateMinExcl().isPresent()) {
               if (inline) {
                 if (!firstC) layout.appendSeparator();
               } else {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#audited");
+              layout.writeLiteral("#minExcl");
+              layout.appendSeparator();
+              layout.writeSimpleString(constraints.dateMinExcl().get());
+            }
+            var maxExcl = constraints.maxExcl().orElse(null);
+            if (maxExcl != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#maxExcl");
+              layout.appendSeparator();
+              layout.writeLiteral(maxExcl.toString());
+            } else if (constraints.dateMaxExcl().isPresent()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#maxExcl");
+              layout.appendSeparator();
+              layout.writeSimpleString(constraints.dateMaxExcl().get());
+            }
+            var maxIncl = constraints.maxIncl().orElse(null);
+            if (maxIncl != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#maxIncl");
+              layout.appendSeparator();
+              layout.writeLiteral(maxIncl.toString());
+            } else if (constraints.dateMaxIncl().isPresent()) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#maxIncl");
+              layout.appendSeparator();
+              layout.writeSimpleString(constraints.dateMaxIncl().get());
+            }
+
+            // Tier 5: Pattern & Text Structure
+            var regex = constraints.regex().orElse(null);
+            if (regex != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#regex");
+              layout.appendSeparator();
+              layout.writeSimpleString(regex);
+            }
+
+            // Tier 6: Set & Variant Membership
+            var filterIncl = constraints.filterIncl().orElse(null);
+            if (filterIncl != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#filterIncl");
+              layout.appendSeparator();
+              layout.openGroup("[");
+              var firstV = true;
+              for (String v : filterIncl) {
+                if (!firstV) layout.appendSeparator();
+                firstV = false;
+                layout.writeLiteral(v);
+              }
+              layout.closeGroup("]");
+            }
+            var filterExcl = constraints.filterExcl().orElse(null);
+            if (filterExcl != null) {
+              if (inline) {
+                if (!firstC) layout.appendSeparator();
+              } else {
+                layout.newline();
+              }
+              firstC = false;
+              layout.writeLiteral("#filterExcl");
+              layout.appendSeparator();
+              layout.openGroup("[");
+              var firstV = true;
+              for (String v : filterExcl) {
+                if (!firstV) layout.appendSeparator();
+                firstV = false;
+                layout.writeLiteral(v);
+              }
+              layout.closeGroup("]");
             }
 
             if (!inline) {
@@ -396,10 +446,10 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
   }
 
   private boolean isConstraintsEmpty(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints c) {
-    var hasMinIncl = c.minIncl().isPresent();
-    var hasMinExcl = c.minExcl().isPresent();
-    var hasMaxIncl = c.maxIncl().isPresent();
-    var hasMaxExcl = c.maxExcl().isPresent();
+    var hasMinIncl = c.minIncl().isPresent() || c.dateMinIncl().isPresent();
+    var hasMinExcl = c.minExcl().isPresent() || c.dateMinExcl().isPresent();
+    var hasMaxIncl = c.maxIncl().isPresent() || c.dateMaxIncl().isPresent();
+    var hasMaxExcl = c.maxExcl().isPresent() || c.dateMaxExcl().isPresent();
     var hasRegex = c.regex().isPresent();
     var hasPreserveIndent = c.preserveIndent() && c.explicitOverrides().contains("preserveIndent");
     var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains("equatable");
@@ -410,7 +460,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         && c.filterIncl().isEmpty() && c.filterExcl().isEmpty()
         && c.size().isEmpty() && !c.unsigned() && !c.exact()
         && c.minSize().isEmpty() && c.maxSize().isEmpty() && !c.invertible()
-        && c.unit().isEmpty() && !c.offset() && !c.zoned() && !c.audited();
+        && c.scale().isEmpty() && !c.offset() && !c.zoned() && !c.audited();
   }
 
   private void writeSchemaType(StvnParser.SchemaTypeContext node, LayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext) throws IOException {
@@ -486,10 +536,10 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
 
   private int countConstraints(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints c) {
     var count = 0;
-    if (c.minIncl().isPresent()) count++;
-    if (c.minExcl().isPresent()) count++;
-    if (c.maxIncl().isPresent()) count++;
-    if (c.maxExcl().isPresent()) count++;
+    if (c.minIncl().isPresent() || c.dateMinIncl().isPresent()) count++;
+    if (c.minExcl().isPresent() || c.dateMinExcl().isPresent()) count++;
+    if (c.maxIncl().isPresent() || c.dateMaxIncl().isPresent()) count++;
+    if (c.maxExcl().isPresent() || c.dateMaxExcl().isPresent()) count++;
     if (c.regex().isPresent()) count++;
     if (c.preserveIndent() && c.explicitOverrides().contains("preserveIndent")) count++;
     if (c.equatable().isPresent() && c.explicitOverrides().contains("equatable")) count++;
@@ -502,7 +552,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
     if (c.minSize().isPresent()) count++;
     if (c.maxSize().isPresent()) count++;
     if (c.invertible()) count++;
-    if (c.unit().isPresent()) count++;
+    if (c.scale().isPresent()) count++;
     if (c.offset()) count++;
     if (c.zoned()) count++;
     if (c.audited()) count++;

@@ -1160,28 +1160,20 @@ public class StvnTypeResolver {
   }
 
   private static final Set<String> TYPES_TIME = Set.of(
-      ":TimeEpoch",
-      ":org/stvnadore/prelude/TimeEpoch",
-      ":TimeEpochS",
-      ":TimeEpochMs",
-      ":TimeEpochNs");
+      ":TimeEpoch");
 
   private static boolean isTimeEpochType(String type) {
     return TYPES_TIME.contains(type);
   }
 
   private static final Set<String> TYPES_DATE_TIME = Set.of(
-      ":DateTime",
-      ":org/stvnadore/prelude/DateTime",
-      ":DateTimeOffset",
-      ":DateTimeZoned",
-      ":DateTimeAudited");
+      ":DateTime");
 
   /**
    * Tests whether a type name represents a temporal date-time scalar.
    *
-   * @param type the type name keyword token (e.g. {@code ":DateTimeOffset"})
-   * @return true if the type is one of the tripartite date-time types
+   * @param type the type name keyword token (e.g. {@code ":DateTime"})
+   * @return true if the type is a temporal date-time scalar
    */
   public static boolean isDateTimeType(String type) {
     return TYPES_DATE_TIME.contains(type);
@@ -1267,10 +1259,14 @@ public class StvnTypeResolver {
    * @param minSize           optional minimum collection or string cardinality
    * @param maxSize           optional maximum collection or string cardinality
    * @param invertible        if true, map is bidirectional and invertible
-   * @param unit              optional temporal epoch time unit (s, ms, ns)
+   * @param scale             optional temporal epoch scale flag (#s, #ms, #us, #ns)
    * @param offset            if true, temporal datetime has numerical offset
    * @param zoned             if true, temporal datetime has timezone identifier
    * @param audited           if true, temporal datetime retains full audited representation
+   * @param dateMinIncl       optional inclusive minimum ISO-8601 boundary
+   * @param dateMinExcl       optional exclusive minimum ISO-8601 boundary
+   * @param dateMaxIncl       optional inclusive maximum ISO-8601 boundary
+   * @param dateMaxExcl       optional exclusive maximum ISO-8601 boundary
    */
   public record StvnConstraints(
       Optional<BigDecimal> minIncl,
@@ -1290,10 +1286,14 @@ public class StvnTypeResolver {
       Optional<Integer> minSize,
       Optional<Integer> maxSize,
       boolean invertible,
-      Optional<String> unit,
+      Optional<String> scale,
       boolean offset,
       boolean zoned,
-      boolean audited
+      boolean audited,
+      Optional<String> dateMinIncl,
+      Optional<String> dateMinExcl,
+      Optional<String> dateMaxIncl,
+      Optional<String> dateMaxExcl
   ) {
     /**
      * Backward-compatible 9-parameter constructor defaulting filterIncl, filterExcl, and 2.0.0 facets to empty.
@@ -1320,7 +1320,8 @@ public class StvnTypeResolver {
         @Nullable List<String> explicitOverrides
     ) {
       this(minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides, Optional.empty(), Optional.empty(),
-          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false);
+          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false,
+          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     /**
@@ -1352,11 +1353,12 @@ public class StvnTypeResolver {
         Optional<List<String>> filterExcl
     ) {
       this(minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides, filterIncl, filterExcl,
-          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false);
+          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false,
+          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     /**
-     * Canonical constructor validating that all optional parameters are non-null and copying lists.
+     * Backward-compatible 21-parameter constructor from 2.0.0-M1.
      *
      * @param minIncl           optional inclusive minimum value boundary
      * @param minExcl           optional exclusive minimum value boundary
@@ -1375,7 +1377,7 @@ public class StvnTypeResolver {
      * @param minSize           optional minimum collection or string cardinality
      * @param maxSize           optional maximum collection or string cardinality
      * @param invertible        if true, map is bidirectional and invertible
-     * @param unit              optional temporal epoch time unit (s, ms, ns)
+     * @param scale             optional temporal epoch scale (s, ms, us, ns)
      * @param offset            if true, temporal datetime has numerical offset
      * @param zoned             if true, temporal datetime has timezone identifier
      * @param audited           if true, temporal datetime retains full audited representation
@@ -1398,10 +1400,71 @@ public class StvnTypeResolver {
         Optional<Integer> minSize,
         Optional<Integer> maxSize,
         boolean invertible,
-        Optional<String> unit,
+        Optional<String> scale,
         boolean offset,
         boolean zoned,
         boolean audited
+    ) {
+      this(minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides, filterIncl, filterExcl,
+          size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
+          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    /**
+     * Canonical constructor validating that all optional parameters are non-null and copying lists.
+     *
+     * @param minIncl           optional inclusive minimum value boundary
+     * @param minExcl           optional exclusive minimum value boundary
+     * @param maxIncl           optional inclusive maximum value boundary
+     * @param maxExcl           optional exclusive maximum value boundary
+     * @param regex             optional regular expression pattern to validate strings
+     * @param preserveIndent    if true, preserves formatting indentation for multi-line block strings
+     * @param equatable         optional user override for the {@code #equatable} trait
+     * @param comparable        optional user override for the {@code #comparable} trait
+     * @param explicitOverrides list of explicit traits overridden by the developer
+     * @param filterIncl        optional immutable list of variants included in enum subset
+     * @param filterExcl        optional immutable list of variants excluded from enum subset
+     * @param size              optional bit-width or size constraint
+     * @param unsigned          if true, integer type is unsigned
+     * @param exact             if true, float type enforces exact arbitrary-precision decimal representation
+     * @param minSize           optional minimum collection or string cardinality
+     * @param maxSize           optional maximum collection or string cardinality
+     * @param invertible        if true, map is bidirectional and invertible
+     * @param scale             optional temporal epoch scale (s, ms, us, ns)
+     * @param offset            if true, temporal datetime has numerical offset
+     * @param zoned             if true, temporal datetime has timezone identifier
+     * @param audited           if true, temporal datetime retains full audited representation
+     * @param dateMinIncl       optional inclusive minimum date string boundary
+     * @param dateMinExcl       optional exclusive minimum date string boundary
+     * @param dateMaxIncl       optional inclusive maximum date string boundary
+     * @param dateMaxExcl       optional exclusive maximum date string boundary
+     */
+    public StvnConstraints(
+        Optional<BigDecimal> minIncl,
+        Optional<BigDecimal> minExcl,
+        Optional<BigDecimal> maxIncl,
+        Optional<BigDecimal> maxExcl,
+        Optional<String> regex,
+        boolean preserveIndent,
+        Optional<Boolean> equatable,
+        Optional<Boolean> comparable,
+        @Nullable List<String> explicitOverrides,
+        Optional<List<String>> filterIncl,
+        Optional<List<String>> filterExcl,
+        Optional<Integer> size,
+        boolean unsigned,
+        boolean exact,
+        Optional<Integer> minSize,
+        Optional<Integer> maxSize,
+        boolean invertible,
+        Optional<String> scale,
+        boolean offset,
+        boolean zoned,
+        boolean audited,
+        Optional<String> dateMinIncl,
+        Optional<String> dateMinExcl,
+        Optional<String> dateMaxIncl,
+        Optional<String> dateMaxExcl
     ) {
       this.minIncl = java.util.Objects.requireNonNull(minIncl);
       this.minExcl = java.util.Objects.requireNonNull(minExcl);
@@ -1422,10 +1485,23 @@ public class StvnTypeResolver {
       this.minSize = java.util.Objects.requireNonNull(minSize);
       this.maxSize = java.util.Objects.requireNonNull(maxSize);
       this.invertible = invertible;
-      this.unit = java.util.Objects.requireNonNull(unit);
+      this.scale = java.util.Objects.requireNonNull(scale);
       this.offset = offset;
       this.zoned = zoned;
       this.audited = audited;
+      this.dateMinIncl = java.util.Objects.requireNonNull(dateMinIncl);
+      this.dateMinExcl = java.util.Objects.requireNonNull(dateMinExcl);
+      this.dateMaxIncl = java.util.Objects.requireNonNull(dateMaxIncl);
+      this.dateMaxExcl = java.util.Objects.requireNonNull(dateMaxExcl);
+    }
+
+    /**
+     * Backward-compatible accessor delegating to {@link #scale()}.
+     *
+     * @return the scale facet value, or empty
+     */
+    public Optional<String> unit() {
+      return scale;
     }
 
     /**
@@ -1438,7 +1514,8 @@ public class StvnTypeResolver {
           Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
           Optional.empty(), false, Optional.empty(), Optional.empty(), java.util.List.of(),
           Optional.empty(), Optional.empty(),
-          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false
+          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false,
+          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()
       );
     }
 
@@ -1451,7 +1528,8 @@ public class StvnTypeResolver {
     public StvnConstraints withSize(int bitWidth) {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
-          filterIncl, filterExcl, Optional.of(bitWidth), unsigned, exact, minSize, maxSize, invertible, unit, offset, zoned, audited
+          filterIncl, filterExcl, Optional.of(bitWidth), unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
+          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );
     }
 
@@ -1464,7 +1542,8 @@ public class StvnTypeResolver {
     public StvnConstraints withUnsigned(boolean isUnsigned) {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
-          filterIncl, filterExcl, size, isUnsigned, exact, minSize, maxSize, invertible, unit, offset, zoned, audited
+          filterIncl, filterExcl, size, isUnsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
+          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );
     }
 
@@ -1477,7 +1556,8 @@ public class StvnTypeResolver {
     public StvnConstraints withExact(boolean isExact) {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
-          filterIncl, filterExcl, size, unsigned, isExact, minSize, maxSize, invertible, unit, offset, zoned, audited
+          filterIncl, filterExcl, size, unsigned, isExact, minSize, maxSize, invertible, scale, offset, zoned, audited,
+          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );
     }
 
@@ -1490,7 +1570,8 @@ public class StvnTypeResolver {
     public StvnConstraints withInvertible(boolean isInvertible) {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
-          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, isInvertible, unit, offset, zoned, audited
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, isInvertible, scale, offset, zoned, audited,
+          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );
     }
 
@@ -1503,7 +1584,8 @@ public class StvnTypeResolver {
     public StvnConstraints withRegex(Optional<String> regex) {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
-          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, unit, offset, zoned, audited
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
+          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );
     }
 
@@ -1517,7 +1599,8 @@ public class StvnTypeResolver {
     public StvnConstraints withPreserveIndent(boolean preserveIndent, List<String> explicitOverrides) {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
-          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, unit, offset, zoned, audited
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
+          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );
     }
 
@@ -1532,7 +1615,8 @@ public class StvnTypeResolver {
     public StvnConstraints withTraits(Optional<Boolean> equatable, Optional<Boolean> comparable, List<String> explicitOverrides) {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
-          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, unit, offset, zoned, audited
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
+          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );
     }
 
@@ -1568,6 +1652,29 @@ public class StvnTypeResolver {
       } else {
         resMaxIncl = inner.maxIncl;
         resMaxExcl = inner.maxExcl;
+      }
+
+      Optional<String> resDateMinIncl = Optional.empty();
+      Optional<String> resDateMinExcl = Optional.empty();
+      Optional<String> resDateMaxIncl = Optional.empty();
+      Optional<String> resDateMaxExcl = Optional.empty();
+
+      if (this.dateMinIncl.isPresent()) {
+        resDateMinIncl = this.dateMinIncl;
+      } else if (this.dateMinExcl.isPresent()) {
+        resDateMinExcl = this.dateMinExcl;
+      } else {
+        resDateMinIncl = inner.dateMinIncl;
+        resDateMinExcl = inner.dateMinExcl;
+      }
+
+      if (this.dateMaxIncl.isPresent()) {
+        resDateMaxIncl = this.dateMaxIncl;
+      } else if (this.dateMaxExcl.isPresent()) {
+        resDateMaxExcl = this.dateMaxExcl;
+      } else {
+        resDateMaxIncl = inner.dateMaxIncl;
+        resDateMaxExcl = inner.dateMaxExcl;
       }
 
       var mergedOverrides = new java.util.LinkedHashSet<String>();
@@ -1607,9 +1714,9 @@ public class StvnTypeResolver {
           ? this.maxSize
           : inner.maxSize;
       boolean resInvertible = this.explicitOverrides.contains("invertible") ? this.invertible : (this.invertible || inner.invertible);
-      Optional<String> resUnit = this.explicitOverrides.contains("unit") || this.unit.isPresent()
-          ? this.unit
-          : inner.unit;
+      Optional<String> resScale = this.explicitOverrides.contains("scale") || this.explicitOverrides.contains("unit") || this.scale.isPresent()
+          ? this.scale
+          : inner.scale;
       boolean resOffset = this.explicitOverrides.contains("offset") ? this.offset : (this.offset || inner.offset);
       boolean resZoned = this.explicitOverrides.contains("zoned") ? this.zoned : (this.zoned || inner.zoned);
       boolean resAudited = this.explicitOverrides.contains("audited") ? this.audited : (this.audited || inner.audited);
@@ -1629,10 +1736,14 @@ public class StvnTypeResolver {
           resMinSize,
           resMaxSize,
           resInvertible,
-          resUnit,
+          resScale,
           resOffset,
           resZoned,
-          resAudited
+          resAudited,
+          resDateMinIncl,
+          resDateMinExcl,
+          resDateMaxIncl,
+          resDateMaxExcl
       );
     }
 
@@ -1863,10 +1974,11 @@ public class StvnTypeResolver {
     Integer minSize = null;
     Integer maxSize = null;
     boolean invertible = false;
-    String unit = null;
+    String scale = null;
     boolean offset = false;
     boolean zoned = false;
     boolean audited = false;
+    String dateMinIncl = null, dateMinExcl = null, dateMaxIncl = null, dateMaxExcl = null;
 
     for (StvnParser.MetadataEntryContext entry : metadataMap.metadataEntry()) {
       if (entry.metadataFilter() != null) {
@@ -1884,14 +1996,17 @@ public class StvnTypeResolver {
           filterExcl = list;
           explicitOverrides.add("filterExcl");
         }
-      } else if (entry.metadataNum() != null) {
-        var numCtx = entry.metadataNum();
+      } else if (entry.metadataRange() != null) {
+        var numCtx = entry.metadataRange();
         BigDecimal val = null;
+        String dateVal = null;
         if (numCtx.metadataValue() != null) {
           if (numCtx.metadataValue().integerLiteral() != null)
             val = new BigDecimal(numCtx.metadataValue().integerLiteral().getText());
           else if (numCtx.metadataValue().floatLiteral() != null)
             val = new BigDecimal(numCtx.metadataValue().floatLiteral().getText());
+          else if (numCtx.metadataValue().stringLiteral() != null)
+            dateVal = extractRawStringValue(numCtx.metadataValue().stringLiteral().getText());
         }
 
         if (val != null) {
@@ -1899,6 +2014,12 @@ public class StvnTypeResolver {
           else if (numCtx.KW_MIN_EXCL() != null) minExcl = val;
           else if (numCtx.KW_MAX_INCL() != null) maxIncl = val;
           else if (numCtx.KW_MAX_EXCL() != null) maxExcl = val;
+        }
+        if (dateVal != null) {
+          if (numCtx.KW_MIN_INCL() != null) dateMinIncl = dateVal;
+          else if (numCtx.KW_MIN_EXCL() != null) dateMinExcl = dateVal;
+          else if (numCtx.KW_MAX_INCL() != null) dateMaxIncl = dateVal;
+          else if (numCtx.KW_MAX_EXCL() != null) dateMaxExcl = dateVal;
         }
       } else if (entry.metadataString() != null) {
         var strCtx = entry.metadataString();
@@ -1967,12 +2088,18 @@ public class StvnTypeResolver {
         } else if (flagCtx.KW_AUDITED() != null) {
           audited = flagVal;
           explicitOverrides.add("audited");
-        }
-      } else if (entry.metadataUnit() != null) {
-        var unitCtx = entry.metadataUnit();
-        if (unitCtx.valueKeyword() != null) {
-          unit = unitCtx.valueKeyword().getText();
-          explicitOverrides.add("unit");
+        } else if (flagCtx.KW_SCALE_S() != null) {
+          scale = "s";
+          explicitOverrides.add("scale");
+        } else if (flagCtx.KW_SCALE_MS() != null) {
+          scale = "ms";
+          explicitOverrides.add("scale");
+        } else if (flagCtx.KW_SCALE_US() != null) {
+          scale = "us";
+          explicitOverrides.add("scale");
+        } else if (flagCtx.KW_SCALE_NS() != null) {
+          scale = "ns";
+          explicitOverrides.add("scale");
         }
       }
     }
@@ -1994,10 +2121,14 @@ public class StvnTypeResolver {
         Optional.ofNullable(minSize),
         Optional.ofNullable(maxSize),
         invertible,
-        Optional.ofNullable(unit),
+        Optional.ofNullable(scale),
         offset,
         zoned,
-        audited
+        audited,
+        Optional.ofNullable(dateMinIncl),
+        Optional.ofNullable(dateMinExcl),
+        Optional.ofNullable(dateMaxIncl),
+        Optional.ofNullable(dateMaxExcl)
     );
   }
 
@@ -3704,8 +3835,8 @@ public class StvnTypeResolver {
     var hasFilterExcl = false;
 
     for (var entry : metadataMap.metadataEntry()) {
-      if (entry.metadataNum() != null) {
-        var numCtx = entry.metadataNum();
+      if (entry.metadataRange() != null) {
+        var numCtx = entry.metadataRange();
         if (numCtx.KW_MIN_INCL() != null) hasMinIncl = true;
         if (numCtx.KW_MIN_EXCL() != null) hasMinExcl = true;
         if (numCtx.KW_MAX_INCL() != null) hasMaxIncl = true;
@@ -3752,6 +3883,7 @@ public class StvnTypeResolver {
     }
 
     StvnParser.MetadataFlagContext firstModeCtx = null;
+    StvnParser.MetadataFlagContext firstScaleCtx = null;
     for (var entry : metadataMap.metadataEntry()) {
       if (entry.metadataFlag() != null) {
         var flag = entry.metadataFlag();
@@ -3761,6 +3893,21 @@ public class StvnTypeResolver {
           } else {
             diagnosticBag.addError(
                 "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive",
+                flag.getStart().getStartIndex(),
+                flag.getStop().getStopIndex() + 1,
+                flag.getStart().getLine(),
+                flag.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+          }
+        }
+        if (flag.KW_SCALE_S() != null || flag.KW_SCALE_MS() != null || flag.KW_SCALE_US() != null || flag.KW_SCALE_NS() != null) {
+          if (firstScaleCtx == null) {
+            firstScaleCtx = flag;
+          } else {
+            diagnosticBag.addError(
+                "Temporal scale facets (#s, #ms, #us, #ns) are mutually exclusive",
                 flag.getStart().getStartIndex(),
                 flag.getStop().getStopIndex() + 1,
                 flag.getStart().getLine(),
@@ -3784,18 +3931,20 @@ public class StvnTypeResolver {
     var isIntegerType = isIntegerType(baseType);
     var isFloatType = isFloatType(baseType);
     var isStringType = isStringType(baseType);
-    var isNumeric = isIntegerType || isFloatType;
+    var isTimeEpoch = isTimeEpochType(baseType);
+    var isDateTime = isDateTimeType(baseType);
+    var isNumeric = isIntegerType || isFloatType || isTimeEpoch;
 
     for (var entry : metadataMap.metadataEntry()) {
-      if (entry.metadataNum() != null) {
-        var numCtx = entry.metadataNum();
+      if (entry.metadataRange() != null) {
+        var numCtx = entry.metadataRange();
         var constraintName = "";
         if (numCtx.KW_MIN_INCL() != null) constraintName = "minIncl";
         else if (numCtx.KW_MIN_EXCL() != null) constraintName = "minExcl";
         else if (numCtx.KW_MAX_INCL() != null) constraintName = "maxIncl";
         else if (numCtx.KW_MAX_EXCL() != null) constraintName = "maxExcl";
 
-        if (!isNumeric) {
+        if (!isNumeric && !isDateTime) {
           diagnosticBag.addError(
               "Constraint violation (" + name + "): facet '" + constraintName + "' is not permitted on " + baseType + "; permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]",
               numCtx.getStart().getStartIndex(),
@@ -3808,12 +3957,15 @@ public class StvnTypeResolver {
         }
 
         var consolidatedConstraints = extractConstraints(metadataMap).merge(resolved.constraints());
-        // Enforce discrete half-open intervals: :Int and { #exact } :Float reject #maxIncl and #minExcl
-        if ((isIntegerType || (isFloatType && consolidatedConstraints.exact())) &&
+        // Enforce discrete half-open intervals: :Int, { #exact } :Float, :TimeEpoch, :DateTime reject #maxIncl and #minExcl
+        boolean isDiscrete = isIntegerType || (isFloatType && consolidatedConstraints.exact()) || isTimeEpoch || isDateTime;
+        if (isDiscrete &&
             (numCtx.KW_MAX_INCL() != null || numCtx.KW_MIN_EXCL() != null)) {
           var illegalFacet = numCtx.KW_MAX_INCL() != null ? "#maxIncl" : "#minExcl";
           var suggested = numCtx.KW_MAX_INCL() != null ? "#maxExcl" : "#minIncl";
-          var typeDesc = isIntegerType ? "Discrete type ':Int'" : "Discrete exact float '{ #exact } :Float'";
+          var typeDesc = isTimeEpoch ? "Discrete temporal type ':TimeEpoch'" :
+              (isDateTime ? "Discrete temporal type ':DateTime'" :
+              (isIntegerType ? "Discrete type ':Int'" : "Discrete exact float '{ #exact } :Float'"));
           diagnosticBag.addError(
               typeDesc + " prohibits bound '" + illegalFacet + "'; use half-open bound '" + suggested + "'",
               numCtx.getStart().getStartIndex(),
@@ -3835,7 +3987,15 @@ public class StvnTypeResolver {
         int mvLine = mv.getStart().getLine();
         int mvCol = mv.getStart().getCharPositionInLine();
 
-        if (isIntegerType) {
+        if (isDateTime) {
+          if (mv.stringLiteral() == null) {
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): #" + constraintName + " for " + baseType + " requires a string literal",
+                mvStart, mvEnd, mvLine, mvCol, null,
+                DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+            );
+          }
+        } else if (isIntegerType) {
           if (mv.integerLiteral() == null) {
             if (mv.booleanLiteral() != null) {
               diagnosticBag.addError(
@@ -4038,8 +4198,8 @@ public class StvnTypeResolver {
       }
 
       for (var entry : metadataMap.metadataEntry()) {
-        if (entry.metadataNum() != null) {
-          var numCtx = entry.metadataNum();
+        if (entry.metadataRange() != null) {
+          var numCtx = entry.metadataRange();
           var constraintName = "";
           if (numCtx.KW_MIN_INCL() != null) constraintName = "minIncl";
           else if (numCtx.KW_MIN_EXCL() != null) constraintName = "minExcl";
@@ -4109,8 +4269,8 @@ public class StvnTypeResolver {
         }
 
         for (var entry : metadataMap.metadataEntry()) {
-          if (entry.metadataNum() != null) {
-            var numCtx = entry.metadataNum();
+          if (entry.metadataRange() != null) {
+            var numCtx = entry.metadataRange();
             var constraintName = "";
             if (numCtx.KW_MIN_INCL() != null) constraintName = "minIncl";
             else if (numCtx.KW_MIN_EXCL() != null) constraintName = "minExcl";
@@ -4182,8 +4342,8 @@ public class StvnTypeResolver {
       DiagnosticBag diagnosticBag) {
     if (schemaType == null) return;
     String typeText = schemaType.getText();
-    boolean isEpoch = typeText.equals(":TimeEpoch") || typeText.equals(":org/stvnadore/prelude/TimeEpoch") || typeText.endsWith("/TimeEpoch");
-    boolean isDateTime = typeText.equals(":DateTime") || typeText.equals(":org/stvnadore/prelude/DateTime") || typeText.endsWith("/DateTime");
+    boolean isEpoch = typeText.equals(":TimeEpoch");
+    boolean isDateTime = typeText.equals(":DateTime");
     if (!isEpoch && !isDateTime) return;
 
     var localConstraints = extractConstraints(metadataMap);
@@ -4195,17 +4355,17 @@ public class StvnTypeResolver {
     int col = schemaType.getStart().getCharPositionInLine();
 
     if (isEpoch) {
-      if (!consolidated.unit().isPresent()) {
+      if (!consolidated.scale().isPresent()) {
         diagnosticBag.addError(
-            "Temporal type ':TimeEpoch' requires a unit facet: '#unit #s', '#unit #ms', or '#unit #ns'",
+            "Temporal type ':TimeEpoch' requires a scale facet: '#s', '#ms', '#us', or '#ns'",
             start, end, line, col, null,
             DiagnosticBag.ERR_MISSING_TEMPORAL_FACET
         );
       } else {
-        String u = consolidated.unit().get();
-        if (!u.equals("#s") && !u.equals("#ms") && !u.equals("#ns") && !u.equals("s") && !u.equals("ms") && !u.equals("ns")) {
+        String u = consolidated.scale().get();
+        if (!u.equals("#s") && !u.equals("#ms") && !u.equals("#us") && !u.equals("#ns") && !u.equals("s") && !u.equals("ms") && !u.equals("us") && !u.equals("ns")) {
           diagnosticBag.addError(
-              "Invalid unit facet '" + u + "' for ':TimeEpoch'; permitted units: [#s, #ms, #ns]",
+              "Invalid scale facet '" + u + "' for ':TimeEpoch'; permitted scales: [#s, #ms, #us, #ns]",
               start, end, line, col, null,
               DiagnosticBag.ERR_INVALID_METADATA_FACET
           );
@@ -4472,7 +4632,7 @@ public class StvnTypeResolver {
       return "Compound collection keyword ':MapInvNonEmpty' is deprecated in 2.0.0; use '{ #invertible #minSize 1 } :Map'";
     }
     if (unqualified.matches("^:TimeEpoch[A-Za-z0-9_]+$")) {
-      return "Legacy temporal epoch keyword is deprecated in 2.0.0; use ':TimeEpoch' with mandatory facet '{ #unit #s }', '{ #unit #ms }', or '{ #unit #ns }'";
+      return "Legacy temporal epoch keyword is deprecated in 2.0.0; use ':TimeEpoch' with mandatory facet '{ #s }', '{ #ms }', '{ #us }', or '{ #ns }'";
     }
     if (unqualified.equals(":DateTimeOffset") || unqualified.equals(":DateTimeZoned") || unqualified.equals(":DateTimeAudited")) {
       return "Legacy datetime keyword is deprecated in 2.0.0; use ':DateTime' with mode facet '{ #offset }', '{ #zoned }', or '{ #audited }'";

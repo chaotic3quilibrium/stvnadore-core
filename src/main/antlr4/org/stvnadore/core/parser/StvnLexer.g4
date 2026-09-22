@@ -49,10 +49,14 @@ KW_EXACT           : '#exact' ;
 KW_MIN_SIZE        : '#minSize' ;
 KW_MAX_SIZE        : '#maxSize' ;
 KW_INVERTIBLE      : '#invertible' ;
-KW_UNIT            : '#unit' ;
 KW_OFFSET          : '#offset' ;
 KW_ZONED           : '#zoned' ;
 KW_AUDITED         : '#audited' ;
+
+KW_SCALE_S         : '#s' ;
+KW_SCALE_MS        : '#ms' ;
+KW_SCALE_US        : '#us' ;
+KW_SCALE_NS        : '#ns' ;
 
 KW_TUPLE     : ':Tuple' ;
 KW_ENUM      : ':Enum' ;
@@ -80,6 +84,8 @@ ATOM_BOOLEAN          : ':Boolean' ;
 ATOM_INT              : ':Int' ;
 ATOM_FLOAT            : ':Float' ;
 ATOM_STRING           : ':String' ;
+ATOM_TIME_EPOCH       : ':TimeEpoch' ;
+ATOM_DATE_TIME        : ':DateTime' ;
 
 COLL_SEQ               : ':Seq' ;
 COLL_SET               : ':Set' ;

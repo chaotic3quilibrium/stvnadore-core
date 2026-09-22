@@ -1,0 +1,7 @@
+{
+  :defs {
+    :ConflictingEpoch { #s #ms } :TimeEpoch
+  }
+  :type :ConflictingEpoch
+  :body 1710500000
+}

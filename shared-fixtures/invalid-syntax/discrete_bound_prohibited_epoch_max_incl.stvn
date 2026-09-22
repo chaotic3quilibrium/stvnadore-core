@@ -1,0 +1,7 @@
+{
+  :defs {
+    :Timestamp { #s #minIncl 0 #maxIncl 1000 } :TimeEpoch
+  }
+  :type :Timestamp
+  :body 500
+}

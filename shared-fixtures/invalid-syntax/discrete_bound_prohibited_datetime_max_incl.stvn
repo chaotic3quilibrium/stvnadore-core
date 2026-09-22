@@ -1,0 +1,7 @@
+{
+  :defs {
+    :EventTime { #maxIncl "2026-12-31T23:59:59Z" } :DateTime
+  }
+  :type :EventTime
+  :body "2026-06-01T12:00:00Z"
+}

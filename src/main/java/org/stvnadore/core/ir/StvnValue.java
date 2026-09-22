@@ -346,7 +346,7 @@ public sealed interface StvnValue {
      */
     public StvnTime(ResolvedSchema schema, long epochValue, TimeKind kind) {
       this(schema, BigInteger.valueOf(epochValue), kind);
-      if (kind != TimeKind.EPOCH_S && kind != TimeKind.EPOCH_MS && kind != TimeKind.EPOCH_NS) {
+      if (kind != TimeKind.EPOCH_S && kind != TimeKind.EPOCH_MS && kind != TimeKind.EPOCH_US && kind != TimeKind.EPOCH_NS) {
         throw new IllegalArgumentException("Invalid State: Numeric payloads can only be paired with EPOCH TimeKinds. Received: " + kind);
       }
     }
@@ -510,6 +510,8 @@ public sealed interface StvnValue {
     EPOCH_S,
     /** Unix epoch tracking standard milliseconds (64-bit integer representation). */
     EPOCH_MS,
+    /** Unix epoch tracking standard microseconds (64-bit integer representation). */
+    EPOCH_US,
     /** Unix epoch tracking arbitrary nanoseconds (BigInteger representation). */
     EPOCH_NS,
     /** ISO-8601 date-time with a direct numerical timezone offset (e.g. +05:00). */

@@ -38,34 +38,31 @@ TypeRegistry:
           node: :Map(:String:Int)
   - :UtcTimestamp
       schema:
-        node: :String
+        node: :DateTime
         aliasName: :UtcTimestamp
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
-          aliasName: :org/stvnadore/prelude/DateTime
+          node: :DateTime
   - :JurisdictionTime
       schema:
-        node: :String
+        node: :DateTime
         aliasName: :JurisdictionTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
-          aliasName: :org/stvnadore/prelude/DateTime
+          node: :DateTime
   - :AuditedEventTime
       schema:
-        node: :String
+        node: :DateTime
         aliasName: :AuditedEventTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
-          aliasName: :org/stvnadore/prelude/DateTime
+          node: :DateTime
   - <:type>
       schema:
         node: :Tuple(:IndentedBlock:UnsignedPort:ExactCurrency:BijectiveRegistry:UtcTimestamp:JurisdictionTime:AuditedEventTime)

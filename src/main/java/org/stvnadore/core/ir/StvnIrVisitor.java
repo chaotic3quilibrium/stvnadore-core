@@ -422,12 +422,13 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   private StvnValue buildIntegerOrTime(StvnParser.IntegerLiteralContext ctx, ResolvedSchema schema, String baseType, String aliasOrBase) {
     var rawValue = StvnLiteralParser.parseBigInteger(ctx.getText());
     boolean isTimeEpoch = baseType.equals(":TimeEpoch") || baseType.equals(":TimeEpochS") || baseType.equals(":TimeEpochMs") || baseType.equals(":TimeEpochNs")
-        || (schema != null && (schema.constraints().unit().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch"))));
+        || (schema != null && (schema.constraints().scale().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch"))));
     if (isTimeEpoch) {
       TimeKind kind = TimeKind.EPOCH_S;
-      if (schema != null && schema.constraints().unit().isPresent()) {
-        String u = schema.constraints().unit().get();
-        if (u.contains("ms")) kind = TimeKind.EPOCH_MS;
+      if (schema != null && schema.constraints().scale().isPresent()) {
+        String u = schema.constraints().scale().get();
+        if (u.contains("us")) kind = TimeKind.EPOCH_US;
+        else if (u.contains("ms")) kind = TimeKind.EPOCH_MS;
         else if (u.contains("ns")) kind = TimeKind.EPOCH_NS;
         else kind = TimeKind.EPOCH_S;
       } else if (baseType.equals(":TimeEpochMs")) {

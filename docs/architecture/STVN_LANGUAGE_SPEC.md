@@ -1,4 +1,4 @@
-﻿# STVN Language Specification
+# STVN Language Specification
 
 - **Version:** 2.0.0-PROPOSAL
 - **Document ID:** `STVN-SPEC-LANG-02`
@@ -678,20 +678,24 @@ When a payload value targets an enum subset type:
 
 ### 5.1 Scalar Primitives & Arbitrary Bit-Widths (Orthogonal Scalar Kernel)
 
-STVN Version 2.0.0 eliminates all compound scalar keywords (`:Int32`, `:Uint16`, `:FloatExact`, `:StringFixed36`, `:StringNonEmpty64`). The type system provides four orthogonal base types:
+STVN Version 2.0.0 eliminates all compound scalar keywords (`:Int32`, `:Uint16`, `:FloatExact`, `:StringFixed36`, `:StringNonEmpty64`). The core type system provides six orthogonal base kernel types:
 1. `:Boolean` (Truth values)
 2. `:Int` (Arbitrary-precision signed and unsigned integers)
 3. `:Float` (Machine floating-point and arbitrary-precision decimal numbers)
 4. `:String` (UTF-8 character sequences)
+5. `:TimeEpoch` (Physical discrete epoch tick duration timestamps)
+6. `:DateTime` (Civil calendar and wall-clock timestamps)
 
-Physical machine bit-width, signedness, arithmetic precision, and length bounds attach strictly as orthogonal metadata facets inside `{ ... }`.
+Physical machine bit-width, signedness, arithmetic precision, temporal scale, temporal modes, and length bounds attach strictly as orthogonal metadata facets inside `{ ... }`.
 
 | Base Token | Compiled Base Type | Governing Facets | Semantic Invariant |
 |:---|:---|:---|:---|
 | **`:Int`** | `:Int` | `#size <bits>`, `#unsigned`, `#minIncl`, `#maxExcl` | Arbitrary bit-width signed/unsigned integer. Enforces discrete half-open intervals $[minIncl, maxExcl)$. |
-| **`:Float`** | `:Float` | `#size 32\|64`, `#exact`, continuous boundary facets | IEEE-754 machine float (32 or 64-bit) or exact decimal (`#exact`). Continuous domains permit all four bound facets. |
+| **`:Float`** | `:Float` | `#size 32\|64`, `#exact`, continuous boundary facets | IEEE-754 machine float (32 or 64-bit) or exact decimal (`#exact`). Continuous domains permit all four bound facets; `{ #exact }` enforces discrete half-open intervals $[minIncl, maxExcl)$. |
 | **`:String`** | `:String` | `#minSize`, `#maxSize`, `#regex`, `#preserveIndent` | Variable-length UTF-8 character string. Character cardinality governed strictly via `#minSize` and `#maxSize`. `#size` is prohibited. |
 | **`:Boolean`** | `:Boolean` | `#equatable` | Two-element boolean algebra (`#TRUE`/`#T`, `#FALSE`/`#F`). |
+| **`:TimeEpoch`** | `:TimeEpoch` | `#s`, `#ms`, `#us`, `#ns`, `#minIncl`, `#maxExcl` | Discrete physical elapsed ticks since Unix Epoch (`1970-01-01T00:00:00Z`). Requires exactly one mutually exclusive scale flag. Enforces discrete half-open intervals $[minIncl, maxExcl)$ on physical tick values. |
+| **`:DateTime`** | `:DateTime` | `#offset`, `#zoned`, `#audited`, `#minIncl`, `#maxExcl` | Civil calendar and wall-clock instant. Requires exactly one mutually exclusive mode flag. Enforces discrete half-open intervals $[minIncl, maxExcl)$ on ISO-8601 timestamps. |
 
 #### 5.1.1 Integer Storage & Signedness Architecture (`:Int`)
 The `:Int` keyword represents the universal integer type. All integer constraints are governed by metadata facets:
@@ -712,23 +716,40 @@ Canonical integer formulations:
 - Bare unadorned `:Int`: Represents unbounded arbitrary-precision signed integers in logical schemas, defaulting to 32 bits under standard binary wire encoding.
 
 #### 5.1.2 Discrete Half-Open Interval Governance
-Under Value-Oriented Programming (VOP), discrete mathematical domains (`:Int` and exact `:Float`) reject closed upper bounds and open lower bounds:
+Under Value-Oriented Programming (VOP), all discrete mathematical domains reject closed upper bounds (`#maxIncl`) and open lower bounds (`#minExcl`):
 
 ```
-Discrete Domain Rule:
+Discrete Domain Invariant:
 Intervals on discrete types MUST use half-open intervals: [minIncl, maxExcl)
 ```
 
+The discrete domain rule governs four distinct type families:
+1. **`:Int`**: Signed and unsigned integer domains.
+2. **`{ #exact } :Float`**: Decimal currency and fixed-point domains.
+3. **`:TimeEpoch`**: Physical epoch tick domains.
+4. **`:DateTime`**: Calendar timestamp domains.
+
+##### Discrete Interval Rules:
 1. **Mandatory Lower Bound:** Inclusive lower endpoint `#minIncl`.
 2. **Mandatory Upper Bound:** Exclusive upper endpoint `#maxExcl`.
-3. **Prohibited Discrete Facets:** `#maxIncl` and `#minExcl` are strictly prohibited on `:Int` and `{ #exact } :Float`.
+3. **Prohibited Discrete Facets:** `#maxIncl` and `#minExcl` are strictly prohibited across all discrete types.
+4. **Diagnostic Enforcement:** When a schema declares `#maxIncl` or `#minExcl` on any discrete type, the compiler halts and emits `ERR_DISCRETE_BOUND_KIND_PROHIBITED` pinned to the offending bound token.
 
 ```stvn
-// VALID: Half-open interval [1, 65536) for 16-bit port numbers
+// VALID: Half-open interval [1, 65536) on :Int
 :Port { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
 
-// INVALID: Closed upper bound triggers ERR_DISCRETE_BOUND_KIND_PROHIBITED
-:BadPort { #unsigned #size 16 #minIncl 1 #maxIncl 65535 } :Int
+// VALID: Half-open interval [1704067200, 1735689600) on :TimeEpoch
+:Year2024Epoch { #s #minIncl 1704067200 #maxExcl 1735689600 } :TimeEpoch
+
+// VALID: Half-open interval on :DateTime
+:FiscalYear2026 { #offset #minIncl "2026-01-01T00:00:00Z" #maxExcl "2027-01-01T00:00:00Z" } :DateTime
+
+// INVALID: Closed upper bound on :TimeEpoch triggers ERR_DISCRETE_BOUND_KIND_PROHIBITED
+:BadEpoch { #ms #minIncl 0 #maxIncl 1000 } :TimeEpoch
+
+// INVALID: Closed upper bound on :DateTime triggers ERR_DISCRETE_BOUND_KIND_PROHIBITED
+:BadDate { #offset #minIncl "2026-01-01T00:00:00Z" #maxIncl "2026-12-31T23:59:59Z" } :DateTime
 ```
 
 When an author declares `#maxIncl` or `#minExcl` on a discrete type, the compiler halts and emits `ERR_DISCRETE_BOUND_KIND_PROHIBITED`.
@@ -887,9 +908,9 @@ Both key type `K` and value type `V` **must** resolve to `#equatable`. If a payl
 
 ---
 
-### 5.6 Temporal Domain Types (Tripartite Architecture & MCT Â§ 3.3 Simplification)
+### 5.6 Temporal Kernel Primitives (`:TimeEpoch` & `:DateTime`)
 
-STVN Version 2.0.0 consolidates the legacy six temporal types into two nominal types under `:org/stvnadore/prelude/*`:
+STVN Version 2.0.0 elevates `:TimeEpoch` and `:DateTime` to orthogonal base kernel primitives. They sit directly alongside `:Boolean`, `:Int`, `:Float`, and `:String`. Standard library decoy aliases under `:org/stvnadore/prelude/*` are permanently purged.
 
 ```mermaid
 flowchart TD
@@ -897,29 +918,32 @@ flowchart TD
     classDef epoch fill:#E8F8F5,stroke:#1ABC9C,stroke-width:2px;
     classDef cal fill:#FFF3E0,stroke:#F57C00,stroke-width:2px;
 
-    Temporal["STVN Temporal Domain\n(:org/stvnadore/prelude/*)"]:::root
-    Temporal --> Epoch[":TimeEpoch\n(Physical Elapsed Duration)"]:::epoch
+    Temporal["STVN Base Temporal Kernel"]:::root
+    Temporal --> Epoch[":TimeEpoch\n(Physical Elapsed Ticks)"]:::epoch
     Temporal --> Cal[":DateTime\n(Calendar Instant & Civil Wall Clock)"]:::cal
 
-    Epoch --> U_S["{ #unit #s } (Seconds)"]:::epoch
-    Epoch --> U_MS["{ #unit #ms } (Milliseconds)"]:::epoch
-    Epoch --> U_NS["{ #unit #ns } (Nanoseconds)"]:::epoch
+    Epoch --> U_S["#s (Seconds, i64)"]:::epoch
+    Epoch --> U_MS["#ms (Milliseconds, i64)"]:::epoch
+    Epoch --> U_US["#us (Microseconds, i64)"]:::epoch
+    Epoch --> U_NS["#ns (Nanoseconds, i128)"]:::epoch
 
-    Cal --> M_OFF["{ #offset } (Physical UTC Instant)"]:::cal
-    Cal --> M_ZONE["{ #zoned } (Civil Schedule Jurisdictional)"]:::cal
-    Cal --> M_AUD["{ #audited } (Dual-Verified Audit Record)"]:::cal
+    Cal --> M_OFF["#offset (Physical UTC Instant)"]:::cal
+    Cal --> M_ZONE["#zoned (Civil Schedule Jurisdictional)"]:::cal
+    Cal --> M_AUD["#audited (Dual-Verified Audit Record)"]:::cal
 ```
 
-#### 5.6.1 Physical Epoch Timestamps: `:org/stvnadore/prelude/TimeEpoch`
+#### 5.6.1 Physical Epoch Timestamps: `:TimeEpoch`
 `:TimeEpoch` represents physical elapsed duration since Unix Epoch (`1970-01-01T00:00:00Z`).
-- Requires a mandatory `#unit` facet specifying resolution scale:
-  - `{ #unit #s } :org/stvnadore/prelude/TimeEpoch` (Seconds resolution)
-  - `{ #unit #ms } :org/stvnadore/prelude/TimeEpoch` (Milliseconds resolution)
-  - `{ #unit #ns } :org/stvnadore/prelude/TimeEpoch` (Nanoseconds resolution)
-- Omitting `#unit` or providing an unsupported unit triggers `ERR_MISSING_TEMPORAL_FACET`.
-- Memory storage: Maps to 64-bit integer (`#size 64 :Int`) for seconds and milliseconds, and 128-bit integer (`#size 128 :Int`) for nanoseconds.
+- Requires exactly one mutually exclusive bare scale flag:
+  - `{ #s } :TimeEpoch` (Seconds resolution, 64-bit integer tick storage)
+  - `{ #ms } :TimeEpoch` (Milliseconds resolution, 64-bit integer tick storage)
+  - `{ #us } :TimeEpoch` (Microseconds resolution, 64-bit integer tick storage)
+  - `{ #ns } :TimeEpoch` (Nanoseconds resolution, 128-bit integer tick storage)
+- Omitting the scale flag triggers `ERR_MISSING_TEMPORAL_FACET`.
+- Declaring multiple scale flags triggers `ERR_MUTUALLY_EXCLUSIVE`.
+- The redundant `#unit` keyword is eliminated from the language grammar.
 
-#### 5.6.2 Calendar Date-Time: `:org/stvnadore/prelude/DateTime`
+#### 5.6.2 Calendar Date-Time: `:DateTime`
 `:DateTime` represents human calendar civil time and wall-clock timestamps. It requires exactly one mutually exclusive mode facet:
 1. **`#offset` (Physical Instant):** ISO-8601 string with UTC offset (`"2026-03-15T08:00:00-05:00"` or `"2026-03-15T13:00:00Z"`).
 2. **`#zoned` (Civil Schedule):** ISO-8601 civil timestamp with IANA jurisdiction name (`"2026-03-15T08:00:00[America/Chicago]"`).
@@ -930,12 +954,12 @@ Declaring multiple mode facets on `:DateTime` (e.g. `{ #offset #zoned } :DateTim
 
 #### 5.6.4 Tripartite Invariant Comparison Matrix
 
-| Temporal Model | Type Identifier | Required Facets | Underlying Wire Storage | Round-Trip Invariant |
+| Temporal Model | Type Identifier | Mandatory Facets | Underlying Wire Storage | Round-Trip Invariant |
 |:---|:---|:---|:---|:---|
-| **Epoch Timestamp** | `:TimeEpoch` | Mandatory `#unit #s\|#ms\|#ns` | 64-bit / 128-bit Integer | Isomorphic integer ticks. |
-| **Physical Instant** | `:DateTime` | Mandatory `#offset` | 64-bit Epoch Micros + 16-bit Offset | Instant preservation; local wall clock shifts with offset. |
-| **Civil Schedule** | `:DateTime` | Mandatory `#zoned` | Civil Wall Clock + Dictionary Zone ID | Civil wall-clock preservation across DST transitions. |
-| **Audit Record** | `:DateTime` | Mandatory `#audited` | Epoch Micros + 16-bit Offset + Zone ID | Strict consistency verification between offset and zone. |
+| **Epoch Timestamp** | `:TimeEpoch` | Mandatory `#s` \| `#ms` \| `#us` \| `#ns` | 64-bit / 128-bit Integer | Isomorphic integer ticks. |
+| **Physical Instant** | `:DateTime` | Mandatory `#offset` | 64-bit Epoch Nanos + 32-bit Offset Seconds | Instant preservation; local wall clock shifts with offset. |
+| **Civil Schedule** | `:DateTime` | Mandatory `#zoned` | 64-bit Local Nanos + 16-bit Zone Dict ID | Civil wall-clock preservation across DST transitions. |
+| **Audit Record** | `:DateTime` | Mandatory `#audited` | 64-bit Local Nanos + 32-bit Offset + 16-bit Zone ID | Strict consistency verification between offset and zone. |
 
 ---
 
@@ -949,19 +973,33 @@ Metadata constraint blocks `{ ... }` configure nominal type definitions and comp
 
 | Facet Group | Permitted Facets | Permitted Target Domains | Prohibited Targets | Diagnostic Code |
 |:---|:---|:---|:---|:---|
-| **Storage Sizing** | `#size` | Strictly Numeric (`:Int`, `:Float`) | `:String`, `:Boolean`, `:Enum`, `:Tuple`, collections | `ERR_INVALID_METADATA_FACET` |
-| **Numeric Signedness** | `#unsigned` | `:Int` | `:Float`, `:String`, `:Boolean`, collections | `ERR_INVALID_METADATA_FACET` |
-| **Numeric Precision** | `#exact` | `:Float` | `:Int`, `:String`, `:Boolean`, collections | `ERR_INVALID_METADATA_FACET` |
-| **Character & Container Size** | `#minSize`, `#maxSize` | `:String`, `:Seq`, `:Set`, `:Map` | Numeric types, `:Boolean`, `:Enum`, `:Tuple` | `ERR_INVALID_METADATA_FACET` |
-| **Discrete Numeric Bounds** | `#minIncl`, `#maxExcl` | `:Int`, `{ #exact } :Float` | Prohibits `#maxIncl` and `#minExcl` | `ERR_DISCRETE_BOUND_KIND_PROHIBITED` |
-| **Continuous Numeric Bounds** | `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl` | Continuous `:Float` Only | Discrete types (`:Int`), strings, collections | `ERR_INVALID_METADATA_FACET` |
-| **String Constraints** | `#regex`, `#preserveIndent` | `:String` | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, collections | `ERR_INVALID_METADATA_FACET` |
-| **Map Invertibility** | `#invertible` | `:Map` | Non-map types, scalars, sequences, sets | `ERR_INVALID_METADATA_FACET` |
-| **Temporal Scale** | `#unit` | `:TimeEpoch` | All non-epoch types | `ERR_INVALID_METADATA_FACET` |
-| **Temporal Mode** | `#offset`, `#zoned`, `#audited` | `:DateTime` | All non-datetime types | `ERR_INVALID_METADATA_FACET` |
-| **Enum Subsetting** | `#filterIncl`, `#filterExcl` | Nominal aliases of `:Enum` and subsets | Inline enums, scalar primitives, constants | `ERR_INVALID_METADATA_FACET` |
+| **Storage Sizing** | `#size` | Strictly Numeric (`:Int`, `:Float`) | `:String`, `:Boolean`, `:Enum`, `:Tuple`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
+| **Numeric Signedness** | `#unsigned` | `:Int` | `:Float`, `:String`, `:Boolean`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
+| **Numeric Precision** | `#exact` | `:Float` | `:Int`, `:String`, `:Boolean`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
+| **Character & Container Size** | `#minSize`, `#maxSize` | `:String`, `:Seq`, `:Set`, `:Map` | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, temporal | `ERR_INVALID_METADATA_FACET` |
+| **Universal Discrete Bounds** | `#minIncl`, `#maxExcl` | `:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime` | Continuous `:Float` (which permits all four bounds); prohibits `#maxIncl` and `#minExcl` | `ERR_DISCRETE_BOUND_KIND_PROHIBITED` |
+| **Continuous Numeric Bounds** | `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl` | Continuous `:Float` Only | Discrete types (`:Int`, `:TimeEpoch`, `:DateTime`), strings, collections | `ERR_INVALID_METADATA_FACET` |
+| **String Constraints** | `#regex`, `#preserveIndent` | `:String` | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
+| **Map Invertibility** | `#invertible` | `:Map` | Non-map types, scalars, sequences, sets, temporal | `ERR_INVALID_METADATA_FACET` |
+| **Temporal Scale Flags** | `#s`, `#ms`, `#us`, `#ns` | `:TimeEpoch` | All non-epoch types | `ERR_INVALID_METADATA_FACET` |
+| **Temporal Mode Flags** | `#offset`, `#zoned`, `#audited` | `:DateTime` | All non-datetime types | `ERR_INVALID_METADATA_FACET` |
+| **Enum Subsetting** | `#filterIncl`, `#filterExcl` | Nominal aliases of `:Enum` and subsets | Inline enums, scalar primitives, constants, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Directive Options** | `#strip` | Directive blocks in `:use` and `:include` | Type definitions, constant definitions | `ERR_INVALID_METADATA_FACET` |
 | **Trait Overrides** | `#equatable`, `#comparable` | Nominal type definitions | Constant definitions, collection instances | `ERR_INVALID_METADATA_FACET` |
+
+#### Canonical Semantic Category Order Specification Table
+
+All canonical schema printers, intermediate representations, and the schema flattener (`StvnSchemaFlattener.appendConstraints`) must emit metadata facets strictly adhering to the 7-tier Semantic Category Order hierarchy:
+
+| Tier | Category Name | Facet Sequence | Rationale & Invariants |
+|:---:|:---|:---|:---|
+| **Tier 1** | **Flags & Intrinsic Modes** | `#unsigned` $\rightarrow$ `#exact` $\rightarrow$ `#invertible` $\rightarrow$ `#preserveIndent` $\rightarrow$ `#offset` $\rightarrow$ `#zoned` $\rightarrow$ `#audited` $\rightarrow$ `#equatable` $\rightarrow$ `#comparable` | Defines foundational computational characteristics and memory representations. |
+| **Tier 2** | **Temporal Scale** | `#s` $\rightarrow$ `#ms` $\rightarrow$ `#us` $\rightarrow$ `#ns` | Specifies physical unit tick granularity on `:TimeEpoch` in ascending resolution order. |
+| **Tier 3** | **Dimensions & Capacity** | `#size` $\rightarrow$ `#minSize` $\rightarrow$ `#maxSize` | Defines bit-width allocations and container/string cardinality boundaries. |
+| **Tier 4** | **Value Intervals** | `#minIncl` $\rightarrow$ `#minExcl` $\rightarrow$ `#maxExcl` $\rightarrow$ `#maxIncl` | Mathematical interval ordering: Lower bounds strictly precede Upper bounds. |
+| **Tier 5** | **Validation Patterns** | `#regex` | String lexical validation expressions. |
+| **Tier 6** | **Domain Subsets** | `#filterIncl` $\rightarrow$ `#filterExcl` | Categorical domain variant filters. |
+| **Tier 7** | **Directives** | `#strip` | Scope terminal segment extraction directives. |
 
 #### Empty Block Invariants
 1. **Empty Metadata Blocks:** Specifying `{}` on a nominal type definition or compile-time constant definition is prohibited. When `{}` contains zero facet entries, the compiler emits `ERR_EMPTY_METADATA_BLOCK`. Authors must remove `{}` or specify valid facets.
@@ -1098,6 +1136,14 @@ $$f: \text{NominalSchema} \longleftrightarrow \text{CAS Hash}$$
 2. Every CAS address maps to exactly one authoritative nominal schema name.
 3. Multiple distinct nominal type names cannot share a single CAS address.
 4. The schema repository enforces this bijection through `CONSTRAINT uq_version_catalog_cas_hash UNIQUE (cas_hash)`. Submitting an existing CAS hash under a different schema name returns `PublishResult.AliasConflict` (HTTP 409 Conflict).
+
+#### CAS Stability Under Pass 2 Execution
+Because the CAS hash preimage is derived directly from the canonical flattened schema text:
+$$\text{CAS Hash} = \text{SHA-256}(\text{StvnSchemaFlattener.flatten}(\text{SchemaSource}))$$
+the Pass 2 architectural changes permanently lock the hashing inputs prior to the 2.0.0 release:
+1. **Decoy Alias Purge:** Eliminating `:org/stvnadore/prelude/TimeEpoch` and `:org/stvnadore/prelude/DateTime` ensures these types hash as fundamental kernel constructors rather than nominal prelude aliases pointing to `:Int` or `:String`.
+2. **Scale Flag Canonicalization:** Replacing `{ #unit #ms }` with bare `{ #ms }` ensures a compact, permanent canonical syntax for epoch hashes.
+3. **Semantic Category Order Freezing:** Freezing the 7-tier Semantic Category Order ensures that all compliant implementations (Java, Rust, Scala, TypeScript, Go) emit the identical facet string representation, guaranteeing bitwise-identical SHA-256 digests across all platforms.
 
 ### 9.3 CAS Digesting & Schema Hashing Integration
 
@@ -1280,7 +1326,7 @@ STVN binary encoding (`.stvn_bin`) utilizes deterministic, fixed-width, zero-cop
    â€¢ offset_seconds: Signed 32-bit int representing recorded historical UTC offset.
    â€¢ zone_dict_id: Unsigned 16-bit index referencing the Header IANA Zone Dictionary Pool.
 
-4. :TimeEpoch { #unit #s|#ms } (8 Bytes Total) / { #unit #ns } (16 Bytes Total)
+4. :TimeEpoch { #s|#ms|#us } (8 Bytes Total) / { #ns } (16 Bytes Total)
    +-------------------------------------------------------------------------------+
    |                             epoch_ticks: i64 / i128                           |
    +-------------------------------------------------------------------------------+
@@ -1318,9 +1364,6 @@ The runtime environment pre-registers the canonical prelude under `:org/stvnador
     :org/stvnadore/prelude/Currency    { #exact } :Float
     :org/stvnadore/prelude/Latitude    { #size 64 #minIncl -90.0 #maxIncl 90.0 }   :Float
     :org/stvnadore/prelude/Longitude   { #size 64 #minIncl -180.0 #maxIncl 180.0 } :Float
-
-    :org/stvnadore/prelude/TimeEpoch :Int
-    :org/stvnadore/prelude/DateTime  :String
   }
 }
 ```
