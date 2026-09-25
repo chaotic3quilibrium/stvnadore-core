@@ -73,39 +73,79 @@ public class StvnBinaryDecoder {
    * @param offsetSize       the pointer offset size (1, 2, or 4 bytes)
    * @param identityStrategy the active schema strategy, if any
    * @param encodingStrategy the active binary encoding strategy
+   * @param payloadStart     the minimum permissible payload boundary
    */
   public record DecodeContext(
       ByteBuffer buffer,
       int offsetSize,
       Optional<SchemaIdentityStrategy> identityStrategy,
-      BinaryEncodingStrategy encodingStrategy
+      BinaryEncodingStrategy encodingStrategy,
+      int payloadStart
   ) {
     /**
-     * Constructs a DecodeContext defaulting to {@link BinaryEncodingStrategy#ZERO_COPY_POST_ORDER}.
+     * Constructs a DecodeContext defaulting to {@link BinaryEncodingStrategy#ZERO_COPY_POST_ORDER} and payloadStart 0.
      *
      * @param buffer           the raw byte buffer
      * @param offsetSize       the pointer offset size
      * @param identityStrategy the active schema strategy, if any
      */
     public DecodeContext(ByteBuffer buffer, int offsetSize, Optional<SchemaIdentityStrategy> identityStrategy) {
-      this(buffer, offsetSize, identityStrategy, BinaryEncodingStrategy.ZERO_COPY_POST_ORDER);
+      this(buffer, offsetSize, identityStrategy, BinaryEncodingStrategy.ZERO_COPY_POST_ORDER, 0);
     }
 
     /**
-     * Reads a pointer address from the specified absolute offset in the buffer.
+     * Constructs a DecodeContext defaulting payloadStart to 0.
+     *
+     * @param buffer           the raw byte buffer
+     * @param offsetSize       the pointer offset size
+     * @param identityStrategy the active schema strategy, if any
+     * @param encodingStrategy the active binary encoding strategy
+     */
+    public DecodeContext(ByteBuffer buffer, int offsetSize, Optional<SchemaIdentityStrategy> identityStrategy, BinaryEncodingStrategy encodingStrategy) {
+      this(buffer, offsetSize, identityStrategy, encodingStrategy, 0);
+    }
+
+    /**
+     * Reads a pointer address from the specified absolute offset in the buffer, validating
+     * against the context's payloadStart boundary.
      *
      * @param absoluteOffset the address containing the pointer
      * @return the dereferenced absolute address
-     * @throws IllegalStateException if the offset size configuration is invalid
      */
     public int readPointer(int absoluteOffset) {
-      return switch (offsetSize) {
+      return readPointer(absoluteOffset, this.payloadStart);
+    }
+
+    /**
+     * Reads a pointer address from the specified absolute offset in the buffer, validating
+     * that the dereferenced target address satisfies {@code targetOffset >= payloadStart && targetOffset < buffer.limit()}.
+     * Preempts pointer table hijacking and out-of-bounds pointer exploits.
+     *
+     * @param absoluteOffset the address containing the pointer
+     * @param payloadStart   the minimum permissible payload boundary
+     * @return the dereferenced absolute address
+     * @throws MalformedPayloadException if the target address points backward into headers or out of bounds
+     */
+    public int readPointer(int absoluteOffset, int payloadStart) {
+      if (absoluteOffset < 0 || absoluteOffset + offsetSize > buffer.limit()) {
+        throw new MalformedPayloadException(String.format(
+            "Pointer address outside buffer boundary: offset %d, offsetSize %d, limit %d",
+            absoluteOffset, offsetSize, buffer.limit()));
+      }
+      int targetOffset = switch (offsetSize) {
         case 1 -> Byte.toUnsignedInt(buffer.get(absoluteOffset));
         case 2 -> Short.toUnsignedInt(buffer.getShort(absoluteOffset));
         case 4 -> buffer.getInt(absoluteOffset);
         case 8 -> (int) buffer.getLong(absoluteOffset); // Cast to int assuming standard 2GB max ByteBuffer
         default -> throw new IllegalStateException("Invalid offset size: " + offsetSize);
       };
+
+      if (targetOffset < payloadStart || targetOffset >= buffer.limit()) {
+        throw new MalformedPayloadException(String.format(
+            "Pointer table hijacking detected: offset %d outside valid payload range [%d, %d)",
+            targetOffset, payloadStart, buffer.limit()));
+      }
+      return targetOffset;
     }
   }
 
@@ -141,14 +181,20 @@ public class StvnBinaryDecoder {
     if (buffer.remaining() < 5) {
       throw new IllegalArgumentException("Buffer too small for STVN binary header: requires at least 5 bytes");
     }
-    if (buffer.getInt(0) != MAGIC_BYTES) {
-      throw new IllegalArgumentException("Invalid STVN binary: Magic bytes mismatch");
+    if (buffer.get(0) != (byte) 'S' || buffer.get(1) != (byte) 'T' ||
+        buffer.get(2) != (byte) 'V' || buffer.get(3) != (byte) 'N') {
+      throw new IllegalArgumentException("Invalid STVN binary: Magic preamble mismatch (expected 'STVN')");
     }
 
     byte controlByte = buffer.get(4);
     boolean hasTrailerCrc32c = (controlByte & (byte) 0x80) != 0;
     int encodingCode = (controlByte & 0x70) >>> 4;
     int identityCode = controlByte & 0x0F;
+
+    if (identityCode == 7 && !hasTrailerCrc32c) {
+      throw new MalformedPayloadException(
+          "Zero-Trust Policy Violation: Strategy 0x7 envelope requires mandatory Bit 7 CRC-32C trailer (expected control byte 0x87, found 0x07)");
+    }
 
     ByteBuffer effectiveBuffer = buffer;
     if (hasTrailerCrc32c) {
@@ -183,6 +229,7 @@ public class StvnBinaryDecoder {
       case 3 -> {
         int len = Short.toUnsignedInt(buffer.getShort(currentPos)) + 1;
         currentPos += 2;
+        validateAllocationBounds(len, buffer, currentPos);
         byte[] bytes = new byte[len];
         buffer.get(currentPos, bytes);
         currentPos += len;
@@ -191,6 +238,7 @@ public class StvnBinaryDecoder {
       case 4 -> {
         int len = Short.toUnsignedInt(buffer.getShort(currentPos)) + 1;
         currentPos += 2;
+        validateAllocationBounds(len, buffer, currentPos);
         byte[] bytes = new byte[len];
         buffer.get(currentPos, bytes);
         currentPos += len;
@@ -208,6 +256,7 @@ public class StvnBinaryDecoder {
         yield new SchemaIdentityStrategy.ExplicitUuid(new java.util.UUID(mostSig, leastSig));
       }
       case 7 -> {
+        validateAllocationBounds(32, buffer, currentPos);
         byte[] hash = new byte[32];
         buffer.get(currentPos, hash);
         currentPos += 32;
@@ -215,8 +264,9 @@ public class StvnBinaryDecoder {
       }
       case 8 -> {
         long lenLong = Integer.toUnsignedLong(buffer.getInt(currentPos)) + 1;
-        int len = (int) lenLong;
         currentPos += 4;
+        validateAllocationBounds(lenLong, buffer, currentPos);
+        int len = (int) lenLong;
         byte[] bytes = new byte[len];
         buffer.get(currentPos, bytes);
         currentPos += len;
@@ -232,8 +282,9 @@ public class StvnBinaryDecoder {
   }
 
   private static RootPointer createRootPointer(ByteBuffer buffer, HeaderInfo header, @Nullable ResolvedSchema schema) {
-    DecodeContext ctx = new DecodeContext(header.effectiveBuffer(), header.offsetSize, Optional.ofNullable(header.identityStrategy()), header.encodingStrategy());
-    int rootOffset = ctx.readPointer(header.payloadStart());
+    int payloadStart = header.payloadStart() + header.offsetSize();
+    DecodeContext ctx = new DecodeContext(header.effectiveBuffer(), header.offsetSize(), Optional.ofNullable(header.identityStrategy()), header.encodingStrategy(), payloadStart);
+    int rootOffset = ctx.readPointer(header.payloadStart(), payloadStart);
     return new RootPointer(ctx, rootOffset, Optional.ofNullable(schema));
   }
 
@@ -336,6 +387,19 @@ public class StvnBinaryDecoder {
     root.context().identityStrategy().ifPresent(strategy -> validateSchemaHash(effectiveSchema, strategy));
 
     int inlineSize = getInlineSize(effectiveSchema);
+    String baseType = StvnTypeResolver.getPrimitiveBaseType(effectiveSchema.node());
+    boolean isBareInt = (baseType != null && (baseType.equals(":Int") || baseType.equals(":Uint")))
+        && effectiveSchema.constraints().size().isEmpty()
+        && effectiveSchema.underlyingSchema().flatMap(u -> u.constraints().size()).isEmpty();
+
+    if (isBareInt) {
+      int remainingFromRoot = root.context().buffer().limit() - root.rootOffset();
+      if (remainingFromRoot != 4) {
+        // Bare integer exceeded 31 bits and was escalated to an out-of-line BigInteger
+        return readOutlinedNode(root.context(), root.rootOffset(), effectiveSchema);
+      }
+    }
+
     if (inlineSize > 0) {
       // Root is a standalone primitive
       return readInlineNode(root.context(), root.rootOffset(), effectiveSchema);
@@ -439,6 +503,45 @@ public class StvnBinaryDecoder {
   // ===========================================================================
 
   /**
+   * Validates that an incoming wire payload length claim does not exceed remaining buffer capacity.
+   * Preempts remote Denial-of-Service heap exhaustion attacks (allocation bombs).
+   *
+   * @param requestedLength the number of bytes claimed by the wire length prefix
+   * @param buffer          the buffer being decoded
+   * @param currentOffset   the current offset where reading begins
+   * @throws MalformedPayloadException if requested length is negative or exceeds remaining buffer capacity
+   */
+  public static void validateAllocationBounds(long requestedLength, ByteBuffer buffer, int currentOffset) {
+    if (requestedLength < 0) {
+      throw new MalformedPayloadException("Negative payload length prefix: " + requestedLength);
+    }
+    if (requestedLength > Integer.MAX_VALUE) {
+      throw new MalformedPayloadException("Payload length exceeds Integer.MAX_VALUE: " + requestedLength);
+    }
+    if (currentOffset < 0 || currentOffset > buffer.limit()) {
+      throw new MalformedPayloadException("Current offset " + currentOffset + " outside buffer limit " + buffer.limit());
+    }
+    int remainingBytes = buffer.limit() - currentOffset;
+    if (requestedLength > remainingBytes) {
+      throw new MalformedPayloadException(String.format(
+          "Payload length bomb detected: claimed %d bytes, but only %d bytes remain in buffer",
+          requestedLength, remainingBytes));
+    }
+  }
+
+  /**
+   * Validates that an incoming wire payload length claim does not exceed remaining buffer capacity.
+   *
+   * @param requestedLength the number of bytes claimed by the wire length prefix
+   * @param buffer          the buffer being decoded
+   * @param currentOffset   the current offset where reading begins
+   * @throws MalformedPayloadException if requested length is negative or exceeds remaining buffer capacity
+   */
+  public static void validateAllocationBounds(int requestedLength, ByteBuffer buffer, int currentOffset) {
+    validateAllocationBounds((long) requestedLength, buffer, currentOffset);
+  }
+
+  /**
    * Follows a pointer at the given slot, reads the derived length prefix, and extracts the UTF-8 string without
    * creating any STVN IR nodes.
    *
@@ -451,6 +554,7 @@ public class StvnBinaryDecoder {
     LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
     int totalLength = lr.length();
     int dataStartOffset = offset + lr.bytesConsumed();
+    validateAllocationBounds(totalLength, ctx.buffer(), dataStartOffset);
 
     // 2. Read the new Style byte
     byte styleByte = ctx.buffer().get(dataStartOffset);
@@ -461,11 +565,14 @@ public class StvnBinaryDecoder {
     // 3. If it's FENCED (ordinal 2), we must skip over the Tag metadata
     if (styleByte == 2) {
       int tagLen = Byte.toUnsignedInt(ctx.buffer().get(payloadOffset)) + 1;
+      validateAllocationBounds(tagLen, ctx.buffer(), payloadOffset + 1);
 
       // Advance past the tag length byte and the tag string itself
       payloadOffset += (1 + tagLen);
       payloadLength -= (1 + tagLen);
     }
+
+    validateAllocationBounds(payloadLength, ctx.buffer(), payloadOffset);
 
     // 4. Read and return the pure string text
     byte[] textBytes = new byte[payloadLength];
@@ -560,12 +667,21 @@ public class StvnBinaryDecoder {
         var sizeOpt = schema.constraints().size()
             .or(() -> schema.underlyingSchema().flatMap(u -> u.constraints().size()));
         if (sizeOpt.isPresent()) {
-          yield (sizeOpt.get() + 7) / 8;
+          int sz = sizeOpt.get();
+          if (sz <= 0) {
+            throw new MalformedPayloadException("Non-positive bit width: " + sz);
+          }
+          yield (sz + 7) / 8;
         }
         String w = s.replaceAll("[^0-9]", "");
-        yield w.isEmpty()
-            ? 4
-            : (Integer.parseInt(w) + 7) / 8;
+        if (!w.isEmpty()) {
+          int sz = Integer.parseInt(w);
+          if (sz <= 0) {
+            throw new MalformedPayloadException("Non-positive bit width: " + sz);
+          }
+          yield (sz + 7) / 8;
+        }
+        yield 4;
       }
       case String s when s.startsWith(":Enum") -> {
         int variants = countEnumVariants(schema.node());
@@ -602,14 +718,14 @@ public class StvnBinaryDecoder {
 
     return switch (baseType) {
       case ":Boolean" -> new StvnValue.StvnBoolean(schema, ctx.buffer().get(offset) != 0);
-      case ":Float32" -> new StvnValue.StvnFloat(schema, ctx.buffer().getFloat(offset));
-      case ":Float64" -> new StvnValue.StvnFloat(schema, ctx.buffer().getDouble(offset));
+      case ":Float32" -> StvnValue.StvnFloat.ofFloat(schema, ctx.buffer().getFloat(offset));
+      case ":Float64" -> StvnValue.StvnFloat.ofDouble(schema, ctx.buffer().getDouble(offset));
       case ":Float" -> {
         int size = schema.constraints().size().orElse(64);
         if (size == 32) {
-          yield new StvnValue.StvnFloat(schema, ctx.buffer().getFloat(offset));
+          yield StvnValue.StvnFloat.ofFloat(schema, ctx.buffer().getFloat(offset));
         } else {
-          yield new StvnValue.StvnFloat(schema, ctx.buffer().getDouble(offset));
+          yield StvnValue.StvnFloat.ofDouble(schema, ctx.buffer().getDouble(offset));
         }
       }
       case ":TimeEpochS", ":TimeEpochMs", ":TimeEpochNs" -> {
@@ -740,6 +856,7 @@ public class StvnBinaryDecoder {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int totalLength = lr.length();
       int dataStartOffset = offset + lr.bytesConsumed();
+      validateAllocationBounds(totalLength, ctx.buffer(), dataStartOffset);
 
       // Read Style (0=SIMPLE, 1=BLOCK, 2=FENCED)
       byte styleByte = ctx.buffer().get(dataStartOffset);
@@ -752,6 +869,8 @@ public class StvnBinaryDecoder {
       // Extract the dynamic fence tag if the style requires it
       if (style == StvnValue.StringStyle.FENCED) {
         int tagLen = Byte.toUnsignedInt(ctx.buffer().get(payloadOffset)) + 1;
+        validateAllocationBounds(tagLen, ctx.buffer(), payloadOffset + 1);
+
         payloadOffset += 1;
         payloadLength -= 1;
 
@@ -764,6 +883,7 @@ public class StvnBinaryDecoder {
       }
 
       // Read the actual string characters
+      validateAllocationBounds(payloadLength, ctx.buffer(), payloadOffset);
       byte[] payloadBytes = new byte[payloadLength];
       ctx.buffer().get(payloadOffset, payloadBytes);
       String rawText = new String(payloadBytes, StandardCharsets.UTF_8);
@@ -809,10 +929,12 @@ public class StvnBinaryDecoder {
     if (baseType != null && (baseType.equals(":FloatExact") || (baseType.equals(":Float") && schema.constraints().exact()))) {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int dataStartOffset = offset + lr.bytesConsumed();
+      validateAllocationBounds(lr.length(), ctx.buffer(), dataStartOffset);
 
       // Skip the fallback style byte (1 byte)
       int payloadOffset = dataStartOffset + 1;
       int payloadLength = lr.length() - 1;
+      validateAllocationBounds(payloadLength, ctx.buffer(), payloadOffset);
 
       byte[] textBytes = new byte[payloadLength];
       ctx.buffer().get(payloadOffset, textBytes);
@@ -827,10 +949,12 @@ public class StvnBinaryDecoder {
     if (isDateTime) {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int dataStartOffset = offset + lr.bytesConsumed();
+      validateAllocationBounds(lr.length(), ctx.buffer(), dataStartOffset);
 
       // Skip the fallback style byte (1 byte)
       int payloadOffset = dataStartOffset + 1;
       int payloadLength = lr.length() - 1;
+      validateAllocationBounds(payloadLength, ctx.buffer(), payloadOffset);
 
       byte[] textBytes = new byte[payloadLength];
       ctx.buffer().get(payloadOffset, textBytes);
@@ -867,6 +991,7 @@ public class StvnBinaryDecoder {
     if (baseType != null && (baseType.startsWith(":Int") || baseType.startsWith(":Uint"))) {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int dataStartOffset = offset + lr.bytesConsumed();
+      validateAllocationBounds(lr.length(), ctx.buffer(), dataStartOffset);
       byte[] bytes = new byte[lr.length()];
       // Use absolute get instead of mutating buffer position
       for (int i = 0; i < bytes.length; i++) {
@@ -884,7 +1009,7 @@ public class StvnBinaryDecoder {
       } else {
         String widthStr = baseType.replaceAll("[^0-9]", "");
         bitWidth = widthStr.isEmpty()
-            ? (bytes.length * 8)
+            ? 0
             : Integer.parseInt(widthStr);
       }
       if (bytes.length > 0) {

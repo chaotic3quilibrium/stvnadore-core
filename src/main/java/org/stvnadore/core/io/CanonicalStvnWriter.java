@@ -299,10 +299,21 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
   private void writeValue(StvnValue val, CanonicalLayoutWriter layout) throws IOException {
     switch (val) {
       case StvnBoolean(var schema, var value) -> layout.writeBoolean(value, PrinterOptions.SymbolStyle.LONG_FORM);
-
       case StvnInteger(var schema, var value, var bitWidth, var isUnsigned) -> layout.writeInteger(value);
 
-      case StvnFloat(var schema, var value, var precision) -> layout.writeFloat(value, precision);
+      case StvnFloat f -> {
+        if (f.isNaN()) {
+          layout.writeLiteral("NaN");
+        } else if (f.isPositiveInfinity()) {
+          layout.writeLiteral("+Infinity");
+        } else if (f.isNegativeInfinity()) {
+          layout.writeLiteral("-Infinity");
+        } else if (f.isNegativeZero()) {
+          layout.writeLiteral("-0.0");
+        } else {
+          layout.writeFloat(f.value(), f.precision());
+        }
+      }
 
       case StvnString(var schema, var value, var style, var fenceTag, var trait) -> {
         var preserveIndent = (schema != null && schema.constraints().preserveIndent());

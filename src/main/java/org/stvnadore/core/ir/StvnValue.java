@@ -177,13 +177,25 @@ public sealed interface StvnValue {
    * @param value     the float payload represented as a non-null {@link BigDecimal}
    * @param precision the precision specification (FLOAT32, FLOAT64, or EXACT)
    */
-  record StvnFloat(ResolvedSchema schema, BigDecimal value, FloatPrecision precision) implements StvnAtomic {
+  record StvnFloat(
+      ResolvedSchema schema,
+      BigDecimal value,
+      FloatPrecision precision,
+      boolean isNaN,
+      boolean isPositiveInfinity,
+      boolean isNegativeInfinity,
+      boolean isNegativeZero
+  ) implements StvnAtomic {
     /**
-     * Canonical constructor validating that all parameters are non-null.
+     * Canonical constructor validating that all mandatory reference parameters are non-null.
      *
-     * @param schema    the resolved schema mapping this node
-     * @param value     the float payload represented as a non-null {@link BigDecimal}
-     * @param precision the precision specification
+     * @param schema             the resolved schema mapping this node
+     * @param value              the float payload represented as a non-null {@link BigDecimal}
+     * @param precision          the precision specification
+     * @param isNaN              true if this float represents IEEE-754 NaN
+     * @param isPositiveInfinity true if this float represents IEEE-754 +Infinity
+     * @param isNegativeInfinity true if this float represents IEEE-754 -Infinity
+     * @param isNegativeZero     true if this float represents IEEE-754 -0.0
      */
     public StvnFloat {
       java.util.Objects.requireNonNull(schema);
@@ -198,7 +210,15 @@ public sealed interface StvnValue {
      * @param value  the native float payload
      */
     public StvnFloat(ResolvedSchema schema, float value) {
-      this(schema, new BigDecimal(Float.toString(value)), FloatPrecision.FLOAT32);
+      this(
+          schema,
+          (Float.isNaN(value) || Float.isInfinite(value)) ? BigDecimal.ZERO : new BigDecimal(Float.toString(value)),
+          FloatPrecision.FLOAT32,
+          Float.isNaN(value),
+          value == Float.POSITIVE_INFINITY,
+          value == Float.NEGATIVE_INFINITY,
+          Float.floatToRawIntBits(value) == Float.floatToRawIntBits(-0.0f)
+      );
     }
 
     /**
@@ -208,7 +228,15 @@ public sealed interface StvnValue {
      * @param value  the native double payload
      */
     public StvnFloat(ResolvedSchema schema, double value) {
-      this(schema, BigDecimal.valueOf(value), FloatPrecision.FLOAT64);
+      this(
+          schema,
+          (Double.isNaN(value) || Double.isInfinite(value)) ? BigDecimal.ZERO : BigDecimal.valueOf(value),
+          FloatPrecision.FLOAT64,
+          Double.isNaN(value),
+          value == Double.POSITIVE_INFINITY,
+          value == Double.NEGATIVE_INFINITY,
+          Double.doubleToRawLongBits(value) == Double.doubleToRawLongBits(-0.0)
+      );
     }
 
     /**
@@ -218,7 +246,66 @@ public sealed interface StvnValue {
      * @param value  the arbitrary-precision decimal payload
      */
     public StvnFloat(ResolvedSchema schema, BigDecimal value) {
-      this(schema, value, FloatPrecision.EXACT);
+      this(schema, value, FloatPrecision.EXACT, false, false, false, false);
+    }
+
+    /**
+     * Backward-compatible 3-argument constructor mapping schema, value, and precision.
+     *
+     * @param schema    the resolved schema mapping this node
+     * @param value     the decimal payload
+     * @param precision the precision specification
+     */
+    public StvnFloat(ResolvedSchema schema, BigDecimal value, FloatPrecision precision) {
+      this(schema, value, precision, false, false, false, false);
+    }
+
+    /**
+     * Factory method creating a 32-bit float value supporting special IEEE-754 states without BigDecimal crashes.
+     *
+     * @param schema the resolved schema
+     * @param val    the 32-bit float value
+     * @return the constructed {@link StvnFloat}
+     */
+    public static StvnFloat ofFloat(ResolvedSchema schema, float val) {
+      return new StvnFloat(schema, val);
+    }
+
+    /**
+     * Factory method creating a 64-bit float value supporting special IEEE-754 states without BigDecimal crashes.
+     *
+     * @param schema the resolved schema
+     * @param val    the 64-bit double value
+     * @return the constructed {@link StvnFloat}
+     */
+    public static StvnFloat ofDouble(ResolvedSchema schema, double val) {
+      return new StvnFloat(schema, val);
+    }
+
+    /**
+     * Returns the native float value, respecting special IEEE-754 states.
+     *
+     * @return the float value
+     */
+    public float floatValue() {
+      if (isNaN) return Float.NaN;
+      if (isPositiveInfinity) return Float.POSITIVE_INFINITY;
+      if (isNegativeInfinity) return Float.NEGATIVE_INFINITY;
+      if (isNegativeZero) return -0.0f;
+      return value.floatValue();
+    }
+
+    /**
+     * Returns the native double value, respecting special IEEE-754 states.
+     *
+     * @return the double value
+     */
+    public double doubleValue() {
+      if (isNaN) return Double.NaN;
+      if (isPositiveInfinity) return Double.POSITIVE_INFINITY;
+      if (isNegativeInfinity) return Double.NEGATIVE_INFINITY;
+      if (isNegativeZero) return -0.0d;
+      return value.doubleValue();
     }
 
     @Override
@@ -227,6 +314,13 @@ public sealed interface StvnValue {
       if (!(o instanceof StvnFloat that)) return false;
       if (!java.util.Objects.equals(this.schema, that.schema)) return false;
       if (this.precision != that.precision) return false;
+      if (this.isNaN != that.isNaN) return false;
+      if (this.isPositiveInfinity != that.isPositiveInfinity) return false;
+      if (this.isNegativeInfinity != that.isNegativeInfinity) return false;
+      if (this.isNegativeZero != that.isNegativeZero) return false;
+      if (this.isNaN || this.isPositiveInfinity || this.isNegativeInfinity || this.isNegativeZero) {
+        return true;
+      }
       if (this.precision == FloatPrecision.FLOAT32) {
         return Float.floatToIntBits(this.value.floatValue()) == Float.floatToIntBits(that.value.floatValue());
       } else if (this.precision == FloatPrecision.FLOAT64) {
@@ -238,6 +332,18 @@ public sealed interface StvnValue {
 
     @Override
     public int hashCode() {
+      if (isNaN) {
+        return java.util.Objects.hash(schema, precision, "NaN");
+      }
+      if (isPositiveInfinity) {
+        return java.util.Objects.hash(schema, precision, "+Infinity");
+      }
+      if (isNegativeInfinity) {
+        return java.util.Objects.hash(schema, precision, "-Infinity");
+      }
+      if (isNegativeZero) {
+        return java.util.Objects.hash(schema, precision, "-0.0");
+      }
       if (precision == FloatPrecision.FLOAT32) {
         return java.util.Objects.hash(schema, precision, Float.floatToIntBits(value.floatValue()));
       } else if (precision == FloatPrecision.FLOAT64) {

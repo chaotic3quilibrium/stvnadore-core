@@ -53,6 +53,10 @@ public final class StvnSeqReader implements StvnMemoryAccessor {
     this.elementStride = (inline > 0)
         ? inline
         : ctx.offsetSize();
+
+    if (this.length > 0) {
+      StvnBinaryDecoder.validateAllocationBounds((long) this.length * this.elementStride, ctx.buffer(), this.dataStartOffset);
+    }
   }
 
   /**

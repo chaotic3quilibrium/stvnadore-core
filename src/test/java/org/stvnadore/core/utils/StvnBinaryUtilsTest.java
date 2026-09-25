@@ -106,7 +106,7 @@ class StvnBinaryUtilsTest {
 
     byte[] truncatedBytes = java.nio.ByteBuffer.allocate(6)
         .order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        .putInt(org.stvnadore.core.utils.StvnBinaryUtils.MAGIC_BYTES)
+        .put((byte) 'S').put((byte) 'T').put((byte) 'V').put((byte) 'N')
         .put((byte) 0x80)
         .put((byte) 0x00)
         .array();

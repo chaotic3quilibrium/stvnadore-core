@@ -10,6 +10,7 @@ import org.stvnadore.core.stdlib.StvnPrelude;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -140,8 +141,14 @@ class StvnBinaryDecoderBitMaskTest {
     var encoded = encoder.encode(ir);
 
     // Tamper with the hash in the encoded buffer (header hash starts at byte index 5)
-    var tampered = encoded.duplicate();
+    var tampered = encoded.duplicate().order(ByteOrder.LITTLE_ENDIAN);
     tampered.put(5, (byte) (tampered.get(5) ^ 0xFF));
+    java.util.zip.CRC32C crc = new java.util.zip.CRC32C();
+    ByteBuffer view = tampered.duplicate().order(ByteOrder.LITTLE_ENDIAN);
+    view.position(0);
+    view.limit(tampered.limit() - 4);
+    crc.update(view);
+    tampered.putInt(tampered.limit() - 4, (int) crc.getValue());
 
     Assertions.assertThrows(
         PoisonedRegistryPayloadException.class,

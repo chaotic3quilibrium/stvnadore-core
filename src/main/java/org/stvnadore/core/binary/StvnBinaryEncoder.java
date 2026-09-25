@@ -11,6 +11,7 @@ import java.util.IdentityHashMap;
 import java.util.zip.CRC32C;
 
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.validation.StvnTypeResolver;
 
 /**
  * Binary encoder for serializing STVN Intermediate Representation (IR) values
@@ -110,7 +111,11 @@ public class StvnBinaryEncoder {
     this.isMinimizingOffsetSize = isMinimizingOffsetSize;
     this.identityStrategy = identityStrategy;
     this.encodingStrategy = encodingStrategy;
-    this.hasTrailerCrc32c = hasTrailerCrc32c;
+    if (identityStrategy instanceof SchemaIdentityStrategy.ExplicitSha256) {
+      this.hasTrailerCrc32c = true;
+    } else {
+      this.hasTrailerCrc32c = hasTrailerCrc32c;
+    }
   }
 
   /**
@@ -388,6 +393,24 @@ public class StvnBinaryEncoder {
       throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing schema context for value: " + value);
     }
 
+    if (value instanceof StvnInteger i) {
+      boolean isBareInt = i.bitWidth() == 0 ||
+          (i.schema() != null && i.schema().constraints().size().isEmpty() &&
+              (i.schema().underlyingSchema().isEmpty() || i.schema().underlyingSchema().get().constraints().size().isEmpty()) &&
+              (StvnTypeResolver.getPrimitiveBaseType(i.schema().node()).equals(":Int") ||
+               StvnTypeResolver.getPrimitiveBaseType(i.schema().node()).equals(":Uint")));
+      if (isBareInt) {
+        int maxInlineBits = i.isUnsigned() ? 32 : 31;
+        if (i.value().bitLength() > maxInlineBits) {
+          return 0; // Escalate to out-of-line BigInt; prevents silent truncation!
+        }
+        return 4;
+      }
+      if (i.bitWidth() > 0) {
+        return (i.bitWidth() + 7) / 8;
+      }
+    }
+
     if (value.schema() != null) {
       int schemaSize = StvnBinaryDecoder.getInlineSize(value.schema());
       // If the schema correctly resolved to an inline size, strictly obey it
@@ -446,9 +469,14 @@ public class StvnBinaryEncoder {
       }
       case StvnFloat f -> {
         int byteSize = getInlineSize(f); // CRITICAL: Synchronized with Decoder
-        // Force the float to pack perfectly into the schema's expected slot
-        if (byteSize == 4) buffer.putFloat(f.value().floatValue());
-        else if (byteSize == 8) buffer.putDouble(f.value().doubleValue());
+        // Force the float to pack perfectly into the schema's expected slot using raw IEEE-754 bit representations
+        if (byteSize == 4) {
+          float val = f.floatValue();
+          buffer.putInt(Float.floatToRawIntBits(val));
+        } else if (byteSize == 8) {
+          double val = f.doubleValue();
+          buffer.putLong(Double.doubleToRawLongBits(val));
+        }
       }
       case StvnTime t -> {
         long val = ((BigInteger) t.value()).longValue();
@@ -908,7 +936,11 @@ public class StvnBinaryEncoder {
   private void writeHeader(int rootOffset) {
     int finalPos = buffer.position();
     buffer.position(0);
-    buffer.putInt(MAGIC_BYTES);
+    // Write literal ASCII bytes in network byte order ['S', 'T', 'V', 'N']
+    buffer.put((byte) 'S');
+    buffer.put((byte) 'T');
+    buffer.put((byte) 'V');
+    buffer.put((byte) 'N');
 
     int identityCode = (identityStrategy != null) ? identityStrategy.code() : 0x00;
     int trailerBit = hasTrailerCrc32c ? 0x80 : 0x00;

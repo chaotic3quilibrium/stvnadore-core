@@ -360,10 +360,12 @@ public final class StvnMapper {
       return Optional.of(new StvnValue.StvnString(schema, s, StvnValue.StringStyle.SIMPLE, Optional.empty(), new StvnValue.StringTrait(0, false)));
     }
     if (recordInstance instanceof Number n) {
-      if (recordInstance instanceof Double || recordInstance instanceof Float || recordInstance instanceof BigDecimal) {
-        var bd = (recordInstance instanceof BigDecimal) ? (BigDecimal) recordInstance : new BigDecimal(recordInstance.toString());
-        var precision = (recordInstance instanceof Float) ? StvnValue.FloatPrecision.FLOAT32 : StvnValue.FloatPrecision.FLOAT64;
-        return Optional.of(new StvnValue.StvnFloat(schema, bd, precision));
+      if (recordInstance instanceof Double d) {
+        return Optional.of(StvnValue.StvnFloat.ofDouble(schema, d));
+      } else if (recordInstance instanceof Float fl) {
+        return Optional.of(StvnValue.StvnFloat.ofFloat(schema, fl));
+      } else if (recordInstance instanceof BigDecimal bd) {
+        return Optional.of(new StvnValue.StvnFloat(schema, bd, StvnValue.FloatPrecision.EXACT));
       } else {
         var bi = (recordInstance instanceof BigInteger) ? (BigInteger) recordInstance : BigInteger.valueOf(n.longValue());
         int bitWidth = schema.constraints().size().orElse(32);
@@ -738,13 +740,13 @@ public final class StvnMapper {
       if (!(ast instanceof StvnValue.StvnFloat f)) {
         throw new MalformedPayloadException("Expected StvnFloat for double but got " + ast.getClass().getSimpleName());
       }
-      return f.value().doubleValue();
+      return f.doubleValue();
     }
     if (targetClass == Float.class || targetClass == float.class) {
       if (!(ast instanceof StvnValue.StvnFloat f)) {
         throw new MalformedPayloadException("Expected StvnFloat for float but got " + ast.getClass().getSimpleName());
       }
-      return f.value().floatValue();
+      return f.floatValue();
     }
     if (targetClass == BigDecimal.class) {
       if (!(ast instanceof StvnValue.StvnFloat f)) {
@@ -872,7 +874,7 @@ public final class StvnMapper {
     return switch (val) {
       case StvnValue.StvnBoolean b -> new StvnValue.StvnBoolean(newSchema, b.value());
       case StvnValue.StvnInteger i -> new StvnValue.StvnInteger(newSchema, i.value(), i.bitWidth(), i.isUnsigned());
-      case StvnValue.StvnFloat f -> new StvnValue.StvnFloat(newSchema, f.value(), f.precision());
+      case StvnValue.StvnFloat f -> new StvnValue.StvnFloat(newSchema, f.value(), f.precision(), f.isNaN(), f.isPositiveInfinity(), f.isNegativeInfinity(), f.isNegativeZero());
       case StvnValue.StvnString s -> new StvnValue.StvnString(newSchema, s.value(), s.style(), s.fenceTag(), s.trait());
       case StvnValue.StvnTime t -> new StvnValue.StvnTime(newSchema, t.value(), t.kind());
       case StvnValue.StvnDateTimeOffset dto -> new StvnValue.StvnDateTimeOffset(newSchema, dto.value());

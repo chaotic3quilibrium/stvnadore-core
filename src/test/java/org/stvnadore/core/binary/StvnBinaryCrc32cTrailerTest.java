@@ -133,7 +133,7 @@ class StvnBinaryCrc32cTrailerTest {
   @DisplayName("TC-CRC-05: Truncated buffer below 9 bytes throws MalformedPayloadException")
   void testCrc32cTruncatedBufferBelow9Bytes(int size) {
     ByteBuffer shortBuf = ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN);
-    shortBuf.putInt(StvnBinaryUtils.MAGIC_BYTES);
+    shortBuf.put((byte) 'S').put((byte) 'T').put((byte) 'V').put((byte) 'N');
     shortBuf.put((byte) StvnBinaryUtils.CONTROL_MASK_TRAILER_CRC32C); // Bit 7 set
     for (int i = 5; i < size; i++) {
       shortBuf.put((byte) 0x00);

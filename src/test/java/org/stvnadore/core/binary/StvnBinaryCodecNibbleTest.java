@@ -11,6 +11,7 @@ import org.stvnadore.core.binary.exceptions.StvnSerializationException;
 import org.stvnadore.core.binary.exceptions.UnsupportedEncodingStrategyException;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Optional;
 
 /**
@@ -127,8 +128,14 @@ class StvnBinaryCodecNibbleTest {
     ByteBuffer buf = encoder.encode(ir);
 
     // Tamper with byte in SHA-256 payload (Byte 5 is the first byte of the 32B hash)
-    ByteBuffer tampered = buf.duplicate();
+    ByteBuffer tampered = buf.duplicate().order(ByteOrder.LITTLE_ENDIAN);
     tampered.put(5, (byte) (tampered.get(5) ^ 0xFF));
+    java.util.zip.CRC32C crc = new java.util.zip.CRC32C();
+    ByteBuffer view = tampered.duplicate().order(ByteOrder.LITTLE_ENDIAN);
+    view.position(0);
+    view.limit(tampered.limit() - 4);
+    crc.update(view);
+    tampered.putInt(tampered.limit() - 4, (int) crc.getValue());
 
     Assertions.assertThrows(
         PoisonedRegistryPayloadException.class,

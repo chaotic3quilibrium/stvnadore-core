@@ -2074,8 +2074,14 @@ public class StvnEndToEndIntegrationTest {
       var encoded = encoder.encode(ir);
 
       // Tamper with the hash in the encoded buffer
-      var tampered = encoded.duplicate();
+      var tampered = encoded.duplicate().order(java.nio.ByteOrder.LITTLE_ENDIAN);
       tampered.put(5, (byte) (tampered.get(5) ^ 0xFF));
+      java.util.zip.CRC32C crc = new java.util.zip.CRC32C();
+      java.nio.ByteBuffer view = tampered.duplicate().order(java.nio.ByteOrder.LITTLE_ENDIAN);
+      view.position(0);
+      view.limit(tampered.limit() - 4);
+      crc.update(view);
+      tampered.putInt(tampered.limit() - 4, (int) crc.getValue());
 
       // Attempting to decode the tampered buffer should throw StvnSerializationException
       org.junit.jupiter.api.Assertions.assertThrows(

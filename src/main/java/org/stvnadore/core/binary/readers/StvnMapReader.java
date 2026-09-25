@@ -68,6 +68,11 @@ public final class StvnMapReader {
     // Values array starts exactly after the Keys array finishes
     int valuesStartOffset = keysStartOffset + (this.length * keyStride);
 
+    if (this.length > 0) {
+      long totalMapBytes = (long) this.length * (keyStride + valueStride);
+      StvnBinaryDecoder.validateAllocationBounds(totalMapBytes, ctx.buffer(), keysStartOffset);
+    }
+
     this.keys = new StvnMemoryAccessor() {
       @Override
       public DecodeContext context() {
