@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject constant zero shadowing
+// @error: MALFORMED_PAYLOAD
 {
   :defs {
     #LOCAL_TIMEOUT :Int 30

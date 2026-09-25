@@ -1,3 +1,6 @@
+// @spec: SPEC-05-FACET-ORDER
+// @case: Negative - Reject empty metadata block const
+// @error: MALFORMED_SCHEMA
 {
   // empty_metadata_block_const.stvn
   :defs {

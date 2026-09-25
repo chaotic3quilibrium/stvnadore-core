@@ -1,3 +1,6 @@
+// @spec: SPEC-10-SUM-TYPES
+// @case: Negative - Reject union out of bounds tag
+// @error: MALFORMED_LITERAL
 {
   :defs {
     :SimpleUnion :Union(:Int :String)

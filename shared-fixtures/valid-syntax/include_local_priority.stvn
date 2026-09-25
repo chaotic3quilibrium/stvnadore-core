@@ -1,3 +1,5 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Positive - Local definition priority over included definitions
 {
   :defs {
     :include [

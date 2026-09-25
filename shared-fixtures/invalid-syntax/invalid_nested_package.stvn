@@ -1,3 +1,6 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject invalid nested package
+// @error: MALFORMED_SCHEMA
 {
   // invalid_nested_package.stvn
   // Specification: STVN v1.2.0 (ECD-2026-04)

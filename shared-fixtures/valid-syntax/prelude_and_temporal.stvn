@@ -1,3 +1,5 @@
+// @spec: SPEC-02-TEMPORAL-EPOCH
+// @case: Positive - Prelude types and temporal scalar primitives
 {
   // prelude_and_temporal.stvn
   :defs {

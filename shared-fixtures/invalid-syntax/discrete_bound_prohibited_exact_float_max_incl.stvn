@@ -1,0 +1,10 @@
+// @spec: SPEC-04-DISCRETE-INTERVAL
+// @case: Negative - Prohibit closed upper bound on discrete exact :Float
+// @error: ERR_DISCRETE_BOUND_KIND_PROHIBITED
+{
+  :defs {
+    :ExactRate { #exact #maxIncl 100.0 } :Float
+  }
+  :type :ExactRate
+  :body 50.0
+}

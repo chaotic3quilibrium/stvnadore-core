@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject constant circular ref
+// @error: CIRCULAR_REFERENCE
 {
   :defs {
     #CONST_A :Int #CONST_B

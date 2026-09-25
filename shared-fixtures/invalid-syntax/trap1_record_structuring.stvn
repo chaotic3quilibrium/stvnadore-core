@@ -1,3 +1,6 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject trap1 record structuring
+// @error: SYNTAX_ERROR
 {
   :defs {
     :User { :name :String :age :Int }

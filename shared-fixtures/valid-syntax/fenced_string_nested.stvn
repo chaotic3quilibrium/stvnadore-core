@@ -1,3 +1,5 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Positive - Nested fenced string with tag delimiters
 {
   // fenced_string_nested.stvn
   :defs {

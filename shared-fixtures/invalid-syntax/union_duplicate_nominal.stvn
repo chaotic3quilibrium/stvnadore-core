@@ -1,3 +1,6 @@
+// @spec: SPEC-10-SUM-TYPES
+// @case: Negative - Reject union duplicate nominal
+// @error: COLLECTION_COLLISION
 {
   :defs {
     :MyInt { #minIncl 1 } :Int

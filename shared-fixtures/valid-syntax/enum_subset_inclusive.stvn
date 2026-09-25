@@ -1,3 +1,5 @@
+// @spec: SPEC-11-ENUM-SUBSETS
+// @case: Positive - Enum subset with inclusive filtering
 {
   // enum_subset_inclusive.stvn
   :defs {

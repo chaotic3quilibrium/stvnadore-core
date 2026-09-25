@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject invalid zero length fixed string
+// @error: ERR_COMPOUND_TYPE_OBSOLETE
 {
   :defs {
     :ZeroLenString :StringFixed0

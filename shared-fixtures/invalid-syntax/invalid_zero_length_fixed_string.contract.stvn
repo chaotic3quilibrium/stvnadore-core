@@ -7,7 +7,7 @@
   :type :ErrorContract
 
   :body (
-    #MALFORMED_SCHEMA
+    #ERR_COMPOUND_TYPE_OBSOLETE
     "Compound string keyword ':StringFixed0' is deprecated in 2.0.0; use '{ #minSize 0 #maxSize 0 } :String'"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )

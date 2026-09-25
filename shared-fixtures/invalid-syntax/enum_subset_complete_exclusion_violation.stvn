@@ -1,3 +1,6 @@
+// @spec: SPEC-11-ENUM-SUBSETS
+// @case: Negative - Reject enum subset complete exclusion violation
+// @error: MALFORMED_SCHEMA
 {
   // enum_subset_complete_exclusion_violation.stvn
   :defs {

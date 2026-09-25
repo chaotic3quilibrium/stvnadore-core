@@ -1,3 +1,6 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject freestanding map entry disallowed
+// @error: SYNTAX_ERROR
 {
   :type :MapEntry(:String :Int)
   :body [ "key" 42 ]

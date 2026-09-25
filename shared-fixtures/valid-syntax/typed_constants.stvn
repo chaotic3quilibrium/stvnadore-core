@@ -1,3 +1,5 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Positive - Typed constant declarations and evaluations
 {
   // typed_constants.stvn
   :defs {

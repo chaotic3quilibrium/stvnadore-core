@@ -1,3 +1,5 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Positive - Compressed scalar encoding format
 {
   // compressed_scalars.stvn
   :defs {

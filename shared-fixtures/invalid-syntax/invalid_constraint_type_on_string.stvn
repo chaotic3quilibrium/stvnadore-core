@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject invalid constraint type on string
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :BadString {#minIncl 5} :String

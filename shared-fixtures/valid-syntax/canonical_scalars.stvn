@@ -1,3 +1,5 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Positive - Canonical scalar primitives with explicit constraints
 {
   // canonical_scalars.stvn
   :defs {

@@ -1,3 +1,6 @@
+// @spec: SPEC-03-TEMPORAL-DATETIME
+// @case: Negative - Reject temporal datetime conflicting modes
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :EventTime { #offset #zoned } :DateTime

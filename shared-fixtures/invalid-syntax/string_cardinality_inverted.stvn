@@ -1,0 +1,10 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Negative - Reject inverted string cardinality range (#minSize > #maxSize)
+// @error: INVALID_NUMERIC_RANGE
+{
+  :defs {
+    :BadString { #minSize 10 #maxSize 5 } :String
+  }
+  :type :BadString
+  :body "hello"
+}

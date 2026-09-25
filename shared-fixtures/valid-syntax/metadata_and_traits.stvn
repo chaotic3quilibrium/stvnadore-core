@@ -1,3 +1,5 @@
+// @spec: SPEC-05-FACET-ORDER
+// @case: Positive - Conforming metadata facets and traits
 {
   // metadata_and_traits.stvn
   :defs {

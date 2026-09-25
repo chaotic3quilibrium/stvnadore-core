@@ -1,3 +1,6 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject trap3 trailing metadata
+// @error: SYNTAX_ERROR
 {
   :defs {
     :Port :Int { #minIncl 1 #maxExcl 65536 }

@@ -1,3 +1,6 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject trap7 infix colon
+// @error: SYNTAX_ERROR
 {
   :defs {
     :Pair :Tuple( :Int : :String )

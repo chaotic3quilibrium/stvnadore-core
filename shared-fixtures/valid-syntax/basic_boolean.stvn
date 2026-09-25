@@ -1,3 +1,5 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Positive - Sequence of boolean literals
 {
   :type :Seq( :Boolean )
   :body [ #TRUE #FALSE #T #F ]

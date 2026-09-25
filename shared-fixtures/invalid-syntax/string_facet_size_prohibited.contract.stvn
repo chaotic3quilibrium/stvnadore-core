@@ -7,7 +7,7 @@
   :type :ErrorContract
 
   :body (
-    #MALFORMED_SCHEMA
+    #ERR_STRING_CARDINALITY_PROHIBITED
     "Facet '#size' is prohibited on :String; use '#minSize' and '#maxSize' (e.g. { #minSize N #maxSize N } :String)"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )

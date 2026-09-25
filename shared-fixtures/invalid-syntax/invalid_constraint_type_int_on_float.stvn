@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject invalid constraint type int on float
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :BadFloat {#minIncl 5} :Float

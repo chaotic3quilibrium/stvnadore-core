@@ -1,0 +1,14 @@
+{
+  // facet_order_violation_interval_before_flag.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #ERR_FACET_ORDER_VIOLATION
+    "violates canonical 7-tier order"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

@@ -1,3 +1,5 @@
+// @spec: SPEC-05-FACET-ORDER
+// @case: Positive - Metadata constraint override semantics
 {
   :defs {
     // 1. Grandparent: Establishes explicit boundaries and relies on implicit defaults

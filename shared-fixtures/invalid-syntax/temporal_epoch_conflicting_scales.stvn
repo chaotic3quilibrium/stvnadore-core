@@ -1,3 +1,6 @@
+// @spec: SPEC-02-TEMPORAL-EPOCH
+// @case: Negative - Reject temporal epoch conflicting scales
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :ConflictingEpoch { #s #ms } :TimeEpoch

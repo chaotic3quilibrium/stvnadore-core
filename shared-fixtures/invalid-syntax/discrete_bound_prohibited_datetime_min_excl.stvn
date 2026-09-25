@@ -1,0 +1,10 @@
+// @spec: SPEC-04-DISCRETE-INTERVAL
+// @case: Negative - Prohibit open lower bound on discrete :DateTime
+// @error: ERR_DISCRETE_BOUND_KIND_PROHIBITED
+{
+  :defs {
+    :BadDate { #offset #minExcl "2026-01-01T00:00:00Z" #maxExcl "2027-01-01T00:00:00Z" } :DateTime
+  }
+  :type :BadDate
+  :body "2026-06-01T12:00:00Z"
+}

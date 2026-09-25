@@ -1,3 +1,6 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject include dual eviction unresolved
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :include [

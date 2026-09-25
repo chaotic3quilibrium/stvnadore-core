@@ -1,3 +1,5 @@
+// @spec: SPEC-11-ENUM-SUBSETS
+// @case: Positive - Modular enum subset imported from external module
 {
   // enum_subset_modular.stvn
   :defs {

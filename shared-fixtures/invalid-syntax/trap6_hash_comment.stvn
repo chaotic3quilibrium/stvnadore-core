@@ -1,3 +1,6 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject trap6 hash comment
+// @error: SYNTAX_ERROR
 {
   # This is an invalid comment format
   :type :Int

@@ -1,0 +1,10 @@
+// @spec: SPEC-04-DISCRETE-INTERVAL
+// @case: Negative - Prohibit open lower bound on discrete :TimeEpoch
+// @error: ERR_DISCRETE_BOUND_KIND_PROHIBITED
+{
+  :defs {
+    :BadEpoch { #s #minExcl 0 #maxExcl 1000 } :TimeEpoch
+  }
+  :type :BadEpoch
+  :body 500
+}

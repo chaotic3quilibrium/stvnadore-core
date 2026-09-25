@@ -1,3 +1,6 @@
+// @spec: SPEC-08-COLLECTIONS
+// @case: Negative - Reject set duplicate element
+// @error: COLLECTION_COLLISION
 {
   :type :Set(:Int)
   :body [ 1 2 3 1 ]

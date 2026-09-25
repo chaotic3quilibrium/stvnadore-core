@@ -7,7 +7,7 @@
   :type :ErrorContract
 
   :body (
-    #MALFORMED_SCHEMA
+    #ERR_DATETIME_MODE_INVALID
     "Temporal type ':DateTime' requires exactly one mode facet: '#offset', '#zoned', or '#audited'"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )

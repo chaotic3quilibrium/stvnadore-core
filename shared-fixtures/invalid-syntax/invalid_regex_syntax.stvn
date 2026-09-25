@@ -1,3 +1,6 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Negative - Reject invalid regex syntax
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :BadRegex { #regex "[" } :String

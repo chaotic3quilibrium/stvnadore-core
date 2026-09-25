@@ -1,3 +1,6 @@
+// @spec: SPEC-08-COLLECTIONS
+// @case: Negative - Reject set unequatable element
+// @error: MALFORMED_SCHEMA
 {
   :type :Set(:Float)
   :body [ 1.0 2.0 ]

@@ -7,7 +7,7 @@
   :type :ErrorContract
 
   :body (
-    #MALFORMED_SCHEMA
+    #ERR_DISCRETE_BOUND_KIND_PROHIBITED
     "Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )

@@ -1,3 +1,5 @@
+// @spec: SPEC-10-SUM-TYPES
+// @case: Positive - Algebraic sum, either, option, and product types
 {
   // algebraic_full.stvn
   :defs {

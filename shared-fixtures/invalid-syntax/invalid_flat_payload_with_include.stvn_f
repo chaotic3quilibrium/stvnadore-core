@@ -1,3 +1,6 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject invalid flat payload with include
+// @error: MALFORMED_SCHEMA
 {
   // invalid_flat_payload_with_include.stvn_f
   // Specification: STVN v1.2.0 (ECD-2026-04-A1)

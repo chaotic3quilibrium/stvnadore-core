@@ -1,3 +1,6 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject trap8 scalar var parens
+// @error: MALFORMED_PAYLOAD
 {
   :defs {
     :OptInt :Option( :Int )

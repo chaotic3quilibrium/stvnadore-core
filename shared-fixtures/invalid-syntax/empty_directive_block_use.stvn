@@ -1,3 +1,6 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject empty directive block use
+// @error: MALFORMED_SCHEMA
 {
   // empty_directive_block_use.stvn
   :defs {

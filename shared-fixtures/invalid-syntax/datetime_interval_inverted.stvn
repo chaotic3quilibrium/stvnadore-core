@@ -1,0 +1,14 @@
+// @spec: SPEC-03-TEMPORAL-DATETIME
+// @case: Negative - Reject chronologically inverted datetime interval
+// @error: INVALID_NUMERIC_RANGE
+{
+  :defs {
+    :InvertedDateRange {
+      #offset
+      #minIncl "2026-09-25T12:00:00Z"
+      #maxExcl "2026-09-24T12:00:00Z"
+    } :DateTime
+  }
+  :type :InvertedDateRange
+  :body "2026-09-24T12:00:00Z"
+}

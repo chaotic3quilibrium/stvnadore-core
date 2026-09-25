@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject invalid negative unsigned limit
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :UnsignedType {#unsigned #size 32 #minIncl -5} :Int

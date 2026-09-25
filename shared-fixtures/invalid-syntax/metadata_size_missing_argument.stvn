@@ -1,3 +1,6 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject metadata size missing argument
+// @error: SYNTAX_ERROR
 {
   // metadata_size_missing_argument.stvn
   // Specification: STVN v2.0.0

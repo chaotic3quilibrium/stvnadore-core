@@ -1,3 +1,5 @@
+// @spec: SPEC-10-SUM-TYPES
+// @case: Positive - Explicit tagged union construct
 {
   :defs {
     :MyUnion :Union(:Int :String)

@@ -1,3 +1,5 @@
+// @spec: SPEC-07-NOMINAL-BIJECT
+// @case: Positive - Namespaced path navigation and scoping
 {
   // namespaced_paths.stvn
   :defs {

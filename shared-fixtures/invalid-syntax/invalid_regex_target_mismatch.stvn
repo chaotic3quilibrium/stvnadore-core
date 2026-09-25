@@ -1,3 +1,6 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Negative - Reject invalid regex target mismatch
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :BadType { #regex "^[0-9]+$" } :Int

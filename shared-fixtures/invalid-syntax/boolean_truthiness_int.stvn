@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject integer value for boolean sequence
+// @error: TYPE_MISMATCH
 {
   :type :Seq( :Boolean )
   :body [ 1 ]

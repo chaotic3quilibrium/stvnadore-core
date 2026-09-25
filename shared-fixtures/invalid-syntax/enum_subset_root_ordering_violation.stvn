@@ -1,3 +1,6 @@
+// @spec: SPEC-11-ENUM-SUBSETS
+// @case: Negative - Reject enum subset root ordering violation
+// @error: MALFORMED_SCHEMA
 {
   // enum_subset_root_ordering_violation.stvn
   :defs {

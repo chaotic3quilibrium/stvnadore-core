@@ -1,0 +1,14 @@
+{
+  // string_cardinality_inverted.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #INVALID_NUMERIC_RANGE
+    "cardinality range is invalid"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

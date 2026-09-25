@@ -1,3 +1,5 @@
+// @spec: SPEC-11-ENUM-SUBSETS
+// @case: Positive - Transitive enum subset narrowing chain
 {
   // enum_subset_transitive_chain.stvn
   :defs {

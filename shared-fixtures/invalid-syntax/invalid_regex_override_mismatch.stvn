@@ -1,3 +1,6 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Negative - Reject invalid regex override mismatch
+// @error: MALFORMED_PAYLOAD
 {
   :defs {
     :Parent { #regex "^abc$" } :String

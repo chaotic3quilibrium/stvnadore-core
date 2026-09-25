@@ -1,3 +1,6 @@
+// @spec: SPEC-11-ENUM-SUBSETS
+// @case: Negative - Reject enum subset payload not in subset
+// @error: MALFORMED_PAYLOAD
 {
   // enum_subset_payload_not_in_subset.stvn
   :defs {

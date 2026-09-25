@@ -1,3 +1,6 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject tab character indent disallowed
+// @error: SYNTAX_ERROR
 {
 	:type :Int
 	:body 42

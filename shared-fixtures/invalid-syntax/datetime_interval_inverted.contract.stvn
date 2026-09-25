@@ -1,0 +1,14 @@
+{
+  // datetime_interval_inverted.contract.stvn
+  :defs {
+    :include [ "error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #INVALID_NUMERIC_RANGE
+    "effective datetime range is invalid"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

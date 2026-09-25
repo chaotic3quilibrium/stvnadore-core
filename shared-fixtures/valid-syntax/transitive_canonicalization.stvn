@@ -1,3 +1,5 @@
+// @spec: SPEC-07-NOMINAL-BIJECT
+// @case: Positive - Transitive nominal canonicalization and hashing
 {
   :defs {
     :package :org/stvnadore/finance {

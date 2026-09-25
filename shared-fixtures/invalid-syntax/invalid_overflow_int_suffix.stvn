@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject invalid overflow int suffix
+// @error: ERR_COMPOUND_TYPE_OBSOLETE
 {
   :defs {
     :OverflowInt :Int4294967296

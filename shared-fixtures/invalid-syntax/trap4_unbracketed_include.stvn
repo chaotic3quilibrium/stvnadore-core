@@ -1,3 +1,6 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject trap4 unbracketed include
+// @error: SYNTAX_ERROR
 {
   :defs {
     :include "shared-fixtures/valid-syntax/module_a.stvn_incl"

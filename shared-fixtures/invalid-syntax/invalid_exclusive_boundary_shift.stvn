@@ -1,3 +1,6 @@
+// @spec: SPEC-04-DISCRETE-INTERVAL
+// @case: Negative - Reject invalid exclusive boundary shift
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :ShiftedType {#minIncl 6 #maxExcl 6} :Int

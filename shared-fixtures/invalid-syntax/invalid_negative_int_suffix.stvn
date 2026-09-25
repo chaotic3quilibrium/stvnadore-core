@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject invalid negative int suffix
+// @error: SYNTAX_ERROR
 {
   :type :Seq(:Int-8)
   :body [ 0 ]

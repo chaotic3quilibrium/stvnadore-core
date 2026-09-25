@@ -1,3 +1,6 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject include unmitigated raw collision
+// @error: NAMESPACE_COLLISION
 {
   :defs {
     :include [

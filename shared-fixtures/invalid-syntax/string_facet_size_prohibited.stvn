@@ -1,3 +1,6 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Negative - Reject string facet size prohibited
+// @error: ERR_STRING_CARDINALITY_PROHIBITED
 {
   :defs {
     :BadString { #size 32 } :String

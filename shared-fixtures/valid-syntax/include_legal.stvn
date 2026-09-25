@@ -1,3 +1,5 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Positive - Legal module include and type resolution
 {
   :defs {
     :include [

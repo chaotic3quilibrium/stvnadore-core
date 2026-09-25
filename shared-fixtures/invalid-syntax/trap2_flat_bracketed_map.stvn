@@ -1,3 +1,6 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject trap2 flat bracketed map
+// @error: MALFORMED_PAYLOAD
 {
   :defs {
     :Config :Map( :String :Int )

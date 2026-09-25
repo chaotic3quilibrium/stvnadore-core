@@ -1,0 +1,10 @@
+// @spec: SPEC-05-FACET-ORDER
+// @case: Negative - Reject non-canonical facet ordering (Tier 4 interval before Tier 1 flag)
+// @error: ERR_FACET_ORDER_VIOLATION
+{
+  :defs {
+    :BadInt { #minIncl 1024 #unsigned } :Int
+  }
+  :type :BadInt
+  :body 2048
+}

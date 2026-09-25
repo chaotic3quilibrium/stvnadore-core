@@ -1,3 +1,6 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Negative - Reject invalid string capacity zero
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :ZeroCapacityString :String0

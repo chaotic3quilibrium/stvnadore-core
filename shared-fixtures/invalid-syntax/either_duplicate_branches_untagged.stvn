@@ -1,3 +1,6 @@
+// @spec: SPEC-10-SUM-TYPES
+// @case: Negative - Reject either duplicate branches untagged
+// @error: MALFORMED_PAYLOAD
 {
   // either_duplicate_branches_untagged.stvn
   :defs {

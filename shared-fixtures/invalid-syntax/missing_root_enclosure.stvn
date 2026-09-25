@@ -1,2 +1,5 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject missing root enclosure
+// @error: SYNTAX_ERROR
 :type :Int
 :body 42

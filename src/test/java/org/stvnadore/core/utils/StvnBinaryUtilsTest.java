@@ -73,7 +73,7 @@ class StvnBinaryUtilsTest {
 
   @Test
   void generateFixtures() throws Exception {
-    String stvnStr = "{\n  :type :Seq( :Boolean )\n  :body [ #TRUE #FALSE #T #F ]\n}\n";
+    String stvnStr = "// @spec: SPEC-01-SCALAR-KERNEL\n// @case: Positive - Sequence of boolean literals\n{\n  :type :Seq( :Boolean )\n  :body [ #TRUE #FALSE #T #F ]\n}\n";
     var ir = org.stvnadore.core.StvnCompiler.compile(stvnStr).orElseThrow();
     var encoder = new org.stvnadore.core.binary.StvnBinaryEncoder(true, new org.stvnadore.core.binary.SchemaIdentityStrategy.UniversalDefault());
     java.nio.ByteBuffer buf = encoder.encode(ir);
@@ -89,7 +89,7 @@ class StvnBinaryUtilsTest {
     java.nio.file.Files.write(java.nio.file.Paths.get("shared-fixtures/valid-syntax/basic_boolean.stvn_bin"), encoded);
 
     // Write invalid files
-    String invalidStvn = "{\n  :type :Seq( :Boolean )\n  :body [ 1 ]\n}\n";
+    String invalidStvn = "// @spec: SPEC-01-SCALAR-KERNEL\n// @case: Negative - Reject integer value for boolean sequence\n// @error: TYPE_MISMATCH\n{\n  :type :Seq( :Boolean )\n  :body [ 1 ]\n}\n";
     java.nio.file.Files.writeString(java.nio.file.Paths.get("shared-fixtures/invalid-syntax/boolean_truthiness_int.stvn"), invalidStvn);
 
     String jsonManifest = "{\n" +

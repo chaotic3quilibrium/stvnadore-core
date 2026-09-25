@@ -1,3 +1,6 @@
+// @spec: SPEC-07-NOMINAL-BIJECT
+// @case: Negative - Reject incompatible nominal type branding
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :UserId :Int

@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject constant bad constraint
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     #RESTRICTED_PORT { #minIncl 1024 #maxExcl 65536 } :Int 80

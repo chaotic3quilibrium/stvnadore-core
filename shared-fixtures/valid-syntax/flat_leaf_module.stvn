@@ -1,3 +1,5 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Positive - Flat leaf module definition
 {
   // flat_leaf_module.stvn
   :defs {

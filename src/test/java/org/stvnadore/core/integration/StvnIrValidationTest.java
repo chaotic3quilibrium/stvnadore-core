@@ -255,7 +255,38 @@ public class StvnIrValidationTest {
     if (e instanceof org.stvnadore.core.validation.StvnCollectionCollisionException) {
       return "COLLECTION_COLLISION";
     }
-    if (e instanceof org.stvnadore.core.validation.MalformedSchemaException) {
+    if (e instanceof org.stvnadore.core.validation.MalformedSchemaException mse) {
+      String msg = mse.getMessage() != null ? mse.getMessage() : "";
+      if (msg.contains("Discrete type") || msg.contains("prohibits bound") || msg.contains("Discrete exact float") || msg.contains("Discrete temporal type")) {
+        return "ERR_DISCRETE_BOUND_KIND_PROHIBITED";
+      }
+      if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
+        return "ERR_STRING_CARDINALITY_PROHIBITED";
+      }
+      if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet") || msg.contains("Temporal type ':TimeEpoch' requires a scale facet")) {
+        return "ERR_TEMPORAL_SCALE_MISSING";
+      }
+      if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet") || msg.contains("Temporal type ':DateTime' requires exactly one mode facet")) {
+        return "ERR_DATETIME_MODE_INVALID";
+      }
+      if (msg.contains("Compound") || msg.contains("deprecated in 2.0.0")) {
+        return "ERR_COMPOUND_TYPE_OBSOLETE";
+      }
+      if (msg.contains("defines an empty domain")) {
+        return "ERR_EMPTY_INTERVAL_DOMAIN";
+      }
+      if (msg.contains("violates canonical 7-tier order") || msg.contains("Facet order violation")) {
+        return "ERR_FACET_ORDER_VIOLATION";
+      }
+      if (msg.contains("prelude") && msg.contains("purged")) {
+        return "ERR_PRELUDE_ALIAS_PURGED";
+      }
+      if (msg.contains("effective range is invalid") || msg.contains("cardinality range is invalid") || msg.contains("effective datetime range is invalid")) {
+        return "INVALID_NUMERIC_RANGE";
+      }
+      if (msg.contains("Integer bit-width #size must be between")) {
+        return "CAPACITY_OVERFLOW";
+      }
       return "MALFORMED_SCHEMA";
     }
     if (e instanceof org.stvnadore.core.validation.MalformedPayloadException) {
@@ -266,6 +297,30 @@ public class StvnIrValidationTest {
     }
     if (e instanceof UnsupportedEncodingStrategyException) {
       return "SYNTAX_ERROR";
+    }
+    if (e instanceof RuntimeException re) {
+      String msg = re.getMessage() != null ? re.getMessage() : "";
+      if (msg.contains("violates canonical 7-tier order") || msg.contains("Facet order violation")) {
+        return "ERR_FACET_ORDER_VIOLATION";
+      }
+      if (msg.contains("Discrete type") || msg.contains("prohibits bound") || msg.contains("Discrete exact float") || msg.contains("Discrete temporal type")) {
+        return "ERR_DISCRETE_BOUND_KIND_PROHIBITED";
+      }
+      if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
+        return "ERR_STRING_CARDINALITY_PROHIBITED";
+      }
+      if (msg.contains("Temporal type ':TimeEpoch' requires a scale facet")) {
+        return "ERR_TEMPORAL_SCALE_MISSING";
+      }
+      if (msg.contains("Temporal type ':DateTime' requires exactly one mode facet")) {
+        return "ERR_DATETIME_MODE_INVALID";
+      }
+      if (msg.contains("defines an empty domain")) {
+        return "ERR_EMPTY_INTERVAL_DOMAIN";
+      }
+      if (msg.contains("effective range is invalid") || msg.contains("cardinality range is invalid") || msg.contains("effective datetime range is invalid")) {
+        return "INVALID_NUMERIC_RANGE";
+      }
     }
     return "SYNTAX_ERROR";
   }

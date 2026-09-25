@@ -1,3 +1,6 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Negative - Reject invalid string capacity int32 overflow
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :OverflowString :String2147483648

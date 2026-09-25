@@ -1,3 +1,5 @@
+// @spec: SPEC-08-COLLECTIONS
+// @case: Positive - Comprehensive collection types including Seq, Set, and Map
 {
   // collections_full.stvn
   :defs {

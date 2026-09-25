@@ -1,3 +1,6 @@
+// @spec: SPEC-03-TEMPORAL-DATETIME
+// @case: Negative - Reject temporal datetime missing mode
+// @error: ERR_DATETIME_MODE_INVALID
 {
   :defs {
     :EventTime :DateTime

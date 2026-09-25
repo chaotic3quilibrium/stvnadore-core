@@ -1,0 +1,14 @@
+// @spec: SPEC-04-DISCRETE-INTERVAL
+// @case: Negative - Reject zero-width discrete interval defining empty domain
+// @error: ERR_EMPTY_INTERVAL_DOMAIN
+{
+  :defs {
+    :EmptyDateRange {
+      #offset
+      #minIncl "2026-09-24T12:00:00Z"
+      #maxExcl "2026-09-24T12:00:00Z"
+    } :DateTime
+  }
+  :type :EmptyDateRange
+  :body "2026-09-24T12:00:00Z"
+}

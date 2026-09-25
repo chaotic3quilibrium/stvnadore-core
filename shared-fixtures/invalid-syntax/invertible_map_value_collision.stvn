@@ -1,3 +1,6 @@
+// @spec: SPEC-08-COLLECTIONS
+// @case: Negative - Reject invertible map value collision
+// @error: COLLECTION_COLLISION
 {
   :defs {
     :NominalA :Int

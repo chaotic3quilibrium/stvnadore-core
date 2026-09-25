@@ -1,3 +1,5 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Positive - Hermetic flat payload file without includes
 {
   // hermetic_payload.stvn_f
   // Flat Hermetic Payload Document Tier (Zero :include Statements)

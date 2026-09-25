@@ -1,3 +1,6 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject invalid use trailing slash
+// @error: MALFORMED_SCHEMA
 {
   // invalid_use_trailing_slash.stvn
   // Specification: STVN v1.2.0 (ECD-2026-04)

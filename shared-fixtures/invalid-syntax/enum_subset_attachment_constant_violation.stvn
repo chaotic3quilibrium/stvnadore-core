@@ -1,3 +1,6 @@
+// @spec: SPEC-11-ENUM-SUBSETS
+// @case: Negative - Reject enum subset attachment constant violation
+// @error: MALFORMED_SCHEMA
 {
   // enum_subset_attachment_constant_violation.stvn
   :defs {

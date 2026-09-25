@@ -1,3 +1,6 @@
+// @spec: SPEC-05-FACET-ORDER
+// @case: Negative - Reject facet target numeric on string
+// @error: MALFORMED_SCHEMA
 {
   // facet_target_numeric_on_string.stvn
   :defs {

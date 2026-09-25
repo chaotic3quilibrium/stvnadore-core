@@ -1,3 +1,6 @@
+// @spec: SPEC-11-ENUM-SUBSETS
+// @case: Negative - Reject enum subset empty exclusion list
+// @error: MALFORMED_SCHEMA
 {
   // enum_subset_empty_exclusion_list.stvn
   :defs {

@@ -1,3 +1,6 @@
+// @spec: SPEC-11-ENUM-SUBSETS
+// @case: Negative - Reject enum subset mutual exclusivity violation
+// @error: MALFORMED_SCHEMA
 {
   // enum_subset_mutual_exclusivity_violation.stvn
   :defs {

@@ -7,7 +7,7 @@
   :type :ErrorContract
 
   :body (
-    #MALFORMED_SCHEMA
+    #ERR_TEMPORAL_SCALE_MISSING
     "Temporal type ':TimeEpoch' requires a scale facet: '#s', '#ms', '#us', or '#ns'"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )

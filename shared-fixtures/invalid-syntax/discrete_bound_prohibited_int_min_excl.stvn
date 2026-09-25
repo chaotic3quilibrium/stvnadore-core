@@ -1,0 +1,10 @@
+// @spec: SPEC-04-DISCRETE-INTERVAL
+// @case: Negative - Prohibit open lower bound on discrete :Int
+// @error: ERR_DISCRETE_BOUND_KIND_PROHIBITED
+{
+  :defs {
+    :PositiveInt { #minExcl 0 #maxExcl 10 } :Int
+  }
+  :type :PositiveInt
+  :body 1
+}

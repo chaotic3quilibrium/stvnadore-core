@@ -1,3 +1,6 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Negative - Reject invalid bit width overflow unsigned
+// @error: MALFORMED_SCHEMA
 {
   :defs {
     :UnsignedType {#unsigned #size 8 #maxExcl 257} :Int

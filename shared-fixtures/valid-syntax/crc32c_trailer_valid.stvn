@@ -1,3 +1,5 @@
+// @spec: SPEC-01-SCALAR-KERNEL
+// @case: Positive - Valid document with CRC-32C trailer envelope
 {
   // File: crc32c_trailer_valid.stvn
   // Canonical STVN payload with scalars, collections, and enum subsets

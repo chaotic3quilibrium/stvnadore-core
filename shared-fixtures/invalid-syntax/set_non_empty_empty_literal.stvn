@@ -1,3 +1,6 @@
+// @spec: SPEC-08-COLLECTIONS
+// @case: Negative - Reject set non empty empty literal
+// @error: MALFORMED_PAYLOAD
 {
   :defs {
     :NonEmptySet { #minSize 1 } :Set(:Int)
