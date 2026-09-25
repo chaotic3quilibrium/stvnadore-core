@@ -1065,10 +1065,14 @@ public class StvnTypeResolver {
         var rawClaims = new ArrayList<NamespaceClaim<N>>();
         var lhsClaims = new ArrayList<NamespaceClaim<N>>();
         var rhsClaims = new ArrayList<NamespaceClaim<N>>();
+        var seenRawModuleOrigins = new HashSet<String>();
 
         for (var c : claims) {
           if (c.type() == ClaimType.RAW_IMPORT) {
-            rawClaims.add(c);
+            // Deduplicate identical claims imported from the exact same source module via diamond paths
+            if (seenRawModuleOrigins.add(c.sourceModule())) {
+              rawClaims.add(c);
+            }
           } else if (c.type() == ClaimType.RENAMED_IMPORT_LHS) {
             lhsClaims.add(c);
           } else if (c.type() == ClaimType.RENAMED_IMPORT_RHS) {
@@ -1529,8 +1533,10 @@ public class StvnTypeResolver {
      * @return a new {@link StvnConstraints} instance
      */
     public StvnConstraints withSize(int bitWidth) {
+      var overrides = new ArrayList<>(explicitOverrides);
+      if (!overrides.contains("size")) overrides.add("size");
       return new StvnConstraints(
-          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, overrides,
           filterIncl, filterExcl, Optional.of(bitWidth), unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
           dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );
@@ -1543,8 +1549,11 @@ public class StvnTypeResolver {
      * @return a new {@link StvnConstraints} instance
      */
     public StvnConstraints withUnsigned(boolean isUnsigned) {
+      var overrides = new ArrayList<>(explicitOverrides);
+      if (isUnsigned && !overrides.contains("unsigned")) overrides.add("unsigned");
+      else if (!isUnsigned) overrides.remove("unsigned");
       return new StvnConstraints(
-          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, overrides,
           filterIncl, filterExcl, size, isUnsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
           dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );
@@ -1557,8 +1566,11 @@ public class StvnTypeResolver {
      * @return a new {@link StvnConstraints} instance
      */
     public StvnConstraints withExact(boolean isExact) {
+      var overrides = new ArrayList<>(explicitOverrides);
+      if (isExact && !overrides.contains("exact")) overrides.add("exact");
+      else if (!isExact) overrides.remove("exact");
       return new StvnConstraints(
-          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, overrides,
           filterIncl, filterExcl, size, unsigned, isExact, minSize, maxSize, invertible, scale, offset, zoned, audited,
           dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );
@@ -1571,8 +1583,11 @@ public class StvnTypeResolver {
      * @return a new {@link StvnConstraints} instance
      */
     public StvnConstraints withInvertible(boolean isInvertible) {
+      var overrides = new ArrayList<>(explicitOverrides);
+      if (isInvertible && !overrides.contains("invertible")) overrides.add("invertible");
+      else if (!isInvertible) overrides.remove("invertible");
       return new StvnConstraints(
-          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
+          minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, overrides,
           filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, isInvertible, scale, offset, zoned, audited,
           dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
       );

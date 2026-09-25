@@ -984,13 +984,13 @@ class StvnTextPrinterTest {
         }
         """,
         options,
-        "{:defs {:OffsetDateTime {#offset} :DateTime :ZonedDateTime {#zoned} :DateTime :AuditedDateTime {#audited} :DateTime} :type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime) :body (\"2026-03-15T08:00:00-05:00\" \"2026-03-15T08:00:00[America/Chicago]\" \"2026-03-15T08:00:00-05:00[America/Chicago]\")}",
+        "{:defs {:AuditedDateTime {#audited} :DateTime :OffsetDateTime {#offset} :DateTime :ZonedDateTime {#zoned} :DateTime} :type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime) :body (\"2026-03-15T08:00:00-05:00\" \"2026-03-15T08:00:00[America/Chicago]\" \"2026-03-15T08:00:00-05:00[America/Chicago]\")}",
         """
         {
             :defs {
+                :AuditedDateTime {#audited} :DateTime
                 :OffsetDateTime {#offset} :DateTime
                 :ZonedDateTime {#zoned} :DateTime
-                :AuditedDateTime {#audited} :DateTime
             }
             :type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime)
             :body ("2026-03-15T08:00:00-05:00" "2026-03-15T08:00:00[America/Chicago]" "2026-03-15T08:00:00-05:00[America/Chicago]")

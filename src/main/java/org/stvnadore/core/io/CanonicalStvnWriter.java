@@ -30,9 +30,9 @@ import org.stvnadore.core.io.StvnCanonicalDefinitionsResolver.ResolvedCanonicalD
  *       order. Payloads must enforce key ordering deterministically (via sorted {@link java.util.SequencedMap}
  *       structures) to prevent semantic drift.</li>
  *   <li><b>Trait-Ordering Consistency:</b> Constraints on schema aliases within the {@code :defs}
- *       section are serialized in a strict lexicographical ordering (e.g., {@code #comparable},
- *       {@code #equatable}, {@code #maxExcl}, {@code #maxIncl}, {@code #minExcl}, {@code #minIncl},
- *       {@code #preserveIndent}, {@code #regex}) regardless of their definition order.</li>
+ *       section are serialized in a strict 7-tier canonical sequence (Tier 1 Flags &amp; Modes,
+ *       Tier 2 Temporal Scale, Tier 3 Dimensions &amp; Capacity, Tier 4 Value Intervals,
+ *       Tier 5 Validation Patterns, Tier 6 Domain Subsets) adhering to Invariant 4.</li>
  *   <li><b>Boolean/Tag Standardization:</b> Boolean literals are coerced strictly to their long-form
  *       variants ({@code #TRUE} and {@code #FALSE}). Similarly, Option and Either tags are formatted
  *       using their explicit long-form symbols ({@code #Some}, {@code #None}, {@code #Left}, {@code #Right}).</li>
@@ -76,25 +76,100 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
         if (!isConstraintsEmpty(constraints)) {
           layout.openGroup("{");
 
-          var comparable = constraints.comparable().orElse(null);
-          if (comparable != null && constraints.explicitOverrides().contains("comparable")) {
-            layout.writeLiteral("#comparable");
-            layout.writeBoolean(comparable, PrinterOptions.SymbolStyle.LONG_FORM);
+          // Tier 1: Flags & Intrinsic Modes (Bare flags without #TRUE)
+          if (constraints.unsigned() && constraints.explicitOverrides().contains("unsigned")) {
+            layout.writeLiteral("#unsigned");
+          }
+          if (constraints.exact() && constraints.explicitOverrides().contains("exact")) {
+            layout.writeLiteral("#exact");
+          }
+          if (constraints.invertible() && constraints.explicitOverrides().contains("invertible")) {
+            layout.writeLiteral("#invertible");
+          }
+          if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
+            layout.writeLiteral("#preserveIndent");
+          }
+          if (constraints.offset() && constraints.explicitOverrides().contains("offset")) {
+            layout.writeLiteral("#offset");
+          }
+          if (constraints.zoned() && constraints.explicitOverrides().contains("zoned")) {
+            layout.writeLiteral("#zoned");
+          }
+          if (constraints.audited() && constraints.explicitOverrides().contains("audited")) {
+            layout.writeLiteral("#audited");
           }
           var equatable = constraints.equatable().orElse(null);
           if (equatable != null && constraints.explicitOverrides().contains("equatable")) {
             layout.writeLiteral("#equatable");
             layout.writeBoolean(equatable, PrinterOptions.SymbolStyle.LONG_FORM);
           }
-          var filterExcl = constraints.filterExcl().orElse(null);
-          if (filterExcl != null) {
-            layout.writeLiteral("#filterExcl");
-            layout.openGroup("[");
-            for (String v : filterExcl) {
-              layout.writeLiteral(v);
-            }
-            layout.closeGroup("]");
+          var comparable = constraints.comparable().orElse(null);
+          if (comparable != null && constraints.explicitOverrides().contains("comparable")) {
+            layout.writeLiteral("#comparable");
+            layout.writeBoolean(comparable, PrinterOptions.SymbolStyle.LONG_FORM);
           }
+
+          // Tier 2: Temporal Scale
+          var scale = constraints.scale().orElse(null);
+          if (scale != null) {
+            layout.writeLiteral(scale.startsWith("#") ? scale : ("#" + scale));
+          }
+
+          // Tier 3: Dimensions & Capacity
+          var size = constraints.size().orElse(null);
+          if (size != null) {
+            layout.writeLiteral("#size");
+            layout.writeLiteral(size.toString());
+          }
+          var minSize = constraints.minSize().orElse(null);
+          if (minSize != null) {
+            layout.writeLiteral("#minSize");
+            layout.writeLiteral(minSize.toString());
+          }
+          var maxSize = constraints.maxSize().orElse(null);
+          if (maxSize != null) {
+            layout.writeLiteral("#maxSize");
+            layout.writeLiteral(maxSize.toString());
+          }
+
+          // Tier 4: Value Intervals (Lower bounds strictly precede Upper bounds)
+          if (constraints.minIncl().isPresent()) {
+            layout.writeLiteral("#minIncl");
+            layout.writeLiteral(constraints.minIncl().get().toString());
+          } else if (constraints.dateMinIncl().isPresent()) {
+            layout.writeLiteral("#minIncl");
+            layout.writeSimpleString(constraints.dateMinIncl().get());
+          }
+          if (constraints.minExcl().isPresent()) {
+            layout.writeLiteral("#minExcl");
+            layout.writeLiteral(constraints.minExcl().get().toString());
+          } else if (constraints.dateMinExcl().isPresent()) {
+            layout.writeLiteral("#minExcl");
+            layout.writeSimpleString(constraints.dateMinExcl().get());
+          }
+          if (constraints.maxExcl().isPresent()) {
+            layout.writeLiteral("#maxExcl");
+            layout.writeLiteral(constraints.maxExcl().get().toString());
+          } else if (constraints.dateMaxExcl().isPresent()) {
+            layout.writeLiteral("#maxExcl");
+            layout.writeSimpleString(constraints.dateMaxExcl().get());
+          }
+          if (constraints.maxIncl().isPresent()) {
+            layout.writeLiteral("#maxIncl");
+            layout.writeLiteral(constraints.maxIncl().get().toString());
+          } else if (constraints.dateMaxIncl().isPresent()) {
+            layout.writeLiteral("#maxIncl");
+            layout.writeSimpleString(constraints.dateMaxIncl().get());
+          }
+
+          // Tier 5: Validation Patterns
+          var regex = constraints.regex().orElse(null);
+          if (regex != null) {
+            layout.writeLiteral("#regex");
+            layout.writeSimpleString(regex);
+          }
+
+          // Tier 6: Domain Subsets
           var filterIncl = constraints.filterIncl().orElse(null);
           if (filterIncl != null) {
             layout.writeLiteral("#filterIncl");
@@ -104,34 +179,14 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
             }
             layout.closeGroup("]");
           }
-          var maxExcl = constraints.maxExcl().orElse(null);
-          if (maxExcl != null) {
-            layout.writeLiteral("#maxExcl");
-            layout.writeLiteral(maxExcl.toString());
-          }
-          var maxIncl = constraints.maxIncl().orElse(null);
-          if (maxIncl != null) {
-            layout.writeLiteral("#maxIncl");
-            layout.writeLiteral(maxIncl.toString());
-          }
-          var minExcl = constraints.minExcl().orElse(null);
-          if (minExcl != null) {
-            layout.writeLiteral("#minExcl");
-            layout.writeLiteral(minExcl.toString());
-          }
-          var minIncl = constraints.minIncl().orElse(null);
-          if (minIncl != null) {
-            layout.writeLiteral("#minIncl");
-            layout.writeLiteral(minIncl.toString());
-          }
-          if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
-            layout.writeLiteral("#preserveIndent");
-            layout.writeBoolean(true, PrinterOptions.SymbolStyle.LONG_FORM);
-          }
-          var regex = constraints.regex().orElse(null);
-          if (regex != null) {
-            layout.writeLiteral("#regex");
-            layout.writeSimpleString(regex);
+          var filterExcl = constraints.filterExcl().orElse(null);
+          if (filterExcl != null) {
+            layout.writeLiteral("#filterExcl");
+            layout.openGroup("[");
+            for (String v : filterExcl) {
+              layout.writeLiteral(v);
+            }
+            layout.closeGroup("]");
           }
 
           layout.closeGroup("}");
@@ -163,18 +218,23 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
   }
 
   private boolean isConstraintsEmpty(StvnConstraints c) {
-    var hasMinIncl = c.minIncl().isPresent();
-    var hasMinExcl = c.minExcl().isPresent();
-    var hasMaxIncl = c.maxIncl().isPresent();
-    var hasMaxExcl = c.maxExcl().isPresent();
-    var hasRegex = c.regex().isPresent();
-    var hasPreserveIndent = c.preserveIndent() && c.explicitOverrides().contains("preserveIndent");
-    var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains("equatable");
-    var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains("comparable");
-
-    return !hasMinIncl && !hasMinExcl && !hasMaxIncl && !hasMaxExcl
-        && !hasRegex && !hasPreserveIndent && !hasEquatable && !hasComparable
-        && c.filterIncl().isEmpty() && c.filterExcl().isEmpty();
+    return c.minIncl().isEmpty() && c.dateMinIncl().isEmpty()
+        && c.minExcl().isEmpty() && c.dateMinExcl().isEmpty()
+        && c.maxIncl().isEmpty() && c.dateMaxIncl().isEmpty()
+        && c.maxExcl().isEmpty() && c.dateMaxExcl().isEmpty()
+        && c.regex().isEmpty()
+        && !(c.preserveIndent() && c.explicitOverrides().contains("preserveIndent"))
+        && !(c.equatable().isPresent() && c.explicitOverrides().contains("equatable"))
+        && !(c.comparable().isPresent() && c.explicitOverrides().contains("comparable"))
+        && !(c.audited() && c.explicitOverrides().contains("audited"))
+        && !(c.exact() && c.explicitOverrides().contains("exact"))
+        && !(c.invertible() && c.explicitOverrides().contains("invertible"))
+        && !(c.offset() && c.explicitOverrides().contains("offset"))
+        && !(c.unsigned() && c.explicitOverrides().contains("unsigned"))
+        && !(c.zoned() && c.explicitOverrides().contains("zoned"))
+        && c.filterIncl().isEmpty() && c.filterExcl().isEmpty()
+        && c.size().isEmpty() && c.minSize().isEmpty() && c.maxSize().isEmpty()
+        && c.scale().isEmpty();
   }
 
   private void writeSchemaType(StvnParser.SchemaTypeContext node, CanonicalLayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext) throws IOException {

@@ -175,7 +175,11 @@ public final class StvnCanonicalDefinitionsResolver {
     Set<String> visited = new HashSet<>();
     Set<String> visiting = new HashSet<>();
 
-    for (String sym : defs.keySet()) {
+    // Sort keys lexicographically prior to DFS so independent definitions have deterministic sequence
+    List<String> sortedKeys = new ArrayList<>(defs.keySet());
+    Collections.sort(sortedKeys);
+
+    for (String sym : sortedKeys) {
       if (!visited.contains(sym)) {
         dfs(sym, defs, graph, visited, visiting, result);
       }

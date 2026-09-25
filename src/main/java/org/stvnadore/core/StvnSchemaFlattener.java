@@ -802,10 +802,14 @@ public final class StvnSchemaFlattener {
         List<NamespaceClaim<N>> rawClaims = new ArrayList<>();
         List<NamespaceClaim<N>> lhsClaims = new ArrayList<>();
         List<NamespaceClaim<N>> rhsClaims = new ArrayList<>();
+        Set<String> seenRawModuleOrigins = new HashSet<>();
 
         for (var c : claims) {
           if (c.type() == ClaimType.RAW_IMPORT) {
-            rawClaims.add(c);
+            // Deduplicate identical claims imported from the exact same source module via diamond paths
+            if (seenRawModuleOrigins.add(c.sourceModule())) {
+              rawClaims.add(c);
+            }
           } else if (c.type() == ClaimType.RENAMED_IMPORT_LHS) {
             lhsClaims.add(c);
           } else if (c.type() == ClaimType.RENAMED_IMPORT_RHS) {
