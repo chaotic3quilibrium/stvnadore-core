@@ -14,6 +14,7 @@ import org.stvnadore.core.validation.StvnIntegerOverflowException;
 import org.stvnadore.core.validation.StvnTypeResolver;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 
+import java.time.Instant;
 import java.util.*;
 
 /**
@@ -436,6 +437,21 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       } else if (baseType.equals(":TimeEpochNs")) {
         kind = TimeKind.EPOCH_NS;
       }
+      if (schema != null && schema.constraints() != null) {
+        var c = schema.constraints();
+        if (c.minIncl().isPresent() && rawValue.compareTo(c.minIncl().get().toBigIntegerExact()) < 0) {
+          throw new MalformedPayloadException(
+              "Payload value " + rawValue + " violates #minIncl constraint " + c.minIncl().get(),
+              ctx.getStart().getStartIndex(), ctx.getStop().getStopIndex() + 1
+          );
+        }
+        if (c.maxExcl().isPresent() && rawValue.compareTo(c.maxExcl().get().toBigIntegerExact()) >= 0) {
+          throw new MalformedPayloadException(
+              "Payload value " + rawValue + " violates #maxExcl constraint " + c.maxExcl().get(),
+              ctx.getStart().getStartIndex(), ctx.getStop().getStopIndex() + 1
+          );
+        }
+      }
       return new StvnTime(schema, rawValue, kind);
     }
     var isUnsigned = baseType.equals(":Uint") || (baseType.startsWith(":Uint") && isNumeric(baseType.substring(5)));
@@ -658,6 +674,18 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       );
     }
 
+    // 3b. Min-Size Constraint Check (len >= minSize)
+    if (schema != null && schema.constraints() != null) {
+      var c = schema.constraints();
+      if (c.minSize().isPresent() && textLength < c.minSize().get()) {
+        throw new MalformedPayloadException(
+            "Constraint violation (" + aliasOrBase + "): String length " + textLength + " violates #minSize constraint (" + c.minSize().get() + ")",
+            ctx.getStart().getStartIndex(),
+            ctx.getStop().getStopIndex() + 1
+        );
+      }
+    }
+
     // 4. Max-Bounded Constraint Check (len <= N for :StringN and :StringNonEmptyN)
     if (maxLength > 0 && textLength > maxLength) {
       throw new MalformedPayloadException(
@@ -698,7 +726,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var startIndex = ctx.getStart().getStartIndex();
     var stopIndex = ctx.getStop().getStopIndex() + 1;
 
-    if (schema != null && schema.constraints() != null) {
+    if (schema != null && schema.constraints() != null && (baseType.equals(":DateTime") || baseType.contains("DateTime"))) {
       if (schema.constraints().offset()) {
         baseType = ":DateTimeOffset";
       } else if (schema.constraints().zoned()) {
@@ -719,7 +747,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         }
         try {
           var parsed = StvnLiteralParser.parseDateTimeOffset(rawText);
+          validateDateTimeBounds(schema, parsed.value().toInstant(), rawText, startIndex, stopIndex);
           return new StvnDateTimeOffset(schema, parsed.value());
+        } catch (MalformedPayloadException e) {
+          throw e;
         } catch (Exception e) {
           throw new MalformedPayloadException(
               "Invalid OffsetDateTime format (e.g., 2026-03-06T15:53:08-06:00)",
@@ -768,6 +799,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           );
         }
 
+        var instant = parsed.localDateTime().atZone(parsed.zoneId()).toInstant();
+        validateDateTimeBounds(schema, instant, rawText, startIndex, stopIndex);
         return new StvnDateTimeZoned(schema, parsed.localDateTime(), parsed.zoneId());
       }
 
@@ -812,6 +845,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           );
         }
 
+        var instant = parsed.offsetDateTime().toInstant();
+        validateDateTimeBounds(schema, instant, rawText, startIndex, stopIndex);
         return new StvnDateTimeAudited(schema, parsed.offsetDateTime(), parsed.zoneId());
       }
 
@@ -2721,7 +2756,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         || baseType.endsWith("/DateTime")) {
       return true;
     }
-    if (schema != null) {
+    if (schema != null && (baseType.equals(":DateTime") || baseType.contains("DateTime"))) {
       if (schema.constraints() != null && (schema.constraints().offset() || schema.constraints().zoned() || schema.constraints().audited())) {
         return true;
       }
@@ -2733,5 +2768,43 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
     }
     return false;
+  }
+
+  private static Instant parseBoundInstant(String raw) {
+    String quoted = raw.startsWith("\"") ? raw : ("\"" + raw + "\"");
+    if (raw.contains("[")) {
+      if (raw.contains("+") || raw.contains("-") || raw.endsWith("Z")) {
+        return StvnLiteralParser.parseDateTimeAudited(quoted).offsetDateTime().toInstant();
+      } else {
+        var zoned = StvnLiteralParser.parseDateTimeZoned(quoted);
+        return zoned.localDateTime().atZone(zoned.zoneId()).toInstant();
+      }
+    } else {
+      return StvnLiteralParser.parseDateTimeOffset(quoted).value().toInstant();
+    }
+  }
+
+  private static void validateDateTimeBounds(@Nullable ResolvedSchema schema, Instant payloadInstant, String rawText, int startIndex, int stopIndex) {
+    if (schema != null && schema.constraints() != null) {
+      var c = schema.constraints();
+      if (c.dateMinIncl().isPresent()) {
+        Instant min = parseBoundInstant(c.dateMinIncl().get());
+        if (payloadInstant.isBefore(min)) {
+          throw new MalformedPayloadException(
+              "Timestamp " + rawText + " is before #minIncl " + c.dateMinIncl().get(),
+              startIndex, stopIndex
+          );
+        }
+      }
+      if (c.dateMaxExcl().isPresent()) {
+        Instant max = parseBoundInstant(c.dateMaxExcl().get());
+        if (!payloadInstant.isBefore(max)) {
+          throw new MalformedPayloadException(
+              "Timestamp " + rawText + " is at or after #maxExcl " + c.dateMaxExcl().get(),
+              startIndex, stopIndex
+          );
+        }
+      }
+    }
   }
 }

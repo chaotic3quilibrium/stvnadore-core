@@ -737,7 +737,7 @@ class StvnTextPrinterTest {
             {
               :defs {
                 :baseInt { #minIncl 10 } :Int
-                :restrictedInt { #maxExcl 101 #comparable #FALSE } :baseInt
+                :restrictedInt { #comparable #FALSE #maxExcl 101 } :baseInt
                 :finalInt { #comparable #TRUE } :restrictedInt
               }
               :type :finalInt

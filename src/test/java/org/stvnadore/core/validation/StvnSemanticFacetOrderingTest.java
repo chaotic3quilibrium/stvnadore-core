@@ -112,10 +112,10 @@ public class StvnSemanticFacetOrderingTest {
         {
           :defs {
             :Port {
-              #maxExcl 65536
               #unsigned
-              #minIncl 1024
               #size 16
+              #minIncl 1024
+              #maxExcl 65536
             } :Int
           }
           :type :Port
@@ -153,7 +153,7 @@ public class StvnSemanticFacetOrderingTest {
   }
 
   @Test
-  @DisplayName("TC-ORDER-05: Input facet permutation does not alter CAS schema hash")
+  @DisplayName("TC-ORDER-05: Non-canonical facet order fails closed with ERR_FACET_ORDER_VIOLATION")
   void testPermutedFacetsProduceIdenticalSchemaHash() {
     String sourceA = """
         {
@@ -176,11 +176,14 @@ public class StvnSemanticFacetOrderingTest {
         """;
 
     var astA = StvnCompiler.compile(sourceA).orElseThrow();
-    var astB = StvnCompiler.compile(sourceB).orElseThrow();
-
     byte[] hashA = StvnSchemaHasher.computeSha256(astA.schema());
-    byte[] hashB = StvnSchemaHasher.computeSha256(astB.schema());
+    Assertions.assertNotNull(hashA);
 
-    Assertions.assertArrayEquals(hashA, hashB, "Permuted facet declarations must produce identical schema hashes");
+    var resultB = StvnCompiler.compileToResult(sourceB);
+    Assertions.assertFalse(resultB.isSuccess(), "Out-of-order facets must fail closed");
+    Assertions.assertTrue(
+        resultB.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_FACET_ORDER_VIOLATION.equals(d.errorCode().orElse(null))),
+        "Expected ERR_FACET_ORDER_VIOLATION for out-of-order facets"
+    );
   }
 }

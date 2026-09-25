@@ -9,8 +9,8 @@
 
     :RawScriptBlock   { #preserveIndent #TRUE } :String
 
-    :BitwiseFloat     { #size 64 #equatable #TRUE } :Float
-    :NonEquatableInt  { #size 32 #equatable #FALSE } :Int
+    :BitwiseFloat     { #equatable #TRUE #size 64 } :Float
+    :NonEquatableInt  { #equatable #FALSE #size 32 } :Int
   }
 
   :type :Tuple(

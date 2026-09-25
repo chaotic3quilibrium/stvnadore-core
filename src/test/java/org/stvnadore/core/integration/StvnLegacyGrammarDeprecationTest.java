@@ -23,7 +23,7 @@ public class StvnLegacyGrammarDeprecationTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertTrue(result.hasErrors(), "Legacy :Int32 must be rejected");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_UNKNOWN_TYPE, error.errorCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, error.errorCode().orElse(null));
     assertTrue(error.message().contains("Compound integer keyword ':Int32' is deprecated in 2.0.0"));
     assertTrue(error.message().contains("{ #size 32 } :Int"));
   }
@@ -35,7 +35,7 @@ public class StvnLegacyGrammarDeprecationTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertTrue(result.hasErrors(), "Legacy :Uint16 must be rejected");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_UNKNOWN_TYPE, error.errorCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, error.errorCode().orElse(null));
     assertTrue(error.message().contains("Compound unsigned integer keyword ':Uint16' is deprecated in 2.0.0"));
     assertTrue(error.message().contains("{ #unsigned #size 16 } :Int"));
   }
@@ -47,7 +47,7 @@ public class StvnLegacyGrammarDeprecationTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertTrue(result.hasErrors(), "Legacy :FloatExact must be rejected");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_UNKNOWN_TYPE, error.errorCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, error.errorCode().orElse(null));
     assertTrue(error.message().contains("{ #exact } :Float"));
   }
 
@@ -58,7 +58,7 @@ public class StvnLegacyGrammarDeprecationTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertTrue(result.hasErrors(), "Legacy :SeqNonEmpty must be rejected");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_UNKNOWN_TYPE, error.errorCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, error.errorCode().orElse(null));
     assertTrue(error.message().contains("{ #minSize 1 } :Seq"));
   }
 
@@ -69,7 +69,7 @@ public class StvnLegacyGrammarDeprecationTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertTrue(result.hasErrors(), "Legacy :MapInv must be rejected");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_UNKNOWN_TYPE, error.errorCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, error.errorCode().orElse(null));
     assertTrue(error.message().contains("{ #invertible } :Map"));
   }
 
@@ -81,7 +81,7 @@ public class StvnLegacyGrammarDeprecationTest {
       var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
       assertTrue(result.hasErrors(), legacyType + " must be rejected");
       var error = result.diagnostics().getFirst();
-      assertEquals(DiagnosticBag.ERR_UNKNOWN_TYPE, error.errorCode().orElse(null));
+      assertEquals(DiagnosticBag.ERR_DATETIME_MODE_INVALID, error.errorCode().orElse(null));
       assertTrue(error.message().contains("use ':DateTime' with mode facet"));
     }
   }
@@ -94,7 +94,7 @@ public class StvnLegacyGrammarDeprecationTest {
       var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
       assertTrue(result.hasErrors(), legacyType + " must be rejected");
       var error = result.diagnostics().getFirst();
-      assertEquals(DiagnosticBag.ERR_UNKNOWN_TYPE, error.errorCode().orElse(null));
+      assertEquals(DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING, error.errorCode().orElse(null));
       assertTrue(error.message().contains("use ':TimeEpoch' with mandatory facet"));
     }
   }

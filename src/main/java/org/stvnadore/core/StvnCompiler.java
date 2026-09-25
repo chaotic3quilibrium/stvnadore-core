@@ -305,10 +305,25 @@ public final class StvnCompiler {
         if (t instanceof org.stvnadore.core.validation.MalformedSchemaException e) {
           startOffset = e.startOffset();
           endOffset = e.endOffset();
-          if (e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type") || e.getMessage().contains("deprecated in 2.0.0"))) {
+          String msg = e.getMessage() != null ? e.getMessage() : "";
+          if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
+          } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_DATETIME_MODE_INVALID;
+          } else if (msg.contains("Compound") || msg.contains("deprecated in 2.0.0")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE;
+          } else if (msg.contains("prelude") && msg.contains("purged")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
+          } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_UNKNOWN_TYPE;
-          } else if (e.getMessage() != null && e.getMessage().contains("filter facets")) {
+          } else if (msg.contains("filter facets") || msg.contains("is not permitted on")) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_INVALID_METADATA_FACET;
+          } else if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED;
+          } else if (msg.contains("violates canonical 7-tier order")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_FACET_ORDER_VIOLATION;
+          } else if (msg.contains("defines an empty domain")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;
           }
         } else if (t instanceof org.stvnadore.core.validation.StvnMalformedLiteralException e) {
           startOffset = e.startOffset();

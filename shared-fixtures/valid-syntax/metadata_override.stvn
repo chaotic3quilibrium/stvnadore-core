@@ -4,7 +4,7 @@
     :HumanAge { #minIncl 0 #maxExcl 121 } :Int
 
     // 2. Parent: Inherits from grandparent, narrows maxExcl (explicit), and explicitly overrides comparable
-    :ParentAge { #maxExcl 99 #comparable #F } :HumanAge
+    :ParentAge { #comparable #F #maxExcl 99 } :HumanAge
 
     // 3. Child: Narrows the inherited minIncl boundary via a fresh explicit override,
     //    and introduces an explicit, separate maximum exclusive ceiling that safely fits inside the parent's contract.

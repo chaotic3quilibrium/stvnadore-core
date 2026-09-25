@@ -22,6 +22,9 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import java.util.*;
@@ -2002,7 +2005,7 @@ public class StvnTypeResolver {
         String dateVal = null;
         if (numCtx.metadataValue() != null) {
           if (numCtx.metadataValue().integerLiteral() != null)
-            val = new BigDecimal(numCtx.metadataValue().integerLiteral().getText());
+            val = new BigDecimal(StvnLiteralParser.parseBigInteger(numCtx.metadataValue().integerLiteral().getText()));
           else if (numCtx.metadataValue().floatLiteral() != null)
             val = new BigDecimal(numCtx.metadataValue().floatLiteral().getText());
           else if (numCtx.metadataValue().stringLiteral() != null)
@@ -2047,8 +2050,8 @@ public class StvnTypeResolver {
         Integer sz = null;
         if (sizeCtx.metadataValue() != null && sizeCtx.metadataValue().integerLiteral() != null) {
           try {
-            sz = Integer.parseInt(sizeCtx.metadataValue().integerLiteral().getText());
-          } catch (NumberFormatException ignored) {}
+            sz = StvnLiteralParser.parseBigInteger(sizeCtx.metadataValue().integerLiteral().getText()).intValueExact();
+          } catch (Exception ignored) {}
         }
         if (sizeCtx.KW_SIZE() != null) {
           size = sz;
@@ -3486,11 +3489,21 @@ public class StvnTypeResolver {
         int end = e.endOffset() >= 0 ? e.endOffset() : doc.documentBody().typeEntry().schemaType().getStop().getStopIndex() + 1;
         int line = doc.documentBody().typeEntry().schemaType().getStart().getLine();
         int col = doc.documentBody().typeEntry().schemaType().getStart().getCharPositionInLine();
-        String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type") || e.getMessage().contains("deprecated in 2.0.0"))
-            ? DiagnosticBag.ERR_UNKNOWN_TYPE
-            : (e.getMessage() != null && e.getMessage().contains("filter facets")
-                ? DiagnosticBag.ERR_INVALID_METADATA_FACET
-                : DiagnosticBag.ERR_MALFORMED_SCHEMA);
+        String msg = e.getMessage() != null ? e.getMessage() : "";
+        String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
+        if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet")) {
+          code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
+        } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
+          code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
+        } else if (msg.contains("Compound") || msg.contains("deprecated in 2.0.0")) {
+          code = DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE;
+        } else if (msg.contains("prelude") && msg.contains("purged")) {
+          code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
+        } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
+          code = DiagnosticBag.ERR_UNKNOWN_TYPE;
+        } else if (msg.contains("filter facets")) {
+          code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
+        }
         diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       } catch (CircularReferenceException e) {
         int start = doc.documentBody().typeEntry().schemaType().getStart().getStartIndex();
@@ -3600,11 +3613,27 @@ public class StvnTypeResolver {
       int col = typeDef.getStart().getCharPositionInLine();
       int start = e.startOffset() >= 0 ? e.startOffset() : typeDef.getStart().getStartIndex();
       int end = e.endOffset() >= 0 ? e.endOffset() : typeDef.getStop().getStopIndex() + 1;
-      String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type") || e.getMessage().contains("deprecated in 2.0.0"))
-          ? DiagnosticBag.ERR_UNKNOWN_TYPE
-          : (e.getMessage() != null && e.getMessage().contains("filter facets")
-              ? DiagnosticBag.ERR_INVALID_METADATA_FACET
-              : DiagnosticBag.ERR_MALFORMED_SCHEMA);
+      String msg = e.getMessage() != null ? e.getMessage() : "";
+      String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
+      if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet")) {
+        code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
+      } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
+        code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
+      } else if (msg.contains("Compound") || msg.contains("deprecated in 2.0.0")) {
+        code = DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE;
+      } else if (msg.contains("prelude") && msg.contains("purged")) {
+        code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
+      } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
+        code = DiagnosticBag.ERR_UNKNOWN_TYPE;
+      } else if (msg.contains("filter facets") || msg.contains("is not permitted on")) {
+        code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
+      } else if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
+        code = DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED;
+      } else if (msg.contains("violates canonical 7-tier order")) {
+        code = DiagnosticBag.ERR_FACET_ORDER_VIOLATION;
+      } else if (msg.contains("defines an empty domain")) {
+        code = DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;
+      }
       diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       markTypePoisoned(doc, typeName);
       return;
@@ -3703,11 +3732,21 @@ public class StvnTypeResolver {
       int col = constDef.getStart().getCharPositionInLine();
       int start = e.startOffset() >= 0 ? e.startOffset() : constDef.getStart().getStartIndex();
       int end = e.endOffset() >= 0 ? e.endOffset() : constDef.getStop().getStopIndex() + 1;
-      String code = e.getMessage() != null && (e.getMessage().contains("Undefined type") || e.getMessage().contains("Unknown or undefined type") || e.getMessage().contains("deprecated in 2.0.0"))
-          ? DiagnosticBag.ERR_UNKNOWN_TYPE
-          : (e.getMessage() != null && e.getMessage().contains("filter facets")
-              ? DiagnosticBag.ERR_INVALID_METADATA_FACET
-              : DiagnosticBag.ERR_MALFORMED_SCHEMA);
+      String msg = e.getMessage() != null ? e.getMessage() : "";
+      String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
+      if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet")) {
+        code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
+      } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
+        code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
+      } else if (msg.contains("Compound") || msg.contains("deprecated in 2.0.0")) {
+        code = DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE;
+      } else if (msg.contains("prelude") && msg.contains("purged")) {
+        code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
+      } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
+        code = DiagnosticBag.ERR_UNKNOWN_TYPE;
+      } else if (msg.contains("filter facets")) {
+        code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
+      }
       diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       return;
     }
@@ -3787,7 +3826,7 @@ public class StvnTypeResolver {
     int end = valueCtx.getStop().getStopIndex() + 1;
 
     if (valueCtx.integerLiteral() != null) {
-      var valBI = new java.math.BigInteger(valueCtx.integerLiteral().getText());
+      var valBI = StvnLiteralParser.parseBigInteger(valueCtx.integerLiteral().getText());
       if (c.minIncl().isPresent() && valBI.compareTo(c.minIncl().get().toBigIntegerExact()) < 0) {
         diagnosticBag.addError("Constraint violation (" + constName + "): Value must be greater than or equal to " + c.minIncl().get(), start, end, line, col, null, DiagnosticBag.ERR_INVERTED_RANGE);
       }
@@ -3826,7 +3865,300 @@ public class StvnTypeResolver {
     }
   }
 
+  private static final Map<String, Set<String>> PERMITTED_FACETS = Map.ofEntries(
+      // 6 Foundation Scalars
+      Map.entry(":Int", Set.of("unsigned", "equatable", "comparable", "size", "minIncl", "maxExcl")),
+      Map.entry(":Float", Set.of("exact", "equatable", "comparable", "size", "minIncl", "minExcl", "maxExcl", "maxIncl")),
+      Map.entry(":String", Set.of("preserveIndent", "equatable", "comparable", "minSize", "maxSize", "regex")),
+      Map.entry(":Boolean", Set.of("equatable")),
+      Map.entry(":TimeEpoch", Set.of("s", "ms", "us", "ns", "equatable", "comparable", "minIncl", "maxExcl")),
+      Map.entry(":DateTime", Set.of("offset", "zoned", "audited", "equatable", "comparable", "minIncl", "maxExcl")),
+
+      // 6 Collections and Algebraic Composites
+      Map.entry(":Seq", Set.of("minSize", "maxSize", "equatable", "comparable")),
+      Map.entry(":Set", Set.of("minSize", "maxSize", "equatable")),
+      Map.entry(":Map", Set.of("invertible", "minSize", "maxSize", "equatable")),
+      Map.entry(":Tuple", Set.of("equatable", "comparable")),
+      Map.entry(":Union", Set.of("equatable", "comparable")),
+      Map.entry(":Enum", Set.of("equatable", "comparable", "filterIncl", "filterExcl"))
+  );
+
+  private static int getFacetTier(String facetName) {
+    return switch (facetName) {
+      case "unsigned", "exact", "invertible", "preserveIndent", "offset", "zoned", "audited", "equatable", "comparable" -> 1;
+      case "s", "ms", "us", "ns" -> 2;
+      case "size", "minSize", "maxSize" -> 3;
+      case "minIncl", "minExcl", "maxExcl", "maxIncl" -> 4;
+      case "regex" -> 5;
+      case "filterIncl", "filterExcl" -> 6;
+      case "strip" -> 7;
+      default -> 99;
+    };
+  }
+
+  private static int getFacetSubTier(String facetName) {
+    return switch (facetName) {
+      // Tier 1 sub-order
+      case "unsigned" -> 101; case "exact" -> 102; case "invertible" -> 103;
+      case "preserveIndent" -> 104; case "offset" -> 105; case "zoned" -> 106;
+      case "audited" -> 107; case "equatable" -> 108; case "comparable" -> 109;
+      // Tier 2 sub-order
+      case "s" -> 201; case "ms" -> 202; case "us" -> 203; case "ns" -> 204;
+      // Tier 3 sub-order
+      case "size" -> 301; case "minSize" -> 302; case "maxSize" -> 303;
+      // Tier 4 sub-order: Lower bounds strictly precede Upper bounds
+      case "minIncl" -> 401; case "minExcl" -> 402; case "maxExcl" -> 403; case "maxIncl" -> 404;
+      // Tier 5 sub-order
+      case "regex" -> 501;
+      // Tier 6 sub-order
+      case "filterIncl" -> 601; case "filterExcl" -> 602;
+      // Tier 7 sub-order
+      case "strip" -> 701;
+      default -> 999;
+    };
+  }
+
+  private static @Nullable String extractFacetName(StvnParser.MetadataEntryContext entry) {
+    if (entry == null) return null;
+    if (entry.metadataFlag() != null) {
+      var flagCtx = entry.metadataFlag();
+      if (flagCtx.KW_UNSIGNED() != null) return "unsigned";
+      if (flagCtx.KW_EXACT() != null) return "exact";
+      if (flagCtx.KW_INVERTIBLE() != null) return "invertible";
+      if (flagCtx.KW_PRESERVE_INDENT() != null) return "preserveIndent";
+      if (flagCtx.KW_OFFSET() != null) return "offset";
+      if (flagCtx.KW_ZONED() != null) return "zoned";
+      if (flagCtx.KW_AUDITED() != null) return "audited";
+      if (flagCtx.KW_SCALE_S() != null) return "s";
+      if (flagCtx.KW_SCALE_MS() != null) return "ms";
+      if (flagCtx.KW_SCALE_US() != null) return "us";
+      if (flagCtx.KW_SCALE_NS() != null) return "ns";
+    }
+    if (entry.metadataBool() != null) {
+      var boolCtx = entry.metadataBool();
+      if (boolCtx.KW_EQUATABLE() != null) return "equatable";
+      if (boolCtx.KW_COMPARABLE() != null) return "comparable";
+    }
+    if (entry.metadataSize() != null) {
+      var sizeCtx = entry.metadataSize();
+      if (sizeCtx.KW_SIZE() != null) return "size";
+      if (sizeCtx.KW_MIN_SIZE() != null) return "minSize";
+      if (sizeCtx.KW_MAX_SIZE() != null) return "maxSize";
+    }
+    if (entry.metadataRange() != null) {
+      var numCtx = entry.metadataRange();
+      if (numCtx.KW_MIN_INCL() != null) return "minIncl";
+      if (numCtx.KW_MIN_EXCL() != null) return "minExcl";
+      if (numCtx.KW_MAX_EXCL() != null) return "maxExcl";
+      if (numCtx.KW_MAX_INCL() != null) return "maxIncl";
+    }
+    if (entry.metadataString() != null) {
+      var strCtx = entry.metadataString();
+      if (strCtx.KW_REGEX() != null) return "regex";
+    }
+    if (entry.metadataFilter() != null) {
+      var filterCtx = entry.metadataFilter();
+      if (filterCtx.KW_FILTER_INCL() != null) return "filterIncl";
+      if (filterCtx.KW_FILTER_EXCL() != null) return "filterExcl";
+    }
+    if (entry.metadataDirective() != null) {
+      return "strip";
+    }
+    return null;
+  }
+
+  private static @Nullable String normalizeBaseType(@Nullable String baseType) {
+    if (baseType == null) return null;
+    if (isTimeEpochType(baseType) || baseType.equals(":TimeEpoch") || baseType.endsWith("/TimeEpoch")) return ":TimeEpoch";
+    if (isDateTimeType(baseType) || baseType.equals(":DateTime") || baseType.endsWith("/DateTime")) return ":DateTime";
+    if (baseType.startsWith(":Int") || baseType.startsWith(":Uint")) return ":Int";
+    if (isFloatType(baseType) || baseType.startsWith(":Float")) return ":Float";
+    if (isStringType(baseType) || baseType.startsWith(":String")) return ":String";
+    if (":Boolean".equals(baseType)) return ":Boolean";
+    if (isSeqType(baseType)) return ":Seq";
+    if (isSetType(baseType)) return ":Set";
+    if (isMapType(baseType)) return ":Map";
+    if (":Tuple".equals(baseType)) return ":Tuple";
+    if (":Union".equals(baseType)) return ":Union";
+    if (":Enum".equals(baseType)) return ":Enum";
+    return baseType;
+  }
+
+  private static void validateDateTimeIntervalBounds(
+      String name,
+      MetadataMapContext metadataMap,
+      StvnConstraints constraints,
+      DiagnosticBag diagnosticBag
+  ) {
+    if (constraints.dateMinIncl().isEmpty() && constraints.dateMaxExcl().isEmpty()) return;
+
+    Instant minInstant = null;
+    Instant maxInstant = null;
+
+    if (constraints.dateMinIncl().isPresent()) {
+      minInstant = parseAndValidateDateBound(constraints.dateMinIncl().get(), "minIncl", name, metadataMap, diagnosticBag);
+    }
+    if (constraints.dateMaxExcl().isPresent()) {
+      maxInstant = parseAndValidateDateBound(constraints.dateMaxExcl().get(), "maxExcl", name, metadataMap, diagnosticBag);
+    }
+
+    if (minInstant != null && maxInstant != null) {
+      if (minInstant.equals(maxInstant)) {
+        diagnosticBag.addError(
+            "Constraint violation (" + name + "): discrete datetime interval [" + constraints.dateMinIncl().get() +
+            ", " + constraints.dateMaxExcl().get() + ") defines an empty domain (zero habitable values)",
+            metadataMap.getStart().getStartIndex(), metadataMap.getStop().getStopIndex() + 1,
+            metadataMap.getStart().getLine(), metadataMap.getStart().getCharPositionInLine(),
+            null, DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN
+        );
+      } else if (minInstant.isAfter(maxInstant)) {
+        diagnosticBag.addError(
+            "Constraint violation (" + name + "): effective datetime range is invalid (minimum instant " +
+            constraints.dateMinIncl().get() + " is chronologically after maximum instant " + constraints.dateMaxExcl().get() + ")",
+            metadataMap.getStart().getStartIndex(), metadataMap.getStop().getStopIndex() + 1,
+            metadataMap.getStart().getLine(), metadataMap.getStart().getCharPositionInLine(),
+            null, DiagnosticBag.ERR_INVERTED_RANGE
+        );
+      }
+    }
+  }
+
+  private static @Nullable Instant parseAndValidateDateBound(
+      String raw,
+      String boundName,
+      String typeName,
+      MetadataMapContext metadataMap,
+      DiagnosticBag diagnosticBag
+  ) {
+    int start = metadataMap.getStart().getStartIndex();
+    int end = metadataMap.getStop().getStopIndex() + 1;
+    int line = metadataMap.getStart().getLine();
+    int col = metadataMap.getStart().getCharPositionInLine();
+
+    try {
+      String quoted = raw.startsWith("\"") ? raw : ("\"" + raw + "\"");
+      if (StvnLiteralParser.DATETIME_AUDITED_PATTERN.matcher(quoted).matches()) {
+        var audited = StvnLiteralParser.parseDateTimeAudited(quoted);
+        ZoneOffset expectedOffset = audited.zoneId().getRules().getOffset(audited.offsetDateTime().toInstant());
+        if (!audited.offsetDateTime().getOffset().equals(expectedOffset)) {
+          diagnosticBag.addError(
+              "Constraint violation (" + typeName + "): Contradictory offset in audited datetime bound: " + raw,
+              start, end, line, col, null, DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+          );
+        }
+        return audited.offsetDateTime().toInstant();
+      } else if (StvnLiteralParser.DATETIME_ZONED_PATTERN.matcher(quoted).matches()) {
+        var zoned = StvnLiteralParser.parseDateTimeZoned(quoted);
+        if (zoned.zoneId().getRules().getValidOffsets(zoned.localDateTime()).isEmpty()) {
+          diagnosticBag.addError(
+              "Constraint violation (" + typeName + "): Datetime bound falls in DST spring-forward gap: " + raw,
+              start, end, line, col, null, DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+          );
+        }
+        return zoned.localDateTime().atZone(zoned.zoneId()).toInstant();
+      } else if (StvnLiteralParser.DATETIME_OFFSET_PATTERN.matcher(quoted).matches()) {
+        var offset = StvnLiteralParser.parseDateTimeOffset(quoted);
+        return offset.value().toInstant();
+      } else {
+        diagnosticBag.addError(
+            "Constraint violation (" + typeName + "): invalid ISO-8601 datetime literal in #" + boundName + ": " + raw,
+            start, end, line, col, null, DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+        );
+        return null;
+      }
+    } catch (Exception e) {
+      diagnosticBag.addError(
+          "Constraint violation (" + typeName + "): invalid ISO-8601 datetime literal in #" + boundName + ": " + raw + " (" + e.getMessage() + ")",
+          start, end, line, col, e, DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+      );
+      return null;
+    }
+  }
+
   private static void validateMetadataMapConstraints(String name, MetadataMapContext metadataMap, @Nullable ResolvedSchema resolved, DiagnosticBag diagnosticBag) {
+    if (metadataMap == null) return;
+
+    // 1. Strict 7-Tier Canonical Facet Ordering & Universal Allowlist Check
+    String normalizedBase = resolved != null ? normalizeBaseType(getPrimitiveBaseType(resolved.node())) : null;
+    Set<String> permitted = normalizedBase != null ? PERMITTED_FACETS.get(normalizedBase) : null;
+
+    int lastTier = -1;
+    int lastSubTier = -1;
+    String lastFacetName = null;
+
+    for (var entry : metadataMap.metadataEntry()) {
+      String facetName = extractFacetName(entry);
+      if (facetName == null) continue;
+
+      int tier = getFacetTier(facetName);
+      int subTier = getFacetSubTier(facetName);
+
+      // Enforce Strict 7-Tier Ordering
+      if (tier < lastTier || (tier == lastTier && subTier < lastSubTier)) {
+        diagnosticBag.addError(
+            "Facet order violation (" + name + "): facet '#" + facetName + "' (Tier " + tier +
+            ") violates canonical 7-tier order after '#" + lastFacetName + "'",
+            entry.getStart().getStartIndex(),
+            entry.getStop().getStopIndex() + 1,
+            entry.getStart().getLine(),
+            entry.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_FACET_ORDER_VIOLATION
+        );
+      }
+      lastTier = tier;
+      lastSubTier = subTier;
+      lastFacetName = facetName;
+
+      // Universal Allowlist Gating (Early Fail-Closed)
+      if ("strip".equals(facetName)) {
+        diagnosticBag.addError(
+            "Constraint violation (" + name + "): directive facet '#strip' is not permitted on type declarations; directive facets are valid strictly in :use and :include blocks",
+            entry.getStart().getStartIndex(),
+            entry.getStop().getStopIndex() + 1,
+            entry.getStart().getLine(),
+            entry.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_INVALID_METADATA_FACET
+        );
+      } else if (permitted != null && !permitted.contains(facetName)) {
+        if ((":Int".equals(normalizedBase) || ":TimeEpoch".equals(normalizedBase) || ":DateTime".equals(normalizedBase))
+            && ("minExcl".equals(facetName) || "maxIncl".equals(facetName))) {
+          // Discrete bound kind violations on discrete types are handled specifically by discrete interval validator
+          continue;
+        }
+        String errCode = (":String".equals(normalizedBase) && "size".equals(facetName))
+            ? DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED
+            : DiagnosticBag.ERR_INVALID_METADATA_FACET;
+
+        String message;
+        if (":String".equals(normalizedBase) && "size".equals(facetName)) {
+          message = "Facet '#size' is prohibited on :String; use '#minSize' and '#maxSize' (e.g. { #minSize N #maxSize N } :String)";
+        } else if (":String".equals(normalizedBase) && (facetName.equals("minIncl") || facetName.equals("minExcl") || facetName.equals("maxIncl") || facetName.equals("maxExcl"))) {
+          message = "Constraint violation (" + name + "): facet '" + facetName + "' is not permitted on " + normalizedBase + "; permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]";
+        } else if (":Int".equals(normalizedBase) && "regex".equals(facetName)) {
+          message = "Constraint violation (" + name + "): facet 'regex' is not permitted on :Int; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]";
+        } else if ("preserveIndent".equals(facetName)) {
+          message = "Constraint violation (" + name + "): facet 'preserveIndent' is not permitted on " + normalizedBase + "; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]";
+        } else if ("filterIncl".equals(facetName) || "filterExcl".equals(facetName)) {
+          message = "Constraint violation (" + name + "): facet '" + facetName + "' is not permitted on " + normalizedBase + "; filter facets are permitted strictly on nominal aliases of :Enum and enum subsets";
+        } else {
+          message = "Constraint violation (" + name + "): facet '#" + facetName + "' is not permitted on " + normalizedBase +
+              "; permitted facets: " + permitted.stream().map(f -> "#" + f).toList();
+        }
+
+        diagnosticBag.addError(
+            message,
+            entry.getStart().getStartIndex(),
+            entry.getStop().getStopIndex() + 1,
+            entry.getStart().getLine(),
+            entry.getStart().getCharPositionInLine(),
+            null,
+            errCode
+        );
+      }
+    }
+
     var hasMinIncl = false;
     var hasMinExcl = false;
     var hasMaxIncl = false;
@@ -3944,18 +4276,6 @@ public class StvnTypeResolver {
         else if (numCtx.KW_MAX_INCL() != null) constraintName = "maxIncl";
         else if (numCtx.KW_MAX_EXCL() != null) constraintName = "maxExcl";
 
-        if (!isNumeric && !isDateTime) {
-          diagnosticBag.addError(
-              "Constraint violation (" + name + "): facet '" + constraintName + "' is not permitted on " + baseType + "; permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]",
-              numCtx.getStart().getStartIndex(),
-              numCtx.getStop().getStopIndex() + 1,
-              numCtx.getStart().getLine(),
-              numCtx.getStart().getCharPositionInLine(),
-              null,
-              DiagnosticBag.ERR_INVALID_METADATA_FACET
-          );
-        }
-
         var consolidatedConstraints = extractConstraints(metadataMap).merge(resolved.constraints());
         // Enforce discrete half-open intervals: :Int, { #exact } :Float, :TimeEpoch, :DateTime reject #maxIncl and #minExcl
         boolean isDiscrete = isIntegerType || (isFloatType && consolidatedConstraints.exact()) || isTimeEpoch || isDateTime;
@@ -4051,44 +4371,31 @@ public class StvnTypeResolver {
       } else if (entry.metadataString() != null) {
         var strCtx = entry.metadataString();
         var mv = strCtx.metadataValue();
-        if (mv != null) {
-          if (strCtx.KW_REGEX() != null) {
-            if (!isStringType) {
+        if (mv != null && strCtx.KW_REGEX() != null) {
+          if (mv.stringLiteral() == null) {
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): #regex requires a string literal",
+                mv.getStart().getStartIndex(),
+                mv.getStop().getStopIndex() + 1,
+                mv.getStart().getLine(),
+                mv.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+            );
+          } else {
+            var rawPattern = extractRawStringValue(mv.stringLiteral().getText());
+            try {
+              java.util.regex.Pattern.compile(rawPattern);
+            } catch (java.util.regex.PatternSyntaxException e) {
               diagnosticBag.addError(
-                  "Constraint violation (" + name + "): facet 'regex' is not permitted on " + baseType + "; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]",
-                  strCtx.getStart().getStartIndex(),
-                  strCtx.getStop().getStopIndex() + 1,
-                  strCtx.getStart().getLine(),
-                  strCtx.getStart().getCharPositionInLine(),
-                  null,
-                  DiagnosticBag.ERR_INVALID_METADATA_FACET
+                  "Constraint violation (" + name + "): Invalid regex pattern: " + rawPattern,
+                  mv.stringLiteral().getStart().getStartIndex(),
+                  mv.stringLiteral().getStop().getStopIndex() + 1,
+                  mv.stringLiteral().getStart().getLine(),
+                  mv.stringLiteral().getStart().getCharPositionInLine(),
+                  e,
+                  DiagnosticBag.ERR_INVALID_REGEX
               );
-            }
-            if (mv.stringLiteral() == null) {
-              diagnosticBag.addError(
-                  "Constraint violation (" + name + "): #regex requires a string literal",
-                  mv.getStart().getStartIndex(),
-                  mv.getStop().getStopIndex() + 1,
-                  mv.getStart().getLine(),
-                  mv.getStart().getCharPositionInLine(),
-                  null,
-                  DiagnosticBag.ERR_INCOMPATIBLE_TYPE
-              );
-            } else {
-              var rawPattern = extractRawStringValue(mv.stringLiteral().getText());
-              try {
-                java.util.regex.Pattern.compile(rawPattern);
-              } catch (java.util.regex.PatternSyntaxException e) {
-                diagnosticBag.addError(
-                    "Constraint violation (" + name + "): Invalid regex pattern: " + rawPattern,
-                    mv.stringLiteral().getStart().getStartIndex(),
-                    mv.stringLiteral().getStop().getStopIndex() + 1,
-                    mv.stringLiteral().getStart().getLine(),
-                    mv.stringLiteral().getStart().getCharPositionInLine(),
-                    e,
-                    DiagnosticBag.ERR_INVALID_REGEX
-                );
-              }
             }
           }
         }
@@ -4117,63 +4424,68 @@ public class StvnTypeResolver {
             );
           }
         }
-      } else if (entry.metadataFlag() != null) {
-        var flagCtx = entry.metadataFlag();
-        if (flagCtx.KW_PRESERVE_INDENT() != null && !isStringType) {
-          diagnosticBag.addError(
-              "Constraint violation (" + name + "): facet 'preserveIndent' is not permitted on " + baseType + "; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]",
-              flagCtx.getStart().getStartIndex(),
-              flagCtx.getStop().getStopIndex() + 1,
-              flagCtx.getStart().getLine(),
-              flagCtx.getStart().getCharPositionInLine(),
-              null,
-              DiagnosticBag.ERR_INVALID_METADATA_FACET
-          );
-        }
-      } else if (entry.metadataFilter() != null) {
-        var filterCtx = entry.metadataFilter();
-        var constraintName = filterCtx.KW_FILTER_INCL() != null ? "filterIncl" : "filterExcl";
-        if (!":Enum".equals(baseType)) {
-          diagnosticBag.addError(
-              "Constraint violation (" + name + "): facet '" + constraintName + "' is not permitted on " + baseType + "; filter facets are permitted strictly on nominal aliases of :Enum and enum subsets",
-              filterCtx.getStart().getStartIndex(),
-              filterCtx.getStop().getStopIndex() + 1,
-              filterCtx.getStart().getLine(),
-              filterCtx.getStart().getCharPositionInLine(),
-              null,
-              DiagnosticBag.ERR_INVALID_METADATA_FACET
-          );
-        }
       }
-      if (entry.metadataDirective() != null) {
-        var d = entry.metadataDirective();
+    }
+
+    var consolidated = extractConstraints(metadataMap).merge(resolved.constraints());
+
+    // 2. Storage Bit-Width Bounds Validation
+    if (consolidated.size().isPresent()) {
+      int sz = consolidated.size().get();
+      if (":Int".equals(normalizedBase) && (sz < 1 || sz > 1024)) {
         diagnosticBag.addError(
-            "Constraint violation (" + name + "): directive facet '#strip' is not permitted on type declarations; directive facets are valid strictly in :use and :include blocks",
-            d.getStart().getStartIndex(),
-            d.getStop().getStopIndex() + 1,
-            d.getStart().getLine(),
-            d.getStart().getCharPositionInLine(),
-            null,
-            DiagnosticBag.ERR_INVALID_METADATA_FACET
+            "Constraint violation (" + name + "): Integer bit-width #size must be between 1 and 1024, found " + sz,
+            metadataMap.getStart().getStartIndex(), metadataMap.getStop().getStopIndex() + 1,
+            metadataMap.getStart().getLine(), metadataMap.getStart().getCharPositionInLine(),
+            null, DiagnosticBag.ERR_CAPACITY_OVERFLOW
         );
       }
-
-      // String Cardinality Governance (MCT § 3.1.3): Prohibit #size on :String
-      if (isStringType && entry.metadataSize() != null && entry.metadataSize().KW_SIZE() != null) {
+      if (":Float".equals(normalizedBase) && sz != 32 && sz != 64) {
         diagnosticBag.addError(
-            "Facet '#size' is prohibited on :String; use '#minSize' and '#maxSize' (e.g. { #minSize N #maxSize N } :String)",
-            entry.metadataSize().getStart().getStartIndex(),
-            entry.metadataSize().getStop().getStopIndex() + 1,
-            entry.metadataSize().getStart().getLine(),
-            entry.metadataSize().getStart().getCharPositionInLine(),
-            null,
-            DiagnosticBag.ERR_INVALID_METADATA_FACET
+            "Constraint violation (" + name + "): Float bit-width #size must be exactly 32 or 64, found " + sz,
+            metadataMap.getStart().getStartIndex(), metadataMap.getStop().getStopIndex() + 1,
+            metadataMap.getStart().getLine(), metadataMap.getStart().getCharPositionInLine(),
+            null, DiagnosticBag.ERR_INVALID_METADATA_FACET
         );
       }
     }
 
+    // 3. Cardinality Bounds Validation
+    if (consolidated.minSize().isPresent() && consolidated.minSize().get() < 0) {
+      diagnosticBag.addError(
+          "Constraint violation (" + name + "): Minimum cardinality #minSize cannot be negative, found " + consolidated.minSize().get(),
+          metadataMap.getStart().getStartIndex(), metadataMap.getStop().getStopIndex() + 1,
+          metadataMap.getStart().getLine(), metadataMap.getStart().getCharPositionInLine(),
+          null, DiagnosticBag.ERR_INVERTED_RANGE
+      );
+    }
+    if (consolidated.maxSize().isPresent() && consolidated.maxSize().get() < 0) {
+      diagnosticBag.addError(
+          "Constraint violation (" + name + "): Maximum cardinality #maxSize cannot be negative, found " + consolidated.maxSize().get(),
+          metadataMap.getStart().getStartIndex(), metadataMap.getStop().getStopIndex() + 1,
+          metadataMap.getStart().getLine(), metadataMap.getStart().getCharPositionInLine(),
+          null, DiagnosticBag.ERR_INVERTED_RANGE
+      );
+    }
+    if (consolidated.minSize().isPresent() && consolidated.maxSize().isPresent()) {
+      int minSz = consolidated.minSize().get();
+      int maxSz = consolidated.maxSize().get();
+      if (minSz > maxSz) {
+        diagnosticBag.addError(
+            "Constraint violation (" + name + "): cardinality range is invalid (#minSize " + minSz + " is greater than #maxSize " + maxSz + ")",
+            metadataMap.getStart().getStartIndex(), metadataMap.getStop().getStopIndex() + 1,
+            metadataMap.getStart().getLine(), metadataMap.getStart().getCharPositionInLine(),
+            null, DiagnosticBag.ERR_INVERTED_RANGE
+        );
+      }
+    }
+
+    // 4. DateTime Interval Bounds & Empty Domain Validation
+    if (":DateTime".equals(normalizedBase)) {
+      validateDateTimeIntervalBounds(name, metadataMap, consolidated, diagnosticBag);
+    }
+
     if (isIntegerType) {
-      var consolidated = extractConstraints(metadataMap).merge(resolved.constraints());
       var bitWidth = consolidated.size().orElse(32);
       if (consolidated.size().isEmpty()) {
         if (baseType.startsWith(":Int") && baseType.length() > 4 && Character.isDigit(baseType.charAt(4))) {
@@ -4181,7 +4493,7 @@ public class StvnTypeResolver {
         } else if (baseType.startsWith(":Uint") && baseType.length() > 5 && Character.isDigit(baseType.charAt(5))) {
           bitWidth = Integer.parseInt(baseType.substring(5));
         } else if (isTimeEpochType(baseType)) {
-          bitWidth = 64;
+          bitWidth = (consolidated.scale().isPresent() && "ns".equals(consolidated.scale().get())) ? 128 : 64;
         }
       }
 
@@ -4208,7 +4520,7 @@ public class StvnTypeResolver {
 
           var mv = numCtx.metadataValue();
           if (mv != null && mv.integerLiteral() != null) {
-            var valBI = new java.math.BigInteger(mv.integerLiteral().getText());
+            var valBI = StvnLiteralParser.parseBigInteger(mv.integerLiteral().getText());
             var maxBound = constraintName.equals("maxExcl") ? maxPhys.add(java.math.BigInteger.ONE) : maxPhys;
             var minBound = constraintName.equals("minExcl") ? minPhys.subtract(java.math.BigInteger.ONE) : minPhys;
             if (valBI.compareTo(minBound) < 0 || valBI.compareTo(maxBound) > 0) {
@@ -4254,7 +4566,6 @@ public class StvnTypeResolver {
     }
 
     if (isFloatType) {
-      var consolidated = extractConstraints(metadataMap).merge(resolved.constraints());
       var isExact = consolidated.exact() || baseType.equals(":FloatExact");
       if (!isExact) {
         var minPhys = BigDecimal.ZERO;

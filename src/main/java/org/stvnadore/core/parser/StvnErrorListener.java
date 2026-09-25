@@ -136,8 +136,12 @@ public final class StvnErrorListener extends BaseErrorListener {
     } else if (sanitizedMessage.contains(RULE_STR_04_ARROW_DEPRECATION_MSG)
         || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().startsWith("\"\"\"->["))) {
       errorCode = Optional.of(DiagnosticBag.ERR_DEPRECATED_FENCE_ARROW);
-    } else if (sanitizedMessage.contains("deprecated in 2.0.0")) {
-      errorCode = Optional.of(DiagnosticBag.ERR_UNKNOWN_TYPE);
+    } else if (sanitizedMessage.contains("Legacy temporal epoch keyword") || sanitizedMessage.contains("requires a scale facet")) {
+      errorCode = Optional.of(DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING);
+    } else if (sanitizedMessage.contains("Legacy datetime keyword") || sanitizedMessage.contains("requires exactly one mode facet")) {
+      errorCode = Optional.of(DiagnosticBag.ERR_DATETIME_MODE_INVALID);
+    } else if (sanitizedMessage.contains("Compound") || sanitizedMessage.contains("deprecated in 2.0.0")) {
+      errorCode = Optional.of(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE);
     }
 
     if (this.strict) {

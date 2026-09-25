@@ -515,7 +515,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :precisePercentage { #minIncl 0.0 #maxExcl 100.0 #exact } :Float
+                    :precisePercentage { #exact #minIncl 0.0 #maxExcl 100.0 } :Float
                   }
                   :type :Seq( :precisePercentage )
                   :body [ 100.00000000000000000000000000000000001 ]
@@ -1572,7 +1572,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :speed { #maxIncl 100.0 #maxExcl 99.0 } :Float
+                    :speed { #maxExcl 99.0 #maxIncl 100.0 } :Float
                   }
                   :type :Seq( :speed )
                   :body [ 100.0 ]

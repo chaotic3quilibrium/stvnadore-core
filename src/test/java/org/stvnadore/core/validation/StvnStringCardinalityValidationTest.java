@@ -30,7 +30,7 @@ public class StvnStringCardinalityValidationTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertTrue(result.hasErrors(), "Expected compilation errors for #size on :String");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, error.errorCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED, error.errorCode().orElse(null));
     assertTrue(error.message().contains("Facet '#size' is prohibited on :String"));
   }
 
