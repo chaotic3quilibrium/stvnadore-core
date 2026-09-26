@@ -973,19 +973,22 @@ Metadata constraint blocks `{ ... }` configure nominal type definitions and comp
 
 | Facet Group | Permitted Facets | Permitted Target Domains | Prohibited Targets | Diagnostic Code |
 |:---|:---|:---|:---|:---|
-| **Storage Sizing** | `#size` | Strictly Numeric (`:Int`, `:Float`) | `:String`, `:Boolean`, `:Enum`, `:Tuple`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
+| **Storage Sizing** | `#size` | Strictly Numeric (`:Int`, `:Float`) | `:String` (prohibited cardinality) | `ERR_STRING_CARDINALITY_PROHIBITED` |
+| **Storage Sizing** | `#size` | Strictly Numeric (`:Int`, `:Float`) | `:Boolean`, `:Enum`, `:Tuple`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Numeric Signedness** | `#unsigned` | `:Int` | `:Float`, `:String`, `:Boolean`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Numeric Precision** | `#exact` | `:Float` | `:Int`, `:String`, `:Boolean`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Character & Container Size** | `#minSize`, `#maxSize` | `:String`, `:Seq`, `:Set`, `:Map` | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Universal Discrete Bounds** | `#minIncl`, `#maxExcl` | `:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime` | Continuous `:Float` (which permits all four bounds); prohibits `#maxIncl` and `#minExcl` | `ERR_DISCRETE_BOUND_KIND_PROHIBITED` |
+| **Empty Domain Bounds** | `#minIncl`, `#maxExcl` | Discrete types where `minIncl == maxExcl` | Discrete types defining empty domain $[k, k)$ | `ERR_EMPTY_INTERVAL_DOMAIN` |
 | **Continuous Numeric Bounds** | `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl` | Continuous `:Float` Only | Discrete types (`:Int`, `:TimeEpoch`, `:DateTime`), strings, collections | `ERR_INVALID_METADATA_FACET` |
 | **String Constraints** | `#regex`, `#preserveIndent` | `:String` | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Map Invertibility** | `#invertible` | `:Map` | Non-map types, scalars, sequences, sets, temporal | `ERR_INVALID_METADATA_FACET` |
-| **Temporal Scale Flags** | `#s`, `#ms`, `#us`, `#ns` | `:TimeEpoch` | All non-epoch types | `ERR_INVALID_METADATA_FACET` |
-| **Temporal Mode Flags** | `#offset`, `#zoned`, `#audited` | `:DateTime` | All non-datetime types | `ERR_INVALID_METADATA_FACET` |
+| **Temporal Scale Flags** | `#s`, `#ms`, `#us`, `#ns` | `:TimeEpoch` (exactly one scale mandatory) | All non-epoch types; omitting scale emits `ERR_TEMPORAL_SCALE_MISSING` | `ERR_INVALID_METADATA_FACET` |
+| **Temporal Mode Flags** | `#offset`, `#zoned`, `#audited` | `:DateTime` (exactly one mode mandatory) | All non-datetime types; omitting mode emits `ERR_DATETIME_MODE_INVALID` | `ERR_INVALID_METADATA_FACET` |
 | **Enum Subsetting** | `#filterIncl`, `#filterExcl` | Nominal aliases of `:Enum` and subsets | Inline enums, scalar primitives, constants, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Directive Options** | `#strip` | Directive blocks in `:use` and `:include` | Type definitions, constant definitions | `ERR_INVALID_METADATA_FACET` |
 | **Trait Overrides** | `#equatable`, `#comparable` | Nominal type definitions | Constant definitions, collection instances | `ERR_INVALID_METADATA_FACET` |
+| **7-Tier Facet Sequence** | All canonical facets | Metadata blocks `{ ... }` | Facets declared out of 7-tier order | `ERR_FACET_ORDER_VIOLATION` |
 
 #### Canonical Semantic Category Order Specification Table
 
@@ -2079,6 +2082,65 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E028` | `CONSTANT_TYPE_MISMATCH` | Semantic | Fatal | Constant definition value does not conform to its declared type. |
 | `E029` | `DEAD_CODE_CANONICAL_FAIL` | Serialization | Fatal | Transitively unreachable definition emitted in canonical serialization. |
 | `E030` | `TYPE_RESOLUTION_FAILURE` | Semantic | Fatal | Referenced nominal type or constant symbol is not declared in scope. |
+
+### C.3 Normative STVN 2.0.0 Diagnostic Codes
+
+The reference compiler emits canonical symbolic diagnostic strings defined in `DiagnosticBag.java`. Tooling and language servers must handle these normative codes:
+
+| Diagnostic Constant | String Literal Value | Severity | Governing Invariant & Error Condition |
+| :--- | :--- | :--- | :--- |
+| `ERR_TAB_CHARACTER_FORBIDDEN` | `"ERR_TAB_CHARACTER_FORBIDDEN"` | Fatal | Tab character (`\t`, U+0009) encountered in source text. |
+| `ERR_EMPTY_METADATA_BLOCK` | `"ERR_EMPTY_METADATA_BLOCK"` | Fatal | Empty metadata block `{}` declared on type or constant definition. |
+| `ERR_EMPTY_DIRECTIVE_BLOCK` | `"ERR_EMPTY_DIRECTIVE_BLOCK"` | Fatal | Empty directive block `{}` declared in `:use` or `:include`. |
+| `ERR_MODULE_IMPORT` | `"MODULE_IMPORT_FAILED"` | Fatal | Declared module include file cannot be located or read. |
+| `ERR_CYCLIC_MODULE` | `"CYCLIC_MODULE_INCLUDE"` | Fatal | Cyclic module include dependencies detected. |
+| `ERR_NAMESPACE_COLLISION` | `"NAMESPACE_COLLISION"` | Fatal | Namespace prefix collisions occur across included modules. |
+| `ERR_UNDEFINED_TYPE` | `"UNDEFINED_TYPE"` | Fatal | Referenced nominal type identifier has not been defined. |
+| `ERR_UNKNOWN_TYPE` | `"ERR_UNKNOWN_TYPE"` | Fatal | Unqualified type reference is not found in document scope or prelude. |
+| `ERR_RESERVED_KEYWORD_ON_LHS` | `"ERR_RESERVED_KEYWORD_ON_LHS"` | Fatal | Reserved type keyword declared on left-hand side of type definition. |
+| `ERR_INTEGER_OVERFLOW` | `"ERR_INTEGER_OVERFLOW"` | Fatal | Integer literal exceeds capacity bounds of declared bit-width. |
+| `ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT` | `"ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT"` | Fatal | Include statement declared inside flat document (`.stvn_f` or `.stvn_inclf`). |
+| `ERR_NESTED_PACKAGE_PROHIBITED` | `"ERR_NESTED_PACKAGE_PROHIBITED"` | Fatal | Package enclosure is illegally nested inside another package enclosure. |
+| `ERR_TRAILING_SLASH_PROHIBITED` | `"ERR_TRAILING_SLASH_PROHIBITED"` | Fatal | Module `:use` path specification contains trailing slash characters. |
+| `ERR_SUM_TYPE_COLLISION` | `"SUM_TYPE_TAG_COLLISION"` | Fatal | Algebraic sum type branches share duplicate tag identifiers. |
+| `ERR_AMBIGUOUS_SUM_INFERENCE` | `"ERR_AMBIGUOUS_SUM_INFERENCE"` | Fatal | Implicit sum payload inference is ambiguous across branches. |
+| `ERR_TRAIT_VIOLATION` | `"TRAIT_VIOLATION"` | Fatal | Structural trait constraints violated (e.g. non-equatable element in set). |
+| `ERR_MALFORMED_SCHEMA` | `"MALFORMED_SCHEMA"` | Fatal | Schema definition contains malformed syntax or illegal nesting. |
+| `ERR_INVALID_REGEX` | `"INVALID_REGEX_PATTERN"` | Fatal | Regular expression pattern syntax is invalid. |
+| `ERR_INVERTED_RANGE` | `"INVALID_NUMERIC_RANGE"` | Fatal | Range lower bound is strictly greater than upper bound. |
+| `ERR_CAPACITY_OVERFLOW` | `"CAPACITY_OVERFLOW"` | Fatal | Collection element count exceeds declared capacity bounds. |
+| `ERR_INCOMPATIBLE_TYPE` | `"INCOMPATIBLE_METADATA_TYPE"` | Fatal | Metadata trait values are incompatible with target type. |
+| `ERR_MUTUALLY_EXCLUSIVE` | `"MUTUALLY_EXCLUSIVE_BOUNDS"` | Fatal | Mutually exclusive boundary constraints or modes simultaneously declared. |
+| `ERR_CIRCULAR_TYPE` | `"CIRCULAR_TYPE_DEFINITION"` | Fatal | Recursive type aliases form non-disjunctive circular self-reference. |
+| `ERR_DUPLICATE_DEF` | `"DUPLICATE_TYPE_DEFINITION"` | Fatal | Duplicate type or constant identifiers declared in the same scope. |
+| `ERR_INVALID_STRING_CAPACITY` | `"ERR_INVALID_STRING_CAPACITY"` | Fatal | Nominal string capacity suffix violates architectural bounds. |
+| `ERR_INVALID_METADATA_FACET` | `"ERR_INVALID_METADATA_FACET"` | Fatal | Metadata facet applied to incompatible target entity kind. |
+| `ERR_DISCRETE_BOUND_KIND_PROHIBITED` | `"ERR_DISCRETE_BOUND_KIND_PROHIBITED"` | Fatal | Discrete type (`:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime`) declares `#maxIncl` or `#minExcl`. |
+| `ERR_EMPTY_INTERVAL_DOMAIN` | `"ERR_EMPTY_INTERVAL_DOMAIN"` | Fatal | Discrete interval defines empty domain $[k, k)$ with zero points. |
+| `ERR_INCOMPATIBLE_NOMINAL_TYPE` | `"ERR_INCOMPATIBLE_NOMINAL_TYPE"` | Fatal | Two incompatible nominal types are unified or assigned. |
+| `ERR_MISSING_TEMPORAL_FACET` | `"ERR_MISSING_TEMPORAL_FACET"` | Fatal | Temporal type lacks required mode or scale facets. |
+| `ERR_TEMPORAL_SCALE_MISSING` | `"ERR_TEMPORAL_SCALE_MISSING"` | Fatal | `:TimeEpoch` type declaration lacks mandatory scale facet (`#s`, `#ms`, `#us`, `#ns`). |
+| `ERR_LEGACY_UNIT_FACET_PURGED` | `"ERR_LEGACY_UNIT_FACET_PURGED"` | Fatal | Legacy `#unit` facet used instead of bare scale flags. |
+| `ERR_DATETIME_MODE_INVALID` | `"ERR_DATETIME_MODE_INVALID"` | Fatal | `:DateTime` declaration lacks or specifies invalid mode facet. |
+| `ERR_PRELUDE_ALIAS_PURGED` | `"ERR_PRELUDE_ALIAS_PURGED"` | Fatal | Purged prelude nominal aliases referenced (e.g. `:DateTimeOffset`). |
+| `ERR_COMPOUND_TYPE_OBSOLETE` | `"ERR_COMPOUND_TYPE_OBSOLETE"` | Fatal | Deprecated legacy compound type keyword used (e.g. `:Int32`, `:Uint16`). |
+| `ERR_STRING_CARDINALITY_PROHIBITED` | `"ERR_STRING_CARDINALITY_PROHIBITED"` | Fatal | Storage sizing `#size` declared on `:String` (use `#minSize` / `#maxSize`). |
+| `ERR_FACET_ORDER_VIOLATION` | `"ERR_FACET_ORDER_VIOLATION"` | Fatal | Metadata facets violate the 7-tier canonical sequence. |
+| `ERR_CAS_PREIMAGE_AMBIGUITY` | `"ERR_CAS_PREIMAGE_AMBIGUITY"` | Fatal | Nominal types collide or CAS preimage bijectivity is violated. |
+| `ERR_DEPRECATED_FENCE_ARROW` | `"ERR_DEPRECATED_FENCE_ARROW"` | Fatal | Deprecated fenced string delimiter arrow `"""->[TAG]` rejected. |
+| `WARN_DEPRECATED_FENCE_ARROW` | `"RULE_STR_04_DEPRECATED_ARROW"` | Warning | Warning emitted when legacy Rule STR-04 delimiter arrow is encountered. |
+
+### C.4 Discrete Half-Open Interval Semantics ($[minIncl, maxExcl)$)
+
+STVN 2.0.0 enforces half-open interval semantics $[minIncl, maxExcl)$ across all discrete types (`:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime`):
+
+1. **Upper Bound Exclusivity:** Discrete domains permit `#minIncl` (inclusive lower bound) and `#maxExcl` (exclusive upper bound). The compiler strictly prohibits `#maxIncl` and `#minExcl` on discrete types, emitting `ERR_DISCRETE_BOUND_KIND_PROHIBITED`.
+2. **Domain Invariant:** The interval $[minIncl, maxExcl)$ contains all discrete values $x$ satisfying:
+   $$minIncl \le x < maxExcl$$
+   The total number of admissible points is:
+   $$\Delta = maxExcl - minIncl$$
+3. **Empty Domain Prohibition:** When $minIncl == maxExcl$, $\Delta = 0$ and the interval contains zero points. The compiler rejects empty interval declarations and emits `ERR_EMPTY_INTERVAL_DOMAIN`.
+4. **Continuous Domain Distinctions:** Continuous `:Float` (without `#exact`) represents real numbers and permits all four bound facets: `#minIncl`, `#maxIncl`, `#minExcl`, and `#maxExcl`.
 
 ---
 

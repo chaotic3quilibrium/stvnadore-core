@@ -26,19 +26,19 @@ This document serves as an in-depth technical onboarding guide for software engi
     * [2.5 Exhaustive Specification of Inference Rules A through J](#25-exhaustive-specification-of-inference-rules-a-through-j)
   * [3. The Tripartite Temporal Model](#3-the-tripartite-temporal-model)
     * [3.1 Eliminating Temporal Conflation](#31-eliminating-temporal-conflation)
-    * [3.2 Physical Instant: `:org/stvnadore/prelude/DateTimeOffset`](#32-physical-instant-orgstvnadorepreludedatetimeoffset)
-    * [3.3 Civil Wall-Clock Schedule: `:org/stvnadore/prelude/DateTimeZoned`](#33-civil-wall-clock-schedule-orgstvnadorepreludedatetimezoned)
-    * [3.4 Compliance & Audit Record: `:org/stvnadore/prelude/DateTimeAudited`](#34-compliance--audit-record-orgstvnadorepreludedatetimeaudited)
-    * [3.5 Physical Epoch Counters](#35-physical-epoch-counters)
+    * [3.2 Physical Instant: `{ #offset } :DateTime`](#32-physical-instant--offset--datetime)
+    * [3.3 Civil Wall-Clock Schedule: `{ #zoned } :DateTime`](#33-civil-wall-clock-schedule--zoned--datetime)
+    * [3.4 Compliance & Audit Record: `{ #audited } :DateTime`](#34-compliance--audit-record--audited--datetime)
+    * [3.5 Physical Epoch Counters (`:TimeEpoch`)](#35-physical-epoch-counters-timeepoch)
     * [3.6 Tripartite Invariant Matrix](#36-tripartite-invariant-matrix)
   * [4. Arbitrary Bit-Width Numeric Systems](#4-arbitrary-bit-width-numeric-systems)
-    * [4.1 Non-Power-of-Two Integer Semantics (`:Int`$n$, `:Uint`$n$)](#41-non-power-of-two-integer-semantics-intn-uintn)
+    * [4.1 Non-Power-of-Two Integer Semantics (`{ #size n } :Int`, `{ #unsigned #size n } :Int`)](#41-non-power-of-two-integer-semantics--size-n--int--unsigned-size-n--int)
     * [4.2 Mathematical Bounds and High-Bit Mask Validation](#42-mathematical-bounds-and-high-bit-mask-validation)
-    * [4.3 Exact Financial Decimals (`:FloatExact`) vs. IEEE 754 (`:Float32`, `:Float64`)](#43-exact-financial-decimals-floatexact-vs-ieee-754-float32-float64)
+    * [4.3 Exact Financial Decimals (`{ #exact } :Float`) vs. IEEE 754 (`{ #size 32 } :Float`, `{ #size 64 } :Float`)](#43-exact-financial-decimals--exact--float-vs-ieee-754--size-32--float--size-64--float)
   * [5. Immutability, Collections & Invertible Maps](#5-immutability-collections--invertible-maps)
     * [5.1 Sequenced Collection Semantics (`SequencedSet`, `SequencedMap`)](#51-sequenced-collection-semantics-sequencedset-sequencedmap)
-    * [5.2 The 8 Collection Types](#52-the-8-collection-types)
-    * [5.3 Dual-Set Invariant in Invertible Maps (`:MapInv`)](#53-dual-set-invariant-in-invertible-maps-mapinv)
+    * [5.2 The Base Collection Types & Boundary Modifiers](#52-the-base-collection-types--boundary-modifiers)
+    * [5.3 Dual-Set Invariant in Invertible Maps (`{ #invertible } :Map`)](#53-dual-set-invariant-in-invertible-maps--invertible--map)
     * [5.4 Trait Capability Calculus & Capability Bubbling](#54-trait-capability-calculus--capability-bubbling)
   * [6. Multi-Line Strings & Nested STVN Containment](#6-multi-line-strings--nested-stvn-containment)
     * [6.1 String Presentation Styles](#61-string-presentation-styles)
@@ -64,8 +64,8 @@ In traditional formats (JSON, YAML, EDN), type information is either absent, emb
 ```stvn
 {
   :defs {
-    #MAX_RETRIES :Uint8 3
-    :StatusCode  :Uint16
+    #MAX_RETRIES { #unsigned #size 8 } :Int 3
+    :StatusCode  { #unsigned #size 16 } :Int
     :Response    :Tuple( :StatusCode :Option(:String) )
   }
   :type :Response
@@ -82,9 +82,9 @@ Constants in STVN are declared in `:defs` using the value sigil (`#`), an option
 
 ```stvn
 :defs {
-  #MAX_RETRY  :Uint8 3
+  #MAX_RETRY  { #unsigned #size 8 } :Int 3
   #API_HOST   { #regex "^[a-z.]+$" } :String "api.internal.net"
-  #EMPTY_MASK :Seq( :Uint8 ) [ 0 0 0 0 ]
+  #EMPTY_MASK :Seq( { #unsigned #size 8 } :Int ) [ 0 0 0 0 ]
 }
 ```
 
@@ -108,8 +108,8 @@ STVN supports modular namespace organization inside single documents via `:packa
 ```stvn
 :defs {
   :package :org/example/net {
-    :Port :Uint16
-    #DEFAULT_PORT :Uint16 8080
+    :Port { #unsigned #size 16 } :Int
+    #DEFAULT_PORT { #unsigned #size 16 } :Int 8080
   }
   :package :org/example/service {
     :use [ :org/example/net { #strip } ]
@@ -133,7 +133,7 @@ STVN enforces strict lexical whitespace discipline to ensure consistent formatti
 1. **Permissible Whitespace:** Only standard ASCII spaces (`U+0020`), carriage returns (`\r`), and line feeds (`\n`) are permitted as structural whitespace.
 2. **Strict Zero-Tab Invariant:** Raw tab characters (`\t`, `U+0009`) are strictly forbidden in STVN document structure. The presence of a tab character raises a fatal syntax error (`ERR_TAB_CHARACTER_FORBIDDEN`). Tab characters within single-line string literals must be escaped as `\t`.
 3. **Canonical AST Printers:** `AstPrettyPrinter` serializes AST value trees with canonical 2-space indentation and long-form keywords (`#TRUE`, `#FALSE`, `#Some`, `#None`). `AstCompactPrinter` emits minimal single-line text with short-form keywords (`#T`, `#F`, `#S`, `#N`).
-4. **String Capacity Governance:** Unadorned `:String` allocations default to `DEFAULT_UNBOUNDED_STRING_CAPACITY` (16,777,216 characters / 16 MiB). Explicit nominal suffix dimensions (`:String4096`, `:StringFixed16`, `:String33554432`) support capacities up to $2^{31}-1$.
+4. **String Capacity Governance:** Unadorned `:String` allocations default to `DEFAULT_UNBOUNDED_STRING_CAPACITY` (16,777,216 characters / 16 MiB). Explicit nominal suffix dimensions (`:String4096`, `{ #minSize 16 #maxSize 16 } :String`, `:String33554432`) support capacities up to $2^{31}-1$.
 
 ---
 
@@ -152,12 +152,12 @@ STVN's type system is built on Algebraic Data Types (ADTs), dividing composite d
   ```
 * **Strict Product Demarcation:** In STVN, parentheses `( ... )` strictly construct `:Tuple` instances. They are never function-call delimiters:
   ```stvn
-  // Given schema: :Option( :Uint32 )
-  #Some ( 42 )      // FATAL: Type mismatch (Expected :Uint32, got Tuple)
-  #Some 42          // VALID: Scalar integer matches :Uint32
+  // Given schema: :Option( { #unsigned #size 32 } :Int )
+  #Some ( 42 )      // FATAL: Type mismatch (Expected Integer, got Tuple)
+  #Some 42          // VALID: Scalar integer matches { #unsigned #size 32 } :Int
 
-  // Given schema: :Option( :Tuple( :Uint32 ) )
-  #Some ( 42 )      // VALID: 1-element tuple matches :Tuple( :Uint32 )
+  // Given schema: :Option( :Tuple( { #unsigned #size 32 } :Int ) )
+  #Some ( 42 )      // VALID: 1-element tuple matches :Tuple( { #unsigned #size 32 } :Int )
   ```
 
 ### 2.2 Sum Types (`:Option`, `:Either`, `:Union`, `:Enum`)
@@ -191,17 +191,17 @@ STVN decoders support implicit tagging for sum types when payload values are una
 ```stvn
 // -----------------------------------------------------------------------------
 // RULE A: Implied Option #Some
-// Schema: :Option( :Uint32 )
+// Schema: :Option( { #unsigned #size 32 } :Int )
 42                     // Inferred as: #Some 42
 
 // -----------------------------------------------------------------------------
 // RULE B: Implied Either #Right
-// Schema: :Either( :String :Int32 )
+// Schema: :Either( :String { #size 32 } :Int )
 100                    // Inferred as: #Right 100
 
 // -----------------------------------------------------------------------------
 // RULE C: Implied Union Branch
-// Schema: :Union( :Int32 :String :Boolean )
+// Schema: :Union( { #size 32 } :Int :String :Boolean )
 "text"                 // Inferred as: #2 "text"
 
 // -----------------------------------------------------------------------------
@@ -213,26 +213,26 @@ STVN decoders support implicit tagging for sum types when payload values are una
 
 // -----------------------------------------------------------------------------
 // RULE E: Asymmetric Non-Inferability (#Left and #None NEVER inferred)
-// Schema: :Either( :String :Int32 )
+// Schema: :Either( :String { #size 32 } :Int )
 "error"                // FATAL: String matches :Left, but #Left is never inferred.
 #Left "error"          // VALID: Explicit tag provided.
 
 // -----------------------------------------------------------------------------
 // RULE F: Compositional Inference Traversal
-// Schema: :Seq( :Option( :Either( :String :Float64 ) ) )
+// Schema: :Seq( :Option( :Either( :String { #size 64 } :Float ) ) )
 [ 42.5 ]               // Inferred as: [ #Some #Right 42.5 ]
 
 // -----------------------------------------------------------------------------
 // RULE G: Union 1-Based Indexing
-// Schema: :Union( :Int32 :String )
-#1 42                  // VALID: Selects branch 1 (:Int32)
+// Schema: :Union( { #size 32 } :Int :String )
+#1 42                  // VALID: Selects branch 1 ({ #size 32 } :Int)
 #0 42                  // FATAL: #0 is illegal
 #3 42                  // FATAL: Index exceeds branch count
 
 // -----------------------------------------------------------------------------
 // RULE H: Two-Branch Union vs. Either
-// :Union( :String :Int32 ) allows implicit bidirectional matching (Rule C).
-// :Either( :String :Int32 ) is right-biased and requires explicit #Left for string.
+// :Union( :String { #size 32 } :Int ) allows implicit bidirectional matching (Rule C).
+// :Either( :String { #size 32 } :Int ) is right-biased and requires explicit #Left for string.
 
 // -----------------------------------------------------------------------------
 // RULE I: Intersection Cluster Disabling
@@ -251,16 +251,21 @@ STVN decoders support implicit tagging for sum types when payload values are una
 
 ### 3.1 Eliminating Temporal Conflation
 
-Traditional serialization formats conflate physical timeline instants with civil wall-clock schedule times, causing catastrophic timezone conversion bugs and Daylight Saving Time (DST) data corruption. STVN partitions temporal representations into three mathematically orthogonal domains. All six temporal domain types are standard library prelude types located under `:org/stvnadore/prelude/*`. Bare unqualified references (such as `:DateTimeOffset` or `:TimeEpochS`) trigger `ERR_UNKNOWN_TYPE`.
+Traditional serialization formats conflate physical timeline instants with civil wall-clock schedule times, causing catastrophic timezone conversion bugs and Daylight Saving Time (DST) data corruption. STVN partitions temporal representations into mathematically orthogonal domains. In STVN 2.0.0, `:DateTime` and `:TimeEpoch` are elevated base primitive types.
 
-### 3.2 Physical Instant: `:org/stvnadore/prelude/DateTimeOffset`
+* **`:DateTime`** requires exactly one mode facet: `{ #offset }`, `{ #zoned }`, or `{ #audited }`. Omitting the mode emits `ERR_DATETIME_MODE_INVALID`.
+* **`:TimeEpoch`** requires exactly one bare scale flag: `{ #s }`, `{ #ms }`, `{ #us }`, or `{ #ns }`. Omitting the scale emits `ERR_TEMPORAL_SCALE_MISSING`.
+
+Purged 1.x prelude aliases (such as `:org/stvnadore/prelude/DateTimeOffset`) trigger `ERR_PRELUDE_ALIAS_PURGED` or `ERR_UNKNOWN_TYPE`.
+
+### 3.2 Physical Instant: `{ #offset } :DateTime`
 
 * **Domain:** Absolute point on the physical timeline associated with a fixed UTC presentation offset.
 * **Syntax:** ISO-8601 string with mandatory UTC offset (`Z` or `±HH:mm`): `"2026-03-15T08:00:00-05:00"`.
 * **Invariant:** **Zone brackets `[...]` are prohibited.** Supplying an IANA zone (e.g., `"2026-03-15T08:00:00-05:00[America/Chicago]"`) is a fatal syntax rejection.
 * **Binary Footprint:** 12 bytes `(epoch_utc_nanos: i64, offset_seconds: i32)`.
 
-### 3.3 Civil Wall-Clock Schedule: `:org/stvnadore/prelude/DateTimeZoned`
+### 3.3 Civil Wall-Clock Schedule: `{ #zoned } :DateTime`
 
 * **Domain:** Future-scheduled human wall-clock time within a political IANA timezone jurisdiction.
 * **Syntax:** Local ISO-8601 timestamp with bracketed IANA zone: `"2026-03-15T08:00:00[America/Chicago]"`.
@@ -268,22 +273,23 @@ Traditional serialization formats conflate physical timeline instants with civil
 * **Invariant 2 (DST Spring-Forward Rejection):** Timestamps falling into non-existent DST transition gaps (e.g., `"2026-03-08T02:30:00[America/Chicago]"`) are strictly rejected by the compiler.
 * **Binary Footprint:** 10 bytes `(local_nanos: i64, zone_dict_id: u16)`.
 
-### 3.4 Compliance & Audit Record: `:org/stvnadore/prelude/DateTimeAudited`
+### 3.4 Compliance & Audit Record: `{ #audited } :DateTime`
 
 * **Domain:** Immutable legal/financial audit record proving both the observed UTC instant and the legal jurisdiction of execution.
 * **Syntax:** Dual-token string with both UTC offset and bracketed IANA zone: `"2026-03-15T08:00:00-05:00[America/Chicago]"`.
 * **Invariant (Compile-Time Consistency Check):** The compiler evaluates $\text{offset} \in \text{ZoneRules}(\text{zoneId}).\text{getValidOffsets}(\text{localTime})$. Contradictory offsets (e.g., specifying `-07:00` for Chicago in CDT) fail compilation immediately.
 * **Binary Footprint:** 14 bytes `(local_nanos: i64, offset_seconds: i32, zone_dict_id: u16)`.
 
-### 3.5 Physical Epoch Counters
+### 3.5 Physical Epoch Counters (`:TimeEpoch`)
 
-* `:org/stvnadore/prelude/TimeEpochS`: Signed 64-bit seconds since Unix epoch (`1970-01-01T00:00:00Z`).
-* `:org/stvnadore/prelude/TimeEpochMs`: Signed 64-bit milliseconds since Unix epoch.
-* `:org/stvnadore/prelude/TimeEpochNs`: Arbitrary-precision nanoseconds since Unix epoch.
+* `{ #s } :TimeEpoch`: Signed 64-bit seconds since Unix epoch (`1970-01-01T00:00:00Z`).
+* `{ #ms } :TimeEpoch`: Signed 64-bit milliseconds since Unix epoch.
+* `{ #us } :TimeEpoch`: Signed 64-bit microseconds since Unix epoch.
+* `{ #ns } :TimeEpoch`: Arbitrary-precision nanoseconds since Unix epoch.
 
 ### 3.6 Tripartite Invariant Matrix
 
-| Attribute                  | `:org/stvnadore/prelude/DateTimeOffset` | `:org/stvnadore/prelude/DateTimeZoned` | `:org/stvnadore/prelude/DateTimeAudited` |
+| Attribute                  | `{ #offset } :DateTime`                 | `{ #zoned } :DateTime`                 | `{ #audited } :DateTime`                 |
 |:---------------------------|:----------------------------------------|:---------------------------------------|:-----------------------------------------|
 | **Domain**                 | Physical Instant                        | Civil Wall-Clock                       | Regulatory Audit                         |
 | **Literal Grammar**        | `"YYYY-MM-DDTHH:mm:ss±HH:mm"`           | `"YYYY-MM-DDTHH:mm:ss[Zone]"`          | `"YYYY-MM-DDTHH:mm:ss±HH:mm[Zone]"`      |
@@ -297,13 +303,14 @@ Traditional serialization formats conflate physical timeline instants with civil
 
 ## 4. Arbitrary Bit-Width Numeric Systems
 
-### 4.1 Non-Power-of-Two Integer Semantics (`:Int`$n$, `:Uint`$n$)
+### 4.1 Non-Power-of-Two Integer Semantics (`{ #size n } :Int`, `{ #unsigned #size n } :Int`)
 
 STVN supports arbitrary positive bit-widths ($n \ge 1$), eliminating hardware-constrained integer waste:
 
-* **Signed Integers (`:Int`$n$):** Range $[-2^{n-1}, 2^{n-1}-1]$ (e.g., `:Int1`, `:Int7`, `:Int24`, `:Int64`, `:Int128`). Default un-suffixed `:Int` resolves to `:Int32`.
-* **Unsigned Integers (`:Uint`$n$):** Range $[0, 2^n-1]$ (e.g., `:Uint1`, `:Uint3`, `:Uint49`, `:Uint64`, `:Uint128`). Default un-suffixed `:Uint` resolves to `:Uint32`.
-* **Overflow Validation:** Literal values exceeding bounds fail compilation with `StvnIntegerOverflowException`. Negative literals assigned to `:Uint`$n$ fail immediately.
+* **Signed Integers (`{ #size n } :Int`):** Range $[-2^{n-1}, 2^{n-1}-1]$ (e.g., `{ #size 8 } :Int`, `{ #size 16 } :Int`, `{ #size 64 } :Int`).
+* **Unsigned Integers (`{ #unsigned #size n } :Int`):** Range $[0, 2^n-1]$ (e.g., `{ #unsigned #size 8 } :Int`, `{ #unsigned #size 16 } :Int`, `{ #unsigned #size 49 } :Int`).
+* **Discrete Half-Open Intervals $[minIncl, maxExcl)$:** Integer bounds mandate half-open intervals. The compiler strictly prohibits `#maxIncl` and `#minExcl` on discrete types, emitting `ERR_DISCRETE_BOUND_KIND_PROHIBITED`. Declaring an empty interval where $minIncl == maxExcl$ emits `ERR_EMPTY_INTERVAL_DOMAIN`.
+* **Overflow Validation:** Literal values exceeding bounds fail compilation with `StvnIntegerOverflowException`. Negative literals assigned to unsigned integers fail immediately.
 
 ### 4.2 Mathematical Bounds and High-Bit Mask Validation
 
@@ -317,10 +324,10 @@ $$\text{Valid Mask} = (1 \ll (n \bmod 8)) - 1 \quad (\text{for } n \bmod 8 \ne 0
 
 If any unused upper bit in the most significant byte is non-zero, decoders reject the payload with `StvnCorruptedBitPatternException`.
 
-### 4.3 Exact Financial Decimals (`:FloatExact`) vs. IEEE 754 (`:Float32`, `:Float64`)
+### 4.3 Exact Financial Decimals (`{ #exact } :Float`) vs. IEEE 754 (`{ #size 32 } :Float`, `{ #size 64 } :Float`)
 
-* `:Float32` / `:Float64`: Standard IEEE 754 floating-point numbers. By default, floating-point types do not carry the `#equatable` trait due to NaN and rounding hazards.
-* `:FloatExact`: Arbitrary-precision decimal arithmetic (mapped to Java `BigDecimal`), guaranteeing exact representations for currency and ledger systems.
+* `{ #size 32 } :Float` / `{ #size 64 } :Float`: Standard IEEE 754 floating-point numbers. By default, floating-point types do not carry the `#equatable` trait due to NaN and rounding hazards.
+* `{ #exact } :Float`: Arbitrary-precision decimal arithmetic (mapped to Java `BigDecimal`), guaranteeing exact representations for currency and ledger systems.
 
 ---
 
@@ -332,22 +339,24 @@ In JSON and traditional serialization formats, map entry and set ordering is und
 1. **Positional Determinism:** Encounter order is preserved across lexing, AST construction, binary serialization, and JVM heap mapping.
 2. **Absolute Immutability:** Collection values in the AST ([StvnSet](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L647) and [StvnMap](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L705)) require `SequencedSet` and `SequencedMap` and wrap them in unmodifiable decorators.
 
-### 5.2 The 8 Collection Types
+### 5.2 The Base Collection Types & Boundary Modifiers
 
-| Collection Type              | Enclosure Syntax          | Constraints & Invariants                                                |
-|:-----------------------------|:--------------------------|:------------------------------------------------------------------------|
-| **`:Seq( T )`**              | `[ v1 v2 ... ]`           | Ordered sequence of elements of type `T`.                               |
-| **`:SeqNonEmpty( T )`**      | `[ v1 v2 ... ]`           | Ordered sequence requiring size $\ge 1$.                                |
-| **`:Set( T )`**              | `[ v1 v2 ... ]`           | Insertion-ordered set. Elements must be unique and `#equatable`.        |
-| **`:SetNonEmpty( T )`**      | `[ v1 v2 ... ]`           | Unique ordered set requiring size $\ge 1$.                              |
-| **`:Map( K V )`**            | `{ [ k1 v1 ] [ k2 v2 ] }` | Associative map. Keys must be unique and `#equatable`.                  |
-| **`:MapNonEmpty( K V )`**    | `{ [ k1 v1 ] [ k2 v2 ] }` | Associative map requiring size $\ge 1$.                                 |
-| **`:MapInv( K V )`**         | `{ [ k1 v1 ] [ k2 v2 ] }` | Invertible map. **Dual-Set Invariant:** Keys AND Values must be unique. |
-| **`:MapInvNonEmpty( K V )`** | `{ [ k1 v1 ] [ k2 v2 ] }` | Invertible map requiring size $\ge 1$.                                  |
+In STVN 2.0.0, collection types compose orthogonally from base constructors and metadata facets, replacing obsolete compound collection keywords:
 
-### 5.3 Dual-Set Invariant in Invertible Maps (`:MapInv`)
+| Collection Construct | Canonical 2.0.0 Syntax | Enclosure Syntax | Constraints & Invariants |
+|:---|:---|:---|:---|
+| **Sequence** | `:Seq( T )` | `[ v1 v2 ... ]` | Ordered sequence of elements of type `T`. |
+| **Non-Empty Sequence** | `{ #minSize 1 } :Seq( T )` | `[ v1 v2 ... ]` | Ordered sequence requiring size $\ge 1$. |
+| **Set** | `:Set( T )` | `[ v1 v2 ... ]` | Insertion-ordered set. Elements must be unique and `#equatable`. |
+| **Non-Empty Set** | `{ #minSize 1 } :Set( T )` | `[ v1 v2 ... ]` | Unique ordered set requiring size $\ge 1$. |
+| **Map** | `:Map( K V )` | `{ [ k1 v1 ] [ k2 v2 ] }` | Associative map. Keys must be unique and `#equatable`. |
+| **Non-Empty Map** | `{ #minSize 1 } :Map( K V )` | `{ [ k1 v1 ] [ k2 v2 ] }` | Associative map requiring size $\ge 1$. |
+| **Invertible Map** | `{ #invertible } :Map( K V )` | `{ [ k1 v1 ] [ k2 v2 ] }` | Invertible map. **Dual-Set Invariant:** Keys AND Values must be unique. |
+| **Non-Empty Invertible Map** | `{ #invertible #minSize 1 } :Map( K V )` | `{ [ k1 v1 ] [ k2 v2 ] }` | Invertible map requiring size $\ge 1$. |
 
-`:MapInv` establishes a 1-to-1 bidirectional bijection. The compiler enforces that every key is unique and every value is unique. Inserting duplicate values (e.g., `{ [ "a" 10 ] [ "b" 10 ] }`) triggers `DUPLICATE_INVERTED_MAP_VALUE`.
+### 5.3 Dual-Set Invariant in Invertible Maps (`{ #invertible } :Map`)
+
+`{ #invertible } :Map` establishes a 1-to-1 bidirectional bijection. The compiler enforces that every key is unique and every value is unique. Inserting duplicate values (e.g., `{ [ "a" 10 ] [ "b" 10 ] }`) triggers `DUPLICATE_INVERTED_MAP_VALUE`.
 
 ### 5.4 Trait Capability Calculus & Capability Bubbling
 
@@ -384,7 +393,7 @@ When storing an STVN document or schema inside another STVN document (such as in
     """[STVN_DOC]
 {
   :defs {
-    :Port :Uint16
+    :Port { #unsigned #size 16 } :Int
     :Host :String
   }
 }[STVN_DOC]"""
@@ -465,27 +474,21 @@ The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quil
 
 | Nominal Type                                 | Underlying Type  | Applied Constraints / Validation Specification                                                                                                                                          |
 |:---------------------------------------------|:-----------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **`:org/stvnadore/prelude/TimeEpochS`**      | `:Int64`         | Epoch seconds elapsed since 1970-01-01T00:00:00Z                                                                                                                                        |
-| **`:org/stvnadore/prelude/TimeEpochMs`**     | `:Int64`         | Epoch milliseconds elapsed since 1970-01-01T00:00:00Z                                                                                                                                   |
-| **`:org/stvnadore/prelude/TimeEpochNs`**     | `:Int128`        | Epoch nanoseconds elapsed since 1970-01-01T00:00:00Z                                                                                                                                    |
-| **`:org/stvnadore/prelude/DateTimeOffset`**  | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z[+-][0-9]{2}:[0-9]{2})$" }` (Physical Instant)                                                    |
-| **`:org/stvnadore/prelude/DateTimeZoned`**   | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Civil Schedule)                                  |
-| **`:org/stvnadore/prelude/DateTimeAudited`** | `:String`        | `{ #regex "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z[+-][0-9]{2}:[0-9]{2})\\[[A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*\\]$" }` (Compliance Audit Record) |
-| **`:org/stvnadore/prelude/Uuid`**            | `:StringFixed36` | `{ #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }`                                                                                            |
-| **`:org/stvnadore/prelude/Ulid`**            | `:StringFixed26` | `{ #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32)                                                                                                                       |
-| **`:org/stvnadore/prelude/Sha256`**          | `:StringFixed64` | `{ #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest)                                                                                                                           |
-| **`:org/stvnadore/prelude/SemVer`**          | `:String`        | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`)                                                                                                          |
+| **`:org/stvnadore/prelude/Uuid`**            | `:String`        | `{ #minSize 36 #maxSize 36 #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }`                                                                  |
+| **`:org/stvnadore/prelude/Ulid`**            | `:String`        | `{ #minSize 26 #maxSize 26 #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" }` (Crockford's Base32)                                                                                              |
+| **`:org/stvnadore/prelude/Sha256`**          | `:String`        | `{ #minSize 64 #maxSize 64 #regex "^[0-9a-fA-F]{64}$" }` (Hexadecimal SHA-256 Digest)                                                                                                  |
+| **`:org/stvnadore/prelude/SemVer`**          | `:String`        | Standard Semantic Versioning syntax (`MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]`)                                                                                                         |
 | **`:org/stvnadore/prelude/Email`**           | `:String`        | RFC 5322 email address validation                                                                                                                                                       |
 | **`:org/stvnadore/prelude/IPv4`**            | `:String`        | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`)                                                                                                                            |
-| **`:org/stvnadore/prelude/Port`**            | `:Uint16`        | `{ #minIncl 1 #maxIncl 65535 }`                                                                                                                                                         |
-| **`:org/stvnadore/prelude/Percentage`**      | `:Float64`       | `{ #minIncl 0.0 #maxIncl 100.0 }`                                                                                                                                                       |
-| **`:org/stvnadore/prelude/Probability`**     | `:Float64`       | `{ #minIncl 0.0 #maxIncl 1.0 }`                                                                                                                                                         |
-| **`:org/stvnadore/prelude/Currency`**        | `:FloatExact`    | Monetary value with exact arbitrary decimal precision                                                                                                                                   |
-| **`:org/stvnadore/prelude/Latitude`**        | `:Float64`       | `{ #minIncl -90.0 #maxIncl 90.0 }`                                                                                                                                                      |
-| **`:org/stvnadore/prelude/Longitude`**       | `:Float64`       | `{ #minIncl -180.0 #maxIncl 180.0 }`                                                                                                                                                    |
+| **`:org/stvnadore/prelude/Port`**            | `:Int`           | `{ #unsigned #size 16 #minIncl 1 #maxExcl 65536 }`                                                                                                                                      |
+| **`:org/stvnadore/prelude/Percentage`**      | `:Float`         | `{ #size 64 #minIncl 0.0 #maxIncl 100.0 }`                                                                                                                                              |
+| **`:org/stvnadore/prelude/Probability`**     | `:Float`         | `{ #size 64 #minIncl 0.0 #maxIncl 1.0 }`                                                                                                                                                |
+| **`:org/stvnadore/prelude/Currency`**        | `:Float`         | `{ #exact }` (Monetary value with exact arbitrary decimal precision)                                                                                                                    |
+| **`:org/stvnadore/prelude/Latitude`**        | `:Float`         | `{ #size 64 #minIncl -90.0 #maxIncl 90.0 }`                                                                                                                                             |
+| **`:org/stvnadore/prelude/Longitude`**       | `:Float`         | `{ #size 64 #minIncl -180.0 #maxIncl 180.0 }`                                                                                                                                           |
 
 Bare unqualified references (such as `:Port`) trigger `ERR_UNKNOWN_TYPE`. Documents that prefer short unqualified names declare local aliases (for example, `:Port :org/stvnadore/prelude/Port`).
 
 ### 8.2 Security Considerations: `:Sha256` Adoption and `:Sha1` Excision
 
-In accordance with modern cryptographic standards, STVN has completely deprecated and excised `:Sha1` (`:StringFixed40`) from all compiler registries, schema flatteners, and binary codecs. All cryptographic hashes and digests in STVN standard tooling mandate 256-bit `:Sha256` (`:StringFixed64`).
+In accordance with modern cryptographic standards, STVN has completely deprecated and excised `:Sha1` from all compiler registries, schema flatteners, and binary codecs. All cryptographic hashes and digests in STVN standard tooling mandate 256-bit `:Sha256` (`{ #minSize 64 #maxSize 64 } :String`).

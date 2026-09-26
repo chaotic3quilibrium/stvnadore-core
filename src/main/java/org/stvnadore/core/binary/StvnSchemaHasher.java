@@ -19,7 +19,7 @@ import java.util.UUID;
  * Generates structural fingerprint identities (such as RFC-compliant Version 8 UUIDs or SHA-256 hashes)
  * by recursively digesting schema definitions. The hashing process digests:
  * <ol>
- *   <li>The primitive base type name (e.g. {@code :Int32}, {@code :Seq}).</li>
+ *   <li>The primitive base type name (e.g. {@code :Int}, {@code :Seq}).</li>
  *   <li>Metadata constraints in a deterministic sequence (bounds, regex, preserveIndent, equatable, comparable).</li>
  *   <li>Recursive nested structures (tuple items, union branches, underlying aliases).</li>
  * </ol>
@@ -120,7 +120,7 @@ public class StvnSchemaHasher {
         visited.add(alias);
       }
 
-      // 1. Digest the primitive base type (e.g., ":String", ":Int32")
+      // 1. Digest the primitive base type (e.g., ":String", ":Int")
       String baseType = StvnTypeResolver.getPrimitiveBaseType(schema.node());
       if (baseType != null) {
         digest.update(baseType.getBytes(StandardCharsets.UTF_8));

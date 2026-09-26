@@ -2553,7 +2553,7 @@ public class StvnTypeResolver {
   /**
    * Applies default trait settings to a schema based on its base primitive type.
    * <p>
-   * For example, standard floating point types (like {@code :Float32} and {@code :Float64}) are default non-equatable.
+   * For example, standard floating point types (like {@code { #size 32 } :Float} and {@code { #size 64 } :Float}) are default non-equatable.
    * Other types default to both equatable and comparable.
    *
    * @param rs the resolved schema context to apply defaults to
@@ -2666,7 +2666,7 @@ public class StvnTypeResolver {
   }
 
   /**
-   * Resolves the primary base type name (e.g. {@code :Int32}, {@code :Seq}) for a schema type context.
+   * Resolves the primary base type name (e.g. {@code :Int}, {@code :Seq}) for a schema type context.
    *
    * @param schemaType the schema type context node to analyze
    * @return the base type string keyword, or {@code null} if it cannot be resolved

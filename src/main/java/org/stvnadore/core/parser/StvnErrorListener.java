@@ -577,7 +577,7 @@ public final class StvnErrorListener extends BaseErrorListener {
       return "Compound collection keyword ':MapNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Map'";
     }
     if (rawMsg.contains(":TimeEpoch")) {
-      return "Legacy temporal epoch keyword is deprecated in 2.0.0; use ':TimeEpoch' with mandatory facet '{ #unit #s }', '{ #unit #ms }', or '{ #unit #ns }'";
+      return "Legacy temporal epoch keyword is deprecated in 2.0.0; use ':TimeEpoch' with mandatory scale facet '{ #s }', '{ #ms }', '{ #us }', or '{ #ns }'";
     }
     if (rawMsg.contains(":DateTimeOffset") || rawMsg.contains(":DateTimeZoned") || rawMsg.contains(":DateTimeAudited")) {
       return "Legacy datetime keyword is deprecated in 2.0.0; use ':DateTime' with mode facet '{ #offset }', '{ #zoned }', or '{ #audited }'";

@@ -43,7 +43,7 @@ public final class StvnStringCapacityUtils {
   /**
    * Inspects whether the specified type identifier represents an STVN nominal string type.
    *
-   * @param typeName the type identifier to inspect (e.g. {@code :String}, {@code :String64}, {@code :StringFixed16})
+   * @param typeName the type identifier to inspect (e.g. {@code :String}, {@code :String64})
    * @return {@code true} if the type identifier belongs to the STVN string taxonomy, {@code false} otherwise
    */
   public static boolean isNominalStringType(@Nullable String typeName) {
@@ -65,7 +65,7 @@ public final class StvnStringCapacityUtils {
    * overflows trigger a {@link MalformedSchemaException}.
    * </p>
    *
-   * @param typeName the type token to inspect (e.g. {@code :String4096}, {@code :StringFixed16}, {@code :String33554432})
+   * @param typeName the type token to inspect (e.g. {@code :String4096}, {@code :String33554432})
    * @return an {@link OptionalInt} containing the extracted capacity dimension, or empty if unbounded
    * @throws MalformedSchemaException if the numeric suffix contains leading zeros, sign symbols,
    *                                  overflows signed 32-bit integer limits, or is non-positive

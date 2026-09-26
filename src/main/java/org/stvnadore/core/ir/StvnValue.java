@@ -85,7 +85,7 @@ public sealed interface StvnValue {
   /**
    * Represents a signed or unsigned arbitrary-precision integer scalar literal payload.
    * <p>
-   * Maps to STVN integer typologies (e.g. {@code :Int8}, {@code :Int32}, {@code :Uint64}).
+   * Maps to STVN integer typologies (e.g. {@code { #size 8 } :Int}, {@code { #size 32 } :Int}, {@code { #unsigned #size 64 } :Int}).
    * Handles custom constraints like bitwidth constraints and high-bit checks for unsigned integers.
    *
    * @param schema     the resolved schema mapping this node
@@ -171,11 +171,15 @@ public sealed interface StvnValue {
   /**
    * Represents a floating-point or arbitrary-precision decimal scalar literal payload.
    * <p>
-   * Maps to STVN floating-point typologies ({@code :Float32}, {@code :Float64}, or the arbitrary precision {@code :FloatExact}).
+   * Maps to STVN floating-point typologies ({@code { #size 32 } :Float}, {@code { #size 64 } :Float}, or arbitrary precision {@code { #exact } :Float}).
    *
-   * @param schema    the resolved schema mapping this node
-   * @param value     the float payload represented as a non-null {@link BigDecimal}
-   * @param precision the precision specification (FLOAT32, FLOAT64, or EXACT)
+   * @param schema             the resolved schema mapping this node
+   * @param value              the float payload represented as a non-null {@link BigDecimal}
+   * @param precision          the precision specification (FLOAT32, FLOAT64, or EXACT)
+   * @param isNaN              true if this float represents IEEE-754 NaN
+   * @param isPositiveInfinity true if this float represents IEEE-754 +Infinity
+   * @param isNegativeInfinity true if this float represents IEEE-754 -Infinity
+   * @param isNegativeZero     true if this float represents IEEE-754 -0.0
    */
   record StvnFloat(
       ResolvedSchema schema,
@@ -369,7 +373,7 @@ public sealed interface StvnValue {
   /**
    * Represents a character sequence literal payload.
    * <p>
-   * Maps to STVN string typologies ({@code :String}, {@code :StringFixedN}, etc.), supporting
+   * Maps to STVN string typologies ({@code :String}, {@code { #minSize N #maxSize N } :String}, etc.), supporting
    * multiple presentation styles (simple, block, fenced).
    *
    * @param schema   the resolved schema mapping this node
@@ -683,7 +687,7 @@ public sealed interface StvnValue {
     }
 
     /**
-     * Factory for exact fixed-length strings ({@code :StringFixedN}).
+     * Factory for exact fixed-length strings ({@code { #minSize N #maxSize N } :String}).
      *
      * @param fixedLength the exact required length
      * @return an exact fixed-length string trait instance

@@ -2,7 +2,7 @@
 
 **Document ID**: `STVN-SPEC-02`  
 **Status**: Canonical Specification  
-**Version**: 1.1.0
+**Version**: 2.0.0
 **Compliance**: Mandatory across all STVN repository servers, storage backends, and deployment topologies.
 
 ---
@@ -50,7 +50,7 @@ Once written, a physical CAS file is immutable. The physical `.stvn_cas` file en
 (:Tuple
   "UserProfile"
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-  "{\n  :defs {\n    :UserProfile :Tuple( :Int64 :StringNonEmpty )\n  }\n}"
+  "{\n  :defs {\n    :UserProfile :Tuple( { #size 64 } :Int { #minSize 1 } :String )\n  }\n}"
 )
 ```
 

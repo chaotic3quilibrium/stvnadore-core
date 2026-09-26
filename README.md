@@ -1,17 +1,17 @@
 # STVN Core SDK (`stvnadore-core`)
 
-[![STVN Core SDK](https://img.shields.io/badge/STVN-1.3.1-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
+[![STVN Core SDK](https://img.shields.io/badge/STVN-2.0.0-blue.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md)
 [![Java Version Compatibility](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
-[![Build Verification Status](https://img.shields.io/badge/Tests-615%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
+[![Build Verification Status](https://img.shields.io/badge/Tests-884%20Passed-green.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/test/java/org/stvnadore/core/)
 [![Null Safety](https://img.shields.io/badge/NullMarked-Tier%201%20Soundness-brightgreen.svg)](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md)
 
-`stvnadore-core` is the high-performance, strongly typed value notation (STVN) engine and SDK for Java 21. Tailored for safety-critical environments demanding zero-copy binary serialization, algebraic type safety, deterministic content-addressable storage (CAS) fingerprinting, and value-oriented programming (VOP) models, `stvnadore-core` eliminates reference nulls and uninitialized states at compile-time and serialization boundaries.
+`stvnadore-core` is the high-performance, strongly typed value notation (STVN) engine and SDK for Java 21. Tailored for safety-critical environments demanding zero-copy binary serialization, orthogonal scalar foundations, algebraic type safety, deterministic content-addressable storage (CAS) fingerprinting, and value-oriented programming (VOP) models, `stvnadore-core` eliminates reference nulls and uninitialized states at compile-time and serialization boundaries.
 
-The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror`), and validated against a comprehensive test verification suite spanning 22 test suites covering structural schema hashing, zero-trust binary negotiation, arbitrary bit-width integers, tripartite temporal models, transitive enum subset filtering, canonical AST conversion, and POJO-free record marshalling.
+The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror`), and validated against a comprehensive test verification suite spanning 28 test classes and 884 tests covering structural schema hashing, zero-trust binary negotiation, arbitrary bit-width integers, tripartite temporal models, transitive enum subset filtering, canonical AST conversion, and POJO-free record marshalling.
 
 ---
 
-- Version: 1.3.1 - 2026.09.20
+- Version: 2.0.0 - 2026.09.26
 
 ---
 
@@ -48,6 +48,7 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
     * [FYI, I'd prefer to move stvnadore-core to an Apache 2.0 license](#fyi-id-prefer-to-move-stvnadore-core-to-an-apache-20-license)
     * [I'm not looking to win the lottery, I just don't want to work for free](#im-not-looking-to-win-the-lottery-i-just-dont-want-to-work-for-free)
 * [Version History](#version-history)
+  * [v2.0.0](#v200)
   * [v1.3.1](#v131)
   * [v1.3.0](#v130)
   * [v1.2.0](#v120)
@@ -64,9 +65,9 @@ Add the following Maven dependency to your `pom.xml`:
 
 ```xml
 <dependency>
-    <groupId>org.stvnadore</groupId>
+    <groupId>io.github.chaotic3quilibrium</groupId>
     <artifactId>stvnadore-core</artifactId>
-    <version>1.3.1</version>
+    <version>2.0.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -129,7 +130,7 @@ public class Demonstration {
     // 1. Compile schema context (Map from String keys to variant values)
     var schemaDoc = StvnCompiler.compile("""
         {
-          :type :Map( :String :Union( :String :Int32 :Uint49 :Option( :String ) ) )
+          :type :Map( :String :Union( :String { #size 32 } :Int { #unsigned #size 49 } :Int :Option( :String ) ) )
           :body {}
         }
         """).orElseThrow();
@@ -228,7 +229,7 @@ The compiler enforces monotonic narrowing ($Child \subset Parent \subset Root$),
 ### Expected STVN String Output Format
 
 ```stvn
-{:type :Map(:String :Union(:String :Int32 :Uint49 :Option(:String))) :body {["username" "stvn_engineer"] ["age" 28] ["accountId" 500000000000] ["bio" "Zero-copy zero-null VOP specialist"]}}
+{:type :Map(:String :Union(:String { #size 32 } :Int { #unsigned #size 49 } :Int :Option(:String))) :body {["username" "stvn_engineer"] ["age" 28] ["accountId" 500000000000] ["bio" "Zero-copy zero-null VOP specialist"]}}
 ```
 
 ---
@@ -242,32 +243,33 @@ STVN strictly segregates the lexical and semantic namespaces of types and values
 * **Type Constructors (`:`)**: The colon prefix sigil is reserved exclusively for type constructors, annotations, and module keywords (e.g., `:type`, `:defs`, `:Boolean`, `:String`, `:Tuple`, `:Union`).
 * **Value Tokens & Constants (`#`)**: The hash prefix sigil is reserved for literal values, sum type algebraic tags, enum constants, and value constants in `:defs` (e.g., `#TRUE`, `#Some`, `#Left`, `#HTTP`, `#MAX_RETRY`).
 * **Path-Delimited Identifiers**: Identifiers support forward-slash namespaces in both type space (`:net/http/Status`) and value space (`#net/http/OK`).
-* **Typed Constants in `:defs`**: Immutably binds compile-time constants: `#PORT :Uint16 8080`.
-* **Bare Variant Syntax vs. Strict Product Demarcation**: Sum variants apply directly to trailing values without function parentheses (`#Some 42`). Parentheses `( ... )` in STVN are strictly and exclusively product constructors (`:Tuple`). Parenthesizing a scalar variant (e.g., `#Some ( 42 )` for `:Option(:Uint32)`) triggers a fatal `MalformedPayloadException`.
+* **Typed Constants in `:defs`**: Immutably binds compile-time constants: `#PORT { #unsigned #size 16 } :Int 8080`.
+* **Bare Variant Syntax vs. Strict Product Demarcation**: Sum variants apply directly to trailing values without function parentheses (`#Some 42`). Parentheses `( ... )` in STVN are strictly and exclusively product constructors (`:Tuple`). Parenthesizing a scalar variant (e.g., `#Some ( 42 )` for `:Option( { #unsigned #size 32 } :Int )`) triggers a fatal `MalformedPayloadException`.
 
 ### 2. Value-Oriented Immutability & CAS Fingerprinting
 
 Data models represent pure, immutable values:
 
 * **Deterministic Sequenced Ordering**: Collections in the AST ([StvnSet](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L647) and [StvnMap](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L716)) strictly enforce `java.util.SequencedSet` and `java.util.SequencedMap` and wrap them in unmodifiable decorators.
-* **Invertible Bidirectional Maps (`:MapInv`)**: Enforces dual-set uniqueness: all keys must be unique **and** all values must be unique. Duplicate keys trigger `DUPLICATE_MAP_KEY`; duplicate values trigger `DUPLICATE_INVERTED_MAP_VALUE`.
+* **Invertible Bidirectional Maps (`{ #invertible } :Map`)**: Enforces dual-set uniqueness: all keys must be unique **and** all values must be unique. Duplicate keys trigger `DUPLICATE_MAP_KEY`; duplicate values trigger `DUPLICATE_INVERTED_MAP_VALUE`.
 * **Content-Addressable Storage (CAS)**: `StvnCompiler.computeCasFingerprint(StvnValue)` computes deterministic 32-byte SHA-256 fingerprints across canonically serialized representations.
 
 ### 3. Arbitrary Bit-Width Numeric Systems
 
-STVN natively supports arbitrary bit-width integers ($n \ge 1$):
+STVN natively supports arbitrary bit-width integers ($n \ge 1$) and orthogonal floating-point scalars:
 
-* **Signed & Unsigned Scalability**: `:Int`$n$ ($[-2^{n-1}, 2^{n-1}-1]$) and `:Uint`$n$ ($[0, 2^n-1]$) support non-power-of-two widths (e.g., `:Int1`, `:Int7`, `:Uint3`, `:Uint49`, `:Uint128`).
+* **Signed & Unsigned Scalability**: `{ #size n } :Int` ($[-2^{n-1}, 2^{n-1}-1]$) and `{ #unsigned #size n } :Int` ($[0, 2^n-1]$) support arbitrary non-power-of-two bit-widths (e.g., `{ #size 8 } :Int`, `{ #size 16 } :Int`, `{ #unsigned #size 49 } :Int`).
 * **High-Bit Binary Masking**: Binary decoders calculate $B = \lceil n/8 \rceil$ bytes and verify that unused upper bits in containment bytes are zero, throwing `StvnCorruptedBitPatternException` on illegal bit patterns.
-* **Exact Decimals**: `:FloatExact` preserves arbitrary-precision decimal representations without IEEE 754 floating-point rounding hazards.
+* **Exact Decimals**: `{ #exact } :Float` preserves arbitrary-precision decimal representations without IEEE 754 floating-point rounding hazards.
 
 ### 4. Tripartite Temporal Architecture
 
-STVN partitions date-time values into three mathematically orthogonal, unambiguous types:
+STVN elevates date-time values into base primitive types `:DateTime` and `:TimeEpoch` with mandatory orthogonal metadata facets:
 
-* **Physical Instant (`:DateTimeOffset`)**: Absolute timeline point with numerical UTC offset (`"2026-03-15T08:00:00-05:00"`). Zone brackets are strictly prohibited. Binary wire size: 12 bytes.
-* **Civil Wall-Clock Schedule (`:DateTimeZoned`)**: Human civil wall-clock time bound to an IANA time zone (`"2026-03-15T08:00:00[America/Chicago]"`). Numerical offsets are prohibited. Rejects invalid timestamps falling into Daylight Saving Time (DST) spring-forward gaps at parse time. Binary wire size: 10 bytes.
-* **Regulatory Audit Record (`:DateTimeAudited`)**: Compliance record capturing both observed UTC offset and IANA jurisdiction (`"2026-03-15T08:00:00-05:00[America/Chicago]"`). Validates offset consistency against IANA `ZoneRules` at compile time. Binary wire size: 14 bytes.
+* **Physical Instant (`{ #offset } :DateTime`)**: Absolute timeline point with numerical UTC offset (`"2026-03-15T08:00:00-05:00"`). Zone brackets are strictly prohibited. Binary wire size: 12 bytes.
+* **Civil Wall-Clock Schedule (`{ #zoned } :DateTime`)**: Human civil wall-clock time bound to an IANA time zone (`"2026-03-15T08:00:00[America/Chicago]"`). Numerical offsets are prohibited. Rejects invalid timestamps falling into Daylight Saving Time (DST) spring-forward gaps at parse time. Binary wire size: 10 bytes.
+* **Regulatory Audit Record (`{ #audited } :DateTime`)**: Compliance record capturing both observed UTC offset and IANA jurisdiction (`"2026-03-15T08:00:00-05:00[America/Chicago]"`). Validates offset consistency against IANA `ZoneRules` at compile time. Binary wire size: 14 bytes.
+* **Physical Epoch Timestamps (`{ #s } :TimeEpoch`, `{ #ms } :TimeEpoch`, `{ #us } :TimeEpoch`, `{ #ns } :TimeEpoch`)**: Discrete physical epoch duration ticks since Unix epoch (1970-01-01T00:00:00Z).
 
 ### 5. Algebraic Sum Types & Sealed Interface Marshalling
 
@@ -311,17 +313,17 @@ The low-level binary codec negotiating [SchemaIdentityStrategy](https://github.c
 ### Tripartite Temporal Binary Memory Layouts
 
 ```
-1. :DateTimeOffset (12 Bytes Total)
+1. { #offset } :DateTime (12 Bytes Total)
    +---------------------------------------+---------------------------------------+
    |   epoch_utc_nanos: i64 (8 Bytes)      |     offset_seconds: i32 (4 Bytes)     |
    +---------------------------------------+---------------------------------------+
 
-2. :DateTimeZoned (10 Bytes Total)
+2. { #zoned } :DateTime (10 Bytes Total)
    +---------------------------------------+---------------------------------------+
    |     local_nanos: i64 (8 Bytes)        |     zone_dict_id: u16 (2 Bytes)       |
    +---------------------------------------+---------------------------------------+
 
-3. :DateTimeAudited (14 Bytes Total)
+3. { #audited } :DateTime (14 Bytes Total)
    +-----------------------------------+-------------------+-------------------+
    |    local_nanos: i64 (8 Bytes)     | offset_s: i32 (4B)| zone_dict_id: u16 |
    +-----------------------------------+-------------------+-------------------+
@@ -391,6 +393,17 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 ---
 
 # Version History
+
+## v2.0.0
+
+- 2026.09.26
+- Baseline 2.0.0 elevation with orthogonal scalar architecture
+- Pruned obsolete compound types (`:Int32`, `:Uint16`, `:StringFixed`, `:FloatExact`) in favor of canonical metadata facets
+- Elevated `:TimeEpoch` (with mandatory bare scale flags `#s`, `#ms`, `#us`, `#ns`) and `:DateTime` (with mandatory mode facets `#offset`, `#zoned`, `#audited`) as base primitives
+- Universal Allowlist Gating ($\mathcal{T} \times \mathcal{F}$) failing closed on 108 invalid type-facet pairings
+- Enforced discrete half-open intervals $[minIncl, maxExcl)$ with empty domain checks (`ERR_EMPTY_INTERVAL_DOMAIN`)
+- Strategy `0x07` (`0x87`) wire framing with mandatory CRC-32C trailer and SHA-256 CAS zero-trust verification
+- Passed all 884 verification tests with zero compiler or Javadoc warnings under Java 21 LTS
 
 ## v1.3.1
 
