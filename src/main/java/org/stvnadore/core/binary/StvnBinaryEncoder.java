@@ -11,6 +11,7 @@ import java.util.IdentityHashMap;
 import java.util.zip.CRC32C;
 
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.validation.StvnTypeResolver;
 
 /**
@@ -397,7 +398,7 @@ public class StvnBinaryEncoder {
       boolean isBareInt = i.bitWidth() == 0 ||
           (i.schema() != null && i.schema().constraints().size().isEmpty() &&
               (i.schema().underlyingSchema().isEmpty() || i.schema().underlyingSchema().get().constraints().size().isEmpty()) &&
-              (StvnTypeResolver.getPrimitiveBaseType(i.schema().node()).equals(":Int") ||
+              (StvnTypeResolver.getPrimitiveBaseType(i.schema().node()).equals(StvnVocabulary.TYPE_INT) ||
                StvnTypeResolver.getPrimitiveBaseType(i.schema().node()).equals(":Uint")));
       if (isBareInt) {
         int maxInlineBits = i.isUnsigned() ? 32 : 31;

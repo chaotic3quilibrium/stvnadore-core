@@ -14,6 +14,7 @@ import org.stvnadore.core.parser.StvnParser.ValueContext;
 import org.stvnadore.core.parser.StvnParser.SumTypeContext;
 import org.stvnadore.core.stdlib.StvnPrelude;
 import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnLiteralParser;
 
 import java.io.IOException;
@@ -1260,8 +1261,6 @@ public class StvnTypeResolver {
    * @param zoned             if true, temporal datetime has timezone identifier
    * @param audited           if true, temporal datetime retains full audited representation
    * @param dateMinIncl       optional inclusive minimum ISO-8601 boundary
-   * @param dateMinExcl       optional exclusive minimum ISO-8601 boundary
-   * @param dateMaxIncl       optional inclusive maximum ISO-8601 boundary
    * @param dateMaxExcl       optional exclusive maximum ISO-8601 boundary
    */
   public record StvnConstraints(
@@ -1287,125 +1286,8 @@ public class StvnTypeResolver {
       boolean zoned,
       boolean audited,
       Optional<String> dateMinIncl,
-      Optional<String> dateMinExcl,
-      Optional<String> dateMaxIncl,
       Optional<String> dateMaxExcl
   ) {
-    /**
-     * Backward-compatible 9-parameter constructor defaulting filterIncl, filterExcl, and 2.0.0 facets to empty.
-     *
-     * @param minIncl           optional inclusive minimum value boundary
-     * @param minExcl           optional exclusive minimum value boundary
-     * @param maxIncl           optional inclusive maximum value boundary
-     * @param maxExcl           optional exclusive maximum value boundary
-     * @param regex             optional regular expression pattern to validate strings
-     * @param preserveIndent    if true, preserves formatting indentation for multi-line block strings
-     * @param equatable         optional user override for the {@code #equatable} trait
-     * @param comparable        optional user override for the {@code #comparable} trait
-     * @param explicitOverrides list of explicit traits overridden by the developer
-     */
-    public StvnConstraints(
-        Optional<BigDecimal> minIncl,
-        Optional<BigDecimal> minExcl,
-        Optional<BigDecimal> maxIncl,
-        Optional<BigDecimal> maxExcl,
-        Optional<String> regex,
-        boolean preserveIndent,
-        Optional<Boolean> equatable,
-        Optional<Boolean> comparable,
-        @Nullable List<String> explicitOverrides
-    ) {
-      this(minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides, Optional.empty(), Optional.empty(),
-          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false,
-          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-    }
-
-    /**
-     * Backward-compatible 11-parameter constructor defaulting 2.0.0 facets to empty.
-     *
-     * @param minIncl           optional inclusive minimum value boundary
-     * @param minExcl           optional exclusive minimum value boundary
-     * @param maxIncl           optional inclusive maximum value boundary
-     * @param maxExcl           optional exclusive maximum value boundary
-     * @param regex             optional regular expression pattern to validate strings
-     * @param preserveIndent    if true, preserves formatting indentation for multi-line block strings
-     * @param equatable         optional user override for the {@code #equatable} trait
-     * @param comparable        optional user override for the {@code #comparable} trait
-     * @param explicitOverrides list of explicit traits overridden by the developer
-     * @param filterIncl        optional immutable list of variants included in enum subset
-     * @param filterExcl        optional immutable list of variants excluded from enum subset
-     */
-    public StvnConstraints(
-        Optional<BigDecimal> minIncl,
-        Optional<BigDecimal> minExcl,
-        Optional<BigDecimal> maxIncl,
-        Optional<BigDecimal> maxExcl,
-        Optional<String> regex,
-        boolean preserveIndent,
-        Optional<Boolean> equatable,
-        Optional<Boolean> comparable,
-        @Nullable List<String> explicitOverrides,
-        Optional<List<String>> filterIncl,
-        Optional<List<String>> filterExcl
-    ) {
-      this(minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides, filterIncl, filterExcl,
-          Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false,
-          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-    }
-
-    /**
-     * Backward-compatible 21-parameter constructor from 2.0.0-M1.
-     *
-     * @param minIncl           optional inclusive minimum value boundary
-     * @param minExcl           optional exclusive minimum value boundary
-     * @param maxIncl           optional inclusive maximum value boundary
-     * @param maxExcl           optional exclusive maximum value boundary
-     * @param regex             optional regular expression pattern to validate strings
-     * @param preserveIndent    if true, preserves formatting indentation for multi-line block strings
-     * @param equatable         optional user override for the {@code #equatable} trait
-     * @param comparable        optional user override for the {@code #comparable} trait
-     * @param explicitOverrides list of explicit traits overridden by the developer
-     * @param filterIncl        optional immutable list of variants included in enum subset
-     * @param filterExcl        optional immutable list of variants excluded from enum subset
-     * @param size              optional bit-width or size constraint
-     * @param unsigned          if true, integer type is unsigned
-     * @param exact             if true, float type enforces exact arbitrary-precision decimal representation
-     * @param minSize           optional minimum collection or string cardinality
-     * @param maxSize           optional maximum collection or string cardinality
-     * @param invertible        if true, map is bidirectional and invertible
-     * @param scale             optional temporal epoch scale (s, ms, us, ns)
-     * @param offset            if true, temporal datetime has numerical offset
-     * @param zoned             if true, temporal datetime has timezone identifier
-     * @param audited           if true, temporal datetime retains full audited representation
-     */
-    public StvnConstraints(
-        Optional<BigDecimal> minIncl,
-        Optional<BigDecimal> minExcl,
-        Optional<BigDecimal> maxIncl,
-        Optional<BigDecimal> maxExcl,
-        Optional<String> regex,
-        boolean preserveIndent,
-        Optional<Boolean> equatable,
-        Optional<Boolean> comparable,
-        @Nullable List<String> explicitOverrides,
-        Optional<List<String>> filterIncl,
-        Optional<List<String>> filterExcl,
-        Optional<Integer> size,
-        boolean unsigned,
-        boolean exact,
-        Optional<Integer> minSize,
-        Optional<Integer> maxSize,
-        boolean invertible,
-        Optional<String> scale,
-        boolean offset,
-        boolean zoned,
-        boolean audited
-    ) {
-      this(minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides, filterIncl, filterExcl,
-          size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
-          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-    }
-
     /**
      * Canonical constructor validating that all optional parameters are non-null and copying lists.
      *
@@ -1431,8 +1313,6 @@ public class StvnTypeResolver {
      * @param zoned             if true, temporal datetime has timezone identifier
      * @param audited           if true, temporal datetime retains full audited representation
      * @param dateMinIncl       optional inclusive minimum date string boundary
-     * @param dateMinExcl       optional exclusive minimum date string boundary
-     * @param dateMaxIncl       optional inclusive maximum date string boundary
      * @param dateMaxExcl       optional exclusive maximum date string boundary
      */
     public StvnConstraints(
@@ -1458,8 +1338,6 @@ public class StvnTypeResolver {
         boolean zoned,
         boolean audited,
         Optional<String> dateMinIncl,
-        Optional<String> dateMinExcl,
-        Optional<String> dateMaxIncl,
         Optional<String> dateMaxExcl
     ) {
       this.minIncl = java.util.Objects.requireNonNull(minIncl);
@@ -1486,8 +1364,6 @@ public class StvnTypeResolver {
       this.zoned = zoned;
       this.audited = audited;
       this.dateMinIncl = java.util.Objects.requireNonNull(dateMinIncl);
-      this.dateMinExcl = java.util.Objects.requireNonNull(dateMinExcl);
-      this.dateMaxIncl = java.util.Objects.requireNonNull(dateMaxIncl);
       this.dateMaxExcl = java.util.Objects.requireNonNull(dateMaxExcl);
     }
 
@@ -1511,7 +1387,7 @@ public class StvnTypeResolver {
           Optional.empty(), false, Optional.empty(), Optional.empty(), java.util.List.of(),
           Optional.empty(), Optional.empty(),
           Optional.empty(), false, false, Optional.empty(), Optional.empty(), false, Optional.empty(), false, false, false,
-          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()
+          Optional.empty(), Optional.empty()
       );
     }
 
@@ -1527,7 +1403,7 @@ public class StvnTypeResolver {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, overrides,
           filterIncl, filterExcl, Optional.of(bitWidth), unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
-          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
+          dateMinIncl, dateMaxExcl
       );
     }
 
@@ -1544,7 +1420,7 @@ public class StvnTypeResolver {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, overrides,
           filterIncl, filterExcl, size, isUnsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
-          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
+          dateMinIncl, dateMaxExcl
       );
     }
 
@@ -1561,7 +1437,7 @@ public class StvnTypeResolver {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, overrides,
           filterIncl, filterExcl, size, unsigned, isExact, minSize, maxSize, invertible, scale, offset, zoned, audited,
-          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
+          dateMinIncl, dateMaxExcl
       );
     }
 
@@ -1578,7 +1454,7 @@ public class StvnTypeResolver {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, overrides,
           filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, isInvertible, scale, offset, zoned, audited,
-          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
+          dateMinIncl, dateMaxExcl
       );
     }
 
@@ -1592,7 +1468,7 @@ public class StvnTypeResolver {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
           filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
-          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
+          dateMinIncl, dateMaxExcl
       );
     }
 
@@ -1607,7 +1483,7 @@ public class StvnTypeResolver {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
           filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
-          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
+          dateMinIncl, dateMaxExcl
       );
     }
 
@@ -1623,7 +1499,55 @@ public class StvnTypeResolver {
       return new StvnConstraints(
           minIncl, minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, explicitOverrides,
           filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
-          dateMinIncl, dateMinExcl, dateMaxIncl, dateMaxExcl
+          dateMinIncl, dateMaxExcl
+      );
+    }
+
+    /**
+     * Returns a copy with the specified inclusive minimum value boundary.
+     *
+     * @param minIncl the inclusive minimum boundary
+     * @return a new {@link StvnConstraints} instance
+     */
+    public StvnConstraints withMinIncl(BigDecimal minIncl) {
+      var overrides = new ArrayList<>(explicitOverrides);
+      if (!overrides.contains("minIncl")) overrides.add("minIncl");
+      return new StvnConstraints(
+          Optional.of(minIncl), minExcl, maxIncl, maxExcl, regex, preserveIndent, equatable, comparable, overrides,
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
+          dateMinIncl, dateMaxExcl
+      );
+    }
+
+    /**
+     * Returns a copy with the specified inclusive maximum value boundary.
+     *
+     * @param maxIncl the inclusive maximum boundary
+     * @return a new {@link StvnConstraints} instance
+     */
+    public StvnConstraints withMaxIncl(BigDecimal maxIncl) {
+      var overrides = new ArrayList<>(explicitOverrides);
+      if (!overrides.contains("maxIncl")) overrides.add("maxIncl");
+      return new StvnConstraints(
+          minIncl, minExcl, Optional.of(maxIncl), maxExcl, regex, preserveIndent, equatable, comparable, overrides,
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
+          dateMinIncl, dateMaxExcl
+      );
+    }
+
+    /**
+     * Returns a copy with the specified exclusive maximum value boundary.
+     *
+     * @param maxExcl the exclusive maximum boundary
+     * @return a new {@link StvnConstraints} instance
+     */
+    public StvnConstraints withMaxExcl(BigDecimal maxExcl) {
+      var overrides = new ArrayList<>(explicitOverrides);
+      if (!overrides.contains("maxExcl")) overrides.add("maxExcl");
+      return new StvnConstraints(
+          minIncl, minExcl, maxIncl, Optional.of(maxExcl), regex, preserveIndent, equatable, comparable, overrides,
+          filterIncl, filterExcl, size, unsigned, exact, minSize, maxSize, invertible, scale, offset, zoned, audited,
+          dateMinIncl, dateMaxExcl
       );
     }
 
@@ -1662,25 +1586,17 @@ public class StvnTypeResolver {
       }
 
       Optional<String> resDateMinIncl = Optional.empty();
-      Optional<String> resDateMinExcl = Optional.empty();
-      Optional<String> resDateMaxIncl = Optional.empty();
       Optional<String> resDateMaxExcl = Optional.empty();
 
       if (this.dateMinIncl.isPresent()) {
         resDateMinIncl = this.dateMinIncl;
-      } else if (this.dateMinExcl.isPresent()) {
-        resDateMinExcl = this.dateMinExcl;
       } else {
         resDateMinIncl = inner.dateMinIncl;
-        resDateMinExcl = inner.dateMinExcl;
       }
 
-      if (this.dateMaxIncl.isPresent()) {
-        resDateMaxIncl = this.dateMaxIncl;
-      } else if (this.dateMaxExcl.isPresent()) {
+      if (this.dateMaxExcl.isPresent()) {
         resDateMaxExcl = this.dateMaxExcl;
       } else {
-        resDateMaxIncl = inner.dateMaxIncl;
         resDateMaxExcl = inner.dateMaxExcl;
       }
 
@@ -1748,8 +1664,6 @@ public class StvnTypeResolver {
           resZoned,
           resAudited,
           resDateMinIncl,
-          resDateMinExcl,
-          resDateMaxIncl,
           resDateMaxExcl
       );
     }
@@ -1815,53 +1729,6 @@ public class StvnTypeResolver {
       java.util.Objects.requireNonNull(enumSubset);
     }
 
-    /**
-     * Backward-compatible 8-arg constructor defaulting enumSubset to empty.
-     *
-     * @param node               schema type parse context
-     * @param constraints        effective constraints
-     * @param aliasName          optional nominal alias name
-     * @param implicitUnionTag   optional implicit union branch tag index
-     * @param sumTypeNode        optional AST context for sum type definitions
-     * @param underlyingSchema   optional underlying aliased schema
-     * @param localConstraints   optional localized schema constraints
-     * @param isPoisonedSentinel whether this schema represents an unresolvable error sentinel
-     */
-    public ResolvedSchema(
-        SchemaTypeContext node,
-        StvnConstraints constraints,
-        Optional<String> aliasName,
-        Optional<Integer> implicitUnionTag,
-        Optional<SumTypeContext> sumTypeNode,
-        Optional<ResolvedSchema> underlyingSchema,
-        Optional<StvnConstraints> localConstraints,
-        boolean isPoisonedSentinel
-    ) {
-      this(node, constraints, aliasName, implicitUnionTag, sumTypeNode, underlyingSchema, localConstraints, isPoisonedSentinel, Optional.empty());
-    }
-
-    /**
-     * Backward-compatible 7-arg constructor defaulting isPoisonedSentinel to false and enumSubset to empty.
-     *
-     * @param node             schema type parse context
-     * @param constraints      effective constraints
-     * @param aliasName        optional nominal alias name
-     * @param implicitUnionTag optional implicit union branch tag index
-     * @param sumTypeNode      optional AST context for sum type definitions
-     * @param underlyingSchema optional underlying aliased schema
-     * @param localConstraints optional localized schema constraints
-     */
-    public ResolvedSchema(
-        SchemaTypeContext node,
-        StvnConstraints constraints,
-        Optional<String> aliasName,
-        Optional<Integer> implicitUnionTag,
-        Optional<SumTypeContext> sumTypeNode,
-        Optional<ResolvedSchema> underlyingSchema,
-        Optional<StvnConstraints> localConstraints
-    ) {
-      this(node, constraints, aliasName, implicitUnionTag, sumTypeNode, underlyingSchema, localConstraints, false, Optional.empty());
-    }
 
     /**
      * Convenience constructor to build a ResolvedSchema with default empty sum type context and underlying schemas.
@@ -1985,7 +1852,7 @@ public class StvnTypeResolver {
     boolean offset = false;
     boolean zoned = false;
     boolean audited = false;
-    String dateMinIncl = null, dateMinExcl = null, dateMaxIncl = null, dateMaxExcl = null;
+    String dateMinIncl = null, dateMaxExcl = null;
 
     for (StvnParser.MetadataEntryContext entry : metadataMap.metadataEntry()) {
       if (entry.metadataFilter() != null) {
@@ -2024,8 +1891,6 @@ public class StvnTypeResolver {
         }
         if (dateVal != null) {
           if (numCtx.KW_MIN_INCL() != null) dateMinIncl = dateVal;
-          else if (numCtx.KW_MIN_EXCL() != null) dateMinExcl = dateVal;
-          else if (numCtx.KW_MAX_INCL() != null) dateMaxIncl = dateVal;
           else if (numCtx.KW_MAX_EXCL() != null) dateMaxExcl = dateVal;
         }
       } else if (entry.metadataString() != null) {
@@ -2133,8 +1998,6 @@ public class StvnTypeResolver {
         zoned,
         audited,
         Optional.ofNullable(dateMinIncl),
-        Optional.ofNullable(dateMinExcl),
-        Optional.ofNullable(dateMaxIncl),
         Optional.ofNullable(dateMaxExcl)
     );
   }
@@ -2306,7 +2169,7 @@ public class StvnTypeResolver {
       }
       if (visited.contains(kw)) {
         if (passedConstructor) {
-          return Optional.of(validateResolvedSchema(applyDefaults(new ResolvedSchema(schemaNode, StvnConstraints.empty(), Optional.of(kw), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(StvnConstraints.empty()), false))));
+          return Optional.of(validateResolvedSchema(applyDefaults(new ResolvedSchema(schemaNode, StvnConstraints.empty(), Optional.of(kw), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(StvnConstraints.empty()), false, Optional.empty()))));
         } else {
           markTypePoisoned(doc, kw);
           throw new CircularReferenceException("Circular type definition detected: " + String.join(" -> ", visited) + " -> " + kw);
@@ -2830,7 +2693,9 @@ public class StvnTypeResolver {
                 Optional.of(0),
                 Optional.ofNullable(rs.node().schemaConstructor() != null ? rs.node().schemaConstructor().sumType() : null),
                 baseInner.underlyingSchema(),
-                baseInner.localConstraints()
+                baseInner.localConstraints(),
+                false,
+                Optional.empty()
             ));
           } else {
             rsOpt = Optional.empty();
@@ -2900,7 +2765,9 @@ public class StvnTypeResolver {
                     Optional.of(1),
                     Optional.ofNullable(ctor.sumType()),
                     matched.underlyingSchema(),
-                    matched.localConstraints()
+                    matched.localConstraints(),
+                    false,
+                    Optional.empty()
                 ));
               } else {
                 rsOpt = Optional.empty();
@@ -2949,7 +2816,9 @@ public class StvnTypeResolver {
                   Optional.of(matchedIndex),
                   Optional.ofNullable(ctor.sumType()),
                   matched.underlyingSchema(),
-                  matched.localConstraints()
+                  matched.localConstraints(),
+                  false,
+                  Optional.empty()
               ));
             } else {
               rsOpt = Optional.empty();
@@ -3291,43 +3160,6 @@ public class StvnTypeResolver {
     return false;
   }
 
-  /**
-   * Recursively verifies that all schemas nested within a type declaration have unique
-   * member branch nominal type identities within any single sum type (e.g. Union or Either).
-   *
-   * @param doc        the document context containing the schema definition to validate
-   * @param schemaNode the schema type context node to validate
-   * @param visited    the set of visited type keyword names to detect and prevent cycles
-   * @throws MalformedSchemaException if any structural constraint violation is detected
-   * @deprecated Sum types with duplicate nominal branch types are valid coproducts as of 1.3.1.
-   */
-  @Deprecated
-  public static void validateSchemaSumTypeUniqueness(
-      @Nullable StvnDocumentContext doc,
-      @Nullable SchemaTypeContext schemaNode,
-      Set<String> visited) {
-    // Deprecated no-op: Duplicate nominal branches are valid algebraic coproducts
-  }
-
-  /**
-   * Recursively verifies that all schemas nested within a type declaration have unique
-   * member branch nominal type identities within any single sum type (e.g. Union or Either),
-   * accumulating errors into the provided {@link DiagnosticBag}.
-   *
-   * @param doc           the document context containing the schema definition to validate
-   * @param schemaNode    the schema type context node to validate
-   * @param visited       the set of visited type keyword names to detect and prevent cycles
-   * @param diagnosticBag the accumulator bag for recording semantic diagnostics
-   * @deprecated Sum types with duplicate nominal branch types are valid coproducts as of 1.3.1.
-   */
-  @Deprecated
-  public static void validateSchemaSumTypeUniqueness(
-      @Nullable StvnDocumentContext doc,
-      @Nullable SchemaTypeContext schemaNode,
-      Set<String> visited,
-      DiagnosticBag diagnosticBag) {
-    // Deprecated no-op: Duplicate nominal branches are valid algebraic coproducts
-  }
 
   /**
    * Validates schema capability constraints against the document context.
@@ -3871,20 +3703,31 @@ public class StvnTypeResolver {
 
   private static final Map<String, Set<String>> PERMITTED_FACETS = Map.ofEntries(
       // 6 Foundation Scalars
-      Map.entry(":Int", Set.of("unsigned", "equatable", "comparable", "size", "minIncl", "maxExcl")),
-      Map.entry(":Float", Set.of("exact", "equatable", "comparable", "size", "minIncl", "minExcl", "maxExcl", "maxIncl")),
-      Map.entry(":String", Set.of("preserveIndent", "equatable", "comparable", "minSize", "maxSize", "regex")),
-      Map.entry(":Boolean", Set.of("equatable")),
-      Map.entry(":TimeEpoch", Set.of("s", "ms", "us", "ns", "equatable", "comparable", "minIncl", "maxExcl")),
-      Map.entry(":DateTime", Set.of("offset", "zoned", "audited", "equatable", "comparable", "minIncl", "maxExcl")),
+      Map.entry(StvnVocabulary.TYPE_INT, Set.of(
+          StvnVocabulary.FACET_NAME_UNSIGNED, StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE,
+          StvnVocabulary.FACET_NAME_SIZE, StvnVocabulary.FACET_NAME_MIN_INCL, StvnVocabulary.FACET_NAME_MAX_EXCL)),
+      Map.entry(StvnVocabulary.TYPE_FLOAT, Set.of(
+          StvnVocabulary.FACET_NAME_EXACT, StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE,
+          StvnVocabulary.FACET_NAME_SIZE, StvnVocabulary.FACET_NAME_MIN_INCL, StvnVocabulary.FACET_NAME_MIN_EXCL,
+          StvnVocabulary.FACET_NAME_MAX_EXCL, StvnVocabulary.FACET_NAME_MAX_INCL)),
+      Map.entry(StvnVocabulary.TYPE_STRING, Set.of(
+          StvnVocabulary.FACET_NAME_PRESERVE_INDENT, StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE,
+          StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_REGEX)),
+      Map.entry(StvnVocabulary.TYPE_BOOLEAN, Set.of(StvnVocabulary.FACET_NAME_EQUATABLE)),
+      Map.entry(StvnVocabulary.TYPE_TIME_EPOCH, Set.of(
+          StvnVocabulary.SCALE_S, StvnVocabulary.SCALE_MS, StvnVocabulary.SCALE_US, StvnVocabulary.SCALE_NS,
+          StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE, StvnVocabulary.FACET_NAME_MIN_INCL, StvnVocabulary.FACET_NAME_MAX_EXCL)),
+      Map.entry(StvnVocabulary.TYPE_DATE_TIME, Set.of(
+          StvnVocabulary.FACET_NAME_OFFSET, StvnVocabulary.FACET_NAME_ZONED, StvnVocabulary.FACET_NAME_AUDITED,
+          StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE, StvnVocabulary.FACET_NAME_MIN_INCL, StvnVocabulary.FACET_NAME_MAX_EXCL)),
 
       // 6 Collections and Algebraic Composites
-      Map.entry(":Seq", Set.of("minSize", "maxSize", "equatable", "comparable")),
-      Map.entry(":Set", Set.of("minSize", "maxSize", "equatable")),
-      Map.entry(":Map", Set.of("invertible", "minSize", "maxSize", "equatable")),
-      Map.entry(":Tuple", Set.of("equatable", "comparable")),
-      Map.entry(":Union", Set.of("equatable", "comparable")),
-      Map.entry(":Enum", Set.of("equatable", "comparable", "filterIncl", "filterExcl"))
+      Map.entry(StvnVocabulary.TYPE_SEQ, Set.of(StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE)),
+      Map.entry(StvnVocabulary.TYPE_SET, Set.of(StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_EQUATABLE)),
+      Map.entry(StvnVocabulary.TYPE_MAP, Set.of(StvnVocabulary.FACET_NAME_INVERTIBLE, StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_EQUATABLE)),
+      Map.entry(StvnVocabulary.TYPE_TUPLE, Set.of(StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE)),
+      Map.entry(StvnVocabulary.TYPE_UNION, Set.of(StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE)),
+      Map.entry(StvnVocabulary.TYPE_ENUM, Set.of(StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE, StvnVocabulary.FACET_NAME_FILTER_INCL, StvnVocabulary.FACET_NAME_FILTER_EXCL))
   );
 
   private static int getFacetTier(String facetName) {
@@ -3926,65 +3769,65 @@ public class StvnTypeResolver {
     if (entry == null) return null;
     if (entry.metadataFlag() != null) {
       var flagCtx = entry.metadataFlag();
-      if (flagCtx.KW_UNSIGNED() != null) return "unsigned";
-      if (flagCtx.KW_EXACT() != null) return "exact";
-      if (flagCtx.KW_INVERTIBLE() != null) return "invertible";
-      if (flagCtx.KW_PRESERVE_INDENT() != null) return "preserveIndent";
-      if (flagCtx.KW_OFFSET() != null) return "offset";
-      if (flagCtx.KW_ZONED() != null) return "zoned";
-      if (flagCtx.KW_AUDITED() != null) return "audited";
-      if (flagCtx.KW_SCALE_S() != null) return "s";
-      if (flagCtx.KW_SCALE_MS() != null) return "ms";
-      if (flagCtx.KW_SCALE_US() != null) return "us";
-      if (flagCtx.KW_SCALE_NS() != null) return "ns";
+      if (flagCtx.KW_UNSIGNED() != null) return StvnVocabulary.FACET_NAME_UNSIGNED;
+      if (flagCtx.KW_EXACT() != null) return StvnVocabulary.FACET_NAME_EXACT;
+      if (flagCtx.KW_INVERTIBLE() != null) return StvnVocabulary.FACET_NAME_INVERTIBLE;
+      if (flagCtx.KW_PRESERVE_INDENT() != null) return StvnVocabulary.FACET_NAME_PRESERVE_INDENT;
+      if (flagCtx.KW_OFFSET() != null) return StvnVocabulary.FACET_NAME_OFFSET;
+      if (flagCtx.KW_ZONED() != null) return StvnVocabulary.FACET_NAME_ZONED;
+      if (flagCtx.KW_AUDITED() != null) return StvnVocabulary.FACET_NAME_AUDITED;
+      if (flagCtx.KW_SCALE_S() != null) return StvnVocabulary.SCALE_S;
+      if (flagCtx.KW_SCALE_MS() != null) return StvnVocabulary.SCALE_MS;
+      if (flagCtx.KW_SCALE_US() != null) return StvnVocabulary.SCALE_US;
+      if (flagCtx.KW_SCALE_NS() != null) return StvnVocabulary.SCALE_NS;
     }
     if (entry.metadataBool() != null) {
       var boolCtx = entry.metadataBool();
-      if (boolCtx.KW_EQUATABLE() != null) return "equatable";
-      if (boolCtx.KW_COMPARABLE() != null) return "comparable";
+      if (boolCtx.KW_EQUATABLE() != null) return StvnVocabulary.FACET_NAME_EQUATABLE;
+      if (boolCtx.KW_COMPARABLE() != null) return StvnVocabulary.FACET_NAME_COMPARABLE;
     }
     if (entry.metadataSize() != null) {
       var sizeCtx = entry.metadataSize();
-      if (sizeCtx.KW_SIZE() != null) return "size";
-      if (sizeCtx.KW_MIN_SIZE() != null) return "minSize";
-      if (sizeCtx.KW_MAX_SIZE() != null) return "maxSize";
+      if (sizeCtx.KW_SIZE() != null) return StvnVocabulary.FACET_NAME_SIZE;
+      if (sizeCtx.KW_MIN_SIZE() != null) return StvnVocabulary.FACET_NAME_MIN_SIZE;
+      if (sizeCtx.KW_MAX_SIZE() != null) return StvnVocabulary.FACET_NAME_MAX_SIZE;
     }
     if (entry.metadataRange() != null) {
       var numCtx = entry.metadataRange();
-      if (numCtx.KW_MIN_INCL() != null) return "minIncl";
-      if (numCtx.KW_MIN_EXCL() != null) return "minExcl";
-      if (numCtx.KW_MAX_EXCL() != null) return "maxExcl";
-      if (numCtx.KW_MAX_INCL() != null) return "maxIncl";
+      if (numCtx.KW_MIN_INCL() != null) return StvnVocabulary.FACET_NAME_MIN_INCL;
+      if (numCtx.KW_MIN_EXCL() != null) return StvnVocabulary.FACET_NAME_MIN_EXCL;
+      if (numCtx.KW_MAX_EXCL() != null) return StvnVocabulary.FACET_NAME_MAX_EXCL;
+      if (numCtx.KW_MAX_INCL() != null) return StvnVocabulary.FACET_NAME_MAX_INCL;
     }
     if (entry.metadataString() != null) {
       var strCtx = entry.metadataString();
-      if (strCtx.KW_REGEX() != null) return "regex";
+      if (strCtx.KW_REGEX() != null) return StvnVocabulary.FACET_NAME_REGEX;
     }
     if (entry.metadataFilter() != null) {
       var filterCtx = entry.metadataFilter();
-      if (filterCtx.KW_FILTER_INCL() != null) return "filterIncl";
-      if (filterCtx.KW_FILTER_EXCL() != null) return "filterExcl";
+      if (filterCtx.KW_FILTER_INCL() != null) return StvnVocabulary.FACET_NAME_FILTER_INCL;
+      if (filterCtx.KW_FILTER_EXCL() != null) return StvnVocabulary.FACET_NAME_FILTER_EXCL;
     }
     if (entry.metadataDirective() != null) {
-      return "strip";
+      return StvnVocabulary.FACET_NAME_STRIP;
     }
     return null;
   }
 
   private static @Nullable String normalizeBaseType(@Nullable String baseType) {
     if (baseType == null) return null;
-    if (isTimeEpochType(baseType) || baseType.equals(":TimeEpoch") || baseType.endsWith("/TimeEpoch")) return ":TimeEpoch";
-    if (isDateTimeType(baseType) || baseType.equals(":DateTime") || baseType.endsWith("/DateTime")) return ":DateTime";
-    if (baseType.startsWith(":Int") || baseType.startsWith(":Uint")) return ":Int";
-    if (isFloatType(baseType) || baseType.startsWith(":Float")) return ":Float";
-    if (isStringType(baseType) || baseType.startsWith(":String")) return ":String";
-    if (":Boolean".equals(baseType)) return ":Boolean";
-    if (isSeqType(baseType)) return ":Seq";
-    if (isSetType(baseType)) return ":Set";
-    if (isMapType(baseType)) return ":Map";
-    if (":Tuple".equals(baseType)) return ":Tuple";
-    if (":Union".equals(baseType)) return ":Union";
-    if (":Enum".equals(baseType)) return ":Enum";
+    if (isTimeEpochType(baseType) || baseType.equals(StvnVocabulary.TYPE_TIME_EPOCH) || baseType.endsWith("/TimeEpoch")) return StvnVocabulary.TYPE_TIME_EPOCH;
+    if (isDateTimeType(baseType) || baseType.equals(StvnVocabulary.TYPE_DATE_TIME) || baseType.endsWith("/DateTime")) return StvnVocabulary.TYPE_DATE_TIME;
+    if (baseType.startsWith(StvnVocabulary.TYPE_INT) || baseType.startsWith(":Uint")) return StvnVocabulary.TYPE_INT;
+    if (isFloatType(baseType) || baseType.startsWith(StvnVocabulary.TYPE_FLOAT)) return StvnVocabulary.TYPE_FLOAT;
+    if (isStringType(baseType) || baseType.startsWith(StvnVocabulary.TYPE_STRING)) return StvnVocabulary.TYPE_STRING;
+    if (StvnVocabulary.TYPE_BOOLEAN.equals(baseType)) return StvnVocabulary.TYPE_BOOLEAN;
+    if (isSeqType(baseType)) return StvnVocabulary.TYPE_SEQ;
+    if (isSetType(baseType)) return StvnVocabulary.TYPE_SET;
+    if (isMapType(baseType)) return StvnVocabulary.TYPE_MAP;
+    if (StvnVocabulary.TYPE_TUPLE.equals(baseType)) return StvnVocabulary.TYPE_TUPLE;
+    if (StvnVocabulary.TYPE_UNION.equals(baseType)) return StvnVocabulary.TYPE_UNION;
+    if (StvnVocabulary.TYPE_ENUM.equals(baseType)) return StvnVocabulary.TYPE_ENUM;
     return baseType;
   }
 

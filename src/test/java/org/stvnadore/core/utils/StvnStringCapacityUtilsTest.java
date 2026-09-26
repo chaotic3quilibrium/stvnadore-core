@@ -21,54 +21,47 @@ class StvnStringCapacityUtilsTest {
   }
 
   @Test
-  @DisplayName("isNominalStringType identifies string types correctly")
+  @DisplayName("isNominalStringType identifies pure 2.0.0 string types correctly")
   void testIsNominalStringType() {
     Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":String"));
-    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":String64"));
-    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":String4096"));
-    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":String16777216"));
-    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":String33554432"));
-    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":StringNonEmpty"));
-    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":StringNonEmpty64"));
-    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":StringFixed16"));
+    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":org/stvnadore/prelude/Uuid"));
+    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":org/stvnadore/prelude/Ulid"));
+    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":org/stvnadore/prelude/Sha256"));
+    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":org/stvnadore/prelude/SemVer"));
+    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":org/stvnadore/prelude/Email"));
+    Assertions.assertTrue(StvnStringCapacityUtils.isNominalStringType(":org/stvnadore/prelude/IPv4"));
 
-    Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(":Int32"));
+    // 1.x compound string types are prohibited in 2.0.0
+    Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(":String64"));
+    Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(":String4096"));
+    Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(":String16777216"));
+    Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(":String33554432"));
+    Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(":StringNonEmpty"));
+    Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(":StringNonEmpty64"));
+    Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(":StringFixed16"));
+
+    Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(":Int"));
     Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(":Boolean"));
     Assertions.assertFalse(StvnStringCapacityUtils.isNominalStringType(null));
   }
 
   @Test
-  @DisplayName("parseCapacitySuffix extracts valid dimensions including sizes beyond 16 MiB")
-  void testParseValidSuffixes() {
+  @DisplayName("parseCapacitySuffix returns empty under 2.0.0 pure metadata facet semantics")
+  void testParseCapacitySuffix() {
+    Assertions.assertEquals(OptionalInt.empty(), StvnStringCapacityUtils.parseCapacitySuffix(null));
     Assertions.assertEquals(OptionalInt.empty(), StvnStringCapacityUtils.parseCapacitySuffix(":String"));
+    Assertions.assertEquals(OptionalInt.empty(), StvnStringCapacityUtils.parseCapacitySuffix(":String64"));
+    Assertions.assertEquals(OptionalInt.empty(), StvnStringCapacityUtils.parseCapacitySuffix(":StringFixed16"));
     Assertions.assertEquals(OptionalInt.empty(), StvnStringCapacityUtils.parseCapacitySuffix(":StringNonEmpty"));
-
-    Assertions.assertEquals(OptionalInt.of(64), StvnStringCapacityUtils.parseCapacitySuffix(":String64"));
-    Assertions.assertEquals(OptionalInt.of(4096), StvnStringCapacityUtils.parseCapacitySuffix(":String4096"));
-    Assertions.assertEquals(OptionalInt.of(16_777_216), StvnStringCapacityUtils.parseCapacitySuffix(":String16777216"));
-    Assertions.assertEquals(OptionalInt.of(33_554_432), StvnStringCapacityUtils.parseCapacitySuffix(":String33554432"));
-    Assertions.assertEquals(OptionalInt.of(Integer.MAX_VALUE), StvnStringCapacityUtils.parseCapacitySuffix(":String2147483647"));
-    Assertions.assertEquals(OptionalInt.of(16), StvnStringCapacityUtils.parseCapacitySuffix(":StringFixed16"));
-    Assertions.assertEquals(OptionalInt.of(128), StvnStringCapacityUtils.parseCapacitySuffix(":StringNonEmpty128"));
   }
 
   @Test
-  @DisplayName("parseCapacitySuffix rejects invalid, non-positive, and overflowing suffixes")
-  void testParseInvalidSuffixes() {
-    // Zero capacity rejected
+  @DisplayName("validateCapacity enforces strictly positive dimensions")
+  void testValidateCapacity() {
+    Assertions.assertEquals(16, StvnStringCapacityUtils.validateCapacity(16, ":String"));
     Assertions.assertThrows(MalformedSchemaException.class,
-        () -> StvnStringCapacityUtils.parseCapacitySuffix(":String0"));
-
-    // Leading zeros rejected
+        () -> StvnStringCapacityUtils.validateCapacity(0, ":String"));
     Assertions.assertThrows(MalformedSchemaException.class,
-        () -> StvnStringCapacityUtils.parseCapacitySuffix(":String064"));
-
-    // Signed symbols rejected
-    Assertions.assertThrows(MalformedSchemaException.class,
-        () -> StvnStringCapacityUtils.parseCapacitySuffix(":String-64"));
-
-    // Overflow beyond signed 32-bit integer limit rejected
-    Assertions.assertThrows(MalformedSchemaException.class,
-        () -> StvnStringCapacityUtils.parseCapacitySuffix(":String2147483648"));
+        () -> StvnStringCapacityUtils.validateCapacity(-1, ":String"));
   }
 }

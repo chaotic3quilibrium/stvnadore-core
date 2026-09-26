@@ -234,7 +234,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
                   ? schema.node().schemaConstructor().sumType()
                   : null),
               baseInner.underlyingSchema(),
-              baseInner.localConstraints()
+              baseInner.localConstraints(),
+              false,
+              Optional.empty()
           );
           currentTrajectory.add(new VariantStep("#Some", true));
           try {
@@ -2174,7 +2176,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
                     baseSum.implicitUnionTag(),
                     baseSum.sumTypeNode(),
                     baseSum.underlyingSchema(),
-                    baseSum.localConstraints()
+                    baseSum.localConstraints(),
+                    false,
+                    Optional.empty()
                 );
 
                 if (sumTypeNode.KW_EITHER() != null) {
@@ -2281,7 +2285,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
-        Optional.of(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints.empty())
+        Optional.of(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints.empty()),
+        false,
+        Optional.empty()
     );
   }
 
@@ -2370,7 +2376,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
               Optional.of(1),
               Optional.ofNullable(sumTypeNode),
               rightSchema.underlyingSchema(),
-              rightSchema.localConstraints()
+              rightSchema.localConstraints(),
+              false,
+              Optional.empty()
           );
         }
 
@@ -2421,7 +2429,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
             Optional.of(matchedIndex),
             Optional.ofNullable(sumTypeNode),
             matched.underlyingSchema(),
-            matched.localConstraints()
+            matched.localConstraints(),
+            false,
+            Optional.empty()
         );
       } else {
         throw new org.stvnadore.core.validation.MalformedPayloadException("Unresolved schema for value context");

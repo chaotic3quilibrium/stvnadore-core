@@ -83,7 +83,9 @@ public final class StvnMapper {
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
-        Optional.of(constraints)
+        Optional.of(constraints),
+        false,
+        Optional.empty()
     );
   }
 
@@ -810,17 +812,7 @@ public final class StvnMapper {
       if (ann.nonEmpty() && strVal.value().isEmpty()) {
         throw new MalformedPayloadException("Field '" + comp.name() + "' violates @StvnString(nonEmpty = true)");
       }
-      var extra = new StvnConstraints(
-          Optional.of(BigDecimal.ONE),
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          Optional.empty(),
-          false,
-          Optional.empty(),
-          Optional.empty(),
-          List.of()
-      );
+      var extra = StvnConstraints.empty().withMinIncl(BigDecimal.ONE);
       if (ann.nonEmpty()) {
         var updatedTrait = new StvnValue.StringTrait(strVal.trait().fixedLength(), strVal.trait().maxLength(), true);
         mapped = new StvnValue.StvnString(strVal.schema(), strVal.value(), strVal.style(), strVal.fenceTag(), updatedTrait);
@@ -836,17 +828,9 @@ public final class StvnMapper {
             "Field '" + comp.name() + "' value " + longVal + " violates @StvnInt range [" + ann.minIncl() + ", " + ann.maxIncl() + "]"
         );
       }
-      var extra = new StvnConstraints(
-          Optional.of(BigDecimal.valueOf(ann.minIncl())),
-          Optional.empty(),
-          Optional.of(BigDecimal.valueOf(ann.maxIncl())),
-          Optional.empty(),
-          Optional.empty(),
-          false,
-          Optional.empty(),
-          Optional.empty(),
-          List.of()
-      );
+      var extra = StvnConstraints.empty()
+          .withMinIncl(BigDecimal.valueOf(ann.minIncl()))
+          .withMaxIncl(BigDecimal.valueOf(ann.maxIncl()));
       mapped = attachConstraints(mapped, extra);
     }
 
@@ -868,7 +852,9 @@ public final class StvnMapper {
         origSchema.implicitUnionTag(),
         origSchema.sumTypeNode(),
         origSchema.underlyingSchema(),
-        Optional.of(mergedLocal)
+        Optional.of(mergedLocal),
+        false,
+        Optional.empty()
     );
 
     return switch (val) {

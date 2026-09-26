@@ -1,6 +1,7 @@
 package org.stvnadore.core.binary;
 
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
 import org.stvnadore.core.binary.exceptions.StvnCorruptedBitPatternException;
 import org.stvnadore.core.binary.exceptions.StvnSerializationException;
@@ -1057,7 +1058,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 3. SEQUENCES / LISTS
     // -------------------------------------------------------------------------
-    if (baseType != null && (baseType.startsWith(":List") || baseType.startsWith(":Seq"))) {
+    if (baseType != null && (baseType.startsWith(":List") || baseType.startsWith(StvnVocabulary.TYPE_SEQ))) {
       StvnSeqReader reader = new StvnSeqReader(ctx, offset, schema);
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
       ResolvedSchema elementSchema = childSchemas.isEmpty()
@@ -1091,7 +1092,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 4. SETS
     // -------------------------------------------------------------------------
-    if (baseType != null && baseType.startsWith(":Set")) {
+    if (baseType != null && baseType.startsWith(StvnVocabulary.TYPE_SET)) {
       StvnSeqReader reader = new StvnSeqReader(ctx, offset, schema);
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
       ResolvedSchema elementSchema = childSchemas.isEmpty()
@@ -1124,7 +1125,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 5. MAPS
     // -------------------------------------------------------------------------
-    if (baseType != null && (baseType.startsWith(":Map") || baseType.startsWith(":MapInv"))) {
+    if (baseType != null && (baseType.startsWith(StvnVocabulary.TYPE_MAP) || baseType.startsWith(":MapInv"))) {
       StvnMapReader reader = new StvnMapReader(ctx, offset, schema);
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
       ResolvedSchema keySchema = childSchemas.isEmpty()
@@ -1420,7 +1421,7 @@ public class StvnBinaryDecoder {
     String base = org.stvnadore.core.validation.StvnTypeResolver.getPrimitiveBaseType(rs.node());
     if (base == null) return "UNKNOWN";
 
-    if (base.startsWith(":String")
+    if (base.startsWith(StvnVocabulary.TYPE_STRING)
         || base.equals(":org/stvnadore/prelude/DateTimeOffset") || base.equals(":org/stvnadore/prelude/DateTimeZoned")
         || base.equals(":org/stvnadore/prelude/DateTimeAudited")
         || base.equals(":org/stvnadore/prelude/Uuid") || base.equals(":org/stvnadore/prelude/Ulid")
@@ -1428,31 +1429,31 @@ public class StvnBinaryDecoder {
         || base.equals(":org/stvnadore/prelude/Email") || base.equals(":org/stvnadore/prelude/IPv4")) {
       return "STRING";
     }
-    if (base.startsWith(":Int") || base.startsWith(":Uint")
+    if (base.startsWith(StvnVocabulary.TYPE_INT) || base.startsWith(":Uint")
         || base.equals(":org/stvnadore/prelude/TimeEpochS") || base.equals(":org/stvnadore/prelude/TimeEpochMs")
         || base.equals(":org/stvnadore/prelude/TimeEpochNs")
         || base.equals(":org/stvnadore/prelude/Port")) {
       return "INTEGER";
     }
-    if (base.startsWith(":Float")
+    if (base.startsWith(StvnVocabulary.TYPE_FLOAT)
         || base.equals(":org/stvnadore/prelude/Percentage") || base.equals(":org/stvnadore/prelude/Probability")
         || base.equals(":org/stvnadore/prelude/Currency") || base.equals(":org/stvnadore/prelude/Latitude")
         || base.equals(":org/stvnadore/prelude/Longitude")) {
       return "FLOAT";
     }
-    if (base.equals(":Boolean")) {
+    if (base.equals(StvnVocabulary.TYPE_BOOLEAN)) {
       return "BOOLEAN";
     }
-    if (base.startsWith(":Tuple")) {
+    if (base.startsWith(StvnVocabulary.TYPE_TUPLE)) {
       return "TUPLE";
     }
-    if (base.startsWith(":Seq") || base.startsWith(":Set") || base.startsWith(":SeqNonEmpty") || base.startsWith(":SetNonEmpty")) {
+    if (base.startsWith(StvnVocabulary.TYPE_SEQ) || base.startsWith(StvnVocabulary.TYPE_SET) || base.startsWith(":SeqNonEmpty") || base.startsWith(":SetNonEmpty")) {
       return "SEQUENCE";
     }
-    if (base.startsWith(":Map") || base.startsWith(":MapEntry") || base.startsWith(":MapInv")) {
+    if (base.startsWith(StvnVocabulary.TYPE_MAP) || base.startsWith(StvnVocabulary.TYPE_MAP_ENTRY) || base.startsWith(":MapInv")) {
       return "MAP";
     }
-    if (base.equals(":Enum")) {
+    if (base.equals(StvnVocabulary.TYPE_ENUM)) {
       return "ENUM";
     }
     return base;

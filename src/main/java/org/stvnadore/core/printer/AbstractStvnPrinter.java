@@ -10,6 +10,7 @@ import org.stvnadore.core.printer.internal.PrettyLayoutWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.io.StvnCanonicalDefinitionsResolver;
 import org.stvnadore.core.io.StvnCanonicalDefinitionsResolver.ResolvedCanonicalDefinition;
 
@@ -279,16 +280,6 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
               layout.writeLiteral("#minExcl");
               layout.appendSeparator();
               layout.writeLiteral(minExcl.toString());
-            } else if (constraints.dateMinExcl().isPresent()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral("#minExcl");
-              layout.appendSeparator();
-              layout.writeSimpleString(constraints.dateMinExcl().get());
             }
             var maxExcl = constraints.maxExcl().orElse(null);
             if (maxExcl != null) {
@@ -323,16 +314,6 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
               layout.writeLiteral("#maxIncl");
               layout.appendSeparator();
               layout.writeLiteral(maxIncl.toString());
-            } else if (constraints.dateMaxIncl().isPresent()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral("#maxIncl");
-              layout.appendSeparator();
-              layout.writeSimpleString(constraints.dateMaxIncl().get());
             }
 
             // Tier 5: Pattern & Text Structure
@@ -447,13 +428,13 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
 
   private boolean isConstraintsEmpty(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints c) {
     var hasMinIncl = c.minIncl().isPresent() || c.dateMinIncl().isPresent();
-    var hasMinExcl = c.minExcl().isPresent() || c.dateMinExcl().isPresent();
-    var hasMaxIncl = c.maxIncl().isPresent() || c.dateMaxIncl().isPresent();
+    var hasMinExcl = c.minExcl().isPresent();
+    var hasMaxIncl = c.maxIncl().isPresent();
     var hasMaxExcl = c.maxExcl().isPresent() || c.dateMaxExcl().isPresent();
     var hasRegex = c.regex().isPresent();
-    var hasPreserveIndent = c.preserveIndent() && c.explicitOverrides().contains("preserveIndent");
-    var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains("equatable");
-    var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains("comparable");
+    var hasPreserveIndent = c.preserveIndent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
+    var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE);
+    var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE);
 
     return !hasMinIncl && !hasMinExcl && !hasMaxIncl && !hasMaxExcl
         && !hasRegex && !hasPreserveIndent && !hasEquatable && !hasComparable
@@ -485,7 +466,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
       } else if (ctor.productType() != null) {
         var prod = ctor.productType();
         if (prod instanceof StvnParser.TupleTypeContext tt) {
-          layout.writeLiteral(":Tuple");
+          layout.writeLiteral(StvnVocabulary.TYPE_TUPLE);
           layout.openGroup("(");
           var first = true;
           for (var st : tt.schemaType()) {
@@ -498,19 +479,19 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
       } else if (ctor.sumType() != null) {
         var sum = ctor.sumType();
         if (sum.KW_OPTION() != null) {
-          layout.writeLiteral(":Option");
+          layout.writeLiteral(StvnVocabulary.TYPE_OPTION);
           layout.openGroup("(");
           writeSchemaType(sum.schemaType(0), layout, lexicalContext);
           layout.closeGroup(")");
         } else if (sum.KW_EITHER() != null) {
-          layout.writeLiteral(":Either");
+          layout.writeLiteral(StvnVocabulary.TYPE_EITHER);
           layout.openGroup("(");
           writeSchemaType(sum.schemaType(0), layout, lexicalContext);
           layout.appendSeparator();
           writeSchemaType(sum.schemaType(1), layout, lexicalContext);
           layout.closeGroup(")");
         } else if (sum.KW_UNION() != null) {
-          layout.writeLiteral(":Union");
+          layout.writeLiteral(StvnVocabulary.TYPE_UNION);
           layout.openGroup("(");
           var first = true;
           for (var st : sum.schemaType()) {
@@ -520,7 +501,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
           }
           layout.closeGroup(")");
         } else if (sum.KW_ENUM() != null) {
-          layout.writeLiteral(":Enum");
+          layout.writeLiteral(StvnVocabulary.TYPE_ENUM);
           layout.openGroup("[");
           var first = true;
           for (var kw : sum.enumDef().valueKeyword()) {
@@ -537,13 +518,13 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
   private int countConstraints(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints c) {
     var count = 0;
     if (c.minIncl().isPresent() || c.dateMinIncl().isPresent()) count++;
-    if (c.minExcl().isPresent() || c.dateMinExcl().isPresent()) count++;
-    if (c.maxIncl().isPresent() || c.dateMaxIncl().isPresent()) count++;
+    if (c.minExcl().isPresent()) count++;
+    if (c.maxIncl().isPresent()) count++;
     if (c.maxExcl().isPresent() || c.dateMaxExcl().isPresent()) count++;
     if (c.regex().isPresent()) count++;
-    if (c.preserveIndent() && c.explicitOverrides().contains("preserveIndent")) count++;
-    if (c.equatable().isPresent() && c.explicitOverrides().contains("equatable")) count++;
-    if (c.comparable().isPresent() && c.explicitOverrides().contains("comparable")) count++;
+    if (c.preserveIndent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) count++;
+    if (c.equatable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) count++;
+    if (c.comparable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) count++;
     if (c.filterIncl().isPresent()) count++;
     if (c.filterExcl().isPresent()) count++;
     if (c.unsigned()) count++;

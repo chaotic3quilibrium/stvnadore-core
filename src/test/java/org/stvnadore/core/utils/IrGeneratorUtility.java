@@ -157,7 +157,9 @@ public final class IrGeneratorUtility {
               Optional.empty(),
               Optional.empty(),
               Optional.of(resolvedSchema),
-              Optional.of(meta)
+              Optional.of(meta),
+              false,
+              Optional.empty()
           )));
     });
   }

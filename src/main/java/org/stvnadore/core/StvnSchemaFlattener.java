@@ -843,34 +843,34 @@ public final class StvnSchemaFlattener {
       sb.append(" {");
 
       // Tier 1: Flags & Intrinsic Modes
-      if (constraints.unsigned() && constraints.explicitOverrides().contains("unsigned")) {
-        sb.append(" #unsigned");
+      if (constraints.unsigned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_UNSIGNED)) {
+        sb.append(" ").append(StvnVocabulary.FACET_KW_UNSIGNED);
       }
-      if (constraints.exact() && constraints.explicitOverrides().contains("exact")) {
-        sb.append(" #exact");
+      if (constraints.exact() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EXACT)) {
+        sb.append(" ").append(StvnVocabulary.FACET_KW_EXACT);
       }
-      if (constraints.invertible() && constraints.explicitOverrides().contains("invertible")) {
-        sb.append(" #invertible");
+      if (constraints.invertible() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_INVERTIBLE)) {
+        sb.append(" ").append(StvnVocabulary.FACET_KW_INVERTIBLE);
       }
-      if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
-        sb.append(" #preserveIndent");
+      if (constraints.preserveIndent() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
+        sb.append(" ").append(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
       }
-      if (constraints.offset() && constraints.explicitOverrides().contains("offset")) {
-        sb.append(" #offset");
+      if (constraints.offset() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET)) {
+        sb.append(" ").append(StvnVocabulary.FACET_KW_OFFSET);
       }
-      if (constraints.zoned() && constraints.explicitOverrides().contains("zoned")) {
-        sb.append(" #zoned");
+      if (constraints.zoned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_ZONED)) {
+        sb.append(" ").append(StvnVocabulary.FACET_KW_ZONED);
       }
-      if (constraints.audited() && constraints.explicitOverrides().contains("audited")) {
-        sb.append(" #audited");
+      if (constraints.audited() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_AUDITED)) {
+        sb.append(" ").append(StvnVocabulary.FACET_KW_AUDITED);
       }
       var equatable = constraints.equatable().orElse(null);
-      if (equatable != null && constraints.explicitOverrides().contains("equatable")) {
-        sb.append(" #equatable ").append(equatable ? "#TRUE" : "#FALSE");
+      if (equatable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) {
+        sb.append(" ").append(StvnVocabulary.FACET_KW_EQUATABLE).append(" ").append(equatable ? StvnVocabulary.VAL_TRUE : StvnVocabulary.VAL_FALSE);
       }
       var comparable = constraints.comparable().orElse(null);
-      if (comparable != null && constraints.explicitOverrides().contains("comparable")) {
-        sb.append(" #comparable ").append(comparable ? "#TRUE" : "#FALSE");
+      if (comparable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) {
+        sb.append(" ").append(StvnVocabulary.FACET_KW_COMPARABLE).append(" ").append(comparable ? StvnVocabulary.VAL_TRUE : StvnVocabulary.VAL_FALSE);
       }
 
       // Tier 2: Temporal Scale
@@ -882,59 +882,55 @@ public final class StvnSchemaFlattener {
       // Tier 3: Dimensions & Capacity
       var size = constraints.size().orElse(null);
       if (size != null) {
-        sb.append(" #size ").append(size);
+        sb.append(" ").append(StvnVocabulary.FACET_KW_SIZE).append(" ").append(size);
       }
       var minSize = constraints.minSize().orElse(null);
       if (minSize != null) {
-        sb.append(" #minSize ").append(minSize);
+        sb.append(" ").append(StvnVocabulary.FACET_KW_MIN_SIZE).append(" ").append(minSize);
       }
       var maxSize = constraints.maxSize().orElse(null);
       if (maxSize != null) {
-        sb.append(" #maxSize ").append(maxSize);
+        sb.append(" ").append(StvnVocabulary.FACET_KW_MAX_SIZE).append(" ").append(maxSize);
       }
 
       // Tier 4: Value Intervals (Lower before Upper)
       var minIncl = constraints.minIncl().orElse(null);
       if (minIncl != null) {
-        sb.append(" #minIncl ").append(minIncl);
+        sb.append(" ").append(StvnVocabulary.FACET_KW_MIN_INCL).append(" ").append(minIncl);
       } else if (constraints.dateMinIncl().isPresent()) {
-        sb.append(" #minIncl \"").append(escapeString(constraints.dateMinIncl().get())).append("\"");
+        sb.append(" ").append(StvnVocabulary.FACET_KW_MIN_INCL).append(" \"").append(escapeString(constraints.dateMinIncl().get())).append("\"");
       }
       var minExcl = constraints.minExcl().orElse(null);
       if (minExcl != null) {
-        sb.append(" #minExcl ").append(minExcl);
-      } else if (constraints.dateMinExcl().isPresent()) {
-        sb.append(" #minExcl \"").append(escapeString(constraints.dateMinExcl().get())).append("\"");
+        sb.append(" ").append(StvnVocabulary.FACET_KW_MIN_EXCL).append(" ").append(minExcl);
       }
       var maxExcl = constraints.maxExcl().orElse(null);
       if (maxExcl != null) {
-        sb.append(" #maxExcl ").append(maxExcl);
+        sb.append(" ").append(StvnVocabulary.FACET_KW_MAX_EXCL).append(" ").append(maxExcl);
       } else if (constraints.dateMaxExcl().isPresent()) {
-        sb.append(" #maxExcl \"").append(escapeString(constraints.dateMaxExcl().get())).append("\"");
+        sb.append(" ").append(StvnVocabulary.FACET_KW_MAX_EXCL).append(" \"").append(escapeString(constraints.dateMaxExcl().get())).append("\"");
       }
       var maxIncl = constraints.maxIncl().orElse(null);
       if (maxIncl != null) {
-        sb.append(" #maxIncl ").append(maxIncl);
-      } else if (constraints.dateMaxIncl().isPresent()) {
-        sb.append(" #maxIncl \"").append(escapeString(constraints.dateMaxIncl().get())).append("\"");
+        sb.append(" ").append(StvnVocabulary.FACET_KW_MAX_INCL).append(" ").append(maxIncl);
       }
 
       // Tier 5: Pattern & Text Structure
       var regex = constraints.regex().orElse(null);
       if (regex != null) {
-        sb.append(" #regex \"").append(escapeString(regex)).append("\"");
+        sb.append(" ").append(StvnVocabulary.FACET_KW_REGEX).append(" \"").append(escapeString(regex)).append("\"");
       }
 
       // Tier 6: Set & Variant Membership
       var filterIncl = constraints.filterIncl().orElse(null);
       if (filterIncl != null) {
-        sb.append(" #filterIncl [");
+        sb.append(" ").append(StvnVocabulary.FACET_KW_FILTER_INCL).append(" [");
         for (String v : filterIncl) sb.append(" ").append(v);
         sb.append(" ]");
       }
       var filterExcl = constraints.filterExcl().orElse(null);
       if (filterExcl != null) {
-        sb.append(" #filterExcl [");
+        sb.append(" ").append(StvnVocabulary.FACET_KW_FILTER_EXCL).append(" [");
         for (String v : filterExcl) sb.append(" ").append(v);
         sb.append(" ]");
       }
@@ -1005,19 +1001,19 @@ public final class StvnSchemaFlattener {
 
   private static boolean hasConstraints(StvnConstraints c) {
     var hasMinIncl = c.minIncl().isPresent() || c.dateMinIncl().isPresent();
-    var hasMinExcl = c.minExcl().isPresent() || c.dateMinExcl().isPresent();
-    var hasMaxIncl = c.maxIncl().isPresent() || c.dateMaxIncl().isPresent();
+    var hasMinExcl = c.minExcl().isPresent();
+    var hasMaxIncl = c.maxIncl().isPresent();
     var hasMaxExcl = c.maxExcl().isPresent() || c.dateMaxExcl().isPresent();
     var hasRegex = c.regex().isPresent();
-    var hasPreserveIndent = c.preserveIndent() && c.explicitOverrides().contains("preserveIndent");
-    var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains("equatable");
-    var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains("comparable");
-    var hasAudited = c.audited() && c.explicitOverrides().contains("audited");
-    var hasExact = c.exact() && c.explicitOverrides().contains("exact");
-    var hasInvertible = c.invertible() && c.explicitOverrides().contains("invertible");
-    var hasOffset = c.offset() && c.explicitOverrides().contains("offset");
-    var hasUnsigned = c.unsigned() && c.explicitOverrides().contains("unsigned");
-    var hasZoned = c.zoned() && c.explicitOverrides().contains("zoned");
+    var hasPreserveIndent = c.preserveIndent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
+    var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE);
+    var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE);
+    var hasAudited = c.audited() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_AUDITED);
+    var hasExact = c.exact() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EXACT);
+    var hasInvertible = c.invertible() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_INVERTIBLE);
+    var hasOffset = c.offset() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET);
+    var hasUnsigned = c.unsigned() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_UNSIGNED);
+    var hasZoned = c.zoned() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_ZONED);
 
     return hasMinIncl || hasMinExcl || hasMaxIncl || hasMaxExcl
         || hasRegex || hasPreserveIndent || hasEquatable || hasComparable

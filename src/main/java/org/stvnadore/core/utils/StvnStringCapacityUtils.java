@@ -2,9 +2,9 @@ package org.stvnadore.core.utils;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.validation.MalformedSchemaException;
 
-import java.math.BigInteger;
 import java.util.OptionalInt;
 
 /**
@@ -43,71 +43,37 @@ public final class StvnStringCapacityUtils {
   /**
    * Inspects whether the specified type identifier represents an STVN nominal string type.
    *
-   * @param typeName the type identifier to inspect (e.g. {@code :String}, {@code :String64})
+   * @param typeName the type identifier to inspect (e.g. {@code :String})
    * @return {@code true} if the type identifier belongs to the STVN string taxonomy, {@code false} otherwise
    */
   public static boolean isNominalStringType(@Nullable String typeName) {
-    if (typeName == null || !typeName.startsWith(":String")) {
+    if (typeName == null) {
       return false;
     }
-    return typeName.equals(":String")
-        || typeName.equals(":StringNonEmpty")
-        || typeName.startsWith(":StringFixed")
-        || typeName.startsWith(":StringNonEmpty")
-        || (!typeName.startsWith(":StringFixed") && !typeName.startsWith(":StringNonEmpty"));
+    return typeName.equals(StvnVocabulary.TYPE_STRING)
+        || typeName.equals(":org/stvnadore/prelude/Uuid")
+        || typeName.equals(":org/stvnadore/prelude/Ulid")
+        || typeName.equals(":org/stvnadore/prelude/Sha256")
+        || typeName.equals(":org/stvnadore/prelude/SemVer")
+        || typeName.equals(":org/stvnadore/prelude/Email")
+        || typeName.equals(":org/stvnadore/prelude/IPv4");
   }
 
   /**
    * Extracts the numeric capacity suffix from a nominal string type token.
    * <p>
-   * Explicit capacity suffixes support arbitrary sizes up to signed 32-bit integer limits
-   * ({@code 1 <= N <= 2,147,483,647}). Non-positive values, leading zeros, signs, and integer
-   * overflows trigger a {@link MalformedSchemaException}.
+   * In STVN 2.0.0, string capacity is governed exclusively by metadata facets ({@code #minSize}, {@code #maxSize}).
+   * Nominal suffix dimensions (e.g. {@code :String4096}, {@code :StringFixed16}) are prohibited, and this method
+   * always returns {@link OptionalInt#empty()}.
    * </p>
    *
-   * @param typeName the type token to inspect (e.g. {@code :String4096}, {@code :String33554432})
-   * @return an {@link OptionalInt} containing the extracted capacity dimension, or empty if unbounded
-   * @throws MalformedSchemaException if the numeric suffix contains leading zeros, sign symbols,
-   *                                  overflows signed 32-bit integer limits, or is non-positive
+   * @param typeName the type token to inspect
+   * @return {@link OptionalInt#empty()} in STVN 2.0.0
    */
   public static OptionalInt parseCapacitySuffix(@Nullable String typeName) {
-    if (typeName == null) {
-      return OptionalInt.empty();
-    }
-    String suffix = null;
-    if (typeName.startsWith(":StringFixed") && !typeName.equals(":StringFixed")) {
-      suffix = typeName.substring(12);
-    } else if (typeName.startsWith(":StringNonEmpty") && !typeName.equals(":StringNonEmpty")) {
-      suffix = typeName.substring(15);
-    } else if (typeName.startsWith(":String") && !typeName.startsWith(":StringFixed")
-        && !typeName.startsWith(":StringNonEmpty") && !typeName.equals(":String")) {
-      suffix = typeName.substring(7);
-    }
-
-    if (suffix == null || suffix.isEmpty()) {
-      return OptionalInt.empty();
-    }
-
-    if (suffix.length() > 1 && suffix.startsWith("0")) {
-      throw new MalformedSchemaException("Constraint violation: Leading zeros are forbidden in type suffix dimensions: " + typeName);
-    }
-    if (suffix.contains("-") || suffix.contains("+")) {
-      throw new MalformedSchemaException("Constraint violation: Type suffix dimensions cannot contain negative symbols or sign specifiers: " + typeName);
-    }
-
-    try {
-      var big = new BigInteger(suffix);
-      if (big.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0) {
-        throw new MalformedSchemaException("Constraint violation: Type suffix dimension overflows signed 32-bit integer limit: " + typeName);
-      }
-      int parsed = big.intValue();
-      if (parsed < 1) {
-        throw new MalformedSchemaException("Constraint violation: Type suffix dimensions must be strictly positive (N >= 1): " + typeName);
-      }
-      return OptionalInt.of(parsed);
-    } catch (NumberFormatException e) {
-      throw new MalformedSchemaException("Constraint violation: Malformed numeric type suffix format: " + typeName, e);
-    }
+    // Pure 2.0.0 semantics: String capacity is governed exclusively by metadata facets.
+    // Type suffix dimensions (:String4096, :StringFixed16) are prohibited in 2.0.0.
+    return OptionalInt.empty();
   }
 
   /**
