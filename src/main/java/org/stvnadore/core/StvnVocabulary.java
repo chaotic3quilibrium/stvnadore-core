@@ -1,5 +1,6 @@
 package org.stvnadore.core;
 
+import java.util.Set;
 import org.jspecify.annotations.NullMarked;
 
 /**
@@ -301,4 +302,83 @@ public final class StvnVocabulary {
 
   /** Abbreviated token for Either right variant ({@code #R}). */
   public static final String VAL_RIGHT_SHORT = "#R";
+
+  // ============================================================================
+  // 7. IEEE-754 SPECIAL FLOATING-POINT LITERALS
+  // ============================================================================
+
+  /** Canonical token for IEEE-754 Not-a-Number literal ({@code NaN}). */
+  public static final String LITERAL_NAN = "NaN";
+
+  /** Canonical token for IEEE-754 positive infinity literal ({@code +Infinity}). */
+  public static final String LITERAL_POS_INFINITY = "+Infinity";
+
+  /** Canonical token for IEEE-754 negative infinity literal ({@code -Infinity}). */
+  public static final String LITERAL_NEG_INFINITY = "-Infinity";
+
+  /** Canonical token for IEEE-754 negative zero literal ({@code -0.0}). */
+  public static final String LITERAL_NEG_ZERO = "-0.0";
+
+  // ============================================================================
+  // 8. PUNCTUATION AND GROUP DELIMITERS
+  // ============================================================================
+
+  /** Canonical token for structural opening brace delimiter (<code>{</code>). */
+  public static final String DELIM_OPEN_BRACE = "{";
+
+  /** Canonical token for structural closing brace delimiter (<code>}</code>). */
+  public static final String DELIM_CLOSE_BRACE = "}";
+
+  /** Canonical token for structural opening bracket delimiter ({@code [}). */
+  public static final String DELIM_OPEN_BRACKET = "[";
+
+  /** Canonical token for structural closing bracket delimiter ({@code ]}). */
+  public static final String DELIM_CLOSE_BRACKET = "]";
+
+  /** Canonical token for structural opening parenthesis delimiter ({@code (}). */
+  public static final String DELIM_OPEN_PAREN = "(";
+
+  /** Canonical token for structural closing parenthesis delimiter ({@code )}). */
+  public static final String DELIM_CLOSE_PAREN = ")";
+
+  /** Canonical token for typic sigil and namespace delimiter ({@code :}). */
+  public static final String DELIM_COLON = ":";
+
+  // ============================================================================
+  // 9. PRE-BAKED CANONICAL TOKEN SETS FOR FAST INTERCEPTION & LOOKUP
+  // ============================================================================
+
+  /** Pre-baked unmodifiable set containing all canonical and abbreviated boolean tokens. */
+  public static final Set<String> BOOLEAN_KEYWORDS = Set.of(
+      VAL_TRUE,
+      VAL_FALSE,
+      VAL_TRUE_SHORT,
+      VAL_FALSE_SHORT
+  );
+
+  /** Pre-baked unmodifiable set containing all canonical and abbreviated Option tokens. */
+  public static final Set<String> OPTION_KEYWORDS = Set.of(
+      VAL_SOME,
+      VAL_NONE,
+      VAL_SOME_SHORT,
+      VAL_NONE_SHORT
+  );
+
+  /** Pre-baked unmodifiable set containing all canonical and abbreviated Either tokens. */
+  public static final Set<String> EITHER_KEYWORDS = Set.of(
+      VAL_LEFT,
+      VAL_RIGHT,
+      VAL_LEFT_SHORT,
+      VAL_RIGHT_SHORT
+  );
+
+  /** Pre-baked unmodifiable set containing all canonical and abbreviated control/value keywords. */
+  public static final Set<String> CONTROL_KEYWORDS = Set.of(
+      VAL_NONE, VAL_NONE_SHORT,
+      VAL_SOME, VAL_SOME_SHORT,
+      VAL_LEFT, VAL_LEFT_SHORT,
+      VAL_RIGHT, VAL_RIGHT_SHORT,
+      VAL_TRUE, VAL_TRUE_SHORT,
+      VAL_FALSE, VAL_FALSE_SHORT
+  );
 }

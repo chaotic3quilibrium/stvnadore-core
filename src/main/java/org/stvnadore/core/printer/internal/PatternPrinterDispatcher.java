@@ -1,6 +1,7 @@
 package org.stvnadore.core.printer.internal;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.ir.StvnValue.*;
 import org.stvnadore.core.printer.PrinterOptions;
@@ -35,13 +36,13 @@ public final class PatternPrinterDispatcher {
 
       case StvnFloat f -> {
         if (f.isNaN()) {
-          layout.writeLiteral("NaN");
+          layout.writeLiteral(StvnVocabulary.LITERAL_NAN);
         } else if (f.isPositiveInfinity()) {
-          layout.writeLiteral("+Infinity");
+          layout.writeLiteral(StvnVocabulary.LITERAL_POS_INFINITY);
         } else if (f.isNegativeInfinity()) {
-          layout.writeLiteral("-Infinity");
+          layout.writeLiteral(StvnVocabulary.LITERAL_NEG_INFINITY);
         } else if (f.isNegativeZero()) {
-          layout.writeLiteral("-0.0");
+          layout.writeLiteral(StvnVocabulary.LITERAL_NEG_ZERO);
         } else {
           layout.writeFloat(f.value(), f.precision());
         }
@@ -210,15 +211,7 @@ public final class PatternPrinterDispatcher {
     }
   }
 
-  private static final Set<String> CONTROL_KEYWORD = Set.of(
-      "#None", "#N",
-      "#Some", "#S",
-      "#Left", "#L",
-      "#Right", "#R",
-      "#TRUE", "#T",
-      "#FALSE", "#F");
-
   private static boolean isControlKeyword(String s) {
-    return CONTROL_KEYWORD.contains(s);
+    return StvnVocabulary.CONTROL_KEYWORDS.contains(s);
   }
 }

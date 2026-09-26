@@ -11,6 +11,7 @@ import org.stvnadore.core.annotations.StvnInt;
 import org.stvnadore.core.annotations.StvnString;
 import org.stvnadore.core.annotations.StvnBits;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
@@ -91,36 +92,36 @@ public final class StvnMapper {
 
   static {
     var map = new HashMap<Class<?>, ResolvedSchema>();
-    var boolSchema = createPrimitiveSchema(":Boolean", StvnConstraints.empty());
+    var boolSchema = createPrimitiveSchema(StvnVocabulary.TYPE_BOOLEAN, StvnConstraints.empty());
     map.put(Boolean.class, boolSchema);
     map.put(boolean.class, boolSchema);
 
-    var int8Schema = createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(8));
+    var int8Schema = createPrimitiveSchema(StvnVocabulary.TYPE_INT, StvnConstraints.empty().withSize(8));
     map.put(Byte.class, int8Schema);
     map.put(byte.class, int8Schema);
 
-    var int16Schema = createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(16));
+    var int16Schema = createPrimitiveSchema(StvnVocabulary.TYPE_INT, StvnConstraints.empty().withSize(16));
     map.put(Short.class, int16Schema);
     map.put(short.class, int16Schema);
 
-    var int32Schema = createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(32));
+    var int32Schema = createPrimitiveSchema(StvnVocabulary.TYPE_INT, StvnConstraints.empty().withSize(32));
     map.put(Integer.class, int32Schema);
     map.put(int.class, int32Schema);
 
-    var int64Schema = createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(64));
+    var int64Schema = createPrimitiveSchema(StvnVocabulary.TYPE_INT, StvnConstraints.empty().withSize(64));
     map.put(Long.class, int64Schema);
     map.put(long.class, int64Schema);
 
-    var float32Schema = createPrimitiveSchema(":Float", StvnConstraints.empty().withSize(32));
+    var float32Schema = createPrimitiveSchema(StvnVocabulary.TYPE_FLOAT, StvnConstraints.empty().withSize(32));
     map.put(Float.class, float32Schema);
     map.put(float.class, float32Schema);
 
-    var float64Schema = createPrimitiveSchema(":Float", StvnConstraints.empty().withSize(64));
+    var float64Schema = createPrimitiveSchema(StvnVocabulary.TYPE_FLOAT, StvnConstraints.empty().withSize(64));
     map.put(Double.class, float64Schema);
     map.put(double.class, float64Schema);
 
-    map.put(BigDecimal.class, createPrimitiveSchema(":Float", StvnConstraints.empty().withExact(true)));
-    map.put(String.class, createPrimitiveSchema(":String", StvnConstraints.empty()));
+    map.put(BigDecimal.class, createPrimitiveSchema(StvnVocabulary.TYPE_FLOAT, StvnConstraints.empty().withExact(true)));
+    map.put(String.class, createPrimitiveSchema(StvnVocabulary.TYPE_STRING, StvnConstraints.empty()));
 
     PRIMITIVE_SCHEMA_REGISTRY = Collections.unmodifiableMap(map);
   }
@@ -243,7 +244,7 @@ public final class StvnMapper {
     Objects.requireNonNull(documentContext);
 
     if (recordInstance == null) {
-      if (schemaOpt.isPresent() && schemaOpt.get().node() != null && ":Option".equals(StvnTypeResolver.getPrimitiveBaseType(schemaOpt.get().node()))) {
+      if (schemaOpt.isPresent() && schemaOpt.get().node() != null && StvnVocabulary.TYPE_OPTION.equals(StvnTypeResolver.getPrimitiveBaseType(schemaOpt.get().node()))) {
         return Optional.of(new StvnValue.StvnOption(schemaOpt.get(), Optional.empty()));
       }
       return Optional.empty();
@@ -277,7 +278,7 @@ public final class StvnMapper {
       var baseText = Optional.ofNullable(schema.node())
           .map(StvnTypeResolver::getPrimitiveBaseType);
 
-      if (baseText.filter(":Tuple"::equals).isPresent()) {
+      if (baseText.filter(StvnVocabulary.TYPE_TUPLE::equals).isPresent()) {
         var innerNodes = StvnTypeResolver.getInnerSchemas(schema.node());
         var elements = new ArrayList<StvnValue>();
         for (int i = 0; i < meta.components().length; i++) {
@@ -287,7 +288,7 @@ public final class StvnMapper {
               .filter(idx -> idx < innerNodes.size())
               .flatMap(idx -> StvnTypeResolver.resolvePrimitiveSchema(documentContext, innerNodes.get(idx), new HashSet<>()))
               .or(() -> Optional.ofNullable(comp.bitsAnnotation())
-                  .map(bits -> createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(bits.value()).withUnsigned(bits.unsigned()))));
+                  .map(bits -> createPrimitiveSchema(StvnVocabulary.TYPE_INT, StvnConstraints.empty().withSize(bits.value()).withUnsigned(bits.unsigned()))));
 
           try {
             var val = comp.accessorHandle().invoke(recordInstance);
@@ -552,7 +553,7 @@ public final class StvnMapper {
               return Optional.empty();
             })
             .or(() -> Optional.ofNullable(comp.bitsAnnotation())
-                .map(bits -> createPrimitiveSchema(":Int", StvnConstraints.empty().withSize(bits.value()).withUnsigned(bits.unsigned()))));
+                .map(bits -> createPrimitiveSchema(StvnVocabulary.TYPE_INT, StvnConstraints.empty().withSize(bits.value()).withUnsigned(bits.unsigned()))));
 
         if (valNode.isEmpty()) {
           if (comp.type() == Optional.class) {
@@ -900,7 +901,7 @@ public final class StvnMapper {
     Objects.requireNonNull(schema);
     return Optional.ofNullable(schema.node())
         .map(StvnTypeResolver::getPrimitiveBaseType)
-        .filter(base -> ":Either".equals(base) || ":Union".equals(base))
+        .filter(base -> StvnVocabulary.TYPE_EITHER.equals(base) || StvnVocabulary.TYPE_UNION.equals(base))
         .isPresent();
   }
 

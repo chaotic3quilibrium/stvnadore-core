@@ -1,6 +1,7 @@
 package org.stvnadore.core.ir;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 
 import java.math.BigDecimal;
@@ -337,16 +338,16 @@ public sealed interface StvnValue {
     @Override
     public int hashCode() {
       if (isNaN) {
-        return java.util.Objects.hash(schema, precision, "NaN");
+        return java.util.Objects.hash(schema, precision, StvnVocabulary.LITERAL_NAN);
       }
       if (isPositiveInfinity) {
-        return java.util.Objects.hash(schema, precision, "+Infinity");
+        return java.util.Objects.hash(schema, precision, StvnVocabulary.LITERAL_POS_INFINITY);
       }
       if (isNegativeInfinity) {
-        return java.util.Objects.hash(schema, precision, "-Infinity");
+        return java.util.Objects.hash(schema, precision, StvnVocabulary.LITERAL_NEG_INFINITY);
       }
       if (isNegativeZero) {
-        return java.util.Objects.hash(schema, precision, "-0.0");
+        return java.util.Objects.hash(schema, precision, StvnVocabulary.LITERAL_NEG_ZERO);
       }
       if (precision == FloatPrecision.FLOAT32) {
         return java.util.Objects.hash(schema, precision, Float.floatToIntBits(value.floatValue()));

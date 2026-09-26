@@ -70,7 +70,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
       var schema = value.schema();
       List<ResolvedCanonicalDefinition> defs = StvnCanonicalDefinitionsResolver.resolveDefinitions(value);
       if (!defs.isEmpty()) {
-        layout.writeLiteral(":defs");
+        layout.writeLiteral(StvnVocabulary.KEYWORD_DEFS);
         layout.appendSeparator();
         layout.openGroup("{");
 
@@ -112,7 +112,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#unsigned");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_UNSIGNED);
             }
             if (constraints.exact()) {
               if (inline) {
@@ -121,7 +121,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#exact");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_EXACT);
             }
             if (constraints.invertible()) {
               if (inline) {
@@ -130,7 +130,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#invertible");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_INVERTIBLE);
             }
             if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
               if (inline) {
@@ -139,7 +139,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#preserveIndent");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
               layout.appendSeparator();
               layout.writeBoolean(true, options.symbolStyle());
             }
@@ -150,7 +150,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#offset");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_OFFSET);
             }
             if (constraints.zoned()) {
               if (inline) {
@@ -159,7 +159,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#zoned");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_ZONED);
             }
             if (constraints.audited()) {
               if (inline) {
@@ -168,7 +168,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#audited");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_AUDITED);
             }
             var equatable = constraints.equatable().orElse(null);
             if (equatable != null && constraints.explicitOverrides().contains("equatable")) {
@@ -178,7 +178,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#equatable");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_EQUATABLE);
               layout.appendSeparator();
               layout.writeBoolean(equatable, options.symbolStyle());
             }
@@ -190,7 +190,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#comparable");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_COMPARABLE);
               layout.appendSeparator();
               layout.writeBoolean(comparable, options.symbolStyle());
             }
@@ -217,7 +217,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#size");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_SIZE);
               layout.appendSeparator();
               layout.writeLiteral(size.toString());
             }
@@ -229,7 +229,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#minSize");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_SIZE);
               layout.appendSeparator();
               layout.writeLiteral(minSize.toString());
             }
@@ -241,7 +241,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#maxSize");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
               layout.appendSeparator();
               layout.writeLiteral(maxSize.toString());
             }
@@ -255,7 +255,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#minIncl");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
               layout.appendSeparator();
               layout.writeLiteral(minIncl.toString());
             } else if (constraints.dateMinIncl().isPresent()) {
@@ -265,7 +265,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#minIncl");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
               layout.appendSeparator();
               layout.writeSimpleString(constraints.dateMinIncl().get());
             }
@@ -277,7 +277,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#minExcl");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_EXCL);
               layout.appendSeparator();
               layout.writeLiteral(minExcl.toString());
             }
@@ -289,7 +289,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#maxExcl");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
               layout.appendSeparator();
               layout.writeLiteral(maxExcl.toString());
             } else if (constraints.dateMaxExcl().isPresent()) {
@@ -299,7 +299,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#maxExcl");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
               layout.appendSeparator();
               layout.writeSimpleString(constraints.dateMaxExcl().get());
             }
@@ -311,7 +311,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#maxIncl");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_INCL);
               layout.appendSeparator();
               layout.writeLiteral(maxIncl.toString());
             }
@@ -325,7 +325,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#regex");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_REGEX);
               layout.appendSeparator();
               layout.writeSimpleString(regex);
             }
@@ -339,7 +339,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#filterIncl");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_INCL);
               layout.appendSeparator();
               layout.openGroup("[");
               var firstV = true;
@@ -358,7 +358,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              layout.writeLiteral("#filterExcl");
+              layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_EXCL);
               layout.appendSeparator();
               layout.openGroup("[");
               var firstV = true;
@@ -394,7 +394,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         }
       }
 
-      layout.writeLiteral(":type");
+      layout.writeLiteral(StvnVocabulary.KEYWORD_TYPE);
       layout.appendSeparator();
       if (schema != null) {
         var alias = schema.aliasName().orElse(null);
@@ -413,7 +413,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         layout.appendSeparator();
       }
 
-      layout.writeLiteral(":body");
+      layout.writeLiteral(StvnVocabulary.KEYWORD_BODY);
       layout.appendSeparator();
       PatternPrinterDispatcher.dispatch(value, layout, options);
 

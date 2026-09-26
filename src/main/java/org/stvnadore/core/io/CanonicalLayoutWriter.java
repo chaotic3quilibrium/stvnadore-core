@@ -1,6 +1,7 @@
 package org.stvnadore.core.io;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue.FloatPrecision;
 import org.stvnadore.core.printer.PrinterOptions;
 import org.stvnadore.core.printer.internal.LayoutWriter;
@@ -64,8 +65,8 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
     // enforce LONG_FORM (#TRUE / #FALSE) representation to maintain absolute cryptographic
     // hash stability regardless of caller-side formatting configuration.
     writeToken(val
-        ? "#TRUE"
-        : "#FALSE");
+        ? StvnVocabulary.VAL_TRUE
+        : StvnVocabulary.VAL_FALSE);
   }
 
   @Override
@@ -106,21 +107,21 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
   @Override
   public void openOptionSomeTag(PrinterOptions.SymbolStyle style) throws IOException {
     // Style parameter is intentionally ignored. Enforce LONG_FORM (#Some) variant for canonical consistency.
-    writeToken("#Some");
+    writeToken(StvnVocabulary.VAL_SOME);
   }
 
   @Override
   public void writeOptionNone(PrinterOptions.SymbolStyle style) throws IOException {
     // Style parameter is intentionally ignored. Enforce LONG_FORM (#None) variant for canonical consistency.
-    writeToken("#None");
+    writeToken(StvnVocabulary.VAL_NONE);
   }
 
   @Override
   public void openEitherTag(boolean isRight, PrinterOptions.SymbolStyle style) throws IOException {
     // Style parameter is intentionally ignored. Enforce LONG_FORM (#Right / #Left) variant for canonical consistency.
     writeToken(isRight
-        ? "#Right"
-        : "#Left");
+        ? StvnVocabulary.VAL_RIGHT
+        : StvnVocabulary.VAL_LEFT);
   }
 
   @Override
@@ -128,9 +129,9 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
     // Defensively coerce any short-form tags back to their canonical long-form counterparts.
     String canonicalTag;
     switch (tag) {
-      case "#S", "#Some" -> canonicalTag = "#Some";
-      case "#L", "#Left" -> canonicalTag = "#Left";
-      case "#R", "#Right" -> canonicalTag = "#Right";
+      case StvnVocabulary.VAL_SOME_SHORT, StvnVocabulary.VAL_SOME -> canonicalTag = StvnVocabulary.VAL_SOME;
+      case StvnVocabulary.VAL_LEFT_SHORT, StvnVocabulary.VAL_LEFT -> canonicalTag = StvnVocabulary.VAL_LEFT;
+      case StvnVocabulary.VAL_RIGHT_SHORT, StvnVocabulary.VAL_RIGHT -> canonicalTag = StvnVocabulary.VAL_RIGHT;
       default -> canonicalTag = tag;
     }
     writeToken(canonicalTag);

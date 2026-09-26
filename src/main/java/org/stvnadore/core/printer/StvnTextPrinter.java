@@ -1,6 +1,7 @@
 package org.stvnadore.core.printer;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.parser.StvnParser;
 
@@ -51,9 +52,9 @@ public interface StvnTextPrinter {
    */
   default String resolveCollectionType(StvnParser.CollectionTypeContext col) {
     var colType = "";
-    if (col.COLL_SEQ() != null) colType = ":Seq";
-    else if (col.COLL_SET() != null) colType = ":Set";
-    else if (col.COLL_MAP() != null) colType = ":Map";
+    if (col.COLL_SEQ() != null) colType = StvnVocabulary.TYPE_SEQ;
+    else if (col.COLL_SET() != null) colType = StvnVocabulary.TYPE_SET;
+    else if (col.COLL_MAP() != null) colType = StvnVocabulary.TYPE_MAP;
 
     return colType;
   }

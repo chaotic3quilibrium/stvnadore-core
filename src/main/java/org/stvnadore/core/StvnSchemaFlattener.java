@@ -391,19 +391,19 @@ public final class StvnSchemaFlattener {
   }
 
   private static boolean isPrimitiveType(String type) {
-    if (type.equals(":Boolean") || type.equals(":FloatExact") || type.equals(":Seq") || type.equals(":SeqNonEmpty") ||
-        type.equals(":Set") || type.equals(":SetNonEmpty") || type.equals(":Map") ||
+    if (type.equals(StvnVocabulary.TYPE_BOOLEAN) || type.equals(":FloatExact") || type.equals(StvnVocabulary.TYPE_SEQ) || type.equals(":SeqNonEmpty") ||
+        type.equals(StvnVocabulary.TYPE_SET) || type.equals(":SetNonEmpty") || type.equals(StvnVocabulary.TYPE_MAP) ||
         type.equals(":MapNonEmpty") || type.equals(":MapInv") || type.equals(":MapInvNonEmpty") ||
-        type.equals(":Tuple") || type.equals(":MapEntry") || type.equals(":Option") ||
-        type.equals(":Either") || type.equals(":Union") || type.equals(":Enum")) {
+        type.equals(StvnVocabulary.TYPE_TUPLE) || type.equals(StvnVocabulary.TYPE_MAP_ENTRY) || type.equals(StvnVocabulary.TYPE_OPTION) ||
+        type.equals(StvnVocabulary.TYPE_EITHER) || type.equals(StvnVocabulary.TYPE_UNION) || type.equals(StvnVocabulary.TYPE_ENUM)) {
       return true;
     }
-    if (type.startsWith(":Int") && type.substring(4).matches("\\d*")) return true;
+    if (type.startsWith(StvnVocabulary.TYPE_INT) && type.substring(4).matches("\\d*")) return true;
     if (type.startsWith(":Uint") && type.substring(5).matches("\\d*")) return true;
-    if (type.startsWith(":Float") && type.substring(6).matches("\\d*")) return true;
+    if (type.startsWith(StvnVocabulary.TYPE_FLOAT) && type.substring(6).matches("\\d*")) return true;
     if (type.startsWith(":StringFixed") && type.substring(12).matches("\\d*")) return true;
     if (type.startsWith(":StringNonEmpty") && type.substring(15).matches("\\d*")) return true;
-    if (type.startsWith(":String") && !type.startsWith(":StringFixed") && !type.startsWith(":StringNonEmpty") && type.substring(7).matches("\\d*")) return true;
+    if (type.startsWith(StvnVocabulary.TYPE_STRING) && !type.startsWith(":StringFixed") && !type.startsWith(":StringNonEmpty") && type.substring(7).matches("\\d*")) return true;
     return false;
   }
 
@@ -975,7 +975,7 @@ public final class StvnSchemaFlattener {
   }
 
   private static StvnParser.ConstantDefinitionContext parseConstantDefinition(String source, BaseErrorListener errorListener) {
-    String wrapped = "{ :defs { " + source + " } }";
+    String wrapped = "{ " + StvnVocabulary.KEYWORD_DEFS + " { " + source + " } }";
     var lexer = new StvnLexer(CharStreams.fromString(wrapped));
     lexer.removeErrorListeners();
     lexer.addErrorListener(errorListener);
@@ -1073,7 +1073,7 @@ public final class StvnSchemaFlattener {
       } else if (ctor.productType() != null) {
         var prod = ctor.productType();
         if (prod instanceof StvnParser.TupleTypeContext tt) {
-          tokens.add(":Tuple");
+          tokens.add(StvnVocabulary.TYPE_TUPLE);
           tokens.add("(");
           for (var st : tt.schemaType()) {
             collectSchemaTypeTokens(st, tokens);
@@ -1083,25 +1083,25 @@ public final class StvnSchemaFlattener {
       } else if (ctor.sumType() != null) {
         var sum = ctor.sumType();
         if (sum.KW_OPTION() != null) {
-          tokens.add(":Option");
+          tokens.add(StvnVocabulary.TYPE_OPTION);
           tokens.add("(");
           collectSchemaTypeTokens(sum.schemaType(0), tokens);
           tokens.add(")");
         } else if (sum.KW_EITHER() != null) {
-          tokens.add(":Either");
+          tokens.add(StvnVocabulary.TYPE_EITHER);
           tokens.add("(");
           collectSchemaTypeTokens(sum.schemaType(0), tokens);
           collectSchemaTypeTokens(sum.schemaType(1), tokens);
           tokens.add(")");
         } else if (sum.KW_UNION() != null) {
-          tokens.add(":Union");
+          tokens.add(StvnVocabulary.TYPE_UNION);
           tokens.add("(");
           for (var st : sum.schemaType()) {
             collectSchemaTypeTokens(st, tokens);
           }
           tokens.add(")");
         } else if (sum.KW_ENUM() != null) {
-          tokens.add(":Enum");
+          tokens.add(StvnVocabulary.TYPE_ENUM);
           tokens.add("[");
           for (var kw : sum.enumDef().valueKeyword()) {
             tokens.add(kw.getText());
@@ -1116,18 +1116,18 @@ public final class StvnSchemaFlattener {
     if (ctx.explicitOptionValue() != null) {
       var opt = ctx.explicitOptionValue();
       if (opt.KW_NONE() != null || opt.KW_NONE_SHORT() != null) {
-        tokens.add("#None");
+        tokens.add(StvnVocabulary.VAL_NONE);
       } else {
-        tokens.add("#Some");
+        tokens.add(StvnVocabulary.VAL_SOME);
         collectValueTokens(opt.value(), tokens, preserveIndent);
       }
     } else if (ctx.explicitEitherValue() != null) {
       var eit = ctx.explicitEitherValue();
       if (eit.KW_LEFT() != null || eit.KW_LEFT_SHORT() != null) {
-        tokens.add("#Left");
+        tokens.add(StvnVocabulary.VAL_LEFT);
         collectValueTokens(eit.value(), tokens, preserveIndent);
       } else {
-        tokens.add("#Right");
+        tokens.add(StvnVocabulary.VAL_RIGHT);
         collectValueTokens(eit.value(), tokens, preserveIndent);
       }
     } else if (ctx.explicitUnionValue() != null) {
@@ -1137,9 +1137,9 @@ public final class StvnSchemaFlattener {
     } else if (ctx.booleanLiteral() != null) {
       var bool = ctx.booleanLiteral();
       if (bool.KW_TRUE() != null || bool.KW_TRUE_SHORT() != null) {
-        tokens.add("#TRUE");
+        tokens.add(StvnVocabulary.VAL_TRUE);
       } else {
-        tokens.add("#FALSE");
+        tokens.add(StvnVocabulary.VAL_FALSE);
       }
     } else if (ctx.integerLiteral() != null) {
       BigInteger val = StvnLiteralParser.parseBigInteger(ctx.integerLiteral().getText());

@@ -4,6 +4,7 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue.*;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.parser.StvnParser.BodyEntryContext;
@@ -216,10 +217,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     checkKeywordClash(ctx, schema);
 
     String baseType = StvnTypeResolver.getPrimitiveBaseType(schema.node());
-    if (baseType != null && baseType.equals(":Option")) {
+    if (baseType != null && baseType.equals(StvnVocabulary.TYPE_OPTION)) {
       var token = ctx.start.getText();
       boolean isExplicitOption = ctx.explicitOptionValue() != null ||
-          token.equals("#Some") || token.equals("#S") || token.equals("#None") || token.equals("#N");
+          StvnVocabulary.OPTION_KEYWORDS.contains(token);
       if (!isExplicitOption) {
         List<StvnParser.SchemaTypeContext> inner = StvnTypeResolver.getInnerSchemas(schema.node());
         if (!inner.isEmpty()) {
@@ -238,7 +239,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
               false,
               Optional.empty()
           );
-          currentTrajectory.add(new VariantStep("#Some", true));
+          currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_SOME, true));
           try {
             StvnValue innerVal = visitChildValue(ctx, innerSchema);
             if (innerVal == null) {
@@ -265,8 +266,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       if (sumTypeNode.KW_EITHER() != null) {
         boolean isRight = (schema.implicitUnionTag().get() == 1);
         currentTrajectory.add(new VariantStep(isRight
-            ? "#Right"
-            : "#Left", true));
+            ? StvnVocabulary.VAL_RIGHT
+            : StvnVocabulary.VAL_LEFT, true));
         pushedImplicitEither = true;
       }
     }
@@ -282,13 +283,13 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           ? ctx.valueKeyword().getText()
           : ctx.start.getText();
       if (schema != null) {
-        if (baseType.equals(":Enum")) {
+        if (baseType.equals(StvnVocabulary.TYPE_ENUM)) {
           enumSchema = schema;
-        } else if (baseType.equals(":Option") || baseType.equals(":Either") || baseType.equals(":Union")) {
+        } else if (baseType.equals(StvnVocabulary.TYPE_OPTION) || baseType.equals(StvnVocabulary.TYPE_EITHER) || baseType.equals(StvnVocabulary.TYPE_UNION)) {
           var candidates = StvnTypeResolver.resolveCandidateSchemas(documentContext, schema.node());
           for (var cand : candidates) {
             var candBase = StvnTypeResolver.getPrimitiveBaseType(cand.node());
-            if (candBase != null && candBase.equals(":Enum")) {
+            if (candBase != null && candBase.equals(StvnVocabulary.TYPE_ENUM)) {
               if (isValidEnumVariant(cand, textVal) && !isExplicitTagForSchema(textVal, schema)) {
                 enumSchema = cand;
                 break;
@@ -313,7 +314,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       } else if (ctx.booleanLiteral() != null) {
         verifyStructuralTypeMatch(baseType, "boolean", ctx);
         var text = ctx.booleanLiteral().getText();
-        rawValue = new StvnBoolean(schema, text.equals("#TRUE") || text.equals("#T"));
+        rawValue = new StvnBoolean(schema, text.equals(StvnVocabulary.VAL_TRUE) || text.equals(StvnVocabulary.VAL_TRUE_SHORT));
       } else if (ctx.valueKeyword() != null) {
         rawValue = buildValueKeywordOrConstant(ctx.valueKeyword(), schema);
       } else if (ctx.collectionValue() != null) {
@@ -322,7 +323,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         else if (ctx.collectionValue().mapLiteral() != null)
           rawValue = buildMap(ctx.collectionValue().mapLiteral(), schema, baseType);
         else if (ctx.collectionValue().tupleLiteral() != null) {
-          if (!baseType.equals(":Tuple")) {
+          if (!baseType.equals(StvnVocabulary.TYPE_TUPLE)) {
             throw new MalformedPayloadException(
                 "Type mismatch: Expected scalar (" + baseType + "), got Tuple (parenthesized product syntax is strictly reserved for :Tuple)",
                 ctx.collectionValue().tupleLiteral().start.getStartIndex(),
@@ -332,7 +333,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           rawValue = buildTuple(ctx.collectionValue().tupleLiteral(), schema);
         } else throw new IllegalStateException("Unknown collection value");
       } else if (ctx.explicitOptionValue() != null) {
-        if (!baseType.equals(":Option")) {
+        if (!baseType.equals(StvnVocabulary.TYPE_OPTION)) {
           if (ctx.explicitOptionValue().value() == null) {
             rawValue = evaluateKeywordToken(ctx.explicitOptionValue().start.getText(), schema, ctx.explicitOptionValue());
           } else {
@@ -348,7 +349,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           rawValue = buildOption(ctx.explicitOptionValue(), schema);
         }
       } else if (ctx.explicitEitherValue() != null) {
-        if (!baseType.equals(":Either")) {
+        if (!baseType.equals(StvnVocabulary.TYPE_EITHER)) {
           if (ctx.explicitEitherValue().value() == null) {
             rawValue = evaluateKeywordToken(ctx.explicitEitherValue().start.getText(), schema, ctx.explicitEitherValue());
           } else {
@@ -364,7 +365,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           rawValue = buildEither(ctx.explicitEitherValue(), schema);
         }
       } else if (ctx.explicitUnionValue() != null) {
-        if (!baseType.equals(":Union")) {
+        if (!baseType.equals(StvnVocabulary.TYPE_UNION)) {
           if (ctx.explicitUnionValue().value() == null) {
             rawValue = evaluateKeywordToken(ctx.explicitUnionValue().UNION_TAG_PREFIX().getText(), schema, ctx.explicitUnionValue());
           } else {
@@ -390,14 +391,14 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   }
 
   private void verifyStructuralTypeMatch(String baseType, String got, StvnParser.ValueContext ctx) {
-    if (baseType.equals(":Option") || baseType.equals(":Either") || baseType.equals(":Union"))
+    if (baseType.equals(StvnVocabulary.TYPE_OPTION) || baseType.equals(StvnVocabulary.TYPE_EITHER) || baseType.equals(StvnVocabulary.TYPE_UNION))
       return;
     var expected = "unknown";
     if (isIntType(baseType) || isTimeEpochType(baseType)) expected = "integer";
     else if (isFloatType(baseType)) expected = "float";
     else if (isStringType(baseType) || isDateTimeType(baseType)) expected = "string";
-    else if (baseType.equals(":Boolean")) expected = "boolean";
-    else if (baseType.equals(":Tuple")) expected = "tuple";
+    else if (baseType.equals(StvnVocabulary.TYPE_BOOLEAN)) expected = "boolean";
+    else if (baseType.equals(StvnVocabulary.TYPE_TUPLE)) expected = "tuple";
 
     if (!expected.equals("unknown") && !expected.equals(got)) {
       throw new MalformedPayloadException(
@@ -424,7 +425,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
 
   private StvnValue buildIntegerOrTime(StvnParser.IntegerLiteralContext ctx, ResolvedSchema schema, String baseType, String aliasOrBase) {
     var rawValue = StvnLiteralParser.parseBigInteger(ctx.getText());
-    boolean isTimeEpoch = baseType.equals(":TimeEpoch") || baseType.equals(":TimeEpochS") || baseType.equals(":TimeEpochMs") || baseType.equals(":TimeEpochNs")
+    boolean isTimeEpoch = baseType.equals(StvnVocabulary.TYPE_TIME_EPOCH) || baseType.equals(":TimeEpochS") || baseType.equals(":TimeEpochMs") || baseType.equals(":TimeEpochNs")
         || (schema != null && (schema.constraints().scale().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch"))));
     if (isTimeEpoch) {
       TimeKind kind = TimeKind.EPOCH_S;
@@ -467,7 +468,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
     }
     if (bitWidth == 32 && !isUnsigned) {
-      if (baseType.startsWith(":Int") && baseType.length() > 4) {
+      if (baseType.startsWith(StvnVocabulary.TYPE_INT) && baseType.length() > 4) {
         var suffix = baseType.substring(4);
         if (isNumeric(suffix)) {
           bitWidth = Integer.parseInt(suffix);
@@ -478,7 +479,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           bitWidth = Integer.parseInt(suffix);
           isUnsigned = true;
         }
-      } else if (!baseType.equals(":Int") && !baseType.equals(":Uint")) {
+      } else if (!baseType.equals(StvnVocabulary.TYPE_INT) && !baseType.equals(":Uint")) {
         bitWidth = 0;
       }
     }
@@ -627,7 +628,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     // 1. Precise String Typology Classification
     boolean isFixed = baseType.startsWith(":StringFixed") && isNumeric(baseType.substring(12));
     boolean isNonEmpty = baseType.equals(":StringNonEmpty") || (baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(15)));
-    boolean isBounded = baseType.startsWith(":String") && !baseType.startsWith(":StringFixed") && !baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(7));
+    boolean isBounded = baseType.startsWith(StvnVocabulary.TYPE_STRING) && !baseType.startsWith(":StringFixed") && !baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(7));
 
     int fixedLength = 0;
     int maxLength = 0;
@@ -728,7 +729,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var startIndex = ctx.getStart().getStartIndex();
     var stopIndex = ctx.getStop().getStopIndex() + 1;
 
-    if (schema != null && schema.constraints() != null && (baseType.equals(":DateTime") || baseType.contains("DateTime"))) {
+    if (schema != null && schema.constraints() != null && (baseType.equals(StvnVocabulary.TYPE_DATE_TIME) || baseType.contains("DateTime"))) {
       if (schema.constraints().offset()) {
         baseType = ":DateTimeOffset";
       } else if (schema.constraints().zoned()) {
@@ -963,7 +964,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   private boolean isEnumSchema(ResolvedSchema schema) {
     if (schema == null || schema.node() == null) return false;
     String baseType = StvnTypeResolver.getPrimitiveBaseType(schema.node());
-    if (baseType != null && baseType.equals(":Enum")) return true;
+    if (baseType != null && baseType.equals(StvnVocabulary.TYPE_ENUM)) return true;
     var ctor = schema.node().schemaConstructor();
     if (ctor == null && schema.underlyingSchema().isPresent()) {
       var curr = schema.underlyingSchema().get();
@@ -992,22 +993,22 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     if (baseType == null) baseType = ":Undefined";
 
     // 1. Dimension 1: Target :Enum
-    if (baseType.equals(":Enum") || isEnumSchema(schema)) {
+    if (baseType.equals(StvnVocabulary.TYPE_ENUM) || isEnumSchema(schema)) {
       return buildValueEnum(text, schema, ctx);
     }
 
     // 2. Boolean Literals
-    if (baseType.equals(":Boolean")) {
-      if (text.equals("#TRUE") || text.equals("#T")) {
+    if (baseType.equals(StvnVocabulary.TYPE_BOOLEAN)) {
+      if (text.equals(StvnVocabulary.VAL_TRUE) || text.equals(StvnVocabulary.VAL_TRUE_SHORT)) {
         return new StvnBoolean(schema, true);
-      } else if (text.equals("#FALSE") || text.equals("#F")) {
+      } else if (text.equals(StvnVocabulary.VAL_FALSE) || text.equals(StvnVocabulary.VAL_FALSE_SHORT)) {
         return new StvnBoolean(schema, false);
       }
     }
 
     // 3. Option Unit Tag (#None / #N)
-    if (baseType.equals(":Option") && (text.equals("#None") || text.equals("#N"))) {
-      currentTrajectory.add(new VariantStep("#None", false));
+    if (baseType.equals(StvnVocabulary.TYPE_OPTION) && (text.equals(StvnVocabulary.VAL_NONE) || text.equals(StvnVocabulary.VAL_NONE_SHORT))) {
+      currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_NONE, false));
       try {
         return new StvnOption(schema, Optional.empty(), List.copyOf(currentTrajectory));
       } finally {
@@ -1053,14 +1054,14 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           );
         }
       }
-      if (!baseType.equals(":Option") && !baseType.equals(":Either") && !baseType.equals(":Union")) {
+      if (!baseType.equals(StvnVocabulary.TYPE_OPTION) && !baseType.equals(StvnVocabulary.TYPE_EITHER) && !baseType.equals(StvnVocabulary.TYPE_UNION)) {
         return visitChildValue(constDef.value(), schema);
-      } else if (baseType.equals(":Option")) {
+      } else if (baseType.equals(StvnVocabulary.TYPE_OPTION)) {
         List<StvnParser.SchemaTypeContext> inner = StvnTypeResolver.getInnerSchemas(schema.node());
         if (!inner.isEmpty()) {
           ResolvedSchema innerSchema = StvnTypeResolver.resolvePrimitiveSchema(documentContext, inner.getFirst(), Set.of())
               .orElseThrow(() -> new MalformedPayloadException("Unresolved option inner schema", start, end));
-          currentTrajectory.add(new VariantStep("#Some", true));
+          currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_SOME, true));
           try {
             StvnValue innerVal = visitChildValue(constDef.value(), innerSchema);
             return new StvnOption(schema, Optional.of(innerVal), List.copyOf(currentTrajectory));
@@ -1068,7 +1069,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
             currentTrajectory.removeLast();
           }
         }
-      } else if (baseType.equals(":Either")) {
+      } else if (baseType.equals(StvnVocabulary.TYPE_EITHER)) {
         List<ResolvedSchema> candidates = StvnTypeResolver.resolveCandidateSchemas(documentContext, schema.node());
         if (candidates.size() >= 2) {
           ResolvedSchema leftSchema = candidates.get(0);
@@ -1084,7 +1085,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
             );
           }
           if (rightMatches) {
-            currentTrajectory.add(new VariantStep("#Right", true));
+            currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_RIGHT, true));
             try {
               StvnValue rightVal = visitChildValue(constDef.value(), rightSchema);
               return new StvnEither(schema, rightVal, true, false, List.copyOf(currentTrajectory));
@@ -1100,7 +1101,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           }
         }
         throw new MalformedPayloadException("Constant '" + text + "' does not match branches of :Either", start, end);
-      } else if (baseType.equals(":Union")) {
+      } else if (baseType.equals(StvnVocabulary.TYPE_UNION)) {
         List<ResolvedSchema> candidates = StvnTypeResolver.resolveCandidateSchemas(documentContext, schema.node());
         int matchCount = 0;
         int matchedIndex = -1;
@@ -1128,7 +1129,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
     }
 
-    if (baseType.equals(":Boolean")) {
+    if (baseType.equals(StvnVocabulary.TYPE_BOOLEAN)) {
       throw new org.stvnadore.core.validation.StvnMalformedLiteralException(
           "Invalid boolean literal casing: found '" + text + "', expected exactly '#TRUE', '#T', '#FALSE', or '#F'.", start, end);
     }
@@ -1236,7 +1237,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     if (baseType == null) baseType = ":Undefined";
 
     // If schema is Enum, Dimension 1 applies:
-    if (baseType.equals(":Enum") || isEnumSchema(schema)) {
+    if (baseType.equals(StvnVocabulary.TYPE_ENUM) || isEnumSchema(schema)) {
       StreamItem item = queue.removeFirst();
       if (item instanceof OptionTagItem optTag) {
         if (optTag.childValue() != null) {
@@ -1270,9 +1271,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     StreamItem item = queue.removeFirst();
 
     // 1. Target Schema is :Option(T)
-    if (baseType.equals(":Option")) {
-      if (item instanceof KeywordTokenItem kw && (kw.tokenText().equals("#None") || kw.tokenText().equals("#N"))) {
-        currentTrajectory.add(new VariantStep("#None", false));
+    if (baseType.equals(StvnVocabulary.TYPE_OPTION)) {
+      if (item instanceof KeywordTokenItem kw && (kw.tokenText().equals(StvnVocabulary.VAL_NONE) || kw.tokenText().equals(StvnVocabulary.VAL_NONE_SHORT))) {
+        currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_NONE, false));
         try {
           return new StvnOption(schema, Optional.empty(), List.copyOf(currentTrajectory));
         } finally {
@@ -1280,11 +1281,11 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         }
       }
       if (item instanceof OptionTagItem optTag) {
-        if (optTag.tag().equals("#None") || optTag.tag().equals("#N")) {
+        if (optTag.tag().equals(StvnVocabulary.VAL_NONE) || optTag.tag().equals(StvnVocabulary.VAL_NONE_SHORT)) {
           if (optTag.childValue() != null) {
             queue.addFirst(toStreamItem(optTag.childValue()));
           }
-          currentTrajectory.add(new VariantStep("#None", false));
+          currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_NONE, false));
           try {
             return new StvnOption(schema, Optional.empty(), List.copyOf(currentTrajectory));
           } finally {
@@ -1304,7 +1305,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           if (optTag.childValue() != null) {
             queue.addFirst(toStreamItem(optTag.childValue()));
           }
-          currentTrajectory.add(new VariantStep("#Some", false));
+          currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_SOME, false));
           try {
             StvnValue innerVal = evaluateNextItem(queue, innerSchema);
             return new StvnOption(schema, Optional.of(innerVal), List.copyOf(currentTrajectory));
@@ -1324,7 +1325,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         ResolvedSchema innerSchema = StvnTypeResolver.resolvePrimitiveSchema(documentContext, inner.getFirst(), Set.of())
             .orElseGet(() -> ensureSchema(null));
         queue.addFirst(item);
-        currentTrajectory.add(new VariantStep("#Some", true));
+        currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_SOME, true));
         try {
           StvnValue innerVal = evaluateNextItem(queue, innerSchema);
           return new StvnOption(schema, Optional.of(innerVal), List.copyOf(currentTrajectory));
@@ -1335,20 +1336,20 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     }
 
     // 2. Target Schema is :Either(L R)
-    if (baseType.equals(":Either")) {
+    if (baseType.equals(StvnVocabulary.TYPE_EITHER)) {
       List<ResolvedSchema> candidates = StvnTypeResolver.resolveCandidateSchemas(documentContext, schema.node());
       if (candidates.size() >= 2) {
         ResolvedSchema leftSchema = candidates.get(0);
         ResolvedSchema rightSchema = candidates.get(1);
 
         if (item instanceof EitherTagItem eitherTag) {
-          boolean isRight = eitherTag.tag().equals("#Right") || eitherTag.tag().equals("#R");
+          boolean isRight = eitherTag.tag().equals(StvnVocabulary.VAL_RIGHT) || eitherTag.tag().equals(StvnVocabulary.VAL_RIGHT_SHORT);
           if (eitherTag.childValue() != null) {
             queue.addFirst(toStreamItem(eitherTag.childValue()));
           }
           currentTrajectory.add(new VariantStep(isRight
-              ? "#Right"
-              : "#Left", false));
+              ? StvnVocabulary.VAL_RIGHT
+              : StvnVocabulary.VAL_LEFT, false));
           try {
             StvnValue childVal = evaluateNextItem(queue, isRight
                 ? rightSchema
@@ -1388,7 +1389,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
 
         if (rightMatches) {
           queue.addFirst(item);
-          currentTrajectory.add(new VariantStep("#Right", true));
+          currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_RIGHT, true));
           try {
             StvnValue rightVal = evaluateNextItem(queue, rightSchema);
             return new StvnEither(schema, rightVal, true, false, List.copyOf(currentTrajectory));
@@ -1415,7 +1416,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     }
 
     // 3. Target Schema is :Union(T1 ... Tn)
-    if (baseType.equals(":Union")) {
+    if (baseType.equals(StvnVocabulary.TYPE_UNION)) {
       List<ResolvedSchema> candidates = StvnTypeResolver.resolveCandidateSchemas(documentContext, schema.node());
       if (item instanceof UnionTagItem unionTag) {
         int tagNum = StvnLiteralParser.parseUnionTagIndex(unionTag.tag());
@@ -1545,8 +1546,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       return evaluateKeywordToken(kw.tokenText(), schema, kw.sourceCtx());
     }
     if (item instanceof BooleanLiteralItem b) {
-      if (baseType.equals(":Boolean") || baseType.equals(":Undefined")) {
-        return new StvnBoolean(ensureSchema(schema), b.tokenText().equals("#TRUE") || b.tokenText().equals("#T"));
+      if (baseType.equals(StvnVocabulary.TYPE_BOOLEAN) || baseType.equals(":Undefined")) {
+        return new StvnBoolean(ensureSchema(schema), b.tokenText().equals(StvnVocabulary.VAL_TRUE) || b.tokenText().equals(StvnVocabulary.VAL_TRUE_SHORT));
       }
       return evaluateKeywordToken(b.tokenText(), schema, b.sourceCtx());
     }
@@ -1561,7 +1562,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var saved = List.copyOf(currentTrajectory);
     currentTrajectory.clear();
     try {
-      var isSet = baseType.equals(":Set") || baseType.equals(":SetNonEmpty");
+      var isSet = baseType.equals(StvnVocabulary.TYPE_SET) || baseType.equals(":SetNonEmpty");
       var isNonEmpty = baseType.equals(":SeqNonEmpty") || baseType.equals(":SetNonEmpty")
           || (schema != null && schema.constraints().minSize().orElse(0) >= 1);
 
@@ -1795,7 +1796,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       String baseType = (schema != null && schema.node() != null)
           ? StvnTypeResolver.getPrimitiveBaseType(schema.node())
           : ":Undefined";
-      if (baseType == null || !baseType.equals(":Tuple")) {
+      if (baseType == null || !baseType.equals(StvnVocabulary.TYPE_TUPLE)) {
         int start = ctx.start.getStartIndex();
         int end = ctx.stop.getStopIndex() + 1;
         int[] pos = getLineCol(ctx);
@@ -1916,7 +1917,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   private StvnOption buildOption(StvnParser.ExplicitOptionValueContext ctx, ResolvedSchema schema) {
     boolean isNone = ctx.KW_NONE() != null || ctx.KW_NONE_SHORT() != null;
     if (isNone) {
-      currentTrajectory.add(new VariantStep("#None", false));
+      currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_NONE, false));
       try {
         return new StvnOption(schema, Optional.empty(), List.copyOf(currentTrajectory));
       } finally {
@@ -1928,7 +1929,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     if (!inner.isEmpty()) {
       childSchema = StvnTypeResolver.resolvePrimitiveSchema(documentContext, inner.getFirst(), Set.of()).orElse(null);
     }
-    currentTrajectory.add(new VariantStep("#Some", false));
+    currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_SOME, false));
     try {
       if (ctx.value() == null) {
         throw new org.stvnadore.core.validation.MalformedPayloadException(
@@ -1970,8 +1971,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           : childSchemas.get(0);
     }
     currentTrajectory.add(new VariantStep(isRight
-        ? "#Right"
-        : "#Left", false));
+        ? StvnVocabulary.VAL_RIGHT
+        : StvnVocabulary.VAL_LEFT, false));
     try {
       if (ctx.value() == null) {
         throw new org.stvnadore.core.validation.MalformedPayloadException(
@@ -2094,7 +2095,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   }
 
   private static final Set<String> KEYWORDS_MAP = Set.of(
-      ":Map",
+      StvnVocabulary.TYPE_MAP,
       ":MapNonEmpty",
       ":MapInv",
       ":MapInvNonEmpty");
@@ -2104,19 +2105,19 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     if (t == null) return false;
 
     return switch (val) {
-      case StvnEnum ignored -> t.equals(":Enum");
+      case StvnEnum ignored -> t.equals(StvnVocabulary.TYPE_ENUM);
       case StvnInteger ignored -> isIntType(t) || isTimeEpochType(t);
       case StvnFloat ignored -> isFloatType(t);
-      case StvnBoolean ignored -> t.equals(":Boolean");
+      case StvnBoolean ignored -> t.equals(StvnVocabulary.TYPE_BOOLEAN);
       case StvnString ignored -> isStringType(t) || isDateTimeType(t);
       case StvnTime ignored -> isTimeEpochType(t);
-      case StvnDateTimeOffset ignored -> t.equals(":DateTimeOffset") || t.equals(":DateTime");
-      case StvnDateTimeZoned ignored -> t.equals(":DateTimeZoned") || t.equals(":DateTime");
-      case StvnDateTimeAudited ignored -> t.equals(":DateTimeAudited") || t.equals(":DateTime");
-      case StvnSeq ignored -> t.equals(":Seq") || t.equals(":SeqNonEmpty");
-      case StvnSet ignored -> t.equals(":Set") || t.equals(":SetNonEmpty");
+      case StvnDateTimeOffset ignored -> t.equals(":DateTimeOffset") || t.equals(StvnVocabulary.TYPE_DATE_TIME);
+      case StvnDateTimeZoned ignored -> t.equals(":DateTimeZoned") || t.equals(StvnVocabulary.TYPE_DATE_TIME);
+      case StvnDateTimeAudited ignored -> t.equals(":DateTimeAudited") || t.equals(StvnVocabulary.TYPE_DATE_TIME);
+      case StvnSeq ignored -> t.equals(StvnVocabulary.TYPE_SEQ) || t.equals(":SeqNonEmpty");
+      case StvnSet ignored -> t.equals(StvnVocabulary.TYPE_SET) || t.equals(":SetNonEmpty");
       case StvnMap ignored -> KEYWORDS_MAP.contains(t);
-      case StvnTuple ignored -> t.equals(":Tuple");
+      case StvnTuple ignored -> t.equals(StvnVocabulary.TYPE_TUPLE);
       default -> false;
     };
   }
@@ -2126,7 +2127,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var baseType = StvnTypeResolver.getPrimitiveBaseType(sumSchema.node());
     if (baseType == null) return 0;
 
-    if (baseType.equals(":Either")) {
+    if (baseType.equals(StvnVocabulary.TYPE_EITHER)) {
       if (candidates.size() >= 2) {
         boolean leftMatches = matchesSchema(val, candidates.get(0));
         boolean rightMatches = matchesSchema(val, candidates.get(1));
@@ -2141,7 +2142,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         }
       }
       return 0;
-    } else if (baseType.equals(":Union")) {
+    } else if (baseType.equals(StvnVocabulary.TYPE_UNION)) {
       int matchCount = 0;
       int matchedIndex = -1;
       for (var i = 0; i < candidates.size(); i++) {
@@ -2215,11 +2216,11 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
 
     var primBase = StvnTypeResolver.getPrimitiveBaseType(schema.node());
     if (primBase != null) {
-      if (primBase.equals(":Option")) {
+      if (primBase.equals(StvnVocabulary.TYPE_OPTION)) {
         var alreadyWrapped = (rawValue instanceof StvnOption opt && opt.schema() != null &&
             StvnTypeResolver.isSameSchemaNode(documentContext, opt.schema().node(), schema.node()));
         if (!alreadyWrapped) {
-          currentTrajectory.add(new VariantStep("#Some", true));
+          currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_SOME, true));
           try {
             return new StvnOption(schema, Optional.of(rawValue), List.copyOf(currentTrajectory));
           } finally {
@@ -2227,7 +2228,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           }
         }
       }
-      if (primBase.equals(":Either")) {
+      if (primBase.equals(StvnVocabulary.TYPE_EITHER)) {
         var alreadyWrapped = (rawValue instanceof StvnEither either && either.schema() != null &&
             StvnTypeResolver.isSameSchemaNode(documentContext, either.schema().node(), schema.node()));
         if (!alreadyWrapped) {
@@ -2244,8 +2245,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
               .map(tag -> tag == 1)
               .orElseGet(() -> findImplicitUnionTag(rawValue, schema) == 1);
           currentTrajectory.add(new VariantStep(isRight
-              ? "#Right"
-              : "#Left", true));
+              ? StvnVocabulary.VAL_RIGHT
+              : StvnVocabulary.VAL_LEFT, true));
           try {
             return new StvnEither(schema, rawValue, isRight, false, List.copyOf(currentTrajectory));
           } finally {
@@ -2253,7 +2254,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           }
         }
       }
-      if (primBase.equals(":Union")) {
+      if (primBase.equals(StvnVocabulary.TYPE_UNION)) {
         var alreadyWrapped = (rawValue instanceof StvnUnion union && union.schema() != null &&
             StvnTypeResolver.isSameSchemaNode(documentContext, union.schema().node(), schema.node()));
         if (!alreadyWrapped) {
@@ -2295,16 +2296,16 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   private ResolvedSchema resolveImplicitSumCandidate(StvnParser.ValueContext ctx, ResolvedSchema schema) {
     var baseType = StvnTypeResolver.getPrimitiveBaseType(schema.node());
     if (baseType == null) return schema;
-    if (baseType.equals(":Option") && ctx.explicitOptionValue() != null) {
+    if (baseType.equals(StvnVocabulary.TYPE_OPTION) && ctx.explicitOptionValue() != null) {
       return schema;
     }
-    if (baseType.equals(":Either") && ctx.explicitEitherValue() != null) {
+    if (baseType.equals(StvnVocabulary.TYPE_EITHER) && ctx.explicitEitherValue() != null) {
       return schema;
     }
-    if (baseType.equals(":Union") && ctx.explicitUnionValue() != null) {
+    if (baseType.equals(StvnVocabulary.TYPE_UNION) && ctx.explicitUnionValue() != null) {
       return schema;
     }
-    if (baseType.equals(":Union")) {
+    if (baseType.equals(StvnVocabulary.TYPE_UNION)) {
       if (ctx.collectionValue() != null && ctx.collectionValue().listLiteral() != null) {
         var list = ctx.collectionValue().listLiteral();
         if (list.value().size() == 2 && list.value(0).integerLiteral() != null) {
@@ -2312,7 +2313,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         }
       }
     }
-    if (baseType.equals(":Option") || baseType.equals(":Either") || baseType.equals(":Union")) {
+    if (baseType.equals(StvnVocabulary.TYPE_OPTION) || baseType.equals(StvnVocabulary.TYPE_EITHER) || baseType.equals(StvnVocabulary.TYPE_UNION)) {
       List<ResolvedSchema> candidates = StvnTypeResolver.resolveCandidateSchemas(documentContext, schema.node());
 
       var valType = StvnTypeResolver.LiteralType.UNKNOWN;
@@ -2333,7 +2334,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         literalText = ctx.start.getText();
       }
 
-      if (baseType.equals(":Either") && candidates.size() >= 2) {
+      if (baseType.equals(StvnVocabulary.TYPE_EITHER) && candidates.size() >= 2) {
         if (valType != StvnTypeResolver.LiteralType.EXPLICIT_OPTION_VALUE && valType != StvnTypeResolver.LiteralType.EXPLICIT_EITHER_VALUE) {
           if (StvnTypeResolver.isSameSchemaNode(documentContext, candidates.get(0).node(), candidates.get(1).node())) {
             var leftBase = StvnTypeResolver.getPrimitiveBaseType(candidates.getFirst().node());
@@ -2403,7 +2404,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
 
       if (matchCount > 1) {
-        if (baseType.equals(":Union")) {
+        if (baseType.equals(StvnVocabulary.TYPE_UNION)) {
           throw new org.stvnadore.core.validation.StvnCollectionCollisionException(
               "Ambiguous implicit resolution: Value matches multiple branches",
               ctx.start.getStartIndex(),
@@ -2443,13 +2444,13 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   private boolean isExplicitTagForSchema(String token, ResolvedSchema schema) {
     var baseType = StvnTypeResolver.getPrimitiveBaseType(schema.node());
     if (baseType == null) return false;
-    if (baseType.equals(":Option")) {
-      return token.equals("#Some") || token.equals("#S") || token.equals("#None") || token.equals("#N");
+    if (baseType.equals(StvnVocabulary.TYPE_OPTION)) {
+      return StvnVocabulary.OPTION_KEYWORDS.contains(token);
     }
-    if (baseType.equals(":Either")) {
-      return token.equals("#Left") || token.equals("#L") || token.equals("#Right") || token.equals("#R");
+    if (baseType.equals(StvnVocabulary.TYPE_EITHER)) {
+      return StvnVocabulary.EITHER_KEYWORDS.contains(token);
     }
-    if (baseType.equals(":Union")) {
+    if (baseType.equals(StvnVocabulary.TYPE_UNION)) {
       return token.startsWith("#") && token.length() > 1 && Character.isDigit(token.charAt(1));
     }
     return false;
@@ -2460,9 +2461,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     final var activeSchema = ensureSchema(schema);
     String effectiveBase = activeSchema.sumTypeNode()
         .map(sumNode -> {
-          if (sumNode.KW_OPTION() != null) return ":Option";
-          if (sumNode.KW_EITHER() != null) return ":Either";
-          if (sumNode.KW_UNION() != null) return ":Union";
+          if (sumNode.KW_OPTION() != null) return StvnVocabulary.TYPE_OPTION;
+          if (sumNode.KW_EITHER() != null) return StvnVocabulary.TYPE_EITHER;
+          if (sumNode.KW_UNION() != null) return StvnVocabulary.TYPE_UNION;
           return null;
         })
         .orElseGet(() -> {
@@ -2483,12 +2484,12 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         });
     if (effectiveBase == null) return;
 
-    if (effectiveBase.equals(":Option") || effectiveBase.equals(":Either") || effectiveBase.equals(":Union")) {
+    if (effectiveBase.equals(StvnVocabulary.TYPE_OPTION) || effectiveBase.equals(StvnVocabulary.TYPE_EITHER) || effectiveBase.equals(StvnVocabulary.TYPE_UNION)) {
       boolean isClashCandidate = false;
-      if (effectiveBase.equals(":Option")) {
-        isClashCandidate = token.equals("#Some") || token.equals("#S") || token.equals("#None") || token.equals("#N");
-      } else if (effectiveBase.equals(":Either")) {
-        isClashCandidate = token.equals("#Left") || token.equals("#L") || token.equals("#Right") || token.equals("#R");
+      if (effectiveBase.equals(StvnVocabulary.TYPE_OPTION)) {
+        isClashCandidate = StvnVocabulary.OPTION_KEYWORDS.contains(token);
+      } else if (effectiveBase.equals(StvnVocabulary.TYPE_EITHER)) {
+        isClashCandidate = StvnVocabulary.EITHER_KEYWORDS.contains(token);
       }
 
       if (isClashCandidate) {
@@ -2538,7 +2539,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var baseType = StvnTypeResolver.getPrimitiveBaseType(rootSchema.node());
     if (baseType == null) return val;
 
-    if (baseType.equals(":Option")) {
+    if (baseType.equals(StvnVocabulary.TYPE_OPTION)) {
       var alreadyWrapped = (val instanceof StvnOption opt && opt.schema() != null &&
           StvnTypeResolver.isSameSchemaNode(documentContext, opt.schema().node(), rootSchema.node()));
       if (alreadyWrapped) {
@@ -2560,7 +2561,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         return val;
       }
 
-      currentTrajectory.add(new VariantStep("#Some", true));
+      currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_SOME, true));
       try {
         var innerSchemas = StvnTypeResolver.getInnerSchemas(rootSchema.node());
         if (!innerSchemas.isEmpty()) {
@@ -2575,7 +2576,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
     }
 
-    if (baseType.equals(":Either")) {
+    if (baseType.equals(StvnVocabulary.TYPE_EITHER)) {
       var alreadyWrapped = (val instanceof StvnEither either && either.schema() != null &&
           StvnTypeResolver.isSameSchemaNode(documentContext, either.schema().node(), rootSchema.node()));
       if (alreadyWrapped) {
@@ -2633,7 +2634,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
 
       if (rightMatches) {
-        currentTrajectory.add(new VariantStep("#Right", true));
+        currentTrajectory.add(new VariantStep(StvnVocabulary.VAL_RIGHT, true));
         try {
           var wrappedVal = wrapValueInRootSchema(val, rightCand, startOffset, endOffset);
           return new StvnEither(rootSchema, wrappedVal, true, false, List.copyOf(currentTrajectory));
@@ -2649,7 +2650,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       );
     }
 
-    if (baseType.equals(":Union")) {
+    if (baseType.equals(StvnVocabulary.TYPE_UNION)) {
       var alreadyWrapped = (val instanceof StvnUnion union && union.schema() != null &&
           StvnTypeResolver.isSameSchemaNode(documentContext, union.schema().node(), rootSchema.node()));
       if (alreadyWrapped) {
@@ -2724,31 +2725,31 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   }
 
   private static boolean isIntType(String baseType) {
-    if (baseType.equals(":Int") || baseType.equals(":Uint")) return true;
-    if (baseType.startsWith(":Int") && isNumeric(baseType.substring(4))) return true;
+    if (baseType.equals(StvnVocabulary.TYPE_INT) || baseType.equals(":Uint")) return true;
+    if (baseType.startsWith(StvnVocabulary.TYPE_INT) && isNumeric(baseType.substring(StvnVocabulary.TYPE_INT.length()))) return true;
     if (baseType.startsWith(":Uint") && isNumeric(baseType.substring(5))) return true;
     return false;
   }
 
   private static boolean isTimeEpochType(String baseType) {
-    return baseType.equals(":TimeEpoch")
+    return baseType.equals(StvnVocabulary.TYPE_TIME_EPOCH)
         || baseType.equals(":TimeEpochS")
         || baseType.equals(":TimeEpochMs")
         || baseType.equals(":TimeEpochNs");
   }
 
   private static boolean isFloatType(String baseType) {
-    if (baseType.equals(":Float") || baseType.equals(":FloatExact")) return true;
-    if (baseType.startsWith(":Float") && isNumeric(baseType.substring(6))) return true;
+    if (baseType.equals(StvnVocabulary.TYPE_FLOAT) || baseType.equals(":FloatExact")) return true;
+    if (baseType.startsWith(StvnVocabulary.TYPE_FLOAT) && isNumeric(baseType.substring(StvnVocabulary.TYPE_FLOAT.length()))) return true;
     return false;
   }
 
   private static boolean isStringType(String baseType) {
-    if (baseType.equals(":String") || baseType.equals(":StringNonEmpty") || baseType.equals(":StringFixed"))
+    if (baseType.equals(StvnVocabulary.TYPE_STRING) || baseType.equals(":StringNonEmpty") || baseType.equals(":StringFixed"))
       return true;
     if (baseType.startsWith(":StringFixed") && isNumeric(baseType.substring(12))) return true;
     if (baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(15))) return true;
-    if (baseType.startsWith(":String") && !baseType.startsWith(":StringFixed") && !baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(7)))
+    if (baseType.startsWith(StvnVocabulary.TYPE_STRING) && !baseType.startsWith(":StringFixed") && !baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(StvnVocabulary.TYPE_STRING.length())))
       return true;
     return false;
   }
@@ -2758,7 +2759,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   }
 
   private static boolean isDateTimeType(@Nullable ResolvedSchema schema, String baseType) {
-    if (baseType.equals(":DateTime")
+    if (baseType.equals(StvnVocabulary.TYPE_DATE_TIME)
         || baseType.equals(":DateTimeOffset")
         || baseType.equals(":DateTimeZoned")
         || baseType.equals(":DateTimeAudited")
@@ -2766,7 +2767,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         || baseType.endsWith("/DateTime")) {
       return true;
     }
-    if (schema != null && (baseType.equals(":DateTime") || baseType.contains("DateTime"))) {
+    if (schema != null && (baseType.equals(StvnVocabulary.TYPE_DATE_TIME) || baseType.contains("DateTime"))) {
       if (schema.constraints() != null && (schema.constraints().offset() || schema.constraints().zoned() || schema.constraints().audited())) {
         return true;
       }

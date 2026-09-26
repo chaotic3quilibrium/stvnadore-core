@@ -143,4 +143,94 @@ class StvnVocabularyTest {
       assertNotNull(instance);
     });
   }
+
+  @Test
+  @DisplayName("TC-VOCAB-06: Assert IEEE-754 special floating-point literals")
+  void testIeee754SpecialFloatLiterals() {
+    assertEquals("NaN", StvnVocabulary.LITERAL_NAN);
+    assertEquals("+Infinity", StvnVocabulary.LITERAL_POS_INFINITY);
+    assertEquals("-Infinity", StvnVocabulary.LITERAL_NEG_INFINITY);
+    assertEquals("-0.0", StvnVocabulary.LITERAL_NEG_ZERO);
+  }
+
+  @Test
+  @DisplayName("TC-VOCAB-07: Assert punctuation and structural group delimiters")
+  void testPunctuationAndGroupDelimiters() {
+    assertEquals("{", StvnVocabulary.DELIM_OPEN_BRACE);
+    assertEquals("}", StvnVocabulary.DELIM_CLOSE_BRACE);
+    assertEquals("[", StvnVocabulary.DELIM_OPEN_BRACKET);
+    assertEquals("]", StvnVocabulary.DELIM_CLOSE_BRACKET);
+    assertEquals("(", StvnVocabulary.DELIM_OPEN_PAREN);
+    assertEquals(")", StvnVocabulary.DELIM_CLOSE_PAREN);
+    assertEquals(":", StvnVocabulary.DELIM_COLON);
+  }
+
+  @Test
+  @DisplayName("TC-VOCAB-08: Assert pre-baked canonical token sets immutability and membership")
+  void testPreBakedCanonicalTokenSets() {
+    // Boolean keywords
+    assertEquals(4, StvnVocabulary.BOOLEAN_KEYWORDS.size());
+    assertTrue(StvnVocabulary.BOOLEAN_KEYWORDS.contains("#TRUE"));
+    assertTrue(StvnVocabulary.BOOLEAN_KEYWORDS.contains("#FALSE"));
+    assertTrue(StvnVocabulary.BOOLEAN_KEYWORDS.contains("#T"));
+    assertTrue(StvnVocabulary.BOOLEAN_KEYWORDS.contains("#F"));
+    assertThrows(UnsupportedOperationException.class, () -> StvnVocabulary.BOOLEAN_KEYWORDS.add("#TEST"));
+
+    // Option keywords
+    assertEquals(4, StvnVocabulary.OPTION_KEYWORDS.size());
+    assertTrue(StvnVocabulary.OPTION_KEYWORDS.contains("#Some"));
+    assertTrue(StvnVocabulary.OPTION_KEYWORDS.contains("#None"));
+    assertTrue(StvnVocabulary.OPTION_KEYWORDS.contains("#S"));
+    assertTrue(StvnVocabulary.OPTION_KEYWORDS.contains("#N"));
+
+    // Either keywords
+    assertEquals(4, StvnVocabulary.EITHER_KEYWORDS.size());
+    assertTrue(StvnVocabulary.EITHER_KEYWORDS.contains("#Left"));
+    assertTrue(StvnVocabulary.EITHER_KEYWORDS.contains("#Right"));
+    assertTrue(StvnVocabulary.EITHER_KEYWORDS.contains("#L"));
+    assertTrue(StvnVocabulary.EITHER_KEYWORDS.contains("#R"));
+
+    // Control keywords (combined)
+    assertEquals(12, StvnVocabulary.CONTROL_KEYWORDS.size());
+    assertTrue(StvnVocabulary.CONTROL_KEYWORDS.containsAll(StvnVocabulary.BOOLEAN_KEYWORDS));
+    assertTrue(StvnVocabulary.CONTROL_KEYWORDS.containsAll(StvnVocabulary.OPTION_KEYWORDS));
+    assertTrue(StvnVocabulary.CONTROL_KEYWORDS.containsAll(StvnVocabulary.EITHER_KEYWORDS));
+  }
+
+  @Test
+  @DisplayName("TC-VOCAB-09: Automated Grep Sweep Quality Gate asserting zero hardcoded string literals")
+  void testZeroHardcodedStringLiteralsQualityGate() throws java.io.IOException {
+    java.nio.file.Path mainJava = java.nio.file.Path.of("src/main/java");
+    if (!java.nio.file.Files.exists(mainJava)) return;
+
+    java.util.regex.Pattern forbiddenLiterals = java.util.regex.Pattern.compile(
+        "\"(:Int|:Float|:String|:Boolean|:TimeEpoch|:DateTime|:Seq|:Set|:Map|:Tuple|:Option|:Either|:Union|:Enum|:MapEntry|:defs|:type|:body|:include|:package|:use)\""
+    );
+
+    try (var stream = java.nio.file.Files.walk(mainJava)) {
+      var violations = stream
+          .filter(p -> p.toString().endsWith(".java"))
+          .filter(p -> !p.endsWith("StvnVocabulary.java"))
+          .filter(p -> !p.endsWith("StvnErrorListener.java"))
+          .flatMap(p -> {
+            try {
+              var lines = java.nio.file.Files.readAllLines(p);
+              return java.util.stream.IntStream.range(0, lines.size())
+                  .filter(idx -> {
+                    String line = lines.get(idx).trim();
+                    if (line.startsWith("//") || line.startsWith("*") || line.startsWith("/*")) {
+                      return false;
+                    }
+                    return forbiddenLiterals.matcher(line).find();
+                  })
+                  .mapToObj(idx -> p + ":" + (idx + 1) + ": " + lines.get(idx).trim());
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          })
+          .toList();
+
+      assertTrue(violations.isEmpty(), "Zero-Leak Quality Gate failed! Discovered hardcoded string literals:\n" + String.join("\n", violations));
+    }
+  }
 }

@@ -1,6 +1,7 @@
 package org.stvnadore.core.printer.internal;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue.FloatPrecision;
 import org.stvnadore.core.printer.PrinterOptions;
 
@@ -55,12 +56,12 @@ public final class PrettyLayoutWriter implements LayoutWriter {
     writeIndentIfNeeded();
     if (style == PrinterOptions.SymbolStyle.LONG_FORM) {
       writer.write(val
-          ? "#TRUE"
-          : "#FALSE");
+          ? StvnVocabulary.VAL_TRUE
+          : StvnVocabulary.VAL_FALSE);
     } else {
       writer.write(val
-          ? "#T"
-          : "#F");
+          ? StvnVocabulary.VAL_TRUE_SHORT
+          : StvnVocabulary.VAL_FALSE_SHORT);
     }
   }
 
@@ -113,27 +114,27 @@ public final class PrettyLayoutWriter implements LayoutWriter {
   @Override
   public void openOptionSomeTag(PrinterOptions.SymbolStyle style) throws IOException {
     openTag(style == PrinterOptions.SymbolStyle.LONG_FORM
-        ? "#Some"
-        : "#S");
+        ? StvnVocabulary.VAL_SOME
+        : StvnVocabulary.VAL_SOME_SHORT);
   }
 
   @Override
   public void writeOptionNone(PrinterOptions.SymbolStyle style) throws IOException {
     writeEnumKeyword(style == PrinterOptions.SymbolStyle.LONG_FORM
-        ? "#None"
-        : "#N");
+        ? StvnVocabulary.VAL_NONE
+        : StvnVocabulary.VAL_NONE_SHORT);
   }
 
   @Override
   public void openEitherTag(boolean isRight, PrinterOptions.SymbolStyle style) throws IOException {
     if (isRight) {
       openTag(style == PrinterOptions.SymbolStyle.LONG_FORM
-          ? "#Right"
-          : "#R");
+          ? StvnVocabulary.VAL_RIGHT
+          : StvnVocabulary.VAL_RIGHT_SHORT);
     } else {
       openTag(style == PrinterOptions.SymbolStyle.LONG_FORM
-          ? "#Left"
-          : "#L");
+          ? StvnVocabulary.VAL_LEFT
+          : StvnVocabulary.VAL_LEFT_SHORT);
     }
   }
 

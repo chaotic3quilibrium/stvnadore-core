@@ -62,20 +62,20 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
   @Override
   public void print(StvnValue value, Writer target) throws IOException {
     var layout = new CanonicalLayoutWriter(target);
-    layout.openGroup("{");
+    layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
 
     var schema = value.schema();
     List<ResolvedCanonicalDefinition> defs = StvnCanonicalDefinitionsResolver.resolveDefinitions(value);
     if (!defs.isEmpty()) {
       layout.writeLiteral(StvnVocabulary.KEYWORD_DEFS);
-      layout.openGroup("{");
+      layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
 
       for (var s : defs) {
         layout.writeLiteral(s.canonicalName());
 
         var constraints = s.constraints();
         if (!isConstraintsEmpty(constraints)) {
-          layout.openGroup("{");
+          layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
 
           // Tier 1: Flags & Intrinsic Modes (Bare flags without #TRUE)
           if (constraints.unsigned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_UNSIGNED)) {
@@ -168,29 +168,29 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
           var filterIncl = constraints.filterIncl().orElse(null);
           if (filterIncl != null) {
             layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_INCL);
-            layout.openGroup("[");
+            layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
             for (String v : filterIncl) {
               layout.writeLiteral(v);
             }
-            layout.closeGroup("]");
+            layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
           }
           var filterExcl = constraints.filterExcl().orElse(null);
           if (filterExcl != null) {
             layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_EXCL);
-            layout.openGroup("[");
+            layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
             for (String v : filterExcl) {
               layout.writeLiteral(v);
             }
-            layout.closeGroup("]");
+            layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
           }
 
-          layout.closeGroup("}");
+          layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
         }
 
         writeSchemaType(s.schemaNode(), layout, s.lexicalContext());
       }
 
-      layout.closeGroup("}");
+      layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
     }
 
     layout.writeLiteral(StvnVocabulary.KEYWORD_TYPE);
@@ -243,48 +243,48 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
       } else if (ctor.collectionType() != null) {
         var col = ctor.collectionType();
         layout.writeLiteral(resolveCollectionType(col));
-        layout.openGroup("(");
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
         for (var st : col.schemaType()) {
           writeSchemaType(st, layout, lexicalContext);
         }
-        layout.closeGroup(")");
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
       } else if (ctor.productType() != null) {
         var prod = ctor.productType();
         if (prod instanceof StvnParser.TupleTypeContext tt) {
-          layout.writeLiteral(":Tuple");
-          layout.openGroup("(");
+          layout.writeLiteral(StvnVocabulary.TYPE_TUPLE);
+          layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
           for (var st : tt.schemaType()) {
             writeSchemaType(st, layout, lexicalContext);
           }
-          layout.closeGroup(")");
+          layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
         }
       } else if (ctor.sumType() != null) {
         var sum = ctor.sumType();
         if (sum.KW_OPTION() != null) {
-          layout.writeLiteral(":Option");
-          layout.openGroup("(");
+          layout.writeLiteral(StvnVocabulary.TYPE_OPTION);
+          layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
           writeSchemaType(sum.schemaType(0), layout, lexicalContext);
-          layout.closeGroup(")");
+          layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
         } else if (sum.KW_EITHER() != null) {
-          layout.writeLiteral(":Either");
-          layout.openGroup("(");
+          layout.writeLiteral(StvnVocabulary.TYPE_EITHER);
+          layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
           writeSchemaType(sum.schemaType(0), layout, lexicalContext);
           writeSchemaType(sum.schemaType(1), layout, lexicalContext);
-          layout.closeGroup(")");
+          layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
         } else if (sum.KW_UNION() != null) {
-          layout.writeLiteral(":Union");
-          layout.openGroup("(");
+          layout.writeLiteral(StvnVocabulary.TYPE_UNION);
+          layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
           for (var st : sum.schemaType()) {
             writeSchemaType(st, layout, lexicalContext);
           }
-          layout.closeGroup(")");
+          layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
         } else if (sum.KW_ENUM() != null) {
-          layout.writeLiteral(":Enum");
-          layout.openGroup("[");
+          layout.writeLiteral(StvnVocabulary.TYPE_ENUM);
+          layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
           for (var kw : sum.enumDef().valueKeyword()) {
             layout.writeLiteral(kw.getText());
           }
-          layout.closeGroup("]");
+          layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
         }
       }
     }
@@ -298,13 +298,13 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
 
       case StvnFloat f -> {
         if (f.isNaN()) {
-          layout.writeLiteral("NaN");
+          layout.writeLiteral(StvnVocabulary.LITERAL_NAN);
         } else if (f.isPositiveInfinity()) {
-          layout.writeLiteral("+Infinity");
+          layout.writeLiteral(StvnVocabulary.LITERAL_POS_INFINITY);
         } else if (f.isNegativeInfinity()) {
-          layout.writeLiteral("-Infinity");
+          layout.writeLiteral(StvnVocabulary.LITERAL_NEG_INFINITY);
         } else if (f.isNegativeZero()) {
-          layout.writeLiteral("-0.0");
+          layout.writeLiteral(StvnVocabulary.LITERAL_NEG_ZERO);
         } else {
           layout.writeFloat(f.value(), f.precision());
         }
@@ -345,38 +345,38 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
       case StvnEnum(var schema, var keyword, var seqIndex, var varCount) -> layout.writeEnumKeyword(keyword);
 
       case StvnSeq(var schema, var elements, var isNonEmpty) -> {
-        layout.openGroup("[");
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
         for (var el : elements) {
           writeValue(el, layout);
         }
-        layout.closeGroup("]");
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
       }
 
       case StvnSet(var schema, var elements, var isNonEmpty) -> {
-        layout.openGroup("[");
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
         for (var el : elements) {
           writeValue(el, layout);
         }
-        layout.closeGroup("]");
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
       }
 
       case StvnTuple(var schema, var elements) -> {
-        layout.openGroup("(");
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
         for (var el : elements) {
           writeValue(el, layout);
         }
-        layout.closeGroup(")");
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
       }
 
       case StvnMap(var schema, var entries, var isNonEmpty, var isInvertible) -> {
-        layout.openGroup("{");
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
         for (var entry : entries.entrySet()) {
-          layout.openGroup("[");
+          layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
           writeValue(entry.getKey(), layout);
           writeValue(entry.getValue(), layout);
-          layout.closeGroup("]");
+          layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
         }
-        layout.closeGroup("}");
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
       }
 
       case StvnOption(var schema, var valueOpt, var trajectory) -> {
@@ -433,15 +433,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
     }
   }
 
-  private static final java.util.Set<String> CONTROL_KEYWORD = java.util.Set.of(
-      "#None", "#N",
-      "#Some", "#S",
-      "#Left", "#L",
-      "#Right", "#R",
-      "#TRUE", "#T",
-      "#FALSE", "#F");
-
   private static boolean isControlKeyword(String s) {
-    return CONTROL_KEYWORD.contains(s);
+    return StvnVocabulary.CONTROL_KEYWORDS.contains(s);
   }
 }
