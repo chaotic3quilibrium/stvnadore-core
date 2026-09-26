@@ -69,4 +69,34 @@ public class StvnCoordinateSpanPinningTest {
     assertEquals(expectedStart, diag.startOffset(), "Start offset must match '#maxIncl'");
     assertEquals(expectedEnd, diag.endOffset(), "End offset must match end of '65535'");
   }
+
+  @Test
+  @DisplayName("TC-SPAN-04: Bare hash comment pins strictly to single character [offset, offset + 1)")
+  void testBareHashCoordinatePinning() throws java.io.IOException {
+    String source = java.nio.file.Files.readString(
+        java.nio.file.Path.of("shared-fixtures/syntax/invalid/lexical/trap6_hash_comment.stvn")
+    );
+    var result = StvnCompiler.compileToResult(source);
+    assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    int expectedStart = source.indexOf('#');
+    assertEquals(expectedStart, diag.startOffset(), "Start offset must pinpoint bare hash character");
+    assertEquals(expectedStart + 1, diag.endOffset(), "End offset must span exactly 1 character");
+    assertEquals(DiagnosticBag.ERR_BARE_HASH_PROHIBITED, diag.errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-SPAN-05: Infix colon pins strictly to single character [offset, offset + 1)")
+  void testInfixColonCoordinatePinning() throws java.io.IOException {
+    String source = java.nio.file.Files.readString(
+        java.nio.file.Path.of("shared-fixtures/syntax/invalid/lexical/trap7_infix_colon.stvn")
+    );
+    var result = StvnCompiler.compileToResult(source);
+    assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    int colonOffset = source.indexOf(" : ") + 1; // Offset of bare infix colon
+    assertEquals(colonOffset, diag.startOffset(), "Start offset must pinpoint bare colon character");
+    assertEquals(colonOffset + 1, diag.endOffset(), "End offset must span exactly 1 character");
+    assertEquals(DiagnosticBag.ERR_BARE_COLON_PROHIBITED, diag.errorCode().orElse(null));
+  }
 }

@@ -113,7 +113,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
           // Tier 2: Temporal Scale
           var scale = constraints.scale().orElse(null);
           if (scale != null) {
-            layout.writeLiteral(scale.startsWith("#") ? scale : ("#" + scale));
+            layout.writeLiteral(scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale : (StvnVocabulary.SIGIL_VALUE + scale));
           }
 
           // Tier 3: Dimensions & Capacity

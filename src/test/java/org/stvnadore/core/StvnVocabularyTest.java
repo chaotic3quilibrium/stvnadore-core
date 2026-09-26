@@ -154,7 +154,7 @@ class StvnVocabularyTest {
   }
 
   @Test
-  @DisplayName("TC-VOCAB-07: Assert punctuation and structural group delimiters")
+  @DisplayName("TC-VOCAB-07: Assert exhaustive structural group delimiters")
   void testPunctuationAndGroupDelimiters() {
     assertEquals("{", StvnVocabulary.DELIM_OPEN_BRACE);
     assertEquals("}", StvnVocabulary.DELIM_CLOSE_BRACE);
@@ -162,11 +162,27 @@ class StvnVocabularyTest {
     assertEquals("]", StvnVocabulary.DELIM_CLOSE_BRACKET);
     assertEquals("(", StvnVocabulary.DELIM_OPEN_PAREN);
     assertEquals(")", StvnVocabulary.DELIM_CLOSE_PAREN);
-    assertEquals(":", StvnVocabulary.DELIM_COLON);
+    assertEquals(6, StvnVocabulary.STRUCTURAL_DELIMITERS.size());
+    assertTrue(StvnVocabulary.STRUCTURAL_DELIMITERS.contains("{"));
+    assertTrue(StvnVocabulary.STRUCTURAL_DELIMITERS.contains("}"));
+    assertTrue(StvnVocabulary.STRUCTURAL_DELIMITERS.contains("["));
+    assertTrue(StvnVocabulary.STRUCTURAL_DELIMITERS.contains("]"));
+    assertTrue(StvnVocabulary.STRUCTURAL_DELIMITERS.contains("("));
+    assertTrue(StvnVocabulary.STRUCTURAL_DELIMITERS.contains(")"));
+    assertFalse(StvnVocabulary.STRUCTURAL_DELIMITERS.contains(":"), "Colons must never be classified as delimiters");
+    assertFalse(StvnVocabulary.STRUCTURAL_DELIMITERS.contains("#"), "Hashes must never be classified as delimiters");
   }
 
   @Test
-  @DisplayName("TC-VOCAB-08: Assert pre-baked canonical token sets immutability and membership")
+  @DisplayName("TC-VOCAB-08: Assert dual-track bound prefix sigils")
+  void testDualTrackPrefixSigils() {
+    assertEquals(":", StvnVocabulary.SIGIL_TYPIC);
+    assertEquals("#", StvnVocabulary.SIGIL_VALUE);
+    assertThrows(NoSuchFieldException.class, () -> StvnVocabulary.class.getField("DELIM_COLON"));
+  }
+
+  @Test
+  @DisplayName("TC-VOCAB-09: Assert pre-baked canonical token sets immutability and membership")
   void testPreBakedCanonicalTokenSets() {
     // Boolean keywords
     assertEquals(4, StvnVocabulary.BOOLEAN_KEYWORDS.size());
@@ -198,7 +214,7 @@ class StvnVocabularyTest {
   }
 
   @Test
-  @DisplayName("TC-VOCAB-09: Automated Grep Sweep Quality Gate asserting zero hardcoded string literals")
+  @DisplayName("TC-VOCAB-10: Automated Grep Sweep Quality Gate asserting zero hardcoded string literals")
   void testZeroHardcodedStringLiteralsQualityGate() throws java.io.IOException {
     java.nio.file.Path mainJava = java.nio.file.Path.of("src/main/java");
     if (!java.nio.file.Files.exists(mainJava)) return;

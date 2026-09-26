@@ -204,7 +204,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
                 layout.newline();
               }
               firstC = false;
-              String scaleKw = scale.startsWith("#") ? scale : "#" + scale;
+              String scaleKw = scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale : StvnVocabulary.SIGIL_VALUE + scale;
               layout.writeLiteral(scaleKw);
             }
 

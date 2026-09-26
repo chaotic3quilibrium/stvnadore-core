@@ -76,6 +76,8 @@ public final class StvnErrorListener extends BaseErrorListener {
     int startOffset = -1;
     int endOffset = -1;
     Token offendingToken = null;
+    boolean isBareColon = false;
+    boolean isBareHash = false;
 
     if (offendingSymbol instanceof Token token) {
       offendingToken = token;
@@ -83,6 +85,11 @@ public final class StvnErrorListener extends BaseErrorListener {
       endOffset = token.getType() == Token.EOF
           ? startOffset
           : Math.max(startOffset + 1, token.getStopIndex() + 1);
+      if (":".equals(token.getText())) {
+        isBareColon = true;
+      } else if ("#".equals(token.getText())) {
+        isBareHash = true;
+      }
     } else if (recognizer instanceof org.antlr.v4.runtime.Lexer lexerRec) {
       if (e instanceof org.antlr.v4.runtime.LexerNoViableAltException lnvae && lnvae.getStartIndex() >= 0) {
         startOffset = lnvae.getStartIndex();
@@ -118,9 +125,16 @@ public final class StvnErrorListener extends BaseErrorListener {
 
       endOffset = Math.min(matchedEnd, eol);
 
-      // Specifically clamp bare '#' to exactly 1 character
-      if (startOffset >= 0 && startOffset < source.length() && source.charAt(startOffset) == '#') {
-        endOffset = startOffset + 1;
+      // Specifically clamp bare '#' and bare ':' to exactly 1 character
+      if (startOffset >= 0 && startOffset < source.length()) {
+        char c = source.charAt(startOffset);
+        if (c == '#') {
+          endOffset = startOffset + 1;
+          isBareHash = true;
+        } else if (c == ':') {
+          endOffset = startOffset + 1;
+          isBareColon = true;
+        }
       }
 
       if (endOffset <= startOffset) {
@@ -133,6 +147,10 @@ public final class StvnErrorListener extends BaseErrorListener {
     Optional<String> errorCode = Optional.of("STVN_SYNTAX_ERROR");
     if (offendingToken != null && offendingToken.getType() == StvnLexer.TAB_CHARACTER) {
       errorCode = Optional.of(DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN);
+    } else if (isBareColon || sanitizedMessage.contains("': '")) {
+      errorCode = Optional.of(DiagnosticBag.ERR_BARE_COLON_PROHIBITED);
+    } else if (isBareHash || sanitizedMessage.contains("'# '")) {
+      errorCode = Optional.of(DiagnosticBag.ERR_BARE_HASH_PROHIBITED);
     } else if (sanitizedMessage.contains(RULE_STR_04_ARROW_DEPRECATION_MSG)
         || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().startsWith("\"\"\"->["))) {
       errorCode = Optional.of(DiagnosticBag.ERR_DEPRECATED_FENCE_ARROW);

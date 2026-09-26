@@ -2451,7 +2451,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       return StvnVocabulary.EITHER_KEYWORDS.contains(token);
     }
     if (baseType.equals(StvnVocabulary.TYPE_UNION)) {
-      return token.startsWith("#") && token.length() > 1 && Character.isDigit(token.charAt(1));
+      return token.startsWith(StvnVocabulary.SIGIL_VALUE) && token.length() > 1 && Character.isDigit(token.charAt(1));
     }
     return false;
   }

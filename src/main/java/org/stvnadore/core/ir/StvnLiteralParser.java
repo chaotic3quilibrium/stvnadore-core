@@ -7,6 +7,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.stvnadore.core.StvnVocabulary;
 
 /**
  * A utility class responsible for extracting pure Java values from raw STVN literal strings.
@@ -36,7 +37,7 @@ public final class StvnLiteralParser {
    * @throws IllegalArgumentException if {@code rawText} is null, empty, or does not match pattern {@code #[1-9][0-9]*}
    */
   public static int parseUnionTagIndex(String rawText) {
-    if (rawText == null || rawText.length() < 2 || !rawText.startsWith("#")) {
+    if (rawText == null || rawText.length() < 2 || !rawText.startsWith(StvnVocabulary.SIGIL_VALUE)) {
       throw new IllegalArgumentException("Rule G violation: Invalid union tag literal '" + rawText + "'");
     }
     int val = 0;

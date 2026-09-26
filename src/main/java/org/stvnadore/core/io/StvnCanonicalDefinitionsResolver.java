@@ -4,6 +4,7 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.parser.StvnParser.SchemaTypeContext;
@@ -113,7 +114,7 @@ public final class StvnCanonicalDefinitionsResolver {
 
     while (!worklist.isEmpty()) {
       String symbol = worklist.poll();
-      if (symbol.startsWith("#")) {
+      if (symbol.startsWith(StvnVocabulary.SIGIL_VALUE)) {
         ConstantDefSource cs = allConstants.get(symbol);
         if (cs != null) {
           ConstantDefinitionContext cNode = cs.defNode();
@@ -246,7 +247,7 @@ public final class StvnCanonicalDefinitionsResolver {
     if (node == null) return;
     if (node instanceof StvnParser.ValueKeywordContext vk) {
       String raw = vk.getText();
-      if (raw.startsWith("#")) {
+      if (raw.startsWith(StvnVocabulary.SIGIL_VALUE)) {
         String resolved = StvnTypeResolver.resolveConstantIdentifier(doc, raw, vk);
         sink.add(resolved);
       }

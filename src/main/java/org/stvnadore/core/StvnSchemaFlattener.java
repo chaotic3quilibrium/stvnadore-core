@@ -666,7 +666,7 @@ public final class StvnSchemaFlattener {
               } else if (pe.constantDefinition() != null) {
                 var constDef = pe.constantDefinition();
                 String localName = constDef.valueKeyword().getText();
-                String fqni = "#" + pkgPrefix.substring(1) + "/" + localName.substring(1);
+                String fqni = StvnVocabulary.SIGIL_VALUE + pkgPrefix.substring(1) + "/" + localName.substring(1);
                 var existingClaims = constAccumulator.get(fqni);
                 if (existingClaims != null) {
                   for (var claim : existingClaims) {
@@ -876,7 +876,7 @@ public final class StvnSchemaFlattener {
       // Tier 2: Temporal Scale
       var scale = constraints.scale().orElse(null);
       if (scale != null) {
-        sb.append(" #").append(scale.startsWith("#") ? scale.substring(1) : scale);
+        sb.append(" ").append(StvnVocabulary.SIGIL_VALUE).append(scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale.substring(1) : scale);
       }
 
       // Tier 3: Dimensions & Capacity

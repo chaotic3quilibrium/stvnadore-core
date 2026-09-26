@@ -1,5 +1,6 @@
 package org.stvnadore.core.binary;
 
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.validation.StvnTypeResolver;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 import org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints;
@@ -248,7 +249,7 @@ public class StvnSchemaHasher {
       }
       constraints.scale().ifPresent(val -> {
         digest.update(PREFIX_SCALE);
-        String s = val.startsWith("#") ? val.substring(1) : val;
+        String s = val.startsWith(StvnVocabulary.SIGIL_VALUE) ? val.substring(1) : val;
         digest.update(s.getBytes(StandardCharsets.UTF_8));
       });
       if (constraints.offset()) {

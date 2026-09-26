@@ -281,9 +281,13 @@ When a lexer encounters a tab character, the lexer produces a `TAB_CHARACTER` to
 
 ---
 
-### 3.1 Hash Symbol (`#`) Semantic Taxonomy
+### 3.1 Dual-Track Sigils: Hash Symbol (`#`) Bound Value Sigil
 
-The hash character (`#`) is a dedicated structural token in STVN. It is **never** a comment delimiter. The lexer categorizes `#` tokens into five mutually exclusive semantic roles based on context:
+The hash character (`#`) is the canonical prefix sigil for the Value / Variable Track in STVN. It is **never** a comment delimiter or standalone operator. It must always attach directly to an identifier, keyword, or branch index without intervening whitespace. A standalone hash (`#`) is a fatal syntax error (`ERR_BARE_HASH_PROHIBITED`, `trap6_hash_comment.stvn`). Python/Shell-style hash comments are strictly prohibited; comments are exclusively C-style (`//`).
+
+The only structural grouping delimiters in STVN are `{`, `}`, `[`, `]`, `(`, and `)`. Delimitation between sibling values is exclusively whitespace (`[ \r\n]+`). Namespace hierarchy is delimited exclusively by the forward slash (`/`).
+
+The lexer categorizes `#` tokens into five mutually exclusive semantic roles based on context:
 
 | Category | Token Pattern | Canonical Form | Compressed Form | Context / Purpose |
 |:---|:---|:---|:---|:---|
@@ -295,12 +299,12 @@ The hash character (`#`) is a dedicated structural token in STVN. It is **never*
 
 ---
 
-### 3.2 Colon Symbol (`:`) Semantic Taxonomy
+### 3.2 Dual-Track Sigils: Colon Symbol (`:`) Bound Typic Sigil
 
-The colon character (`:`) is a dedicated **type-space and structural keyword prefix sigil**.
+The colon character (`:`) is the canonical prefix sigil for the Typic Track in STVN.
 
-* **The Leading Prefix Rule:** The colon **must always** be attached directly as a prefix to an identifier (e.g., `:type`, `:Int`, `:UserAccount`).
-* **The No-Infix Rule:** The colon is **never** used as an infix punctuation mark, key-value separator (JSON/YAML style), or statement terminator. A bare colon token `:` is a fatal lexical error.
+* **The Leading Prefix Rule:** The colon **must always** be attached directly as a prefix to an identifier (e.g., `:type`, `:Int`, `:UserAccount`) without intervening whitespace.
+* **The No-Infix Rule:** The colon is **never** a structural delimiter, infix punctuation mark, key-value separator (JSON/YAML style), or statement terminator. A standalone colon token `:` is a fatal lexical error (`ERR_BARE_COLON_PROHIBITED`, `trap7_infix_colon.stvn`). Sibling elements delimit strictly with whitespace; grouping delimits strictly with braces, brackets, and parentheses.
 
 | Category | Token Pattern | Examples | Context / Purpose |
 |:---|:---|:---|:---|
@@ -321,8 +325,8 @@ The colon character (`:`) is a dedicated **type-space and structural keyword pre
 :body ( "localhost" 8080 )
 
 // INVALID: Colon as JSON-style key-value separator
-"host": "localhost"     // FATAL: Lexical/Parse error (bare colon infix separator prohibited)
-port: 8080              // FATAL: Lexical/Parse error (bare colon infix separator prohibited)
+"host": "localhost"     // FATAL: Lexical/Parse error (bare colon infix separator prohibited: ERR_BARE_COLON_PROHIBITED)
+port: 8080              // FATAL: Lexical/Parse error (bare colon infix separator prohibited: ERR_BARE_COLON_PROHIBITED)
 ```
 
 ---

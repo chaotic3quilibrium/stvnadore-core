@@ -310,7 +310,7 @@ public class StvnTypeResolver {
     }
     // 3. Enclosing :package prefix check for sibling definitions
     if (env.packagePath().isPresent()) {
-      String localSuffix = kw.startsWith(":") ? kw.substring(1) : kw;
+      String localSuffix = kw.startsWith(StvnVocabulary.SIGIL_TYPIC) ? kw.substring(1) : kw;
       String siblingFqni = env.packagePath().get() + "/" + localSuffix;
       if (findDefInDocument(doc, siblingFqni).isPresent()) {
         return siblingFqni;
@@ -351,8 +351,8 @@ public class StvnTypeResolver {
     }
     // 3. Enclosing :package prefix check for sibling constants
     if (env.packagePath().isPresent()) {
-      String localSuffix = kw.startsWith("#") ? kw.substring(1) : kw;
-      String siblingFqni = "#" + env.packagePath().get().substring(1) + "/" + localSuffix;
+      String localSuffix = kw.startsWith(StvnVocabulary.SIGIL_VALUE) ? kw.substring(1) : kw;
+      String siblingFqni = StvnVocabulary.SIGIL_VALUE + env.packagePath().get().substring(1) + "/" + localSuffix;
       if (findConstantDefInDocument(doc, siblingFqni).isPresent()) {
         return siblingFqni;
       }
@@ -792,7 +792,7 @@ public class StvnTypeResolver {
       } else if (pe.constantDefinition() != null) {
         var constDef = pe.constantDefinition();
         var localName = constDef.valueKeyword().getText();
-        var fqni = "#" + pkgPath.substring(1) + "/" + localName.substring(1);
+        var fqni = StvnVocabulary.SIGIL_VALUE + pkgPath.substring(1) + "/" + localName.substring(1);
         var existingClaims = constAccumulator.get(fqni);
         if (existingClaims != null) {
           var hasLocal = false;
@@ -918,7 +918,7 @@ public class StvnTypeResolver {
       }
 
       // Constants matching target
-      String constTarget = "#" + (target.startsWith(":") ? target.substring(1) : target);
+      String constTarget = StvnVocabulary.SIGIL_VALUE + (target.startsWith(StvnVocabulary.SIGIL_TYPIC) ? target.substring(1) : target);
       for (var entry : allConstants.entrySet()) {
         String fqni = entry.getKey();
         if (fqni.equals(constTarget) || fqni.startsWith(constTarget + "/")) {
@@ -3990,8 +3990,8 @@ public class StvnTypeResolver {
         } else if ("filterIncl".equals(facetName) || "filterExcl".equals(facetName)) {
           message = "Constraint violation (" + name + "): facet '" + facetName + "' is not permitted on " + normalizedBase + "; filter facets are permitted strictly on nominal aliases of :Enum and enum subsets";
         } else {
-          message = "Constraint violation (" + name + "): facet '#" + facetName + "' is not permitted on " + normalizedBase +
-              "; permitted facets: " + permitted.stream().map(f -> "#" + f).toList();
+          message = "Constraint violation (" + name + "): facet '" + StvnVocabulary.SIGIL_VALUE + facetName + "' is not permitted on " + normalizedBase +
+              "; permitted facets: " + permitted.stream().map(f -> StvnVocabulary.SIGIL_VALUE + f).toList();
         }
 
         diagnosticBag.addError(
@@ -4750,7 +4750,7 @@ public class StvnTypeResolver {
     if (kw == null) {
       return null;
     }
-    String unqualified = kw.contains("/") ? (":" + kw.substring(kw.lastIndexOf('/') + 1)) : kw;
+    String unqualified = kw.contains("/") ? (StvnVocabulary.SIGIL_TYPIC + kw.substring(kw.lastIndexOf('/') + 1)) : kw;
     if (unqualified.matches("^:Int[0-9]+$")) {
       String width = unqualified.substring(4);
       return "Compound integer keyword '" + unqualified + "' is deprecated in 2.0.0; use '{ #size " + width + " } :Int'";

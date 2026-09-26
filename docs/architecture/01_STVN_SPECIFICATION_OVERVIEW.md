@@ -32,15 +32,24 @@
 Strongly Typed Value Notation (STVN) partitions identifiers, tokens, and type constructors into two distinct physical tracks:
 
 1. **The Typic Track (`:`)**:
+   * The colon (`:`) is a bound prefix sigil attached directly to typic identifiers without intervening whitespace.
+   * It is **never** a delimiter or infix operator. Standalone colons (`ERR_BARE_COLON_PROHIBITED`) and JSON-style key-value colons (`trap7_infix_colon.stvn`) are fatal syntax errors.
    * All type constructors, nominal type declarations, structural annotations, and module keywords begin with a colon (`:`).
    * Examples: `:defs`, `:type`, `:body`, `:include`, `:package`, `:use`, `:Int`, `:Float`, `:String`, `:Boolean`, `:TimeEpoch`, `:DateTime`, `:Tuple`, `:Option`, `:Either`, `:Union`, `:Map`.
    * Type names support forward-slash namespaces (e.g., `:net/http/Status`). Under STVN root clearance guarantees, all standard domain and temporal types reside in `:org/stvnadore/prelude/*`. Bare unqualified references trigger `ERR_UNKNOWN_TYPE`.
 
 2. **The Variable / Value Track (`#`)**:
+   * The hash (`#`) is a bound prefix sigil attached directly to value identifiers without intervening whitespace.
+   * It is **never** a delimiter or comment marker. Standalone hashes (`ERR_BARE_HASH_PROHIBITED`) and shell-style hash comments (`trap6_hash_comment.stvn`) are fatal syntax errors.
    * All literal values, sum type algebraic tags, boolean literals, enum constants, and constant bindings begin with a hash (`#`).
    * Examples: `#TRUE`, `#FALSE`, `#Some`, `#None`, `#Left`, `#Right`, `#1`, `#2`, `#HTTP`, `#MAX_RETRY`.
    * Constant names support forward-slash namespaces (e.g., `#net/http/OK`).
    * Compile-time typed constant bindings in `:defs` bind immutable values: `#PORT { #unsigned #size 16 } :Int 8080`.
+
+3. **Exhaustive Structural Delimiters**:
+   * The *only* structural grouping delimiters in STVN are `{`, `}`, `[`, `]`, `(`, and `)`.
+   * Delimitation between sibling values is exclusively whitespace.
+   * Namespace hierarchy is delimited exclusively by the forward slash (`/`).
 
 ### Syntactic Comment Standard
 STVN strictly mandates single-line comments (`// ...`). Multi-line block comments (`/* ... */`) are strictly prohibited in the grammar to eliminate lexical ambiguity during single-pass streaming.

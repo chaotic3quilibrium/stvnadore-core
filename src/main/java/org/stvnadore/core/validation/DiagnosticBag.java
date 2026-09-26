@@ -82,6 +82,10 @@ public final class DiagnosticBag {
   public static final String ERR_MISSING_TEMPORAL_FACET = "ERR_MISSING_TEMPORAL_FACET";
   /** Error code emitted when a deprecated fenced string delimiter arrow is encountered under Rule STR-04. */
   public static final String ERR_DEPRECATED_FENCE_ARROW = "ERR_DEPRECATED_FENCE_ARROW";
+  /** Error code emitted when a standalone colon ':' is encountered (trap7_infix_colon). */
+  public static final String ERR_BARE_COLON_PROHIBITED = "ERR_BARE_COLON_PROHIBITED";
+  /** Error code emitted when a standalone hash '#' is encountered (trap6_hash_comment). */
+  public static final String ERR_BARE_HASH_PROHIBITED = "ERR_BARE_HASH_PROHIBITED";
 
   // Normative STVN 2.0.0 Standard Diagnostic Codes
   /** Error code emitted when a deprecated legacy compound type is declared (SPEC-01). */

@@ -320,7 +320,7 @@ public final class StvnVocabulary {
   public static final String LITERAL_NEG_ZERO = "-0.0";
 
   // ============================================================================
-  // 8. PUNCTUATION AND GROUP DELIMITERS
+  // 8. EXHAUSTIVE STRUCTURAL GROUP DELIMITERS
   // ============================================================================
 
   /** Canonical token for structural opening brace delimiter (<code>{</code>). */
@@ -341,11 +341,28 @@ public final class StvnVocabulary {
   /** Canonical token for structural closing parenthesis delimiter ({@code )}). */
   public static final String DELIM_CLOSE_PAREN = ")";
 
-  /** Canonical token for typic sigil and namespace delimiter ({@code :}). */
-  public static final String DELIM_COLON = ":";
+  /** Pre-baked unmodifiable set containing the exhaustive structural grouping delimiters: {, }, [, ], (, ). */
+  public static final Set<String> STRUCTURAL_DELIMITERS = Set.of(
+      DELIM_OPEN_BRACE,
+      DELIM_CLOSE_BRACE,
+      DELIM_OPEN_BRACKET,
+      DELIM_CLOSE_BRACKET,
+      DELIM_OPEN_PAREN,
+      DELIM_CLOSE_PAREN
+  );
 
   // ============================================================================
-  // 9. PRE-BAKED CANONICAL TOKEN SETS FOR FAST INTERCEPTION & LOOKUP
+  // 9. DUAL-TRACK BOUND PREFIX SIGILS
+  // ============================================================================
+
+  /** Canonical prefix sigil for the Typic Track (:). */
+  public static final String SIGIL_TYPIC = ":";
+
+  /** Canonical prefix sigil for the Value / Variable Track (#). */
+  public static final String SIGIL_VALUE = "#";
+
+  // ============================================================================
+  // 10. PRE-BAKED CANONICAL TOKEN SETS FOR FAST INTERCEPTION & LOOKUP
   // ============================================================================
 
   /** Pre-baked unmodifiable set containing all canonical and abbreviated boolean tokens. */
