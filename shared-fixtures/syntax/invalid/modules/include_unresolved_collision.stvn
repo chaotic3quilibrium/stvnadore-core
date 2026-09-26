@@ -4,8 +4,8 @@
 {
   :defs {
     :include [
-      "shared-fixtures/valid-syntax/module_a.stvn_incl"
-      "shared-fixtures/valid-syntax/module_b.stvn_incl"
+      "shared-fixtures/syntax/valid/modules/module_a.stvn_incl"
+      "shared-fixtures/syntax/valid/modules/module_b.stvn_incl"
     ]
   }
   :type :Boolean

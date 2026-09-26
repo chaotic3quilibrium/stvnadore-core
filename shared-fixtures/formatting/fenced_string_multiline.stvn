@@ -1,8 +1,0 @@
-{
-  :type :String
-  :body """[SQL]
-SELECT id, name
-  FROM accounts
- WHERE active = #TRUE;
-[SQL]"""
-}

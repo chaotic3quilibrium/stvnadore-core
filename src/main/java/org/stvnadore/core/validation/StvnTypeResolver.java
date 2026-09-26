@@ -227,13 +227,24 @@ public class StvnTypeResolver {
     if (Files.exists(includePath)) {
       return includePath;
     }
-    Path validPath = Paths.get("shared-fixtures/valid-syntax").resolve(includePathStr);
+    Path validPath = Paths.get("shared-fixtures/syntax/valid").resolve(includePathStr);
     if (Files.exists(validPath)) {
       return validPath;
     }
-    Path invalidPath = Paths.get("shared-fixtures/invalid-syntax").resolve(includePathStr);
+    Path invalidPath = Paths.get("shared-fixtures/syntax/invalid").resolve(includePathStr);
     if (Files.exists(invalidPath)) {
       return invalidPath;
+    }
+    String[] subdirs = {"modules", "composites", "scalars", "intervals", "cardinality", "facets", "lexical"};
+    for (String sub : subdirs) {
+      Path pValid = Paths.get("shared-fixtures/syntax/valid", sub).resolve(includePathStr);
+      if (Files.exists(pValid)) {
+        return pValid;
+      }
+      Path pInvalid = Paths.get("shared-fixtures/syntax/invalid", sub).resolve(includePathStr);
+      if (Files.exists(pInvalid)) {
+        return pInvalid;
+      }
     }
     return includePath;
   }

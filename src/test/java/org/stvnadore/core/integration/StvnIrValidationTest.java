@@ -28,7 +28,7 @@ import org.stvnadore.core.binary.exceptions.UnsupportedEncodingStrategyException
 @NullMarked
 public class StvnIrValidationTest {
 
-  private static final Path INVALID_FIXTURES_DIR = Paths.get("shared-fixtures/invalid-syntax");
+  private static final Path INVALID_FIXTURES_DIR = Paths.get("shared-fixtures/syntax/invalid");
   private static final boolean UPDATE_MODE = Boolean.getBoolean("updateSnapshots");
 
   public record ValidationTestCase(
@@ -330,7 +330,7 @@ public class StvnIrValidationTest {
       return Stream.empty();
     }
     try (Stream<Path> paths = Files.walk(INVALID_FIXTURES_DIR)) {
-      List<Path> binaryFiles = paths.filter(p -> p.toString().endsWith(".stvn_bin")).toList();
+      List<Path> binaryFiles = paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn_bin")).toList();
       return binaryFiles.stream().map(binPath -> {
         String baseName = binPath.getFileName().toString();
         String contractFileName = baseName.substring(0, baseName.lastIndexOf('.')) + ".contract.stvn";
@@ -346,7 +346,7 @@ public class StvnIrValidationTest {
       return Stream.empty();
     }
     try (Stream<Path> paths = Files.walk(INVALID_FIXTURES_DIR)) {
-      List<Path> targetFiles = paths.filter(p -> {
+      List<Path> targetFiles = paths.filter(Files::isRegularFile).filter(p -> {
         String s = p.toString();
         if (s.endsWith(".contract.stvn") || s.endsWith("error_contract.stvn_inclf") || s.endsWith(".stvn_ir") || s.endsWith(".stvn_bin")) {
           return false;
@@ -469,8 +469,8 @@ public class StvnIrValidationTest {
 
   @org.junit.jupiter.api.Test
   public void testIncludeLegal() throws Exception {
-    String input = java.nio.file.Files.readString(java.nio.file.Paths.get("shared-fixtures/valid-syntax/include_legal.stvn"));
-    var astOpt = StvnCompiler.compile(input, "shared-fixtures/valid-syntax/include_legal.stvn");
+    String input = java.nio.file.Files.readString(java.nio.file.Paths.get("shared-fixtures/syntax/valid/modules/include_legal.stvn"));
+    var astOpt = StvnCompiler.compile(input, "shared-fixtures/syntax/valid/modules/include_legal.stvn");
     Assertions.assertTrue(astOpt.isPresent());
     var ast = astOpt.get();
     Assertions.assertNotNull(ast);

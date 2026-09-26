@@ -4,10 +4,10 @@
 {
   :defs {
     :include [
-      "shared-fixtures/invalid-syntax/module_dual_a.stvn_incl" {
+      "shared-fixtures/syntax/invalid/modules/module_dual_a.stvn_incl" {
         :ConflictType :AliasA
       }
-      "shared-fixtures/invalid-syntax/module_dual_b.stvn_incl" {
+      "shared-fixtures/syntax/invalid/modules/module_dual_b.stvn_incl" {
         :ConflictType :AliasB
       }
     ]

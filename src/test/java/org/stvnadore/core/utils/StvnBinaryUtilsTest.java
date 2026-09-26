@@ -81,28 +81,28 @@ class StvnBinaryUtilsTest {
     buf.get(encoded);
 
     // Create directories
-    java.nio.file.Files.createDirectories(java.nio.file.Paths.get("shared-fixtures/valid-syntax"));
-    java.nio.file.Files.createDirectories(java.nio.file.Paths.get("shared-fixtures/invalid-syntax"));
+    java.nio.file.Files.createDirectories(java.nio.file.Paths.get("shared-fixtures/syntax/valid/scalars"));
+    java.nio.file.Files.createDirectories(java.nio.file.Paths.get("shared-fixtures/syntax/invalid/scalars"));
 
     // Write valid files
-    java.nio.file.Files.writeString(java.nio.file.Paths.get("shared-fixtures/valid-syntax/basic_boolean.stvn"), stvnStr);
-    java.nio.file.Files.write(java.nio.file.Paths.get("shared-fixtures/valid-syntax/basic_boolean.stvn_bin"), encoded);
+    java.nio.file.Files.writeString(java.nio.file.Paths.get("shared-fixtures/syntax/valid/scalars/basic_boolean.stvn"), stvnStr);
+    java.nio.file.Files.write(java.nio.file.Paths.get("shared-fixtures/syntax/valid/scalars/basic_boolean.stvn_bin"), encoded);
 
     // Write invalid files
     String invalidStvn = "// @spec: SPEC-01-SCALAR-KERNEL\n// @case: Negative - Reject integer value for boolean sequence\n// @error: TYPE_MISMATCH\n{\n  :type :Seq( :Boolean )\n  :body [ 1 ]\n}\n";
-    java.nio.file.Files.writeString(java.nio.file.Paths.get("shared-fixtures/invalid-syntax/boolean_truthiness_int.stvn"), invalidStvn);
+    java.nio.file.Files.writeString(java.nio.file.Paths.get("shared-fixtures/syntax/invalid/scalars/boolean_truthiness_int.stvn"), invalidStvn);
 
     String jsonManifest = "{\n" +
         "  \"expectedException\": \"org.stvnadore.core.validation.MalformedPayloadException\",\n" +
         "  \"errorMessageSubstring\": \"Type mismatch: Expected boolean, got integer\"\n" +
         "}\n";
-    java.nio.file.Files.writeString(java.nio.file.Paths.get("shared-fixtures/invalid-syntax/boolean_truthiness_int.json"), jsonManifest);
+    java.nio.file.Files.writeString(java.nio.file.Paths.get("shared-fixtures/syntax/invalid/scalars/boolean_truthiness_int.json"), jsonManifest);
 
     // Write negative binary fixtures
-    byte[] validCrcBytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("shared-fixtures/valid-syntax/crc32c_trailer_valid.stvn_bin"));
+    byte[] validCrcBytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("shared-fixtures/syntax/valid/scalars/crc32c_trailer_valid.stvn_bin"));
     byte[] tamperedBytes = validCrcBytes.clone();
     tamperedBytes[20] = (byte) (tamperedBytes[20] ^ 0x01);
-    java.nio.file.Files.write(java.nio.file.Paths.get("shared-fixtures/invalid-syntax/binary_crc32c_payload_tampered.stvn_bin"), tamperedBytes);
+    java.nio.file.Files.write(java.nio.file.Paths.get("shared-fixtures/syntax/invalid/scalars/binary_crc32c_payload_tampered.stvn_bin"), tamperedBytes);
 
     byte[] truncatedBytes = java.nio.ByteBuffer.allocate(6)
         .order(java.nio.ByteOrder.LITTLE_ENDIAN)
@@ -110,10 +110,10 @@ class StvnBinaryUtilsTest {
         .put((byte) 0x80)
         .put((byte) 0x00)
         .array();
-    java.nio.file.Files.write(java.nio.file.Paths.get("shared-fixtures/invalid-syntax/binary_crc32c_truncated.stvn_bin"), truncatedBytes);
+    java.nio.file.Files.write(java.nio.file.Paths.get("shared-fixtures/syntax/invalid/scalars/binary_crc32c_truncated.stvn_bin"), truncatedBytes);
 
     byte[] sentinelBytes = encoded.clone();
     sentinelBytes[4] = 0x70;
-    java.nio.file.Files.write(java.nio.file.Paths.get("shared-fixtures/invalid-syntax/binary_strategy_sentinel_0x7.stvn_bin"), sentinelBytes);
+    java.nio.file.Files.write(java.nio.file.Paths.get("shared-fixtures/syntax/invalid/scalars/binary_strategy_sentinel_0x7.stvn_bin"), sentinelBytes);
   }
 }

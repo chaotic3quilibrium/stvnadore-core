@@ -22,7 +22,7 @@ import org.stvnadore.core.parser.StvnParser.StvnDocumentContext;
  */
 public final class IrGeneratorUtility {
 
-  private static final Path FIXTURES_DIR = Paths.get("shared-fixtures/valid-syntax");
+  private static final Path FIXTURES_DIR = Paths.get("shared-fixtures/syntax/valid");
   private static final boolean UPDATE_MODE = Boolean.getBoolean("updateSnapshots");
 
   private IrGeneratorUtility() {
@@ -34,7 +34,7 @@ public final class IrGeneratorUtility {
     int processedCount = 0;
 
     try (Stream<Path> paths = Files.walk(FIXTURES_DIR)) {
-      List<Path> files = paths.filter(p -> p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_f")).toList();
+      List<Path> files = paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_f")).toList();
       for (Path file : files) {
         processFixture(file);
         processedCount++;

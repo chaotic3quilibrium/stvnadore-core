@@ -69,7 +69,7 @@ class StvnBinaryCrc32cTrailerTest {
   @Test
   @DisplayName("TC-CRC-02: CRC-32C across all scalar and collection types")
   void testCrc32cAcrossAllScalarAndCollectionTypes() throws IOException {
-    Path validFixturePath = Paths.get("shared-fixtures/valid-syntax/crc32c_trailer_valid.stvn");
+    Path validFixturePath = Paths.get("shared-fixtures/syntax/valid/scalars/crc32c_trailer_valid.stvn");
     String stvnContent = Files.readString(validFixturePath);
     var expectedIr = StvnCompiler.compile(stvnContent, validFixturePath.toString()).orElseThrow();
 
@@ -190,9 +190,10 @@ class StvnBinaryCrc32cTrailerTest {
   @Test
   @DisplayName("TC-CRC-09: Backward compatibility - all non-CRC valid fixtures parse without trailer")
   void testBackwardCompatibilityAll21FixturesWithoutTrailer() throws IOException {
-    Path validDir = Paths.get("shared-fixtures/valid-syntax");
+    Path validDir = Paths.get("shared-fixtures/syntax/valid");
     try (Stream<Path> stream = Files.walk(validDir)) {
       List<Path> nonCrcBins = stream
+          .filter(Files::isRegularFile)
           .filter(p -> p.toString().endsWith(".stvn_bin"))
           .filter(p -> !p.getFileName().toString().contains("crc32c"))
           .toList();

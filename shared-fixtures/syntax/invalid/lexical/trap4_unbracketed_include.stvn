@@ -3,7 +3,7 @@
 // @error: SYNTAX_ERROR
 {
   :defs {
-    :include "shared-fixtures/valid-syntax/module_a.stvn_incl"
+    :include "shared-fixtures/syntax/valid/modules/module_a.stvn_incl"
   }
   :type :Int
   :body 42
