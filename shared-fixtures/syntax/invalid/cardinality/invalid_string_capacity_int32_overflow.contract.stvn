@@ -1,7 +1,7 @@
 {
   // invalid_string_capacity_int32_overflow.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract

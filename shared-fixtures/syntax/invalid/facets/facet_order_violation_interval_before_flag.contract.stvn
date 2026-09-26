@@ -1,7 +1,7 @@
 {
   // facet_order_violation_interval_before_flag.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract

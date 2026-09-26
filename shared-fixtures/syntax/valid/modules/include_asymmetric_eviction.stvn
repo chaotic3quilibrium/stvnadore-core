@@ -3,10 +3,10 @@
 {
   :defs {
     :include [
-      "shared-fixtures/syntax/valid/modules/module_asym_a.stvn_incl" {
+      "./module_asym_a.stvn_incl" {
         :ConflictType :AliasedType
       }
-      "shared-fixtures/syntax/valid/modules/module_asym_b.stvn_incl"
+      "./module_asym_b.stvn_incl"
     ]
   }
   :type :Tuple( :AliasedType :ConflictType )

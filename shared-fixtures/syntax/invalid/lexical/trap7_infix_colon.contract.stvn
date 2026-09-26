@@ -1,7 +1,7 @@
 {
   // trap7_infix_colon.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract

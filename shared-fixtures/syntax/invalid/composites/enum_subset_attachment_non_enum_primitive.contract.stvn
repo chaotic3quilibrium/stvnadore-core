@@ -1,7 +1,7 @@
 {
   // enum_subset_attachment_non_enum_primitive.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract

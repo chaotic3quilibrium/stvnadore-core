@@ -1,7 +1,7 @@
 {
   // File: binary_strategy_sentinel_0x7.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract

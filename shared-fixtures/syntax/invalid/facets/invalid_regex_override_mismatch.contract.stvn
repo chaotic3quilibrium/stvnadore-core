@@ -1,7 +1,7 @@
 {
   // invalid_regex_override_mismatch.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract

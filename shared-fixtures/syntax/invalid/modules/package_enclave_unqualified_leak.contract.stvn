@@ -1,7 +1,7 @@
 {
   // package_enclave_unqualified_leak.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract

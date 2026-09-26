@@ -3,7 +3,7 @@
 {
   :defs {
     :include [
-      "shared-fixtures/syntax/valid/modules/module_local_a.stvn_incl"
+      "./module_local_a.stvn_incl"
     ]
     :ConflictType :Int
   }

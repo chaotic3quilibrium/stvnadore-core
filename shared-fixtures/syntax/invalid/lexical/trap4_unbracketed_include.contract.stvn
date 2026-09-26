@@ -1,7 +1,7 @@
 {
   // trap4_unbracketed_include.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract

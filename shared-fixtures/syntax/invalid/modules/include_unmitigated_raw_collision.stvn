@@ -4,8 +4,8 @@
 {
   :defs {
     :include [
-      "shared-fixtures/syntax/invalid/modules/module_raw_a.stvn_incl"
-      "shared-fixtures/syntax/invalid/modules/module_raw_b.stvn_incl"
+      "./module_raw_a.stvn_incl"
+      "./module_raw_b.stvn_incl"
     ]
   }
   :type :Int

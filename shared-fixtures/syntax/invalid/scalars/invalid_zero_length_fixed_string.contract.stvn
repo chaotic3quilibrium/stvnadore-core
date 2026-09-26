@@ -1,7 +1,7 @@
 {
   // invalid_zero_length_fixed_string.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract

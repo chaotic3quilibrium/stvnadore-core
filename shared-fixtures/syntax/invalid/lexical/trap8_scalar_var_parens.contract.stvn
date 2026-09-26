@@ -1,7 +1,7 @@
 {
   // trap8_scalar_var_parens.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract

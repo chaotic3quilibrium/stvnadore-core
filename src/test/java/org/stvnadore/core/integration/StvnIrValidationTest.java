@@ -130,7 +130,7 @@ public class StvnIrValidationTest {
             {
               // %s
               :defs {
-                :include [ "error_contract.stvn_inclf" ]
+                :include [ "../error_contract.stvn_inclf" ]
               }
 
               :type :ErrorContract
@@ -215,7 +215,7 @@ public class StvnIrValidationTest {
     Assertions.assertTrue(testCase.hasContract(), "Missing contract for binary fixture: " + testCase.stvnPath());
     byte[] bytes = Files.readAllBytes(testCase.stvnPath());
     String contractContent = Files.readString(testCase.contractPath());
-    var contractAst = StvnCompiler.compile(contractContent).orElseThrow();
+    var contractAst = StvnCompiler.compile(contractContent, testCase.contractPath().toString()).orElseThrow();
     var contract = StvnErrorContract.fromAst(contractAst);
 
     var thrown = Assertions.assertThrows(RuntimeException.class, () -> {

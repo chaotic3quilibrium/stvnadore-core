@@ -1,7 +1,7 @@
 {
   // trap3_trailing_metadata.contract.stvn
   :defs {
-    :include [ "error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_inclf" ]
   }
 
   :type :ErrorContract
