@@ -192,10 +192,10 @@ public class StvnDefinitionsOverhaulTest {
     String underflow = """
         {
           :defs {
-            :Uint3 { #unsigned #size 3 } :Int
-            #C1 :Uint3 -1
+            :U3 { #unsigned #size 3 } :Int
+            #C1 :U3 -1
           }
-          :type :Uint3
+          :type :U3
           :body 1
         }
         """;
@@ -203,15 +203,15 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res1.isSuccess());
     Assertions.assertTrue(res1.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal -1 out of range for :Uint3 [0, 7]")));
+        d.message().contains("Integer literal -1 out of range for :U3 [0, 7]")));
 
     String overflow = """
         {
           :defs {
-            :Uint3 { #unsigned #size 3 } :Int
-            #C2 :Uint3 8
+            :U3 { #unsigned #size 3 } :Int
+            #C2 :U3 8
           }
-          :type :Uint3
+          :type :U3
           :body 1
         }
         """;
@@ -219,7 +219,7 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res2.isSuccess());
     Assertions.assertTrue(res2.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal 8 out of range for :Uint3 [0, 7]")));
+        d.message().contains("Integer literal 8 out of range for :U3 [0, 7]")));
   }
 
   @Test
@@ -228,10 +228,10 @@ public class StvnDefinitionsOverhaulTest {
     String underflow = """
         {
           :defs {
-            :Int3 { #size 3 } :Int
-            #C1 :Int3 -5
+            :I3 { #size 3 } :Int
+            #C1 :I3 -5
           }
-          :type :Int3
+          :type :I3
           :body 1
         }
         """;
@@ -239,15 +239,15 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res1.isSuccess());
     Assertions.assertTrue(res1.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal -5 out of range for :Int3 [-4, 3]")));
+        d.message().contains("Integer literal -5 out of range for :I3 [-4, 3]")));
 
     String overflow = """
         {
           :defs {
-            :Int3 { #size 3 } :Int
-            #C2 :Int3 4
+            :I3 { #size 3 } :Int
+            #C2 :I3 4
           }
-          :type :Int3
+          :type :I3
           :body 1
         }
         """;
@@ -255,26 +255,26 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res2.isSuccess());
     Assertions.assertTrue(res2.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal 4 out of range for :Int3 [-4, 3]")));
+        d.message().contains("Integer literal 4 out of range for :I3 [-4, 3]")));
   }
 
   @Test
   @DisplayName("1-bit integer boundary conditions for constants")
   void test1BitBoundaryConditions() {
-    String b1 = "{ :defs { :Uint1 { #unsigned #size 1 } :Int #B1 :Uint1 1 } :type :Uint1 :body 0 }";
+    String b1 = "{ :defs { :U1 { #unsigned #size 1 } :Int #B1 :U1 1 } :type :U1 :body 0 }";
     Assertions.assertTrue(StvnCompiler.compileToResult(b1).isSuccess());
 
-    String b2 = "{ :defs { :Uint1 { #unsigned #size 1 } :Int #B2 :Uint1 2 } :type :Uint1 :body 0 }";
+    String b2 = "{ :defs { :U1 { #unsigned #size 1 } :Int #B2 :U1 2 } :type :U1 :body 0 }";
     var resB2 = StvnCompiler.compileToResult(b2);
     Assertions.assertFalse(resB2.isSuccess());
     Assertions.assertTrue(resB2.diagnostics().stream()
         .anyMatch(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null))),
         "Diagnostics for b2: " + resB2.diagnostics());
 
-    String s1 = "{ :defs { :Int1 { #size 1 } :Int #S1 :Int1 -1 } :type :Int1 :body 0 }";
+    String s1 = "{ :defs { :I1 { #size 1 } :Int #S1 :I1 -1 } :type :I1 :body 0 }";
     Assertions.assertTrue(StvnCompiler.compileToResult(s1).isSuccess());
 
-    String s2 = "{ :defs { :Int1 { #size 1 } :Int #S2 :Int1 1 } :type :Int1 :body 0 }";
+    String s2 = "{ :defs { :I1 { #size 1 } :Int #S2 :I1 1 } :type :I1 :body 0 }";
     var resS2 = StvnCompiler.compileToResult(s2);
     Assertions.assertFalse(resS2.isSuccess());
     Assertions.assertTrue(resS2.diagnostics().stream()
@@ -286,35 +286,35 @@ public class StvnDefinitionsOverhaulTest {
   @DisplayName("64-bit and 128-bit boundary conditions for constants")
   void test64BitAnd128BitBoundaryConditions() {
     // Uint64: max is 18446744073709551615
-    String u64Ok = "{ :defs { :Uint64 { #unsigned #size 64 } :Int #U :Uint64 18446744073709551615 } :type :Uint64 :body 0 }";
+    String u64Ok = "{ :defs { :U64 { #unsigned #size 64 } :Int #U :U64 18446744073709551615 } :type :U64 :body 0 }";
     Assertions.assertTrue(StvnCompiler.compileToResult(u64Ok).isSuccess());
 
-    String u64Fail = "{ :defs { :Uint64 { #unsigned #size 64 } :Int #U :Uint64 18446744073709551616 } :type :Uint64 :body 0 }";
+    String u64Fail = "{ :defs { :U64 { #unsigned #size 64 } :Int #U :U64 18446744073709551616 } :type :U64 :body 0 }";
     Assertions.assertTrue(StvnCompiler.compileToResult(u64Fail).diagnostics().stream()
         .anyMatch(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null))),
         "Diagnostics for u64Fail: " + StvnCompiler.compileToResult(u64Fail).diagnostics());
 
     // Int64: max is 9223372036854775807
-    String i64Ok = "{ :defs { :Int64 { #size 64 } :Int #I :Int64 9223372036854775807 } :type :Int64 :body 0 }";
+    String i64Ok = "{ :defs { :I64 { #size 64 } :Int #I :I64 9223372036854775807 } :type :I64 :body 0 }";
     Assertions.assertTrue(StvnCompiler.compileToResult(i64Ok).isSuccess());
 
-    String i64Fail = "{ :defs { :Int64 { #size 64 } :Int #I :Int64 9223372036854775808 } :type :Int64 :body 0 }";
+    String i64Fail = "{ :defs { :I64 { #size 64 } :Int #I :I64 9223372036854775808 } :type :I64 :body 0 }";
     Assertions.assertTrue(StvnCompiler.compileToResult(i64Fail).diagnostics().stream()
         .anyMatch(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null))));
 
     // Uint128: max is 340282366920938463463374607431768211455
-    String u128Ok = "{ :defs { :Uint128 { #unsigned #size 128 } :Int #U :Uint128 340282366920938463463374607431768211455 } :type :Uint128 :body 0 }";
+    String u128Ok = "{ :defs { :U128 { #unsigned #size 128 } :Int #U :U128 340282366920938463463374607431768211455 } :type :U128 :body 0 }";
     Assertions.assertTrue(StvnCompiler.compileToResult(u128Ok).isSuccess());
 
-    String u128Fail = "{ :defs { :Uint128 { #unsigned #size 128 } :Int #U :Uint128 340282366920938463463374607431768211456 } :type :Uint128 :body 0 }";
+    String u128Fail = "{ :defs { :U128 { #unsigned #size 128 } :Int #U :U128 340282366920938463463374607431768211456 } :type :U128 :body 0 }";
     Assertions.assertTrue(StvnCompiler.compileToResult(u128Fail).diagnostics().stream()
         .anyMatch(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null))));
 
     // Int128: min is -170141183460469231731687303715884105728
-    String i128Ok = "{ :defs { :Int128 { #size 128 } :Int #I :Int128 -170141183460469231731687303715884105728 } :type :Int128 :body 0 }";
+    String i128Ok = "{ :defs { :I128 { #size 128 } :Int #I :I128 -170141183460469231731687303715884105728 } :type :I128 :body 0 }";
     Assertions.assertTrue(StvnCompiler.compileToResult(i128Ok).isSuccess());
 
-    String i128Fail = "{ :defs { :Int128 { #size 128 } :Int #I :Int128 -170141183460469231731687303715884105729 } :type :Int128 :body 0 }";
+    String i128Fail = "{ :defs { :I128 { #size 128 } :Int #I :I128 -170141183460469231731687303715884105729 } :type :I128 :body 0 }";
     Assertions.assertTrue(StvnCompiler.compileToResult(i128Fail).diagnostics().stream()
         .anyMatch(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null))));
   }
@@ -325,10 +325,10 @@ public class StvnDefinitionsOverhaulTest {
     String input = """
         {
           :defs {
-            :Uint8 { #unsigned #size 8 } :Int
-            #BAD :Uint8 256
+            :U8 { #unsigned #size 8 } :Int
+            #BAD :U8 256
           }
-          :type :Uint8
+          :type :U8
           :body #BAD
         }
         """;

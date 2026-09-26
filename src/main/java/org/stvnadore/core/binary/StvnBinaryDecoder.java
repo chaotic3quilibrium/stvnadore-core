@@ -657,14 +657,12 @@ public class StvnBinaryDecoder {
     return switch (baseType) {
       case null -> 0;
       case StvnVocabulary.TYPE_BOOLEAN -> 1;
-      case ":Float32" -> 4;
-      case ":Float64", ":TimeEpochS", ":TimeEpochMs", ":TimeEpochNs" -> 8;
       case StvnVocabulary.TYPE_FLOAT -> {
         if (schema.constraints().exact()) yield 0;
         yield schema.constraints().size().orElse(64) == 32 ? 4 : 8;
       }
-      case String s when (schema != null && (schema.constraints().unit().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch")) || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().aliasName().isPresent() && schema.underlyingSchema().get().aliasName().get().contains("TimeEpoch")))) || s.startsWith(StvnVocabulary.TYPE_TIME_EPOCH) || s.contains("TimeEpoch") -> 8;
-      case String s when s.startsWith(StvnVocabulary.TYPE_INT) || s.startsWith(":Uint") -> {
+      case String s when (schema != null && (schema.constraints().unit().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch")) || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().aliasName().isPresent() && schema.underlyingSchema().get().aliasName().get().contains("TimeEpoch")))) || s.equals(StvnVocabulary.TYPE_TIME_EPOCH) || s.contains("TimeEpoch") -> 8;
+      case String s when s.equals(StvnVocabulary.TYPE_INT) -> {
         var sizeOpt = schema.constraints().size()
             .or(() -> schema.underlyingSchema().flatMap(u -> u.constraints().size()));
         if (sizeOpt.isPresent()) {
@@ -674,17 +672,9 @@ public class StvnBinaryDecoder {
           }
           yield (sz + 7) / 8;
         }
-        String w = s.replaceAll("[^0-9]", "");
-        if (!w.isEmpty()) {
-          int sz = Integer.parseInt(w);
-          if (sz <= 0) {
-            throw new MalformedPayloadException("Non-positive bit width: " + sz);
-          }
-          yield (sz + 7) / 8;
-        }
         yield 4;
       }
-      case String s when s.startsWith(StvnVocabulary.TYPE_ENUM) -> {
+      case String s when StvnVocabulary.isConstructorMatch(s, StvnVocabulary.TYPE_ENUM) -> {
         int variants = countEnumVariants(schema.node());
         if (variants <= 256) yield 1;
         if (variants <= 65536) yield 2;
@@ -741,7 +731,7 @@ public class StvnBinaryDecoder {
         };
         yield new StvnValue.StvnTime(schema, unsignedVal, kind);
       }
-      case String s when (schema != null && (schema.constraints().unit().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch")) || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().aliasName().isPresent() && schema.underlyingSchema().get().aliasName().get().contains("TimeEpoch")))) || s.startsWith(StvnVocabulary.TYPE_TIME_EPOCH) || s.contains("TimeEpoch") -> {
+      case String s when (schema != null && (schema.constraints().unit().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch")) || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().aliasName().isPresent() && schema.underlyingSchema().get().aliasName().get().contains("TimeEpoch")))) || s.equals(StvnVocabulary.TYPE_TIME_EPOCH) || s.contains("TimeEpoch") -> {
         long epochVal = ctx.buffer().getLong(offset);
         java.math.BigInteger unsignedVal = new java.math.BigInteger(1, java.nio.ByteBuffer.allocate(8).putLong(epochVal).array());
         String unit = schema.constraints().unit()
@@ -756,7 +746,7 @@ public class StvnBinaryDecoder {
         };
         yield new StvnValue.StvnTime(schema, unsignedVal, kind);
       }
-      case String s when s.startsWith(StvnVocabulary.TYPE_INT) || s.startsWith(":Uint") -> {
+      case String s when s.equals(StvnVocabulary.TYPE_INT) -> {
         int size = getInlineSize(schema);
 
         // 1. Read exact little-endian footprint
@@ -771,8 +761,7 @@ public class StvnBinaryDecoder {
           bigEndian[i] = littleEndian[size - 1 - i];
         }
 
-        boolean isUnsigned = s.startsWith(":Uint")
-            || (schema != null && (schema.constraints().unsigned()
+        boolean isUnsigned = (schema != null && (schema.constraints().unsigned()
                 || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().constraints().unsigned())));
         int bitWidth;
         if (schema != null && schema.constraints().size().isPresent()) {
@@ -780,10 +769,7 @@ public class StvnBinaryDecoder {
         } else if (schema != null && schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().constraints().size().isPresent()) {
           bitWidth = schema.underlyingSchema().get().constraints().size().get();
         } else {
-          String widthStr = s.replaceAll("[^0-9]", "");
-          bitWidth = widthStr.isEmpty()
-              ? (size * 8)
-              : Integer.parseInt(widthStr);
+          bitWidth = size * 8;
         }
 
         // High-bit mask verification for arbitrary bit-widths (n mod 8 != 0)
@@ -802,7 +788,7 @@ public class StvnBinaryDecoder {
 
         yield new StvnValue.StvnInteger(schema, val, bitWidth, isUnsigned);
       }
-      case String s when s.startsWith(StvnVocabulary.TYPE_ENUM) -> {
+      case String s when StvnVocabulary.isConstructorMatch(s, StvnVocabulary.TYPE_ENUM) -> {
         int size = getInlineSize(schema);
         int seqIndex = switch (size) {
           case 1 -> Byte.toUnsignedInt(ctx.buffer().get(offset));
@@ -845,7 +831,7 @@ public class StvnBinaryDecoder {
       throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Unknown base type under schema.");
     }
 
-    boolean isDateTime = (baseType != null && (baseType.equals(":DateTimeOffset") || baseType.equals(":DateTimeZoned") || baseType.equals(":DateTimeAudited") || baseType.equals(StvnVocabulary.TYPE_DATE_TIME) || baseType.endsWith("/DateTime")))
+    boolean isDateTime = (baseType != null && (baseType.equals(StvnVocabulary.TYPE_DATE_TIME) || baseType.endsWith("/DateTime")))
         || (schema.constraints() != null && (schema.constraints().offset() || schema.constraints().zoned() || schema.constraints().audited()))
         || (schema.aliasName().map(a -> a.contains("DateTime")).orElse(false))
         || (schema.underlyingSchema().flatMap(u -> u.aliasName()).map(a -> a.contains("DateTime")).orElse(false));
@@ -853,7 +839,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 1. STRINGS
     // -------------------------------------------------------------------------
-    if (!isDateTime && (baseType.startsWith(StvnVocabulary.TYPE_STRING) || baseType.equals(":Uuid"))) {
+    if (!isDateTime && (StvnVocabulary.TYPE_STRING.equals(baseType) || ":org/stvnadore/prelude/Uuid".equals(baseType) || ":Uuid".equals(baseType))) {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int totalLength = lr.length();
       int dataStartOffset = offset + lr.bytesConsumed();
@@ -889,20 +875,11 @@ public class StvnBinaryDecoder {
       ctx.buffer().get(payloadOffset, payloadBytes);
       String rawText = new String(payloadBytes, StandardCharsets.UTF_8);
 
-      boolean isFixed = baseType != null && baseType.startsWith(":StringFixed") && isNumeric(baseType.substring(12));
-      boolean isNonEmpty = baseType != null && (baseType.equals(":StringNonEmpty") || (baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(15))));
-      boolean isBounded = baseType != null && baseType.startsWith(StvnVocabulary.TYPE_STRING) && !baseType.startsWith(":StringFixed") && !baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(7));
-
+      boolean isFixed = false;
+      boolean isNonEmpty = false;
+      boolean isBounded = false;
       int fixedLength = 0;
       int maxLength = 0;
-
-      if (isFixed) {
-        fixedLength = Integer.parseInt(baseType.substring(12));
-      } else if (isNonEmpty && baseType.length() > 15) {
-        maxLength = Integer.parseInt(baseType.substring(15));
-      } else if (isBounded && baseType.length() > 7) {
-        maxLength = Integer.parseInt(baseType.substring(7));
-      }
 
       if (schema != null && schema.constraints() != null) {
         var c = schema.constraints();
@@ -989,7 +966,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 1.7 OUTLINED BIG INTEGER
     // -------------------------------------------------------------------------
-    if (baseType != null && (baseType.startsWith(StvnVocabulary.TYPE_INT) || baseType.startsWith(":Uint"))) {
+    if (baseType != null && StvnVocabulary.TYPE_INT.equals(baseType)) {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int dataStartOffset = offset + lr.bytesConsumed();
       validateAllocationBounds(lr.length(), ctx.buffer(), dataStartOffset);
@@ -999,8 +976,7 @@ public class StvnBinaryDecoder {
         bytes[i] = ctx.buffer().get(dataStartOffset + i);
       }
 
-      boolean isUnsigned = baseType.startsWith(":Uint")
-          || (schema != null && (schema.constraints().unsigned()
+      boolean isUnsigned = (schema != null && (schema.constraints().unsigned()
               || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().constraints().unsigned())));
       int bitWidth;
       if (schema != null && schema.constraints().size().isPresent()) {
@@ -1008,10 +984,7 @@ public class StvnBinaryDecoder {
       } else if (schema != null && schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().constraints().size().isPresent()) {
         bitWidth = schema.underlyingSchema().get().constraints().size().get();
       } else {
-        String widthStr = baseType.replaceAll("[^0-9]", "");
-        bitWidth = widthStr.isEmpty()
-            ? 0
-            : Integer.parseInt(widthStr);
+        bitWidth = 0;
       }
       if (bytes.length > 0) {
         validateHighBitMask(bytes[0], bitWidth, isUnsigned);
@@ -1032,7 +1005,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 2. TUPLES
     // -------------------------------------------------------------------------
-    if (baseType != null && baseType.startsWith(StvnVocabulary.TYPE_TUPLE)) {
+    if (baseType != null && StvnVocabulary.isConstructorMatch(baseType, StvnVocabulary.TYPE_TUPLE)) {
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
       List<StvnValue> elements = new java.util.ArrayList<>();
       int currentSlotOffset = offset;
@@ -1058,7 +1031,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 3. SEQUENCES / LISTS
     // -------------------------------------------------------------------------
-    if (baseType != null && (baseType.startsWith(":List") || baseType.startsWith(StvnVocabulary.TYPE_SEQ))) {
+    if (baseType != null && StvnVocabulary.isConstructorMatch(baseType, StvnVocabulary.TYPE_SEQ)) {
       StvnSeqReader reader = new StvnSeqReader(ctx, offset, schema);
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
       ResolvedSchema elementSchema = childSchemas.isEmpty()
@@ -1092,7 +1065,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 4. SETS
     // -------------------------------------------------------------------------
-    if (baseType != null && baseType.startsWith(StvnVocabulary.TYPE_SET)) {
+    if (baseType != null && StvnVocabulary.isConstructorMatch(baseType, StvnVocabulary.TYPE_SET)) {
       StvnSeqReader reader = new StvnSeqReader(ctx, offset, schema);
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
       ResolvedSchema elementSchema = childSchemas.isEmpty()
@@ -1125,7 +1098,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 5. MAPS
     // -------------------------------------------------------------------------
-    if (baseType != null && (baseType.startsWith(StvnVocabulary.TYPE_MAP) || baseType.startsWith(":MapInv"))) {
+    if (baseType != null && StvnVocabulary.isConstructorMatch(baseType, StvnVocabulary.TYPE_MAP)) {
       StvnMapReader reader = new StvnMapReader(ctx, offset, schema);
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
       ResolvedSchema keySchema = childSchemas.isEmpty()
@@ -1166,7 +1139,7 @@ public class StvnBinaryDecoder {
           entries.put(key, value);
         }
       }
-      boolean isInverse = baseType.startsWith(":MapInv") || (schema != null && schema.constraints().invertible());
+      boolean isInverse = (schema != null && schema.constraints().invertible());
       boolean isNonEmpty = baseType.endsWith("NonEmpty") || (schema != null && schema.constraints().minSize().orElse(0) >= 1);
       return new StvnValue.StvnMap(schema, entries, isNonEmpty, isInverse);
     }
@@ -1174,7 +1147,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 6. OPTIONS
     // -------------------------------------------------------------------------
-    if (baseType != null && baseType.startsWith(StvnVocabulary.TYPE_OPTION)) {
+    if (baseType != null && StvnVocabulary.isConstructorMatch(baseType, StvnVocabulary.TYPE_OPTION)) {
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
       ResolvedSchema valueSchema = childSchemas.isEmpty()
           ? null
@@ -1192,8 +1165,8 @@ public class StvnBinaryDecoder {
         int inline = getInlineSize(valueSchema);
         int payloadSlotOffset = offset + 1; // Assuming packed 1-byte tag
         int payloadOffset = (inline > 0)
-            ? payloadSlotOffset
-            : ctx.readPointer(payloadSlotOffset);
+              ? payloadSlotOffset
+              : ctx.readPointer(payloadSlotOffset);
 
         StvnValue payload = inline > 0
             ? readInlineNode(ctx, payloadOffset, valueSchema)
@@ -1206,7 +1179,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 7. EITHERS
     // -------------------------------------------------------------------------
-    if (baseType != null && baseType.startsWith(StvnVocabulary.TYPE_EITHER)) {
+    if (baseType != null && StvnVocabulary.isConstructorMatch(baseType, StvnVocabulary.TYPE_EITHER)) {
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
       ResolvedSchema leftSchema = !childSchemas.isEmpty()
           ? childSchemas.get(0)
@@ -1256,7 +1229,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 8. UNIONS
     // -------------------------------------------------------------------------
-    if (baseType != null && baseType.startsWith(StvnVocabulary.TYPE_UNION)) {
+    if (baseType != null && StvnVocabulary.isConstructorMatch(baseType, StvnVocabulary.TYPE_UNION)) {
       List<ResolvedSchema> childSchemas = extractChildSchemas(schema);
       int variantIndex = Byte.toUnsignedInt(ctx.buffer().get(offset));
 
@@ -1397,7 +1370,7 @@ public class StvnBinaryDecoder {
     if (schema == null || !visited.add(schema)) return;
 
     String baseType = org.stvnadore.core.validation.StvnTypeResolver.getPrimitiveBaseType(schema.node());
-    if (baseType != null && baseType.startsWith(StvnVocabulary.TYPE_UNION)) {
+    if (baseType != null && StvnVocabulary.isConstructorMatch(baseType, StvnVocabulary.TYPE_UNION)) {
       List<ResolvedSchema> variants = extractChildSchemas(schema);
       java.util.Set<String> layoutCategories = new java.util.HashSet<>();
       for (ResolvedSchema variant : variants) {
@@ -1421,7 +1394,7 @@ public class StvnBinaryDecoder {
     String base = org.stvnadore.core.validation.StvnTypeResolver.getPrimitiveBaseType(rs.node());
     if (base == null) return "UNKNOWN";
 
-    if (base.startsWith(StvnVocabulary.TYPE_STRING)
+    if (base.equals(StvnVocabulary.TYPE_STRING)
         || base.equals(":org/stvnadore/prelude/DateTimeOffset") || base.equals(":org/stvnadore/prelude/DateTimeZoned")
         || base.equals(":org/stvnadore/prelude/DateTimeAudited")
         || base.equals(":org/stvnadore/prelude/Uuid") || base.equals(":org/stvnadore/prelude/Ulid")
@@ -1429,13 +1402,13 @@ public class StvnBinaryDecoder {
         || base.equals(":org/stvnadore/prelude/Email") || base.equals(":org/stvnadore/prelude/IPv4")) {
       return "STRING";
     }
-    if (base.startsWith(StvnVocabulary.TYPE_INT) || base.startsWith(":Uint")
+    if (base.equals(StvnVocabulary.TYPE_INT)
         || base.equals(":org/stvnadore/prelude/TimeEpochS") || base.equals(":org/stvnadore/prelude/TimeEpochMs")
         || base.equals(":org/stvnadore/prelude/TimeEpochNs")
         || base.equals(":org/stvnadore/prelude/Port")) {
       return "INTEGER";
     }
-    if (base.startsWith(StvnVocabulary.TYPE_FLOAT)
+    if (base.equals(StvnVocabulary.TYPE_FLOAT)
         || base.equals(":org/stvnadore/prelude/Percentage") || base.equals(":org/stvnadore/prelude/Probability")
         || base.equals(":org/stvnadore/prelude/Currency") || base.equals(":org/stvnadore/prelude/Latitude")
         || base.equals(":org/stvnadore/prelude/Longitude")) {
@@ -1444,16 +1417,16 @@ public class StvnBinaryDecoder {
     if (base.equals(StvnVocabulary.TYPE_BOOLEAN)) {
       return "BOOLEAN";
     }
-    if (base.startsWith(StvnVocabulary.TYPE_TUPLE)) {
+    if (StvnVocabulary.isConstructorMatch(base, StvnVocabulary.TYPE_TUPLE)) {
       return "TUPLE";
     }
-    if (base.startsWith(StvnVocabulary.TYPE_SEQ) || base.startsWith(StvnVocabulary.TYPE_SET) || base.startsWith(":SeqNonEmpty") || base.startsWith(":SetNonEmpty")) {
+    if (StvnVocabulary.isConstructorMatch(base, StvnVocabulary.TYPE_SEQ) || StvnVocabulary.isConstructorMatch(base, StvnVocabulary.TYPE_SET)) {
       return "SEQUENCE";
     }
-    if (base.startsWith(StvnVocabulary.TYPE_MAP) || base.startsWith(StvnVocabulary.TYPE_MAP_ENTRY) || base.startsWith(":MapInv")) {
+    if (StvnVocabulary.isConstructorMatch(base, StvnVocabulary.TYPE_MAP) || base.equals(StvnVocabulary.TYPE_MAP_ENTRY)) {
       return "MAP";
     }
-    if (base.equals(StvnVocabulary.TYPE_ENUM)) {
+    if (base.equals(StvnVocabulary.TYPE_ENUM) || StvnVocabulary.isConstructorMatch(base, StvnVocabulary.TYPE_ENUM)) {
       return "ENUM";
     }
     return base;

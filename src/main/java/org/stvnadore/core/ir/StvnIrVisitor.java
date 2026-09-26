@@ -457,7 +457,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
       return new StvnTime(schema, rawValue, kind);
     }
-    var isUnsigned = baseType.equals(":Uint") || (baseType.startsWith(":Uint") && isNumeric(baseType.substring(5)));
+    var isUnsigned = false;
     var bitWidth = 32;
     if (schema != null && schema.constraints() != null) {
       if (schema.constraints().unsigned()) {
@@ -467,21 +467,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         bitWidth = schema.constraints().size().get();
       }
     }
-    if (bitWidth == 32 && !isUnsigned) {
-      if (baseType.startsWith(StvnVocabulary.TYPE_INT) && baseType.length() > 4) {
-        var suffix = baseType.substring(4);
-        if (isNumeric(suffix)) {
-          bitWidth = Integer.parseInt(suffix);
-        }
-      } else if (baseType.startsWith(":Uint") && baseType.length() > 5) {
-        var suffix = baseType.substring(5);
-        if (isNumeric(suffix)) {
-          bitWidth = Integer.parseInt(suffix);
-          isUnsigned = true;
-        }
-      } else if (!baseType.equals(StvnVocabulary.TYPE_INT) && !baseType.equals(":Uint")) {
-        bitWidth = 0;
-      }
+    if (bitWidth == 32 && !isUnsigned && !baseType.equals(StvnVocabulary.TYPE_INT)) {
+      bitWidth = 0;
     }
 
     // VALIDATE BOUNDS NOW (as requested)
@@ -626,20 +613,12 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     }
 
     // 1. Precise String Typology Classification
-    boolean isFixed = baseType.startsWith(":StringFixed") && isNumeric(baseType.substring(12));
-    boolean isNonEmpty = baseType.equals(":StringNonEmpty") || (baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(15)));
-    boolean isBounded = baseType.startsWith(StvnVocabulary.TYPE_STRING) && !baseType.startsWith(":StringFixed") && !baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(7));
+    boolean isFixed = false;
+    boolean isNonEmpty = false;
+    boolean isBounded = false;
 
     int fixedLength = 0;
     int maxLength = 0;
-
-    if (isFixed) {
-      fixedLength = Integer.parseInt(baseType.substring(12));
-    } else if (isNonEmpty && baseType.length() > 15) {
-      maxLength = Integer.parseInt(baseType.substring(15));
-    } else if (isBounded && baseType.length() > 7) {
-      maxLength = Integer.parseInt(baseType.substring(7));
-    }
 
     if (schema != null && schema.constraints() != null) {
       var c = schema.constraints();
@@ -2114,9 +2093,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       case StvnDateTimeOffset ignored -> t.equals(":DateTimeOffset") || t.equals(StvnVocabulary.TYPE_DATE_TIME);
       case StvnDateTimeZoned ignored -> t.equals(":DateTimeZoned") || t.equals(StvnVocabulary.TYPE_DATE_TIME);
       case StvnDateTimeAudited ignored -> t.equals(":DateTimeAudited") || t.equals(StvnVocabulary.TYPE_DATE_TIME);
-      case StvnSeq ignored -> t.equals(StvnVocabulary.TYPE_SEQ) || t.equals(":SeqNonEmpty");
-      case StvnSet ignored -> t.equals(StvnVocabulary.TYPE_SET) || t.equals(":SetNonEmpty");
-      case StvnMap ignored -> KEYWORDS_MAP.contains(t);
+      case StvnSeq ignored -> t.equals(StvnVocabulary.TYPE_SEQ);
+      case StvnSet ignored -> t.equals(StvnVocabulary.TYPE_SET);
+      case StvnMap ignored -> t.equals(StvnVocabulary.TYPE_MAP) || t.equals(StvnVocabulary.TYPE_MAP_ENTRY);
       case StvnTuple ignored -> t.equals(StvnVocabulary.TYPE_TUPLE);
       default -> false;
     };
@@ -2725,33 +2704,19 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   }
 
   private static boolean isIntType(String baseType) {
-    if (baseType.equals(StvnVocabulary.TYPE_INT) || baseType.equals(":Uint")) return true;
-    if (baseType.startsWith(StvnVocabulary.TYPE_INT) && isNumeric(baseType.substring(StvnVocabulary.TYPE_INT.length()))) return true;
-    if (baseType.startsWith(":Uint") && isNumeric(baseType.substring(5))) return true;
-    return false;
+    return baseType.equals(StvnVocabulary.TYPE_INT);
   }
 
   private static boolean isTimeEpochType(String baseType) {
-    return baseType.equals(StvnVocabulary.TYPE_TIME_EPOCH)
-        || baseType.equals(":TimeEpochS")
-        || baseType.equals(":TimeEpochMs")
-        || baseType.equals(":TimeEpochNs");
+    return baseType.equals(StvnVocabulary.TYPE_TIME_EPOCH);
   }
 
   private static boolean isFloatType(String baseType) {
-    if (baseType.equals(StvnVocabulary.TYPE_FLOAT) || baseType.equals(":FloatExact")) return true;
-    if (baseType.startsWith(StvnVocabulary.TYPE_FLOAT) && isNumeric(baseType.substring(StvnVocabulary.TYPE_FLOAT.length()))) return true;
-    return false;
+    return baseType.equals(StvnVocabulary.TYPE_FLOAT);
   }
 
   private static boolean isStringType(String baseType) {
-    if (baseType.equals(StvnVocabulary.TYPE_STRING) || baseType.equals(":StringNonEmpty") || baseType.equals(":StringFixed"))
-      return true;
-    if (baseType.startsWith(":StringFixed") && isNumeric(baseType.substring(12))) return true;
-    if (baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(15))) return true;
-    if (baseType.startsWith(StvnVocabulary.TYPE_STRING) && !baseType.startsWith(":StringFixed") && !baseType.startsWith(":StringNonEmpty") && isNumeric(baseType.substring(StvnVocabulary.TYPE_STRING.length())))
-      return true;
-    return false;
+    return baseType.equals(StvnVocabulary.TYPE_STRING);
   }
 
   private static boolean isDateTimeType(String baseType) {

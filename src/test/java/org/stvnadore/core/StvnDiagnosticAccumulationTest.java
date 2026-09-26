@@ -28,9 +28,9 @@ public class StvnDiagnosticAccumulationTest {
     String input = """
         {
           :defs {
-            :Int8 { #size 8 } :Int
+            :I8 { #size 8 } :Int
           }
-          :type :Seq(:Int8)
+          :type :Seq(:I8)
           :body [ 10 300 20 400 30 ]
         }
         """;
@@ -96,9 +96,9 @@ public class StvnDiagnosticAccumulationTest {
     String input = """
         {
           :defs {
-            :Int8 { #size 8 } :Int
+            :I8 { #size 8 } :Int
           }
-          :type :Tuple(:Int8 :String :Boolean)
+          :type :Tuple(:I8 :String :Boolean)
           :body ( 300 "valid" #TRUE 500 )
         }
         """;
@@ -127,9 +127,9 @@ public class StvnDiagnosticAccumulationTest {
     String input = """
         {
           :defs {
-            :Int8 { #size 8 } :Int
+            :I8 { #size 8 } :Int
           }
-          :type :Map(:Int8 :Int8)
+          :type :Map(:I8 :I8)
           :body {
             [ 1 10 ]
             [ 200 20 ]
@@ -218,7 +218,7 @@ public class StvnDiagnosticAccumulationTest {
   @DisplayName("DiagnosticBag capacity threshold enforcement and sentinel warning generation")
   void testDiagnosticBagCapacityAndSentinelWarning() {
     StringBuilder sb = new StringBuilder();
-    sb.append("{\n  :defs {\n    :Int8 { #size 8 } :Int\n  }\n  :type :Seq(:Int8)\n  :body [ ");
+    sb.append("{\n  :defs {\n    :I8 { #size 8 } :Int\n  }\n  :type :Seq(:I8)\n  :body [ ");
     for (int i = 0; i < 150; i++) {
       sb.append("500 ");
     }
@@ -263,9 +263,9 @@ public class StvnDiagnosticAccumulationTest {
     String errorInput = """
         {
           :defs {
-            :Int8 { #size 8 } :Int
+            :I8 { #size 8 } :Int
           }
-          :type :Int8
+          :type :I8
           :body 999
         }
         """;
@@ -282,9 +282,9 @@ public class StvnDiagnosticAccumulationTest {
     String input = """
         {
           :defs {
-            :Int8 { #size 8 } :Int
+            :I8 { #size 8 } :Int
           }
-          :type :Seq(:Int8)
+          :type :Seq(:I8)
           :body [ 10 300 20 ]
         }
         """;
@@ -305,9 +305,9 @@ public class StvnDiagnosticAccumulationTest {
     String input = """
         {
           :defs {
-            :Int8 { #size 8 } :Int
+            :I8 { #size 8 } :Int
           }
-          :type :Seq(:Int8)
+          :type :Seq(:I8)
           :body [ 10 300 20 ]
         }
         """;

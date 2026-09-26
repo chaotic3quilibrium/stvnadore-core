@@ -4,10 +4,14 @@ import java.util.Optional;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.ir.StvnIrVisitor;
+import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.ir.StvnValue.StvnOption;
 import org.stvnadore.core.ir.StvnValue.StvnEither;
 import org.stvnadore.core.ir.StvnValue.StvnInteger;
@@ -184,9 +188,9 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :MapInv { #invertible } :Map(:String :Int)
+            :MyMapInv { #invertible } :Map(:String :Int)
           }
-          :type :MapInv
+          :type :MyMapInv
           :body { ["a" 1] ["a" 2] }
         }
         """;
@@ -224,11 +228,11 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :StringFixed3 { #minSize 3 #maxSize 3 } :String
-            :Int8 { #size 8 } :Int
-            :MapInv { #invertible } :Map(:StringFixed3 :Int8)
+            :MyStringFixed3 { #minSize 3 #maxSize 3 } :String
+            :MyInt8 { #size 8 } :Int
+            :MyMapInv { #invertible } :Map(:MyStringFixed3 :MyInt8)
           }
-          :type :MapInv
+          :type :MyMapInv
           :body {
             ["ABC" 1]
             ["EFG" 2]
@@ -250,9 +254,9 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :StringFixed3 { #minSize 3 #maxSize 3 } :String
-            :Int8 { #size 8 } :Int
-            :MapInvNE { #invertible #minSize 1 } :Map(:StringFixed3 :Int8)
+            :MyStringFixed3 { #minSize 3 #maxSize 3 } :String
+            :MyInt8 { #size 8 } :Int
+            :MapInvNE { #invertible #minSize 1 } :Map(:MyStringFixed3 :MyInt8)
           }
           :type :MapInvNE
           :body {
@@ -276,8 +280,8 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :Float32 { #size 32 } :Float
-            :MyMap :Map(:Float32 :Int)
+            :MyFloat32 { #size 32 } :Float
+            :MyMap :Map(:MyFloat32 :Int)
           }
           :type :MyMap
           :body { [1.0 1] }
@@ -293,8 +297,8 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :Float32 { #size 32 } :Float
-            :MyMapInv { #invertible } :Map(:Int :Float32)
+            :MyFloat32 { #size 32 } :Float
+            :MyMapInv { #invertible } :Map(:Int :MyFloat32)
           }
           :type :MyMapInv
           :body { [1 1.0] }
@@ -310,8 +314,8 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :Float32 { #size 32 } :Float
-            :MySet :Set(:Float32)
+            :MyFloat32 { #size 32 } :Float
+            :MySet :Set(:MyFloat32)
           }
           :type :MySet
           :body [ 1.0 ]
@@ -420,10 +424,10 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :Int32 { #size 32 } :Int
-            :Uint32 { #unsigned #size 32 } :Int
+            :MyInt32 { #size 32 } :Int
+            :MyUint32 { #unsigned #size 32 } :Int
           }
-          :type :Seq(:Either(:Int32 :Uint32))
+          :type :Seq(:Either(:MyInt32 :MyUint32))
           :body [ 1 ]
         }
         """;
@@ -612,5 +616,92 @@ class StvnTypeResolverRegressionTest {
     Assertions.assertThrows(MalformedPayloadException.class, () -> {
       StvnIrVisitor.build(bodyEntry, doc);
     });
+  }
+
+  @Test
+  @DisplayName("TC-TYPE-01: Nominal alias :IntCounter is never misclassified as :Int primitive")
+  void testNominalTypePrefixCollision_ScalarInt() {
+    String input = """
+        {
+          :defs {
+            :IntCounter { #minIncl 0 } :Int
+          }
+          :type :IntCounter
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
+    Assertions.assertFalse(result.hasErrors(), "Valid nominal type :IntCounter must compile cleanly");
+    Assertions.assertEquals(42L, Assertions.assertInstanceOf(StvnInteger.class, result.document().orElseThrow()).value().longValue());
+  }
+
+  @Test
+  @DisplayName("TC-TYPE-02: Nominal alias :StringList is never misclassified as :String primitive")
+  void testNominalTypePrefixCollision_ScalarString() {
+    String input = """
+        {
+          :defs {
+            :StringList :Seq(:String)
+          }
+          :type :StringList
+          :body [ "alpha" "beta" ]
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
+    Assertions.assertFalse(result.hasErrors(), "Valid nominal type :StringList must compile cleanly");
+    Assertions.assertInstanceOf(StvnValue.StvnSeq.class, result.document().orElseThrow());
+  }
+
+  @Test
+  @DisplayName("TC-TYPE-03: Nominal alias :SeqRecord is never misclassified as :Seq constructor")
+  void testNominalTypePrefixCollision_CompositeSeq() {
+    String input = """
+        {
+          :defs {
+            :SeqRecord :Tuple(:Int :String)
+          }
+          :type :SeqRecord
+          :body ( 100 "item" )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
+    Assertions.assertFalse(result.hasErrors(), "Valid nominal type :SeqRecord must compile cleanly");
+    Assertions.assertInstanceOf(StvnValue.StvnTuple.class, result.document().orElseThrow());
+  }
+
+  @Test
+  @DisplayName("TC-TYPE-04: Nominal alias :MapStore is never misclassified as :Map constructor")
+  void testNominalTypePrefixCollision_CompositeMap() {
+    String input = """
+        {
+          :defs {
+            :MapStore :Tuple(:String :Int)
+          }
+          :type :MapStore
+          :body ( "config" 8080 )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
+    Assertions.assertFalse(result.hasErrors(), "Valid nominal type :MapStore must compile cleanly");
+    Assertions.assertInstanceOf(StvnValue.StvnTuple.class, result.document().orElseThrow());
+  }
+
+  @Test
+  @DisplayName("TC-TYPE-05: Obsolete compound type on LHS of type definition emits ERR_COMPOUND_TYPE_OBSOLETE")
+  void testObsoleteCompoundOnTypeDefinitionLhsRejected() {
+    String input = """
+        {
+          :defs {
+            :Int32 { #size 32 } :Int
+          }
+          :type :Int32
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.hasErrors(), "Obsolete :Int32 on LHS must be rejected");
+    var err = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, err.errorCode().orElse(null));
+    Assertions.assertTrue(err.message().contains("Compound integer keyword ':Int32' is deprecated in 2.0.0"));
   }
 }

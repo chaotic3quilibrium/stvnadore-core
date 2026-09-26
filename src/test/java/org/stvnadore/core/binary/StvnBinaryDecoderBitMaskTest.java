@@ -24,7 +24,7 @@ class StvnBinaryDecoderBitMaskTest {
 
   @Test
   void testUint1BitMaskValidAndCorrupted() {
-    var doc = StvnCompiler.compile("{ :defs { :Uint1 { #unsigned #size 1 } :Int } :type :Uint1 :body 1 }").orElseThrow();
+    var doc = StvnCompiler.compile("{ :defs { :U1 { #unsigned #size 1 } :Int } :type :U1 :body 1 }").orElseThrow();
     var schema = doc.schema();
 
     // Valid: bit-0 is 1, upper 7 bits are 0
@@ -52,7 +52,7 @@ class StvnBinaryDecoderBitMaskTest {
 
   @Test
   void testUint3BitMaskValidAndCorrupted() {
-    var doc = StvnCompiler.compile("{ :defs { :Uint3 { #unsigned #size 3 } :Int } :type :Uint3 :body 7 }").orElseThrow();
+    var doc = StvnCompiler.compile("{ :defs { :U3 { #unsigned #size 3 } :Int } :type :U3 :body 7 }").orElseThrow();
     var schema = doc.schema();
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -78,7 +78,7 @@ class StvnBinaryDecoderBitMaskTest {
 
   @Test
   void testInt7BitMaskValidAndCorrupted() {
-    var doc = StvnCompiler.compile("{ :defs { :Int7 { #size 7 } :Int } :type :Int7 :body 63 }").orElseThrow();
+    var doc = StvnCompiler.compile("{ :defs { :I7 { #size 7 } :Int } :type :I7 :body 63 }").orElseThrow();
     var schema = doc.schema();
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -105,7 +105,7 @@ class StvnBinaryDecoderBitMaskTest {
   @Test
   void testUint49BitMaskValidAndCorrupted() {
     // 49 bits -> 7 bytes. 49 % 8 = 1. Valid mask for the 7th byte (highest byte) is 0x01.
-    var doc = StvnCompiler.compile("{ :defs { :Uint49 { #unsigned #size 49 } :Int } :type :Uint49 :body 1 }").orElseThrow();
+    var doc = StvnCompiler.compile("{ :defs { :U49 { #unsigned #size 49 } :Int } :type :U49 :body 1 }").orElseThrow();
     var schema = doc.schema();
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());

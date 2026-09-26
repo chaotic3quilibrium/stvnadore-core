@@ -249,4 +249,67 @@ class StvnVocabularyTest {
       assertTrue(violations.isEmpty(), "Zero-Leak Quality Gate failed! Discovered hardcoded string literals:\n" + String.join("\n", violations));
     }
   }
+
+  @Test
+  @DisplayName("TC-VOCAB-11: Assert immutable BASE_SCALAR_TYPES contains exactly 6 foundation scalar types")
+  void testBaseScalarTypesSet() {
+    assertEquals(6, StvnVocabulary.BASE_SCALAR_TYPES.size());
+    assertTrue(StvnVocabulary.BASE_SCALAR_TYPES.contains(StvnVocabulary.TYPE_BOOLEAN));
+    assertTrue(StvnVocabulary.BASE_SCALAR_TYPES.contains(StvnVocabulary.TYPE_INT));
+    assertTrue(StvnVocabulary.BASE_SCALAR_TYPES.contains(StvnVocabulary.TYPE_FLOAT));
+    assertTrue(StvnVocabulary.BASE_SCALAR_TYPES.contains(StvnVocabulary.TYPE_STRING));
+    assertTrue(StvnVocabulary.BASE_SCALAR_TYPES.contains(StvnVocabulary.TYPE_TIME_EPOCH));
+    assertTrue(StvnVocabulary.BASE_SCALAR_TYPES.contains(StvnVocabulary.TYPE_DATE_TIME));
+    assertThrows(UnsupportedOperationException.class, () -> StvnVocabulary.BASE_SCALAR_TYPES.add(":Custom"));
+  }
+
+  @Test
+  @DisplayName("TC-VOCAB-12: Assert immutable COMPOSITE_CONSTRUCTOR_TYPES contains exactly 8 composite constructor types")
+  void testCompositeConstructorTypesSet() {
+    assertEquals(8, StvnVocabulary.COMPOSITE_CONSTRUCTOR_TYPES.size());
+    assertTrue(StvnVocabulary.COMPOSITE_CONSTRUCTOR_TYPES.contains(StvnVocabulary.TYPE_SEQ));
+    assertTrue(StvnVocabulary.COMPOSITE_CONSTRUCTOR_TYPES.contains(StvnVocabulary.TYPE_SET));
+    assertTrue(StvnVocabulary.COMPOSITE_CONSTRUCTOR_TYPES.contains(StvnVocabulary.TYPE_MAP));
+    assertTrue(StvnVocabulary.COMPOSITE_CONSTRUCTOR_TYPES.contains(StvnVocabulary.TYPE_TUPLE));
+    assertTrue(StvnVocabulary.COMPOSITE_CONSTRUCTOR_TYPES.contains(StvnVocabulary.TYPE_OPTION));
+    assertTrue(StvnVocabulary.COMPOSITE_CONSTRUCTOR_TYPES.contains(StvnVocabulary.TYPE_EITHER));
+    assertTrue(StvnVocabulary.COMPOSITE_CONSTRUCTOR_TYPES.contains(StvnVocabulary.TYPE_UNION));
+    assertTrue(StvnVocabulary.COMPOSITE_CONSTRUCTOR_TYPES.contains(StvnVocabulary.TYPE_ENUM));
+    assertThrows(UnsupportedOperationException.class, () -> StvnVocabulary.COMPOSITE_CONSTRUCTOR_TYPES.add(":Custom"));
+  }
+
+  @Test
+  @DisplayName("TC-VOCAB-13: Verify isBaseScalarType and isConstructorMatch contracts")
+  void testTypeBoundaryPredicates() {
+    // isBaseScalarType
+    assertTrue(StvnVocabulary.isBaseScalarType(StvnVocabulary.TYPE_INT));
+    assertTrue(StvnVocabulary.isBaseScalarType(StvnVocabulary.TYPE_FLOAT));
+    assertTrue(StvnVocabulary.isBaseScalarType(StvnVocabulary.TYPE_STRING));
+    assertTrue(StvnVocabulary.isBaseScalarType(StvnVocabulary.TYPE_BOOLEAN));
+    assertTrue(StvnVocabulary.isBaseScalarType(StvnVocabulary.TYPE_TIME_EPOCH));
+    assertTrue(StvnVocabulary.isBaseScalarType(StvnVocabulary.TYPE_DATE_TIME));
+
+    assertFalse(StvnVocabulary.isBaseScalarType(null));
+    assertFalse(StvnVocabulary.isBaseScalarType(""));
+    assertFalse(StvnVocabulary.isBaseScalarType(":IntCounter"));
+    assertFalse(StvnVocabulary.isBaseScalarType(":StringList"));
+    assertFalse(StvnVocabulary.isBaseScalarType(":FloatValue"));
+    assertFalse(StvnVocabulary.isBaseScalarType(StvnVocabulary.TYPE_SEQ));
+    assertFalse(StvnVocabulary.isBaseScalarType(StvnVocabulary.TYPE_TUPLE));
+
+    // isConstructorMatch
+    assertTrue(StvnVocabulary.isConstructorMatch(StvnVocabulary.TYPE_SEQ, StvnVocabulary.TYPE_SEQ));
+    assertTrue(StvnVocabulary.isConstructorMatch(":Seq(:Int)", StvnVocabulary.TYPE_SEQ));
+    assertTrue(StvnVocabulary.isConstructorMatch(":Seq (:Int)", StvnVocabulary.TYPE_SEQ));
+    assertTrue(StvnVocabulary.isConstructorMatch(":Tuple(:Int :String)", StvnVocabulary.TYPE_TUPLE));
+    assertTrue(StvnVocabulary.isConstructorMatch(":Enum[:A :B]", StvnVocabulary.TYPE_ENUM));
+
+    assertFalse(StvnVocabulary.isConstructorMatch(null, StvnVocabulary.TYPE_SEQ));
+    assertFalse(StvnVocabulary.isConstructorMatch(":SeqRecord", StvnVocabulary.TYPE_SEQ));
+    assertFalse(StvnVocabulary.isConstructorMatch(":MapStore", StvnVocabulary.TYPE_MAP));
+    assertFalse(StvnVocabulary.isConstructorMatch(":TupleX", StvnVocabulary.TYPE_TUPLE));
+    assertFalse(StvnVocabulary.isConstructorMatch(":OptionValue", StvnVocabulary.TYPE_OPTION));
+    assertFalse(StvnVocabulary.isConstructorMatch(":EitherOr", StvnVocabulary.TYPE_EITHER));
+    assertFalse(StvnVocabulary.isConstructorMatch(":UnionAll", StvnVocabulary.TYPE_UNION));
+  }
 }

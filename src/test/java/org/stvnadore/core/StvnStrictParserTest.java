@@ -102,9 +102,9 @@ class StvnStrictParserTest {
     var input = """
         {
           :defs {
-            :Int32 { #size 32 } :Int
-            :Uint32 { #unsigned #size 32 } :Int
-            :EitherRepeat :Either( :Int32 :Uint32 )
+            :I32 { #size 32 } :Int
+            :U32 { #unsigned #size 32 } :Int
+            :EitherRepeat :Either( :I32 :U32 )
           }
           :type :EitherRepeat
           :body 1

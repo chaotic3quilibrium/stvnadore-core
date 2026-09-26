@@ -326,9 +326,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Uint { #unsigned } :Int
+                    :U32 { #unsigned } :Int
                   }
-                  :type :Seq( :Uint )
+                  :type :Seq( :U32 )
                   :body [ 0 4294967295 ]
                 }
                 """),
@@ -338,35 +338,35 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Uint { #unsigned } :Int
+                    :U32 { #unsigned } :Int
                   }
-                  :type :Seq( :Uint )
+                  :type :Seq( :U32 )
                   :body [ -1 ]
                 }
                 """,
-            "Value [-1] is out of bounds for :Uint (0 to 4294967295)"),
+            "Value [-1] is out of bounds for :U32 (0 to 4294967295)"),
 
         TestProfile.createError(
             "Default Number Alias - Uint32 Overflow",
             """
                 {
                   :defs {
-                    :Uint { #unsigned } :Int
+                    :U32 { #unsigned } :Int
                   }
-                  :type :Seq( :Uint )
+                  :type :Seq( :U32 )
                   :body [ 4294967296 ]
                 }
                 """,
-            "Value [4294967296] is out of bounds for :Uint (0 to 4294967295)"),
+            "Value [4294967296] is out of bounds for :U32 (0 to 4294967295)"),
 
         TestProfile.create(
             "Integer 1-Bit Validation - Int1 Boundaries success",
             """
                 {
                   :defs {
-                    :Int1 { #size 1 } :Int
+                    :I1 { #size 1 } :Int
                   }
-                  :type :Seq( :Int1 )
+                  :type :Seq( :I1 )
                   :body [ -1 0 ]
                 }
                 """),
@@ -376,35 +376,35 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Int1 { #size 1 } :Int
+                    :I1 { #size 1 } :Int
                   }
-                  :type :Seq( :Int1 )
+                  :type :Seq( :I1 )
                   :body [ -2 ]
                 }
                 """,
-            "Value [-2] is out of bounds for :Int1 (-1 to 0)"),
+            "Value [-2] is out of bounds for :I1 (-1 to 0)"),
 
         TestProfile.createError(
             "Integer 1-Bit Validation - Int1 Overflow",
             """
                 {
                   :defs {
-                    :Int1 { #size 1 } :Int
+                    :I1 { #size 1 } :Int
                   }
-                  :type :Seq( :Int1 )
+                  :type :Seq( :I1 )
                   :body [ 1 ]
                 }
                 """,
-            "Value [1] is out of bounds for :Int1 (-1 to 0)"),
+            "Value [1] is out of bounds for :I1 (-1 to 0)"),
 
         TestProfile.create(
             "Integer 1-Bit Validation - Uint1 Boundaries Success",
             """
                 {
                   :defs {
-                    :Uint1 { #unsigned #size 1 } :Int
+                    :U1 { #unsigned #size 1 } :Int
                   }
-                  :type :Seq( :Uint1 )
+                  :type :Seq( :U1 )
                   :body [ 0 1 ]
                 }
                 """),
@@ -414,48 +414,48 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Uint1 { #unsigned #size 1 } :Int
+                    :U1 { #unsigned #size 1 } :Int
                   }
-                  :type :Seq( :Uint1 )
+                  :type :Seq( :U1 )
                   :body [ -1 ]
                 }
                 """,
-            "Value [-1] is out of bounds for :Uint1 (0 to 1)"),
+            "Value [-1] is out of bounds for :U1 (0 to 1)"),
 
         TestProfile.createError(
             "Integer 1-Bit Validation - Uint1 Overflow",
             """
                 {
                   :defs {
-                    :Uint1 { #unsigned #size 1 } :Int
+                    :U1 { #unsigned #size 1 } :Int
                   }
-                  :type :Seq( :Uint1 )
+                  :type :Seq( :U1 )
                   :body [ 2 ]
                 }
                 """,
-            "Value [2] is out of bounds for :Uint1 (0 to 1)"),
+            "Value [2] is out of bounds for :U1 (0 to 1)"),
 
         TestProfile.createError(
             "Integer 7-Bit Validation - Int7 Underflow",
             """
                 {
                   :defs {
-                    :Int7 { #size 7 } :Int
+                    :I7 { #size 7 } :Int
                   }
-                  :type :Seq( :Int7 )
+                  :type :Seq( :I7 )
                   :body [ -65 ]
                 }
                 """,
-            "Value [-65] is out of bounds for :Int7 (-64 to 63)"),
+            "Value [-65] is out of bounds for :I7 (-64 to 63)"),
 
         TestProfile.create(
             "Integer 8-Bit Validation - Int8 Success",
             """
                 {
                   :defs {
-                    :Int8 { #size 8 } :Int
+                    :I8 { #size 8 } :Int
                   }
-                  :type :Seq( :Int8 )
+                  :type :Seq( :I8 )
                   :body [ -128 127 ]
                 }
                 """),
@@ -465,22 +465,22 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Uint256 { #unsigned #size 256 } :Int
+                    :U256 { #unsigned #size 256 } :Int
                   }
-                  :type :Seq( :Uint256 )
+                  :type :Seq( :U256 )
                   :body [ -1 ]
                 }
                 """,
-            "Value [-1] is out of bounds for :Uint256 (0 to 115792089237316195423570985008687907853269984665640564039457584007913129639935)"),
+            "Value [-1] is out of bounds for :U256 (0 to 115792089237316195423570985008687907853269984665640564039457584007913129639935)"),
 
         TestProfile.create(
             "Float Boundaries - Float32 Success",
             """
                 {
                   :defs {
-                    :Float32 { #size 32 } :Float
+                    :F32 { #size 32 } :Float
                   }
-                  :type :Seq( :Float32 )
+                  :type :Seq( :F32 )
                   :body [ -3.4028235E38 3.4028235E38 ]
                 }
                 """),
@@ -490,22 +490,22 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Float64 { #size 64 } :Float
+                    :F64 { #size 64 } :Float
                   }
-                  :type :Seq( :Float64 )
+                  :type :Seq( :F64 )
                   :body [ 1.7976931348623159E308 ]
                 }
                 """,
-            "Value [1.7976931348623159E+308] is out of bounds for :Float64 (-1.7976931348623157E+308 to 1.7976931348623157E+308)"),
+            "Value [1.7976931348623159E+308] is out of bounds for :F64 (-1.7976931348623157E+308 to 1.7976931348623157E+308)"),
 
         TestProfile.create(
             "FloatExact - Micro Arbitrary Precision Capacity Success",
             """
                 {
                   :defs {
-                    :FloatExact { #exact } :Float
+                    :ExactFloat { #exact } :Float
                   }
-                  :type :Seq( :FloatExact )
+                  :type :Seq( :ExactFloat )
                   :body [ 0.0000000000000000000000000000000000000000000000000000000000001 ]
                 }
                 """),
@@ -528,9 +528,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Int16 { #size 16 } :Int
+                    :I16 { #size 16 } :Int
                   }
-                  :type :Seq( :Int16 )
+                  :type :Seq( :I16 )
                   :body [ 0x7FFF -0x8000 0b0111111111111111 0o77777 ]
                 }
                 """),
@@ -540,13 +540,13 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Int16 { #size 16 } :Int
+                    :I16 { #size 16 } :Int
                   }
-                  :type :Seq( :Int16 )
+                  :type :Seq( :I16 )
                   :body [ 0x8000 ]
                 }
                 """,
-            "Value [32768] is out of bounds for :Int16 (-32768 to 32767)")
+            "Value [32768] is out of bounds for :I16 (-32768 to 32767)")
     ).map(testProfile -> Arguments.of(testProfile.displayName(), testProfile));
   }
 
@@ -673,9 +673,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeOffset { #offset } :DateTime
+                    :DtOffset { #offset } :DateTime
                   }
-                  :type :Seq( :DateTimeOffset )
+                  :type :Seq( :DtOffset )
                   :body [ "2026-03-15T08:00:00-05:00" ]
                 }
                 """),
@@ -685,9 +685,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeOffset { #offset } :DateTime
+                    :DtOffset { #offset } :DateTime
                   }
-                  :type :Seq( :DateTimeOffset )
+                  :type :Seq( :DtOffset )
                   :body [ "2026-03-15 08:00:00" ]
                 }
                 """,
@@ -698,9 +698,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeOffset { #offset } :DateTime
+                    :DtOffset { #offset } :DateTime
                   }
-                  :type :Seq( :DateTimeOffset )
+                  :type :Seq( :DtOffset )
                   :body [ "2026-03-15T08:00:00[America/Chicago]" ]
                 }
                 """,
@@ -711,9 +711,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeZoned { #zoned } :DateTime
+                    :DtZoned { #zoned } :DateTime
                   }
-                  :type :Seq( :DateTimeZoned )
+                  :type :Seq( :DtZoned )
                   :body [ "2026-03-15T08:00:00[America/Chicago]" ]
                 }
                 """),
@@ -723,9 +723,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeZoned { #zoned } :DateTime
+                    :DtZoned { #zoned } :DateTime
                   }
-                  :type :Seq( :DateTimeZoned )
+                  :type :Seq( :DtZoned )
                   :body [ "2026-03-06T15:53:08-06:00" ]
                 }
                 """,
@@ -736,9 +736,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeZoned { #zoned } :DateTime
+                    :DtZoned { #zoned } :DateTime
                   }
-                  :type :Seq( :DateTimeZoned )
+                  :type :Seq( :DtZoned )
                   :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" ]
                 }
                 """,
@@ -749,9 +749,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeAudited { #audited } :DateTime
+                    :DtAudited { #audited } :DateTime
                   }
-                  :type :Seq( :DateTimeAudited )
+                  :type :Seq( :DtAudited )
                   :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" ]
                 }
                 """),
@@ -761,9 +761,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :DateTimeAudited { #audited } :DateTime
+                    :DtAudited { #audited } :DateTime
                   }
-                  :type :Seq( :DateTimeAudited )
+                  :type :Seq( :DtAudited )
                   :body [ "2026-03-15T08:00:00-05:00" ]
                 }
                 """,
@@ -774,9 +774,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :TimeEpochNs { #ns } :TimeEpoch
+                    :EpochNs { #ns } :TimeEpoch
                   }
-                  :type :Seq( :TimeEpochNs )
+                  :type :Seq( :EpochNs )
                   :body [ 9223372036854775808 ]
                 }
                 """),
@@ -786,9 +786,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed5 { #minSize 5 #maxSize 5 } :String
+                    :StrFixed5 { #minSize 5 #maxSize 5 } :String
                   }
-                  :type :Seq( :StringFixed5 )
+                  :type :Seq( :StrFixed5 )
                   :body [ "hello" ]
                 }
                 """),
@@ -798,9 +798,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed5 { #minSize 5 #maxSize 5 } :String
+                    :StrFixed5 { #minSize 5 #maxSize 5 } :String
                   }
-                  :type :Seq( :StringFixed5 )
+                  :type :Seq( :StrFixed5 )
                   :body ["  //<-- trailing double-quote
                     "hello"
                   ]" +      //<-- trailing double-quote, space, and plus-sign
@@ -813,13 +813,13 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed5 { #minSize 5 #maxSize 5 } :String
+                    :StrFixed5 { #minSize 5 #maxSize 5 } :String
                   }
-                  :type :Seq( :StringFixed5 )
+                  :type :Seq( :StrFixed5 )
                   :body [ "hello!" ]
                 }
                 """,
-            "Constraint violation (:StringFixed5): Fixed string must be exactly 5 characters long, got 6"),
+            "Constraint violation (:StrFixed5): Fixed string must be exactly 5 characters long, got 6"),
 
         TestProfile.createError(
             "Bounded String - NonEmpty Rejects Empty String",
@@ -939,44 +939,44 @@ public class StvnEndToEndIntegrationTest {
                 """,
             "Constraint violation (:StringNonEmpty64): String length exceeds maximum length of 64 characters, got 65"),
 
-        // --- 3. Fixed-Length String Tests (:StringFixed64) ---
+        // --- 3. Fixed-Length String Tests (:StrFixed64) ---
         TestProfile.create(
-            "Fixed String - Exact Length Match (:StringFixed64)",
+            "Fixed String - Exact Length Match (:StrFixed64)",
             """
                 {
                   :defs {
-                    :StringFixed64 { #minSize 64 #maxSize 64 } :String
+                    :StrFixed64 { #minSize 64 #maxSize 64 } :String
                   }
-                  :type :Seq( :StringFixed64 )
+                  :type :Seq( :StrFixed64 )
                   :body [ "1234567890123456789012345678901234567890123456789012345678901234" ]
                 }
                 """),
 
         TestProfile.createError(
-            "Fixed String - Underflow Rejection (:StringFixed64 with len 37)",
+            "Fixed String - Underflow Rejection (:StrFixed64 with len 37)",
             """
                 {
                   :defs {
-                    :StringFixed64 { #minSize 64 #maxSize 64 } :String
+                    :StrFixed64 { #minSize 64 #maxSize 64 } :String
                   }
-                  :type :Seq( :StringFixed64 )
+                  :type :Seq( :StrFixed64 )
                   :body [ "This string is exactly 37 chars long." ]
                 }
                 """,
-            "Constraint violation (:StringFixed64): Fixed string must be exactly 64 characters long, got 37"),
+            "Constraint violation (:StrFixed64): Fixed string must be exactly 64 characters long, got 37"),
 
         TestProfile.createError(
-            "Fixed String - Overflow Rejection (:StringFixed64 with len 65)",
+            "Fixed String - Overflow Rejection (:StrFixed64 with len 65)",
             """
                 {
                   :defs {
-                    :StringFixed64 { #minSize 64 #maxSize 64 } :String
+                    :StrFixed64 { #minSize 64 #maxSize 64 } :String
                   }
-                  :type :Seq( :StringFixed64 )
+                  :type :Seq( :StrFixed64 )
                   :body [ "12345678901234567890123456789012345678901234567890123456789012345" ]
                 }
                 """,
-            "Constraint violation (:StringFixed64): Fixed string must be exactly 64 characters long, got 65"),
+            "Constraint violation (:StrFixed64): Fixed string must be exactly 64 characters long, got 65"),
 
         // --- 4. Nominal Type Alias Bounded Tests ---
         TestProfile.create(
@@ -1011,9 +1011,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed6 { #minSize 6 #maxSize 6 } :String
+                    :StrFixed6 { #minSize 6 #maxSize 6 } :String
                   }
-                  :type :Seq( :StringFixed6 )
+                  :type :Seq( :StrFixed6 )
                   :body [
                     "hello!"
                     \"\"\"
@@ -1026,9 +1026,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed7 { #minSize 7 #maxSize 7 } :String
+                    :StrFixed7 { #minSize 7 #maxSize 7 } :String
                   }
-                  :type :Seq( :StringFixed7 )
+                  :type :Seq( :StrFixed7 )
                   :body [
                     "hello!!"
                     \"\"\"
@@ -1073,9 +1073,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed6 { #minSize 6 #maxSize 6 } :String
+                    :StrFixed6 { #minSize 6 #maxSize 6 } :String
                   }
-                  :type :Seq( :StringFixed6 )
+                  :type :Seq( :StrFixed6 )
                   :body [
                     "hello!"
                     \"\"\"[FENCE]
@@ -1088,9 +1088,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed7 { #minSize 7 #maxSize 7 } :String
+                    :StrFixed7 { #minSize 7 #maxSize 7 } :String
                   }
-                  :type :Seq( :StringFixed7 )
+                  :type :Seq( :StrFixed7 )
                   :body [
                     "hello!!"
                     \"\"\"[FENCE]
@@ -1135,14 +1135,14 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed7 { #minSize 7 #maxSize 7 } :String
+                    :StrFixed7 { #minSize 7 #maxSize 7 } :String
                   }
                   :type :Seq( :String )
                   :body [
                     "hello!"
                     \"\"\"[STVN_WITHIN_STVN]
                     {
-                      :type :Seq( :StringFixed7 )
+                      :type :Seq( :StrFixed7 )
                       :body [
                         "hello!!"
                         \"\"\"[FENCE]
@@ -1194,9 +1194,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed5 { #minSize 5 #maxSize 5 } :String
+                    :StrFixed5 { #minSize 5 #maxSize 5 } :String
                   }
-                  :type :Seq( :Tuple( :Int :StringFixed5 ) )
+                  :type :Seq( :Tuple( :Int :StrFixed5 ) )
                   :body [ ( 1 "hello" ) ]
                 }
                 """),
@@ -1206,9 +1206,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed5 { #minSize 5 #maxSize 5 } :String
+                    :StrFixed5 { #minSize 5 #maxSize 5 } :String
                   }
-                  :type :Seq( :Tuple( :Int :StringFixed5 ) )
+                  :type :Seq( :Tuple( :Int :StrFixed5 ) )
                   :body [ ( 1 "hello" #TRUE ) ]
                 }
                 """,
@@ -1219,10 +1219,10 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed3 { #minSize 3 #maxSize 3 } :String
-                    :Int8 { #size 8 } :Int
+                    :StrFixed3 { #minSize 3 #maxSize 3 } :String
+                    :I8 { #size 8 } :Int
                   }
-                  :type :Map( :StringFixed3 :Int8 )
+                  :type :Map( :StrFixed3 :I8 )
                   :body {
                     [ 3 "six" ]
                   }
@@ -1235,8 +1235,8 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Int8 { #size 8 } :Int
-                    :SeqNonEmptyInt8 { #minSize 1 } :Seq( :Int8 )
+                    :I8 { #size 8 } :Int
+                    :SeqNonEmptyInt8 { #minSize 1 } :Seq( :I8 )
                   }
                   :type :Seq( :SeqNonEmptyInt8 )
                   :body [ [ ] ]
@@ -1249,11 +1249,11 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed3 { #minSize 3 #maxSize 3 } :String
-                    :Int8 { #size 8 } :Int
-                    :Float32 { #size 32 } :Float
+                    :StrFixed3 { #minSize 3 #maxSize 3 } :String
+                    :I8 { #size 8 } :Int
+                    :F32 { #size 32 } :Float
                   }
-                  :type :Seq( :Map( :StringFixed3 :Either( :Int8 :Tuple( :Boolean :Float32 ) ) ) )
+                  :type :Seq( :Map( :StrFixed3 :Either( :I8 :Tuple( :Boolean :F32 ) ) ) )
                   :body [
                     { [ "err" ( #FALSE "bad_float" ) ] }
                   ]
@@ -1280,13 +1280,13 @@ public class StvnEndToEndIntegrationTest {
                   :defs {
                     :JsonNull :Enum [ #Null ]
                     :JsonValue :Union(
-                      :JsonNull
-                      :Boolean
-                      :Int
-                      :Float
-                      :String
-                      :Seq( :JsonValue )
-                      :Map( :String :JsonValue )
+                       :JsonNull
+                       :Boolean
+                       :Int
+                       :Float
+                       :String
+                       :Seq( :JsonValue )
+                       :Map( :String :JsonValue )
                     )
                     :JsonObject :Map( :String :JsonValue )
                   }
@@ -1309,8 +1309,8 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Uint { #unsigned } :Int
-                    :SetNonEmptyUint { #minSize 1 } :Set( :Uint )
+                    :U32 { #unsigned } :Int
+                    :SetNonEmptyUint { #minSize 1 } :Set( :U32 )
                   }
                   :type :SetNonEmptyUint
                   :body [ 1 2 3 1 ]
@@ -1323,9 +1323,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :StringFixed3 { #minSize 3 #maxSize 3 } :String
-                    :Int8 { #size 8 } :Int
-                    :MapInvNonEmptyStrInt { #invertible #minSize 1 } :Map( :StringFixed3 :Int8 )
+                    :StrFixed3 { #minSize 3 #maxSize 3 } :String
+                    :I8 { #size 8 } :Int
+                    :MapInvNonEmptyStrInt { #invertible #minSize 1 } :Map( :StrFixed3 :I8 )
                   }
                   :type :MapInvNonEmptyStrInt
                   :body {
@@ -1365,10 +1365,10 @@ public class StvnEndToEndIntegrationTest {
         """
             {
               :defs {
-                :Int32 { #size 32 } :Int
-                :Int64 { #size 64 } :Int
+                :I32 { #size 32 } :Int
+                :I64 { #size 64 } :Int
               }
-              :type :Either( :Option( :Int32 ) :Option( :Int64 ) )
+              :type :Either( :Option( :I32 ) :Option( :I64 ) )
               :body 42
             }
             """,
@@ -1407,10 +1407,10 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Int8 { #size 8 } :Int
-                    :StringFixed5 { #minSize 5 #maxSize 5 } :String
+                    :I8 { #size 8 } :Int
+                    :StrFixed5 { #minSize 5 #maxSize 5 } :String
                   }
-                  :type :Seq( :Either( :Int8 :StringFixed5 ) )
+                  :type :Seq( :Either( :I8 :StrFixed5 ) )
                   :body [ #Left 1 #Right "hello" ]
                 }
                 """),
@@ -1420,24 +1420,24 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Int8 { #size 8 } :Int
-                    :StringFixed5 { #minSize 5 #maxSize 5 } :String
+                    :I8 { #size 8 } :Int
+                    :StrFixed5 { #minSize 5 #maxSize 5 } :String
                   }
-                  :type :Seq( :Either( :Int8 :StringFixed5 ) )
+                  :type :Seq( :Either( :I8 :StrFixed5 ) )
                   :body [ #Right "hi" ]
                 }
                 """,
-            "Constraint violation (:StringFixed5): Fixed string must be exactly 5 characters long, got 2"),
+            "Constraint violation (:StrFixed5): Fixed string must be exactly 5 characters long, got 2"),
 
         TestProfile.createError(
             "Rule E Rejection - Left Variant Non-Inferable in Sequence",
             """
                 {
                   :defs {
-                    :Int8 { #size 8 } :Int
-                    :StringFixed5 { #minSize 5 #maxSize 5 } :String
+                    :I8 { #size 8 } :Int
+                    :StrFixed5 { #minSize 5 #maxSize 5 } :String
                   }
-                  :type :Seq( :Either( :Int8 :StringFixed5 ) )
+                  :type :Seq( :Either( :I8 :StrFixed5 ) )
                   :body [ 1 "hello" ]
                 }
                 """,
@@ -1458,9 +1458,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Int8 { #size 8 } :Int
+                    :I8 { #size 8 } :Int
                   }
-                  :type :Seq( :Int8 )
+                  :type :Seq( :I8 )
                   :body [ #Some 1 ]
                 }
                 """,
@@ -1471,9 +1471,9 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :Int8 { #size 8 } :Int
+                    :I8 { #size 8 } :Int
                   }
-                  :type :Seq( :Tuple( :Option( :Int8 ) :Either( :Int8 :String ) ) )
+                  :type :Seq( :Tuple( :Option( :I8 ) :Either( :I8 :String ) ) )
                   :body [ ( #S "bad" #L 1 ) ]
                 }
                 """,
@@ -2124,20 +2124,20 @@ public class StvnEndToEndIntegrationTest {
       String invalidSchemaText = """
           {
             :defs {
-              :Int32 { #size 32 } :Int
-              :Int16 { #size 16 } :Int
+              :I32 { #size 32 } :Int
+              :I16 { #size 16 } :Int
             }
-            :type :Union( :Int32 :Int16 :String )
+            :type :Union( :I32 :I16 :String )
             :body "hello"
           }
           """;
       var ir = org.stvnadore.core.StvnCompiler.compile("""
           {
             :defs {
-              :Int32 { #size 32 } :Int
-              :Int16 { #size 16 } :Int
+              :I32 { #size 32 } :Int
+              :I16 { #size 16 } :Int
             }
-            :type :Union( :Int32 :Int16 :String )
+            :type :Union( :I32 :I16 :String )
             :body "hello"
           }
           """).orElseThrow();

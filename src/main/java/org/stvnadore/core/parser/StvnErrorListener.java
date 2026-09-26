@@ -10,6 +10,7 @@ import org.antlr.v4.runtime.misc.IntervalSet;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.StvnSyntaxCancellationException;
 import org.stvnadore.core.validation.StvnTypeResolver;
@@ -433,7 +434,7 @@ public final class StvnErrorListener extends BaseErrorListener {
       if (name.equals("ProductTypeContext") || name.equals("TupleTypeContext")) {
         return true;
       }
-      if (cur.getText().startsWith(":Tuple(")) {
+      if (StvnVocabulary.isConstructorMatch(cur.getText(), StvnVocabulary.TYPE_TUPLE)) {
         return true;
       }
       cur = cur.parent;
@@ -445,7 +446,7 @@ public final class StvnErrorListener extends BaseErrorListener {
     RuleContext cur = ctx;
     while (cur != null) {
       String name = cur.getClass().getSimpleName();
-      if (name.equals("SumTypeContext") && cur.getText().startsWith(":Union(")) {
+      if (name.equals("SumTypeContext") && StvnVocabulary.isConstructorMatch(cur.getText(), StvnVocabulary.TYPE_UNION)) {
         return true;
       }
       cur = cur.parent;
@@ -457,7 +458,7 @@ public final class StvnErrorListener extends BaseErrorListener {
     RuleContext cur = ctx;
     while (cur != null) {
       String name = cur.getClass().getSimpleName();
-      if (name.equals("EnumDefContext") || cur.getText().startsWith("[")) {
+      if (name.equals("EnumDefContext") || cur.getText().startsWith("[") || StvnVocabulary.isConstructorMatch(cur.getText(), StvnVocabulary.TYPE_ENUM)) {
         return true;
       }
       cur = cur.parent;
@@ -466,28 +467,23 @@ public final class StvnErrorListener extends BaseErrorListener {
   }
 
   private static boolean isSingleArgCollectionKeyword(String text) {
-    return ":Seq".equals(text) ||
-           ":SeqNonEmpty".equals(text) ||
-           ":Set".equals(text) ||
-           ":SetNonEmpty".equals(text) ||
-           ":Option".equals(text);
+    return StvnVocabulary.TYPE_SEQ.equals(text) ||
+           StvnVocabulary.TYPE_SET.equals(text) ||
+           StvnVocabulary.TYPE_OPTION.equals(text);
   }
 
   private static boolean isTwoArgCollectionKeyword(String text) {
-    return ":Map".equals(text) ||
-           ":MapNonEmpty".equals(text) ||
-           ":MapInv".equals(text) ||
-           ":MapInvNonEmpty".equals(text) ||
-           ":Either".equals(text);
+    return StvnVocabulary.TYPE_MAP.equals(text) ||
+           StvnVocabulary.TYPE_EITHER.equals(text);
   }
 
   private static boolean isSingleArgumentCollection(@Nullable RuleContext ctx) {
     RuleContext cur = ctx;
     while (cur != null) {
       String text = cur.getText();
-      if (text.startsWith(":Seq(") || text.startsWith(":SeqNonEmpty(") ||
-          text.startsWith(":Set(") || text.startsWith(":SetNonEmpty(") ||
-          text.startsWith(":Option(")) {
+      if (StvnVocabulary.isConstructorMatch(text, StvnVocabulary.TYPE_SEQ) ||
+          StvnVocabulary.isConstructorMatch(text, StvnVocabulary.TYPE_SET) ||
+          StvnVocabulary.isConstructorMatch(text, StvnVocabulary.TYPE_OPTION)) {
         return true;
       }
       cur = cur.parent;
@@ -499,7 +495,8 @@ public final class StvnErrorListener extends BaseErrorListener {
     RuleContext cur = ctx;
     while (cur != null) {
       String text = cur.getText();
-      if (text.startsWith(":Map(") || text.startsWith(":Either(")) {
+      if (StvnVocabulary.isConstructorMatch(text, StvnVocabulary.TYPE_MAP) ||
+          StvnVocabulary.isConstructorMatch(text, StvnVocabulary.TYPE_EITHER)) {
         return true;
       }
       cur = cur.parent;

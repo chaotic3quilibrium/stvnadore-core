@@ -1,6 +1,7 @@
 package org.stvnadore.core;
 
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.jspecify.annotations.NullMarked;
 
 /**
@@ -364,6 +365,70 @@ public final class StvnVocabulary {
   // ============================================================================
   // 10. PRE-BAKED CANONICAL TOKEN SETS FOR FAST INTERCEPTION & LOOKUP
   // ============================================================================
+
+  /** Pre-baked unmodifiable set containing all 6 canonical base scalar primitive type keywords. */
+  public static final Set<String> BASE_SCALAR_TYPES = Set.of(
+      TYPE_BOOLEAN,
+      TYPE_INT,
+      TYPE_FLOAT,
+      TYPE_STRING,
+      TYPE_TIME_EPOCH,
+      TYPE_DATE_TIME
+  );
+
+  /** Pre-baked unmodifiable set containing all 8 composite type constructor keywords. */
+  public static final Set<String> COMPOSITE_CONSTRUCTOR_TYPES = Set.of(
+      TYPE_SEQ,
+      TYPE_SET,
+      TYPE_MAP,
+      TYPE_TUPLE,
+      TYPE_OPTION,
+      TYPE_EITHER,
+      TYPE_UNION,
+      TYPE_ENUM
+  );
+
+  /**
+   * Tests whether a candidate type string exactly equals one of the 6 canonical base scalar primitives.
+   *
+   * @param typeStr the candidate type keyword to evaluate
+   * @return {@code true} if the type string exactly equals a base scalar type; {@code false} otherwise
+   */
+  public static boolean isBaseScalarType(@Nullable String typeStr) {
+    return typeStr != null && BASE_SCALAR_TYPES.contains(typeStr);
+  }
+
+  /**
+   * Tests whether a type string matches a composite type constructor name with strict delimiter discipline.
+   * <p>
+   * Matching succeeds if {@code typeStr} is equal to {@code constructorName}, or begins with
+   * {@code constructorName} followed immediately by an opening delimiter ({@code (} or {@code [} for enum)
+   * or whitespace. Any alphanumeric continuation (e.g. {@code :SeqRecord} or {@code :MapStore})
+   * is strictly rejected.
+   *
+   * @param typeStr the candidate type string to evaluate
+   * @param constructorName the canonical constructor keyword to match (e.g. {@code :Seq}, {@code :Map})
+   * @return {@code true} if the candidate matches the constructor boundary; {@code false} otherwise
+   */
+  public static boolean isConstructorMatch(@Nullable String typeStr, String constructorName) {
+    if (typeStr == null || constructorName == null) {
+      return false;
+    }
+    if (typeStr.equals(constructorName)) {
+      return true;
+    }
+    if (typeStr.startsWith(constructorName)) {
+      int prefixLen = constructorName.length();
+      if (typeStr.length() > prefixLen) {
+        char nextChar = typeStr.charAt(prefixLen);
+        if (TYPE_ENUM.equals(constructorName)) {
+          return nextChar == '[' || Character.isWhitespace(nextChar);
+        }
+        return nextChar == '(' || Character.isWhitespace(nextChar);
+      }
+    }
+    return false;
+  }
 
   /** Pre-baked unmodifiable set containing all canonical and abbreviated boolean tokens. */
   public static final Set<String> BOOLEAN_KEYWORDS = Set.of(

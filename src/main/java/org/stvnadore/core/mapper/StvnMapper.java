@@ -340,8 +340,7 @@ public final class StvnMapper {
           }
         }
 
-        boolean isInvertible = schema.constraints().invertible()
-            || baseText.filter(text -> text.startsWith(":MapInv")).isPresent();
+        boolean isInvertible = schema.constraints().invertible();
 
         if (isInvertible) {
           var seenValues = new HashSet<StvnValue>(entries.size());
@@ -373,16 +372,7 @@ public final class StvnMapper {
         var bi = (recordInstance instanceof BigInteger) ? (BigInteger) recordInstance : BigInteger.valueOf(n.longValue());
         int bitWidth = schema.constraints().size().orElse(32);
         boolean isUnsigned = schema.constraints().unsigned();
-        var baseText = Optional.ofNullable(schema.node())
-            .map(StvnTypeResolver::getPrimitiveBaseType);
-        if (baseText.isPresent()) {
-          var text = baseText.get();
-          if (text.startsWith(":Uint")) isUnsigned = true;
-          var digits = text.replaceAll("\\D+", "");
-          if (!digits.isEmpty()) {
-            bitWidth = Integer.parseInt(digits);
-          }
-        }
+
 
         BigInteger minLimit;
         BigInteger maxLimit;
@@ -451,10 +441,7 @@ public final class StvnMapper {
         mapped.put(k, v);
       }
 
-      boolean isInvertible = Optional.ofNullable(schema.node())
-          .map(StvnTypeResolver::getPrimitiveBaseType)
-          .filter(text -> text.startsWith(":MapInv"))
-          .isPresent();
+      boolean isInvertible = schema.constraints().invertible();
 
       if (isInvertible) {
         var seenValues = new HashSet<StvnValue>(mapped.size());

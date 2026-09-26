@@ -391,19 +391,20 @@ public final class StvnSchemaFlattener {
   }
 
   private static boolean isPrimitiveType(String type) {
-    if (type.equals(StvnVocabulary.TYPE_BOOLEAN) || type.equals(":FloatExact") || type.equals(StvnVocabulary.TYPE_SEQ) || type.equals(":SeqNonEmpty") ||
-        type.equals(StvnVocabulary.TYPE_SET) || type.equals(":SetNonEmpty") || type.equals(StvnVocabulary.TYPE_MAP) ||
-        type.equals(":MapNonEmpty") || type.equals(":MapInv") || type.equals(":MapInvNonEmpty") ||
-        type.equals(StvnVocabulary.TYPE_TUPLE) || type.equals(StvnVocabulary.TYPE_MAP_ENTRY) || type.equals(StvnVocabulary.TYPE_OPTION) ||
-        type.equals(StvnVocabulary.TYPE_EITHER) || type.equals(StvnVocabulary.TYPE_UNION) || type.equals(StvnVocabulary.TYPE_ENUM)) {
+    if (type.equals(StvnVocabulary.TYPE_BOOLEAN) || type.equals(StvnVocabulary.TYPE_INT) ||
+        type.equals(StvnVocabulary.TYPE_FLOAT) || type.equals(StvnVocabulary.TYPE_STRING) ||
+        type.equals(StvnVocabulary.TYPE_TIME_EPOCH) || type.equals(StvnVocabulary.TYPE_DATE_TIME) ||
+        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_SEQ) ||
+        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_SET) ||
+        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_MAP) ||
+        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_TUPLE) ||
+        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_OPTION) ||
+        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_EITHER) ||
+        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_UNION) ||
+        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_ENUM) ||
+        type.equals(StvnVocabulary.TYPE_MAP_ENTRY)) {
       return true;
     }
-    if (type.startsWith(StvnVocabulary.TYPE_INT) && type.substring(4).matches("\\d*")) return true;
-    if (type.startsWith(":Uint") && type.substring(5).matches("\\d*")) return true;
-    if (type.startsWith(StvnVocabulary.TYPE_FLOAT) && type.substring(6).matches("\\d*")) return true;
-    if (type.startsWith(":StringFixed") && type.substring(12).matches("\\d*")) return true;
-    if (type.startsWith(":StringNonEmpty") && type.substring(15).matches("\\d*")) return true;
-    if (type.startsWith(StvnVocabulary.TYPE_STRING) && !type.startsWith(":StringFixed") && !type.startsWith(":StringNonEmpty") && type.substring(7).matches("\\d*")) return true;
     return false;
   }
 

@@ -236,7 +236,7 @@ public class StvnDiagnosticsTest {
 
     var diag = result.diagnostics().getFirst();
     Assertions.assertEquals(
-        "STVN Syntax Error: empty composite argument list: collection requires schema type argument",
+        "STVN Syntax Error: Compound collection keyword ':SetNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Set'",
         diag.message()
     );
   }
@@ -268,9 +268,7 @@ public class StvnDiagnosticsTest {
   @ParameterizedTest
   @ValueSource(strings = {
       "{ :type :Seq() :body [] }",
-      "{ :type :SeqNonEmpty() :body [ 1 ] }",
       "{ :type :Set() :body [] }",
-      "{ :type :SetNonEmpty() :body [ 1 ] }",
       "{ :type :Option() :body #None }"
   })
   @DisplayName("All single-argument collections emit uniform diagnostic on empty arguments")
@@ -288,9 +286,6 @@ public class StvnDiagnosticsTest {
   @ParameterizedTest
   @ValueSource(strings = {
       "{ :type :Map() :body {} }",
-      "{ :type :MapNonEmpty() :body { [ 1 2 ] } }",
-      "{ :type :MapInv() :body {} }",
-      "{ :type :MapInvNonEmpty() :body { [ 1 2 ] } }",
       "{ :type :Either() :body #Left 1 }"
   })
   @DisplayName("All two-argument collections emit uniform diagnostic on empty arguments")
@@ -350,9 +345,9 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :Int32 { #size 32 } :Int
-            :Uint32 { #unsigned #size 32 } :Int
-            :EitherRepeat :Either( :Int32 :Uint32 )
+            :I32 { #size 32 } :Int
+            :U32 { #unsigned #size 32 } :Int
+            :EitherRepeat :Either( :I32 :U32 )
           }
           :type :EitherRepeat
           :body 1
@@ -374,9 +369,9 @@ public class StvnDiagnosticsTest {
     String leftInput = """
         {
           :defs {
-            :Int32 { #size 32 } :Int
-            :Uint32 { #unsigned #size 32 } :Int
-            :EitherRepeat :Either( :Int32 :Uint32 )
+            :I32 { #size 32 } :Int
+            :U32 { #unsigned #size 32 } :Int
+            :EitherRepeat :Either( :I32 :U32 )
           }
           :type :EitherRepeat
           :body #Left 1
@@ -393,9 +388,9 @@ public class StvnDiagnosticsTest {
     String rightInput = """
         {
           :defs {
-            :Int32 { #size 32 } :Int
-            :Uint32 { #unsigned #size 32 } :Int
-            :EitherRepeat :Either( :Int32 :Uint32 )
+            :I32 { #size 32 } :Int
+            :U32 { #unsigned #size 32 } :Int
+            :EitherRepeat :Either( :I32 :U32 )
           }
           :type :EitherRepeat
           :body #Right 1
@@ -526,10 +521,10 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :Float32 { #size 32 } :Float
-            :Float64 { #size 64 } :Float
+            :F32 { #size 32 } :Float
+            :F64 { #size 64 } :Float
           }
-          :type :Either( :Float32 :Float64 )
+          :type :Either( :F32 :F64 )
           :body 1.5
         }
         """;
@@ -570,10 +565,10 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :Int32 { #size 32 } :Int
-            :Uint32 { #unsigned #size 32 } :Int
+            :I32 { #size 32 } :Int
+            :U32 { #unsigned #size 32 } :Int
           }
-          :type :Option( :Either( :Int32 :Uint32 ) )
+          :type :Option( :Either( :I32 :U32 ) )
           :body 1
         }
         """;
@@ -592,11 +587,11 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :Int32 { #size 32 } :Int
-            :Uint32 { #unsigned #size 32 } :Int
-            #CONST_VAL :Int32 100
+            :I32 { #size 32 } :Int
+            :U32 { #unsigned #size 32 } :Int
+            #CONST_VAL :I32 100
           }
-          :type :Either( :Int32 :Uint32 )
+          :type :Either( :I32 :U32 )
           :body #CONST_VAL
         }
         """;
