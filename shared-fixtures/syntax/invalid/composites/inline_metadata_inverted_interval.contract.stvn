@@ -1,0 +1,14 @@
+{
+  // inline_metadata_inverted_interval.contract.stvn
+  :defs {
+    :include [ "../error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #ERR_DISCRETE_BOUND_KIND_PROHIBITED
+    "Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

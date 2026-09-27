@@ -1,0 +1,7 @@
+// @spec: SPEC-09-PRODUCT-TYPES
+// @case: Negative - Reject size facet on child string schema
+// @error: MALFORMED_SCHEMA
+{
+  :type :Tuple( { #size 32 } :String :Int )
+  :body ( "abc" 10 )
+}

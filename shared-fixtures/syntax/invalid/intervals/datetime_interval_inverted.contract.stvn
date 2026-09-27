@@ -8,7 +8,7 @@
 
   :body (
     #INVALID_NUMERIC_RANGE
-    "effective datetime range is invalid"
+    "Constraint violation (:InvertedDateRange): effective datetime range is invalid (minimum instant 2026-09-25T12:00:00Z is chronologically after maximum instant 2026-09-24T12:00:00Z)"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

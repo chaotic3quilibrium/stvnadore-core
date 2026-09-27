@@ -93,292 +93,12 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
 
           var constraints = s.constraints();
           if (!isConstraintsEmpty(constraints)) {
-            var count = countConstraints(constraints);
-            var inline = (count <= 1) || !pretty;
-
             layout.appendSeparator();
-            layout.openGroup("{");
-            if (!inline) {
-              layout.indent();
-            }
-
-            var firstC = true;
-
-            // Tier 1: Flags & Intrinsic Modes
-            if (constraints.unsigned()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_UNSIGNED);
-            }
-            if (constraints.exact()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_EXACT);
-            }
-            if (constraints.invertible()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_INVERTIBLE);
-            }
-            if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
-              layout.appendSeparator();
-              layout.writeBoolean(true, options.symbolStyle());
-            }
-            if (constraints.offset()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_OFFSET);
-            }
-            if (constraints.zoned()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_ZONED);
-            }
-            if (constraints.audited()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_AUDITED);
-            }
-            var equatable = constraints.equatable().orElse(null);
-            if (equatable != null && constraints.explicitOverrides().contains("equatable")) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_EQUATABLE);
-              layout.appendSeparator();
-              layout.writeBoolean(equatable, options.symbolStyle());
-            }
-            var comparable = constraints.comparable().orElse(null);
-            if (comparable != null && constraints.explicitOverrides().contains("comparable")) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_COMPARABLE);
-              layout.appendSeparator();
-              layout.writeBoolean(comparable, options.symbolStyle());
-            }
-
-            // Tier 2: Temporal Scale
-            var scale = constraints.scale().orElse(null);
-            if (scale != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              String scaleKw = scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale : StvnVocabulary.SIGIL_VALUE + scale;
-              layout.writeLiteral(scaleKw);
-            }
-
-            // Tier 3: Dimensions & Capacity
-            var size = constraints.size().orElse(null);
-            if (size != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_SIZE);
-              layout.appendSeparator();
-              layout.writeLiteral(size.toString());
-            }
-            var minSize = constraints.minSize().orElse(null);
-            if (minSize != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_SIZE);
-              layout.appendSeparator();
-              layout.writeLiteral(minSize.toString());
-            }
-            var maxSize = constraints.maxSize().orElse(null);
-            if (maxSize != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
-              layout.appendSeparator();
-              layout.writeLiteral(maxSize.toString());
-            }
-
-            // Tier 4: Value Intervals (Lower before Upper)
-            var minIncl = constraints.minIncl().orElse(null);
-            if (minIncl != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
-              layout.appendSeparator();
-              layout.writeLiteral(minIncl.toString());
-            } else if (constraints.dateMinIncl().isPresent()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
-              layout.appendSeparator();
-              layout.writeSimpleString(constraints.dateMinIncl().get());
-            }
-            var minExcl = constraints.minExcl().orElse(null);
-            if (minExcl != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_EXCL);
-              layout.appendSeparator();
-              layout.writeLiteral(minExcl.toString());
-            }
-            var maxExcl = constraints.maxExcl().orElse(null);
-            if (maxExcl != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
-              layout.appendSeparator();
-              layout.writeLiteral(maxExcl.toString());
-            } else if (constraints.dateMaxExcl().isPresent()) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
-              layout.appendSeparator();
-              layout.writeSimpleString(constraints.dateMaxExcl().get());
-            }
-            var maxIncl = constraints.maxIncl().orElse(null);
-            if (maxIncl != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_INCL);
-              layout.appendSeparator();
-              layout.writeLiteral(maxIncl.toString());
-            }
-
-            // Tier 5: Pattern & Text Structure
-            var regex = constraints.regex().orElse(null);
-            if (regex != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_REGEX);
-              layout.appendSeparator();
-              layout.writeSimpleString(regex);
-            }
-
-            // Tier 6: Set & Variant Membership
-            var filterIncl = constraints.filterIncl().orElse(null);
-            if (filterIncl != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_INCL);
-              layout.appendSeparator();
-              layout.openGroup("[");
-              var firstV = true;
-              for (String v : filterIncl) {
-                if (!firstV) layout.appendSeparator();
-                firstV = false;
-                layout.writeLiteral(v);
-              }
-              layout.closeGroup("]");
-            }
-            var filterExcl = constraints.filterExcl().orElse(null);
-            if (filterExcl != null) {
-              if (inline) {
-                if (!firstC) layout.appendSeparator();
-              } else {
-                layout.newline();
-              }
-              firstC = false;
-              layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_EXCL);
-              layout.appendSeparator();
-              layout.openGroup("[");
-              var firstV = true;
-              for (String v : filterExcl) {
-                if (!firstV) layout.appendSeparator();
-                firstV = false;
-                layout.writeLiteral(v);
-              }
-              layout.closeGroup("]");
-            }
-
-            if (!inline) {
-              layout.outdent();
-              layout.newline();
-            }
-            layout.closeGroup("}");
+            writeConstraints(constraints, layout);
           }
 
           layout.appendSeparator();
-          writeSchemaType(s.schemaNode(), layout, s.lexicalContext());
+          writeSchemaType(s.schemaNode(), layout, s.lexicalContext(), false);
         }
 
         if (pretty) {
@@ -401,7 +121,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         if (alias != null) {
           layout.writeLiteral(alias);
         } else {
-          writeSchemaType(schema.node(), layout, schema.node());
+          writeSchemaType(schema.node(), layout, schema.node(), true);
         }
       } else {
         throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing schema context");
@@ -426,6 +146,294 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
     layout.flush();
   }
 
+  private void writeConstraints(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints constraints, LayoutWriter layout) throws IOException {
+    if (isConstraintsEmpty(constraints)) {
+      return;
+    }
+    var pretty = layout instanceof PrettyLayoutWriter;
+    var count = countConstraints(constraints);
+    var inline = (count <= 1) || !pretty;
+
+    layout.openGroup("{");
+    if (!inline) {
+      layout.indent();
+    }
+
+    var firstC = true;
+
+    // Tier 1: Flags & Intrinsic Modes
+    if (constraints.unsigned()) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_UNSIGNED);
+    }
+    if (constraints.exact()) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_EXACT);
+    }
+    if (constraints.invertible()) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_INVERTIBLE);
+    }
+    if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
+      layout.appendSeparator();
+      layout.writeBoolean(true, options.symbolStyle());
+    }
+    if (constraints.offset()) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_OFFSET);
+    }
+    if (constraints.zoned()) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_ZONED);
+    }
+    if (constraints.audited()) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_AUDITED);
+    }
+    var equatable = constraints.equatable().orElse(null);
+    if (equatable != null && constraints.explicitOverrides().contains("equatable")) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_EQUATABLE);
+      layout.appendSeparator();
+      layout.writeBoolean(equatable, options.symbolStyle());
+    }
+    var comparable = constraints.comparable().orElse(null);
+    if (comparable != null && constraints.explicitOverrides().contains("comparable")) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_COMPARABLE);
+      layout.appendSeparator();
+      layout.writeBoolean(comparable, options.symbolStyle());
+    }
+
+    // Tier 2: Temporal Scale
+    var scale = constraints.scale().orElse(null);
+    if (scale != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      String scaleKw = scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale : StvnVocabulary.SIGIL_VALUE + scale;
+      layout.writeLiteral(scaleKw);
+    }
+
+    // Tier 3: Dimensions & Capacity
+    var size = constraints.size().orElse(null);
+    if (size != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_SIZE);
+      layout.appendSeparator();
+      layout.writeLiteral(size.toString());
+    }
+    var minSize = constraints.minSize().orElse(null);
+    if (minSize != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_SIZE);
+      layout.appendSeparator();
+      layout.writeLiteral(minSize.toString());
+    }
+    var maxSize = constraints.maxSize().orElse(null);
+    if (maxSize != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
+      layout.appendSeparator();
+      layout.writeLiteral(maxSize.toString());
+    }
+
+    // Tier 4: Value Intervals (Lower before Upper)
+    var minIncl = constraints.minIncl().orElse(null);
+    if (minIncl != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
+      layout.appendSeparator();
+      layout.writeLiteral(minIncl.toString());
+    } else if (constraints.dateMinIncl().isPresent()) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
+      layout.appendSeparator();
+      layout.writeSimpleString(constraints.dateMinIncl().get());
+    }
+    var minExcl = constraints.minExcl().orElse(null);
+    if (minExcl != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_EXCL);
+      layout.appendSeparator();
+      layout.writeLiteral(minExcl.toString());
+    }
+    var maxExcl = constraints.maxExcl().orElse(null);
+    if (maxExcl != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
+      layout.appendSeparator();
+      layout.writeLiteral(maxExcl.toString());
+    } else if (constraints.dateMaxExcl().isPresent()) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
+      layout.appendSeparator();
+      layout.writeSimpleString(constraints.dateMaxExcl().get());
+    }
+    var maxIncl = constraints.maxIncl().orElse(null);
+    if (maxIncl != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_INCL);
+      layout.appendSeparator();
+      layout.writeLiteral(maxIncl.toString());
+    }
+
+    // Tier 5: Pattern & Text Structure
+    var regex = constraints.regex().orElse(null);
+    if (regex != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_REGEX);
+      layout.appendSeparator();
+      layout.writeSimpleString(regex);
+    }
+
+    // Tier 6: Set & Variant Membership
+    var filterIncl = constraints.filterIncl().orElse(null);
+    if (filterIncl != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_INCL);
+      layout.appendSeparator();
+      layout.openGroup("[");
+      var firstV = true;
+      for (String v : filterIncl) {
+        if (!firstV) layout.appendSeparator();
+        firstV = false;
+        layout.writeLiteral(v);
+      }
+      layout.closeGroup("]");
+    }
+    var filterExcl = constraints.filterExcl().orElse(null);
+    if (filterExcl != null) {
+      if (inline) {
+        if (!firstC) layout.appendSeparator();
+      } else {
+        layout.newline();
+      }
+      firstC = false;
+      layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_EXCL);
+      layout.appendSeparator();
+      layout.openGroup("[");
+      var firstV = true;
+      for (String v : filterExcl) {
+        if (!firstV) layout.appendSeparator();
+        firstV = false;
+        layout.writeLiteral(v);
+      }
+      layout.closeGroup("]");
+    }
+
+    if (!inline) {
+      layout.outdent();
+      layout.newline();
+    }
+    layout.closeGroup("}");
+  }
+
   private boolean isConstraintsEmpty(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints c) {
     var hasMinIncl = c.minIncl().isPresent() || c.dateMinIncl().isPresent();
     var hasMinExcl = c.minExcl().isPresent();
@@ -445,6 +453,17 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
   }
 
   private void writeSchemaType(StvnParser.SchemaTypeContext node, LayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext) throws IOException {
+    writeSchemaType(node, layout, lexicalContext, true);
+  }
+
+  private void writeSchemaType(StvnParser.SchemaTypeContext node, LayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext, boolean writeConstraints) throws IOException {
+    if (writeConstraints && node.metadataMap() != null) {
+      var constraints = org.stvnadore.core.validation.StvnTypeResolver.extractConstraints(node.metadataMap());
+      if (!isConstraintsEmpty(constraints)) {
+        writeConstraints(constraints, layout);
+        layout.appendSeparator();
+      }
+    }
     if (node.typeKeyword() != null) {
       String desugared = StvnCanonicalDefinitionsResolver.resolveCanonicalTypeKeyword(node.typeKeyword().getText(), lexicalContext);
       layout.writeLiteral(desugared);
@@ -460,7 +479,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         for (var st : col.schemaType()) {
           if (!first) layout.appendSeparator();
           first = false;
-          writeSchemaType(st, layout, lexicalContext);
+          writeSchemaType(st, layout, lexicalContext, true);
         }
         layout.closeGroup(")");
       } else if (ctor.productType() != null) {
@@ -472,7 +491,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
           for (var st : tt.schemaType()) {
             if (!first) layout.appendSeparator();
             first = false;
-            writeSchemaType(st, layout, lexicalContext);
+            writeSchemaType(st, layout, lexicalContext, true);
           }
           layout.closeGroup(")");
         }
@@ -481,14 +500,14 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         if (sum.KW_OPTION() != null) {
           layout.writeLiteral(StvnVocabulary.TYPE_OPTION);
           layout.openGroup("(");
-          writeSchemaType(sum.schemaType(0), layout, lexicalContext);
+          writeSchemaType(sum.schemaType(0), layout, lexicalContext, true);
           layout.closeGroup(")");
         } else if (sum.KW_EITHER() != null) {
           layout.writeLiteral(StvnVocabulary.TYPE_EITHER);
           layout.openGroup("(");
-          writeSchemaType(sum.schemaType(0), layout, lexicalContext);
+          writeSchemaType(sum.schemaType(0), layout, lexicalContext, true);
           layout.appendSeparator();
-          writeSchemaType(sum.schemaType(1), layout, lexicalContext);
+          writeSchemaType(sum.schemaType(1), layout, lexicalContext, true);
           layout.closeGroup(")");
         } else if (sum.KW_UNION() != null) {
           layout.writeLiteral(StvnVocabulary.TYPE_UNION);
@@ -497,7 +516,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
           for (var st : sum.schemaType()) {
             if (!first) layout.appendSeparator();
             first = false;
-            writeSchemaType(st, layout, lexicalContext);
+            writeSchemaType(st, layout, lexicalContext, true);
           }
           layout.closeGroup(")");
         } else if (sum.KW_ENUM() != null) {

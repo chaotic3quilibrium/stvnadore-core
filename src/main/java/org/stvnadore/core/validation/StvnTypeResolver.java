@@ -2164,25 +2164,26 @@ public class StvnTypeResolver {
       var typeDefOpt = findTypeDefinition(doc, kw, schemaNode);
       if (typeDefOpt.isPresent()) {
         var typeDef = typeDefOpt.get();
-        var meta = extractConstraints(typeDef.metadataMap());
+        var meta = extractConstraints(schemaNode.metadataMap());
         var innerRes = resolvePrimitiveSchema(doc, typeDef.schemaType(), nextVisited, false);
 
         Optional<ResolvedType.EnumSubset> derivedSubset = Optional.empty();
         if (meta.filterIncl().isPresent() || meta.filterExcl().isPresent()) {
           var target = innerRes.orElseThrow(() -> new MalformedSchemaException("Cannot resolve target for enum filter: " + kw));
+          String subsetName = kw;
+          if (schemaNode.getParent() instanceof StvnParser.TypeDefinitionContext typeDefCtx) {
+            subsetName = resolveTypeIdentifier(doc, typeDefCtx.typeDefTarget().getText(), typeDefCtx);
+          }
           var baseType = getPrimitiveBaseType(target.node());
           if (!StvnVocabulary.TYPE_ENUM.equals(baseType)) {
-            throw new MalformedSchemaException("Constraint violation (" + kw + "): filter facets are not allowed on " + baseType);
-          }
-          if (typeDef.schemaType().schemaConstructor() != null && typeDef.schemaType().schemaConstructor().sumType() != null && typeDef.schemaType().schemaConstructor().sumType().enumDef() != null) {
-            throw new MalformedSchemaException("Constraint violation (" + kw + "): filter facets cannot be applied to inline enum constructors; filter facets are only allowed on nominal aliases of :Enum or existing enum subsets");
+            throw new MalformedSchemaException("Constraint violation (" + subsetName + "): filter facets are not allowed on " + baseType);
           }
           if (meta.filterIncl().isPresent() && meta.filterExcl().isPresent()) {
-            throw new MalformedSchemaException("Constraint violation (" + kw + "): #filterIncl and #filterExcl are mutually exclusive");
+            throw new MalformedSchemaException("Constraint violation (" + subsetName + "): #filterIncl and #filterExcl are mutually exclusive");
           }
 
           List<String> parentAllowed;
-          String parentName = target.aliasName().orElse(StvnVocabulary.TYPE_ENUM);
+          String parentName = target.aliasName().orElse(kw);
           String rootEnumName;
           List<String> rootVariants;
 
@@ -2191,6 +2192,7 @@ public class StvnTypeResolver {
             parentAllowed = parentSubset.allowedVariants();
             rootEnumName = parentSubset.rootEnum();
             rootVariants = parentSubset.rootVariants();
+            parentName = parentSubset.name();
           } else {
             var rootEnumDef = target.node().schemaConstructor().sumType().enumDef();
             if (rootEnumDef == null) {
@@ -2205,21 +2207,21 @@ public class StvnTypeResolver {
           List<String> facetList = isIncl ? meta.filterIncl().get() : meta.filterExcl().get();
 
           if (facetList.isEmpty()) {
-            throw new MalformedSchemaException("Constraint violation (" + kw + "): enum filter variant list cannot be empty");
+            throw new MalformedSchemaException("Constraint violation (" + subsetName + "): enum filter variant list cannot be empty");
           }
           if (new HashSet<>(facetList).size() != facetList.size()) {
-            throw new MalformedSchemaException("Constraint violation (" + kw + "): duplicate variant in filter facet");
+            throw new MalformedSchemaException("Constraint violation (" + subsetName + "): duplicate variant in filter facet");
           }
           for (String v : facetList) {
             if (!parentAllowed.contains(v)) {
-              throw new MalformedSchemaException("Constraint violation (" + kw + "): Monotonic narrowing violation: variant " + v + " does not exist in immediate parent type " + parentName);
+              throw new MalformedSchemaException("Constraint violation (" + subsetName + "): Monotonic narrowing violation: variant " + v + " does not exist in immediate parent type " + parentName);
             }
           }
           int prevRootIdx = -1;
           for (String v : facetList) {
             int idx = rootVariants.indexOf(v);
             if (idx <= prevRootIdx) {
-              throw new MalformedSchemaException("Constraint violation (" + kw + "): Root ordering violation: variant " + v + " does not match relative declaration order of root :Enum " + rootEnumName);
+              throw new MalformedSchemaException("Constraint violation (" + subsetName + "): Root ordering violation: variant " + v + " does not match relative declaration order of root :Enum " + rootEnumName);
             }
             prevRootIdx = idx;
           }
@@ -2232,10 +2234,10 @@ public class StvnTypeResolver {
           }
 
           if (computedAllowed.isEmpty()) {
-            throw new MalformedSchemaException("Constraint violation (" + kw + "): Complete exclusion violation: enum subset results in empty variant list");
+            throw new MalformedSchemaException("Constraint violation (" + subsetName + "): Complete exclusion violation: enum subset results in empty variant list");
           }
 
-          derivedSubset = Optional.of(new ResolvedType.EnumSubset(kw, parentName, rootEnumName, computedAllowed, rootVariants, isIncl));
+          derivedSubset = Optional.of(new ResolvedType.EnumSubset(subsetName, parentName, rootEnumName, computedAllowed, rootVariants, isIncl));
         } else if (innerRes.isPresent() && innerRes.get().enumSubset().isPresent()) {
           derivedSubset = innerRes.get().enumSubset();
         }
@@ -2314,7 +2316,20 @@ public class StvnTypeResolver {
       }
     }
 
-    var baseRs = applyDefaults(new ResolvedSchema(schemaNode, StvnConstraints.empty(), Optional.empty()));
+    var localMeta = extractConstraints(schemaNode.metadataMap());
+    if (localMeta.filterIncl().isPresent() || localMeta.filterExcl().isPresent()) {
+      if (!StvnVocabulary.TYPE_ENUM.equals(baseText)) {
+        throw new MalformedSchemaException("Constraint violation (" + (baseText != null ? baseText : schemaNode.getText()) + "): filter facets are not allowed on " + baseText,
+            schemaNode.getStart().getStartIndex(), schemaNode.getStop().getStopIndex() + 1);
+      }
+      if (schemaNode.schemaConstructor() != null
+          && schemaNode.schemaConstructor().sumType() != null
+          && schemaNode.schemaConstructor().sumType().enumDef() != null) {
+        throw new MalformedSchemaException("Constraint violation (" + (baseText != null ? baseText : StvnVocabulary.TYPE_ENUM) + "): filter facets cannot be applied to inline enum constructors; filter facets are only allowed on nominal aliases of :Enum or existing enum subsets",
+            schemaNode.getStart().getStartIndex(), schemaNode.getStop().getStopIndex() + 1);
+      }
+    }
+    var baseRs = applyDefaults(new ResolvedSchema(schemaNode, localMeta, Optional.empty()));
     return Optional.of(validateResolvedSchema(deriveAndApplyTraits(baseRs, children)));
   }
 
@@ -3205,6 +3220,38 @@ public class StvnTypeResolver {
     }
 
     for (var child : getInnerSchemas(schemaNode)) {
+      if (child.metadataMap() != null) {
+        if (child.metadataMap().metadataEntry().isEmpty()) {
+          diagnosticBag.addError(
+              "Empty metadata block is invalid; remove '{}' or specify valid facets",
+              child.metadataMap().getStart().getStartIndex(),
+              child.metadataMap().getStop().getStopIndex() + 1,
+              child.metadataMap().getStart().getLine(),
+              child.metadataMap().getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
+          );
+        }
+        var base = getPrimitiveBaseType(child);
+        Optional<ResolvedSchema> resolvedOpt = Optional.empty();
+        try {
+          resolvedOpt = resolvePrimitiveSchema(doc, child, new java.util.HashSet<>());
+        } catch (CircularReferenceException | MalformedSchemaException ignored) {
+        }
+        validateMetadataMapConstraints(base != null ? base : child.getText(), child.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
+      }
+      if (doc != StvnPrelude.getPreludeDocument()) {
+        var base = getPrimitiveBaseType(child);
+        var normBase = normalizeBaseType(base);
+        if (StvnVocabulary.TYPE_TIME_EPOCH.equals(normBase) || StvnVocabulary.TYPE_DATE_TIME.equals(normBase)) {
+          Optional<ResolvedSchema> resolvedOpt = Optional.empty();
+          try {
+            resolvedOpt = resolvePrimitiveSchema(doc, child, new java.util.HashSet<>());
+          } catch (CircularReferenceException | MalformedSchemaException ignored) {
+          }
+          validateTemporalTypeConstraints(child, child.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
+        }
+      }
       validateSchemaCapabilities(doc, child, new java.util.HashSet<>(visited), diagnosticBag);
     }
   }
@@ -3261,16 +3308,18 @@ public class StvnTypeResolver {
       }
     }
     if (doc.documentBody().typeEntry() != null) {
+      var rootSchema = doc.documentBody().typeEntry().schemaType();
       if (doc != StvnPrelude.getPreludeDocument()) {
-        validateTemporalTypeConstraints(doc.documentBody().typeEntry().schemaType(), null, null, diagnosticBag);
+        validateTemporalTypeConstraints(rootSchema, rootSchema.metadataMap(), null, diagnosticBag);
       }
+      Optional<ResolvedSchema> resolvedOpt = Optional.empty();
       try {
-        resolvePrimitiveSchema(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>());
+        resolvedOpt = resolvePrimitiveSchema(doc, rootSchema, new java.util.HashSet<>());
       } catch (MalformedSchemaException e) {
-        int start = e.startOffset() >= 0 ? e.startOffset() : doc.documentBody().typeEntry().schemaType().getStart().getStartIndex();
-        int end = e.endOffset() >= 0 ? e.endOffset() : doc.documentBody().typeEntry().schemaType().getStop().getStopIndex() + 1;
-        int line = doc.documentBody().typeEntry().schemaType().getStart().getLine();
-        int col = doc.documentBody().typeEntry().schemaType().getStart().getCharPositionInLine();
+        int start = e.startOffset() >= 0 ? e.startOffset() : rootSchema.getStart().getStartIndex();
+        int end = e.endOffset() >= 0 ? e.endOffset() : rootSchema.getStop().getStopIndex() + 1;
+        int line = rootSchema.getStart().getLine();
+        int col = rootSchema.getStart().getCharPositionInLine();
         String msg = e.getMessage() != null ? e.getMessage() : "";
         String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
         if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet")) {
@@ -3288,13 +3337,28 @@ public class StvnTypeResolver {
         }
         diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       } catch (CircularReferenceException e) {
-        int start = doc.documentBody().typeEntry().schemaType().getStart().getStartIndex();
-        int end = doc.documentBody().typeEntry().schemaType().getStop().getStopIndex() + 1;
-        int line = doc.documentBody().typeEntry().schemaType().getStart().getLine();
-        int col = doc.documentBody().typeEntry().schemaType().getStart().getCharPositionInLine();
+        int start = rootSchema.getStart().getStartIndex();
+        int end = rootSchema.getStop().getStopIndex() + 1;
+        int line = rootSchema.getStart().getLine();
+        int col = rootSchema.getStart().getCharPositionInLine();
         diagnosticBag.addError(e.getMessage(), start, end, line, col, e, DiagnosticBag.ERR_CIRCULAR_TYPE);
       }
-      validateSchemaCapabilities(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>(), diagnosticBag);
+      if (rootSchema.metadataMap() != null) {
+        if (rootSchema.metadataMap().metadataEntry().isEmpty()) {
+          diagnosticBag.addError(
+              "Empty metadata block is invalid; remove '{}' or specify valid facets",
+              rootSchema.metadataMap().getStart().getStartIndex(),
+              rootSchema.metadataMap().getStop().getStopIndex() + 1,
+              rootSchema.metadataMap().getStart().getLine(),
+              rootSchema.metadataMap().getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
+          );
+        }
+        var base = getPrimitiveBaseType(rootSchema);
+        validateMetadataMapConstraints(base != null ? base : rootSchema.getText(), rootSchema.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
+      }
+      validateSchemaCapabilities(doc, rootSchema, new java.util.HashSet<>(), diagnosticBag);
     }
   }
 
@@ -3390,6 +3454,24 @@ public class StvnTypeResolver {
       markTypePoisoned(doc, typeName);
       return;
     }
+    if (typeDef.schemaType() != null
+        && typeDef.schemaType().schemaConstructor() != null
+        && typeDef.schemaType().schemaConstructor().sumType() != null
+        && typeDef.schemaType().schemaConstructor().sumType().enumDef() != null) {
+      var meta = extractConstraints(typeDef.schemaType().metadataMap());
+      if (meta.filterIncl().isPresent() || meta.filterExcl().isPresent()) {
+        int line = typeDef.schemaType().getStart().getLine();
+        int col = typeDef.schemaType().getStart().getCharPositionInLine();
+        int start = typeDef.schemaType().getStart().getStartIndex();
+        int end = typeDef.schemaType().getStop().getStopIndex() + 1;
+        diagnosticBag.addError(
+            "Constraint violation (" + typeName + "): filter facets cannot be applied to inline enum constructors; filter facets are only allowed on nominal aliases of :Enum or existing enum subsets",
+            start, end, line, col, null, DiagnosticBag.ERR_MALFORMED_SCHEMA
+        );
+        markTypePoisoned(doc, typeName);
+        return;
+      }
+    }
     var visited = new java.util.LinkedHashSet<String>();
     visited.add(typeName);
     Optional<ResolvedSchema> resolvedOpt;
@@ -3435,21 +3517,22 @@ public class StvnTypeResolver {
     }
 
     validateSchemaCapabilities(doc, typeDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
-    if (typeDef.metadataMap() != null) {
-      if (typeDef.metadataMap().metadataEntry().isEmpty()) {
+    var metaMap = typeDef.schemaType() != null ? typeDef.schemaType().metadataMap() : null;
+    if (metaMap != null) {
+      if (metaMap.metadataEntry().isEmpty()) {
         diagnosticBag.addError(
             "Empty metadata block is invalid; remove '{}' or specify valid facets",
-            typeDef.metadataMap().getStart().getStartIndex(),
-            typeDef.metadataMap().getStop().getStopIndex() + 1,
-            typeDef.metadataMap().getStart().getLine(),
-            typeDef.metadataMap().getStart().getCharPositionInLine(),
+            metaMap.getStart().getStartIndex(),
+            metaMap.getStop().getStopIndex() + 1,
+            metaMap.getStart().getLine(),
+            metaMap.getStart().getCharPositionInLine(),
             null,
             DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
         );
       }
-      validateMetadataMapConstraints(typeName, typeDef.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
+      validateMetadataMapConstraints(typeName, metaMap, resolvedOpt.orElse(null), diagnosticBag);
       if (resolvedOpt.isPresent()) {
-        var metaConstraints = extractConstraints(typeDef.metadataMap());
+        var metaConstraints = extractConstraints(metaMap);
         if (metaConstraints.invertible()) {
           var baseType = getPrimitiveBaseType(resolvedOpt.get().node());
           if (baseType != null && isMapType(baseType)) {
@@ -3457,10 +3540,10 @@ public class StvnTypeResolver {
             if (inner.size() >= 2) {
               var valOpt = resolvePrimitiveSchema(doc, inner.get(1), new java.util.HashSet<>());
               if (valOpt.isPresent() && !valOpt.get().constraints().equatable().orElse(false)) {
-                int line = typeDef.metadataMap().getStart().getLine();
-                int col = typeDef.metadataMap().getStart().getCharPositionInLine();
-                int start = typeDef.metadataMap().getStart().getStartIndex();
-                int end = typeDef.metadataMap().getStop().getStopIndex() + 1;
+                int line = metaMap.getStart().getLine();
+                int col = metaMap.getStart().getCharPositionInLine();
+                int start = metaMap.getStart().getStartIndex();
+                int end = metaMap.getStop().getStopIndex() + 1;
                 diagnosticBag.addError(
                     "Inverted map values require types to be #equatable #TRUE",
                     start, end, line, col, null, DiagnosticBag.ERR_TRAIT_VIOLATION
@@ -3472,7 +3555,7 @@ public class StvnTypeResolver {
       }
     }
     if (doc != StvnPrelude.getPreludeDocument()) {
-      validateTemporalTypeConstraints(typeDef.schemaType(), typeDef.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
+      validateTemporalTypeConstraints(typeDef.schemaType(), metaMap, resolvedOpt.orElse(null), diagnosticBag);
     }
   }
 
@@ -3547,19 +3630,20 @@ public class StvnTypeResolver {
     }
 
     validateSchemaCapabilities(doc, constDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
-    if (constDef.metadataMap() != null) {
-      if (constDef.metadataMap().metadataEntry().isEmpty()) {
+    var constMetaMap = constDef.schemaType() != null ? constDef.schemaType().metadataMap() : null;
+    if (constMetaMap != null) {
+      if (constMetaMap.metadataEntry().isEmpty()) {
         diagnosticBag.addError(
             "Empty metadata block is invalid; remove '{}' or specify valid facets",
-            constDef.metadataMap().getStart().getStartIndex(),
-            constDef.metadataMap().getStop().getStopIndex() + 1,
-            constDef.metadataMap().getStart().getLine(),
-            constDef.metadataMap().getStart().getCharPositionInLine(),
+            constMetaMap.getStart().getStartIndex(),
+            constMetaMap.getStop().getStopIndex() + 1,
+            constMetaMap.getStart().getLine(),
+            constMetaMap.getStart().getCharPositionInLine(),
             null,
             DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
         );
       }
-      for (var entry : constDef.metadataMap().metadataEntry()) {
+      for (var entry : constMetaMap.metadataEntry()) {
         if (entry.metadataFilter() != null) {
           var f = entry.metadataFilter();
           var constraintName = f.KW_FILTER_INCL() != null ? "filterIncl" : "filterExcl";
@@ -3574,7 +3658,7 @@ public class StvnTypeResolver {
           );
         }
       }
-      validateMetadataMapConstraints(constName, constDef.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
+      validateMetadataMapConstraints(constName, constMetaMap, resolvedOpt.orElse(null), diagnosticBag);
     }
 
     // Detect constant circular reference loops
@@ -3582,8 +3666,8 @@ public class StvnTypeResolver {
 
     // Validate constant literal value constraints
     if (resolvedOpt.isPresent() && constDef.value() != null) {
-      var localConstraints = constDef.metadataMap() != null
-          ? extractConstraints(constDef.metadataMap())
+      var localConstraints = constMetaMap != null
+          ? extractConstraints(constMetaMap)
           : StvnConstraints.empty();
       var effectiveConstraints = localConstraints.merge(resolvedOpt.get().constraints());
       validateConstantValueConstraints(constName, constDef.value(), effectiveConstraints, diagnosticBag);
@@ -4454,9 +4538,13 @@ public class StvnTypeResolver {
       @Nullable ResolvedSchema resolved,
       DiagnosticBag diagnosticBag) {
     if (schemaType == null) return;
-    String typeText = schemaType.getText();
-    boolean isEpoch = typeText.equals(StvnVocabulary.TYPE_TIME_EPOCH);
-    boolean isDateTime = typeText.equals(StvnVocabulary.TYPE_DATE_TIME);
+    String base = getPrimitiveBaseType(schemaType);
+    if (base == null && resolved != null) {
+      base = getPrimitiveBaseType(resolved.node());
+    }
+    String normBase = normalizeBaseType(base);
+    boolean isEpoch = StvnVocabulary.TYPE_TIME_EPOCH.equals(normBase);
+    boolean isDateTime = StvnVocabulary.TYPE_DATE_TIME.equals(normBase);
     if (!isEpoch && !isDateTime) return;
 
     var localConstraints = extractConstraints(metadataMap);

@@ -1,0 +1,7 @@
+// @spec: SPEC-08-COLLECTIONS
+// @case: Negative - Reject empty metadata block in child schema
+// @error: MALFORMED_SCHEMA
+{
+  :type :Seq( {} :Int )
+  :body [ 10 20 ]
+}

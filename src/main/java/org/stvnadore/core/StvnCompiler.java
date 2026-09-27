@@ -396,6 +396,10 @@ public final class StvnCompiler {
           if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
           }
+        } else if (t instanceof org.stvnadore.core.validation.StvnIntegerOverflowException e) {
+          startOffset = e.startOffset();
+          endOffset = e.endOffset();
+          errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_INTEGER_OVERFLOW;
         } else if (t instanceof org.stvnadore.core.validation.MalformedPayloadException e) {
           startOffset = e.startOffset();
           endOffset = e.endOffset();

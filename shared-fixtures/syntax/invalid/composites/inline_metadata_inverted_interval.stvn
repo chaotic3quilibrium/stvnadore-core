@@ -1,0 +1,7 @@
+// @spec: SPEC-10-SUM-TYPES
+// @case: Negative - Reject inverted interval on child schema
+// @error: MALFORMED_SCHEMA
+{
+  :type :Option( { #minIncl 10 #maxIncl 5 } :Int )
+  :body #Some 7
+}

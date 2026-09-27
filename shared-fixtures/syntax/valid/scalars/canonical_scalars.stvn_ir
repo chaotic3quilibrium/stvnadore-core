@@ -1,49 +1,49 @@
 TypeRegistry:
   - :IntBit1
       schema:
-        node: :Int
+        node: {#size1}:Int
         aliasName: :IntBit1
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#size1}:Int
   - :IntBit7
       schema:
-        node: :Int
+        node: {#size7}:Int
         aliasName: :IntBit7
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#size7}:Int
   - :IntBit24
       schema:
-        node: :Int
+        node: {#size24}:Int
         aliasName: :IntBit24
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#size24}:Int
   - :IntBit64
       schema:
-        node: :Int
+        node: {#size64}:Int
         aliasName: :IntBit64
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#size64}:Int
   - :IntBit128
       schema:
-        node: :Int
+        node: {#size128}:Int
         aliasName: :IntBit128
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#size128}:Int
   - :DefaultSigned
       schema:
         node: :Int
@@ -55,58 +55,58 @@ TypeRegistry:
           node: :Int
   - :UintBit1
       schema:
-        node: :Int
+        node: {#unsigned#size1}:Int
         aliasName: :UintBit1
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#unsigned#size1}:Int
   - :UintBit3
       schema:
-        node: :Int
+        node: {#unsigned#size3}:Int
         aliasName: :UintBit3
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#unsigned#size3}:Int
   - :UintBit49
       schema:
-        node: :Int
+        node: {#unsigned#size49}:Int
         aliasName: :UintBit49
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#unsigned#size49}:Int
   - :UintBit64
       schema:
-        node: :Int
+        node: {#unsigned#size64}:Int
         aliasName: :UintBit64
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#unsigned#size64}:Int
   - :UintBit128
       schema:
-        node: :Int
+        node: {#unsigned#size128}:Int
         aliasName: :UintBit128
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#unsigned#size128}:Int
   - :DefaultUnsigned
       schema:
-        node: :Int
+        node: {#unsigned}:Int
         aliasName: :DefaultUnsigned
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#unsigned}:Int
   - :DefaultFloat
       schema:
         node: :Float
@@ -118,31 +118,31 @@ TypeRegistry:
           node: :Float
   - :SingleFloat
       schema:
-        node: :Float
+        node: {#size32}:Float
         aliasName: :SingleFloat
         constraints:
           equatable: false (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Float
+          node: {#size32}:Float
   - :DoubleFloat
       schema:
-        node: :Float
+        node: {#size64}:Float
         aliasName: :DoubleFloat
         constraints:
           equatable: false (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Float
+          node: {#size64}:Float
   - :FinancialValue
       schema:
-        node: :Float
+        node: {#exact}:Float
         aliasName: :FinancialValue
         constraints:
           equatable: false (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Float
+          node: {#exact}:Float
   - :UnboundedText
       schema:
         node: :String
@@ -154,58 +154,58 @@ TypeRegistry:
           node: :String
   - :BoundedText
       schema:
-        node: :String
+        node: {#maxSize64}:String
         aliasName: :BoundedText
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
+          node: {#maxSize64}:String
   - :BoundedText4k
       schema:
-        node: :String
+        node: {#maxSize4096}:String
         aliasName: :BoundedText4k
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
+          node: {#maxSize4096}:String
   - :MaxCapacityText
       schema:
-        node: :String
+        node: {#maxSize16777216}:String
         aliasName: :MaxCapacityText
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
+          node: {#maxSize16777216}:String
   - :ExtendedCapacityText
       schema:
-        node: :String
+        node: {#maxSize33554432}:String
         aliasName: :ExtendedCapacityText
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
+          node: {#maxSize33554432}:String
   - :MandatoryText
       schema:
-        node: :String
+        node: {#minSize1#maxSize128}:String
         aliasName: :MandatoryText
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
+          node: {#minSize1#maxSize128}:String
   - :ExactKeyText
       schema:
-        node: :String
+        node: {#minSize16#maxSize16}:String
         aliasName: :ExactKeyText
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
+          node: {#minSize16#maxSize16}:String
   - :FlagState
       schema:
         node: :Boolean

@@ -1,0 +1,7 @@
+// @spec: SPEC-10-SUM-TYPES
+// @case: Negative - Reject incompatible facet on child schema
+// @error: MALFORMED_SCHEMA
+{
+  :type :Either( :Float { #regex "pattern" } :Int )
+  :body #Right 10
+}

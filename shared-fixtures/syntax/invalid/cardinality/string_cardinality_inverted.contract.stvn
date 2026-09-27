@@ -8,7 +8,7 @@
 
   :body (
     #INVALID_NUMERIC_RANGE
-    "cardinality range is invalid"
+    "Constraint violation (:BadString): cardinality range is invalid (#minSize 10 is greater than #maxSize 5)"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

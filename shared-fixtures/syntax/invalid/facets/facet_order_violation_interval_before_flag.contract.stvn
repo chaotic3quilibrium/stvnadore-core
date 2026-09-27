@@ -8,7 +8,7 @@
 
   :body (
     #ERR_FACET_ORDER_VIOLATION
-    "violates canonical 7-tier order"
+    "Facet order violation (:BadInt): facet '#unsigned' (Tier 1) violates canonical 7-tier order after '#minIncl'"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

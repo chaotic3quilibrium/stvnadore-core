@@ -53,9 +53,9 @@ includeMapAlias     : typeKeyword typeKeyword ;
 typeEntry : KW_TYPE schemaType ;
 bodyEntry : KW_BODY value ;
 
-typeDefinition     : typeDefTarget metadataMap? schemaType ;
+typeDefinition     : typeDefTarget schemaType ;
 typeDefTarget      : typeKeyword | reservedKeyword ;
-constantDefinition : valueKeyword metadataMap? schemaType value ;
+constantDefinition : valueKeyword schemaType value ;
 
 metadataMap    : LBRACE metadataEntry* RBRACE ;
 
@@ -80,7 +80,7 @@ metadataValue  : booleanLiteral
                | valueKeyword
                ;
 
-schemaType : schemaConstructor | typeKeyword ;
+schemaType : metadataMap? (schemaConstructor | typeKeyword) ;
 
 schemaConstructor : atomicType | collectionType | productType | sumType ;
 

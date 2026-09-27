@@ -120,6 +120,13 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     return -1;
   }
 
+  private static Optional<String> extractErrorCode(Throwable t) {
+    if (t instanceof org.stvnadore.core.validation.StvnIntegerOverflowException) {
+      return Optional.of(org.stvnadore.core.validation.DiagnosticBag.ERR_INTEGER_OVERFLOW);
+    }
+    return Optional.empty();
+  }
+
   private static boolean isValidValueContext(StvnParser.ValueContext ctx) {
     return ctx != null && (
         ctx.explicitOptionValue() != null
@@ -1583,9 +1590,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           int start = getStartOffset(t, item.sourceCtx());
           int end = getEndOffset(t, item.sourceCtx());
           int[] pos = getLineCol(item.sourceCtx());
+          Optional<String> errCode = extractErrorCode(t);
           var diag = new StvnDiagnostic(t.getMessage() != null
               ? t.getMessage()
-              : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t);
+              : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t, errCode);
           diagnosticBag.add(diag);
           String rawText = item.sourceCtx() != null
               ? item.sourceCtx().getText()
@@ -1705,9 +1713,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           int start = getStartOffset(t, child.value(0));
           int end = getEndOffset(t, child.value(0));
           int[] pos = getLineCol(child.value(0));
+          Optional<String> errCode = extractErrorCode(t);
           var diag = new StvnDiagnostic(t.getMessage() != null
               ? t.getMessage()
-              : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t);
+              : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t, errCode);
           diagnosticBag.add(diag);
           key = new StvnError(ensureSchema(keySchema), child.value(0).getText(), start, end, List.of(diag));
         }
@@ -1719,9 +1728,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           int start = getStartOffset(t, child.value(1));
           int end = getEndOffset(t, child.value(1));
           int[] pos = getLineCol(child.value(1));
+          Optional<String> errCode = extractErrorCode(t);
           var diag = new StvnDiagnostic(t.getMessage() != null
               ? t.getMessage()
-              : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t);
+              : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t, errCode);
           diagnosticBag.add(diag);
           val = new StvnError(ensureSchema(valSchema), child.value(1).getText(), start, end, List.of(diag));
         }
@@ -1831,8 +1841,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           int start = getStartOffset(t, item.sourceCtx());
           int end = getEndOffset(t, item.sourceCtx());
           int[] pos = getLineCol(item.sourceCtx());
-          Optional<String> errCode = Optional.empty();
-          if (t instanceof org.stvnadore.core.validation.StvnMalformedLiteralException mle
+          Optional<String> errCode = extractErrorCode(t);
+          if (errCode.isEmpty() && t instanceof org.stvnadore.core.validation.StvnMalformedLiteralException mle
               && mle.getMessage() != null && mle.getMessage().contains("exceeds branch count")) {
             errCode = Optional.of("UNION_BRANCH_OVERFLOW");
           }
@@ -1928,9 +1938,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         int start = getStartOffset(t, ctx.value());
         int end = getEndOffset(t, ctx.value());
         int[] pos = getLineCol(ctx.value());
+        Optional<String> errCode = extractErrorCode(t);
         var diag = new StvnDiagnostic(t.getMessage() != null
             ? t.getMessage()
-            : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t);
+            : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t, errCode);
         diagnosticBag.add(diag);
         childVal = new StvnError(ensureSchema(childSchema), ctx.value().getText(), start, end, List.of(diag));
       }
@@ -1971,9 +1982,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         int start = getStartOffset(t, ctx.value());
         int end = getEndOffset(t, ctx.value());
         int[] pos = getLineCol(ctx.value());
+        Optional<String> errCode = extractErrorCode(t);
         var diag = new StvnDiagnostic(t.getMessage() != null
             ? t.getMessage()
-            : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t);
+            : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t, errCode);
         diagnosticBag.add(diag);
         childValue = new StvnError(ensureSchema(childSchema), ctx.value().getText(), start, end, List.of(diag));
       }
@@ -2039,9 +2051,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       int start = getStartOffset(t, ctx.value());
       int end = getEndOffset(t, ctx.value());
       int[] pos = getLineCol(ctx.value());
+      Optional<String> errCode = extractErrorCode(t);
       var diag = new StvnDiagnostic(t.getMessage() != null
           ? t.getMessage()
-          : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t);
+          : t.toString(), StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, t, errCode);
       diagnosticBag.add(diag);
       childValue = new StvnError(ensureSchema(childSchema), ctx.value().getText(), start, end, List.of(diag));
     }

@@ -1,68 +1,68 @@
 TypeRegistry:
   - :IndentedBlock
       schema:
-        node: :String
+        node: {#preserveIndent}:String
         aliasName: :IndentedBlock
         constraints:
-          preserveIndent: true (explicit)
+          preserveIndent: true (explicit override)
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
+          node: {#preserveIndent}:String
   - :UnsignedPort
       schema:
-        node: :Int
+        node: {#unsigned#size16}:Int
         aliasName: :UnsignedPort
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Int
+          node: {#unsigned#size16}:Int
   - :ExactCurrency
       schema:
-        node: :Float
+        node: {#exact}:Float
         aliasName: :ExactCurrency
         constraints:
           equatable: false (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Float
+          node: {#exact}:Float
   - :BijectiveRegistry
       schema:
-        node: :Map(:String:Int)
+        node: {#invertible}:Map(:String:Int)
         aliasName: :BijectiveRegistry
         constraints:
           equatable: true (default)
           comparable: false (default)
         underlyingSchema:
-          node: :Map(:String:Int)
+          node: {#invertible}:Map(:String:Int)
   - :UtcTimestamp
       schema:
-        node: :DateTime
+        node: {#offset}:DateTime
         aliasName: :UtcTimestamp
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :DateTime
+          node: {#offset}:DateTime
   - :JurisdictionTime
       schema:
-        node: :DateTime
+        node: {#zoned}:DateTime
         aliasName: :JurisdictionTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :DateTime
+          node: {#zoned}:DateTime
   - :AuditedEventTime
       schema:
-        node: :DateTime
+        node: {#audited}:DateTime
         aliasName: :AuditedEventTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :DateTime
+          node: {#audited}:DateTime
   - <:type>
       schema:
         node: :Tuple(:IndentedBlock:UnsignedPort:ExactCurrency:BijectiveRegistry:UtcTimestamp:JurisdictionTime:AuditedEventTime)

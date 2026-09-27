@@ -8,7 +8,7 @@
 
   :body (
     #ERR_EMPTY_INTERVAL_DOMAIN
-    "defines an empty domain"
+    "Constraint violation (:EmptyDateRange): discrete datetime interval [2026-09-24T12:00:00Z, 2026-09-24T12:00:00Z) defines an empty domain (zero habitable values)"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

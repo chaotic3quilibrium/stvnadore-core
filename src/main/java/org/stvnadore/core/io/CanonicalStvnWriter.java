@@ -73,121 +73,9 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
       for (var s : defs) {
         layout.writeLiteral(s.canonicalName());
 
-        var constraints = s.constraints();
-        if (!isConstraintsEmpty(constraints)) {
-          layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+        writeConstraints(s.constraints(), layout);
 
-          // Tier 1: Flags & Intrinsic Modes (Bare flags without #TRUE)
-          if (constraints.unsigned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_UNSIGNED)) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_UNSIGNED);
-          }
-          if (constraints.exact() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EXACT)) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_EXACT);
-          }
-          if (constraints.invertible() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_INVERTIBLE)) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_INVERTIBLE);
-          }
-          if (constraints.preserveIndent() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
-          }
-          if (constraints.offset() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET)) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_OFFSET);
-          }
-          if (constraints.zoned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_ZONED)) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_ZONED);
-          }
-          if (constraints.audited() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_AUDITED)) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_AUDITED);
-          }
-          var equatable = constraints.equatable().orElse(null);
-          if (equatable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_EQUATABLE);
-            layout.writeBoolean(equatable, PrinterOptions.SymbolStyle.LONG_FORM);
-          }
-          var comparable = constraints.comparable().orElse(null);
-          if (comparable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_COMPARABLE);
-            layout.writeBoolean(comparable, PrinterOptions.SymbolStyle.LONG_FORM);
-          }
-
-          // Tier 2: Temporal Scale
-          var scale = constraints.scale().orElse(null);
-          if (scale != null) {
-            layout.writeLiteral(scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale : (StvnVocabulary.SIGIL_VALUE + scale));
-          }
-
-          // Tier 3: Dimensions & Capacity
-          var size = constraints.size().orElse(null);
-          if (size != null) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_SIZE);
-            layout.writeLiteral(size.toString());
-          }
-          var minSize = constraints.minSize().orElse(null);
-          if (minSize != null) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_SIZE);
-            layout.writeLiteral(minSize.toString());
-          }
-          var maxSize = constraints.maxSize().orElse(null);
-          if (maxSize != null) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
-            layout.writeLiteral(maxSize.toString());
-          }
-
-          // Tier 4: Value Intervals (Lower bounds strictly precede Upper bounds)
-          if (constraints.minIncl().isPresent()) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
-            layout.writeLiteral(constraints.minIncl().get().toString());
-          } else if (constraints.dateMinIncl().isPresent()) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
-            layout.writeSimpleString(constraints.dateMinIncl().get());
-          }
-          if (constraints.minExcl().isPresent()) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_EXCL);
-            layout.writeLiteral(constraints.minExcl().get().toString());
-          }
-          if (constraints.maxExcl().isPresent()) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
-            layout.writeLiteral(constraints.maxExcl().get().toString());
-          } else if (constraints.dateMaxExcl().isPresent()) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
-            layout.writeSimpleString(constraints.dateMaxExcl().get());
-          }
-          if (constraints.maxIncl().isPresent()) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_INCL);
-            layout.writeLiteral(constraints.maxIncl().get().toString());
-          }
-
-          // Tier 5: Validation Patterns
-          var regex = constraints.regex().orElse(null);
-          if (regex != null) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_REGEX);
-            layout.writeSimpleString(regex);
-          }
-
-          // Tier 6: Domain Subsets
-          var filterIncl = constraints.filterIncl().orElse(null);
-          if (filterIncl != null) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_INCL);
-            layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
-            for (String v : filterIncl) {
-              layout.writeLiteral(v);
-            }
-            layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
-          }
-          var filterExcl = constraints.filterExcl().orElse(null);
-          if (filterExcl != null) {
-            layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_EXCL);
-            layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
-            for (String v : filterExcl) {
-              layout.writeLiteral(v);
-            }
-            layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
-          }
-
-          layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
-        }
-
-        writeSchemaType(s.schemaNode(), layout, s.lexicalContext());
+        writeSchemaType(s.schemaNode(), layout, s.lexicalContext(), false);
       }
 
       layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
@@ -199,7 +87,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
       if (alias != null) {
         layout.writeLiteral(alias);
       } else {
-        writeSchemaType(schema.node(), layout, schema.node());
+        writeSchemaType(schema.node(), layout, schema.node(), true);
       }
     } else {
       throw new IOException("Missing schema context for canonical serialization");
@@ -210,6 +98,122 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
 
     layout.closeGroup("}");
     layout.flush();
+  }
+
+  private void writeConstraints(StvnConstraints constraints, CanonicalLayoutWriter layout) throws IOException {
+    if (isConstraintsEmpty(constraints)) {
+      return;
+    }
+    layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+
+    // Tier 1: Flags & Intrinsic Modes (Bare flags without #TRUE)
+    if (constraints.unsigned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_UNSIGNED)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_UNSIGNED);
+    }
+    if (constraints.exact() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EXACT)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_EXACT);
+    }
+    if (constraints.invertible() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_INVERTIBLE)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_INVERTIBLE);
+    }
+    if (constraints.preserveIndent() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
+    }
+    if (constraints.offset() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_OFFSET);
+    }
+    if (constraints.zoned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_ZONED)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_ZONED);
+    }
+    if (constraints.audited() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_AUDITED)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_AUDITED);
+    }
+    var equatable = constraints.equatable().orElse(null);
+    if (equatable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_EQUATABLE);
+      layout.writeBoolean(equatable, PrinterOptions.SymbolStyle.LONG_FORM);
+    }
+    var comparable = constraints.comparable().orElse(null);
+    if (comparable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_COMPARABLE);
+      layout.writeBoolean(comparable, PrinterOptions.SymbolStyle.LONG_FORM);
+    }
+
+    // Tier 2: Temporal Scale
+    var scale = constraints.scale().orElse(null);
+    if (scale != null) {
+      layout.writeLiteral(scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale : (StvnVocabulary.SIGIL_VALUE + scale));
+    }
+
+    // Tier 3: Dimensions & Capacity
+    var size = constraints.size().orElse(null);
+    if (size != null) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_SIZE);
+      layout.writeLiteral(size.toString());
+    }
+    var minSize = constraints.minSize().orElse(null);
+    if (minSize != null) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_SIZE);
+      layout.writeLiteral(minSize.toString());
+    }
+    var maxSize = constraints.maxSize().orElse(null);
+    if (maxSize != null) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
+      layout.writeLiteral(maxSize.toString());
+    }
+
+    // Tier 4: Value Intervals (Lower bounds strictly precede Upper bounds)
+    if (constraints.minIncl().isPresent()) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
+      layout.writeLiteral(constraints.minIncl().get().toString());
+    } else if (constraints.dateMinIncl().isPresent()) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
+      layout.writeSimpleString(constraints.dateMinIncl().get());
+    }
+    if (constraints.minExcl().isPresent()) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_EXCL);
+      layout.writeLiteral(constraints.minExcl().get().toString());
+    }
+    if (constraints.maxExcl().isPresent()) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
+      layout.writeLiteral(constraints.maxExcl().get().toString());
+    } else if (constraints.dateMaxExcl().isPresent()) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
+      layout.writeSimpleString(constraints.dateMaxExcl().get());
+    }
+    if (constraints.maxIncl().isPresent()) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_INCL);
+      layout.writeLiteral(constraints.maxIncl().get().toString());
+    }
+
+    // Tier 5: Validation Patterns
+    var regex = constraints.regex().orElse(null);
+    if (regex != null) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_REGEX);
+      layout.writeSimpleString(regex);
+    }
+
+    // Tier 6: Domain Subsets
+    var filterIncl = constraints.filterIncl().orElse(null);
+    if (filterIncl != null) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_INCL);
+      layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
+      for (String v : filterIncl) {
+        layout.writeLiteral(v);
+      }
+      layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
+    }
+    var filterExcl = constraints.filterExcl().orElse(null);
+    if (filterExcl != null) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_EXCL);
+      layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
+      for (String v : filterExcl) {
+        layout.writeLiteral(v);
+      }
+      layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
+    }
+
+    layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
   }
 
   private boolean isConstraintsEmpty(StvnConstraints c) {
@@ -233,6 +237,14 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
   }
 
   private void writeSchemaType(StvnParser.SchemaTypeContext node, CanonicalLayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext) throws IOException {
+    writeSchemaType(node, layout, lexicalContext, true);
+  }
+
+  private void writeSchemaType(StvnParser.SchemaTypeContext node, CanonicalLayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext, boolean writeConstraints) throws IOException {
+    if (writeConstraints && node.metadataMap() != null) {
+      var constraints = org.stvnadore.core.validation.StvnTypeResolver.extractConstraints(node.metadataMap());
+      writeConstraints(constraints, layout);
+    }
     if (node.typeKeyword() != null) {
       String desugared = StvnCanonicalDefinitionsResolver.resolveCanonicalTypeKeyword(node.typeKeyword().getText(), lexicalContext);
       layout.writeLiteral(desugared);
@@ -245,7 +257,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
         layout.writeLiteral(resolveCollectionType(col));
         layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
         for (var st : col.schemaType()) {
-          writeSchemaType(st, layout, lexicalContext);
+          writeSchemaType(st, layout, lexicalContext, true);
         }
         layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
       } else if (ctor.productType() != null) {
@@ -254,7 +266,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
           layout.writeLiteral(StvnVocabulary.TYPE_TUPLE);
           layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
           for (var st : tt.schemaType()) {
-            writeSchemaType(st, layout, lexicalContext);
+            writeSchemaType(st, layout, lexicalContext, true);
           }
           layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
         }
@@ -263,19 +275,19 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
         if (sum.KW_OPTION() != null) {
           layout.writeLiteral(StvnVocabulary.TYPE_OPTION);
           layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
-          writeSchemaType(sum.schemaType(0), layout, lexicalContext);
+          writeSchemaType(sum.schemaType(0), layout, lexicalContext, true);
           layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
         } else if (sum.KW_EITHER() != null) {
           layout.writeLiteral(StvnVocabulary.TYPE_EITHER);
           layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
-          writeSchemaType(sum.schemaType(0), layout, lexicalContext);
-          writeSchemaType(sum.schemaType(1), layout, lexicalContext);
+          writeSchemaType(sum.schemaType(0), layout, lexicalContext, true);
+          writeSchemaType(sum.schemaType(1), layout, lexicalContext, true);
           layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
         } else if (sum.KW_UNION() != null) {
           layout.writeLiteral(StvnVocabulary.TYPE_UNION);
           layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
           for (var st : sum.schemaType()) {
-            writeSchemaType(st, layout, lexicalContext);
+            writeSchemaType(st, layout, lexicalContext, true);
           }
           layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
         } else if (sum.KW_ENUM() != null) {

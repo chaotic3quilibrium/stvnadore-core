@@ -148,7 +148,8 @@ public final class IrGeneratorUtility {
 
   private static Optional<ResolvedSchema> resolveNominalSchema(StvnDocumentContext doc, String kw) {
     return StvnTypeResolver.findTypeDefinition(doc, kw).flatMap(typeDef -> {
-      var meta = StvnTypeResolver.extractConstraints(typeDef.metadataMap());
+      var metaMap = typeDef.schemaType() != null ? typeDef.schemaType().metadataMap() : null;
+      var meta = StvnTypeResolver.extractConstraints(metaMap);
       return StvnTypeResolver.resolvePrimitiveSchema(doc, typeDef.schemaType(), new java.util.HashSet<>())
           .map(resolvedSchema -> StvnTypeResolver.applyDefaults(new ResolvedSchema(
               resolvedSchema.node(),

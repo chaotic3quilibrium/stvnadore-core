@@ -1,5 +1,5 @@
 {
-  // enum_subset_attachment_non_enum_primitive.contract.stvn
+  // inline_metadata_empty_block.contract.stvn
   :defs {
     :include [ "../error_contract.stvn_inclf" ]
   }
@@ -8,7 +8,7 @@
 
   :body (
     #MALFORMED_SCHEMA
-    "Constraint violation (:Int): filter facets are not allowed on :Int"
+    "Empty metadata block is invalid; remove '{}' or specify valid facets"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

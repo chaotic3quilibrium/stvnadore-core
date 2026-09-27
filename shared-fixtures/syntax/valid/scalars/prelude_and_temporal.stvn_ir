@@ -1,193 +1,193 @@
 TypeRegistry:
   - :EpochSeconds
       schema:
-        node: :TimeEpoch
+        node: {#s}:TimeEpoch
         aliasName: :EpochSeconds
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :TimeEpoch
+          node: {#s}:TimeEpoch
   - :EpochMillis
       schema:
-        node: :TimeEpoch
+        node: {#ms}:TimeEpoch
         aliasName: :EpochMillis
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :TimeEpoch
+          node: {#ms}:TimeEpoch
   - :EpochNanos
       schema:
-        node: :TimeEpoch
+        node: {#ns}:TimeEpoch
         aliasName: :EpochNanos
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :TimeEpoch
+          node: {#ns}:TimeEpoch
   - :OffsetDateTime
       schema:
-        node: :DateTime
+        node: {#offset}:DateTime
         aliasName: :OffsetDateTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :DateTime
+          node: {#offset}:DateTime
   - :ZonedDateTime
       schema:
-        node: :DateTime
+        node: {#zoned}:DateTime
         aliasName: :ZonedDateTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :DateTime
+          node: {#zoned}:DateTime
   - :AuditedDateTime
       schema:
-        node: :DateTime
+        node: {#audited}:DateTime
         aliasName: :AuditedDateTime
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :DateTime
+          node: {#audited}:DateTime
   - :IdUuid
       schema:
-        node: :String
+        node: {#minSize36#maxSize36#regex"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"}:String
         aliasName: :IdUuid
         constraints:
           equatable: true (default)
           comparable: true (default)
-          regex: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" (inherited from :org/stvnadore/prelude/Uuid)
+          regex: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" (default)
         underlyingSchema:
-          node: :String
+          node: {#minSize36#maxSize36#regex"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"}:String
           aliasName: :org/stvnadore/prelude/Uuid
   - :IdUlid
       schema:
-        node: :String
+        node: {#minSize26#maxSize26#regex"^[0-7][0-9A-HJKMNP-TV-Z]{25}$"}:String
         aliasName: :IdUlid
         constraints:
           equatable: true (default)
           comparable: true (default)
-          regex: "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" (inherited from :org/stvnadore/prelude/Ulid)
+          regex: "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" (default)
         underlyingSchema:
-          node: :String
+          node: {#minSize26#maxSize26#regex"^[0-7][0-9A-HJKMNP-TV-Z]{25}$"}:String
           aliasName: :org/stvnadore/prelude/Ulid
   - :HashSha256
       schema:
-        node: :String
+        node: {#minSize64#maxSize64#regex"^[0-9a-fA-F]{64}$"}:String
         aliasName: :HashSha256
         constraints:
           equatable: true (default)
           comparable: true (default)
-          regex: "^[0-9a-fA-F]{64}$" (inherited from :org/stvnadore/prelude/Sha256)
+          regex: "^[0-9a-fA-F]{64}$" (default)
         underlyingSchema:
-          node: :String
+          node: {#minSize64#maxSize64#regex"^[0-9a-fA-F]{64}$"}:String
           aliasName: :org/stvnadore/prelude/Sha256
   - :VersionSemVer
       schema:
-        node: :String
+        node: {#regex"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"}:String
         aliasName: :VersionSemVer
         constraints:
           equatable: true (default)
           comparable: true (default)
-          regex: "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" (inherited from :org/stvnadore/prelude/SemVer)
+          regex: "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" (default)
         underlyingSchema:
-          node: :String
+          node: {#regex"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"}:String
           aliasName: :org/stvnadore/prelude/SemVer
   - :ContactEmail
       schema:
-        node: :String
+        node: {#regex"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"}:String
         aliasName: :ContactEmail
         constraints:
           equatable: true (default)
           comparable: true (default)
-          regex: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" (inherited from :org/stvnadore/prelude/Email)
+          regex: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" (default)
         underlyingSchema:
-          node: :String
+          node: {#regex"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"}:String
           aliasName: :org/stvnadore/prelude/Email
   - :NetworkIPv4
       schema:
-        node: :String
+        node: {#regex"^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.?\b){4}$"}:String
         aliasName: :NetworkIPv4
         constraints:
           equatable: true (default)
           comparable: true (default)
-          regex: "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" (inherited from :org/stvnadore/prelude/IPv4)
+          regex: "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" (default)
         underlyingSchema:
-          node: :String
+          node: {#regex"^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.?\b){4}$"}:String
           aliasName: :org/stvnadore/prelude/IPv4
   - :NetworkPort
       schema:
-        node: :Int
+        node: {#unsigned#size16#minIncl1#maxExcl65536}:Int
         aliasName: :NetworkPort
         constraints:
           equatable: true (default)
           comparable: true (default)
-          minIncl: 1 (inherited from :org/stvnadore/prelude/Port)
-          maxExcl: 65536 (inherited from :org/stvnadore/prelude/Port)
+          minIncl: 1 (default)
+          maxExcl: 65536 (default)
         underlyingSchema:
-          node: :Int
+          node: {#unsigned#size16#minIncl1#maxExcl65536}:Int
           aliasName: :org/stvnadore/prelude/Port
   - :RatioPercent
       schema:
-        node: :Float
+        node: {#size64#minIncl0.0#maxIncl100.0}:Float
         aliasName: :RatioPercent
         constraints:
           equatable: false (default)
           comparable: true (default)
-          minIncl: 0.0 (inherited from :org/stvnadore/prelude/Percentage)
-          maxIncl: 100.0 (inherited from :org/stvnadore/prelude/Percentage)
+          minIncl: 0.0 (default)
+          maxIncl: 100.0 (default)
         underlyingSchema:
-          node: :Float
+          node: {#size64#minIncl0.0#maxIncl100.0}:Float
           aliasName: :org/stvnadore/prelude/Percentage
   - :RatioProb
       schema:
-        node: :Float
+        node: {#size64#minIncl0.0#maxIncl1.0}:Float
         aliasName: :RatioProb
         constraints:
           equatable: false (default)
           comparable: true (default)
-          minIncl: 0.0 (inherited from :org/stvnadore/prelude/Probability)
-          maxIncl: 1.0 (inherited from :org/stvnadore/prelude/Probability)
+          minIncl: 0.0 (default)
+          maxIncl: 1.0 (default)
         underlyingSchema:
-          node: :Float
+          node: {#size64#minIncl0.0#maxIncl1.0}:Float
           aliasName: :org/stvnadore/prelude/Probability
   - :MoneyAmount
       schema:
-        node: :Float
+        node: {#exact}:Float
         aliasName: :MoneyAmount
         constraints:
           equatable: false (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Float
+          node: {#exact}:Float
           aliasName: :org/stvnadore/prelude/Currency
   - :GeoLat
       schema:
-        node: :Float
+        node: {#size64#minIncl-90.0#maxIncl90.0}:Float
         aliasName: :GeoLat
         constraints:
           equatable: false (default)
           comparable: true (default)
-          minIncl: -90.0 (inherited from :org/stvnadore/prelude/Latitude)
-          maxIncl: 90.0 (inherited from :org/stvnadore/prelude/Latitude)
+          minIncl: -90.0 (default)
+          maxIncl: 90.0 (default)
         underlyingSchema:
-          node: :Float
+          node: {#size64#minIncl-90.0#maxIncl90.0}:Float
           aliasName: :org/stvnadore/prelude/Latitude
   - :GeoLon
       schema:
-        node: :Float
+        node: {#size64#minIncl-180.0#maxIncl180.0}:Float
         aliasName: :GeoLon
         constraints:
           equatable: false (default)
           comparable: true (default)
-          minIncl: -180.0 (inherited from :org/stvnadore/prelude/Longitude)
-          maxIncl: 180.0 (inherited from :org/stvnadore/prelude/Longitude)
+          minIncl: -180.0 (default)
+          maxIncl: 180.0 (default)
         underlyingSchema:
-          node: :Float
+          node: {#size64#minIncl-180.0#maxIncl180.0}:Float
           aliasName: :org/stvnadore/prelude/Longitude
   - <:type>
       schema:

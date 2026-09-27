@@ -944,9 +944,6 @@ public final class StvnSchemaFlattener {
     StringBuilder sb = new StringBuilder();
     sb.append(typeDef.typeDefTarget().getText());
 
-    StvnConstraints constraints = StvnTypeResolver.extractConstraints(typeDef.metadataMap());
-    appendConstraints(sb, constraints);
-
     List<String> tokens = new ArrayList<>();
     collectSchemaTypeTokens(typeDef.schemaType(), tokens);
 
@@ -959,8 +956,8 @@ public final class StvnSchemaFlattener {
     StringBuilder sb = new StringBuilder();
     sb.append(constDef.valueKeyword().getText());
 
-    StvnConstraints constraints = StvnTypeResolver.extractConstraints(constDef.metadataMap());
-    appendConstraints(sb, constraints);
+    var constMeta = constDef.schemaType() != null ? constDef.schemaType().metadataMap() : null;
+    StvnConstraints constraints = StvnTypeResolver.extractConstraints(constMeta);
 
     List<String> tokens = new ArrayList<>();
     collectSchemaTypeTokens(constDef.schemaType(), tokens);
@@ -1057,6 +1054,14 @@ public final class StvnSchemaFlattener {
   }
 
   private static void collectSchemaTypeTokens(SchemaTypeContext ctx, List<String> tokens) {
+    if (ctx.metadataMap() != null) {
+      var constraints = StvnTypeResolver.extractConstraints(ctx.metadataMap());
+      if (hasConstraints(constraints)) {
+        StringBuilder sb = new StringBuilder();
+        appendConstraints(sb, constraints);
+        tokens.add(sb.toString().trim());
+      }
+    }
     if (ctx.typeKeyword() != null) {
       tokens.add(ctx.typeKeyword().getText());
     } else if (ctx.schemaConstructor() != null) {

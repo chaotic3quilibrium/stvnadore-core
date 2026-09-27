@@ -10,13 +10,13 @@ TypeRegistry:
           node: :Seq(:Int)
   - :NonEmptySequence
       schema:
-        node: :Seq(:String)
+        node: {#minSize1}:Seq(:String)
         aliasName: :NonEmptySequence
         constraints:
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :Seq(:String)
+          node: {#minSize1}:Seq(:String)
   - :IntSet
       schema:
         node: :Set(:Int)
@@ -28,13 +28,13 @@ TypeRegistry:
           node: :Set(:Int)
   - :NonEmptySet
       schema:
-        node: :Set(:String)
+        node: {#minSize1}:Set(:String)
         aliasName: :NonEmptySet
         constraints:
           equatable: true (default)
           comparable: false (default)
         underlyingSchema:
-          node: :Set(:String)
+          node: {#minSize1}:Set(:String)
   - :LookupMap
       schema:
         node: :Map(:String:Int)
@@ -46,31 +46,31 @@ TypeRegistry:
           node: :Map(:String:Int)
   - :NonEmptyMap
       schema:
-        node: :Map(:String:Int)
+        node: {#minSize1}:Map(:String:Int)
         aliasName: :NonEmptyMap
         constraints:
           equatable: true (default)
           comparable: false (default)
         underlyingSchema:
-          node: :Map(:String:Int)
+          node: {#minSize1}:Map(:String:Int)
   - :BiDirectionalMap
       schema:
-        node: :Map(:String:Int)
+        node: {#invertible}:Map(:String:Int)
         aliasName: :BiDirectionalMap
         constraints:
           equatable: true (default)
           comparable: false (default)
         underlyingSchema:
-          node: :Map(:String:Int)
+          node: {#invertible}:Map(:String:Int)
   - :NonEmptyBiMap
       schema:
-        node: :Map(:String:Int)
+        node: {#invertible#minSize1}:Map(:String:Int)
         aliasName: :NonEmptyBiMap
         constraints:
           equatable: true (default)
           comparable: false (default)
         underlyingSchema:
-          node: :Map(:String:Int)
+          node: {#invertible#minSize1}:Map(:String:Int)
   - <:type>
       schema:
         node: :Tuple(:IntSequence:NonEmptySequence:IntSet:NonEmptySet:LookupMap:NonEmptyMap:BiDirectionalMap:NonEmptyBiMap)

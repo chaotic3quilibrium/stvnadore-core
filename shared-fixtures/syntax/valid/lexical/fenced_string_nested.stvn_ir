@@ -10,14 +10,14 @@ TypeRegistry:
           node: :String
   - :StvnInclf
       schema:
-        node: :String
+        node: {#preserveIndent#TRUE}:String
         aliasName: :StvnInclf
         constraints:
-          preserveIndent: true (explicit)
+          preserveIndent: true (explicit override)
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: :String
+          node: {#preserveIndent#TRUE}:String
   - <:type>
       schema:
         node: :Tuple(:SchemaName:StvnInclf)

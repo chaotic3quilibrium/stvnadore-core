@@ -7,7 +7,7 @@
   :type :ErrorContract
 
   :body (
-    #MALFORMED_SCHEMA
+    #INVALID_NUMERIC_RANGE
     "Constraint violation (:ShiftedType): effective range is invalid (minimum 6 is greater than maximum 5)"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )

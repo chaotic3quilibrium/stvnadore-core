@@ -1,0 +1,14 @@
+{
+  // inline_metadata_incompatible_facet.contract.stvn
+  :defs {
+    :include [ "../error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #MALFORMED_SCHEMA
+    "Constraint violation (:Int): facet 'regex' is not permitted on :Int; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

@@ -1,0 +1,36 @@
+// @spec: SPEC-08-COLLECTIONS, SPEC-10-SUM-TYPES
+// @case: Positive - Inline metadata blocks across all composite constructors
+{
+  :defs {
+    :Pair          :Tuple( { #size 16 } :Int { #size 32 } :Int )
+    :DisjointSum   :Either( :Float { #unsigned #size 32 } :Int )
+    :NullableText  :Option( { #minSize 1 #maxSize 50 } :String )
+    :VariantUnion  :Union( { #size 8 } :Int :Boolean { #size 64 } :Float )
+    :IntegerBuffer :Seq( { #unsigned #size 16 } :Int )
+    :IdentSet      :Set( { #minSize 3 #maxSize 3 } :String )
+    :ConfigMap     :Map( :String { #minIncl 1 #maxExcl 65536 } :Int )
+  }
+
+  :type :Tuple(
+    :Pair
+    :DisjointSum
+    :NullableText
+    :VariantUnion
+    :IntegerBuffer
+    :IdentSet
+    :ConfigMap
+  )
+
+  :body (
+    ( 1000 50000 )
+    #Right 4294967295
+    #Some "Standard Payload Text"
+    #1 127
+    [ 10 20 30 40 50 ]
+    [ "ABC" "DEF" "GHI" ]
+    {
+      [ "http_port"  8080 ]
+      [ "https_port" 8443 ]
+    }
+  )
+}

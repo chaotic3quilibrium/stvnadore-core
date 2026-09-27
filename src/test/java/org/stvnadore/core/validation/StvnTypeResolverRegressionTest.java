@@ -70,7 +70,8 @@ class StvnTypeResolverRegressionTest {
     var defOpt = StvnTypeResolver.findTypeDefinition(doc, ":MyString");
     Assertions.assertTrue(defOpt.isPresent());
 
-    var constraints = StvnTypeResolver.extractConstraints(defOpt.get().metadataMap());
+    var metaMap = defOpt.get().schemaType() != null ? defOpt.get().schemaType().metadataMap() : null;
+    var constraints = StvnTypeResolver.extractConstraints(metaMap);
     var regex = constraints.regex();
 
     Assertions.assertEquals("my [content]\n", regex.orElse(null));

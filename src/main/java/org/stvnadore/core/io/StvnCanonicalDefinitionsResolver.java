@@ -118,7 +118,8 @@ public final class StvnCanonicalDefinitionsResolver {
         ConstantDefSource cs = allConstants.get(symbol);
         if (cs != null) {
           ConstantDefinitionContext cNode = cs.defNode();
-          StvnConstraints cConstraints = StvnTypeResolver.extractConstraints(cNode.metadataMap());
+          var cMeta = cNode.schemaType() != null ? cNode.schemaType().metadataMap() : null;
+          StvnConstraints cConstraints = StvnTypeResolver.extractConstraints(cMeta);
           retainedDefs.put(symbol, new ResolvedCanonicalDefinition(
               symbol,
               true,
@@ -143,7 +144,8 @@ public final class StvnCanonicalDefinitionsResolver {
         DefSource ds = allTypes.get(symbol);
         if (ds != null) {
           TypeDefinitionContext tNode = ds.defNode();
-          StvnConstraints tConstraints = StvnTypeResolver.extractConstraints(tNode.metadataMap());
+          var tMeta = tNode.schemaType() != null ? tNode.schemaType().metadataMap() : null;
+          StvnConstraints tConstraints = StvnTypeResolver.extractConstraints(tMeta);
           retainedDefs.put(symbol, new ResolvedCanonicalDefinition(
               symbol,
               false,

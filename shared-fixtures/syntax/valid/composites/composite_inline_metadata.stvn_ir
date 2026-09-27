@@ -1,0 +1,105 @@
+TypeRegistry:
+  - :Pair
+      schema:
+        node: :Tuple({#size16}:Int{#size32}:Int)
+        aliasName: :Pair
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Tuple({#size16}:Int{#size32}:Int)
+  - :DisjointSum
+      schema:
+        node: :Either(:Float{#unsigned#size32}:Int)
+        aliasName: :DisjointSum
+        constraints:
+          equatable: false (derived from :Float)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Either(:Float{#unsigned#size32}:Int)
+  - :NullableText
+      schema:
+        node: :Option({#minSize1#maxSize50}:String)
+        aliasName: :NullableText
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Option({#minSize1#maxSize50}:String)
+  - :VariantUnion
+      schema:
+        node: :Union({#size8}:Int:Boolean{#size64}:Float)
+        aliasName: :VariantUnion
+        constraints:
+          equatable: false (derived from {#size64}:Float)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Union({#size8}:Int:Boolean{#size64}:Float)
+  - :IntegerBuffer
+      schema:
+        node: :Seq({#unsigned#size16}:Int)
+        aliasName: :IntegerBuffer
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :Seq({#unsigned#size16}:Int)
+  - :IdentSet
+      schema:
+        node: :Set({#minSize3#maxSize3}:String)
+        aliasName: :IdentSet
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: :Set({#minSize3#maxSize3}:String)
+  - :ConfigMap
+      schema:
+        node: :Map(:String{#minIncl1#maxExcl65536}:Int)
+        aliasName: :ConfigMap
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: :Map(:String{#minIncl1#maxExcl65536}:Int)
+  - <:type>
+      schema:
+        node: :Tuple(:Pair:DisjointSum:NullableText:VariantUnion:IntegerBuffer:IdentSet:ConfigMap)
+        constraints:
+          equatable: false (derived from :DisjointSum)
+          comparable: false (derived from :IdentSet)
+ValuePayload:
+  StvnTuple
+    elements:
+      - StvnTuple
+          elements:
+            - StvnInteger({#size16}:Int): 1000
+            - StvnInteger({#size32}:Int): 50000
+      - StvnEither
+          isRight: true
+          value: StvnInteger({#unsigned#size32}:Int): 4294967295
+      - StvnOption
+          value: StvnString({#minSize1#maxSize50}:String): "Standard Payload Text"
+      - StvnUnion
+          tagIndex: 0
+          value: StvnInteger({#size8}:Int): 127
+      - StvnSeq
+          elements:
+            - StvnInteger({#unsigned#size16}:Int): 10
+            - StvnInteger({#unsigned#size16}:Int): 20
+            - StvnInteger({#unsigned#size16}:Int): 30
+            - StvnInteger({#unsigned#size16}:Int): 40
+            - StvnInteger({#unsigned#size16}:Int): 50
+      - StvnSet
+          elements:
+            - StvnString({#minSize3#maxSize3}:String): "ABC"
+            - StvnString({#minSize3#maxSize3}:String): "DEF"
+            - StvnString({#minSize3#maxSize3}:String): "GHI"
+      - StvnMap
+          entries:
+            - pair:
+                key: StvnString(:String): "http_port"
+                value: StvnInteger({#minIncl1#maxExcl65536}:Int): 8080
+            - pair:
+                key: StvnString(:String): "https_port"
+                value: StvnInteger({#minIncl1#maxExcl65536}:Int): 8443

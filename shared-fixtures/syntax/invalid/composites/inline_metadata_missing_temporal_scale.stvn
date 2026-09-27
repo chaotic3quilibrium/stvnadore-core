@@ -1,0 +1,7 @@
+// @spec: SPEC-08-COLLECTIONS
+// @case: Negative - Reject child TimeEpoch without temporal scale facet
+// @error: MALFORMED_SCHEMA
+{
+  :type :Seq( :TimeEpoch )
+  :body [ 1000 ]
+}
