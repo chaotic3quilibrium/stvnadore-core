@@ -1182,6 +1182,10 @@ Byte 4 separates CRC-32C trailer presence (`HAS_TRAILER_CRC32C`), wire layout fr
   +------------------------> Bit 7     (0x80): HAS_TRAILER_CRC32C flag (1 = Present, 0 = Absent)
 ```
 
+**Specification Governance Note (Optional Flag vs. Ingress Policy):**  
+  - At the binary container specification level, CRC-32C trailer framing is optional (`Bit 7 = 0` indicates trailer absence).
+  - Individual application profiles or ingestion boundaries (such as `stvnadore-repository` CAS publication or high-assurance zero-trust transport channels) MAY enforce `Bit 7 = 1` as a mandatory ingress requirement, but decoders conforming to STVN 2.0.0 MUST cleanly support both trailer-framed (`Bit 7 = 1`) and trailerless (`Bit 7 = 0`) binary streams.
+
 #### Bitwise Operations
 * **Packing Formula:**
   ```java
