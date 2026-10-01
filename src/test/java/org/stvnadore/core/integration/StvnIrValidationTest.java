@@ -284,7 +284,7 @@ public class StvnIrValidationTest {
       if (msg.contains("effective range is invalid") || msg.contains("cardinality range is invalid") || msg.contains("effective datetime range is invalid")) {
         return "INVALID_NUMERIC_RANGE";
       }
-      if (msg.contains("Integer bit-width #size must be between")) {
+      if (msg.contains("Integer bit-width #size must be")) {
         return "CAPACITY_OVERFLOW";
       }
       return "MALFORMED_SCHEMA";

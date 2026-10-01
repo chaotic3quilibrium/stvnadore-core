@@ -4332,9 +4332,9 @@ public class StvnTypeResolver {
     // 2. Storage Bit-Width Bounds Validation
     if (consolidated.size().isPresent()) {
       int sz = consolidated.size().get();
-      if (StvnVocabulary.TYPE_INT.equals(normalizedBase) && (sz < 1 || sz > 1024)) {
+      if (StvnVocabulary.TYPE_INT.equals(normalizedBase) && sz < 1) {
         diagnosticBag.addError(
-            "Constraint violation (" + name + "): Integer bit-width #size must be between 1 and 1024, found " + sz,
+            "Constraint violation (" + name + "): Integer bit-width #size must be at least 1, found " + sz,
             metadataMap.getStart().getStartIndex(), metadataMap.getStop().getStopIndex() + 1,
             metadataMap.getStart().getLine(), metadataMap.getStart().getCharPositionInLine(),
             null, DiagnosticBag.ERR_CAPACITY_OVERFLOW

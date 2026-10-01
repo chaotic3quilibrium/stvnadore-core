@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_open_int_size_1025
+// MATRIX-POSITION:    1.3.1
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Int
+// FACET-NAME:         #size
+// COVERAGE-KIND:      OPEN_UPPER_BOUND
+// DESCRIPTION:        Verifies open upper bound on :Int #size exceeding legacy 1024 ceiling (size = 1025)
+// ==============================================================================
+{
+  :defs {
+    :TestedType { #size 1025 } :Int
+  }
+  :type :TestedType
+  :body 0
+}

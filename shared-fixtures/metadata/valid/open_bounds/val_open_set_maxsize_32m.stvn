@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_open_set_maxsize_32m
+// MATRIX-POSITION:    1.5.2
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Set
+// FACET-NAME:         #maxSize
+// COVERAGE-KIND:      OPEN_UPPER_BOUND
+// DESCRIPTION:        Verifies open upper bound on :Set #maxSize exceeding 16 MiB default ceiling (maxSize = 33554432)
+// ==============================================================================
+{
+  :defs {
+    :TestedType { #maxSize 33554432 } :Set( :Int )
+  }
+  :type :TestedType
+  :body [ 1 2 3 ]
+}

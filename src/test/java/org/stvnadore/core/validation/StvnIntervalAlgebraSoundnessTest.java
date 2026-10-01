@@ -242,7 +242,7 @@ public class StvnIntervalAlgebraSoundnessTest {
   // --------------------------------------------------------------------------
 
   @Test
-  @DisplayName("TC-ALG-08: Integer bit-width boundaries [1, 1024]")
+  @DisplayName("TC-ALG-08: Integer bit-width boundaries [1, open upper bound]")
   void testBitWidthBoundariesOnInt() {
     String zeroSizeSource = """
         {
@@ -257,18 +257,29 @@ public class StvnIntervalAlgebraSoundnessTest {
     assertTrue(zeroResult.hasErrors(), "#size 0 on :Int must fail");
     assertTrue(zeroResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_CAPACITY_OVERFLOW.equals(d.errorCode().orElse(null))));
 
-    String oversizeSource = """
+    String open2048Source = """
         {
           :defs {
-            :BadInt { #size 2048 } :Int
+            :OpenInt2048 { #size 2048 } :Int
           }
-          :type :Int
+          :type :OpenInt2048
           :body 0
         }
         """;
-    var overResult = StvnCompiler.compileToResult(oversizeSource, null, StvnParserConfig.DEFAULT);
-    assertTrue(overResult.hasErrors(), "#size 2048 on :Int must fail");
-    assertTrue(overResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_CAPACITY_OVERFLOW.equals(d.errorCode().orElse(null))));
+    var res2048 = StvnCompiler.compileToResult(open2048Source, null, StvnParserConfig.DEFAULT);
+    assertFalse(res2048.hasErrors(), "#size 2048 on :Int must compile cleanly");
+
+    String open4096Source = """
+        {
+          :defs {
+            :OpenInt4096 { #size 4096 } :Int
+          }
+          :type :OpenInt4096
+          :body 0
+        }
+        """;
+    var res4096 = StvnCompiler.compileToResult(open4096Source, null, StvnParserConfig.DEFAULT);
+    assertFalse(res4096.hasErrors(), "#size 4096 on :Int must compile cleanly");
 
     String validMinSource = """
         {

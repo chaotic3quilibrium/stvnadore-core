@@ -38,6 +38,7 @@ public final class MetadataFixtureGenerator {
   public enum CoverageKind {
     ISOLATED_VALID,
     SATURATED_VALID,
+    OPEN_UPPER_BOUND,
     TARGET_DOMAIN_MISMATCH,
     ORDER_VIOLATION,
     DISCRETE_BOUND_PROHIBITED,
@@ -107,7 +108,11 @@ public final class MetadataFixtureGenerator {
     for (GeneratedFixture f : generateSaturatedValidFixtures(rows)) {
       map.put(f.relativePath(), f);
     }
-    // 3. Invalid Negative Fixtures
+    // 3. Open Upper Bound Valid Fixtures
+    for (GeneratedFixture f : generateOpenUpperBoundFixtures(rows)) {
+      map.put(f.relativePath(), f);
+    }
+    // 4. Invalid Negative Fixtures
     for (GeneratedFixture f : generateInvalidEdgeCaseFixtures(rows)) {
       map.put(f.relativePath(), f);
     }
@@ -173,6 +178,187 @@ public final class MetadataFixtureGenerator {
     list.addAll(createSaturatedScalarFixtures());
     list.addAll(createSaturatedTemporalFixtures());
     list.addAll(createSaturatedCollectionFixtures());
+    return list;
+  }
+
+  /**
+   * Generates valid open upper bound fixtures testing values exceeding legacy or default ceilings.
+   * Targets subpath shared-fixtures/metadata/valid/open_bounds/.
+   *
+   * @param rows parsed canonical matrix rows
+   * @return list of valid open upper bound fixtures
+   */
+  public static List<GeneratedFixture> generateOpenUpperBoundFixtures(List<MetadataMatrixRow> rows) {
+    List<GeneratedFixture> list = new ArrayList<>();
+
+    // 1. :Int #size 1025
+    list.add(new GeneratedFixture(
+        Path.of("valid", "open_bounds", "val_open_int_size_1025.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         val_open_int_size_1025
+        // MATRIX-POSITION:    1.3.1
+        // MATRIX-CATEGORY:    Definition
+        // TARGET-TYPE:        :Int
+        // FACET-NAME:         #size
+        // COVERAGE-KIND:      OPEN_UPPER_BOUND
+        // DESCRIPTION:        Verifies open upper bound on :Int #size exceeding legacy 1024 ceiling (size = 1025)
+        // ==============================================================================
+        {
+          :defs {
+            :TestedType { #size 1025 } :Int
+          }
+          :type :TestedType
+          :body 0
+        }
+        """,
+        CoverageKind.OPEN_UPPER_BOUND,
+        Optional.empty(),
+        Optional.empty()
+    ));
+
+    // 2. :Int #size 4096
+    list.add(new GeneratedFixture(
+        Path.of("valid", "open_bounds", "val_open_int_size_4096.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         val_open_int_size_4096
+        // MATRIX-POSITION:    1.3.1
+        // MATRIX-CATEGORY:    Definition
+        // TARGET-TYPE:        :Int
+        // FACET-NAME:         #size
+        // COVERAGE-KIND:      OPEN_UPPER_BOUND
+        // DESCRIPTION:        Verifies open upper bound on :Int #size exceeding legacy 1024 ceiling (size = 4096)
+        // ==============================================================================
+        {
+          :defs {
+            :TestedType { #size 4096 } :Int
+          }
+          :type :TestedType
+          :body 0
+        }
+        """,
+        CoverageKind.OPEN_UPPER_BOUND,
+        Optional.empty(),
+        Optional.empty()
+    ));
+
+    // 3. :String #maxSize 33554432 (32 MiB)
+    list.add(new GeneratedFixture(
+        Path.of("valid", "open_bounds", "val_open_string_maxsize_32m.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         val_open_string_maxsize_32m
+        // MATRIX-POSITION:    1.5.2
+        // MATRIX-CATEGORY:    Definition
+        // TARGET-TYPE:        :String
+        // FACET-NAME:         #maxSize
+        // COVERAGE-KIND:      OPEN_UPPER_BOUND
+        // DESCRIPTION:        Verifies open upper bound on :String #maxSize exceeding 16 MiB default ceiling (maxSize = 33554432)
+        // ==============================================================================
+        {
+          :defs {
+            :TestedType { #maxSize 33554432 } :String
+          }
+          :type :TestedType
+          :body "alpha"
+        }
+        """,
+        CoverageKind.OPEN_UPPER_BOUND,
+        Optional.empty(),
+        Optional.empty()
+    ));
+
+    // 4. :Seq #maxSize 33554432 (32 MiB)
+    list.add(new GeneratedFixture(
+        Path.of("valid", "open_bounds", "val_open_seq_maxsize_32m.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         val_open_seq_maxsize_32m
+        // MATRIX-POSITION:    1.5.2
+        // MATRIX-CATEGORY:    Definition
+        // TARGET-TYPE:        :Seq
+        // FACET-NAME:         #maxSize
+        // COVERAGE-KIND:      OPEN_UPPER_BOUND
+        // DESCRIPTION:        Verifies open upper bound on :Seq #maxSize exceeding 16 MiB default ceiling (maxSize = 33554432)
+        // ==============================================================================
+        {
+          :defs {
+            :TestedType { #maxSize 33554432 } :Seq( :Int )
+          }
+          :type :TestedType
+          :body [ 1 2 3 ]
+        }
+        """,
+        CoverageKind.OPEN_UPPER_BOUND,
+        Optional.empty(),
+        Optional.empty()
+    ));
+
+    // 5. :Set #maxSize 33554432 (32 MiB)
+    list.add(new GeneratedFixture(
+        Path.of("valid", "open_bounds", "val_open_set_maxsize_32m.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         val_open_set_maxsize_32m
+        // MATRIX-POSITION:    1.5.2
+        // MATRIX-CATEGORY:    Definition
+        // TARGET-TYPE:        :Set
+        // FACET-NAME:         #maxSize
+        // COVERAGE-KIND:      OPEN_UPPER_BOUND
+        // DESCRIPTION:        Verifies open upper bound on :Set #maxSize exceeding 16 MiB default ceiling (maxSize = 33554432)
+        // ==============================================================================
+        {
+          :defs {
+            :TestedType { #maxSize 33554432 } :Set( :Int )
+          }
+          :type :TestedType
+          :body [ 1 2 3 ]
+        }
+        """,
+        CoverageKind.OPEN_UPPER_BOUND,
+        Optional.empty(),
+        Optional.empty()
+    ));
+
+    // 6. :Map #maxSize 33554432 (32 MiB)
+    list.add(new GeneratedFixture(
+        Path.of("valid", "open_bounds", "val_open_map_maxsize_32m.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         val_open_map_maxsize_32m
+        // MATRIX-POSITION:    1.5.2
+        // MATRIX-CATEGORY:    Definition
+        // TARGET-TYPE:        :Map
+        // FACET-NAME:         #maxSize
+        // COVERAGE-KIND:      OPEN_UPPER_BOUND
+        // DESCRIPTION:        Verifies open upper bound on :Map #maxSize exceeding 16 MiB default ceiling (maxSize = 33554432)
+        // ==============================================================================
+        {
+          :defs {
+            :TestedType { #maxSize 33554432 } :Map( :String :Int )
+          }
+          :type :TestedType
+          :body { [ "k" 1 ] }
+        }
+        """,
+        CoverageKind.OPEN_UPPER_BOUND,
+        Optional.empty(),
+        Optional.empty()
+    ));
+
     return list;
   }
 

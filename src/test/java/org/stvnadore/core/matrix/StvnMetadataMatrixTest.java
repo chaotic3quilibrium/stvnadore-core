@@ -112,6 +112,20 @@ public class StvnMetadataMatrixTest {
     Assertions.assertNotNull(flattened, "Flattener produced null output for saturated fixture: " + fileName);
   }
 
+  @ParameterizedTest(name = "[{index}] Open Upper Bound Valid: {0}")
+  @MethodSource("provideValidOpenBoundsFixtures")
+  @DisplayName("MM-VAL-OPEN: Valid open upper bound metadata fixtures compile with zero diagnostics")
+  void testValidOpenBoundsFixtures(Path fixturePath, String content) {
+    Path diskPath = FIXTURE_ROOT.resolve(fixturePath);
+    var result = StvnCompiler.compileToResult(content, diskPath.toString(), StvnParserConfig.DEFAULT);
+    Assertions.assertFalse(result.hasErrors(),
+        "Valid open upper bound fixture failed compilation: " + fixturePath + " -> " + result.diagnostics());
+    Assertions.assertTrue(result.diagnostics().isEmpty(),
+        "Valid open upper bound fixture emitted unexpected diagnostics: " + result.diagnostics());
+    Assertions.assertTrue(result.document().isPresent(),
+        "Valid open upper bound fixture produced empty AST document");
+  }
+
   @ParameterizedTest(name = "[{index}] Invalid Edge Case: {0} (Expect: {2})")
   @MethodSource("provideInvalidEdgeCaseFixtures")
   @DisplayName("MM-INV-EDGE: Invalid edge cases fail closed with normative diagnostic codes and pinned tokens")
@@ -173,6 +187,10 @@ public class StvnMetadataMatrixTest {
 
   static Stream<Arguments> provideValidSaturatedFixtures() throws IOException {
     return loadFixturesUnder(Path.of("valid", "saturated"));
+  }
+
+  static Stream<Arguments> provideValidOpenBoundsFixtures() throws IOException {
+    return loadFixturesUnder(Path.of("valid", "open_bounds"));
   }
 
   static Stream<Arguments> provideInvalidEdgeCaseFixtures() throws IOException {
