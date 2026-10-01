@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_string_maxexcl
+// MATRIX-POSITION:    3.4
+// MATRIX-CATEGORY:    Bounds
+// TARGET-TYPE:        :String
+// FACET-NAME:         #maxExcl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Lexicographical interval; exclusive upper bound
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #maxExcl "alpha" } :String
+  }
+  :type :TestedType
+  :body "alpha"
+}

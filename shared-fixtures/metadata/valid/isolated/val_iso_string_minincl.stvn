@@ -1,20 +1,18 @@
 // ==============================================================================
 // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
 // ==============================================================================
-// FIXTURE-ID:         inv_mismatch_string_minincl
+// FIXTURE-ID:         val_iso_string_minincl
 // MATRIX-POSITION:    3.1
+// MATRIX-CATEGORY:    Bounds
 // TARGET-TYPE:        :String
-// OFFENDING-FACET:    #minIncl
-// COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
-// EXPECT-DIAGNOSTIC:  ERR_INVALID_METADATA_FACET
-// TARGET-TOKEN:       #minIncl
-// EXPECT-SEVERITY:    ERROR
-// DESCRIPTION:        Ordinal lower bound #minIncl is prohibited on :String
+// FACET-NAME:         #minIncl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Lexicographical interval; inclusive lower bound
 // ==============================================================================
 {
   :defs {
-    :BadStrBound { #minIncl "alpha" } :String
+  :TestedType { #minIncl "alpha" } :String
   }
-  :type :BadStrBound
+  :type :TestedType
   :body "alpha"
 }

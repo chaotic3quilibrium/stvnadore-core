@@ -1663,7 +1663,7 @@ public class StvnEndToEndIntegrationTest {
         ),
 
         TestProfile.createError(
-            "String Constraints - Numeric bounds forbidden on String",
+            "String Constraints - Numeric bounds on String requires string literal",
             """
                 {
                   :defs {
@@ -1673,7 +1673,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "admin" ]
                 }
                 """,
-            "facet 'minIncl' is not permitted on :String"
+            "requires a string literal"
         ),
 
         TestProfile.createError(

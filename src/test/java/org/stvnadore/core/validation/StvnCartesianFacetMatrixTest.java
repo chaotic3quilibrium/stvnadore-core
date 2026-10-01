@@ -43,8 +43,8 @@ public class StvnCartesianFacetMatrixTest {
   private static final Map<String, Set<String>> PERMITTED_FACETS = Map.of(
       ":Int", Set.of("unsigned", "equatable", "comparable", "size", "minIncl", "maxExcl"),
       ":Float", Set.of("exact", "equatable", "comparable", "size", "minIncl", "minExcl", "maxExcl", "maxIncl"),
-      ":String", Set.of("preserveIndent", "equatable", "comparable", "minSize", "maxSize", "regex"),
-      ":Boolean", Set.of("equatable"),
+      ":String", Set.of("preserveIndent", "equatable", "comparable", "minSize", "maxSize", "regex", "minIncl", "minExcl", "maxIncl", "maxExcl"),
+      ":Boolean", Set.of("equatable", "comparable"),
       ":TimeEpoch", Set.of("s", "ms", "us", "ns", "equatable", "comparable", "minIncl", "maxExcl"),
       ":DateTime", Set.of("offset", "zoned", "audited", "equatable", "comparable", "minIncl", "maxExcl")
   );
@@ -138,9 +138,9 @@ public class StvnCartesianFacetMatrixTest {
   }
 
   @Test
-  @DisplayName("Cartesian Combinatorial Matrix: Total invalid pairs must equal exactly 108")
+  @DisplayName("Cartesian Combinatorial Matrix: Total invalid pairs must equal exactly 103")
   void testCombinatorialMatrixSize() {
     long invalidCount = invalidFacetTypeCombinations().count();
-    org.junit.jupiter.api.Assertions.assertEquals(108, invalidCount, "Matrix must evaluate exactly 108 invalid pairs (144 total - 36 valid)");
+    org.junit.jupiter.api.Assertions.assertEquals(103, invalidCount, "Matrix must evaluate exactly 103 invalid pairs (144 total - 41 valid)");
   }
 }

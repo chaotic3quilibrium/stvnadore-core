@@ -36,7 +36,7 @@ import java.util.stream.Stream;
 public class StvnMetadataMatrixTest {
 
   private static final Path FIXTURE_ROOT =
-      Path.of("src/test/resources/shared-fixtures/metadata");
+      Path.of("shared-fixtures/metadata");
 
   private static final Pattern EXPECT_DIAGNOSTIC_PATTERN =
       Pattern.compile("^//\\s*EXPECT-DIAGNOSTIC:\\s*(\\w+)", Pattern.MULTILINE);

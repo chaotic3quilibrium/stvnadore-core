@@ -3755,8 +3755,10 @@ public class StvnTypeResolver {
           StvnVocabulary.FACET_NAME_MAX_EXCL, StvnVocabulary.FACET_NAME_MAX_INCL)),
       Map.entry(StvnVocabulary.TYPE_STRING, Set.of(
           StvnVocabulary.FACET_NAME_PRESERVE_INDENT, StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE,
-          StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_REGEX)),
-      Map.entry(StvnVocabulary.TYPE_BOOLEAN, Set.of(StvnVocabulary.FACET_NAME_EQUATABLE)),
+          StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_REGEX,
+          StvnVocabulary.FACET_NAME_MIN_INCL, StvnVocabulary.FACET_NAME_MIN_EXCL,
+          StvnVocabulary.FACET_NAME_MAX_INCL, StvnVocabulary.FACET_NAME_MAX_EXCL)),
+      Map.entry(StvnVocabulary.TYPE_BOOLEAN, Set.of(StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE)),
       Map.entry(StvnVocabulary.TYPE_TIME_EPOCH, Set.of(
           StvnVocabulary.SCALE_S, StvnVocabulary.SCALE_MS, StvnVocabulary.SCALE_US, StvnVocabulary.SCALE_NS,
           StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE, StvnVocabulary.FACET_NAME_MIN_INCL, StvnVocabulary.FACET_NAME_MAX_EXCL)),
@@ -3766,8 +3768,8 @@ public class StvnTypeResolver {
 
       // 6 Collections and Algebraic Composites
       Map.entry(StvnVocabulary.TYPE_SEQ, Set.of(StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE)),
-      Map.entry(StvnVocabulary.TYPE_SET, Set.of(StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_EQUATABLE)),
-      Map.entry(StvnVocabulary.TYPE_MAP, Set.of(StvnVocabulary.FACET_NAME_INVERTIBLE, StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_EQUATABLE)),
+      Map.entry(StvnVocabulary.TYPE_SET, Set.of(StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE)),
+      Map.entry(StvnVocabulary.TYPE_MAP, Set.of(StvnVocabulary.FACET_NAME_INVERTIBLE, StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE)),
       Map.entry(StvnVocabulary.TYPE_TUPLE, Set.of(StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE)),
       Map.entry(StvnVocabulary.TYPE_UNION, Set.of(StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE)),
       Map.entry(StvnVocabulary.TYPE_ENUM, Set.of(StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE, StvnVocabulary.FACET_NAME_FILTER_INCL, StvnVocabulary.FACET_NAME_FILTER_EXCL))
@@ -4026,8 +4028,6 @@ public class StvnTypeResolver {
         String message;
         if (StvnVocabulary.TYPE_STRING.equals(normalizedBase) && "size".equals(facetName)) {
           message = "Facet '#size' is prohibited on :String; use '#minSize' and '#maxSize' (e.g. { #minSize N #maxSize N } :String)";
-        } else if (StvnVocabulary.TYPE_STRING.equals(normalizedBase) && (facetName.equals("minIncl") || facetName.equals("minExcl") || facetName.equals("maxIncl") || facetName.equals("maxExcl"))) {
-          message = "Constraint violation (" + name + "): facet '" + facetName + "' is not permitted on " + normalizedBase + "; permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]";
         } else if (StvnVocabulary.TYPE_INT.equals(normalizedBase) && "regex".equals(facetName)) {
           message = "Constraint violation (" + name + "): facet 'regex' is not permitted on :Int; permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]";
         } else if ("preserveIndent".equals(facetName)) {
@@ -4200,6 +4200,14 @@ public class StvnTypeResolver {
         int mvCol = mv.getStart().getCharPositionInLine();
 
         if (isDateTime) {
+          if (mv.stringLiteral() == null) {
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): #" + constraintName + " for " + baseType + " requires a string literal",
+                mvStart, mvEnd, mvLine, mvCol, null,
+                DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+            );
+          }
+        } else if (isStringType) {
           if (mv.stringLiteral() == null) {
             diagnosticBag.addError(
                 "Constraint violation (" + name + "): #" + constraintName + " for " + baseType + " requires a string literal",

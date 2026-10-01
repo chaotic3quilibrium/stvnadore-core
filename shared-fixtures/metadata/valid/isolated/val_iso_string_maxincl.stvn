@@ -1,20 +1,18 @@
 // ==============================================================================
 // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
 // ==============================================================================
-// FIXTURE-ID:         inv_mismatch_string_maxincl
+// FIXTURE-ID:         val_iso_string_maxincl
 // MATRIX-POSITION:    3.3
+// MATRIX-CATEGORY:    Bounds
 // TARGET-TYPE:        :String
-// OFFENDING-FACET:    #maxIncl
-// COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
-// EXPECT-DIAGNOSTIC:  ERR_INVALID_METADATA_FACET
-// TARGET-TOKEN:       #maxIncl
-// EXPECT-SEVERITY:    ERROR
-// DESCRIPTION:        Ordinal upper bound #maxIncl is prohibited on :String
+// FACET-NAME:         #maxIncl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Lexicographical interval; inclusive upper bound
 // ==============================================================================
 {
   :defs {
-    :BadStrBound { #maxIncl "omega" } :String
+  :TestedType { #maxIncl "alpha" } :String
   }
-  :type :BadStrBound
+  :type :TestedType
   :body "alpha"
 }

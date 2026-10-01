@@ -1,20 +1,18 @@
 // ==============================================================================
 // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
 // ==============================================================================
-// FIXTURE-ID:         inv_mismatch_set_comparable
+// FIXTURE-ID:         val_iso_set_comparable
 // MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
 // TARGET-TYPE:        :Set
-// OFFENDING-FACET:    #comparable
-// COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
-// EXPECT-DIAGNOSTIC:  ERR_INVALID_METADATA_FACET
-// TARGET-TOKEN:       #comparable
-// EXPECT-SEVERITY:    ERROR
-// DESCRIPTION:        Facet #comparable is prohibited on :Set
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Opt-in comparison (disabled by default; unordered sets lack natural total ordering)
 // ==============================================================================
 {
   :defs {
-    :BadSet { #comparable #TRUE } :Set( :Int )
+  :TestedType { #comparable #TRUE } :Set( :Int )
   }
-  :type :BadSet
+  :type :TestedType
   :body [ 1 2 3 ]
 }

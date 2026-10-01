@@ -290,7 +290,7 @@ public class StvnSchemaValidationTest {
           :defs {
             :InvertedRange { #minIncl 10 #maxExcl 2 } :Int
             :CapOverflow   { #unsigned #size 8 #minIncl -1 } :Int
-            :BadStringMeta { #minIncl 5 } :String
+            :BadStringMeta { #unsigned } :String
             :InvalidRegex  { #regex "[a-z" } :String
           }
           :type :String
@@ -361,7 +361,7 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :BadStr { #minIncl 1 } :String
+            :BadStr { #unsigned } :String
           }
           :type :BadStr
           :body "test"
@@ -371,7 +371,26 @@ public class StvnSchemaValidationTest {
     Assertions.assertFalse(result.isSuccess());
     var diag = result.diagnostics().getFirst();
     Assertions.assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, diag.errorCode().orElse(""));
-    Assertions.assertTrue(diag.message().contains("permitted facets for numeric types: [#equatable, #comparable, #minIncl, #maxIncl, #minExcl, #maxExcl]"));
+    Assertions.assertTrue(diag.message().contains("facet '#unsigned' is not permitted on :String"));
+  }
+
+  @Test
+  @DisplayName("Facet governance: Numeric literal on String continuous bound emits ERR_INCOMPATIBLE_TYPE")
+  void testNumericLiteralOnStringBoundEmitsIncompatibleType() {
+    String input = """
+        {
+          :defs {
+            :BadStr { #minIncl 1 } :String
+          }
+          :type :BadStr
+          :body "test"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_INCOMPATIBLE_TYPE, diag.errorCode().orElse(""));
+    Assertions.assertTrue(diag.message().contains("requires a string literal"));
   }
 
   @Test
