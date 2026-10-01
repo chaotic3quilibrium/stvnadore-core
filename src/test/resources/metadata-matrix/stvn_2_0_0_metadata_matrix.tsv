@@ -1,0 +1,84 @@
+Position	Category	Modifying	Tag Name	Parameter Kind	Parameter Range	Default	Overridable	Mutually Exclusive to	Description
+2.1	Trait	:Boolean	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables structural value equality comparison
+2.2	Trait	:Boolean	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables total order comparison
+1.1.1	Definition	:Int	unsigned	Standalone	N/A	Absent	No	N/A	When present, indicates sign prefix prohibited
+1.3.1	Definition	:Int	size	:Int	s >= 1, open upper bound	32	No	N/A	Storage width in bits (s >= 1); determines integer capacity range
+2.1	Trait	:Int	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables structural value equality comparison
+2.2	Trait	:Int	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables total order comparison
+3.1	Bounds	:Int	minIncl	:Int	>= -2^(s-1), < maxExcl	-2^(s-1)	Yes	N/A	Half-open interval; start
+3.4	Bounds	:Int	maxExcl	:Int	<= 2^(s-1), > minIncl	2^(s-1)	Yes	N/A	Half-open interval; end
+3.1	Bounds	:Int (unsigned)	minIncl	:Int	>= 0, < maxExcl	0	Yes	N/A	Half-open interval; start
+3.4	Bounds	:Int (unsigned)	maxExcl	:Int	<= 2^s, > minIncl	2^s	Yes	N/A	Half-open interval; end
+1.1.2	Definition	:Float (exact)	exact	Standalone	N/A	<None>	No	size 32, size 64	BigDecimal Equivalent
+2.1	Trait	:Float (exact)	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables structural value equality comparison
+2.2	Trait	:Float (exact)	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables total order comparison
+3.1	Bounds	:Float (exact)	minIncl	:Float (exact)	< maxExcl	<None>	Yes	N/A	Half-open interval; start
+3.4	Bounds	:Float (exact)	maxExcl	:Float (exact)	> minIncl	<None>	Yes	N/A	Half-open interval; end
+1.3.1	Definition	:Float (32)	size	:Int	n = 32	<None>	No	exact, size 64	Default when none of the tags, exact, size 32, or size 64, appear in the metadata
+2.1	Trait	:Float (32)	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:FALSE	Yes	N/A	Opt-in bitwise IEEE-754 pattern equality override (disabled by default due to NaN hazards)
+2.2	Trait	:Float (32)	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables total ordering over floating-point values
+3.1	Bounds	:Float (32)	minIncl	:Float (exact)	>= -3.4028235e+38, < maxIncl|maxExcl	-3.4028235e+38	Yes	minExcl	Continuous interval; inclusive lower bound
+3.2	Bounds	:Float (32)	minExcl	:Float (exact)	> -3.4028235e+38, < maxIncl|maxExcl	<None>	Yes	minIncl	Continuous interval; exclusive lower bound
+3.3	Bounds	:Float (32)	maxIncl	:Float (exact)	<= 3.4028235e+38, > minIncl|minExcl	3.4028235e+38	Yes	maxExcl	Continuous interval; inclusive upper bound
+3.4	Bounds	:Float (32)	maxExcl	:Float (exact)	< 3.4028235e+38, > minIncl|minExcl	<None>	Yes	maxIncl	Continuous interval; exclusive upper bound
+1.3.1	Definition	:Float (64)	size	:Int	n = 64	<None>	No	exact, size 32	Specifies IEEE-754 double-precision 64-bit floating point storage
+2.1	Trait	:Float (64)	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:FALSE	Yes	N/A	Opt-in bitwise IEEE-754 pattern equality override (disabled by default due to NaN hazards)
+2.2	Trait	:Float (64)	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables total ordering over floating-point values
+3.1	Bounds	:Float (64)	minIncl	:Float (exact)	>= -1.7976931348623157e+308, < maxIncl|maxExcl	-1.7976931348623157e+308	Yes	minExcl	Continuous interval; inclusive lower bound
+3.2	Bounds	:Float (64)	minExcl	:Float (exact)	> -1.7976931348623157e+308, < maxIncl|maxExcl	<None>	Yes	minIncl	Continuous interval; exclusive lower bound
+3.3	Bounds	:Float (64)	maxIncl	:Float (exact)	<= 1.7976931348623157e+308, > minIncl|minExcl	1.7976931348623157e+308	Yes	maxExcl	Continuous interval; inclusive upper bound
+3.4	Bounds	:Float (64)	maxExcl	:Float (exact)	< 1.7976931348623157e+308, > minIncl|minExcl	<None>	Yes	maxIncl	Continuous interval; exclusive upper bound
+1.2.1	Definition	:TimeEpoch	ns	Standalone	N/A	<None>	No	s, ms, us	Specifies 128-bit nanosecond resolution duration ticks since Unix Epoch
+1.2.2	Definition	:TimeEpoch	us	Standalone	N/A	<None>	No	s, ms, ns	Specifies 64-bit microsecond resolution duration ticks since Unix Epoch
+1.2.3	Definition	:TimeEpoch	ms	Standalone	N/A	<None>	No	s, us, ns	Specifies 64-bit millisecond resolution duration ticks since Unix Epoch
+1.2.4	Definition	:TimeEpoch	s	Standalone	N/A	<None>	No	ms, us, ns	Specifies 64-bit second resolution duration ticks since Unix Epoch
+2.1	Trait	:TimeEpoch	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables structural value equality comparison
+2.2	Trait	:TimeEpoch	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables total order comparison
+3.1	Bounds	:TimeEpoch (ns)	minIncl	:TimeEpoch	>= -2^127, < maxExcl	<None>	Yes	N/A	Half-open interval; start
+3.4	Bounds	:TimeEpoch (ns)	maxExcl	:TimeEpoch	<= 2^127, > minIncl	<None>	Yes	N/A	Half-open interval; end
+3.1	Bounds	:TimeEpoch (us)	minIncl	:TimeEpoch	>= -2^63, < maxExcl	<None>	Yes	N/A	Half-open interval; start
+3.4	Bounds	:TimeEpoch (us)	maxExcl	:TimeEpoch	<= 2^63, > minIncl	<None>	Yes	N/A	Half-open interval; end
+3.1	Bounds	:TimeEpoch (ms)	minIncl	:TimeEpoch	>= -2^63, < maxExcl	<None>	Yes	N/A	Half-open interval; start
+3.4	Bounds	:TimeEpoch (ms)	maxExcl	:TimeEpoch	<= 2^63, > minIncl	<None>	Yes	N/A	Half-open interval; end
+3.1	Bounds	:TimeEpoch (s)	minIncl	:TimeEpoch	>= -2^63, < maxExcl	<None>	Yes	N/A	Half-open interval; start
+3.4	Bounds	:TimeEpoch (s)	maxExcl	:TimeEpoch	<= 2^63, > minIncl	<None>	Yes	N/A	Half-open interval; end
+1.2.5	Definition	:DateTime	offset	Standalone	N/A	<None>	No	zoned, audited	Physical instant with explicit numerical UTC offset; rejects zone brackets
+1.2.6	Definition	:DateTime	zoned	Standalone	N/A	<None>	No	offset, audited	Civil schedule instant with IANA jurisdiction name; rejects numerical offset
+1.2.7	Definition	:DateTime	audited	Standalone	N/A	<None>	No	offset, zoned	Dual-verified audit record preserving both explicit offset and IANA jurisdiction name
+2.1	Trait	:DateTime	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables structural value equality comparison
+2.2	Trait	:DateTime	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables total order comparison
+3.1	Bounds	:DateTime (offset)	minIncl	:DateTime	Valid ISO-8601 string, < maxExcl	<None>	Yes	N/A	Half-open interval; start
+3.4	Bounds	:DateTime (offset)	maxExcl	:DateTime	Valid ISO-8601 string, > minIncl	<None>	Yes	N/A	Half-open interval; end
+3.1	Bounds	:DateTime (zoned)	minIncl	:DateTime	Valid ISO-8601 string, < maxExcl	<None>	Yes	N/A	Half-open interval; start
+3.4	Bounds	:DateTime (zoned)	maxExcl	:DateTime	Valid ISO-8601 string, > minIncl	<None>	Yes	N/A	Half-open interval; end
+3.1	Bounds	:DateTime (audited)	minIncl	:DateTime	Valid ISO-8601 string, < maxExcl	<None>	Yes	N/A	Half-open interval; start
+3.4	Bounds	:DateTime (audited)	maxExcl	:DateTime	Valid ISO-8601 string, > minIncl	<None>	Yes	N/A	Half-open interval; end
+1.5.1	Definition	:String	minSize	:Int	n >= 0 & n <= maxSize	0	No	N/A	Minimum character length constraint (n >= 0)
+1.5.2	Definition	:String	maxSize	:Int	n >= 1 & n >= minSize, open upper bound	16777216	No	N/A	Maximum character length allocation cap (n >= minSize)
+2.1	Trait	:String	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables structural value equality comparison
+2.2	Trait	:String	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables total order comparison
+3.1	Bounds	:String	minIncl	:String	UTF-8 string literal, < maxIncl|maxExcl (ordinal UTF-8)	<None>	Yes	minExcl	Lexicographical interval; inclusive lower bound
+3.2	Bounds	:String	minExcl	:String	UTF-8 string literal, < maxIncl|maxExcl (ordinal UTF-8)	<None>	Yes	minIncl	Lexicographical interval; exclusive lower bound
+3.3	Bounds	:String	maxIncl	:String	UTF-8 string literal, > minIncl|minExcl (ordinal UTF-8)	<None>	Yes	maxExcl	Lexicographical interval; inclusive upper bound
+3.4	Bounds	:String	maxExcl	:String	UTF-8 string literal, > minIncl|minExcl (ordinal UTF-8)	<None>	Yes	maxIncl	Lexicographical interval; exclusive upper bound
+4.3	Constraint	:String	preserveIndent	:Boolean	b = :F|:T|:FALSE|:TRUE	:FALSE	Yes	N/A	Essentially only applicable to only Block and Fenced string literals
+4.4	Constraint	:String	regex	:String	valid regular expression	<None>	Yes	N/A	Validates string value against compiled regular expression pattern
+2.1	Trait	:Enum	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables structural value equality comparison
+2.2	Trait	:Enum	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables total order comparison
+4.1	Constraint	:Enum	filterIncl	:EnumValues	must appear within parent :Enum	<None>	Yes	filterExcl	Whitelist filter; restricts enum variants strictly to the listed tags
+4.2	Constraint	:Enum	filterExcl	:EnumValues	must appear within parent :Enum	<None>	Yes	filterIncl	Blacklist filter; excludes listed tags from the allowed enum variants
+1.5.1	Definition	:Seq	minSize	:Int	n >= 0 & n <= maxSize	0	No	N/A	Minimum element count constraint (n >= 0)
+1.5.2	Definition	:Seq	maxSize	:Int	n >= 1 & n >= minSize, open upper bound	16777216	No	N/A	Maximum element count capacity cap (n >= minSize)
+2.1	Trait	:Seq	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables element-by-element sequential equality comparison
+2.2	Trait	:Seq	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables lexicographical ordering comparison across sequence elements
+1.5.1	Definition	:Set	minSize	:Int	n >= 0 & n <= maxSize	0	No	N/A	Minimum unique element count constraint (n >= 0)
+1.5.2	Definition	:Set	maxSize	:Int	n >= 1 & n >= minSize, open upper bound	16777216	No	N/A	Maximum unique element count capacity cap (n >= minSize)
+2.1	Trait	:Set	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables content-based unique set equality comparison
+2.2	Trait	:Set	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:FALSE	Yes	N/A	Opt-in comparison (disabled by default; unordered sets lack natural total ordering)
+1.1.3	Definition	:Map	invertible	Standalone	N/A	<None>	No	N/A	Ensures uniqueness within each of the set of keys and separately, the set of values
+1.5.1	Definition	:Map	minSize	:Int	n >= 0 & n <= maxSize	0	No	N/A	Minimum entry count constraint (n >= 0)
+1.5.2	Definition	:Map	maxSize	:Int	n >= 1 & n >= minSize, open upper bound	16777216	No	N/A	Maximum entry count capacity cap (n >= minSize)
+2.1	Trait	:Map	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables entry-by-entry key-value equality comparison
+2.2	Trait	:Map	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:FALSE	Yes	N/A	Opt-in comparison (disabled by default; unordered maps lack natural total ordering)
+5	Directive	:include	strip	Standalone	N/A	<None>	No	N/A	Terminal segment slicing; strips package prefixes from imported identifiers upon ingestion
+5	Directive	:use	strip	Standalone	N/A	<None>	No	N/A	Terminal segment slicing; strips package prefix for local unqualified access within scope

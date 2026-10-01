@@ -977,70 +977,67 @@ Metadata constraint blocks `{ ... }` configure nominal type definitions and comp
 
 | Facet Group | Permitted Facets | Permitted Target Domains | Prohibited Targets | Diagnostic Code |
 |:---|:---|:---|:---|:---|
-| **Storage Sizing** | `#size` | Strictly Numeric (`:Int`, `:Float`) | `:String` (prohibited cardinality) | `ERR_STRING_CARDINALITY_PROHIBITED` |
-| **Storage Sizing** | `#size` | Strictly Numeric (`:Int`, `:Float`) | `:Boolean`, `:Enum`, `:Tuple`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
+| **Storage Sizing** | `#size` | Strictly Numeric (`:Int`, continuous `:Float`) | `:String` (cardinality), `{ #exact } :Float`, `:Boolean`, `:Enum`, `:Tuple`, collections, temporal | `ERR_STRING_CARDINALITY_PROHIBITED` (for `:String`), `ERR_INVALID_METADATA_FACET` |
 | **Numeric Signedness** | `#unsigned` | `:Int` | `:Float`, `:String`, `:Boolean`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Numeric Precision** | `#exact` | `:Float` | `:Int`, `:String`, `:Boolean`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Character & Container Size** | `#minSize`, `#maxSize` | `:String`, `:Seq`, `:Set`, `:Map` | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, temporal | `ERR_INVALID_METADATA_FACET` |
-| **Universal Discrete Bounds** | `#minIncl`, `#maxExcl` | `:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime` | Continuous `:Float` (which permits all four bounds); prohibits `#maxIncl` and `#minExcl` | `ERR_DISCRETE_BOUND_KIND_PROHIBITED` |
+| **Universal Discrete Bounds** | `#minIncl`, `#maxExcl` | `:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime` | Prohibits `#maxIncl` and `#minExcl` on discrete domains | `ERR_DISCRETE_BOUND_KIND_PROHIBITED` |
 | **Empty Domain Bounds** | `#minIncl`, `#maxExcl` | Discrete types where `minIncl == maxExcl` | Discrete types defining empty domain $[k, k)$ | `ERR_EMPTY_INTERVAL_DOMAIN` |
-| **Continuous Numeric Bounds** | `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl` | Continuous `:Float` Only | Discrete types (`:Int`, `:TimeEpoch`, `:DateTime`), strings, collections | `ERR_INVALID_METADATA_FACET` |
+| **Continuous Numeric & Lexical Bounds** | `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl` | Continuous `:Float`, `:String` (Ordinal UTF-8) | Discrete types (`:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime`), collections | `ERR_DISCRETE_BOUND_KIND_PROHIBITED`, `ERR_INVALID_METADATA_FACET` |
 | **String Constraints** | `#regex`, `#preserveIndent` | `:String` | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Map Invertibility** | `#invertible` | `:Map` | Non-map types, scalars, sequences, sets, temporal | `ERR_INVALID_METADATA_FACET` |
-| **Temporal Scale Flags** | `#s`, `#ms`, `#us`, `#ns` | `:TimeEpoch` (exactly one scale mandatory) | All non-epoch types; omitting scale emits `ERR_TEMPORAL_SCALE_MISSING` | `ERR_INVALID_METADATA_FACET` |
+| **Temporal Scale Flags** | `#ns`, `#us`, `#ms`, `#s` | `:TimeEpoch` (exactly one scale mandatory) | All non-epoch types; omitting scale emits `ERR_TEMPORAL_SCALE_MISSING` | `ERR_INVALID_METADATA_FACET` |
 | **Temporal Mode Flags** | `#offset`, `#zoned`, `#audited` | `:DateTime` (exactly one mode mandatory) | All non-datetime types; omitting mode emits `ERR_DATETIME_MODE_INVALID` | `ERR_INVALID_METADATA_FACET` |
 | **Enum Subsetting** | `#filterIncl`, `#filterExcl` | Nominal aliases of `:Enum` and subsets | Inline enums, scalar primitives, constants, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Directive Options** | `#strip` | Directive blocks in `:use` and `:include` | Type definitions, constant definitions | `ERR_INVALID_METADATA_FACET` |
 | **Trait Overrides** | `#equatable`, `#comparable` | Nominal type definitions | Constant definitions, collection instances | `ERR_INVALID_METADATA_FACET` |
-| **7-Tier Facet Sequence** | All canonical facets | Metadata blocks `{ ... }` | Facets declared out of 7-tier order | `ERR_FACET_ORDER_VIOLATION` |
+| **5-Tier Facet Sequence** | All canonical facets | Metadata blocks `{ ... }` | Facets declared out of 5-tier decimal hierarchy order | `ERR_FACET_ORDER_VIOLATION` |
 
 #### Canonical Semantic Category Order Specification Table
 
-All canonical schema printers, intermediate representations, and the schema flattener (`StvnSchemaFlattener.appendConstraints`) must emit metadata facets strictly adhering to the 7-tier Semantic Category Order hierarchy:
+All canonical schema printers, intermediate representations, and the schema flattener (`StvnSchemaFlattener.appendConstraints`) must emit metadata facets strictly adhering to the 5-tier Decimal Hierarchy Order:
 
-| Tier | Category Name | Facet Sequence | Rationale & Invariants |
+$$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow \text{Tier 3: Bounds} \longrightarrow \text{Tier 4: Constraint} \longrightarrow \text{Tier 5: Directive}$$
+
+| Position | Tier Category | Facet Identifier | Target Constraint & Semantics |
 |:---:|:---|:---|:---|
-| **Tier 1** | **Flags & Intrinsic Modes** | `#unsigned` $\rightarrow$ `#exact` $\rightarrow$ `#invertible` $\rightarrow$ `#preserveIndent` $\rightarrow$ `#offset` $\rightarrow$ `#zoned` $\rightarrow$ `#audited` $\rightarrow$ `#equatable` $\rightarrow$ `#comparable` | Defines foundational computational characteristics and memory representations. |
-| **Tier 2** | **Temporal Scale** | `#s` $\rightarrow$ `#ms` $\rightarrow$ `#us` $\rightarrow$ `#ns` | Specifies physical unit tick granularity on `:TimeEpoch` in ascending resolution order. |
-| **Tier 3** | **Dimensions & Capacity** | `#size` $\rightarrow$ `#minSize` $\rightarrow$ `#maxSize` | Defines bit-width allocations and container/string cardinality boundaries. |
-| **Tier 4** | **Value Intervals** | `#minIncl` $\rightarrow$ `#minExcl` $\rightarrow$ `#maxExcl` $\rightarrow$ `#maxIncl` | Mathematical interval ordering: Lower bounds strictly precede Upper bounds. |
-| **Tier 5** | **Validation Patterns** | `#regex` | String lexical validation expressions. |
-| **Tier 6** | **Domain Subsets** | `#filterIncl` $\rightarrow$ `#filterExcl` | Categorical domain variant filters. |
-| **Tier 7** | **Directives** | `#strip` | Scope terminal segment extraction directives. |
+| **`1.1.1`** | **Tier 1: Definition** | `#unsigned` | Storage signedness flag on `:Int`. Indicates negative sign prohibited. |
+| **`1.1.2`** | **Tier 1: Definition** | `#exact` | Decimal precision flag on `:Float`. Converts domain to discrete decimal. Mutually exclusive to `#size`. |
+| **`1.1.3`** | **Tier 1: Definition** | `#invertible` | Bijection flag on `:Map`. Enforces unique keys and unique values. |
+| **`1.2.1`** | **Tier 1: Definition** | `#ns` | 128-bit nanosecond duration scale on `:TimeEpoch`. |
+| **`1.2.2`** | **Tier 1: Definition** | `#us` | 64-bit microsecond duration scale on `:TimeEpoch`. |
+| **`1.2.3`** | **Tier 1: Definition** | `#ms` | 64-bit millisecond duration scale on `:TimeEpoch`. |
+| **`1.2.4`** | **Tier 1: Definition** | `#s` | 64-bit second duration scale on `:TimeEpoch`. |
+| **`1.2.5`** | **Tier 1: Definition** | `#offset` | Physical instant mode on `:DateTime`. Requires explicit UTC offset ($\pm\text{HH:MM}$ or `Z`). |
+| **`1.2.6`** | **Tier 1: Definition** | `#zoned` | Civil schedule mode on `:DateTime`. Requires IANA jurisdiction name in brackets (`[...]`). |
+| **`1.2.7`** | **Tier 1: Definition** | `#audited` | Compliance audit mode on `:DateTime`. Requires dual offset and IANA jurisdiction name. |
+| **`1.3.1`** | **Tier 1: Definition** | `#size <N>` | Physical storage width in bits on numeric primitives (`:Int`, continuous `:Float`). |
+| **`1.5.1`** | **Tier 1: Definition** | `#minSize <N>` | Minimum character length (`:String`) or element/entry count (`:Seq`, `:Set`, `:Map`). |
+| **`1.5.2`** | **Tier 1: Definition** | `#maxSize <N>` | Maximum character length (`:String`) or element/entry count (`:Seq`, `:Set`, `:Map`). |
+| **`2.1`** | **Tier 2: Trait** | `#equatable <B>`  | Equivalence trait override. Parameter `B \in \{ #T, #F, #TRUE, #FALSE \}`. |
+| **`2.2`** | **Tier 2: Trait** | `#comparable <B>` | Total order trait override. Parameter `B \in \{ #T, #F, #TRUE, #FALSE \}`.  |
+| **`3.1`**   | **Tier 3: Bounds**     | `#minIncl <V>` | Inclusive lower boundary. Closed endpoint for numeric, temporal, or ordinal string intervals. |
+| **`3.2`**   | **Tier 3: Bounds**     | `#minExcl <V>` | Exclusive lower boundary. Continuous domains only (`:Float`, `:String`). |
+| **`3.3`**   | **Tier 3: Bounds**     | `#maxIncl <V>` | Inclusive upper boundary. Continuous domains only (`:Float`, `:String`). |
+| **`3.4`**   | **Tier 3: Bounds**     | `#maxExcl <V>` | Exclusive upper boundary. Open endpoint for discrete intervals and continuous upper limits. |
+| **`4.1`**   | **Tier 4: Constraint** | `#filterIncl [...]` | Whitelist variant filter on nominal enum aliases. Mutually exclusive to `#filterExcl`. |
+| **`4.2`**   | **Tier 4: Constraint** | `#filterExcl [...]` | Blacklist variant filter on nominal enum aliases. Mutually exclusive to `#filterIncl`. |
+| **`4.3`** | **Tier 4: Constraint** | `#preserveIndent <B>` | Preserves leading indentation formatting on block and multiline fenced strings. Parameter `B \in \{ #T, #F, #TRUE, #FALSE \}`. |
+| **`4.4`**   | **Tier 4: Constraint** | `#regex "<P>"` | Regular expression validation pattern constraint on `:String`. |
+| **`5`**     | **Tier 5: Directive**  | `#strip` | Terminal segment slicing directive in `:use` and `:include` directive blocks. |
 
-#### Empty Block Invariants
-1. **Empty Metadata Blocks:** Specifying `{}` on a nominal type definition or compile-time constant definition is prohibited. When `{}` contains zero facet entries, the compiler emits `ERR_EMPTY_METADATA_BLOCK`. Authors must remove `{}` or specify valid facets.
-2. **Empty Directive Blocks:** Specifying `{}` within a `:use` or `:include` statement is prohibited. When `{}` contains zero options or alias mappings, the compiler emits `ERR_EMPTY_DIRECTIVE_BLOCK`. Authors must remove `{}` or specify valid options (`{#strip}`) or alias pairs.
+#### Structural Invariants & Ordering Rules
 
-#### Diagnostic Reporting Invariant
-When an author applies a facet to an incompatible target entity, the compiler emits `ERR_INVALID_METADATA_FACET`. The diagnostic payload explicitly enumerates the permitted facets for the target domain:
-- For `#size` on `:String`: `Facet '#size' is prohibited on :String; use '#minSize' and '#maxSize' (e.g. { #minSize N #maxSize N } :String)`.
-- For discrete bound violations on `:Int`: `Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'`.
-- For missing temporal facets: `Bare temporal type lacks required facet`.
-
-### 6.2 Trait Capability Matrix
-
-| Type Category | Specific Types | `#equatable` Default | `#comparable` Default |
-|:---|:---|:---|:---|
-| **Scalars** | `:Boolean`, `:Int`, `{ #exact } :Float`, `:String`, `:Enum` (including subsets) | **Yes** | **Yes** |
-| **Floating-Point** | Continuous `:Float` (IEEE-754) | **No** (NaN Hazard) | **Yes** |
-| **Temporal** | `:TimeEpoch`, `:DateTime` (under `:org/stvnadore/prelude/*`) | **Yes** | **Yes** |
-| **Unordered Collections**| `:Set`, `{ #invertible } :Map` | **Yes** | **No** |
-| **Derived Containers** | `:Option`, `:Either`, `:Union`, `:Tuple`, `:Seq`, `:Map` | **Derived** | **Derived** |
-
-### 6.3 Trait Derivation and Override Rules
-
-1. **Capability Bubbling:** For types marked as **Derived**, the container possesses `#equatable` or `#comparable` **if and only if all enclosed member types possess that capability**. If any inner type is `#equatable #FALSE`, the entire container becomes `#equatable #FALSE`.
-2. **Explicit Override Authority:** A developer can explicitly declare `{ #equatable #TRUE }` on any type. An explicit user metadata annotation overrides automatic capability bubbling.
-3. **Numeric Equivalence Escape Hatch:** If a developer applies `{ #equatable #TRUE }` to continuous `:Float`, the compiler accepts the type and generates bitwise IEEE 754 pattern comparisons. The developer accepts all runtime precision hazards.
-4. **Recursive Cycle Traversal:** During trait derivation (`deriveAndApplyTraits`), recursive nominal types maintain their derived traits across cycle boundaries. The compiler uses a `passedConstructor` frame to detect cycles and prevent infinite loops.
-5. **Printer Minimization:** STVN serialization and printing engines **must not** emit default or derived metadata tokens. Printers emit `{ ... }` annotation blocks **only** when an explicit user override or non-default constraint is present.
-6. **Symbol Style Uniformity:** Serializers configured to short-form tokens **must** apply compression uniformly across all types in a document. Mixing styles (e.g., emitting `#T` for booleans but `#Some` for options) is prohibited.
-
-| Style Mode | `:Boolean` | `:Option` | `:Either` |
-|:---|:---|:---|:---|
-| **Canonical (Long)** | `#TRUE` / `#FALSE` | `#Some` / `#None` | `#Left` / `#Right` |
-| **Compressed (Short)** | `#T` / `#F` | `#S` / `#N` | `#L` / `#R` |
+1. **Strict Monotonic Tier Progression:** Metadata blocks `{ ... }` must emit facets in strictly ascending numeric tier order ($1.1.1 \rightarrow 5$). Declaring facets out of order causes immediate compilation rejection (`ERR_FACET_ORDER_VIOLATION`).
+2. **Discrete Half-Open Invariant (§ 5.1.2):** Discrete domains (`:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime`) require half-open intervals $[minIncl, maxExcl)$. Facets `#minExcl` and `#maxIncl` are prohibited and emit `ERR_DISCRETE_BOUND_KIND_PROHIBITED`.
+3. **Lexicographical String Bounds:** String boundaries evaluate using binary/ordinal UTF-8 code point comparison (`memcmp`). Continuous interval facets (`#minIncl`, `#minExcl`, `#maxIncl`, `#maxExcl`) compose orthogonally alongside `#regex` and `#preserveIndent`.
+4. **Mutually Exclusive Facet Pairs:**
+  * `#exact` conflicts with `#size` on `:Float`.
+  * Scale flags `#ns`, `#us`, `#ms`, `#s` are mutually exclusive on `:TimeEpoch` (exactly one required).
+  * Mode flags `#offset`, `#zoned`, `#audited` are mutually exclusive on `:DateTime` (exactly one required).
+  * `#filterIncl` conflicts with `#filterExcl` on `:Enum`.
+  * Continuous lower bounds `#minIncl` and `#minExcl` are mutually exclusive.
+  * Continuous upper bounds `#maxIncl` and `#maxExcl` are mutually exclusive.
 
 
 ---
@@ -1150,7 +1147,7 @@ $$\text{CAS Hash} = \text{SHA-256}(\text{StvnSchemaFlattener.flatten}(\text{Sche
 the Pass 2 architectural changes permanently lock the hashing inputs prior to the 2.0.0 release:
 1. **Decoy Alias Purge:** Eliminating `:org/stvnadore/prelude/TimeEpoch` and `:org/stvnadore/prelude/DateTime` ensures these types hash as fundamental kernel constructors rather than nominal prelude aliases pointing to `:Int` or `:String`.
 2. **Scale Flag Canonicalization:** Replacing `{ #unit #ms }` with bare `{ #ms }` ensures a compact, permanent canonical syntax for epoch hashes.
-3. **Semantic Category Order Freezing:** Freezing the 7-tier Semantic Category Order ensures that all compliant implementations (Java, Rust, Scala, TypeScript, Go) emit the identical facet string representation, guaranteeing bitwise-identical SHA-256 digests across all platforms.
+3. **Semantic Category Order Freezing:** Freezing the 5-tier Semantic Category Order ensures that all compliant implementations (Java, Rust, Scala, TypeScript, Go) emit the identical facet string representation, guaranteeing bitwise-identical SHA-256 digests across all platforms.
 
 ### 9.3 CAS Digesting & Schema Hashing Integration
 
@@ -1817,7 +1814,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
 
     // String constraints
     :RegexIdentifier  { #regex "^[a-z0-9_]{8,32}$" #minSize 8 #maxSize 32 } :String
-    :RawScriptBlock   { #preserveIndent } :String
+    :RawScriptBlock   { #preserveIndent #TRUE } :String
 
     // Trait overrides
     :BitwiseFloat     { #equatable #TRUE } :Float
@@ -1861,7 +1858,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
   //   Note how the contained STVN document is intentionally un-indented
   :defs {
     :SchemaName :String
-    :StvnInclf { #preserveIndent } :String  // the full .stvn_inclf as a STVN containing STVN
+    :StvnInclf { #preserveIndent #TRUE } :String  // the full .stvn_inclf as a STVN containing STVN
   }  
   :type :Tuple(:SchemaName :StvnInclf)
   :body (
@@ -2133,7 +2130,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_PRELUDE_ALIAS_PURGED` | `"ERR_PRELUDE_ALIAS_PURGED"` | Fatal | Purged prelude nominal aliases referenced (e.g. `:DateTimeOffset`). |
 | `ERR_COMPOUND_TYPE_OBSOLETE` | `"ERR_COMPOUND_TYPE_OBSOLETE"` | Fatal | Deprecated legacy compound type keyword used (e.g. `:Int32`, `:Uint16`). |
 | `ERR_STRING_CARDINALITY_PROHIBITED` | `"ERR_STRING_CARDINALITY_PROHIBITED"` | Fatal | Storage sizing `#size` declared on `:String` (use `#minSize` / `#maxSize`). |
-| `ERR_FACET_ORDER_VIOLATION` | `"ERR_FACET_ORDER_VIOLATION"` | Fatal | Metadata facets violate the 7-tier canonical sequence. |
+| `ERR_FACET_ORDER_VIOLATION` | `"ERR_FACET_ORDER_VIOLATION"` | Fatal | Metadata facets violate the 5-tier canonical sequence. |
 | `ERR_CAS_PREIMAGE_AMBIGUITY` | `"ERR_CAS_PREIMAGE_AMBIGUITY"` | Fatal | Nominal types collide or CAS preimage bijectivity is violated. |
 | `ERR_DEPRECATED_FENCE_ARROW` | `"ERR_DEPRECATED_FENCE_ARROW"` | Fatal | Deprecated fenced string delimiter arrow `"""->[TAG]` rejected. |
 | `WARN_DEPRECATED_FENCE_ARROW` | `"RULE_STR_04_DEPRECATED_ARROW"` | Warning | Warning emitted when legacy Rule STR-04 delimiter arrow is encountered. |
