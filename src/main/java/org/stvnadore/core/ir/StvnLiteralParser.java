@@ -101,6 +101,30 @@ public final class StvnLiteralParser {
   }
 
   /**
+   * Checks whether a raw integer literal token string represents negative zero.
+   * <p>
+   * Prohibited integer representations include {@code "-0"}, {@code "-0x0"},
+   * {@code "-0b0"}, {@code "-0o0"}, uppercase radix variants ({@code "-0X0"},
+   * {@code "-0B0"}, {@code "-0O0"}), and multi-digit zero variants (such as {@code "-0x00"}).
+   *
+   * @param rawText the raw string representation of the integer literal
+   * @return {@code true} if the literal represents negative zero, {@code false} otherwise
+   */
+  public static boolean isNegativeZero(String rawText) {
+    if (rawText == null || !rawText.startsWith("-")) {
+      return false;
+    }
+    String s = rawText.toLowerCase(java.util.Locale.ROOT);
+    if (s.equals("-0") || s.equals("-0x0") || s.equals("-0b0") || s.equals("-0o0")) {
+      return true;
+    }
+    if (s.startsWith("-0x") && s.substring(3).matches("^0+$")) return true;
+    if (s.startsWith("-0b") && s.substring(3).matches("^0+$")) return true;
+    if (s.startsWith("-0o") && s.substring(3).matches("^0+$")) return true;
+    return false;
+  }
+
+  /**
    * Parses an STVN integer literal (handling hex, octal, binary, or decimal radixes)
    * into a {@link BigInteger}.
    *

@@ -3705,6 +3705,15 @@ public class StvnTypeResolver {
     int end = valueCtx.getStop().getStopIndex() + 1;
 
     if (valueCtx.integerLiteral() != null) {
+      String rawText = valueCtx.integerLiteral().getText();
+      if (StvnLiteralParser.isNegativeZero(rawText)) {
+        diagnosticBag.addError(
+            "Literal violation (" + constName + "): Negative zero '-0' is prohibited for integer types; signed zero is valid strictly on :Float",
+            start, end, line, col, null,
+            DiagnosticBag.ERR_INVALID_NUMERIC_LITERAL
+        );
+        return;
+      }
       var valBI = StvnLiteralParser.parseBigInteger(valueCtx.integerLiteral().getText());
       if (c.minIncl().isPresent() && valBI.compareTo(c.minIncl().get().toBigIntegerExact()) < 0) {
         diagnosticBag.addError("Constraint violation (" + constName + "): Value must be greater than or equal to " + c.minIncl().get(), start, end, line, col, null, DiagnosticBag.ERR_INVERTED_RANGE);
@@ -4237,6 +4246,19 @@ public class StvnTypeResolver {
                   "Constraint violation (" + name + "): #" + constraintName + " requires an integer literal, found " + foundType,
                   mvStart, mvEnd, mvLine, mvCol, null,
                   DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+              );
+            }
+          } else {
+            String rawText = mv.integerLiteral().getText();
+            if (StvnLiteralParser.isNegativeZero(rawText)) {
+              diagnosticBag.addError(
+                  "Literal violation (" + name + "): Negative zero '-0' is prohibited for integer types; signed zero is valid strictly on :Float",
+                  mv.integerLiteral().getStart().getStartIndex(),
+                  mv.integerLiteral().getStop().getStopIndex() + 1,
+                  mv.integerLiteral().getStart().getLine(),
+                  mv.integerLiteral().getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_INVALID_NUMERIC_LITERAL
               );
             }
           }

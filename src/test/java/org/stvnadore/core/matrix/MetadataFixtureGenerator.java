@@ -1262,6 +1262,66 @@ public final class MetadataFixtureGenerator {
         Optional.of("#strip")
     ));
 
+    // 5. Negative zero #minIncl on :Int
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "domain_mismatch", "inv_mismatch_int_negative_zero_minincl.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_mismatch_int_negative_zero_minincl
+        // MATRIX-POSITION:    4.1
+        // TARGET-TYPE:        :Int
+        // OFFENDING-FACET:    #minIncl
+        // COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+        // EXPECT-DIAGNOSTIC:  ERR_INVALID_NUMERIC_LITERAL
+        // TARGET-TOKEN:       -0
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Negative zero '-0' is prohibited for integer types
+        // ==============================================================================
+        {
+          :defs {
+            :BadZeroMin { #minIncl -0 } :Int
+          }
+          :type :BadZeroMin
+          :body 0
+        }
+        """,
+        CoverageKind.TARGET_DOMAIN_MISMATCH,
+        Optional.of("ERR_INVALID_NUMERIC_LITERAL"),
+        Optional.of("-0")
+    ));
+
+    // 6. Negative zero #maxExcl on :Int
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "domain_mismatch", "inv_mismatch_int_negative_zero_maxexcl.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_mismatch_int_negative_zero_maxexcl
+        // MATRIX-POSITION:    4.2
+        // TARGET-TYPE:        :Int
+        // OFFENDING-FACET:    #maxExcl
+        // COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+        // EXPECT-DIAGNOSTIC:  ERR_INVALID_NUMERIC_LITERAL
+        // TARGET-TOKEN:       -0
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Negative zero '-0' is prohibited for integer types
+        // ==============================================================================
+        {
+          :defs {
+            :BadZeroMax { #minIncl -10 #maxExcl -0 } :Int
+          }
+          :type :BadZeroMax
+          :body -5
+        }
+        """,
+        CoverageKind.TARGET_DOMAIN_MISMATCH,
+        Optional.of("ERR_INVALID_NUMERIC_LITERAL"),
+        Optional.of("-0")
+    ));
+
     return list;
   }
 

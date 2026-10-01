@@ -130,4 +130,37 @@ class StvnLiteralParserTest {
     Assertions.assertThrows(IllegalArgumentException.class, () -> StvnLiteralParser.parseStringNew("\"\"\"[ ]\ncontent\n[ ]\"\"\"", true));
     Assertions.assertThrows(IllegalArgumentException.class, () -> StvnLiteralParser.parseStringNew("\"\"\"[C++]\ncontent\n[C++]\"\"\"", true));
   }
+
+  @Test
+  void testIsNegativeZeroInteger() {
+    // Decimal negative zero
+    Assertions.assertTrue(StvnLiteralParser.isNegativeZero("-0"));
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("0"));
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("-1"));
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("1"));
+
+    // Hexadecimal negative zero (case-insensitive & multi-digit)
+    Assertions.assertTrue(StvnLiteralParser.isNegativeZero("-0x0"));
+    Assertions.assertTrue(StvnLiteralParser.isNegativeZero("-0X0"));
+    Assertions.assertTrue(StvnLiteralParser.isNegativeZero("-0x00"));
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("0x0"));
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("-0x1"));
+
+    // Binary negative zero (case-insensitive & multi-digit)
+    Assertions.assertTrue(StvnLiteralParser.isNegativeZero("-0b0"));
+    Assertions.assertTrue(StvnLiteralParser.isNegativeZero("-0B0"));
+    Assertions.assertTrue(StvnLiteralParser.isNegativeZero("-0b000"));
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("0b0"));
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("-0b1"));
+
+    // Octal negative zero (case-insensitive & multi-digit)
+    Assertions.assertTrue(StvnLiteralParser.isNegativeZero("-0o0"));
+    Assertions.assertTrue(StvnLiteralParser.isNegativeZero("-0O0"));
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("0o0"));
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("-0o7"));
+
+    // Floating-point values (not integer negative zero)
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("-0.0"));
+    Assertions.assertFalse(StvnLiteralParser.isNegativeZero("0.0"));
+  }
 }

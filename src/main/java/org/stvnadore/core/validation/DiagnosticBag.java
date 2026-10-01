@@ -86,6 +86,8 @@ public final class DiagnosticBag {
   public static final String ERR_BARE_COLON_PROHIBITED = "ERR_BARE_COLON_PROHIBITED";
   /** Error code emitted when a standalone hash '#' is encountered (trap6_hash_comment). */
   public static final String ERR_BARE_HASH_PROHIBITED = "ERR_BARE_HASH_PROHIBITED";
+  /** Error code emitted when a negative zero integer literal is encountered (prohibited on :Int). */
+  public static final String ERR_INVALID_NUMERIC_LITERAL = "ERR_INVALID_NUMERIC_LITERAL";
 
   // Normative STVN 2.0.0 Standard Diagnostic Codes
   /** Error code emitted when a deprecated legacy compound type is declared (SPEC-01). */

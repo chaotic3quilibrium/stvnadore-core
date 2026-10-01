@@ -10,10 +10,12 @@ import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.parser.StvnParser.BodyEntryContext;
 import org.stvnadore.core.parser.StvnParser.StvnDocumentContext;
 import org.stvnadore.core.parser.StvnParserBaseVisitor;
+import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.MalformedPayloadException;
 import org.stvnadore.core.validation.StvnIntegerOverflowException;
 import org.stvnadore.core.validation.StvnTypeResolver;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
+import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 
 import java.time.Instant;
 import java.util.*;
@@ -431,6 +433,18 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   }
 
   private StvnValue buildIntegerOrTime(StvnParser.IntegerLiteralContext ctx, ResolvedSchema schema, String baseType, String aliasOrBase) {
+    if (StvnLiteralParser.isNegativeZero(ctx.getText())) {
+      diagnosticBag.add(new StvnDiagnostic(
+          "Literal violation (" + aliasOrBase + "): Negative zero '-0' is prohibited for integer types; signed zero is valid strictly on :Float",
+          DiagnosticSeverity.ERROR,
+          ctx.getStart().getLine(),
+          ctx.getStart().getCharPositionInLine(),
+          ctx.getStart().getStartIndex(),
+          ctx.getStop().getStopIndex() + 1,
+          null,
+          Optional.of(DiagnosticBag.ERR_INVALID_NUMERIC_LITERAL)
+      ));
+    }
     var rawValue = StvnLiteralParser.parseBigInteger(ctx.getText());
     boolean isTimeEpoch = baseType.equals(StvnVocabulary.TYPE_TIME_EPOCH) || baseType.equals(":TimeEpochS") || baseType.equals(":TimeEpochMs") || baseType.equals(":TimeEpochNs")
         || (schema != null && (schema.constraints().scale().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch"))));

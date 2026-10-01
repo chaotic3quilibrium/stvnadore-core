@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mismatch_int_negative_zero_minincl
+// MATRIX-POSITION:    4.1
+// TARGET-TYPE:        :Int
+// OFFENDING-FACET:    #minIncl
+// COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+// EXPECT-DIAGNOSTIC:  ERR_INVALID_NUMERIC_LITERAL
+// TARGET-TOKEN:       -0
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Negative zero '-0' is prohibited for integer types
+// ==============================================================================
+{
+  :defs {
+    :BadZeroMin { #minIncl -0 } :Int
+  }
+  :type :BadZeroMin
+  :body 0
+}
