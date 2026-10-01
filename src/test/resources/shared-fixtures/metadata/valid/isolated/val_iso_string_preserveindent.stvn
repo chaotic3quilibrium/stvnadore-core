@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_string_preserveindent
+// MATRIX-POSITION:    4.3
+// MATRIX-CATEGORY:    Constraint
+// TARGET-TYPE:        :String
+// FACET-NAME:         #preserveIndent
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Essentially only applicable to only Block and Fenced string literals
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #preserveIndent #TRUE } :String
+  }
+  :type :TestedType
+  :body "alpha"
+}

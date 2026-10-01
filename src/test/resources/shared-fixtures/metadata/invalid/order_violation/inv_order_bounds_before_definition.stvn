@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_order_bounds_before_definition
+// MATRIX-POSITION:    3.1 before 1.1.1
+// TARGET-TYPE:        :Int
+// OFFENDING-FACET:    #unsigned
+// COVERAGE-KIND:      ORDER_VIOLATION
+// EXPECT-DIAGNOSTIC:  ERR_FACET_ORDER_VIOLATION
+// TARGET-TOKEN:       #unsigned
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Bounds facet #minIncl placed before definition facet #unsigned
+// ==============================================================================
+{
+  :defs {
+    :BadOrderInt { #minIncl 0 #unsigned } :Int
+  }
+  :type :BadOrderInt
+  :body 10
+}

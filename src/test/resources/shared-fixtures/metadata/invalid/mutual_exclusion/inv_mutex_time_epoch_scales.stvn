@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mutex_time_epoch_scales
+// MATRIX-POSITION:    1.2.3 vs 1.2.4
+// TARGET-TYPE:        :TimeEpoch
+// OFFENDING-FACET:    #ms
+// COVERAGE-KIND:      MUTUALLY_EXCLUSIVE
+// EXPECT-DIAGNOSTIC:  MUTUALLY_EXCLUSIVE_BOUNDS
+// TARGET-TOKEN:       #ms
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Temporal scale facets (#s, #ms) are mutually exclusive
+// ==============================================================================
+{
+  :defs {
+    :BadEpochScale { #s #ms } :TimeEpoch
+  }
+  :type :BadEpochScale
+  :body 1000
+}

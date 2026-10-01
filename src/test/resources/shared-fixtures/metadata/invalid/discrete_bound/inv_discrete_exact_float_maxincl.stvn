@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_discrete_exact_float_maxincl
+// MATRIX-POSITION:    3.3
+// TARGET-TYPE:        :Float (exact)
+// OFFENDING-FACET:    #maxIncl
+// COVERAGE-KIND:      DISCRETE_BOUND_PROHIBITED
+// EXPECT-DIAGNOSTIC:  ERR_DISCRETE_BOUND_KIND_PROHIBITED
+// TARGET-TOKEN:       #maxIncl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Discrete exact float prohibits bound #maxIncl; requires half-open #maxExcl
+// ==============================================================================
+{
+  :defs {
+    :BadExactFloat { #exact #minIncl 0.0 #maxIncl 100.0 } :Float
+  }
+  :type :BadExactFloat
+  :body 50.0
+}

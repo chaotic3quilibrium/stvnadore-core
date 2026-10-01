@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_datetime_zoned
+// MATRIX-POSITION:    1.2.6
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :DateTime
+// FACET-NAME:         #zoned
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Civil schedule instant with IANA jurisdiction name; rejects numerical offset
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #zoned } :DateTime
+  }
+  :type :TestedType
+  :body "2026-06-01T12:00:00[Europe/Paris]"
+}

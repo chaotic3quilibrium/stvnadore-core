@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_datetime_equatable
+// MATRIX-POSITION:    2.1
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :DateTime
+// FACET-NAME:         #equatable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables structural value equality comparison
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #offset #equatable #TRUE } :DateTime
+  }
+  :type :TestedType
+  :body "2026-06-01T12:00:00Z"
+}

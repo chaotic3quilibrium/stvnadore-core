@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_set_minsize
+// MATRIX-POSITION:    1.5.1
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Set
+// FACET-NAME:         #minSize
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Minimum unique element count constraint (n >= 0)
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #minSize 1 } :Set( :Int )
+  }
+  :type :TestedType
+  :body [ 1 2 3 ]
+}

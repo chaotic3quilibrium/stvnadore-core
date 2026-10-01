@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_enum_comparable
+// MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Enum
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables total order comparison
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #comparable #TRUE } :Enum [ #VAL_A #VAL_B ]
+  }
+  :type :TestedType
+  :body #VAL_A
+}

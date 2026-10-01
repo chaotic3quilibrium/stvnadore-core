@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_float_64_size
+// MATRIX-POSITION:    1.3.1
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Float (64)
+// FACET-NAME:         #size
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Specifies IEEE-754 double-precision 64-bit floating point storage
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #size 32 } :Float
+  }
+  :type :TestedType
+  :body 3.14
+}

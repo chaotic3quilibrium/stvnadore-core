@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_seq_maxsize
+// MATRIX-POSITION:    1.5.2
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Seq
+// FACET-NAME:         #maxSize
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Maximum element count capacity cap (n >= minSize)
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #maxSize 10 } :Seq( :Int )
+  }
+  :type :TestedType
+  :body [ 1 2 3 ]
+}

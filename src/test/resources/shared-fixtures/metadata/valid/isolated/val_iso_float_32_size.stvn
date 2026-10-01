@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_float_32_size
+// MATRIX-POSITION:    1.3.1
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Float (32)
+// FACET-NAME:         #size
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Default when none of the tags, exact, size 32, or size 64, appear in the metadata
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #size 32 } :Float
+  }
+  :type :TestedType
+  :body 3.14
+}

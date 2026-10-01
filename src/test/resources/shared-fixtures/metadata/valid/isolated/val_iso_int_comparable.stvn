@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_int_comparable
+// MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Int
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables total order comparison
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #comparable #TRUE } :Int
+  }
+  :type :TestedType
+  :body 42
+}

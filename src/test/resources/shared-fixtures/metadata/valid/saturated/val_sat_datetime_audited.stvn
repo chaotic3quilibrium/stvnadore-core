@@ -1,0 +1,21 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_datetime_audited
+// TARGET-TYPE:        :DateTime (audited)
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated DateTime audited with explicit offset and IANA timezone ID
+// ==============================================================================
+{
+  :defs {
+    :SaturatedDateTimeAudited {
+      #audited
+      #equatable #TRUE
+      #comparable #TRUE
+      #minIncl "2026-06-01T00:00:00-05:00[America/Chicago]"
+      #maxExcl "2026-06-02T00:00:00-05:00[America/Chicago]"
+    } :DateTime
+  }
+  :type :SaturatedDateTimeAudited
+  :body "2026-06-01T12:00:00-05:00[America/Chicago]"
+}

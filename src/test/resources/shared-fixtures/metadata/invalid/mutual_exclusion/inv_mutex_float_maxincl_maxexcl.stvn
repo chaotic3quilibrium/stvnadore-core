@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mutex_float_maxincl_maxexcl
+// MATRIX-POSITION:    3.3 vs 3.4
+// TARGET-TYPE:        :Float
+// OFFENDING-FACET:    #maxIncl
+// COVERAGE-KIND:      MUTUALLY_EXCLUSIVE
+// EXPECT-DIAGNOSTIC:  MUTUALLY_EXCLUSIVE_BOUNDS
+// TARGET-TOKEN:       #maxIncl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Upper bounds #maxIncl and #maxExcl are mutually exclusive
+// ==============================================================================
+{
+  :defs {
+    :ConflictingMax { #size 64 #maxExcl 100.0 #maxIncl 100.0 } :Float
+  }
+  :type :ConflictingMax
+  :body 1.0
+}

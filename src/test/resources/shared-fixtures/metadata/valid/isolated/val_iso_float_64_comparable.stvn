@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_float_64_comparable
+// MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Float (64)
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables total ordering over floating-point values
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #comparable #TRUE #size 64 } :Float
+  }
+  :type :TestedType
+  :body 3.14
+}

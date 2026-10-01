@@ -1,0 +1,21 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_float_exact
+// TARGET-TYPE:        :Float (exact)
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated exact decimal float with closed/open bounds
+// ==============================================================================
+{
+  :defs {
+    :SaturatedFloatExact {
+      #exact
+      #equatable #TRUE
+      #comparable #TRUE
+      #minIncl 0.0
+      #maxExcl 100.0
+    } :Float
+  }
+  :type :SaturatedFloatExact
+  :body 42.5
+}

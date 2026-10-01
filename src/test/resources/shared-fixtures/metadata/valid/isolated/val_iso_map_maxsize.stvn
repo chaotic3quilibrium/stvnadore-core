@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_map_maxsize
+// MATRIX-POSITION:    1.5.2
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Map
+// FACET-NAME:         #maxSize
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Maximum entry count capacity cap (n >= minSize)
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #maxSize 10 } :Map( :String :Int )
+  }
+  :type :TestedType
+  :body { [ "k" 1 ] }
+}

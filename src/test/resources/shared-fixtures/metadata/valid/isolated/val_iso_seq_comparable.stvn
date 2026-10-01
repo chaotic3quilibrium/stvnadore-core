@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_seq_comparable
+// MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Seq
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables lexicographical ordering comparison across sequence elements
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #comparable #TRUE } :Seq( :Int )
+  }
+  :type :TestedType
+  :body [ 1 2 3 ]
+}

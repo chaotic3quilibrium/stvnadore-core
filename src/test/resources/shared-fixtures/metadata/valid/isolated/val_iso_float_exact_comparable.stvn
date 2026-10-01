@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_float_exact_comparable
+// MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Float (exact)
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables total order comparison
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #exact #comparable #TRUE } :Float
+  }
+  :type :TestedType
+  :body 3.14
+}

@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_datetime_comparable
+// MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :DateTime
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables total order comparison
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #offset #comparable #TRUE } :DateTime
+  }
+  :type :TestedType
+  :body "2026-06-01T12:00:00Z"
+}

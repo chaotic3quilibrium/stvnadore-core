@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_int_unsigned_minincl
+// MATRIX-POSITION:    3.1
+// MATRIX-CATEGORY:    Bounds
+// TARGET-TYPE:        :Int (unsigned)
+// FACET-NAME:         #minIncl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Half-open interval; start
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #unsigned #minIncl 0 } :Int
+  }
+  :type :TestedType
+  :body 42
+}

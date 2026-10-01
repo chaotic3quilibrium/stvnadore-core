@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_int_maxexcl
+// MATRIX-POSITION:    3.4
+// MATRIX-CATEGORY:    Bounds
+// TARGET-TYPE:        :Int
+// FACET-NAME:         #maxExcl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Half-open interval; end
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #maxExcl 100 } :Int
+  }
+  :type :TestedType
+  :body 42
+}

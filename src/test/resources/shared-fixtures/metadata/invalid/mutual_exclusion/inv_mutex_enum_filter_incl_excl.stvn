@@ -1,0 +1,21 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mutex_enum_filter_incl_excl
+// MATRIX-POSITION:    4.1 vs 4.2
+// TARGET-TYPE:        :Enum
+// OFFENDING-FACET:    #filterExcl
+// COVERAGE-KIND:      MUTUALLY_EXCLUSIVE
+// EXPECT-DIAGNOSTIC:  MALFORMED_SCHEMA
+// TARGET-TOKEN:       #filterExcl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Enum subset filters #filterIncl and #filterExcl are mutually exclusive
+// ==============================================================================
+{
+  :defs {
+    :BaseEnum :Enum [ #A #B ]
+    :BadEnum { #filterIncl [ #A ] #filterExcl [ #B ] } :BaseEnum
+  }
+  :type :BadEnum
+  :body #A
+}

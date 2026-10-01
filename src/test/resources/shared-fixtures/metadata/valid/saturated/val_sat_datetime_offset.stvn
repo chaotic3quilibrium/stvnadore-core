@@ -1,0 +1,21 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_datetime_offset
+// TARGET-TYPE:        :DateTime (offset)
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated DateTime offset with half-open bounds
+// ==============================================================================
+{
+  :defs {
+    :SaturatedDateTimeOffset {
+      #offset
+      #equatable #TRUE
+      #comparable #TRUE
+      #minIncl "2026-01-01T00:00:00Z"
+      #maxExcl "2027-01-01T00:00:00Z"
+    } :DateTime
+  }
+  :type :SaturatedDateTimeOffset
+  :body "2026-06-15T12:00:00Z"
+}

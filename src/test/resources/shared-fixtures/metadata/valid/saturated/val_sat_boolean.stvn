@@ -1,0 +1,17 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_boolean
+// TARGET-TYPE:        :Boolean
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated boolean with #equatable trait
+// ==============================================================================
+{
+  :defs {
+    :SaturatedBoolean {
+      #equatable #TRUE
+    } :Boolean
+  }
+  :type :SaturatedBoolean
+  :body #TRUE
+}

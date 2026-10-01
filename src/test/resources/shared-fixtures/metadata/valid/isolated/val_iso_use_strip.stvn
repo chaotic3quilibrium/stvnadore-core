@@ -1,0 +1,19 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_use_strip
+// MATRIX-POSITION:    5
+// MATRIX-CATEGORY:    Directive
+// TARGET-TYPE:        :use
+// FACET-NAME:         #strip
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Terminal segment slicing; strips package prefix for local unqualified access within scope
+// ==============================================================================
+{
+  :defs {
+    :package :PkgA { :TestedType :Int }
+    :use [ :PkgA { #strip } ]
+  }
+  :type :TestedType
+  :body 42
+}

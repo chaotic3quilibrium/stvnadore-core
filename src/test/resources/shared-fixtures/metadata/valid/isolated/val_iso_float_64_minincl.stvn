@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_float_64_minincl
+// MATRIX-POSITION:    3.1
+// MATRIX-CATEGORY:    Bounds
+// TARGET-TYPE:        :Float (64)
+// FACET-NAME:         #minIncl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Continuous interval; inclusive lower bound
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #size 64 #minIncl 0.0 } :Float
+  }
+  :type :TestedType
+  :body 3.14
+}

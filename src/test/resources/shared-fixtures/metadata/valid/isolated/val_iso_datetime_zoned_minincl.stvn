@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_datetime_zoned_minincl
+// MATRIX-POSITION:    3.1
+// MATRIX-CATEGORY:    Bounds
+// TARGET-TYPE:        :DateTime (zoned)
+// FACET-NAME:         #minIncl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Half-open interval; start
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #zoned #minIncl "2026-01-01T00:00:00Z" } :DateTime
+  }
+  :type :TestedType
+  :body "2026-06-01T12:00:00[Europe/Paris]"
+}

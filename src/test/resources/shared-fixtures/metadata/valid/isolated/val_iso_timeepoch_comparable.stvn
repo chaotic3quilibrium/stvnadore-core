@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_timeepoch_comparable
+// MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :TimeEpoch
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables total order comparison
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #comparable #TRUE #s } :TimeEpoch
+  }
+  :type :TestedType
+  :body 1600000000
+}

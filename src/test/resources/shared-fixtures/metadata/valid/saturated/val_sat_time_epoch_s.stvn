@@ -1,0 +1,21 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_time_epoch_s
+// TARGET-TYPE:        :TimeEpoch (s)
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated TimeEpoch seconds with half-open bounds
+// ==============================================================================
+{
+  :defs {
+    :SaturatedEpochS {
+      #equatable #TRUE
+      #comparable #TRUE
+      #s
+      #minIncl 1000
+      #maxExcl 2000000000
+    } :TimeEpoch
+  }
+  :type :SaturatedEpochS
+  :body 1600000000
+}

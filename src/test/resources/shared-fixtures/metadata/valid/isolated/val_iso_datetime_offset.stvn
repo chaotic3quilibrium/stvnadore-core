@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_datetime_offset
+// MATRIX-POSITION:    1.2.5
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :DateTime
+// FACET-NAME:         #offset
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Physical instant with explicit numerical UTC offset; rejects zone brackets
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #offset } :DateTime
+  }
+  :type :TestedType
+  :body "2026-06-01T12:00:00Z"
+}

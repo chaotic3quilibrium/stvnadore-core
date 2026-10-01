@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_datetime_zoned_maxexcl
+// MATRIX-POSITION:    3.4
+// MATRIX-CATEGORY:    Bounds
+// TARGET-TYPE:        :DateTime (zoned)
+// FACET-NAME:         #maxExcl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Half-open interval; end
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #zoned #maxExcl "2027-01-01T00:00:00Z" } :DateTime
+  }
+  :type :TestedType
+  :body "2026-06-01T12:00:00[Europe/Paris]"
+}

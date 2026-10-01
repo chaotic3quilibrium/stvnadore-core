@@ -1,0 +1,23 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_map_invertible
+// TARGET-TYPE:        :Map
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated Map with #invertible, cardinality, and traits
+// ==============================================================================
+{
+  :defs {
+    :BijectiveMap {
+      #invertible
+      #equatable #TRUE
+      #minSize 1
+      #maxSize 10
+    } :Map( :String :Int )
+  }
+  :type :BijectiveMap
+  :body {
+    [ "alpha" 1 ]
+    [ "beta" 2 ]
+  }
+}

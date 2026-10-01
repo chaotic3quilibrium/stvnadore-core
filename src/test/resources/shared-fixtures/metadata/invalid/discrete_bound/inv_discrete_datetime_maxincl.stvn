@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_discrete_datetime_maxincl
+// MATRIX-POSITION:    3.3
+// TARGET-TYPE:        :DateTime
+// OFFENDING-FACET:    #maxIncl
+// COVERAGE-KIND:      DISCRETE_BOUND_PROHIBITED
+// EXPECT-DIAGNOSTIC:  ERR_DISCRETE_BOUND_KIND_PROHIBITED
+// TARGET-TOKEN:       #maxIncl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Discrete temporal type :DateTime prohibits bound #maxIncl
+// ==============================================================================
+{
+  :defs {
+    :BadDtMax { #offset #maxIncl "2026-01-01T00:00:00Z" } :DateTime
+  }
+  :type :BadDtMax
+  :body "2025-01-01T00:00:00Z"
+}

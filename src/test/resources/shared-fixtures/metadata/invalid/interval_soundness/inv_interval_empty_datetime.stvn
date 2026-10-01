@@ -1,0 +1,23 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_interval_empty_datetime
+// MATRIX-POSITION:    3.1 vs 3.4
+// TARGET-TYPE:        :DateTime (offset)
+// COVERAGE-KIND:      INTERVAL_SOUNDNESS
+// EXPECT-DIAGNOSTIC:  ERR_EMPTY_INTERVAL_DOMAIN
+// TARGET-TOKEN:       #maxExcl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Discrete datetime interval [k, k) defines empty domain with zero habitable values
+// ==============================================================================
+{
+  :defs {
+    :EmptyDateTime {
+      #offset
+      #minIncl "2026-09-30T12:00:00Z"
+      #maxExcl "2026-09-30T12:00:00Z"
+    } :DateTime
+  }
+  :type :EmptyDateTime
+  :body "2026-09-30T12:00:00Z"
+}

@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_discrete_time_epoch_minexcl
+// MATRIX-POSITION:    3.2
+// TARGET-TYPE:        :TimeEpoch
+// OFFENDING-FACET:    #minExcl
+// COVERAGE-KIND:      DISCRETE_BOUND_PROHIBITED
+// EXPECT-DIAGNOSTIC:  ERR_DISCRETE_BOUND_KIND_PROHIBITED
+// TARGET-TOKEN:       #minExcl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Discrete temporal type :TimeEpoch prohibits bound #minExcl
+// ==============================================================================
+{
+  :defs {
+    :BadEpochMin { #s #minExcl 0 } :TimeEpoch
+  }
+  :type :BadEpochMin
+  :body 10
+}

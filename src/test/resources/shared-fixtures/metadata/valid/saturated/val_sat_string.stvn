@@ -1,0 +1,22 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_string
+// TARGET-TYPE:        :String
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated string with 5-tier canonical facet sequence
+// ==============================================================================
+{
+  :defs {
+    :SaturatedString {
+      #preserveIndent
+      #equatable #TRUE
+      #comparable #TRUE
+      #minSize 2
+      #maxSize 16
+      #regex "^[a-z]+$"
+    } :String
+  }
+  :type :SaturatedString
+  :body "matrix"
+}

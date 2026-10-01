@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_map_minsize
+// MATRIX-POSITION:    1.5.1
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Map
+// FACET-NAME:         #minSize
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Minimum entry count constraint (n >= 0)
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #minSize 1 } :Map( :String :Int )
+  }
+  :type :TestedType
+  :body { [ "k" 1 ] }
+}

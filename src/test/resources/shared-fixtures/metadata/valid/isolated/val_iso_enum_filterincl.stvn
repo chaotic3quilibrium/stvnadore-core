@@ -1,0 +1,19 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_enum_filterincl
+// MATRIX-POSITION:    4.1
+// MATRIX-CATEGORY:    Constraint
+// TARGET-TYPE:        :Enum
+// FACET-NAME:         #filterIncl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Whitelist filter; restricts enum variants strictly to the listed tags
+// ==============================================================================
+{
+  :defs {
+  :BaseEnum :Enum [ #VAL_A #VAL_B ]
+  :TestedType { #filterIncl [ #VAL_A ] } :BaseEnum
+  }
+  :type :TestedType
+  :body #VAL_A
+}

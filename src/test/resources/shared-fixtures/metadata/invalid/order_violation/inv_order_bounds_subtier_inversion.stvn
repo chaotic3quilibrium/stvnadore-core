@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_order_bounds_subtier_inversion
+// MATRIX-POSITION:    3.4 before 3.1
+// TARGET-TYPE:        :Int
+// OFFENDING-FACET:    #minIncl
+// COVERAGE-KIND:      ORDER_VIOLATION
+// EXPECT-DIAGNOSTIC:  ERR_FACET_ORDER_VIOLATION
+// TARGET-TOKEN:       #minIncl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Upper bound #maxExcl placed before lower bound #minIncl
+// ==============================================================================
+{
+  :defs {
+    :BadOrderBounds { #maxExcl 100 #minIncl 0 } :Int
+  }
+  :type :BadOrderBounds
+  :body 50
+}

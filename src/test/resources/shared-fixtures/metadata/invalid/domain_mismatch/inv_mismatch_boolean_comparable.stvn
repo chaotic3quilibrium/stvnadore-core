@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mismatch_boolean_comparable
+// MATRIX-POSITION:    2.2
+// TARGET-TYPE:        :Boolean
+// OFFENDING-FACET:    #comparable
+// COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+// EXPECT-DIAGNOSTIC:  ERR_INVALID_METADATA_FACET
+// TARGET-TOKEN:       #comparable
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Facet #comparable is prohibited on :Boolean
+// ==============================================================================
+{
+  :defs {
+    :BadBool { #comparable #TRUE } :Boolean
+  }
+  :type :BadBool
+  :body #TRUE
+}

@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mismatch_typedef_strip
+// MATRIX-POSITION:    5
+// TARGET-TYPE:        :Int
+// OFFENDING-FACET:    #strip
+// COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+// EXPECT-DIAGNOSTIC:  ERR_INVALID_METADATA_FACET
+// TARGET-TOKEN:       #strip
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Directive facet #strip is prohibited on type declarations
+// ==============================================================================
+{
+  :defs {
+    :BadType { #strip } :Int
+  }
+  :type :BadType
+  :body 0
+}

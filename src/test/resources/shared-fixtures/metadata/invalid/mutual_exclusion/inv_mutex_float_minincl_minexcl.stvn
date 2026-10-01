@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mutex_float_minincl_minexcl
+// MATRIX-POSITION:    3.1 vs 3.2
+// TARGET-TYPE:        :Float
+// OFFENDING-FACET:    #minExcl
+// COVERAGE-KIND:      MUTUALLY_EXCLUSIVE
+// EXPECT-DIAGNOSTIC:  MUTUALLY_EXCLUSIVE_BOUNDS
+// TARGET-TOKEN:       #minExcl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Lower bounds #minIncl and #minExcl are mutually exclusive
+// ==============================================================================
+{
+  :defs {
+    :ConflictingBounds { #size 64 #minIncl 0.0 #minExcl 0.0 } :Float
+  }
+  :type :ConflictingBounds
+  :body 1.0
+}

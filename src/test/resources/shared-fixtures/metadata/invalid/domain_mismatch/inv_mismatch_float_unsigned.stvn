@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mismatch_float_unsigned
+// MATRIX-POSITION:    1.1.1
+// TARGET-TYPE:        :Float
+// OFFENDING-FACET:    #unsigned
+// COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+// EXPECT-DIAGNOSTIC:  ERR_INVALID_METADATA_FACET
+// TARGET-TOKEN:       #unsigned
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        #unsigned is prohibited on :Float
+// ==============================================================================
+{
+  :defs {
+    :BadFloat { #unsigned } :Float
+  }
+  :type :BadFloat
+  :body 3.14
+}

@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_int_unsigned
+// MATRIX-POSITION:    1.1.1
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Int
+// FACET-NAME:         #unsigned
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        When present, indicates sign prefix prohibited
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #unsigned } :Int
+  }
+  :type :TestedType
+  :body 42
+}

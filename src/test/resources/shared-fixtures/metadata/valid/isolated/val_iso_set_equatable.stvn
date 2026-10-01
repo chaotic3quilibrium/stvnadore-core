@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_set_equatable
+// MATRIX-POSITION:    2.1
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Set
+// FACET-NAME:         #equatable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables content-based unique set equality comparison
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #equatable #TRUE } :Set( :Int )
+  }
+  :type :TestedType
+  :body [ 1 2 3 ]
+}

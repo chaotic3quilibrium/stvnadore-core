@@ -1,0 +1,19 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_set
+// TARGET-TYPE:        :Set
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated Set with traits and size boundaries
+// ==============================================================================
+{
+  :defs {
+    :SaturatedSet {
+      #equatable #TRUE
+      #minSize 1
+      #maxSize 10
+    } :Set( :Int )
+  }
+  :type :SaturatedSet
+  :body [ 1 2 3 ]
+}

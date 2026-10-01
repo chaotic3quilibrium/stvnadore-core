@@ -1,0 +1,19 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_interval_inverted_float
+// MATRIX-POSITION:    3.1 vs 3.4
+// TARGET-TYPE:        :Float
+// COVERAGE-KIND:      INTERVAL_SOUNDNESS
+// EXPECT-DIAGNOSTIC:  INVALID_NUMERIC_RANGE
+// TARGET-TOKEN:       #maxExcl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Effective float range is inverted (minimum 100.0 is greater than maximum 50.0)
+// ==============================================================================
+{
+  :defs {
+    :InvertedFloat { #size 64 #minIncl 100.0 #maxExcl 50.0 } :Float
+  }
+  :type :InvertedFloat
+  :body 75.0
+}

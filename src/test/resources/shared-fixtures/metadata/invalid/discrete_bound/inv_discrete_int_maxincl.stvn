@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_discrete_int_maxincl
+// MATRIX-POSITION:    3.3
+// TARGET-TYPE:        :Int
+// OFFENDING-FACET:    #maxIncl
+// COVERAGE-KIND:      DISCRETE_BOUND_PROHIBITED
+// EXPECT-DIAGNOSTIC:  ERR_DISCRETE_BOUND_KIND_PROHIBITED
+// TARGET-TOKEN:       #maxIncl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Discrete type :Int prohibits bound #maxIncl; requires half-open #maxExcl
+// ==============================================================================
+{
+  :defs {
+    :BadIntBound { #minIncl 1 #maxIncl 65535 } :Int
+  }
+  :type :BadIntBound
+  :body 8080
+}

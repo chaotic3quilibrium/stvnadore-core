@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_order_constraint_before_bounds
+// MATRIX-POSITION:    4.4 before 1.5.1
+// TARGET-TYPE:        :String
+// OFFENDING-FACET:    #minSize
+// COVERAGE-KIND:      ORDER_VIOLATION
+// EXPECT-DIAGNOSTIC:  ERR_FACET_ORDER_VIOLATION
+// TARGET-TOKEN:       #minSize
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Pattern #regex (Tier 5) placed before capacity #minSize (Tier 3)
+// ==============================================================================
+{
+  :defs {
+    :BadOrderStr { #regex "^[a-z]+$" #minSize 1 } :String
+  }
+  :type :BadOrderStr
+  :body "a"
+}

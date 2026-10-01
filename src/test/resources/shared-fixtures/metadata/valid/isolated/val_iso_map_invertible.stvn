@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_map_invertible
+// MATRIX-POSITION:    1.1.3
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Map
+// FACET-NAME:         #invertible
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Ensures uniqueness within each of the set of keys and separately, the set of values
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #invertible } :Map( :String :Int )
+  }
+  :type :TestedType
+  :body { [ "k" 1 ] }
+}

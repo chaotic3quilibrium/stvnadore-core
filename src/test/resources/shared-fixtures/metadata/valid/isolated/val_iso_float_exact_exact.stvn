@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_float_exact_exact
+// MATRIX-POSITION:    1.1.2
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Float (exact)
+// FACET-NAME:         #exact
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        BigDecimal Equivalent
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #exact } :Float
+  }
+  :type :TestedType
+  :body 3.14
+}

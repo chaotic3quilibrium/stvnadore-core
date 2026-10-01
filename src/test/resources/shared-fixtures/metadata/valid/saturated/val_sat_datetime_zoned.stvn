@@ -1,0 +1,21 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_datetime_zoned
+// TARGET-TYPE:        :DateTime (zoned)
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated DateTime zoned with IANA timezone ID
+// ==============================================================================
+{
+  :defs {
+    :SaturatedDateTimeZoned {
+      #zoned
+      #equatable #TRUE
+      #comparable #TRUE
+      #minIncl "2026-01-01T00:00:00Z"
+      #maxExcl "2027-01-01T00:00:00Z"
+    } :DateTime
+  }
+  :type :SaturatedDateTimeZoned
+  :body "2026-06-15T12:00:00[Europe/Paris]"
+}

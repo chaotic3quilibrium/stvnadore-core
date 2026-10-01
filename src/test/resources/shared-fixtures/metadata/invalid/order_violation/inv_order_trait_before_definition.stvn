@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_order_trait_before_definition
+// MATRIX-POSITION:    1.3.1 before 2.1
+// TARGET-TYPE:        :Float
+// OFFENDING-FACET:    #equatable
+// COVERAGE-KIND:      ORDER_VIOLATION
+// EXPECT-DIAGNOSTIC:  ERR_FACET_ORDER_VIOLATION
+// TARGET-TOKEN:       #equatable
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Size facet #size placed before trait facet #equatable
+// ==============================================================================
+{
+  :defs {
+    :BadOrderFloat { #size 32 #equatable #TRUE } :Float
+  }
+  :type :BadOrderFloat
+  :body 1.0
+}

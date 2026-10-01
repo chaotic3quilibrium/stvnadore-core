@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_timeepoch_ms
+// MATRIX-POSITION:    1.2.3
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :TimeEpoch
+// FACET-NAME:         #ms
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Specifies 64-bit millisecond resolution duration ticks since Unix Epoch
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #ms } :TimeEpoch
+  }
+  :type :TestedType
+  :body 1600000000
+}

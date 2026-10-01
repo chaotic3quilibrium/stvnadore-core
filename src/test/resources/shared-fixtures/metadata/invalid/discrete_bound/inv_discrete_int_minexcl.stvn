@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_discrete_int_minexcl
+// MATRIX-POSITION:    3.2
+// TARGET-TYPE:        :Int
+// OFFENDING-FACET:    #minExcl
+// COVERAGE-KIND:      DISCRETE_BOUND_PROHIBITED
+// EXPECT-DIAGNOSTIC:  ERR_DISCRETE_BOUND_KIND_PROHIBITED
+// TARGET-TOKEN:       #minExcl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Discrete type :Int prohibits bound #minExcl; requires closed #minIncl
+// ==============================================================================
+{
+  :defs {
+    :BadIntMin { #minExcl 0 } :Int
+  }
+  :type :BadIntMin
+  :body 1
+}

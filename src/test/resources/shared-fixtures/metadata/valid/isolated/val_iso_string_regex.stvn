@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_string_regex
+// MATRIX-POSITION:    4.4
+// MATRIX-CATEGORY:    Constraint
+// TARGET-TYPE:        :String
+// FACET-NAME:         #regex
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Validates string value against compiled regular expression pattern
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #regex "^[a-z]+$" } :String
+  }
+  :type :TestedType
+  :body "alpha"
+}

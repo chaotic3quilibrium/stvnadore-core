@@ -1,0 +1,21 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_float_64
+// TARGET-TYPE:        :Float (64)
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated 64-bit floating point with 5-tier canonical facet sequence
+// ==============================================================================
+{
+  :defs {
+    :SaturatedFloat64 {
+      #equatable #TRUE
+      #comparable #TRUE
+      #size 64
+      #minIncl -1000.0
+      #maxExcl 1000.0
+    } :Float
+  }
+  :type :SaturatedFloat64
+  :body 3.141592653589793
+}

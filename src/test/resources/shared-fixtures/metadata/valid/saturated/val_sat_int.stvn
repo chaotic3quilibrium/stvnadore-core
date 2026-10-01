@@ -1,0 +1,21 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_int
+// TARGET-TYPE:        :Int
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated signed integer with 5-tier canonical facet sequence
+// ==============================================================================
+{
+  :defs {
+    :SaturatedInt {
+      #equatable #TRUE
+      #comparable #TRUE
+      #size 32
+      #minIncl -1000
+      #maxExcl 1000
+    } :Int
+  }
+  :type :SaturatedInt
+  :body 42
+}

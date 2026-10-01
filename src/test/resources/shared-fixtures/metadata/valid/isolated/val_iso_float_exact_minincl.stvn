@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_float_exact_minincl
+// MATRIX-POSITION:    3.1
+// MATRIX-CATEGORY:    Bounds
+// TARGET-TYPE:        :Float (exact)
+// FACET-NAME:         #minIncl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Half-open interval; start
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #exact #minIncl 0.0 } :Float
+  }
+  :type :TestedType
+  :body 3.14
+}

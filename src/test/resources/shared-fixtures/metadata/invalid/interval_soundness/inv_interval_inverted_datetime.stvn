@@ -1,0 +1,19 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_interval_inverted_datetime
+// MATRIX-POSITION:    3.1 vs 3.4
+// TARGET-TYPE:        :DateTime
+// COVERAGE-KIND:      INTERVAL_SOUNDNESS
+// EXPECT-DIAGNOSTIC:  INVALID_NUMERIC_RANGE
+// TARGET-TOKEN:       #maxExcl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Effective datetime range is inverted (minimum is chronologically after maximum)
+// ==============================================================================
+{
+  :defs {
+    :InvertedDateTime { #offset #minIncl "2027-01-01T00:00:00Z" #maxExcl "2026-01-01T00:00:00Z" } :DateTime
+  }
+  :type :InvertedDateTime
+  :body "2026-06-01T00:00:00Z"
+}

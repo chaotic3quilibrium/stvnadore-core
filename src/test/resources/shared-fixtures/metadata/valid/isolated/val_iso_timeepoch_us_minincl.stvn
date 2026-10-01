@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_timeepoch_us_minincl
+// MATRIX-POSITION:    3.1
+// MATRIX-CATEGORY:    Bounds
+// TARGET-TYPE:        :TimeEpoch (us)
+// FACET-NAME:         #minIncl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Half-open interval; start
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #us #minIncl 1000 } :TimeEpoch
+  }
+  :type :TestedType
+  :body 1600000000
+}

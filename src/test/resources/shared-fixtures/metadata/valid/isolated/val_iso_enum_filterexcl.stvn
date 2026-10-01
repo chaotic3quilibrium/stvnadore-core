@@ -1,0 +1,19 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_enum_filterexcl
+// MATRIX-POSITION:    4.2
+// MATRIX-CATEGORY:    Constraint
+// TARGET-TYPE:        :Enum
+// FACET-NAME:         #filterExcl
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Blacklist filter; excludes listed tags from the allowed enum variants
+// ==============================================================================
+{
+  :defs {
+  :BaseEnum :Enum [ #VAL_A #VAL_B ]
+  :TestedType { #filterExcl [ #VAL_A ] } :BaseEnum
+  }
+  :type :TestedType
+  :body #VAL_B
+}

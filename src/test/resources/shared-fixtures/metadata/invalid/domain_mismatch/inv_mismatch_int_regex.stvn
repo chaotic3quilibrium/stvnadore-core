@@ -1,0 +1,20 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mismatch_int_regex
+// MATRIX-POSITION:    4.4
+// TARGET-TYPE:        :Int
+// OFFENDING-FACET:    #regex
+// COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+// EXPECT-DIAGNOSTIC:  ERR_INVALID_METADATA_FACET
+// TARGET-TOKEN:       #regex
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        #regex is prohibited on :Int
+// ==============================================================================
+{
+  :defs {
+    :BadInt { #regex "^[0-9]+$" } :Int
+  }
+  :type :BadInt
+  :body 42
+}

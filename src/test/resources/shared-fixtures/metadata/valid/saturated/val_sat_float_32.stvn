@@ -1,0 +1,21 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_sat_float_32
+// TARGET-TYPE:        :Float (32)
+// COVERAGE-KIND:      SATURATED_VALID
+// DESCRIPTION:        Saturated 32-bit floating point with 5-tier canonical facet sequence
+// ==============================================================================
+{
+  :defs {
+    :SaturatedFloat32 {
+      #equatable #TRUE
+      #comparable #TRUE
+      #size 32
+      #minIncl -1000.0
+      #maxExcl 1000.0
+    } :Float
+  }
+  :type :SaturatedFloat32
+  :body 3.14
+}

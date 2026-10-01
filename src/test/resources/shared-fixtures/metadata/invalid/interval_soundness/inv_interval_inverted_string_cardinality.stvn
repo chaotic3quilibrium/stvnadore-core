@@ -1,0 +1,19 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_interval_inverted_string_cardinality
+// MATRIX-POSITION:    1.5.1 vs 1.5.2
+// TARGET-TYPE:        :String
+// COVERAGE-KIND:      INTERVAL_SOUNDNESS
+// EXPECT-DIAGNOSTIC:  INVALID_NUMERIC_RANGE
+// TARGET-TOKEN:       #maxSize
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Cardinality range is invalid (#minSize 10 is greater than #maxSize 5)
+// ==============================================================================
+{
+  :defs {
+    :InvertedString { #minSize 10 #maxSize 5 } :String
+  }
+  :type :InvertedString
+  :body "test"
+}
