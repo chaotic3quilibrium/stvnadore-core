@@ -48,7 +48,7 @@ public final class IrGeneratorUtility {
     String stvnContent = Files.readString(stvnFile).replace("\r\n", "\n");
     
     // Compile STVN input to IR
-    StvnValue irNode = StvnCompiler.compile(stvnContent)
+    StvnValue irNode = StvnCompiler.compile(stvnContent, stvnFile.toString())
         .orElseThrow(() -> new IllegalStateException("Failed to compile valid fixture: " + stvnFile));
 
     // Convert the IR to the standardized snapshot text format
