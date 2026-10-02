@@ -1,0 +1,22 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_duplicate_map_invertible
+// MATRIX-POSITION:    1.1.3
+// TARGET-TYPE:        :Map
+// OFFENDING-FACET:    #invertible
+// COVERAGE-KIND:      DUPLICATE_FACET
+// EXPECT-DIAGNOSTIC:  ERR_DUPLICATE_METADATA_FACET
+// TARGET-TOKEN:       #invertible
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Duplicate facet #invertible declared within the same metadata block
+// ==============================================================================
+// EXPECT-DIAGNOSTIC: ERR_DUPLICATE_METADATA_FACET
+// TARGET-TOKEN: #invertible
+{
+  :defs {
+    :BadDuplicateMap { #invertible #invertible } :Map( :String :Int )
+  }
+  :type :BadDuplicateMap
+  :body { }
+}

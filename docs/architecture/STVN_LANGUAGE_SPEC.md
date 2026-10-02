@@ -776,8 +776,16 @@ Continuous domains (standard `:Float` without `#exact`) represent continuous rea
 :Price { #exact #minIncl 0.00 #maxExcl 1000000.00 } :Float
 ```
 
-#### 5.1.4 String Cardinality Governance (MCT Â§ 3.1.3)
-Under Modern Canonical Type (MCT) specification Â§ 3.1.3:
+#### 5.1.4 Metadata Facet Uniqueness Invariant
+Under Value-Oriented Programming (VOP), metadata constraint blocks `{ ... }` represent ordered mappings of unique facet entries.
+
+1. **Facet Uniqueness:** A facet tag identifier may appear at most once within any metadata block. Duplicate occurrences of the same facet tag are strictly prohibited.
+2. **Strict Monotonic Progression:** Facet ordering requires strict monotonicity ($\text{rank}_{i+1} > \text{rank}_i$). Equal tier and sub-tier ranks are prohibited, precluding duplicate facet declarations from passing canonical ordering checks.
+3. **Fail-Closed Diagnostic:** Compilers must reject duplicate facet declarations immediately and emit diagnostic code `ERR_DUPLICATE_METADATA_FACET`.
+4. **Fault Isolation:** Diagnostic coordinates pin strictly to the second and subsequent duplicate facet entries. The initial valid facet entry and parent enclosure braces `{` and `}` retain zero error diagnostics.
+
+#### 5.1.5 String Cardinality Governance (MCT § 3.1.3)
+Under Modern Canonical Type (MCT) specification § 3.1.3:
 1. **`#size` Target Prohibition:** The `#size` facet represents memory bit-width. It applies strictly to binary numeric representations (`:Int` and `:Float`). Applying `#size` to `:String` is an invalid facet target error. The compiler halts and emits `ERR_INVALID_METADATA_FACET`.
 2. **Logical Character Bounds (`#minSize`, `#maxSize`):** String dimensions represent character counts. Authors must govern string cardinality using `#minSize` and `#maxSize` exclusively.
 3. **Exact Fixed-Length Strings:** Replaces legacy `:StringFixed<N>` by declaring identical lower and upper bounds:
@@ -789,7 +797,7 @@ Under Modern Canonical Type (MCT) specification Â§ 3.1.3:
    - Non-empty string (replaces `:StringNonEmpty`): `{ #minSize 1 } :String`
    - Bounded non-empty string: `{ #minSize 1 #maxSize 64 } :String`
 
-#### 5.1.5 Boolean Domain (`:Boolean`)
+#### 5.1.6 Boolean Domain (`:Boolean`)
 `:Boolean` defines the two-element boolean algebra. It accepts literal values `#TRUE` (short-form `#T`) and `#FALSE` (short-form `#F`). It accepts trait override `#equatable`, but rejects sizing and numeric bounds facets.
 
 ---
@@ -2131,6 +2139,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_COMPOUND_TYPE_OBSOLETE` | `"ERR_COMPOUND_TYPE_OBSOLETE"` | Fatal | Deprecated legacy compound type keyword used (e.g. `:Int32`, `:Uint16`). |
 | `ERR_STRING_CARDINALITY_PROHIBITED` | `"ERR_STRING_CARDINALITY_PROHIBITED"` | Fatal | Storage sizing `#size` declared on `:String` (use `#minSize` / `#maxSize`). |
 | `ERR_FACET_ORDER_VIOLATION` | `"ERR_FACET_ORDER_VIOLATION"` | Fatal | Metadata facets violate the 5-tier canonical sequence. |
+| `ERR_DUPLICATE_METADATA_FACET` | `"ERR_DUPLICATE_METADATA_FACET"` | Fatal | Duplicate facet tag declared within the same metadata block. |
 | `ERR_CAS_PREIMAGE_AMBIGUITY` | `"ERR_CAS_PREIMAGE_AMBIGUITY"` | Fatal | Nominal types collide or CAS preimage bijectivity is violated. |
 | `ERR_DEPRECATED_FENCE_ARROW` | `"ERR_DEPRECATED_FENCE_ARROW"` | Fatal | Deprecated fenced string delimiter arrow `"""->[TAG]` rejected. |
 | `WARN_DEPRECATED_FENCE_ARROW` | `"RULE_STR_04_DEPRECATED_ARROW"` | Warning | Warning emitted when legacy Rule STR-04 delimiter arrow is encountered. |

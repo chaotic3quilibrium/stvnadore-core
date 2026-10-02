@@ -43,7 +43,8 @@ public final class MetadataFixtureGenerator {
     ORDER_VIOLATION,
     DISCRETE_BOUND_PROHIBITED,
     MUTUALLY_EXCLUSIVE,
-    INTERVAL_SOUNDNESS
+    INTERVAL_SOUNDNESS,
+    DUPLICATE_FACET
   }
 
   /**
@@ -376,6 +377,7 @@ public final class MetadataFixtureGenerator {
     list.addAll(generateDiscreteBoundProhibitionFixtures(rows));
     list.addAll(generateMutuallyExclusiveFixtures(rows));
     list.addAll(generateIntervalSoundnessFixtures(rows));
+    list.addAll(generateDuplicateFacetFixtures(rows));
     return list;
   }
 
@@ -1944,6 +1946,115 @@ public final class MetadataFixtureGenerator {
         CoverageKind.INTERVAL_SOUNDNESS,
         Optional.of("INVALID_NUMERIC_RANGE"),
         Optional.of("#maxExcl")
+    ));
+
+    return list;
+  }
+
+  /**
+   * Generates invalid negative fixtures covering duplicate facet entries within metadata blocks.
+   * Targets subpath shared-fixtures/metadata/invalid/duplicate_facet/.
+   *
+   * @param rows parsed canonical matrix rows
+   * @return list of duplicate facet edge case fixtures
+   */
+  public static List<GeneratedFixture> generateDuplicateFacetFixtures(List<MetadataMatrixRow> rows) {
+    List<GeneratedFixture> list = new ArrayList<>();
+
+    // 1. Duplicate #size on :Int
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "duplicate_facet", "inv_duplicate_int_size.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_duplicate_int_size
+        // MATRIX-POSITION:    1.3.1
+        // TARGET-TYPE:        :Int
+        // OFFENDING-FACET:    #size
+        // COVERAGE-KIND:      DUPLICATE_FACET
+        // EXPECT-DIAGNOSTIC:  ERR_DUPLICATE_METADATA_FACET
+        // TARGET-TOKEN:       #size
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Duplicate facet #size declared within the same metadata block
+        // ==============================================================================
+        // EXPECT-DIAGNOSTIC: ERR_DUPLICATE_METADATA_FACET
+        // TARGET-TOKEN: #size
+        {
+          :defs {
+            :BadDuplicateInt { #size 53 #size 1 } :Int
+          }
+          :type :BadDuplicateInt
+          :body 0
+        }
+        """,
+        CoverageKind.DUPLICATE_FACET,
+        Optional.of("ERR_DUPLICATE_METADATA_FACET"),
+        Optional.of("#size")
+    ));
+
+    // 2. Duplicate #maxSize on :String
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "duplicate_facet", "inv_duplicate_string_maxsize.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_duplicate_string_maxsize
+        // MATRIX-POSITION:    1.5.2
+        // TARGET-TYPE:        :String
+        // OFFENDING-FACET:    #maxSize
+        // COVERAGE-KIND:      DUPLICATE_FACET
+        // EXPECT-DIAGNOSTIC:  ERR_DUPLICATE_METADATA_FACET
+        // TARGET-TOKEN:       #maxSize
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Duplicate facet #maxSize declared within the same metadata block
+        // ==============================================================================
+        // EXPECT-DIAGNOSTIC: ERR_DUPLICATE_METADATA_FACET
+        // TARGET-TOKEN: #maxSize
+        {
+          :defs {
+            :BadDuplicateString { #maxSize 4096 #maxSize 1024 } :String
+          }
+          :type :BadDuplicateString
+          :body ""
+        }
+        """,
+        CoverageKind.DUPLICATE_FACET,
+        Optional.of("ERR_DUPLICATE_METADATA_FACET"),
+        Optional.of("#maxSize")
+    ));
+
+    // 3. Duplicate #invertible on :Map
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "duplicate_facet", "inv_duplicate_map_invertible.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_duplicate_map_invertible
+        // MATRIX-POSITION:    1.1.3
+        // TARGET-TYPE:        :Map
+        // OFFENDING-FACET:    #invertible
+        // COVERAGE-KIND:      DUPLICATE_FACET
+        // EXPECT-DIAGNOSTIC:  ERR_DUPLICATE_METADATA_FACET
+        // TARGET-TOKEN:       #invertible
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Duplicate facet #invertible declared within the same metadata block
+        // ==============================================================================
+        // EXPECT-DIAGNOSTIC: ERR_DUPLICATE_METADATA_FACET
+        // TARGET-TOKEN: #invertible
+        {
+          :defs {
+            :BadDuplicateMap { #invertible #invertible } :Map( :String :Int )
+          }
+          :type :BadDuplicateMap
+          :body { }
+        }
+        """,
+        CoverageKind.DUPLICATE_FACET,
+        Optional.of("ERR_DUPLICATE_METADATA_FACET"),
+        Optional.of("#invertible")
     ));
 
     return list;

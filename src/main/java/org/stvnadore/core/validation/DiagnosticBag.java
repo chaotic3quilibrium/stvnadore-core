@@ -102,6 +102,8 @@ public final class DiagnosticBag {
   public static final String ERR_PRELUDE_ALIAS_PURGED = "ERR_PRELUDE_ALIAS_PURGED";
   /** Error code emitted when metadata facets violate the 7-tier canonical sequence (SPEC-05). */
   public static final String ERR_FACET_ORDER_VIOLATION = "ERR_FACET_ORDER_VIOLATION";
+  /** Error code emitted when duplicate metadata facet tags appear in a metadata block (SPEC § 5.1.4). */
+  public static final String ERR_DUPLICATE_METADATA_FACET = "ERR_DUPLICATE_METADATA_FACET";
   /** Error code emitted when storage sizing #size is declared on :String (SPEC-06). */
   public static final String ERR_STRING_CARDINALITY_PROHIBITED = "ERR_STRING_CARDINALITY_PROHIBITED";
   /** Error code emitted when nominal types collide or CAS preimage bijectivity is violated (SPEC-07). */

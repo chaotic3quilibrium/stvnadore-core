@@ -1836,8 +1836,14 @@ public class StvnTypeResolver {
     boolean zoned = false;
     boolean audited = false;
     String dateMinIncl = null, dateMaxExcl = null;
+    Set<String> seenFacets = new HashSet<>();
 
     for (StvnParser.MetadataEntryContext entry : metadataMap.metadataEntry()) {
+      String facetName = extractFacetName(entry);
+      if (facetName != null && !seenFacets.add(facetName)) {
+        // Bypass duplicate facet payload to prevent silent last-write-wins overwrites
+        continue;
+      }
       if (entry.metadataFilter() != null) {
         var filterCtx = entry.metadataFilter();
         var list = new java.util.ArrayList<String>();
@@ -3988,10 +3994,25 @@ public class StvnTypeResolver {
     int lastTier = -1;
     int lastSubTier = -1;
     String lastFacetName = null;
+    Set<String> seenFacets = new HashSet<>();
 
     for (var entry : metadataMap.metadataEntry()) {
       String facetName = extractFacetName(entry);
       if (facetName == null) continue;
+
+      // Enforce Metadata Facet Uniqueness Invariant (§ 5.1.4)
+      if (!seenFacets.add(facetName)) {
+        diagnosticBag.addError(
+            "Metadata violation (" + name + "): Duplicate facet '#" + facetName + "' is prohibited; each facet may appear at most once per metadata block",
+            entry.getStart().getStartIndex(),
+            entry.getStop().getStopIndex() + 1,
+            entry.getStart().getLine(),
+            entry.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
+        );
+        continue;
+      }
 
       int tier = getFacetTier(facetName);
       int subTier = getFacetSubTier(facetName);

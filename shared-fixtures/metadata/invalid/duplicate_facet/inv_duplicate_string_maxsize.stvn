@@ -1,0 +1,22 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_duplicate_string_maxsize
+// MATRIX-POSITION:    1.5.2
+// TARGET-TYPE:        :String
+// OFFENDING-FACET:    #maxSize
+// COVERAGE-KIND:      DUPLICATE_FACET
+// EXPECT-DIAGNOSTIC:  ERR_DUPLICATE_METADATA_FACET
+// TARGET-TOKEN:       #maxSize
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Duplicate facet #maxSize declared within the same metadata block
+// ==============================================================================
+// EXPECT-DIAGNOSTIC: ERR_DUPLICATE_METADATA_FACET
+// TARGET-TOKEN: #maxSize
+{
+  :defs {
+    :BadDuplicateString { #maxSize 4096 #maxSize 1024 } :String
+  }
+  :type :BadDuplicateString
+  :body ""
+}
