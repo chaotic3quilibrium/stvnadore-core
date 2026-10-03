@@ -72,45 +72,46 @@ public class StvnLegacyGrammarDeprecationTest {
   }
 
   @Test
-  @DisplayName("TC-DEP-06: Legacy datetime keywords emit migration directives")
+  @DisplayName("TC-DEP-06: Undeclared legacy datetime keywords emit ERR_UNDEFINED_TYPE")
   void testLegacyDateTimeKeywordsDeprecation() {
     for (String legacyType : new String[]{":DateTimeOffset", ":DateTimeZoned", ":DateTimeAudited"}) {
       String source = "{ :type " + legacyType + " :body \"2026-03-15T08:00:00Z\" }";
       var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
       assertTrue(result.hasErrors(), legacyType + " must be rejected");
       var error = result.diagnostics().getFirst();
-      assertEquals(DiagnosticBag.ERR_DATETIME_MODE_INVALID, error.errorCode().orElse(null));
-      assertTrue(error.message().contains("use ':DateTime' with mode facet"));
+      assertEquals(DiagnosticBag.ERR_UNDEFINED_TYPE, error.errorCode().orElse(null));
+      assertEquals("Undefined type: " + legacyType, error.message());
     }
   }
 
   @Test
-  @DisplayName("TC-DEP-07: Legacy epoch keywords emit migration directives")
+  @DisplayName("TC-DEP-07: Undeclared legacy epoch keywords emit ERR_UNDEFINED_TYPE")
   void testLegacyEpochKeywordsDeprecation() {
     for (String legacyType : new String[]{":TimeEpochS", ":TimeEpochMs", ":TimeEpochNs"}) {
       String source = "{ :type " + legacyType + " :body 100 }";
       var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
       assertTrue(result.hasErrors(), legacyType + " must be rejected");
       var error = result.diagnostics().getFirst();
-      assertEquals(DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING, error.errorCode().orElse(null));
-      assertTrue(error.message().contains("use ':TimeEpoch' with mandatory facet"));
+      assertEquals(DiagnosticBag.ERR_UNDEFINED_TYPE, error.errorCode().orElse(null));
+      assertEquals("Undefined type: " + legacyType, error.message());
     }
   }
 
   @Test
-  @DisplayName("TC-DEP-08: Legacy fenced string arrow delimiter emits deprecation warning")
+  @DisplayName("TC-DEP-08: Legacy fenced string arrow delimiter emits syntax error")
   void testLegacyFencedStringArrowDeprecation() {
     String source = """
         {
           :type :String
           :body \"\"\"->[json]
           {"key": "value"}
-          [json]\"\"\"
+          \"\"\"[json]
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Fenced arrow syntax must trigger deprecation error in strict parser");
+    assertTrue(result.hasErrors(), "Fenced arrow syntax must trigger syntax error");
     var diag = result.diagnostics().getFirst();
-    assertTrue(diag.message().contains("Rule STR-04 deprecation"));
+    assertTrue(diag.errorCode().map(c -> c.contains("SYNTAX_ERROR")).orElse(false)
+        || diag.message().toLowerCase().contains("syntax error"));
   }
 }

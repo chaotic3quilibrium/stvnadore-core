@@ -8,7 +8,7 @@
 
   :body (
     #SYNTAX_ERROR
-    "Rule STR-04 deprecation"
+    "mismatched input"
     "java.lang.RuntimeException"
   )
 }

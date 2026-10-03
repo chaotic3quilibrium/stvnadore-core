@@ -30,10 +30,8 @@ class StvnTemporalRootClearanceTest {
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertFalse(result.isSuccess(), "Bare temporal type must be rejected: " + bareType);
     Assertions.assertTrue(result.diagnostics().stream()
-        .anyMatch(d -> DiagnosticBag.ERR_UNKNOWN_TYPE.equals(d.errorCode().orElse(null))
-            || DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING.equals(d.errorCode().orElse(null))
-            || DiagnosticBag.ERR_DATETIME_MODE_INVALID.equals(d.errorCode().orElse(null))),
-        "Must emit error code for " + bareType);
+        .anyMatch(d -> DiagnosticBag.ERR_UNKNOWN_TYPE.equals(d.errorCode().orElse(null))),
+        "Must emit ERR_UNKNOWN_TYPE for " + bareType);
   }
 
   @Test

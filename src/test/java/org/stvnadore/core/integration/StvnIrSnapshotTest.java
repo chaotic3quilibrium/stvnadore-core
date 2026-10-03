@@ -90,9 +90,9 @@ public class StvnIrSnapshotTest {
     Assertions.assertTrue(result.hasErrors(), "Legacy arrow delimiter must be rejected as an error");
     Assertions.assertTrue(
         result.diagnostics().stream().anyMatch(d ->
-            d.errorCode().map(c -> c.equals(org.stvnadore.core.validation.DiagnosticBag.ERR_DEPRECATED_FENCE_ARROW)).orElse(false)
-            || d.message().contains("Rule STR-04 deprecation")),
-        "Expected ERR_DEPRECATED_FENCE_ARROW diagnostic"
+            d.errorCode().map(c -> c.equals("STVN_SYNTAX_ERROR") || c.equals("SYNTAX_ERROR")).orElse(false)
+            || d.message().contains("Syntax Error") || d.message().contains("syntax error")),
+        "Expected syntax error diagnostic"
     );
   }
 

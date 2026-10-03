@@ -74,7 +74,7 @@ class CanonicalLayoutWriterTest {
           :type :Doc
           :body ""\"->[SQL]
         SELECT * FROM users;
-        [SQL]""\"
+        ""\"[SQL]
         }
         """;
 

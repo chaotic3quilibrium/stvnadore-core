@@ -2273,9 +2273,7 @@ public class StvnTypeResolver {
             .map(StvnTypeResolver::validateResolvedSchema);
       } else {
         markTypePoisoned(doc, kw);
-        String legacyTemporal = getLegacyTemporalDeprecationMessage(kw);
-        String errMsg = legacyTemporal != null ? legacyTemporal : ("Undefined type: " + kw);
-        throw new MalformedSchemaException(errMsg,
+        throw new MalformedSchemaException("Undefined type: " + kw,
             schemaNode.getStart().getStartIndex(),
             schemaNode.getStop().getStopIndex() + 1);
       }
@@ -3281,7 +3279,6 @@ public class StvnTypeResolver {
     if (doc == null || doc.documentBody() == null) {
       return;
     }
-    validateFencedStringDelimiters(doc, diagnosticBag);
     getDocumentDefinitions(doc, diagnosticBag);
     var defsEntry = doc.documentBody().defsEntry();
     if (defsEntry != null && defsEntry.defsElement() != null) {
@@ -3318,9 +3315,9 @@ public class StvnTypeResolver {
         int col = rootSchema.getStart().getCharPositionInLine();
         String msg = e.getMessage() != null ? e.getMessage() : "";
         String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
-        if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet")) {
+        if (msg.contains("requires a scale facet")) {
           code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
-        } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
+        } else if (msg.contains("requires exactly one mode facet")) {
           code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
         } else if (msg.contains("prelude") && msg.contains("purged")) {
           code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
@@ -3356,39 +3353,6 @@ public class StvnTypeResolver {
     }
   }
 
-  /**
-   * Scans the document parse tree for deprecated Rule STR-04 fenced string arrow delimiters.
-   *
-   * @param tree          the parse tree node to inspect recursively
-   * @param diagnosticBag the accumulator bag for recording deprecation warnings
-   */
-  public static void validateFencedStringDelimiters(
-      @Nullable ParseTree tree,
-      DiagnosticBag diagnosticBag
-  ) {
-    if (tree == null) {
-      return;
-    }
-    if (tree instanceof StvnParser.FencedStringContext fencedCtx) {
-      var fenceStart = fencedCtx.FENCE_START();
-      if (fenceStart != null) {
-        var token = fenceStart.getSymbol();
-        if (token != null && token.getText().startsWith("\"\"\"->")) {
-          diagnosticBag.addWarning(
-              org.stvnadore.core.parser.StvnErrorListener.RULE_STR_04_ARROW_DEPRECATION_MSG,
-              token.getStartIndex(),
-              token.getStopIndex() + 1,
-              token.getLine(),
-              token.getCharPositionInLine(),
-              DiagnosticBag.WARN_DEPRECATED_FENCE_ARROW
-          );
-        }
-      }
-    }
-    for (int i = 0; i < tree.getChildCount(); i++) {
-      validateFencedStringDelimiters(tree.getChild(i), diagnosticBag);
-    }
-  }
 
   /**
    * Validates the constraints of a single type definition against its underlying primitive base type.
@@ -3473,9 +3437,9 @@ public class StvnTypeResolver {
       int end = e.endOffset() >= 0 ? e.endOffset() : typeDef.getStop().getStopIndex() + 1;
       String msg = e.getMessage() != null ? e.getMessage() : "";
       String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
-      if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet")) {
+      if (msg.contains("requires a scale facet")) {
         code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
-      } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
+      } else if (msg.contains("requires exactly one mode facet")) {
         code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
       } else if (msg.contains("prelude") && msg.contains("purged")) {
         code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
@@ -3591,9 +3555,9 @@ public class StvnTypeResolver {
       int end = e.endOffset() >= 0 ? e.endOffset() : constDef.getStop().getStopIndex() + 1;
       String msg = e.getMessage() != null ? e.getMessage() : "";
       String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
-      if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet")) {
+      if (msg.contains("requires a scale facet")) {
         code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
-      } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
+      } else if (msg.contains("requires exactly one mode facet")) {
         code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
       } else if (msg.contains("prelude") && msg.contains("purged")) {
         code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
@@ -4799,18 +4763,5 @@ public class StvnTypeResolver {
     }
   }
 
-  private static @Nullable String getLegacyTemporalDeprecationMessage(@Nullable String kw) {
-    if (kw == null) {
-      return null;
-    }
-    String unqualified = kw.contains("/") ? (StvnVocabulary.SIGIL_TYPIC + kw.substring(kw.lastIndexOf('/') + 1)) : kw;
-    if (unqualified.matches("^:TimeEpoch[A-Za-z0-9_]+$")) {
-      return "Legacy temporal epoch keyword is deprecated in 2.0.0; use ':TimeEpoch' with mandatory facet '{ #s }', '{ #ms }', '{ #us }', or '{ #ns }'";
-    }
-    if (unqualified.equals(":DateTimeOffset") || unqualified.equals(":DateTimeZoned") || unqualified.equals(":DateTimeAudited")) {
-      return "Legacy datetime keyword is deprecated in 2.0.0; use ':DateTime' with mode facet '{ #offset }', '{ #zoned }', or '{ #audited }'";
-    }
-    return null;
-  }
 }
 

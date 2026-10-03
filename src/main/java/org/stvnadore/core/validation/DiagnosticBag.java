@@ -60,10 +60,8 @@ public final class DiagnosticBag {
   public static final String ERR_AMBIGUOUS_SUM_INFERENCE = "ERR_AMBIGUOUS_SUM_INFERENCE";
   /** Error code emitted when structural trait constraints are violated. */
   public static final String ERR_TRAIT_VIOLATION = "TRAIT_VIOLATION";
-  /** Error code emitted when a schema definition contains malformed syntax or illegal nesting. */
+  /** Error code emitted when a schema definition syntax or structure is malformed. */
   public static final String ERR_MALFORMED_SCHEMA = "MALFORMED_SCHEMA";
-  /** Warning code emitted when a legacy Rule STR-04 fenced string arrow delimiter is encountered. */
-  public static final String WARN_DEPRECATED_FENCE_ARROW = "RULE_STR_04_DEPRECATED_ARROW";
   /** Error code emitted when a forbidden tab character ('\t', U+0009) is encountered in STVN syntax. */
   public static final String ERR_TAB_CHARACTER_FORBIDDEN = "ERR_TAB_CHARACTER_FORBIDDEN";
   /** Error code emitted when an empty metadata block '{}' is encountered on a type or constant definition. */
@@ -76,10 +74,8 @@ public final class DiagnosticBag {
   public static final String ERR_DISCRETE_BOUND_KIND_PROHIBITED = "ERR_DISCRETE_BOUND_KIND_PROHIBITED";
   /** Error code emitted when two incompatible nominal types are unified or compared. */
   public static final String ERR_INCOMPATIBLE_NOMINAL_TYPE = "ERR_INCOMPATIBLE_NOMINAL_TYPE";
-  /** Error code emitted when a temporal type (:TimeEpoch or :DateTime) lacks required mode or unit facets. */
+  /** Error code emitted when a temporal type declaration lacks a required facet. */
   public static final String ERR_MISSING_TEMPORAL_FACET = "ERR_MISSING_TEMPORAL_FACET";
-  /** Error code emitted when a deprecated fenced string delimiter arrow is encountered under Rule STR-04. */
-  public static final String ERR_DEPRECATED_FENCE_ARROW = "ERR_DEPRECATED_FENCE_ARROW";
   /** Error code emitted when a standalone colon ':' is encountered (trap7_infix_colon). */
   public static final String ERR_BARE_COLON_PROHIBITED = "ERR_BARE_COLON_PROHIBITED";
   /** Error code emitted when a standalone hash '#' is encountered (trap6_hash_comment). */

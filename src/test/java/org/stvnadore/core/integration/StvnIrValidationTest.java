@@ -263,10 +263,10 @@ public class StvnIrValidationTest {
       if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
         return "ERR_STRING_CARDINALITY_PROHIBITED";
       }
-      if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet") || msg.contains("Temporal type ':TimeEpoch' requires a scale facet")) {
+      if (msg.contains("requires a scale facet") || msg.contains("Temporal type ':TimeEpoch' requires a scale facet")) {
         return "ERR_TEMPORAL_SCALE_MISSING";
       }
-      if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet") || msg.contains("Temporal type ':DateTime' requires exactly one mode facet")) {
+      if (msg.contains("requires exactly one mode facet") || msg.contains("Temporal type ':DateTime' requires exactly one mode facet")) {
         return "ERR_DATETIME_MODE_INVALID";
       }
       if (msg.contains("Undefined type")) {

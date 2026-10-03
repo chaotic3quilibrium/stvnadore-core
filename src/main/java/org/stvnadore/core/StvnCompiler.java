@@ -306,9 +306,9 @@ public final class StvnCompiler {
           startOffset = e.startOffset();
           endOffset = e.endOffset();
           String msg = e.getMessage() != null ? e.getMessage() : "";
-          if (msg.contains("Legacy temporal epoch keyword") || msg.contains("requires a scale facet")) {
+          if (msg.contains("requires a scale facet")) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
-          } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
+          } else if (msg.contains("requires exactly one mode facet")) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_DATETIME_MODE_INVALID;
           } else if (msg.contains("prelude") && msg.contains("purged")) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;

@@ -2739,9 +2739,6 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
 
   private static boolean isDateTimeType(@Nullable ResolvedSchema schema, String baseType) {
     if (baseType.equals(StvnVocabulary.TYPE_DATE_TIME)
-        || baseType.equals(":DateTimeOffset")
-        || baseType.equals(":DateTimeZoned")
-        || baseType.equals(":DateTimeAudited")
         || baseType.equals(":org/stvnadore/prelude/DateTime")
         || baseType.endsWith("/DateTime")) {
       return true;

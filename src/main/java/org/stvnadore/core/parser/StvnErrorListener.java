@@ -26,12 +26,6 @@ import java.util.Optional;
 @NullMarked
 public final class StvnErrorListener extends BaseErrorListener {
 
-  /**
-   * Standardized deprecation diagnostic message for Rule STR-04 fenced string arrow delimiter.
-   */
-  public static final String RULE_STR_04_ARROW_DEPRECATION_MSG =
-      "Rule STR-04 deprecation: The '->' arrow delimiter in fenced strings is deprecated; use '\"\"\"[TAG]' instead.";
-
   private final @Nullable DiagnosticBag diagnosticBag;
   private final boolean strict;
 
@@ -152,12 +146,9 @@ public final class StvnErrorListener extends BaseErrorListener {
       errorCode = Optional.of(DiagnosticBag.ERR_BARE_COLON_PROHIBITED);
     } else if (isBareHash || sanitizedMessage.contains("'# '")) {
       errorCode = Optional.of(DiagnosticBag.ERR_BARE_HASH_PROHIBITED);
-    } else if (sanitizedMessage.contains(RULE_STR_04_ARROW_DEPRECATION_MSG)
-        || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().startsWith("\"\"\"->["))) {
-      errorCode = Optional.of(DiagnosticBag.ERR_DEPRECATED_FENCE_ARROW);
-    } else if (sanitizedMessage.contains("Legacy temporal epoch keyword") || sanitizedMessage.contains("requires a scale facet")) {
+    } else if (sanitizedMessage.contains("requires a scale facet")) {
       errorCode = Optional.of(DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING);
-    } else if (sanitizedMessage.contains("Legacy datetime keyword") || sanitizedMessage.contains("requires exactly one mode facet")) {
+    } else if (sanitizedMessage.contains("requires exactly one mode facet")) {
       errorCode = Optional.of(DiagnosticBag.ERR_DATETIME_MODE_INVALID);
     }
 
@@ -347,9 +338,6 @@ public final class StvnErrorListener extends BaseErrorListener {
   }
 
   private static String formatMalformedFenceMessage(String tokenText) {
-    if (tokenText.startsWith("\"\"\"->[")) {
-      return RULE_STR_04_ARROW_DEPRECATION_MSG;
-    }
     int start = tokenText.indexOf('[');
     int end = tokenText.indexOf(']', start >= 0 ? start : 0);
     String tag = (start >= 0 && end > start) ? tokenText.substring(start + 1, end) : "";
@@ -543,12 +531,6 @@ public final class StvnErrorListener extends BaseErrorListener {
     if (rawMsg == null) return "syntax error";
     if (rawMsg.contains("token recognition error at:")) {
       return sanitizeTokenRecognitionMessage(rawMsg);
-    }
-    if (rawMsg.contains(":TimeEpoch")) {
-      return "Legacy temporal epoch keyword is deprecated in 2.0.0; use ':TimeEpoch' with mandatory scale facet '{ #s }', '{ #ms }', '{ #us }', or '{ #ns }'";
-    }
-    if (rawMsg.contains(":DateTimeOffset") || rawMsg.contains(":DateTimeZoned") || rawMsg.contains(":DateTimeAudited")) {
-      return "Legacy datetime keyword is deprecated in 2.0.0; use ':DateTime' with mode facet '{ #offset }', '{ #zoned }', or '{ #audited }'";
     }
     if (rawMsg.contains("expecting {")) {
       int idx = rawMsg.indexOf("expecting {");
