@@ -17,60 +17,58 @@ import static org.junit.jupiter.api.Assertions.*;
 public class StvnLegacyGrammarDeprecationTest {
 
   @Test
-  @DisplayName("TC-DEP-01: Legacy compound scalar :Int32 emits migration directive")
+  @DisplayName("TC-DEP-01: Undeclared legacy compound scalar :Int32 emits ERR_UNDEFINED_TYPE")
   void testLegacyInt32Deprecation() {
     String source = "{ :type :Int32 :body 42 }";
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Legacy :Int32 must be rejected");
+    assertTrue(result.hasErrors(), "Undeclared :Int32 must fail closed");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, error.errorCode().orElse(null));
-    assertTrue(error.message().contains("Compound integer keyword ':Int32' is deprecated in 2.0.0"));
-    assertTrue(error.message().contains("{ #size 32 } :Int"));
+    assertEquals(DiagnosticBag.ERR_UNDEFINED_TYPE, error.errorCode().orElse(null));
+    assertEquals("Undefined type: :Int32", error.message());
   }
 
   @Test
-  @DisplayName("TC-DEP-02: Legacy compound scalar :Uint16 emits migration directive")
+  @DisplayName("TC-DEP-02: Undeclared legacy compound scalar :Uint16 emits ERR_UNDEFINED_TYPE")
   void testLegacyUint16Deprecation() {
     String source = "{ :type :Uint16 :body 42 }";
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Legacy :Uint16 must be rejected");
+    assertTrue(result.hasErrors(), "Undeclared :Uint16 must fail closed");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, error.errorCode().orElse(null));
-    assertTrue(error.message().contains("Compound unsigned integer keyword ':Uint16' is deprecated in 2.0.0"));
-    assertTrue(error.message().contains("{ #unsigned #size 16 } :Int"));
+    assertEquals(DiagnosticBag.ERR_UNDEFINED_TYPE, error.errorCode().orElse(null));
+    assertEquals("Undefined type: :Uint16", error.message());
   }
 
   @Test
-  @DisplayName("TC-DEP-03: Legacy scalar :FloatExact emits migration directive")
+  @DisplayName("TC-DEP-03: Undeclared legacy scalar :FloatExact emits ERR_UNDEFINED_TYPE")
   void testLegacyFloatExactDeprecation() {
     String source = "{ :type :FloatExact :body 42.0 }";
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Legacy :FloatExact must be rejected");
+    assertTrue(result.hasErrors(), "Undeclared :FloatExact must fail closed");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, error.errorCode().orElse(null));
-    assertTrue(error.message().contains("{ #exact } :Float"));
+    assertEquals(DiagnosticBag.ERR_UNDEFINED_TYPE, error.errorCode().orElse(null));
+    assertEquals("Undefined type: :FloatExact", error.message());
   }
 
   @Test
-  @DisplayName("TC-DEP-04: Legacy compound collection :SeqNonEmpty emits migration directive")
+  @DisplayName("TC-DEP-04: Undeclared legacy compound collection :SeqNonEmpty emits ERR_UNDEFINED_TYPE")
   void testLegacySeqNonEmptyDeprecation() {
-    String source = "{ :type :SeqNonEmpty(:Int) :body [ 1 ] }";
+    String source = "{ :type :SeqNonEmpty :body [ 1 ] }";
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Legacy :SeqNonEmpty must be rejected");
+    assertTrue(result.hasErrors(), "Undeclared :SeqNonEmpty must fail closed");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, error.errorCode().orElse(null));
-    assertTrue(error.message().contains("{ #minSize 1 } :Seq"));
+    assertEquals(DiagnosticBag.ERR_UNDEFINED_TYPE, error.errorCode().orElse(null));
+    assertEquals("Undefined type: :SeqNonEmpty", error.message());
   }
 
   @Test
-  @DisplayName("TC-DEP-05: Legacy compound collection :MapInv emits migration directive")
+  @DisplayName("TC-DEP-05: Undeclared legacy compound collection :MapInv emits ERR_UNDEFINED_TYPE")
   void testLegacyMapInvDeprecation() {
-    String source = "{ :type :MapInv(:String :Int) :body { [ \"a\" 1 ] } }";
+    String source = "{ :type :MapInv :body { [ \"a\" 1 ] } }";
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Legacy :MapInv must be rejected");
+    assertTrue(result.hasErrors(), "Undeclared :MapInv must fail closed");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, error.errorCode().orElse(null));
-    assertTrue(error.message().contains("{ #invertible } :Map"));
+    assertEquals(DiagnosticBag.ERR_UNDEFINED_TYPE, error.errorCode().orElse(null));
+    assertEquals("Undefined type: :MapInv", error.message());
   }
 
   @Test

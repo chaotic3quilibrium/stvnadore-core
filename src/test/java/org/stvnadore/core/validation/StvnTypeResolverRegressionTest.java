@@ -688,7 +688,7 @@ class StvnTypeResolverRegressionTest {
   }
 
   @Test
-  @DisplayName("TC-TYPE-05: Obsolete compound type on LHS of type definition emits ERR_COMPOUND_TYPE_OBSOLETE")
+  @DisplayName("TC-TYPE-05: Former compound type on LHS of type definition compiles cleanly as nominal definition")
   void testObsoleteCompoundOnTypeDefinitionLhsRejected() {
     String input = """
         {
@@ -700,9 +700,8 @@ class StvnTypeResolverRegressionTest {
         }
         """;
     var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
-    Assertions.assertTrue(result.hasErrors(), "Obsolete :Int32 on LHS must be rejected");
-    var err = result.diagnostics().getFirst();
-    Assertions.assertEquals(DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE, err.errorCode().orElse(null));
-    Assertions.assertTrue(err.message().contains("Compound integer keyword ':Int32' is deprecated in 2.0.0"));
+    Assertions.assertFalse(result.hasErrors(), "Nominal :Int32 in :defs must compile cleanly");
+    Assertions.assertTrue(result.isSuccess(), "Compilation must succeed");
+    Assertions.assertInstanceOf(StvnValue.StvnInteger.class, result.document().orElseThrow());
   }
 }

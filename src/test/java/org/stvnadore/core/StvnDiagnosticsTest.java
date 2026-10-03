@@ -222,23 +222,21 @@ public class StvnDiagnosticsTest {
   }
 
   @Test
-  @DisplayName("Empty composite :SetNonEmpty() produces canonical collection diagnostic")
+  @DisplayName("Undeclared compound collection :SetNonEmpty fails closed with ERR_UNDEFINED_TYPE")
   void testEmptySetNonEmptyProducesCanonicalDiagnostic() {
     String input = """
         {
-          :type :SetNonEmpty()
+          :type :SetNonEmpty
           :body [ 1 ]
         }
         """;
 
     StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
-    Assertions.assertTrue(result.hasErrors(), "Empty :SetNonEmpty() must fail compilation");
+    Assertions.assertTrue(result.hasErrors(), "Undeclared :SetNonEmpty must fail compilation");
 
     var diag = result.diagnostics().getFirst();
-    Assertions.assertEquals(
-        "STVN Syntax Error: Compound collection keyword ':SetNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Set'",
-        diag.message()
-    );
+    Assertions.assertEquals(DiagnosticBag.ERR_UNDEFINED_TYPE, diag.errorCode().orElse(null));
+    Assertions.assertEquals("Undefined type: :SetNonEmpty", diag.message());
   }
 
   @Test

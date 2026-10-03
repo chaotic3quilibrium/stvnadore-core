@@ -43,7 +43,7 @@ public final class DiagnosticBag {
   /** Error code emitted when a referenced type identifier has not been defined. */
   public static final String ERR_UNDEFINED_TYPE = "UNDEFINED_TYPE";
   /** Error code emitted when an unqualified type reference is not found in document scope or root namespace. */
-  public static final String ERR_UNKNOWN_TYPE = "ERR_UNKNOWN_TYPE";
+  public static final String ERR_UNKNOWN_TYPE = ERR_UNDEFINED_TYPE;
   /** Error code emitted when a reserved scalar or structural type keyword is declared on the LHS of a type definition. */
   public static final String ERR_RESERVED_KEYWORD_ON_LHS = "ERR_RESERVED_KEYWORD_ON_LHS";
   /** Error code emitted when an integer literal exceeds the capacity bounds of its declared bit-width type. */
@@ -90,7 +90,11 @@ public final class DiagnosticBag {
   public static final String ERR_INVALID_NUMERIC_LITERAL = "ERR_INVALID_NUMERIC_LITERAL";
 
   // Normative STVN 2.0.0 Standard Diagnostic Codes
-  /** Error code emitted when a deprecated legacy compound type is declared (SPEC-01). */
+  /**
+   * Error code emitted when a deprecated legacy compound type is declared (SPEC-01).
+   * @deprecated Obsolete in 2.0.0. Compound keywords now fail closed with {@link #ERR_UNDEFINED_TYPE}.
+   */
+  @Deprecated(forRemoval = true, since = "2.0.0")
   public static final String ERR_COMPOUND_TYPE_OBSOLETE = "ERR_COMPOUND_TYPE_OBSOLETE";
   /** Error code emitted when a :TimeEpoch type declaration lacks a mandatory scale facet (SPEC-02). */
   public static final String ERR_TEMPORAL_SCALE_MISSING = "ERR_TEMPORAL_SCALE_MISSING";

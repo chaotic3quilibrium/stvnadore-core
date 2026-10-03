@@ -1,6 +1,6 @@
 // @spec: SPEC-10-SUM-TYPES
 // @case: Negative - Reject union overlap ambiguous
-// @error: ERR_COMPOUND_TYPE_OBSOLETE
+// @error: ERR_UNDEFINED_TYPE
 {
   :defs {
     :OverlapUnion :Union(:Int32 :Int)

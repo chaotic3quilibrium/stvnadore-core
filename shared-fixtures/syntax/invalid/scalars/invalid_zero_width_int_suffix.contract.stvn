@@ -7,8 +7,8 @@
   :type :ErrorContract
 
   :body (
-    #ERR_COMPOUND_TYPE_OBSOLETE
-    "Compound integer keyword ':Int0' is deprecated in 2.0.0; use '{ #size 0 } :Int'"
+    #ERR_UNDEFINED_TYPE
+    "Undefined type: :Int0"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

@@ -269,8 +269,8 @@ public class StvnIrValidationTest {
       if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet") || msg.contains("Temporal type ':DateTime' requires exactly one mode facet")) {
         return "ERR_DATETIME_MODE_INVALID";
       }
-      if (msg.contains("Compound") || msg.contains("deprecated in 2.0.0")) {
-        return "ERR_COMPOUND_TYPE_OBSOLETE";
+      if (msg.contains("Undefined type")) {
+        return "ERR_UNDEFINED_TYPE";
       }
       if (msg.contains("defines an empty domain")) {
         return "ERR_EMPTY_INTERVAL_DOMAIN";

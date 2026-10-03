@@ -2273,11 +2273,8 @@ public class StvnTypeResolver {
             .map(StvnTypeResolver::validateResolvedSchema);
       } else {
         markTypePoisoned(doc, kw);
-        String legacyMsg = getLegacyTypeDeprecationMessage(rawKw);
-        if (legacyMsg == null) {
-          legacyMsg = getLegacyTypeDeprecationMessage(kw);
-        }
-        String errMsg = legacyMsg != null ? legacyMsg : ("Undefined type: " + kw);
+        String legacyTemporal = getLegacyTemporalDeprecationMessage(kw);
+        String errMsg = legacyTemporal != null ? legacyTemporal : ("Undefined type: " + kw);
         throw new MalformedSchemaException(errMsg,
             schemaNode.getStart().getStartIndex(),
             schemaNode.getStop().getStopIndex() + 1);
@@ -3332,12 +3329,10 @@ public class StvnTypeResolver {
           code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
         } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
           code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
-        } else if (msg.contains("Compound") || msg.contains("deprecated in 2.0.0")) {
-          code = DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE;
         } else if (msg.contains("prelude") && msg.contains("purged")) {
           code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
         } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
-          code = DiagnosticBag.ERR_UNKNOWN_TYPE;
+          code = DiagnosticBag.ERR_UNDEFINED_TYPE;
         } else if (msg.contains("filter facets")) {
           code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
         }
@@ -3435,19 +3430,6 @@ public class StvnTypeResolver {
       return;
     }
     var typeName = typeDef.typeDefTarget().getText();
-    String legacyMsg = getLegacyTypeDeprecationMessage(typeName);
-    if (legacyMsg != null) {
-      int line = typeDef.typeDefTarget().getStart().getLine();
-      int col = typeDef.typeDefTarget().getStart().getCharPositionInLine();
-      int start = typeDef.typeDefTarget().getStart().getStartIndex();
-      int end = typeDef.typeDefTarget().getStop().getStopIndex() + 1;
-      diagnosticBag.addError(
-          legacyMsg,
-          start, end, line, col, null, DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE
-      );
-      markTypePoisoned(doc, typeName);
-      return;
-    }
     if (isReservedFundamentalType(typeName) || typeDef.typeDefTarget().reservedKeyword() != null) {
       int line = typeDef.typeDefTarget().getStart().getLine();
       int col = typeDef.typeDefTarget().getStart().getCharPositionInLine();
@@ -3502,12 +3484,10 @@ public class StvnTypeResolver {
         code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
       } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
         code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
-      } else if (msg.contains("Compound") || msg.contains("deprecated in 2.0.0")) {
-        code = DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE;
       } else if (msg.contains("prelude") && msg.contains("purged")) {
         code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
       } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
-        code = DiagnosticBag.ERR_UNKNOWN_TYPE;
+        code = DiagnosticBag.ERR_UNDEFINED_TYPE;
       } else if (msg.contains("filter facets") || msg.contains("is not permitted on")) {
         code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
       } else if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
@@ -3622,12 +3602,10 @@ public class StvnTypeResolver {
         code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
       } else if (msg.contains("Legacy datetime keyword") || msg.contains("requires exactly one mode facet")) {
         code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
-      } else if (msg.contains("Compound") || msg.contains("deprecated in 2.0.0")) {
-        code = DiagnosticBag.ERR_COMPOUND_TYPE_OBSOLETE;
       } else if (msg.contains("prelude") && msg.contains("purged")) {
         code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
       } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
-        code = DiagnosticBag.ERR_UNKNOWN_TYPE;
+        code = DiagnosticBag.ERR_UNDEFINED_TYPE;
       } else if (msg.contains("filter facets")) {
         code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
       }
@@ -4828,55 +4806,11 @@ public class StvnTypeResolver {
     }
   }
 
-  /**
-   * Translates a legacy compound type keyword into an actionable migration message.
-   *
-   * @param kw the type keyword to evaluate
-   * @return the deprecation error message, or {@code null} if the keyword does not match a legacy compound type
-   */
-  public static @Nullable String getLegacyTypeDeprecationMessage(@Nullable String kw) {
+  private static @Nullable String getLegacyTemporalDeprecationMessage(@Nullable String kw) {
     if (kw == null) {
       return null;
     }
     String unqualified = kw.contains("/") ? (StvnVocabulary.SIGIL_TYPIC + kw.substring(kw.lastIndexOf('/') + 1)) : kw;
-    if (unqualified.matches("^:Int[0-9]+$")) {
-      String width = unqualified.substring(4);
-      return "Compound integer keyword '" + unqualified + "' is deprecated in 2.0.0; use '{ #size " + width + " } :Int'";
-    }
-    if (unqualified.matches("^:Uint[0-9]*$")) {
-      String width = unqualified.substring(5);
-      String sizeClause = width.isEmpty() ? "" : " #size " + width;
-      return "Compound unsigned integer keyword '" + unqualified + "' is deprecated in 2.0.0; use '{ #unsigned" + sizeClause + " } :Int'";
-    }
-    if (unqualified.matches("^:Float(32|64)$")) {
-      String width = unqualified.substring(6);
-      return "Compound float keyword '" + unqualified + "' is deprecated in 2.0.0; use '{ #size " + width + " } :Float'";
-    }
-    if (unqualified.equals(":FloatExact")) {
-      return "Compound float keyword ':FloatExact' is deprecated in 2.0.0; use '{ #exact } :Float'";
-    }
-    if (unqualified.matches("^:StringFixed[0-9]+$")) {
-      String len = unqualified.substring(12);
-      return "Compound string keyword '" + unqualified + "' is deprecated in 2.0.0; use '{ #minSize " + len + " #maxSize " + len + " } :String'";
-    }
-    if (unqualified.equals(":StringNonEmpty")) {
-      return "Compound string keyword ':StringNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :String'";
-    }
-    if (unqualified.equals(":SeqNonEmpty")) {
-      return "Compound collection keyword ':SeqNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Seq'";
-    }
-    if (unqualified.equals(":SetNonEmpty")) {
-      return "Compound collection keyword ':SetNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Set'";
-    }
-    if (unqualified.equals(":MapNonEmpty")) {
-      return "Compound collection keyword ':MapNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Map'";
-    }
-    if (unqualified.equals(":MapInv")) {
-      return "Compound collection keyword ':MapInv' is deprecated in 2.0.0; use '{ #invertible } :Map'";
-    }
-    if (unqualified.equals(":MapInvNonEmpty")) {
-      return "Compound collection keyword ':MapInvNonEmpty' is deprecated in 2.0.0; use '{ #invertible #minSize 1 } :Map'";
-    }
     if (unqualified.matches("^:TimeEpoch[A-Za-z0-9_]+$")) {
       return "Legacy temporal epoch keyword is deprecated in 2.0.0; use ':TimeEpoch' with mandatory facet '{ #s }', '{ #ms }', '{ #us }', or '{ #ns }'";
     }
@@ -4886,3 +4820,4 @@ public class StvnTypeResolver {
     return null;
   }
 }
+
