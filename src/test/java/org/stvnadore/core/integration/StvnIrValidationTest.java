@@ -512,4 +512,46 @@ public class StvnIrValidationTest {
     org.junit.jupiter.api.Assertions.assertEquals(startExcess, exOverflow.startOffset());
     org.junit.jupiter.api.Assertions.assertEquals(endExcess, exOverflow.endOffset());
   }
+
+  @org.junit.jupiter.api.Test
+  @org.junit.jupiter.api.DisplayName("TC-CARD-01: Valid cardinality fixtures compile and extract values correctly")
+  public void testValidCardinalityFixturesValueExtraction() throws Exception {
+    Path cardDir = Paths.get("shared-fixtures/syntax/valid/cardinality");
+    Assertions.assertTrue(Files.exists(cardDir), "Cardinality fixture directory must exist");
+
+    // 1. Exact string fixed dimension
+    var fixedAst = StvnCompiler.compile(Files.readString(cardDir.resolve("string_exact_fixed_dimension.stvn"))).orElseThrow();
+    Assertions.assertInstanceOf(StvnString.class, fixedAst);
+    Assertions.assertEquals("STVN", ((StvnString) fixedAst).value());
+
+    // 2. Bounded string interval
+    var boundedAst = StvnCompiler.compile(Files.readString(cardDir.resolve("string_bounded_interval.stvn"))).orElseThrow();
+    Assertions.assertInstanceOf(StvnString.class, boundedAst);
+    Assertions.assertEquals("A compliant payload within interval", ((StvnString) boundedAst).value());
+
+    // 3. Unbounded string default
+    var unboundedAst = StvnCompiler.compile(Files.readString(cardDir.resolve("string_unbounded_default.stvn"))).orElseThrow();
+    Assertions.assertInstanceOf(StvnString.class, unboundedAst);
+    Assertions.assertTrue(((StvnString) unboundedAst).value().startsWith("Standard string payload"));
+
+    // 4. Bounded sequence cardinality
+    var seqAst = StvnCompiler.compile(Files.readString(cardDir.resolve("seq_bounded_cardinality.stvn"))).orElseThrow();
+    Assertions.assertInstanceOf(StvnValue.StvnSeq.class, seqAst);
+    Assertions.assertEquals(5, ((StvnValue.StvnSeq) seqAst).elements().size());
+
+    // 5. Bounded set cardinality
+    var setAst = StvnCompiler.compile(Files.readString(cardDir.resolve("set_bounded_cardinality.stvn"))).orElseThrow();
+    Assertions.assertInstanceOf(StvnValue.StvnSet.class, setAst);
+    Assertions.assertEquals(3, ((StvnValue.StvnSet) setAst).elements().size());
+
+    // 6. Bounded map cardinality
+    var mapAst = StvnCompiler.compile(Files.readString(cardDir.resolve("map_bounded_cardinality.stvn"))).orElseThrow();
+    Assertions.assertInstanceOf(StvnValue.StvnMap.class, mapAst);
+    Assertions.assertEquals(2, ((StvnValue.StvnMap) mapAst).entries().size());
+
+    // 7. Collection minimum only
+    var minOnlyAst = StvnCompiler.compile(Files.readString(cardDir.resolve("collection_minimum_only.stvn"))).orElseThrow();
+    Assertions.assertInstanceOf(StvnValue.StvnSeq.class, minOnlyAst);
+    Assertions.assertEquals(3, ((StvnValue.StvnSeq) minOnlyAst).elements().size());
+  }
 }

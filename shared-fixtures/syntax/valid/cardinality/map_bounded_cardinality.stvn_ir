@@ -1,0 +1,29 @@
+TypeRegistry:
+  - :BoundedMap
+      schema:
+        node: {#minSize1#maxSize10}:Map(:String:Int)
+        aliasName: :BoundedMap
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: {#minSize1#maxSize10}:Map(:String:Int)
+  - <:type>
+      schema:
+        node: {#minSize1#maxSize10}:Map(:String:Int)
+        aliasName: :BoundedMap
+        constraints:
+          equatable: true (default)
+          comparable: false (default)
+        underlyingSchema:
+          node: {#minSize1#maxSize10}:Map(:String:Int)
+ValuePayload:
+  StvnMap
+    isNonEmpty: true
+    entries:
+      - pair:
+          key: StvnString(:String): "host"
+          value: StvnInteger(:Int): 8080
+      - pair:
+          key: StvnString(:String): "port"
+          value: StvnInteger(:Int): 9090

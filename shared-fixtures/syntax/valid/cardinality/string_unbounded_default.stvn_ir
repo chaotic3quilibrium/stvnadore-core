@@ -1,0 +1,21 @@
+TypeRegistry:
+  - :UnboundedText
+      schema:
+        node: :String
+        aliasName: :UnboundedText
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+  - <:type>
+      schema:
+        node: :String
+        aliasName: :UnboundedText
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: :String
+ValuePayload:
+  StvnString(:UnboundedText): "Standard string payload subject to default 16 MiB allocation capacity limit"

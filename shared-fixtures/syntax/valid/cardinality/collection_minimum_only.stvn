@@ -1,0 +1,11 @@
+// @spec: SPEC-08-COLLECTIONS
+// @case: Positive - Collection with minimum cardinality bound only
+{
+  // collection_minimum_only.stvn
+  :defs {
+    :NonEmptySequence { #minSize 1 } :Seq( :String )
+  }
+
+  :type :NonEmptySequence
+  :body [ "alpha" "beta" "gamma" ]
+}

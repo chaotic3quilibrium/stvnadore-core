@@ -1,0 +1,11 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Positive - Unadorned string with default allocation capacity
+{
+  // string_unbounded_default.stvn
+  :defs {
+    :UnboundedText :String
+  }
+
+  :type :UnboundedText
+  :body "Standard string payload subject to default 16 MiB allocation capacity limit"
+}

@@ -1,0 +1,11 @@
+// @spec: SPEC-08-COLLECTIONS
+// @case: Positive - Bounded set cardinality between 2 and 5 unique elements
+{
+  // set_bounded_cardinality.stvn
+  :defs {
+    :BoundedSet { #minSize 2 #maxSize 5 } :Set( :String )
+  }
+
+  :type :BoundedSet
+  :body [ "Alpha" "Beta" "Gamma" ]
+}

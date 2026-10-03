@@ -1,0 +1,26 @@
+TypeRegistry:
+  - :NonEmptySequence
+      schema:
+        node: {#minSize1}:Seq(:String)
+        aliasName: :NonEmptySequence
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: {#minSize1}:Seq(:String)
+  - <:type>
+      schema:
+        node: {#minSize1}:Seq(:String)
+        aliasName: :NonEmptySequence
+        constraints:
+          equatable: true (default)
+          comparable: true (default)
+        underlyingSchema:
+          node: {#minSize1}:Seq(:String)
+ValuePayload:
+  StvnSeq
+    isNonEmpty: true
+    elements:
+      - StvnString(:String): "alpha"
+      - StvnString(:String): "beta"
+      - StvnString(:String): "gamma"
