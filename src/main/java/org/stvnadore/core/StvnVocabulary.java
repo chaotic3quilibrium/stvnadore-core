@@ -463,4 +463,17 @@ public final class StvnVocabulary {
       VAL_TRUE, VAL_TRUE_SHORT,
       VAL_FALSE, VAL_FALSE_SHORT
   );
+
+  // ============================================================================
+  // 11. ARCHITECTURAL LIMITS & BUFFER CAPACITIES
+  // ============================================================================
+
+  /** Default allocation capacity limit in characters for unadorned {@code :String} instances (16,777,216 characters / 16 MiB). */
+  public static final int DEFAULT_UNBOUNDED_STRING_CAPACITY = 16_777_216;
+
+  /** Default inspection threshold in characters for schema and diagnostic analyzers (4,096 characters). */
+  public static final int DEFAULT_INSPECTION_THRESHOLD = 4096;
+
+  /** Default indentation width in spaces for canonical text formatting (2 spaces). */
+  public static final int DEFAULT_INDENT_WIDTH = 2;
 }

@@ -207,7 +207,7 @@ public class StvnBinaryEncoder {
   // --- PHASE 1: FOOTPRINT CALCULATION ---
 
   private Footprint calculateFootprint(StvnValue value) {
-    // GUARD: Handle ANY standalone fixed-width primitive (e.g., a root Int32 or Float64)
+    // GUARD: Handle ANY standalone fixed-width primitive (e.g., a root { #size 32 } :Int or :Float)
     int inlineSize = getInlineSize(value);
     if (inlineSize > 0) {
       return new Footprint(inlineSize, 0);
@@ -398,8 +398,7 @@ public class StvnBinaryEncoder {
       boolean isBareInt = i.bitWidth() == 0 ||
           (i.schema() != null && i.schema().constraints().size().isEmpty() &&
               (i.schema().underlyingSchema().isEmpty() || i.schema().underlyingSchema().get().constraints().size().isEmpty()) &&
-              (StvnTypeResolver.getPrimitiveBaseType(i.schema().node()).equals(StvnVocabulary.TYPE_INT) ||
-               StvnTypeResolver.getPrimitiveBaseType(i.schema().node()).equals(":Uint")));
+              StvnTypeResolver.getPrimitiveBaseType(i.schema().node()).equals(StvnVocabulary.TYPE_INT));
       if (isBareInt) {
         int maxInlineBits = i.isUnsigned() ? 32 : 31;
         if (i.value().bitLength() > maxInlineBits) {
@@ -509,7 +508,7 @@ public class StvnBinaryEncoder {
   }
 
   private int writeValuePostOrder(StvnValue value, boolean forceNoAny) {
-    // GUARD: Handle ANY standalone fixed-width primitive (e.g., a root Int32 or Float64)
+    // GUARD: Handle ANY standalone fixed-width primitive (e.g., a root { #size 32 } :Int or :Float)
     var inlineSize = getInlineSize(value);
     if (inlineSize > 0) {
       ensureCapacity(inlineSize);

@@ -659,35 +659,6 @@ public sealed interface StvnValue {
     }
 
     /**
-     * Factory for unbounded non-empty strings ({@code :StringNonEmpty}).
-     *
-     * @return an unbounded non-empty string trait instance
-     */
-    public static StringTrait unboundedNonEmpty() {
-      return new StringTrait(0, 0, true);
-    }
-
-    /**
-     * Factory for max-bounded strings ({@code :StringN}).
-     *
-     * @param maxLength the maximum allowed length
-     * @return a max-bounded string trait instance
-     */
-    public static StringTrait maxBounded(int maxLength) {
-      return new StringTrait(0, maxLength, false);
-    }
-
-    /**
-     * Factory for max-bounded non-empty strings ({@code :StringNonEmptyN}).
-     *
-     * @param maxLength the maximum allowed length
-     * @return a bounded non-empty string trait instance
-     */
-    public static StringTrait boundedNonEmpty(int maxLength) {
-      return new StringTrait(0, maxLength, true);
-    }
-
-    /**
      * Factory for exact fixed-length strings ({@code { #minSize N #maxSize N } :String}).
      *
      * @param fixedLength the exact required length
@@ -710,7 +681,7 @@ public sealed interface StvnValue {
   /**
    * Represents an ordered sequence array of values.
    * <p>
-   * Maps to the STVN {@code :Seq} or {@code :SeqNonEmpty} collections.
+   * Maps to the STVN {@code :Seq} collection.
    * Positional ordering is preserved, and elements are exposed as an unmodifiable list.
    *
    * @param schema     the resolved schema mapping this node
@@ -749,7 +720,7 @@ public sealed interface StvnValue {
   /**
    * Represents an insertion-ordered set enforcing unique elements.
    * <p>
-   * Maps to the STVN {@code :Set} or {@code :SetNonEmpty} collections.
+   * Maps to the STVN {@code :Set} collection.
    * Demands that all elements satisfy {@code #equatable} traits. Internally backed by a sequenced set,
    * preserving deterministic encounter order.
    *
@@ -806,7 +777,7 @@ public sealed interface StvnValue {
   /**
    * Represents an associative map of key-value pairs.
    * <p>
-   * Maps to STVN {@code :Map}, {@code :MapNonEmpty}, or bidirectional {@code :MapInv} structures.
+   * Maps to STVN {@code :Map} structures.
    * Key encounter order is preserved, and keys must satisfy the {@code #equatable} trait.
    * Backed by {@link java.util.SequencedMap} to guarantee determinism in text and binary representations.
    *

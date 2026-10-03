@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 import org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints;
@@ -349,10 +350,9 @@ public final class IrGeneratorUtility {
     String baseText = StvnTypeResolver.getPrimitiveBaseType(schema.node());
     if (baseText == null) return Optional.empty();
 
-    boolean isSeq = baseText.equals(":Seq") || baseText.equals(":SeqNonEmpty");
-    boolean isSet = baseText.equals(":Set") || baseText.equals(":SetNonEmpty");
-    boolean isMap = baseText.equals(":Map") || baseText.equals(":MapNonEmpty") ||
-                    baseText.equals(":MapInv") || baseText.equals(":MapInvNonEmpty");
+    boolean isSeq = baseText.equals(StvnVocabulary.TYPE_SEQ);
+    boolean isSet = baseText.equals(StvnVocabulary.TYPE_SET);
+    boolean isMap = baseText.equals(StvnVocabulary.TYPE_MAP);
 
     if (traitName.equals("comparable")) {
       if (isSeq || baseText.equals(":Option") ||

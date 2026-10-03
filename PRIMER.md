@@ -133,7 +133,7 @@ STVN enforces strict lexical whitespace discipline to ensure consistent formatti
 1. **Permissible Whitespace:** Only standard ASCII spaces (`U+0020`), carriage returns (`\r`), and line feeds (`\n`) are permitted as structural whitespace.
 2. **Strict Zero-Tab Invariant:** Raw tab characters (`\t`, `U+0009`) are strictly forbidden in STVN document structure. The presence of a tab character raises a fatal syntax error (`ERR_TAB_CHARACTER_FORBIDDEN`). Tab characters within single-line string literals must be escaped as `\t`.
 3. **Canonical AST Printers:** `AstPrettyPrinter` serializes AST value trees with canonical 2-space indentation and long-form keywords (`#TRUE`, `#FALSE`, `#Some`, `#None`). `AstCompactPrinter` emits minimal single-line text with short-form keywords (`#T`, `#F`, `#S`, `#N`).
-4. **String Capacity Governance:** Unadorned `:String` allocations default to `DEFAULT_UNBOUNDED_STRING_CAPACITY` (16,777,216 characters / 16 MiB). Explicit nominal suffix dimensions (`:String4096`, `{ #minSize 16 #maxSize 16 } :String`, `:String33554432`) support capacities up to $2^{31}-1$.
+4. **String Capacity Governance:** Unadorned `:String` allocations default to `DEFAULT_UNBOUNDED_STRING_CAPACITY` (16,777,216 characters / 16 MiB). Explicit metadata facets (`{ #minSize 16 #maxSize 16 } :String`) support custom string dimensions up to $2^{31}-1$.
 
 ---
 

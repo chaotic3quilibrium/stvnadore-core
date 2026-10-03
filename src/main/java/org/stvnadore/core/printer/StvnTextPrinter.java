@@ -48,7 +48,7 @@ public interface StvnTextPrinter {
    * Translates an ANTLR collection type context into its corresponding STVN schema keyword.
    *
    * @param col the ANTLR context representing the collection type
-   * @return the schema type keyword string (e.g. {@code :Seq}, {@code :MapNonEmpty})
+   * @return the schema type keyword string (e.g. {@code :Seq}, {@code :Map})
    */
   default String resolveCollectionType(StvnParser.CollectionTypeContext col) {
     var colType = "";

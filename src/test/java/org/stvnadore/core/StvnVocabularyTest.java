@@ -312,4 +312,12 @@ class StvnVocabularyTest {
     assertFalse(StvnVocabulary.isConstructorMatch(":EitherOr", StvnVocabulary.TYPE_EITHER));
     assertFalse(StvnVocabulary.isConstructorMatch(":UnionAll", StvnVocabulary.TYPE_UNION));
   }
+
+  @Test
+  @DisplayName("TC-VOCAB-14: Assert architectural limits and capacity constants match specifications")
+  void testArchitecturalLimitsConstants() {
+    assertEquals(16_777_216, StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY);
+    assertEquals(4096, StvnVocabulary.DEFAULT_INSPECTION_THRESHOLD);
+    assertEquals(2, StvnVocabulary.DEFAULT_INDENT_WIDTH);
+  }
 }

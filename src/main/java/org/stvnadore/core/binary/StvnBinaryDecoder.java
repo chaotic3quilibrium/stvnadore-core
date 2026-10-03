@@ -389,7 +389,7 @@ public class StvnBinaryDecoder {
 
     int inlineSize = getInlineSize(effectiveSchema);
     String baseType = StvnTypeResolver.getPrimitiveBaseType(effectiveSchema.node());
-    boolean isBareInt = (baseType != null && (baseType.equals(StvnVocabulary.TYPE_INT) || baseType.equals(":Uint")))
+    boolean isBareInt = (baseType != null && baseType.equals(StvnVocabulary.TYPE_INT))
         && effectiveSchema.constraints().size().isEmpty()
         && effectiveSchema.underlyingSchema().flatMap(u -> u.constraints().size()).isEmpty();
 
@@ -709,8 +709,6 @@ public class StvnBinaryDecoder {
 
     return switch (baseType) {
       case StvnVocabulary.TYPE_BOOLEAN -> new StvnValue.StvnBoolean(schema, ctx.buffer().get(offset) != 0);
-      case ":Float32" -> StvnValue.StvnFloat.ofFloat(schema, ctx.buffer().getFloat(offset));
-      case ":Float64" -> StvnValue.StvnFloat.ofDouble(schema, ctx.buffer().getDouble(offset));
       case StvnVocabulary.TYPE_FLOAT -> {
         int size = schema.constraints().size().orElse(64);
         if (size == 32) {
@@ -718,18 +716,6 @@ public class StvnBinaryDecoder {
         } else {
           yield StvnValue.StvnFloat.ofDouble(schema, ctx.buffer().getDouble(offset));
         }
-      }
-      case ":TimeEpochS", ":TimeEpochMs", ":TimeEpochNs" -> {
-        long epochVal = ctx.buffer().getLong(offset);
-        // Treat as 64-bit unsigned
-        java.math.BigInteger unsignedVal = new java.math.BigInteger(1, java.nio.ByteBuffer.allocate(8).putLong(epochVal).array());
-        StvnValue.TimeKind kind = switch (baseType) {
-          case ":TimeEpochS" -> StvnValue.TimeKind.EPOCH_S;
-          case ":TimeEpochMs" -> StvnValue.TimeKind.EPOCH_MS;
-          case ":TimeEpochNs" -> StvnValue.TimeKind.EPOCH_NS;
-          default -> throw new IllegalStateException();
-        };
-        yield new StvnValue.StvnTime(schema, unsignedVal, kind);
       }
       case String s when (schema != null && (schema.constraints().unit().isPresent() || (schema.aliasName().isPresent() && schema.aliasName().get().contains("TimeEpoch")) || (schema.underlyingSchema().isPresent() && schema.underlyingSchema().get().aliasName().isPresent() && schema.underlyingSchema().get().aliasName().get().contains("TimeEpoch")))) || s.equals(StvnVocabulary.TYPE_TIME_EPOCH) || s.contains("TimeEpoch") -> {
         long epochVal = ctx.buffer().getLong(offset);
@@ -904,7 +890,7 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 1.5 EXACT FLOATS
     // -------------------------------------------------------------------------
-    if (baseType != null && (baseType.equals(":FloatExact") || (baseType.equals(StvnVocabulary.TYPE_FLOAT) && schema.constraints().exact()))) {
+    if (baseType != null && baseType.equals(StvnVocabulary.TYPE_FLOAT) && schema.constraints().exact()) {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int dataStartOffset = offset + lr.bytesConsumed();
       validateAllocationBounds(lr.length(), ctx.buffer(), dataStartOffset);

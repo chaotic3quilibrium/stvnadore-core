@@ -66,8 +66,6 @@ public final class DiagnosticBag {
   public static final String WARN_DEPRECATED_FENCE_ARROW = "RULE_STR_04_DEPRECATED_ARROW";
   /** Error code emitted when a forbidden tab character ('\t', U+0009) is encountered in STVN syntax. */
   public static final String ERR_TAB_CHARACTER_FORBIDDEN = "ERR_TAB_CHARACTER_FORBIDDEN";
-  /** Error code emitted when a nominal string capacity suffix violates architectural bounds. */
-  public static final String ERR_INVALID_STRING_CAPACITY = "ERR_INVALID_STRING_CAPACITY";
   /** Error code emitted when an empty metadata block '{}' is encountered on a type or constant definition. */
   public static final String ERR_EMPTY_METADATA_BLOCK = "ERR_EMPTY_METADATA_BLOCK";
   /** Error code emitted when an empty directive block '{}' is encountered in :use or :include. */
@@ -90,12 +88,6 @@ public final class DiagnosticBag {
   public static final String ERR_INVALID_NUMERIC_LITERAL = "ERR_INVALID_NUMERIC_LITERAL";
 
   // Normative STVN 2.0.0 Standard Diagnostic Codes
-  /**
-   * Error code emitted when a deprecated legacy compound type is declared (SPEC-01).
-   * @deprecated Obsolete in 2.0.0. Compound keywords now fail closed with {@link #ERR_UNDEFINED_TYPE}.
-   */
-  @Deprecated(forRemoval = true, since = "2.0.0")
-  public static final String ERR_COMPOUND_TYPE_OBSOLETE = "ERR_COMPOUND_TYPE_OBSOLETE";
   /** Error code emitted when a :TimeEpoch type declaration lacks a mandatory scale facet (SPEC-02). */
   public static final String ERR_TEMPORAL_SCALE_MISSING = "ERR_TEMPORAL_SCALE_MISSING";
   /** Error code emitted when the legacy #unit facet is used instead of bare scale flags (SPEC-02). */

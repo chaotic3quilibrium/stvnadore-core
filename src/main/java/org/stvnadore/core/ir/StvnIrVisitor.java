@@ -559,15 +559,11 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
   private StvnFloat buildFloat(StvnParser.FloatLiteralContext ctx, ResolvedSchema schema, String baseType, String aliasOrBase) {
     FloatPrecision precision = FloatPrecision.FLOAT64;
     if (schema != null && schema.constraints() != null) {
-      if (schema.constraints().exact() || baseType.equals(":FloatExact")) {
+      if (schema.constraints().exact()) {
         precision = FloatPrecision.EXACT;
-      } else if (schema.constraints().size().orElse(64) == 32 || baseType.equals(":Float32")) {
+      } else if (schema.constraints().size().orElse(64) == 32) {
         precision = FloatPrecision.FLOAT32;
       }
-    } else if (baseType.equals(":Float32")) {
-      precision = FloatPrecision.FLOAT32;
-    } else if (baseType.equals(":FloatExact")) {
-      precision = FloatPrecision.EXACT;
     }
     var rawVal = StvnLiteralParser.parseFloat(ctx.getText());
     // Basic bounds checking for Float64 overflow/underflow if requested
@@ -699,9 +695,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     }
 
     // 5. Default Unbounded Allocation Limit Check (len <= 16,777,216 for unadorned :String)
-    if (fixedLength == 0 && maxLength == 0 && textLength > org.stvnadore.core.utils.StvnStringCapacityUtils.DEFAULT_UNBOUNDED_STRING_CAPACITY) {
+    if (fixedLength == 0 && maxLength == 0 && textLength > StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY) {
       throw new MalformedPayloadException(
-          "Constraint violation (" + aliasOrBase + "): String length exceeds default unbounded allocation size of " + org.stvnadore.core.utils.StvnStringCapacityUtils.DEFAULT_UNBOUNDED_STRING_CAPACITY,
+          "Constraint violation (" + aliasOrBase + "): String length exceeds default unbounded allocation size of " + StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY,
           ctx.getStart().getStartIndex(),
           ctx.getStop().getStopIndex() + 1
       );
@@ -1562,9 +1558,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var saved = List.copyOf(currentTrajectory);
     currentTrajectory.clear();
     try {
-      var isSet = baseType.equals(StvnVocabulary.TYPE_SET) || baseType.equals(":SetNonEmpty");
-      var isNonEmpty = baseType.equals(":SeqNonEmpty") || baseType.equals(":SetNonEmpty")
-          || (schema != null && schema.constraints().minSize().orElse(0) >= 1);
+      var isSet = baseType.equals(StvnVocabulary.TYPE_SET);
+      var isNonEmpty = (schema != null && schema.constraints().minSize().orElse(0) >= 1);
 
       ResolvedSchema elementSchema;
       List<StvnParser.SchemaTypeContext> inner = (schema != null && schema.node() != null)
@@ -1672,10 +1667,8 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     var saved = List.copyOf(currentTrajectory);
     currentTrajectory.clear();
     try {
-      var isNonEmpty = baseType.equals(":MapNonEmpty") || baseType.equals(":MapInvNonEmpty")
-          || (schema != null && schema.constraints().minSize().orElse(0) >= 1);
-      var isInverted = baseType.equals(":MapInv") || baseType.equals(":MapInvNonEmpty")
-          || (schema != null && schema.constraints().invertible());
+      var isNonEmpty = (schema != null && schema.constraints().minSize().orElse(0) >= 1);
+      var isInverted = (schema != null && schema.constraints().invertible());
 
       ResolvedSchema keySchema;
       ResolvedSchema valSchema;
@@ -2100,12 +2093,6 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     return false;
   }
 
-  private static final Set<String> KEYWORDS_MAP = Set.of(
-      StvnVocabulary.TYPE_MAP,
-      ":MapNonEmpty",
-      ":MapInv",
-      ":MapInvNonEmpty");
-
   private boolean matchesSchema(StvnValue val, ResolvedSchema cand) {
     var t = StvnTypeResolver.getPrimitiveBaseType(cand.node());
     if (t == null) return false;
@@ -2117,9 +2104,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       case StvnBoolean ignored -> t.equals(StvnVocabulary.TYPE_BOOLEAN);
       case StvnString ignored -> isStringType(t) || isDateTimeType(t);
       case StvnTime ignored -> isTimeEpochType(t);
-      case StvnDateTimeOffset ignored -> t.equals(":DateTimeOffset") || t.equals(StvnVocabulary.TYPE_DATE_TIME);
-      case StvnDateTimeZoned ignored -> t.equals(":DateTimeZoned") || t.equals(StvnVocabulary.TYPE_DATE_TIME);
-      case StvnDateTimeAudited ignored -> t.equals(":DateTimeAudited") || t.equals(StvnVocabulary.TYPE_DATE_TIME);
+      case StvnDateTimeOffset ignored -> t.equals(StvnVocabulary.TYPE_DATE_TIME);
+      case StvnDateTimeZoned ignored -> t.equals(StvnVocabulary.TYPE_DATE_TIME);
+      case StvnDateTimeAudited ignored -> t.equals(StvnVocabulary.TYPE_DATE_TIME);
       case StvnSeq ignored -> t.equals(StvnVocabulary.TYPE_SEQ);
       case StvnSet ignored -> t.equals(StvnVocabulary.TYPE_SET);
       case StvnMap ignored -> t.equals(StvnVocabulary.TYPE_MAP) || t.equals(StvnVocabulary.TYPE_MAP_ENTRY);

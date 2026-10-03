@@ -544,41 +544,6 @@ public final class StvnErrorListener extends BaseErrorListener {
     if (rawMsg.contains("token recognition error at:")) {
       return sanitizeTokenRecognitionMessage(rawMsg);
     }
-    // Intercept legacy compound tokens and translate to domain migration directives
-    if (rawMsg.contains(":Int") && rawMsg.matches(".*:Int[0-9]+.*")) {
-      String width = rawMsg.replaceAll(".*:Int([0-9]+).*", "$1");
-      return "Compound integer keyword ':Int" + width + "' is deprecated in 2.0.0; use '{ #size " + width + " } :Int'";
-    }
-    if (rawMsg.contains(":Uint")) {
-      String width = rawMsg.replaceAll(".*:Uint([0-9]*).*", "$1");
-      String sizeClause = width.isEmpty() ? "" : " #size " + width;
-      return "Compound unsigned integer keyword ':Uint" + width + "' is deprecated in 2.0.0; use '{ #unsigned" + sizeClause + " } :Int'";
-    }
-    if (rawMsg.contains(":FloatExact")) {
-      return "Compound float keyword ':FloatExact' is deprecated in 2.0.0; use '{ #exact } :Float'";
-    }
-    if (rawMsg.contains(":StringFixed")) {
-      String len = rawMsg.replaceAll(".*:StringFixed([0-9]+).*", "$1");
-      return "Compound string keyword ':StringFixed" + len + "' is deprecated in 2.0.0; use '{ #minSize " + len + " #maxSize " + len + " } :String'";
-    }
-    if (rawMsg.contains(":StringNonEmpty")) {
-      return "Compound string keyword ':StringNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :String'";
-    }
-    if (rawMsg.contains(":SeqNonEmpty")) {
-      return "Compound collection keyword ':SeqNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Seq'";
-    }
-    if (rawMsg.contains(":SetNonEmpty")) {
-      return "Compound collection keyword ':SetNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Set'";
-    }
-    if (rawMsg.contains(":MapInvNonEmpty")) {
-      return "Compound collection keyword ':MapInvNonEmpty' is deprecated in 2.0.0; use '{ #invertible #minSize 1 } :Map'";
-    }
-    if (rawMsg.contains(":MapInv")) {
-      return "Compound collection keyword ':MapInv' is deprecated in 2.0.0; use '{ #invertible } :Map'";
-    }
-    if (rawMsg.contains(":MapNonEmpty")) {
-      return "Compound collection keyword ':MapNonEmpty' is deprecated in 2.0.0; use '{ #minSize 1 } :Map'";
-    }
     if (rawMsg.contains(":TimeEpoch")) {
       return "Legacy temporal epoch keyword is deprecated in 2.0.0; use ':TimeEpoch' with mandatory scale facet '{ #s }', '{ #ms }', '{ #us }', or '{ #ns }'";
     }

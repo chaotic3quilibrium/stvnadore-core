@@ -2126,7 +2126,6 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_MUTUALLY_EXCLUSIVE` | `"MUTUALLY_EXCLUSIVE_BOUNDS"` | Fatal | Mutually exclusive boundary constraints or modes simultaneously declared. |
 | `ERR_CIRCULAR_TYPE` | `"CIRCULAR_TYPE_DEFINITION"` | Fatal | Recursive type aliases form non-disjunctive circular self-reference. |
 | `ERR_DUPLICATE_DEF` | `"DUPLICATE_TYPE_DEFINITION"` | Fatal | Duplicate type or constant identifiers declared in the same scope. |
-| `ERR_INVALID_STRING_CAPACITY` | `"ERR_INVALID_STRING_CAPACITY"` | Fatal | Nominal string capacity suffix violates architectural bounds. |
 | `ERR_INVALID_METADATA_FACET` | `"ERR_INVALID_METADATA_FACET"` | Fatal | Metadata facet applied to incompatible target entity kind. |
 | `ERR_DISCRETE_BOUND_KIND_PROHIBITED` | `"ERR_DISCRETE_BOUND_KIND_PROHIBITED"` | Fatal | Discrete type (`:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime`) declares `#maxIncl` or `#minExcl`. |
 | `ERR_EMPTY_INTERVAL_DOMAIN` | `"ERR_EMPTY_INTERVAL_DOMAIN"` | Fatal | Discrete interval defines empty domain $[k, k)$ with zero points. |
@@ -2136,7 +2135,6 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_LEGACY_UNIT_FACET_PURGED` | `"ERR_LEGACY_UNIT_FACET_PURGED"` | Fatal | Legacy `#unit` facet used instead of bare scale flags. |
 | `ERR_DATETIME_MODE_INVALID` | `"ERR_DATETIME_MODE_INVALID"` | Fatal | `:DateTime` declaration lacks or specifies invalid mode facet. |
 | `ERR_PRELUDE_ALIAS_PURGED` | `"ERR_PRELUDE_ALIAS_PURGED"` | Fatal | Purged prelude nominal aliases referenced (e.g. `:DateTimeOffset`). |
-| `ERR_COMPOUND_TYPE_OBSOLETE` | `"ERR_COMPOUND_TYPE_OBSOLETE"` | Fatal | Deprecated legacy compound type keyword used (e.g. `:Int32`, `:Uint16`). |
 | `ERR_STRING_CARDINALITY_PROHIBITED` | `"ERR_STRING_CARDINALITY_PROHIBITED"` | Fatal | Storage sizing `#size` declared on `:String` (use `#minSize` / `#maxSize`). |
 | `ERR_FACET_ORDER_VIOLATION` | `"ERR_FACET_ORDER_VIOLATION"` | Fatal | Metadata facets violate the 5-tier canonical sequence. |
 | `ERR_DUPLICATE_METADATA_FACET` | `"ERR_DUPLICATE_METADATA_FACET"` | Fatal | Duplicate facet tag declared within the same metadata block. |

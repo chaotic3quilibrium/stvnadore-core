@@ -2309,13 +2309,6 @@ public class StvnTypeResolver {
         if (keyConstraints != null && keyConstraints.equatable().equals(Optional.of(false))) {
           throw new MalformedSchemaException("Map keys require types to be #equatable #TRUE");
         }
-        if (baseText.equals(":MapInv") || baseText.equals(":MapInvNonEmpty")) {
-          var valSchema = children.get(1);
-          var valConstraints = valSchema.constraints();
-          if (valConstraints != null && valConstraints.equatable().equals(Optional.of(false))) {
-            throw new MalformedSchemaException("Inverted map values require types to be #equatable #TRUE");
-          }
-        }
       }
     }
 
@@ -2398,7 +2391,7 @@ public class StvnTypeResolver {
     var changed = false;
 
     if (equatable.isEmpty()) {
-      equatable = Optional.of(!(isFloatType(baseText) && !baseText.equals(":FloatExact")));
+      equatable = Optional.of(!isFloatType(baseText));
       changed = true;
     }
     if (comparable.isEmpty()) {
@@ -2442,7 +2435,7 @@ public class StvnTypeResolver {
 
     // 1. Equatable Derivation
     if (!hasEquatableOverride) {
-      if (isFloatType(baseText) && !baseText.equals(":FloatExact")) {
+      if (isFloatType(baseText)) {
         equatable = Optional.of(false);
       } else if (isSeqType(baseText) || isSetType(baseText) || baseText.equals(StvnVocabulary.TYPE_OPTION)) {
         if (!children.isEmpty()) {
@@ -2458,7 +2451,7 @@ public class StvnTypeResolver {
           equatable = Optional.of(true);
         }
       } else {
-        // Atomic scalar types (Int, Uint, String, Boolean, Enum, FloatExact)
+        // Atomic scalar types (Int, String, Boolean, Enum)
         equatable = Optional.of(true);
       }
     }
@@ -2478,7 +2471,7 @@ public class StvnTypeResolver {
           comparable = Optional.of(true);
         }
       } else {
-        // Scalar primitives and enums (including Float32, Float64, Float)
+        // Scalar primitives and enums (including Float)
         comparable = Optional.of(true);
       }
     }
@@ -4481,12 +4474,12 @@ public class StvnTypeResolver {
     }
 
     if (isFloatType) {
-      var isExact = consolidated.exact() || baseType.equals(":FloatExact");
+      var isExact = consolidated.exact();
       if (!isExact) {
         var minPhys = BigDecimal.ZERO;
         var maxPhys = BigDecimal.ZERO;
         var bitWidth = consolidated.size().orElse(64);
-        if (bitWidth == 32 || baseType.equals(":Float32")) {
+        if (bitWidth == 32) {
           minPhys = BigDecimal.valueOf(-Float.MAX_VALUE);
           maxPhys = BigDecimal.valueOf(Float.MAX_VALUE);
         } else {
