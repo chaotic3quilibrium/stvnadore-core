@@ -1,4 +1,0 @@
-{
-  "expectedException": "org.stvnadore.core.validation.MalformedPayloadException",
-  "errorMessageSubstring": "Type mismatch: Expected boolean, got integer"
-}
