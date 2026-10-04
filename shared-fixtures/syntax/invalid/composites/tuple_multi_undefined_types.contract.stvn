@@ -1,0 +1,14 @@
+{
+  // tuple_multi_undefined_types.contract.stvn
+  :defs {
+    :include [ "../error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #ERR_UNDEFINED_TYPE
+    "Undefined type: :TimeEpochNs"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

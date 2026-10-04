@@ -2143,10 +2143,40 @@ public class StvnTypeResolver {
     if (doc != null) {
       getDocumentDefinitions(doc);
     }
-    return resolvePrimitiveSchema(doc, schemaNode, visited, false);
+    return resolvePrimitiveSchema(doc, schemaNode, visited, false, null);
   }
 
-  private static Optional<ResolvedSchema> resolvePrimitiveSchema(@Nullable StvnDocumentContext doc, @Nullable SchemaTypeContext schemaNode, Set<String> visited, boolean passedConstructor) {
+  /**
+   * Resolves the primitive or structural schema representation of a schema node,
+   * accumulating diagnostics into the provided {@link DiagnosticBag} without early abort.
+   *
+   * @param doc           the STVN document context
+   * @param schemaNode    the schema type parse context to resolve
+   * @param visited       set of visited nominal type names for cycle detection
+   * @param diagnosticBag optional diagnostic bag for error accumulation; if null, throws on error
+   * @return the resolved schema, or an error sentinel if resolution failed
+   */
+  public static Optional<ResolvedSchema> resolvePrimitiveSchema(
+      @Nullable StvnDocumentContext doc,
+      @Nullable SchemaTypeContext schemaNode,
+      Set<String> visited,
+      @Nullable DiagnosticBag diagnosticBag) {
+    if (doc != null) {
+      if (diagnosticBag != null) {
+        getDocumentDefinitions(doc, diagnosticBag);
+      } else {
+        getDocumentDefinitions(doc);
+      }
+    }
+    return resolvePrimitiveSchema(doc, schemaNode, visited, false, diagnosticBag);
+  }
+
+  private static Optional<ResolvedSchema> resolvePrimitiveSchema(
+      @Nullable StvnDocumentContext doc,
+      @Nullable SchemaTypeContext schemaNode,
+      Set<String> visited,
+      boolean passedConstructor,
+      @Nullable DiagnosticBag diagnosticBag) {
     // PATHWAY B: Defensive guard to handle missing or incomplete schema node declarations in incomplete parse trees
     if (schemaNode == null) return Optional.empty();
 
@@ -2171,7 +2201,7 @@ public class StvnTypeResolver {
       if (typeDefOpt.isPresent()) {
         var typeDef = typeDefOpt.get();
         var meta = extractConstraints(schemaNode.metadataMap());
-        var innerRes = resolvePrimitiveSchema(doc, typeDef.schemaType(), nextVisited, false);
+        var innerRes = resolvePrimitiveSchema(doc, typeDef.schemaType(), nextVisited, false, diagnosticBag);
 
         Optional<ResolvedType.EnumSubset> derivedSubset = Optional.empty();
         if (meta.filterIncl().isPresent() || meta.filterExcl().isPresent()) {
@@ -2257,7 +2287,7 @@ public class StvnTypeResolver {
             if (base != null && isMapType(base)) {
               var inner = getInnerSchemas(resolvedSchema.node());
               if (inner.size() >= 2) {
-                var valOpt = resolvePrimitiveSchema(doc, inner.get(1), visited, true);
+                var valOpt = resolvePrimitiveSchema(doc, inner.get(1), visited, true, diagnosticBag);
                 if (valOpt.isPresent() && valOpt.get().constraints().equatable().equals(Optional.of(false))) {
                   throw new MalformedSchemaException("Inverted map values require types to be #equatable #TRUE");
                 }
@@ -2273,6 +2303,17 @@ public class StvnTypeResolver {
             .map(StvnTypeResolver::validateResolvedSchema);
       } else {
         markTypePoisoned(doc, kw);
+        if (diagnosticBag != null) {
+          int start = schemaNode.getStart().getStartIndex();
+          int end = schemaNode.getStop().getStopIndex() + 1;
+          int line = schemaNode.getStart().getLine();
+          int col = schemaNode.getStart().getCharPositionInLine();
+          diagnosticBag.addError(
+              "Undefined type: " + kw,
+              start, end, line, col, null, DiagnosticBag.ERR_UNDEFINED_TYPE
+          );
+          return Optional.of(ResolvedSchema.error(kw, schemaNode));
+        }
         throw new MalformedSchemaException("Undefined type: " + kw,
             schemaNode.getStart().getStartIndex(),
             schemaNode.getStop().getStopIndex() + 1);
@@ -2283,16 +2324,24 @@ public class StvnTypeResolver {
 
     var baseText = getPrimitiveBaseType(schemaNode);
     var children = new java.util.ArrayList<ResolvedSchema>();
+    boolean hasPoisonedChild = false;
     if (baseText != null) {
       for (var child : getInnerSchemas(schemaNode)) {
-        resolvePrimitiveSchema(doc, child, visited, true).ifPresent(children::add);
+        var childOpt = resolvePrimitiveSchema(doc, child, visited, true, diagnosticBag);
+        if (childOpt.isPresent()) {
+          var childRs = childOpt.get();
+          children.add(childRs);
+          if (childRs.isPoisonedSentinel()) {
+            hasPoisonedChild = true;
+          }
+        }
       }
     }
 
 
 
     if (baseText != null && isSetType(baseText)) {
-      if (!children.isEmpty()) {
+      if (!children.isEmpty() && !children.getFirst().isPoisonedSentinel()) {
         var c = children.getFirst().constraints();
         if (c != null && c.equatable().equals(Optional.of(false))) {
           throw new MalformedSchemaException("Set elements require types to be #equatable #TRUE");
@@ -2301,7 +2350,7 @@ public class StvnTypeResolver {
     }
 
     if (baseText != null && isMapType(baseText)) {
-      if (children.size() >= 2) {
+      if (children.size() >= 2 && !children.get(0).isPoisonedSentinel()) {
         var keySchema = children.get(0);
         var keyConstraints = keySchema.constraints();
         if (keyConstraints != null && keyConstraints.equatable().equals(Optional.of(false))) {
@@ -2324,7 +2373,21 @@ public class StvnTypeResolver {
       }
     }
     var baseRs = applyDefaults(new ResolvedSchema(schemaNode, localMeta, Optional.empty()));
-    return Optional.of(validateResolvedSchema(deriveAndApplyTraits(baseRs, children)));
+    var derivedRs = deriveAndApplyTraits(baseRs, children);
+    if (hasPoisonedChild) {
+      derivedRs = new ResolvedSchema(
+          derivedRs.node(),
+          derivedRs.constraints(),
+          derivedRs.aliasName(),
+          derivedRs.implicitUnionTag(),
+          derivedRs.sumTypeNode(),
+          derivedRs.underlyingSchema(),
+          derivedRs.localConstraints(),
+          true,
+          derivedRs.enumSubset()
+      );
+    }
+    return Optional.of(validateResolvedSchema(derivedRs));
   }
 
   private static ResolvedSchema validateResolvedSchema(ResolvedSchema rs) {
@@ -3175,7 +3238,7 @@ public class StvnTypeResolver {
         if (!inner.isEmpty()) {
           var elemNode = inner.getFirst();
           var resolvedOpt = resolvePrimitiveSchema(doc, elemNode, new java.util.HashSet<>(visited));
-          if (resolvedOpt.isPresent()) {
+          if (resolvedOpt.isPresent() && !resolvedOpt.get().isPoisonedSentinel()) {
             var resolved = resolvedOpt.get();
             var equatable = resolved.constraints().equatable().orElse(false);
             if (!equatable) {
@@ -3195,7 +3258,7 @@ public class StvnTypeResolver {
         if (!inner.isEmpty()) {
           var keyNode = inner.getFirst();
           var resolvedOpt = resolvePrimitiveSchema(doc, keyNode, new java.util.HashSet<>(visited));
-          if (resolvedOpt.isPresent()) {
+          if (resolvedOpt.isPresent() && !resolvedOpt.get().isPoisonedSentinel()) {
             var resolved = resolvedOpt.get();
             var equatable = resolved.constraints().equatable().orElse(false);
             if (!equatable) {
@@ -3307,7 +3370,7 @@ public class StvnTypeResolver {
       }
       Optional<ResolvedSchema> resolvedOpt = Optional.empty();
       try {
-        resolvedOpt = resolvePrimitiveSchema(doc, rootSchema, new java.util.HashSet<>());
+        resolvedOpt = resolvePrimitiveSchema(doc, rootSchema, new java.util.HashSet<>(), diagnosticBag);
       } catch (MalformedSchemaException e) {
         int start = e.startOffset() >= 0 ? e.startOffset() : rootSchema.getStart().getStartIndex();
         int end = e.endOffset() >= 0 ? e.endOffset() : rootSchema.getStop().getStopIndex() + 1;
@@ -3421,7 +3484,7 @@ public class StvnTypeResolver {
     visited.add(typeName);
     Optional<ResolvedSchema> resolvedOpt;
     try {
-      resolvedOpt = resolvePrimitiveSchema(doc, typeDef.schemaType(), visited);
+      resolvedOpt = resolvePrimitiveSchema(doc, typeDef.schemaType(), visited, diagnosticBag);
     } catch (CircularReferenceException e) {
       int line = typeDef.getStart().getLine();
       int col = typeDef.getStart().getCharPositionInLine();
@@ -3458,6 +3521,9 @@ public class StvnTypeResolver {
       markTypePoisoned(doc, typeName);
       return;
     }
+    if (resolvedOpt.isPresent() && resolvedOpt.get().isPoisonedSentinel()) {
+      markTypePoisoned(doc, typeName);
+    }
 
     validateSchemaCapabilities(doc, typeDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     var metaMap = typeDef.schemaType() != null ? typeDef.schemaType().metadataMap() : null;
@@ -3482,7 +3548,7 @@ public class StvnTypeResolver {
             var inner = getInnerSchemas(resolvedOpt.get().node());
             if (inner.size() >= 2) {
               var valOpt = resolvePrimitiveSchema(doc, inner.get(1), new java.util.HashSet<>());
-              if (valOpt.isPresent() && !valOpt.get().constraints().equatable().orElse(false)) {
+              if (valOpt.isPresent() && !valOpt.get().isPoisonedSentinel() && !valOpt.get().constraints().equatable().orElse(false)) {
                 int line = metaMap.getStart().getLine();
                 int col = metaMap.getStart().getCharPositionInLine();
                 int start = metaMap.getStart().getStartIndex();
@@ -3540,7 +3606,7 @@ public class StvnTypeResolver {
     visited.add(constName);
     Optional<ResolvedSchema> resolvedOpt;
     try {
-      resolvedOpt = resolvePrimitiveSchema(doc, constDef.schemaType(), visited);
+      resolvedOpt = resolvePrimitiveSchema(doc, constDef.schemaType(), visited, diagnosticBag);
     } catch (CircularReferenceException e) {
       int line = constDef.getStart().getLine();
       int col = constDef.getStart().getCharPositionInLine();

@@ -1,0 +1,7 @@
+// @spec: SPEC-10-PRODUCT-TYPES
+// @case: Negative - Multi-element tuple undefined types
+// @error: ERR_UNDEFINED_TYPE
+{
+  :type :Tuple ( :TimeEpochNs :TimeEpochUs :TimeEpochMs :TimeEpochS )
+  :body ( 1 2 3 4 )
+}

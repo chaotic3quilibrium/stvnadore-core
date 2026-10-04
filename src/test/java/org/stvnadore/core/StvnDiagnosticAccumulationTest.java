@@ -325,4 +325,116 @@ public class StvnDiagnosticAccumulationTest {
     String printedOut = writer.printToString(partialAst);
     Assertions.assertTrue(printedOut.contains("300"));
   }
+
+  @Test
+  @DisplayName("TC-DIAG-COMPOSITE-01: Multi-error tuple schema accumulates all undefined types")
+  void testMultiErrorTupleSchemaDiagnosticAccumulation() {
+    String input = """
+        {
+          :type :Tuple ( :TimeEpochNs :TimeEpochUs :TimeEpochMs :TimeEpochS )
+          :body ( 1 2 3 4 )
+        }
+        """;
+
+    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+
+    Assertions.assertFalse(result.isSuccess(), "Compilation must fail for undeclared tuple types");
+    Assertions.assertTrue(result.hasErrors(), "Result must have error diagnostics");
+
+    List<StvnDiagnostic> diags = result.diagnostics();
+    Assertions.assertEquals(4, diags.size(), "Must accumulate exactly 4 diagnostics for 4 undefined types");
+
+    String[] expectedTypes = { ":TimeEpochNs", ":TimeEpochUs", ":TimeEpochMs", ":TimeEpochS" };
+    for (int i = 0; i < expectedTypes.length; i++) {
+      StvnDiagnostic d = diags.get(i);
+      String typeName = expectedTypes[i];
+      Assertions.assertEquals("UNDEFINED_TYPE", d.errorCode().orElse(""), "Must emit ERR_UNDEFINED_TYPE");
+      Assertions.assertEquals("Undefined type: " + typeName, d.message());
+      int expectedStart = input.indexOf(typeName);
+      int expectedEnd = expectedStart + typeName.length();
+      Assertions.assertEquals(expectedStart, d.startOffset(), "Start offset must pin to token start");
+      Assertions.assertEquals(expectedEnd, d.endOffset(), "End offset must pin to token end");
+      Assertions.assertEquals(2, d.line(), "Line must match source line");
+    }
+  }
+
+  @Test
+  @DisplayName("TC-DIAG-COMPOSITE-02: Duplicate undefined types in composite suppress duplicate diagnostics")
+  void testMultiErrorTupleDuplicateTypeSuppression() {
+    String input = """
+        {
+          :type :Tuple ( :UnknownTypeA :UnknownTypeA :UnknownTypeB )
+          :body ( 1 2 3 )
+        }
+        """;
+
+    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+
+    Assertions.assertTrue(result.hasErrors());
+    List<StvnDiagnostic> diags = result.diagnostics();
+    Assertions.assertEquals(2, diags.size(), "Duplicate undefined type must be suppressed");
+    Assertions.assertEquals("Undefined type: :UnknownTypeA", diags.get(0).message());
+    Assertions.assertEquals("Undefined type: :UnknownTypeB", diags.get(1).message());
+  }
+
+  @Test
+  @DisplayName("TC-DIAG-COMPOSITE-03: Nested composite schemas accumulate errors across multiple branches")
+  void testNestedCompositeMultiErrorAccumulation() {
+    String input = """
+        {
+          :type :Tuple ( :Seq(:BadType1) :Map(:BadType2 :BadType3) )
+          :body ( [ 1 ] { [ 1 2 ] } )
+        }
+        """;
+
+    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+
+    Assertions.assertTrue(result.hasErrors());
+    List<StvnDiagnostic> diags = result.diagnostics();
+    Assertions.assertEquals(3, diags.size(), "Must accumulate diagnostics from nested Seq and Map branches");
+    Assertions.assertTrue(diags.stream().anyMatch(d -> d.message().contains(":BadType1")));
+    Assertions.assertTrue(diags.stream().anyMatch(d -> d.message().contains(":BadType2")));
+    Assertions.assertTrue(diags.stream().anyMatch(d -> d.message().contains(":BadType3")));
+  }
+
+  @Test
+  @DisplayName("TC-DIAG-COMPOSITE-04: Composite schema in :defs accumulates all child errors")
+  void testDefsCompositeMultiErrorAccumulation() {
+    String input = """
+        {
+          :defs {
+            :MyTuple :Tuple ( :UndefinedAlpha :UndefinedBeta )
+          }
+          :type :MyTuple
+          :body ( 1 2 )
+        }
+        """;
+
+    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+
+    Assertions.assertTrue(result.hasErrors());
+    List<StvnDiagnostic> diags = result.diagnostics();
+    Assertions.assertEquals(2, diags.size(), "Must accumulate both errors from :defs tuple");
+    Assertions.assertEquals("Undefined type: :UndefinedAlpha", diags.get(0).message());
+    Assertions.assertEquals("Undefined type: :UndefinedBeta", diags.get(1).message());
+  }
+
+  @Test
+  @DisplayName("TC-DIAG-COMPOSITE-05: Set with undefined element suppresses secondary trait violation")
+  void testSetWithUndefinedElementSuppressesTraitViolation() {
+    String input = """
+        {
+          :type :Set(:NonExistentType)
+          :body [ 1 ]
+        }
+        """;
+
+    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+
+    Assertions.assertTrue(result.hasErrors());
+    List<StvnDiagnostic> diags = result.diagnostics();
+    Assertions.assertEquals(1, diags.size(), "Only ERR_UNDEFINED_TYPE should be emitted");
+    Assertions.assertEquals("UNDEFINED_TYPE", diags.getFirst().errorCode().orElse(""));
+    Assertions.assertFalse(diags.stream().anyMatch(d -> "TRAIT_VIOLATION".equals(d.errorCode().orElse(""))));
+  }
 }
