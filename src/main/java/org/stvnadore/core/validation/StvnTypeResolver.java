@@ -2183,9 +2183,6 @@ public class StvnTypeResolver {
     if (schemaNode.typeKeyword() != null) {
       var rawKw = schemaNode.typeKeyword().getText();
       var kw = resolveTypeIdentifier(doc, rawKw, schemaNode);
-      if (doc != null && isTypePoisoned(doc, kw)) {
-        return Optional.of(ResolvedSchema.error(kw, schemaNode));
-      }
       if (visited.contains(kw)) {
         if (passedConstructor) {
           return Optional.of(validateResolvedSchema(applyDefaults(new ResolvedSchema(schemaNode, StvnConstraints.empty(), Optional.of(kw), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(StvnConstraints.empty()), false, Optional.empty()))));
@@ -2199,6 +2196,9 @@ public class StvnTypeResolver {
 
       var typeDefOpt = findTypeDefinition(doc, kw, schemaNode);
       if (typeDefOpt.isPresent()) {
+        if (doc != null && isTypePoisoned(doc, kw)) {
+          return Optional.of(ResolvedSchema.error(kw, schemaNode));
+        }
         var typeDef = typeDefOpt.get();
         var meta = extractConstraints(schemaNode.metadataMap());
         var innerRes = resolvePrimitiveSchema(doc, typeDef.schemaType(), nextVisited, false, diagnosticBag);
@@ -2302,6 +2302,9 @@ public class StvnTypeResolver {
                 Optional.of(applyDefaults(new ResolvedSchema(schemaNode, meta, Optional.of(kw), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(meta), false, finalSubset))))
             .map(StvnTypeResolver::validateResolvedSchema);
       } else {
+        if (diagnosticBag == null && doc != null && isTypePoisoned(doc, kw)) {
+          return Optional.of(ResolvedSchema.error(kw, schemaNode));
+        }
         markTypePoisoned(doc, kw);
         if (diagnosticBag != null) {
           int start = schemaNode.getStart().getStartIndex();

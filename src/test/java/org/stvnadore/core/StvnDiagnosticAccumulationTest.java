@@ -359,8 +359,8 @@ public class StvnDiagnosticAccumulationTest {
   }
 
   @Test
-  @DisplayName("TC-DIAG-COMPOSITE-02: Duplicate undefined types in composite suppress duplicate diagnostics")
-  void testMultiErrorTupleDuplicateTypeSuppression() {
+  @DisplayName("TC-DIAG-COMPOSITE-02: Duplicate undefined types in composite accumulate distinct diagnostics")
+  void testMultiErrorTupleDuplicateTypeAccumulation() {
     String input = """
         {
           :type :Tuple ( :UnknownTypeA :UnknownTypeA :UnknownTypeB )
@@ -372,9 +372,17 @@ public class StvnDiagnosticAccumulationTest {
 
     Assertions.assertTrue(result.hasErrors());
     List<StvnDiagnostic> diags = result.diagnostics();
-    Assertions.assertEquals(2, diags.size(), "Duplicate undefined type must be suppressed");
+    Assertions.assertEquals(3, diags.size(), "Must accumulate all undefined type occurrences");
     Assertions.assertEquals("Undefined type: :UnknownTypeA", diags.get(0).message());
-    Assertions.assertEquals("Undefined type: :UnknownTypeB", diags.get(1).message());
+    Assertions.assertEquals("Undefined type: :UnknownTypeA", diags.get(1).message());
+    Assertions.assertEquals("Undefined type: :UnknownTypeB", diags.get(2).message());
+
+    Assertions.assertNotEquals(diags.get(0).startOffset(), diags.get(1).startOffset(),
+        "Duplicate occurrences must have distinct start offsets");
+    int firstOccurrence = input.indexOf(":UnknownTypeA");
+    int secondOccurrence = input.indexOf(":UnknownTypeA", firstOccurrence + 1);
+    Assertions.assertEquals(firstOccurrence, diags.get(0).startOffset());
+    Assertions.assertEquals(secondOccurrence, diags.get(1).startOffset());
   }
 
   @Test
