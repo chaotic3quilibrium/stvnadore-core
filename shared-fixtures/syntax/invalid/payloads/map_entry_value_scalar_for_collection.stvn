@@ -1,0 +1,12 @@
+// @spec: SPEC-05-COLLECTIONS
+// @case: Negative - Reject scalar literal in collection value slot of map entry
+// @error: ERR_TYPE_MISMATCH
+{
+  :defs {
+    :String0 { #minSize 0 #maxSize 0 } :String
+  }
+  :type :Map( :String0 :Set( :String0 ) )
+  :body {
+    [ "" "" ]
+  }
+}

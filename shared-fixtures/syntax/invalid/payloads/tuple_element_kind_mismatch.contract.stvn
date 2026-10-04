@@ -1,5 +1,5 @@
 {
-  // trap5_bracketed_tuple.contract.stvn
+  // tuple_element_kind_mismatch.contract.stvn
   :defs {
     :include [ "../error_contract.stvn_inclf" ]
   }
@@ -8,7 +8,7 @@
 
   :body (
     #ERR_TYPE_MISMATCH
-    "Type mismatch: expected product constructor :Tuple, found collection constructor :Seq"
+    "Type mismatch: expected product constructor :Tuple, found scalar :Int"
     "org.stvnadore.core.validation.MalformedPayloadException"
   )
 }

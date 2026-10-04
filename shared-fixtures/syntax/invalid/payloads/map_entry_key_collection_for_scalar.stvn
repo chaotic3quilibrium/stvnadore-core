@@ -1,0 +1,9 @@
+// @spec: SPEC-05-COLLECTIONS
+// @case: Negative - Reject collection literal in scalar key slot of map entry
+// @error: ERR_TYPE_MISMATCH
+{
+  :type :Map( :String :Int )
+  :body {
+    [ [ "nested" ] 42 ]
+  }
+}

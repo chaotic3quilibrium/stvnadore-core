@@ -7,8 +7,8 @@
   :type :ErrorContract
 
   :body (
-    #MALFORMED_PAYLOAD
-    "Type mismatch: Expected string, got integer"
+    #ERR_TYPE_MISMATCH
+    "Type mismatch: expected key-value constructor :Map, found collection constructor :Seq"
     "org.stvnadore.core.validation.MalformedPayloadException"
   )
 }

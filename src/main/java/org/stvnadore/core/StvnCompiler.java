@@ -337,6 +337,8 @@ public final class StvnCompiler {
           endOffset = e.endOffset();
           if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
+          } else if (e.getMessage() != null && e.getMessage().startsWith("Type mismatch")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_TYPE_MISMATCH;
           } else if (e.getMessage() != null && (e.getMessage().contains("outside allowable range")
               || e.getMessage().contains("violates #minSize constraint")
               || e.getMessage().contains("exceeds maximum length of")
@@ -408,6 +410,8 @@ public final class StvnCompiler {
           endOffset = e.endOffset();
           if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
+          } else if (e.getMessage() != null && e.getMessage().startsWith("Type mismatch")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_TYPE_MISMATCH;
           } else if (e.getMessage() != null && (e.getMessage().contains("outside allowable range")
               || e.getMessage().contains("violates #minSize constraint")
               || e.getMessage().contains("exceeds maximum length of")

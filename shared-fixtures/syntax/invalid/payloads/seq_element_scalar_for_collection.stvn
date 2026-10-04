@@ -1,0 +1,10 @@
+// @spec: SPEC-05-COLLECTIONS
+// @case: Negative - Reject scalar literal where nested sequence collection is expected
+// @error: ERR_TYPE_MISMATCH
+{
+  :type :Seq( :Seq( :String ) )
+  :body [
+    [ "ok" ]
+    "illegal-scalar"
+  ]
+}

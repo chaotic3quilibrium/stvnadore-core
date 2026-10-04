@@ -1,5 +1,5 @@
 {
-  // trap5_bracketed_tuple.contract.stvn
+  // map_entry_key_collection_for_scalar.contract.stvn
   :defs {
     :include [ "../error_contract.stvn_inclf" ]
   }
@@ -8,7 +8,7 @@
 
   :body (
     #ERR_TYPE_MISMATCH
-    "Type mismatch: expected product constructor :Tuple, found collection constructor :Seq"
+    "Type mismatch: expected scalar :String, found collection constructor :Seq"
     "org.stvnadore.core.validation.MalformedPayloadException"
   )
 }

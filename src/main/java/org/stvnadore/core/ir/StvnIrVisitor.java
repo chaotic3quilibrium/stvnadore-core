@@ -133,6 +133,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           || (msg.contains("Constraint violation") && (msg.contains("Size") || msg.contains("String length")))) {
         return Optional.of(org.stvnadore.core.validation.DiagnosticBag.ERR_CONSTRAINT_VIOLATION);
       }
+      if (msg.startsWith("Type mismatch")) {
+        return Optional.of(org.stvnadore.core.validation.DiagnosticBag.ERR_TYPE_MISMATCH);
+      }
     }
     return Optional.empty();
   }
@@ -319,85 +322,88 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       StvnValue rawValue;
       if (enumSchema != null) {
         rawValue = buildValueEnum(textVal, enumSchema, ctx);
-      } else if (ctx.integerLiteral() != null) {
-        verifyStructuralTypeMatch(baseType, "integer", ctx);
-        rawValue = buildIntegerOrTime(ctx.integerLiteral(), schema, baseType, aliasOrBase);
-      } else if (ctx.floatLiteral() != null) {
-        verifyStructuralTypeMatch(baseType, "float", ctx);
-        rawValue = buildFloat(ctx.floatLiteral(), schema, baseType, aliasOrBase);
-      } else if (ctx.stringLiteral() != null) {
-        verifyStructuralTypeMatch(baseType, "string", ctx);
-        rawValue = buildStringOrTime(ctx.stringLiteral(), schema, baseType, aliasOrBase);
-      } else if (ctx.booleanLiteral() != null) {
-        verifyStructuralTypeMatch(baseType, "boolean", ctx);
-        var text = ctx.booleanLiteral().getText();
-        rawValue = new StvnBoolean(schema, text.equals(StvnVocabulary.VAL_TRUE) || text.equals(StvnVocabulary.VAL_TRUE_SHORT));
-      } else if (ctx.valueKeyword() != null) {
-        rawValue = buildValueKeywordOrConstant(ctx.valueKeyword(), schema);
-      } else if (ctx.collectionValue() != null) {
-        if (ctx.collectionValue().listLiteral() != null)
-          rawValue = buildList(ctx.collectionValue().listLiteral(), schema, baseType);
-        else if (ctx.collectionValue().mapLiteral() != null)
-          rawValue = buildMap(ctx.collectionValue().mapLiteral(), schema, baseType);
-        else if (ctx.collectionValue().tupleLiteral() != null) {
-          if (!baseType.equals(StvnVocabulary.TYPE_TUPLE)) {
-            throw new MalformedPayloadException(
-                "Type mismatch: Expected scalar (" + baseType + "), got Tuple (parenthesized product syntax is strictly reserved for :Tuple)",
-                ctx.collectionValue().tupleLiteral().start.getStartIndex(),
-                ctx.collectionValue().tupleLiteral().stop.getStopIndex() + 1
-            );
-          }
-          rawValue = buildTuple(ctx.collectionValue().tupleLiteral(), schema);
-        } else throw new IllegalStateException("Unknown collection value");
-      } else if (ctx.explicitOptionValue() != null) {
-        if (!baseType.equals(StvnVocabulary.TYPE_OPTION)) {
-          if (ctx.explicitOptionValue().value() == null) {
-            rawValue = evaluateKeywordToken(ctx.explicitOptionValue().start.getText(), schema, ctx.explicitOptionValue());
+      } else {
+        assertStructuralKindCompatibility(baseType, schema, ctx);
+        if (ctx.integerLiteral() != null) {
+          verifyStructuralTypeMatch(baseType, "integer", ctx);
+          rawValue = buildIntegerOrTime(ctx.integerLiteral(), schema, baseType, aliasOrBase);
+        } else if (ctx.floatLiteral() != null) {
+          verifyStructuralTypeMatch(baseType, "float", ctx);
+          rawValue = buildFloat(ctx.floatLiteral(), schema, baseType, aliasOrBase);
+        } else if (ctx.stringLiteral() != null) {
+          verifyStructuralTypeMatch(baseType, "string", ctx);
+          rawValue = buildStringOrTime(ctx.stringLiteral(), schema, baseType, aliasOrBase);
+        } else if (ctx.booleanLiteral() != null) {
+          verifyStructuralTypeMatch(baseType, "boolean", ctx);
+          var text = ctx.booleanLiteral().getText();
+          rawValue = new StvnBoolean(schema, text.equals(StvnVocabulary.VAL_TRUE) || text.equals(StvnVocabulary.VAL_TRUE_SHORT));
+        } else if (ctx.valueKeyword() != null) {
+          rawValue = buildValueKeywordOrConstant(ctx.valueKeyword(), schema);
+        } else if (ctx.collectionValue() != null) {
+          if (ctx.collectionValue().listLiteral() != null)
+            rawValue = buildList(ctx.collectionValue().listLiteral(), schema, baseType);
+          else if (ctx.collectionValue().mapLiteral() != null)
+            rawValue = buildMap(ctx.collectionValue().mapLiteral(), schema, baseType);
+          else if (ctx.collectionValue().tupleLiteral() != null) {
+            if (!baseType.equals(StvnVocabulary.TYPE_TUPLE)) {
+              throw new MalformedPayloadException(
+                  "Type mismatch: Expected scalar (" + baseType + "), got Tuple (parenthesized product syntax is strictly reserved for :Tuple)",
+                  ctx.collectionValue().tupleLiteral().start.getStartIndex(),
+                  ctx.collectionValue().tupleLiteral().stop.getStopIndex() + 1
+              );
+            }
+            rawValue = buildTuple(ctx.collectionValue().tupleLiteral(), schema);
+          } else throw new IllegalStateException("Unknown collection value");
+        } else if (ctx.explicitOptionValue() != null) {
+          if (!baseType.equals(StvnVocabulary.TYPE_OPTION)) {
+            if (ctx.explicitOptionValue().value() == null) {
+              rawValue = evaluateKeywordToken(ctx.explicitOptionValue().start.getText(), schema, ctx.explicitOptionValue());
+            } else {
+              throw new MalformedPayloadException(
+                  "Unexpected Option tag (#Some/#None), schema does not define an :Option. baseType='" + baseType + "', nodeText='" + (schema != null
+                      ? schema.node().getText()
+                      : "null") + "'",
+                  ctx.explicitOptionValue().start.getStartIndex(),
+                  ctx.explicitOptionValue().stop.getStopIndex() + 1
+              );
+            }
           } else {
-            throw new MalformedPayloadException(
-                "Unexpected Option tag (#Some/#None), schema does not define an :Option. baseType='" + baseType + "', nodeText='" + (schema != null
-                    ? schema.node().getText()
-                    : "null") + "'",
-                ctx.explicitOptionValue().start.getStartIndex(),
-                ctx.explicitOptionValue().stop.getStopIndex() + 1
-            );
+            rawValue = buildOption(ctx.explicitOptionValue(), schema);
           }
-        } else {
-          rawValue = buildOption(ctx.explicitOptionValue(), schema);
-        }
-      } else if (ctx.explicitEitherValue() != null) {
-        if (!baseType.equals(StvnVocabulary.TYPE_EITHER)) {
-          if (ctx.explicitEitherValue().value() == null) {
-            rawValue = evaluateKeywordToken(ctx.explicitEitherValue().start.getText(), schema, ctx.explicitEitherValue());
+        } else if (ctx.explicitEitherValue() != null) {
+          if (!baseType.equals(StvnVocabulary.TYPE_EITHER)) {
+            if (ctx.explicitEitherValue().value() == null) {
+              rawValue = evaluateKeywordToken(ctx.explicitEitherValue().start.getText(), schema, ctx.explicitEitherValue());
+            } else {
+              throw new MalformedPayloadException(
+                  "Unexpected Either tag (#Left/#Right), schema does not define an :Either. baseType='" + baseType + "', nodeText='" + (schema != null
+                      ? schema.node().getText()
+                      : "null") + "'",
+                  ctx.explicitEitherValue().start.getStartIndex(),
+                  ctx.explicitEitherValue().stop.getStopIndex() + 1
+              );
+            }
           } else {
-            throw new MalformedPayloadException(
-                "Unexpected Either tag (#Left/#Right), schema does not define an :Either. baseType='" + baseType + "', nodeText='" + (schema != null
-                    ? schema.node().getText()
-                    : "null") + "'",
-                ctx.explicitEitherValue().start.getStartIndex(),
-                ctx.explicitEitherValue().stop.getStopIndex() + 1
-            );
+            rawValue = buildEither(ctx.explicitEitherValue(), schema);
           }
-        } else {
-          rawValue = buildEither(ctx.explicitEitherValue(), schema);
-        }
-      } else if (ctx.explicitUnionValue() != null) {
-        if (!baseType.equals(StvnVocabulary.TYPE_UNION)) {
-          if (ctx.explicitUnionValue().value() == null) {
-            rawValue = evaluateKeywordToken(ctx.explicitUnionValue().UNION_TAG_PREFIX().getText(), schema, ctx.explicitUnionValue());
+        } else if (ctx.explicitUnionValue() != null) {
+          if (!baseType.equals(StvnVocabulary.TYPE_UNION)) {
+            if (ctx.explicitUnionValue().value() == null) {
+              rawValue = evaluateKeywordToken(ctx.explicitUnionValue().UNION_TAG_PREFIX().getText(), schema, ctx.explicitUnionValue());
+            } else {
+              throw new MalformedPayloadException(
+                  "Unexpected Union tag (" + ctx.explicitUnionValue().UNION_TAG_PREFIX().getText() + "), schema does not define a :Union. baseType='" + baseType + "', nodeText='" + (schema != null
+                      ? schema.node().getText()
+                      : "null") + "'",
+                  ctx.explicitUnionValue().start.getStartIndex(),
+                  ctx.explicitUnionValue().stop.getStopIndex() + 1
+              );
+            }
           } else {
-            throw new MalformedPayloadException(
-                "Unexpected Union tag (" + ctx.explicitUnionValue().UNION_TAG_PREFIX().getText() + "), schema does not define a :Union. baseType='" + baseType + "', nodeText='" + (schema != null
-                    ? schema.node().getText()
-                    : "null") + "'",
-                ctx.explicitUnionValue().start.getStartIndex(),
-                ctx.explicitUnionValue().stop.getStopIndex() + 1
-            );
+            rawValue = buildUnion(ctx.explicitUnionValue(), schema);
           }
-        } else {
-          rawValue = buildUnion(ctx.explicitUnionValue(), schema);
-        }
-      } else throw new IllegalStateException("Unexpected STVN node type");
+        } else throw new IllegalStateException("Unexpected STVN node type");
+      }
 
       return wrapImplicitSum(rawValue, schema);
     } finally {
@@ -424,6 +430,68 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           ctx.getStop().getStopIndex() + 1
       );
     }
+  }
+
+  private void assertStructuralKindCompatibility(String baseType, ResolvedSchema schema, StvnParser.ValueContext ctx) {
+    if (baseType.equals(StvnVocabulary.TYPE_OPTION) || baseType.equals(StvnVocabulary.TYPE_EITHER) || baseType.equals(StvnVocabulary.TYPE_UNION)) {
+      return;
+    }
+    if (ctx.valueKeyword() != null) {
+      return;
+    }
+    int start = ctx.getStart().getStartIndex();
+    int end = ctx.getStop().getStopIndex() + 1;
+
+    boolean isCollectionCtor = baseType.equals(StvnVocabulary.TYPE_SEQ) || baseType.equals(StvnVocabulary.TYPE_SET);
+    boolean isMapCtor = baseType.equals(StvnVocabulary.TYPE_MAP);
+    boolean isTupleCtor = baseType.equals(StvnVocabulary.TYPE_TUPLE);
+    boolean isScalar = isIntType(baseType) || isFloatType(baseType) || isStringType(baseType)
+        || isDateTimeType(schema, baseType) || isTimeEpochType(baseType) || baseType.equals(StvnVocabulary.TYPE_BOOLEAN);
+
+    if (isCollectionCtor) {
+      if (ctx.collectionValue() == null || ctx.collectionValue().listLiteral() == null) {
+        String found = getAstLiteralKindName(ctx);
+        throw new MalformedPayloadException("Type mismatch: expected collection constructor " + baseType + ", found " + found, start, end);
+      }
+    } else if (isMapCtor) {
+      if (ctx.collectionValue() == null || ctx.collectionValue().mapLiteral() == null) {
+        String found = getAstLiteralKindName(ctx);
+        throw new MalformedPayloadException("Type mismatch: expected key-value constructor :Map, found " + found, start, end);
+      }
+    } else if (isTupleCtor) {
+      if (ctx.collectionValue() == null || ctx.collectionValue().tupleLiteral() == null) {
+        String found = getAstLiteralKindName(ctx);
+        throw new MalformedPayloadException("Type mismatch: expected product constructor :Tuple, found " + found, start, end);
+      }
+    } else if (isScalar) {
+      if (ctx.collectionValue() != null) {
+        if (ctx.collectionValue().tupleLiteral() != null) {
+          throw new MalformedPayloadException(
+              "Type mismatch: Expected scalar (" + baseType + "), got Tuple (parenthesized product syntax is strictly reserved for :Tuple)",
+              start, end
+          );
+        }
+        String found = getAstLiteralKindName(ctx);
+        throw new MalformedPayloadException("Type mismatch: expected scalar " + baseType + ", found " + found, start, end);
+      }
+    }
+  }
+
+  private String getAstLiteralKindName(StvnParser.ValueContext ctx) {
+    if (ctx.stringLiteral() != null) return "scalar :String";
+    if (ctx.integerLiteral() != null) return "scalar :Int";
+    if (ctx.floatLiteral() != null) return "scalar :Float";
+    if (ctx.booleanLiteral() != null) return "scalar :Boolean";
+    if (ctx.collectionValue() != null) {
+      if (ctx.collectionValue().listLiteral() != null) return "collection constructor :Seq";
+      if (ctx.collectionValue().mapLiteral() != null) return "key-value constructor :Map";
+      if (ctx.collectionValue().tupleLiteral() != null) return "product constructor :Tuple";
+    }
+    if (ctx.valueKeyword() != null) return "keyword " + ctx.valueKeyword().getText();
+    if (ctx.explicitOptionValue() != null) return "option variant";
+    if (ctx.explicitEitherValue() != null) return "either variant";
+    if (ctx.explicitUnionValue() != null) return "union variant";
+    return "unknown";
   }
 
   private String unwrapValue(StvnValue val) {

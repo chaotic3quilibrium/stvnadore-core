@@ -3686,7 +3686,7 @@ public class StvnTypeResolver {
           ? extractConstraints(constMetaMap)
           : StvnConstraints.empty();
       var effectiveConstraints = localConstraints.merge(resolvedOpt.get().constraints());
-      validateConstantValueConstraints(constName, constDef.value(), effectiveConstraints, diagnosticBag);
+      validateConstantValueConstraints(constName, constDef.value(), effectiveConstraints, resolvedOpt.get(), diagnosticBag);
       validateConstantBitWidthCapacity(constName, resolvedOpt.get(), effectiveConstraints, constDef.value(), diagnosticBag);
     }
   }
@@ -3714,11 +3714,52 @@ public class StvnTypeResolver {
     }
   }
 
-  private static void validateConstantValueConstraints(String constName, StvnParser.ValueContext valueCtx, StvnConstraints c, DiagnosticBag diagnosticBag) {
+  private static void validateConstantValueConstraints(String constName, StvnParser.ValueContext valueCtx, StvnConstraints c, ResolvedSchema resolved, DiagnosticBag diagnosticBag) {
     int line = valueCtx.getStart().getLine();
     int col = valueCtx.getStart().getCharPositionInLine();
     int start = valueCtx.getStart().getStartIndex();
     int end = valueCtx.getStop().getStopIndex() + 1;
+
+    String baseType = getUltimateBaseType(resolved);
+    if (baseType != null && !baseType.equals(StvnVocabulary.TYPE_OPTION) && !baseType.equals(StvnVocabulary.TYPE_EITHER) && !baseType.equals(StvnVocabulary.TYPE_UNION)) {
+      boolean isCollectionCtor = baseType.equals(StvnVocabulary.TYPE_SEQ) || baseType.equals(StvnVocabulary.TYPE_SET);
+      boolean isMapCtor = baseType.equals(StvnVocabulary.TYPE_MAP);
+      boolean isTupleCtor = baseType.equals(StvnVocabulary.TYPE_TUPLE);
+      boolean isScalar = isIntegerType(baseType) || StvnVocabulary.TYPE_FLOAT.equals(baseType)
+          || isStringType(baseType) || isDateTimeType(baseType) || StvnVocabulary.TYPE_BOOLEAN.equals(baseType);
+
+      if (valueCtx.valueKeyword() == null) {
+        if (isCollectionCtor) {
+          if (valueCtx.collectionValue() == null || valueCtx.collectionValue().listLiteral() == null) {
+            String found = getAstLiteralKindName(valueCtx);
+            diagnosticBag.addError("Type mismatch (" + constName + "): expected collection constructor " + baseType + ", found " + found,
+                start, end, line, col, null, DiagnosticBag.ERR_TYPE_MISMATCH);
+            return;
+          }
+        } else if (isMapCtor) {
+          if (valueCtx.collectionValue() == null || valueCtx.collectionValue().mapLiteral() == null) {
+            String found = getAstLiteralKindName(valueCtx);
+            diagnosticBag.addError("Type mismatch (" + constName + "): expected key-value constructor :Map, found " + found,
+                start, end, line, col, null, DiagnosticBag.ERR_TYPE_MISMATCH);
+            return;
+          }
+        } else if (isTupleCtor) {
+          if (valueCtx.collectionValue() == null || valueCtx.collectionValue().tupleLiteral() == null) {
+            String found = getAstLiteralKindName(valueCtx);
+            diagnosticBag.addError("Type mismatch (" + constName + "): expected product constructor :Tuple, found " + found,
+                start, end, line, col, null, DiagnosticBag.ERR_TYPE_MISMATCH);
+            return;
+          }
+        } else if (isScalar) {
+          if (valueCtx.collectionValue() != null) {
+            String found = getAstLiteralKindName(valueCtx);
+            diagnosticBag.addError("Type mismatch (" + constName + "): expected scalar " + baseType + ", found " + found,
+                start, end, line, col, null, DiagnosticBag.ERR_TYPE_MISMATCH);
+            return;
+          }
+        }
+      }
+    }
 
     if (valueCtx.integerLiteral() != null) {
       String rawText = valueCtx.integerLiteral().getText();
@@ -3782,6 +3823,19 @@ public class StvnTypeResolver {
         }
       }
     }
+  }
+
+  private static String getAstLiteralKindName(StvnParser.ValueContext ctx) {
+    if (ctx.stringLiteral() != null) return "scalar :String";
+    if (ctx.integerLiteral() != null) return "scalar :Int";
+    if (ctx.floatLiteral() != null) return "scalar :Float";
+    if (ctx.booleanLiteral() != null) return "scalar :Boolean";
+    if (ctx.collectionValue() != null) {
+      if (ctx.collectionValue().listLiteral() != null) return "collection constructor :Seq";
+      if (ctx.collectionValue().mapLiteral() != null) return "key-value constructor :Map";
+      if (ctx.collectionValue().tupleLiteral() != null) return "product constructor :Tuple";
+    }
+    return "unknown";
   }
 
   private static final Map<String, Set<String>> PERMITTED_FACETS = Map.ofEntries(

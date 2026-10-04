@@ -291,6 +291,9 @@ public class StvnIrValidationTest {
     }
     if (e instanceof org.stvnadore.core.validation.MalformedPayloadException) {
       String msg = e.getMessage() != null ? e.getMessage() : "";
+      if (msg.startsWith("Type mismatch")) {
+        return "ERR_TYPE_MISMATCH";
+      }
       if (msg.contains("outside allowable range") || msg.contains("violates #minSize constraint")
           || msg.contains("exceeds maximum length of") || msg.contains("Fixed string must be")
           || msg.contains("Constraint violation")) {
@@ -306,6 +309,9 @@ public class StvnIrValidationTest {
     }
     if (e instanceof RuntimeException re) {
       String msg = re.getMessage() != null ? re.getMessage() : "";
+      if (msg.startsWith("Type mismatch")) {
+        return "ERR_TYPE_MISMATCH";
+      }
       if (msg.contains("outside allowable range") || msg.contains("violates #minSize constraint")
           || msg.contains("exceeds maximum length of") || msg.contains("Fixed string must be")
           || (msg.contains("Constraint violation") && (msg.contains("Size") || msg.contains("violates") || msg.contains("length")))) {

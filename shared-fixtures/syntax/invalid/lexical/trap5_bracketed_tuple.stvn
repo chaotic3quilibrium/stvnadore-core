@@ -1,6 +1,6 @@
 // @spec: SPEC-12-SYNTAX-LEXICAL
 // @case: Negative - Reject trap5 bracketed tuple
-// @error: MALFORMED_PAYLOAD
+// @error: ERR_TYPE_MISMATCH
 {
   :defs {
     :Pair :Tuple( :Int :String )

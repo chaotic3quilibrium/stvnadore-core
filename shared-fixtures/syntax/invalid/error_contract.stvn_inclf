@@ -28,6 +28,7 @@
       #CAPACITY_OVERFLOW
       #INVALID_NUMERIC_RANGE
       #ERR_CONSTRAINT_VIOLATION
+      #ERR_TYPE_MISMATCH
     ]
 
     :ErrorContract :Tuple(
