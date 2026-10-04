@@ -82,6 +82,8 @@ public final class DiagnosticBag {
   public static final String ERR_BARE_HASH_PROHIBITED = "ERR_BARE_HASH_PROHIBITED";
   /** Error code emitted when a negative zero integer literal is encountered (prohibited on :Int). */
   public static final String ERR_INVALID_NUMERIC_LITERAL = "ERR_INVALID_NUMERIC_LITERAL";
+  /** Error code emitted when a payload value violates declared or aliased cardinality bounds. */
+  public static final String ERR_CONSTRAINT_VIOLATION = "ERR_CONSTRAINT_VIOLATION";
 
   // Normative STVN 2.0.0 Standard Diagnostic Codes
   /** Error code emitted when a :TimeEpoch type declaration lacks a mandatory scale facet (SPEC-02). */

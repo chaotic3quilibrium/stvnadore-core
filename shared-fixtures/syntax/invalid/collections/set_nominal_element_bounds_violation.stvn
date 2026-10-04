@@ -1,0 +1,10 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Negative - Reject non-empty nominal string inside set payload
+// @error: ERR_CONSTRAINT_VIOLATION
+{
+  :defs {
+    :String0 { #minSize 0 #maxSize 0 } :String
+  }
+  :type :Set( :String0 )
+  :body [ "illegal" ]
+}

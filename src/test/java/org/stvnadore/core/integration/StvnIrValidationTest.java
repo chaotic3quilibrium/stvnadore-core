@@ -290,6 +290,12 @@ public class StvnIrValidationTest {
       return "MALFORMED_SCHEMA";
     }
     if (e instanceof org.stvnadore.core.validation.MalformedPayloadException) {
+      String msg = e.getMessage() != null ? e.getMessage() : "";
+      if (msg.contains("outside allowable range") || msg.contains("violates #minSize constraint")
+          || msg.contains("exceeds maximum length of") || msg.contains("Fixed string must be")
+          || msg.contains("Constraint violation")) {
+        return "ERR_CONSTRAINT_VIOLATION";
+      }
       return "MALFORMED_PAYLOAD";
     }
     if (e instanceof IllegalArgumentException) {
@@ -300,6 +306,11 @@ public class StvnIrValidationTest {
     }
     if (e instanceof RuntimeException re) {
       String msg = re.getMessage() != null ? re.getMessage() : "";
+      if (msg.contains("outside allowable range") || msg.contains("violates #minSize constraint")
+          || msg.contains("exceeds maximum length of") || msg.contains("Fixed string must be")
+          || (msg.contains("Constraint violation") && (msg.contains("Size") || msg.contains("violates") || msg.contains("length")))) {
+        return "ERR_CONSTRAINT_VIOLATION";
+      }
       if (msg.contains("violates canonical 7-tier order") || msg.contains("Facet order violation")) {
         return "ERR_FACET_ORDER_VIOLATION";
       }

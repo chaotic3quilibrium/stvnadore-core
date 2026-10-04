@@ -1,0 +1,14 @@
+{
+  // set_nominal_element_bounds_violation.contract.stvn
+  :defs {
+    :include [ "../error_contract.stvn_inclf" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #ERR_CONSTRAINT_VIOLATION
+    "Size 7 outside allowable range [0, 0]"
+    "org.stvnadore.core.validation.MalformedPayloadException"
+  )
+}

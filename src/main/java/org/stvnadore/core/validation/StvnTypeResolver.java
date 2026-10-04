@@ -1613,12 +1613,18 @@ public class StvnTypeResolver {
           : inner.size;
       boolean resUnsigned = this.explicitOverrides.contains("unsigned") ? this.unsigned : (this.unsigned || inner.unsigned);
       boolean resExact = this.explicitOverrides.contains("exact") ? this.exact : (this.exact || inner.exact);
-      Optional<Integer> resMinSize = this.explicitOverrides.contains("minSize") || this.minSize.isPresent()
-          ? this.minSize
-          : inner.minSize;
-      Optional<Integer> resMaxSize = this.explicitOverrides.contains("maxSize") || this.maxSize.isPresent()
-          ? this.maxSize
-          : inner.maxSize;
+      Optional<Integer> resMinSize;
+      if (this.minSize.isPresent() && inner.minSize.isPresent()) {
+        resMinSize = Optional.of(Math.max(this.minSize.get(), inner.minSize.get()));
+      } else {
+        resMinSize = this.minSize.isPresent() ? this.minSize : inner.minSize;
+      }
+      Optional<Integer> resMaxSize;
+      if (this.maxSize.isPresent() && inner.maxSize.isPresent()) {
+        resMaxSize = Optional.of(Math.min(this.maxSize.get(), inner.maxSize.get()));
+      } else {
+        resMaxSize = this.maxSize.isPresent() ? this.maxSize : inner.maxSize;
+      }
       boolean resInvertible = this.explicitOverrides.contains("invertible") ? this.invertible : (this.invertible || inner.invertible);
       Optional<String> resScale = this.explicitOverrides.contains("scale") || this.explicitOverrides.contains("unit") || this.scale.isPresent()
           ? this.scale
@@ -3751,14 +3757,29 @@ public class StvnTypeResolver {
       if (c.maxExcl().isPresent() && valBD.compareTo(c.maxExcl().get()) >= 0) {
         diagnosticBag.addError("Constraint violation (" + constName + "): Value must be strictly less than " + c.maxExcl().get(), start, end, line, col, null, DiagnosticBag.ERR_INVERTED_RANGE);
       }
-    } else if (valueCtx.stringLiteral() != null && c.regex().isPresent()) {
+    } else if (valueCtx.stringLiteral() != null) {
       var parsed = StvnLiteralParser.parseStringNew(valueCtx.stringLiteral().getText(), false);
-      try {
-        if (!java.util.regex.Pattern.compile(c.regex().get()).matcher(parsed.text()).matches()) {
-          diagnosticBag.addError("Constraint violation (" + constName + "): String does not match required pattern: " + c.regex().get(), start, end, line, col, null, DiagnosticBag.ERR_INVALID_REGEX);
+      int textLen = parsed.text().length();
+      if (c.minSize().isPresent() && textLen < c.minSize().get()) {
+        diagnosticBag.addError(
+            "Constraint violation (" + constName + "): Size " + textLen + " outside allowable range [" + c.minSize().get() + ", " + c.maxSize().orElse(StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY) + "]",
+            start, end, line, col, null, DiagnosticBag.ERR_CONSTRAINT_VIOLATION
+        );
+      }
+      if (c.maxSize().isPresent() && textLen > c.maxSize().get()) {
+        diagnosticBag.addError(
+            "Constraint violation (" + constName + "): Size " + textLen + " outside allowable range [" + c.minSize().orElse(0) + ", " + c.maxSize().get() + "]",
+            start, end, line, col, null, DiagnosticBag.ERR_CONSTRAINT_VIOLATION
+        );
+      }
+      if (c.regex().isPresent()) {
+        try {
+          if (!java.util.regex.Pattern.compile(c.regex().get()).matcher(parsed.text()).matches()) {
+            diagnosticBag.addError("Constraint violation (" + constName + "): String does not match required pattern: " + c.regex().get(), start, end, line, col, null, DiagnosticBag.ERR_INVALID_REGEX);
+          }
+        } catch (java.util.regex.PatternSyntaxException e) {
+          diagnosticBag.addError("Constraint violation (" + constName + "): Invalid regex pattern: " + c.regex().get(), start, end, line, col, e, DiagnosticBag.ERR_INVALID_REGEX);
         }
-      } catch (java.util.regex.PatternSyntaxException e) {
-        diagnosticBag.addError("Constraint violation (" + constName + "): Invalid regex pattern: " + c.regex().get(), start, end, line, col, e, DiagnosticBag.ERR_INVALID_REGEX);
       }
     }
   }

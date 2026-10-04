@@ -27,6 +27,7 @@
       #ERR_INVALID_METADATA_FACET
       #CAPACITY_OVERFLOW
       #INVALID_NUMERIC_RANGE
+      #ERR_CONSTRAINT_VIOLATION
     ]
 
     :ErrorContract :Tuple(

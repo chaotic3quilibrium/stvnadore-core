@@ -1,0 +1,12 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Negative - Reject non-empty nominal strings in map key and value payloads
+// @error: ERR_CONSTRAINT_VIOLATION
+{
+  :defs {
+    :String0 { #minSize 0 #maxSize 0 } :String
+  }
+  :type :Map( :String0 :String0 )
+  :body {
+    [ "keyViolation" "valViolation" ]
+  }
+}

@@ -126,6 +126,14 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     if (t instanceof org.stvnadore.core.validation.StvnIntegerOverflowException) {
       return Optional.of(org.stvnadore.core.validation.DiagnosticBag.ERR_INTEGER_OVERFLOW);
     }
+    if (t instanceof org.stvnadore.core.validation.MalformedPayloadException mpe) {
+      String msg = mpe.getMessage() != null ? mpe.getMessage() : "";
+      if (msg.contains("outside allowable range") || msg.contains("violates #minSize constraint")
+          || msg.contains("exceeds maximum length of") || msg.contains("Fixed string must be")
+          || (msg.contains("Constraint violation") && (msg.contains("Size") || msg.contains("String length")))) {
+        return Optional.of(org.stvnadore.core.validation.DiagnosticBag.ERR_CONSTRAINT_VIOLATION);
+      }
+    }
     return Optional.empty();
   }
 
@@ -665,9 +673,9 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     }
 
     // 3. Exact Fixed-Length Constraint Check (len == N)
-    if (fixedLength > 0 && textLength != fixedLength) {
+    if (isFixed && textLength != fixedLength) {
       throw new MalformedPayloadException(
-          "Constraint violation (" + aliasOrBase + "): Fixed string must be exactly " + fixedLength + " characters long, got " + textLength,
+          "Constraint violation (" + aliasOrBase + "): Fixed string must be exactly " + fixedLength + " characters long, got " + textLength + " (Size " + textLength + " outside allowable range [" + fixedLength + ", " + fixedLength + "])",
           ctx.getStart().getStartIndex(),
           ctx.getStop().getStopIndex() + 1
       );
@@ -678,7 +686,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       var c = schema.constraints();
       if (c.minSize().isPresent() && textLength < c.minSize().get()) {
         throw new MalformedPayloadException(
-            "Constraint violation (" + aliasOrBase + "): String length " + textLength + " violates #minSize constraint (" + c.minSize().get() + ")",
+            "Constraint violation (" + aliasOrBase + "): String length " + textLength + " violates #minSize constraint (" + c.minSize().get() + ") (Size " + textLength + " outside allowable range [" + c.minSize().get() + ", " + c.maxSize().orElse(StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY) + "])",
             ctx.getStart().getStartIndex(),
             ctx.getStop().getStopIndex() + 1
         );
@@ -686,18 +694,18 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     }
 
     // 4. Max-Bounded Constraint Check (len <= N for :StringN and :StringNonEmptyN)
-    if (maxLength > 0 && textLength > maxLength) {
+    if (isBounded && textLength > maxLength) {
       throw new MalformedPayloadException(
-          "Constraint violation (" + aliasOrBase + "): String length exceeds maximum length of " + maxLength + " characters, got " + textLength,
+          "Constraint violation (" + aliasOrBase + "): String length exceeds maximum length of " + maxLength + " characters, got " + textLength + " (Size " + textLength + " outside allowable range [" + (schema != null && schema.constraints() != null ? schema.constraints().minSize().orElse(0) : 0) + ", " + maxLength + "])",
           ctx.getStart().getStartIndex(),
           ctx.getStop().getStopIndex() + 1
       );
     }
 
     // 5. Default Unbounded Allocation Limit Check (len <= 16,777,216 for unadorned :String)
-    if (fixedLength == 0 && maxLength == 0 && textLength > StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY) {
+    if (!isFixed && !isBounded && textLength > StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY) {
       throw new MalformedPayloadException(
-          "Constraint violation (" + aliasOrBase + "): String length exceeds default unbounded allocation size of " + StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY,
+          "Constraint violation (" + aliasOrBase + "): String length exceeds default unbounded allocation size of " + StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY + " (Size " + textLength + " outside allowable range [0, " + StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY + "])",
           ctx.getStart().getStartIndex(),
           ctx.getStop().getStopIndex() + 1
       );
@@ -1616,9 +1624,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         }
       }
 
-      if (isNonEmpty && (isSet
-          ? setElements.isEmpty()
-          : elements.isEmpty())) {
+      int count = isSet ? setElements.size() : elements.size();
+      int minCap = (schema != null && schema.constraints() != null) ? schema.constraints().minSize().orElse(0) : 0;
+      int maxCap = (schema != null && schema.constraints() != null) ? schema.constraints().maxSize().orElse(Integer.MAX_VALUE) : Integer.MAX_VALUE;
+      if (isNonEmpty && count == 0) {
         String msg = isSet
             ? "Set is marked as non-empty but contains no elements"
             : "Sequence is marked as non-empty but contains no elements";
@@ -1627,6 +1636,15 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         int[] pos = getLineCol(ctx);
         var ex = new MalformedPayloadException(msg, start, end);
         var diag = new StvnDiagnostic(msg, StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, ex, Optional.of("NON_EMPTY_CONSTRAINT_VIOLATION"));
+        diagnosticBag.add(diag);
+      } else if (count < minCap || count > maxCap) {
+        String aliasOrBase = schema != null ? schema.aliasName().orElse(baseType) : baseType;
+        String msg = "Constraint violation (" + aliasOrBase + "): Size " + count + " outside allowable range [" + minCap + ", " + (maxCap == Integer.MAX_VALUE ? "open" : maxCap) + "]";
+        int start = ctx.start.getStartIndex();
+        int end = ctx.stop.getStopIndex() + 1;
+        int[] pos = getLineCol(ctx);
+        var ex = new MalformedPayloadException(msg, start, end);
+        var diag = new StvnDiagnostic(msg, StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, ex, Optional.of(DiagnosticBag.ERR_CONSTRAINT_VIOLATION));
         diagnosticBag.add(diag);
       }
       return isSet
@@ -1767,7 +1785,10 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
 
         entries.put(key, val);
       }
-      if (isNonEmpty && entries.isEmpty()) {
+      int mapCount = entries.size();
+      int mapMin = (schema != null && schema.constraints() != null) ? schema.constraints().minSize().orElse(0) : 0;
+      int mapMax = (schema != null && schema.constraints() != null) ? schema.constraints().maxSize().orElse(Integer.MAX_VALUE) : Integer.MAX_VALUE;
+      if (isNonEmpty && mapCount == 0) {
         String msg = isInverted
             ? "Invertible map is marked as non-empty but contains no elements"
             : "Map is marked as non-empty but contains no elements";
@@ -1776,6 +1797,15 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         int[] pos = getLineCol(ctx);
         var ex = new MalformedPayloadException(msg, start, end);
         var diag = new StvnDiagnostic(msg, StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, ex, Optional.of("NON_EMPTY_CONSTRAINT_VIOLATION"));
+        diagnosticBag.add(diag);
+      } else if (mapCount < mapMin || mapCount > mapMax) {
+        String aliasOrBase = schema != null ? schema.aliasName().orElse(baseType) : baseType;
+        String msg = "Constraint violation (" + aliasOrBase + "): Size " + mapCount + " outside allowable range [" + mapMin + ", " + (mapMax == Integer.MAX_VALUE ? "open" : mapMax) + "]";
+        int start = ctx.start.getStartIndex();
+        int end = ctx.stop.getStopIndex() + 1;
+        int[] pos = getLineCol(ctx);
+        var ex = new MalformedPayloadException(msg, start, end);
+        var diag = new StvnDiagnostic(msg, StvnDiagnostic.DiagnosticSeverity.ERROR, pos[0], pos[1], start, end, ex, Optional.of(DiagnosticBag.ERR_CONSTRAINT_VIOLATION));
         diagnosticBag.add(diag);
       }
       return new StvnMap(schema, entries, isNonEmpty, isInverted);

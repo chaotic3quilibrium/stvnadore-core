@@ -1,0 +1,10 @@
+// @spec: SPEC-06-STRING-CARD
+// @case: Negative - Reject nominal zero-capacity string in sequence payload
+// @error: ERR_CONSTRAINT_VIOLATION
+{
+  :defs {
+    :String0 { #minSize 0 #maxSize 0 } :String
+  }
+  :type :Seq( :String0 )
+  :body [ "" "a" "ab" ]
+}
