@@ -56,7 +56,7 @@ public class StvnCartesianFacetMatrixTest {
       new FacetSpec("unsigned", "#unsigned", "#unsigned"),
       new FacetSpec("exact", "#exact", "#exact"),
       new FacetSpec("invertible", "#invertible", "#invertible"),
-      new FacetSpec("preserveIndent", "#preserveIndent", "#preserveIndent"),
+      new FacetSpec("preserveIndent", "#preserveIndent #TRUE", "#preserveIndent #TRUE"),
       new FacetSpec("offset", "#offset", "#offset"),
       new FacetSpec("zoned", "#zoned", "#zoned"),
       new FacetSpec("audited", "#audited", "#audited"),

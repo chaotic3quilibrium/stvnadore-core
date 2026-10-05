@@ -1715,7 +1715,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "1.1" ]
                 }
                 """,
-            "STVN Syntax Error: mismatched input 'true'"
+            "Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)"
         ),
 
         TestProfile.createError(
@@ -1729,7 +1729,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "1.1" ]
                 }
                 """,
-            "STVN Syntax Error: mismatched input 'false'"
+            "Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)"
         ),
 
         TestProfile.createError(

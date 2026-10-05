@@ -17,8 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class StvnBareFlagFacetValidationTest {
 
   @Test
-  @DisplayName("TC-FLAG-01: Bare #preserveIndent extracts true and registers explicit override")
-  void testBarePreserveIndent() {
+  @DisplayName("TC-FLAG-01: Bare #preserveIndent is rejected with ERR_INVALID_METADATA_FACET")
+  void testBarePreserveIndentRejected() {
     String source = """
         {
           :defs {
@@ -29,13 +29,16 @@ public class StvnBareFlagFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertFalse(result.hasErrors(), "Bare #preserveIndent must compile cleanly");
+    assertTrue(result.hasErrors(), "Bare #preserveIndent must be rejected");
+    var error = result.diagnostics().getFirst();
+    assertEquals("ERR_INVALID_METADATA_FACET", error.errorCode().orElse(null));
+    assertTrue(error.message().contains("Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)"));
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"#preserveIndent #TRUE", "#preserveIndent #T"})
-  @DisplayName("TC-FLAG-02: Explicit true #preserveIndent compiles cleanly")
-  void testExplicitTruePreserveIndent(String facet) {
+  @ValueSource(strings = {"#preserveIndent #TRUE", "#preserveIndent #T", "#preserveIndent #FALSE", "#preserveIndent #F"})
+  @DisplayName("TC-FLAG-02: Explicit boolean #preserveIndent compiles cleanly")
+  void testExplicitBooleanPreserveIndent(String facet) {
     String source = """
         {
           :defs {
@@ -50,12 +53,12 @@ public class StvnBareFlagFacetValidationTest {
   }
 
   @Test
-  @DisplayName("TC-FLAG-03: All seven bare flags combined in a tuple payload compile cleanly")
-  void testAllSevenBareFlagsCombined() {
+  @DisplayName("TC-FLAG-03: Six bare flags combined with explicit #preserveIndent compile cleanly")
+  void testAllSixBareFlagsCombined() {
     String source = """
         {
           :defs {
-            :S { #preserveIndent } :String
+            :S { #preserveIndent #TRUE } :String
             :I { #unsigned #size 16 } :Int
             :F { #exact } :Float
             :M { #invertible } :Map(:String :Int)
@@ -79,6 +82,25 @@ public class StvnBareFlagFacetValidationTest {
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertFalse(result.hasErrors(), "Combined bare flags must compile without diagnostics");
+  }
+
+  @Test
+  @DisplayName("TC-FLAG-05: Non-boolean argument for #preserveIndent is rejected with ERR_INVALID_METADATA_FACET")
+  void testNonBooleanPreserveIndentRejected() {
+    String source = """
+        {
+          :defs {
+            :Text { #preserveIndent 10 } :String
+          }
+          :type :Text
+          :body "hello"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Non-boolean argument for #preserveIndent must be rejected");
+    var error = result.diagnostics().getFirst();
+    assertEquals("ERR_INVALID_METADATA_FACET", error.errorCode().orElse(null));
+    assertTrue(error.message().contains("Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)"));
   }
 
   @ParameterizedTest

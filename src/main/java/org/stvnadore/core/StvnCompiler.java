@@ -314,7 +314,7 @@ public final class StvnCompiler {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
           } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_UNDEFINED_TYPE;
-          } else if (msg.contains("filter facets") || msg.contains("is not permitted on")) {
+          } else if (msg.contains("filter facets") || msg.contains("is not permitted on") || msg.contains("requires an explicit boolean value")) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_INVALID_METADATA_FACET;
           } else if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED;

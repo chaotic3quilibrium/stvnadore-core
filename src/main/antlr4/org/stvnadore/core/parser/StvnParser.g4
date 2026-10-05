@@ -60,15 +60,16 @@ constantDefinition : valueKeyword schemaType value ;
 metadataMap    : LBRACE metadataEntry* RBRACE ;
 
 // Enforced structural type verification branches
-metadataEntry     : metadataBool | metadataRange | metadataString | metadataFilter | metadataDirective
+metadataEntry     : metadataBool | metadataTrait | metadataRange | metadataString | metadataFilter | metadataDirective
                   | metadataSize | metadataFlag ;
 metadataDirective : KW_STRIP ;
 metadataBool      : (KW_EQUATABLE | KW_COMPARABLE) metadataValue ;
+metadataTrait     : KW_PRESERVE_INDENT booleanLiteral ;
 metadataRange     : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
 metadataString : KW_REGEX metadataValue ;
 metadataFilter : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
 metadataSize   : (KW_SIZE | KW_MIN_SIZE | KW_MAX_SIZE) metadataValue ;
-metadataFlag   : (KW_PRESERVE_INDENT | KW_UNSIGNED | KW_EXACT | KW_INVERTIBLE | KW_OFFSET | KW_ZONED | KW_AUDITED
+metadataFlag   : (KW_UNSIGNED | KW_EXACT | KW_INVERTIBLE | KW_OFFSET | KW_ZONED | KW_AUDITED
                  | KW_SCALE_S | KW_SCALE_MS | KW_SCALE_US | KW_SCALE_NS) booleanLiteral? ;
 
 variantList    : LBRACK valueKeyword* RBRACK ;

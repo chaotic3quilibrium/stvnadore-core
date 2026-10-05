@@ -1,0 +1,10 @@
+// @spec: SPEC-05-FACET-ORDER
+// @case: Negative - Reject bare #preserveIndent trait facet without explicit boolean value
+// @error: ERR_INVALID_METADATA_FACET
+{
+  :defs {
+    :BadIndent { #preserveIndent } :String
+  }
+  :type :BadIndent
+  :body "hello"
+}

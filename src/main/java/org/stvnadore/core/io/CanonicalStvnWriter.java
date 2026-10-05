@@ -116,8 +116,9 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
     if (constraints.invertible() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_INVERTIBLE)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_INVERTIBLE);
     }
-    if (constraints.preserveIndent() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
+    if (constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
+      layout.writeBoolean(constraints.preserveIndent(), PrinterOptions.SymbolStyle.LONG_FORM);
     }
     if (constraints.offset() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_OFFSET);

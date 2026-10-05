@@ -806,7 +806,7 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedString {
-              #preserveIndent
+              #preserveIndent #TRUE
               #equatable #TRUE
               #comparable #TRUE
               #minSize 2

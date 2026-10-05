@@ -853,8 +853,8 @@ public final class StvnSchemaFlattener {
       if (constraints.invertible() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_INVERTIBLE)) {
         sb.append(" ").append(StvnVocabulary.FACET_KW_INVERTIBLE);
       }
-      if (constraints.preserveIndent() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
-        sb.append(" ").append(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
+      if (constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
+        sb.append(" ").append(StvnVocabulary.FACET_KW_PRESERVE_INDENT).append(" ").append(constraints.preserveIndent() ? StvnVocabulary.VAL_TRUE : StvnVocabulary.VAL_FALSE);
       }
       if (constraints.offset() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET)) {
         sb.append(" ").append(StvnVocabulary.FACET_KW_OFFSET);
@@ -1003,7 +1003,7 @@ public final class StvnSchemaFlattener {
     var hasMaxIncl = c.maxIncl().isPresent();
     var hasMaxExcl = c.maxExcl().isPresent() || c.dateMaxExcl().isPresent();
     var hasRegex = c.regex().isPresent();
-    var hasPreserveIndent = c.preserveIndent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
+    var hasPreserveIndent = c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
     var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE);
     var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE);
     var hasAudited = c.audited() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_AUDITED);

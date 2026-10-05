@@ -1927,6 +1927,13 @@ public class StvnTypeResolver {
           maxSize = sz;
           explicitOverrides.add("maxSize");
         }
+      } else if (entry.metadataTrait() != null) {
+        var traitCtx = entry.metadataTrait();
+        if (traitCtx.KW_PRESERVE_INDENT() != null) {
+          var bLit = traitCtx.booleanLiteral();
+          preserveIndent = bLit != null && (bLit.KW_TRUE() != null || bLit.KW_TRUE_SHORT() != null);
+          explicitOverrides.add(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
+        }
       } else if (entry.metadataFlag() != null) {
         var flagCtx = entry.metadataFlag();
         boolean flagVal = true;
@@ -1934,10 +1941,7 @@ public class StvnTypeResolver {
           var bLit = flagCtx.booleanLiteral();
           flagVal = bLit.KW_TRUE() != null || bLit.KW_TRUE_SHORT() != null;
         }
-        if (flagCtx.KW_PRESERVE_INDENT() != null) {
-          preserveIndent = flagVal;
-          explicitOverrides.add("preserveIndent");
-        } else if (flagCtx.KW_UNSIGNED() != null) {
+        if (flagCtx.KW_UNSIGNED() != null) {
           unsigned = flagVal;
           explicitOverrides.add("unsigned");
         } else if (flagCtx.KW_EXACT() != null) {
@@ -3906,12 +3910,15 @@ public class StvnTypeResolver {
 
   private static @Nullable String extractFacetName(StvnParser.MetadataEntryContext entry) {
     if (entry == null) return null;
+    if (entry.metadataTrait() != null) {
+      var traitCtx = entry.metadataTrait();
+      if (traitCtx.KW_PRESERVE_INDENT() != null) return StvnVocabulary.FACET_NAME_PRESERVE_INDENT;
+    }
     if (entry.metadataFlag() != null) {
       var flagCtx = entry.metadataFlag();
       if (flagCtx.KW_UNSIGNED() != null) return StvnVocabulary.FACET_NAME_UNSIGNED;
       if (flagCtx.KW_EXACT() != null) return StvnVocabulary.FACET_NAME_EXACT;
       if (flagCtx.KW_INVERTIBLE() != null) return StvnVocabulary.FACET_NAME_INVERTIBLE;
-      if (flagCtx.KW_PRESERVE_INDENT() != null) return StvnVocabulary.FACET_NAME_PRESERVE_INDENT;
       if (flagCtx.KW_OFFSET() != null) return StvnVocabulary.FACET_NAME_OFFSET;
       if (flagCtx.KW_ZONED() != null) return StvnVocabulary.FACET_NAME_ZONED;
       if (flagCtx.KW_AUDITED() != null) return StvnVocabulary.FACET_NAME_AUDITED;

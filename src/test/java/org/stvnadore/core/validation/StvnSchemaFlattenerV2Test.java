@@ -14,25 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class StvnSchemaFlattenerV2Test {
 
   @Test
-  @DisplayName("TC-FLAT-01: #preserveIndent serializes as bare flag without #TRUE")
+  @DisplayName("TC-FLAT-01: #preserveIndent serializes with explicit #TRUE")
   void testPreserveIndentBareSerialization() {
-    String source = """
-        {
-          :defs {
-            :Text { #preserveIndent } :String
-          }
-          :type :Text
-          :body "sample"
-        }
-        """;
-    String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    String expected = "{ :defs { :Text { #preserveIndent } :String } }";
-    assertEquals(expected, flattened);
-  }
-
-  @Test
-  @DisplayName("TC-FLAT-02: #preserveIndent written as #preserveIndent #TRUE normalizes to bare #preserveIndent")
-  void testPreserveIndentExplicitTrueNormalizesToBare() {
     String source = """
         {
           :defs {
@@ -43,7 +26,24 @@ public class StvnSchemaFlattenerV2Test {
         }
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    String expected = "{ :defs { :Text { #preserveIndent } :String } }";
+    String expected = "{ :defs { :Text { #preserveIndent #TRUE } :String } }";
+    assertEquals(expected, flattened);
+  }
+
+  @Test
+  @DisplayName("TC-FLAT-02: #preserveIndent serializes with explicit #FALSE")
+  void testPreserveIndentExplicitTrueNormalizesToBare() {
+    String source = """
+        {
+          :defs {
+            :Text { #preserveIndent #FALSE } :String
+          }
+          :type :Text
+          :body "sample"
+        }
+        """;
+    String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
+    String expected = "{ :defs { :Text { #preserveIndent #FALSE } :String } }";
     assertEquals(expected, flattened);
   }
 
@@ -72,7 +72,7 @@ public class StvnSchemaFlattenerV2Test {
         {
           :defs {
             :A { #unsigned #size 8 } :Int
-            :B { #preserveIndent } :String
+            :B { #preserveIndent #TRUE } :String
           }
           :type :Tuple(:A :B)
           :body ( 1 "text" )

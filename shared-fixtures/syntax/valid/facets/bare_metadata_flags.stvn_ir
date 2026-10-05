@@ -1,14 +1,14 @@
 TypeRegistry:
   - :IndentedBlock
       schema:
-        node: {#preserveIndent}:String
+        node: {#preserveIndent#TRUE}:String
         aliasName: :IndentedBlock
         constraints:
           preserveIndent: true (explicit override)
           equatable: true (default)
           comparable: true (default)
         underlyingSchema:
-          node: {#preserveIndent}:String
+          node: {#preserveIndent#TRUE}:String
   - :UnsignedPort
       schema:
         node: {#unsigned#size16}:Int

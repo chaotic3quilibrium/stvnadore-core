@@ -189,7 +189,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
       firstC = false;
       layout.writeLiteral(StvnVocabulary.FACET_KW_INVERTIBLE);
     }
-    if (constraints.preserveIndent() && constraints.explicitOverrides().contains("preserveIndent")) {
+    if (constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
       if (inline) {
         if (!firstC) layout.appendSeparator();
       } else {
@@ -198,7 +198,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
       firstC = false;
       layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
       layout.appendSeparator();
-      layout.writeBoolean(true, options.symbolStyle());
+      layout.writeBoolean(constraints.preserveIndent(), options.symbolStyle());
     }
     if (constraints.offset()) {
       if (inline) {
@@ -440,7 +440,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
     var hasMaxIncl = c.maxIncl().isPresent();
     var hasMaxExcl = c.maxExcl().isPresent() || c.dateMaxExcl().isPresent();
     var hasRegex = c.regex().isPresent();
-    var hasPreserveIndent = c.preserveIndent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
+    var hasPreserveIndent = c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
     var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE);
     var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE);
 
@@ -541,7 +541,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
     if (c.maxIncl().isPresent()) count++;
     if (c.maxExcl().isPresent() || c.dateMaxExcl().isPresent()) count++;
     if (c.regex().isPresent()) count++;
-    if (c.preserveIndent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) count++;
+    if (c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) count++;
     if (c.equatable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) count++;
     if (c.comparable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) count++;
     if (c.filterIncl().isPresent()) count++;

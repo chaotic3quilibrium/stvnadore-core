@@ -85,6 +85,20 @@ public final class StvnErrorListener extends BaseErrorListener {
       } else if ("#".equals(token.getText())) {
         isBareHash = true;
       }
+
+      if (recognizer instanceof Parser parser) {
+        var stream = parser.getTokenStream();
+        if (stream != null) {
+          int idx = token.getTokenIndex();
+          if (idx > 0 && stream.get(idx - 1).getType() == StvnLexer.KW_PRESERVE_INDENT) {
+            Token prev = stream.get(idx - 1);
+            startOffset = prev.getStartIndex();
+            endOffset = prev.getStopIndex() + 1;
+            line = prev.getLine();
+            charPositionInLine = prev.getCharPositionInLine();
+          }
+        }
+      }
     } else if (recognizer instanceof org.antlr.v4.runtime.Lexer lexerRec) {
       if (e instanceof org.antlr.v4.runtime.LexerNoViableAltException lnvae && lnvae.getStartIndex() >= 0) {
         startOffset = lnvae.getStartIndex();
@@ -150,6 +164,8 @@ public final class StvnErrorListener extends BaseErrorListener {
       errorCode = Optional.of(DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING);
     } else if (sanitizedMessage.contains("requires exactly one mode facet")) {
       errorCode = Optional.of(DiagnosticBag.ERR_DATETIME_MODE_INVALID);
+    } else if (sanitizedMessage.contains("Metadata facet #preserveIndent requires an explicit boolean value")) {
+      errorCode = Optional.of(DiagnosticBag.ERR_INVALID_METADATA_FACET);
     }
 
     if (this.strict) {
@@ -225,6 +241,11 @@ public final class StvnErrorListener extends BaseErrorListener {
       if (offendingToken != null) {
         var stream = parser.getTokenStream();
         int idx = offendingToken.getTokenIndex();
+
+        // Intercept bare #preserveIndent or non-boolean argument following KW_PRESERVE_INDENT
+        if (idx > 0 && stream.get(idx - 1).getType() == StvnLexer.KW_PRESERVE_INDENT) {
+          return "Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)";
+        }
 
         // Check if offending token is '(' preceded by :Tuple, :Union, etc. and followed by ')'
         if ("(".equals(tokenText) && idx > 0 && idx + 1 < stream.size()) {

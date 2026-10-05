@@ -34,7 +34,7 @@ public class StvnSemanticFacetOrderingTest {
               #regex "^[A-Z0-9]+$"
               #minSize 4
               #maxSize 16
-              #preserveIndent
+              #preserveIndent #TRUE
               #equatable #TRUE
               #comparable #TRUE
             } :String
@@ -46,10 +46,10 @@ public class StvnSemanticFacetOrderingTest {
 
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
     // Expected:
-    // Tier 1: #preserveIndent #equatable #TRUE #comparable #TRUE
+    // Tier 1: #preserveIndent #TRUE #equatable #TRUE #comparable #TRUE
     // Tier 3: #minSize 4 #maxSize 16
     // Tier 5: #regex "^[A-Z0-9]+$"
-    String expected = "{ :defs { :TargetType { #preserveIndent #equatable #TRUE #comparable #TRUE #minSize 4 #maxSize 16 #regex \"^[A-Z0-9]+$\" } :String } }";
+    String expected = "{ :defs { :TargetType { #preserveIndent #TRUE #equatable #TRUE #comparable #TRUE #minSize 4 #maxSize 16 #regex \"^[A-Z0-9]+$\" } :String } }";
     Assertions.assertEquals(expected, flattened);
   }
 
