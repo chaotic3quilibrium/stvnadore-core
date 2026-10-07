@@ -2465,7 +2465,11 @@ public class StvnTypeResolver {
     var changed = false;
 
     if (equatable.isEmpty()) {
-      equatable = Optional.of(!isFloatType(baseText));
+      if (isFloatType(baseText)) {
+        equatable = Optional.of(rs.constraints().exact());
+      } else {
+        equatable = Optional.of(true);
+      }
       changed = true;
     }
     if (comparable.isEmpty()) {
@@ -2510,7 +2514,7 @@ public class StvnTypeResolver {
     // 1. Equatable Derivation
     if (!hasEquatableOverride) {
       if (isFloatType(baseText)) {
-        equatable = Optional.of(false);
+        equatable = Optional.of(constraints.exact());
       } else if (isSeqType(baseText) || isSetType(baseText) || baseText.equals(StvnVocabulary.TYPE_OPTION)) {
         if (!children.isEmpty()) {
           equatable = children.getFirst().constraints().equatable();

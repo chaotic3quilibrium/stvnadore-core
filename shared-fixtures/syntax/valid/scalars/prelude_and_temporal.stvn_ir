@@ -160,7 +160,7 @@ TypeRegistry:
         node: {#exact}:Float
         aliasName: :MoneyAmount
         constraints:
-          equatable: false (default)
+          equatable: true (default)
           comparable: true (default)
         underlyingSchema:
           node: {#exact}:Float

@@ -1047,6 +1047,59 @@ $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow
   * Continuous lower bounds `#minIncl` and `#minExcl` are mutually exclusive.
   * Continuous upper bounds `#maxIncl` and `#maxExcl` are mutually exclusive.
 
+### 6.2 Trait Capability Matrix
+
+| Type Domain | `#equatable` Default | `#comparable` Default | Derivation & Semantic Invariant |
+|:---|:---:|:---:|:---|
+| **`:Boolean`** | `#TRUE` | `#TRUE` | Atomic scalar; two-element boolean algebra |
+| **`:Int`** | `#TRUE` | `#TRUE` | Atomic scalar; signed and unsigned integers |
+| **`:Float (exact)`** | `#TRUE` | `#TRUE` | Discrete arbitrary-precision decimal representation (`#exact`) |
+| **`:Float (32 / 64)`** | `#FALSE` | `#TRUE` | IEEE-754 continuous machine float; `#equatable` is opt-in |
+| **`:TimeEpoch`** | `#TRUE` | `#TRUE` | Physical elapsed duration ticks |
+| **`:DateTime`** | `#TRUE` | `#TRUE` | Calendar civil instant and wall-clock instant |
+| **`:String`** | `#TRUE` | `#TRUE` | UTF-8 character sequence; lexicographical ordinal comparison |
+| **`:Enum`** | `#TRUE` | `#TRUE` | Nominal variant keyword constants; sequential ordinal indices |
+| **`:Tuple`** | **Derived** | **Derived** | Inductively equatable and comparable if all constituent field types conform |
+| **`:Seq`** | **Derived** | **Derived** | Inductively equatable and comparable if element type conforms |
+| **`:Set`** | **Derived** | `#FALSE` | Equatable if element type conforms; unordered sets lack natural total ordering |
+| **`:Map`** | **Derived** | `#FALSE` | Equatable if key and value types conform; unordered maps lack natural total ordering |
+
+### 6.3 Trait Derivation and Override Rules
+
+Trait capabilities determine how types participate in set membership, map key hashing, and sort ordering. Composite schemas derive their default capabilities inductively from constituent member types.
+
+#### 6.3.1 Inductive Derivation Calculus
+
+Composite schemas calculate `#equatable` and `#comparable` capabilities using inductive conjunction rules:
+
+1. **Product Types (`:Tuple`):**
+   A product type is equatable if and only if every constituent field schema is equatable:
+   $$\text{equatable}(\text{Tuple}(T_1, \dots, T_n)) = \bigwedge_{i=1}^n \text{equatable}(T_i)$$
+   A product type is comparable if and only if every constituent field schema is comparable:
+   $$\text{comparable}(\text{Tuple}(T_1, \dots, T_n)) = \bigwedge_{i=1}^n \text{comparable}(T_i)$$
+   If any field schema resolves $\text{equatable}(T_i) = \text{false}$ (e.g., continuous IEEE-754 `:Float`), the enclosing tuple resolves to non-equatable.
+
+2. **Sequential Collections (`:Seq`):**
+   A sequence derives capabilities directly from its element type $T$:
+   $$\text{equatable}(\text{Seq}(T)) = \text{equatable}(T)$$
+   $$\text{comparable}(\text{Seq}(T)) = \text{comparable}(T)$$
+
+3. **Unordered Collections (`:Set` and `:Map`):**
+   * Sets require equatable elements ($\text{equatable}(T) = \text{true}$). They derive equatability from element $T$, but default to non-comparable:
+     $$\text{equatable}(\text{Set}(T)) = \text{equatable}(T), \quad \text{comparable}(\text{Set}(T)) = \text{false}$$
+   * Maps require equatable keys ($\text{equatable}(K) = \text{true}$). They derive equatability from both key $K$ and value $V$, but default to non-comparable:
+     $$\text{equatable}(\text{Map}(K, V)) = \text{equatable}(K) \land \text{equatable}(V), \quad \text{comparable}(\text{Map}(K, V)) = \text{false}$$
+
+#### 6.3.2 Explicit Nominal Overrides
+
+Nominal type definitions in a `:defs` block may explicitly declare capability trait overrides using Tier 2 metadata facets:
+* `#equatable <Boolean>` (`#TRUE`, `#FALSE`, `#T`, `#F`)
+* `#comparable <Boolean>` (`#TRUE`, `#FALSE`, `#T`, `#F`)
+
+##### Override Precedence Invariants:
+1. **Explicit Precedence:** Explicit trait declarations strictly override inductive trait derivations and primitive defaults.
+2. **Registration:** Declared traits register in the schema's `explicitOverrides` set.
+3. **Capability Restoration:** When a product contains a continuous `:Float`, an explicit `{ #equatable #TRUE }` override restores the capability, permitting the nominal tuple to serve as a valid `:Set` element or `:Map` key.
 
 ---
 

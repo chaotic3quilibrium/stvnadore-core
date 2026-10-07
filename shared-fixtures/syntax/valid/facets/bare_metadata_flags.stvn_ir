@@ -23,7 +23,7 @@ TypeRegistry:
         node: {#exact}:Float
         aliasName: :ExactCurrency
         constraints:
-          equatable: false (default)
+          equatable: true (default)
           comparable: true (default)
         underlyingSchema:
           node: {#exact}:Float
@@ -67,7 +67,7 @@ TypeRegistry:
       schema:
         node: :Tuple(:IndentedBlock:UnsignedPort:ExactCurrency:BijectiveRegistry:UtcTimestamp:JurisdictionTime:AuditedEventTime)
         constraints:
-          equatable: false (derived from :ExactCurrency)
+          equatable: true (default)
           comparable: false (derived from :BijectiveRegistry)
 ValuePayload:
   StvnTuple
