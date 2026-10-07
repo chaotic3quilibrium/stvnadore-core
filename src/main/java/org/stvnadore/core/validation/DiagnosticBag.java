@@ -86,6 +86,8 @@ public final class DiagnosticBag {
   public static final String ERR_CONSTRAINT_VIOLATION = "ERR_CONSTRAINT_VIOLATION";
   /** Error code emitted when an AST payload literal kind conflicts with the expected schema constructor. */
   public static final String ERR_TYPE_MISMATCH = "ERR_TYPE_MISMATCH";
+  /** Error code emitted when a nominal type alias attempts to override or re-specify a non-overridable definition facet. */
+  public static final String ERR_NON_OVERRIDABLE_FACET = "ERR_NON_OVERRIDABLE_FACET";
   /** Error code emitted when duplicate keys appear in a map payload (SPEC § 6.2, § 6.3). */
   public static final String ERR_DUPLICATE_MAP_KEY = "DUPLICATE_MAP_KEY";
   /** Error code emitted when duplicate values appear in an invertible map payload (SPEC § 6.2, § 6.3). */

@@ -4012,6 +4012,23 @@ public class StvnTypeResolver {
     return null;
   }
 
+  private static Optional<Integer> extractEntrySize(StvnParser.MetadataEntryContext entry) {
+    if (entry.metadataSize() != null && entry.metadataSize().KW_SIZE() != null) {
+      var sizeCtx = entry.metadataSize();
+      if (sizeCtx.metadataValue() != null && sizeCtx.metadataValue().integerLiteral() != null) {
+        try {
+          return Optional.of(org.stvnadore.core.ir.StvnLiteralParser.parseBigInteger(
+              sizeCtx.metadataValue().integerLiteral().getText()).intValueExact());
+        } catch (Exception ignored) {}
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static boolean isTemporalScaleFacet(String facetName) {
+    return "s".equals(facetName) || "ms".equals(facetName) || "us".equals(facetName) || "ns".equals(facetName);
+  }
+
   private static @Nullable String normalizeBaseType(@Nullable String baseType) {
     if (baseType == null) return null;
     if (isTimeEpochType(baseType) || baseType.equals(StvnVocabulary.TYPE_TIME_EPOCH) || baseType.endsWith("/TimeEpoch")) return StvnVocabulary.TYPE_TIME_EPOCH;
@@ -4216,6 +4233,103 @@ public class StvnTypeResolver {
             null,
             errCode
         );
+      }
+    }
+
+    // 1B. Transitive Ancestor Constraint & Non-Overridable Facet Invariant Enforcement
+    if (resolved != null && resolved.underlyingSchema().isPresent()) {
+      var parentRs = resolved.underlyingSchema().get();
+      var parentConstraints = parentRs.constraints();
+      String parentName = parentRs.aliasName().orElse("parent");
+      boolean isFloat = StvnVocabulary.TYPE_FLOAT.equals(normalizedBase);
+
+      for (var entry : metadataMap.metadataEntry()) {
+        String facetName = extractFacetName(entry);
+        if (facetName == null) continue;
+
+        int start = entry.getStart().getStartIndex();
+        int end = entry.getStop().getStopIndex() + 1;
+        int line = entry.getStart().getLine();
+        int col = entry.getStart().getCharPositionInLine();
+
+        // Phase A: Transitive Mutual Exclusivity Violations
+        boolean mutexReported = false;
+        if ("exact".equals(facetName)) {
+          if (parentConstraints.size().isPresent()) {
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): facet '#exact' is mutually exclusive with ancestor storage size '#size " + parentConstraints.size().get() + "' from " + parentName,
+                start, end, line, col, null, DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+            mutexReported = true;
+          }
+        } else if ("size".equals(facetName)) {
+          var szOpt = extractEntrySize(entry);
+          if (parentConstraints.exact()) {
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): facet '#size" + szOpt.map(s -> " " + s).orElse("") + "' is mutually exclusive with ancestor facet '#exact' from " + parentName,
+                start, end, line, col, null, DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+            mutexReported = true;
+          } else if (isFloat && szOpt.isPresent() && parentConstraints.size().isPresent() && !szOpt.get().equals(parentConstraints.size().get())) {
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): facet '#size " + szOpt.get() + "' is mutually exclusive with ancestor storage size '#size " + parentConstraints.size().get() + "' from " + parentName,
+                start, end, line, col, null, DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+            mutexReported = true;
+          }
+        } else if (isTemporalScaleFacet(facetName)) {
+          if (parentConstraints.scale().isPresent() && !facetName.equals(parentConstraints.scale().get())) {
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): temporal scale facet '#" + facetName + "' is mutually exclusive with ancestor scale '#" + parentConstraints.scale().get() + "' from " + parentName,
+                start, end, line, col, null, DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+            mutexReported = true;
+          }
+        } else if ("offset".equals(facetName) || "zoned".equals(facetName) || "audited".equals(facetName)) {
+          String pMode = parentConstraints.offset() ? "offset" : (parentConstraints.zoned() ? "zoned" : (parentConstraints.audited() ? "audited" : null));
+          if (pMode != null && !pMode.equals(facetName)) {
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): temporal mode facet '#" + facetName + "' is mutually exclusive with ancestor mode '#" + pMode + "' from " + parentName,
+                start, end, line, col, null, DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+            mutexReported = true;
+          }
+        }
+
+        if (mutexReported) {
+          continue;
+        }
+
+        // Phase B: Non-Overridable Facet Re-declaration Violations (Overridable: No)
+        boolean nonOverridableViolation = false;
+        if ("size".equals(facetName) && parentConstraints.size().isPresent()) {
+          nonOverridableViolation = true;
+        } else if ("unsigned".equals(facetName) && parentConstraints.unsigned()) {
+          nonOverridableViolation = true;
+        } else if ("exact".equals(facetName) && parentConstraints.exact()) {
+          nonOverridableViolation = true;
+        } else if ("invertible".equals(facetName) && parentConstraints.invertible()) {
+          nonOverridableViolation = true;
+        } else if ("minSize".equals(facetName) && parentConstraints.minSize().isPresent()) {
+          nonOverridableViolation = true;
+        } else if ("maxSize".equals(facetName) && parentConstraints.maxSize().isPresent()) {
+          nonOverridableViolation = true;
+        } else if (isTemporalScaleFacet(facetName) && parentConstraints.scale().isPresent() && facetName.equals(parentConstraints.scale().get())) {
+          nonOverridableViolation = true;
+        } else if ("offset".equals(facetName) && parentConstraints.offset()) {
+          nonOverridableViolation = true;
+        } else if ("zoned".equals(facetName) && parentConstraints.zoned()) {
+          nonOverridableViolation = true;
+        } else if ("audited".equals(facetName) && parentConstraints.audited()) {
+          nonOverridableViolation = true;
+        }
+
+        if (nonOverridableViolation) {
+          diagnosticBag.addError(
+              "Constraint violation (" + name + "): non-overridable definition facet '#" + facetName + "' is already established by ancestor " + parentName + " and cannot be re-specified",
+              start, end, line, col, null, DiagnosticBag.ERR_NON_OVERRIDABLE_FACET
+          );
+        }
       }
     }
 

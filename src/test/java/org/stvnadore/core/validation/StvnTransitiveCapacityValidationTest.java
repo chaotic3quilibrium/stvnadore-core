@@ -166,8 +166,8 @@ public class StvnTransitiveCapacityValidationTest {
     String validSource = """
         {
           :defs {
-            :BaseStr { #maxSize 10 } :String
-            :StrictStr { #minSize 0 #maxSize 0 } :BaseStr
+            :BaseStr { #minSize 0 } :String
+            :StrictStr { #maxSize 0 } :BaseStr
           }
           :type :StrictStr
           :body ""
@@ -179,8 +179,8 @@ public class StvnTransitiveCapacityValidationTest {
     String invalidSource = """
         {
           :defs {
-            :BaseStr { #maxSize 10 } :String
-            :StrictStr { #minSize 0 #maxSize 0 } :BaseStr
+            :BaseStr { #minSize 0 } :String
+            :StrictStr { #maxSize 0 } :BaseStr
           }
           :type :StrictStr
           :body "hello"
@@ -192,12 +192,12 @@ public class StvnTransitiveCapacityValidationTest {
     assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, error.errorCode().orElse(null));
     assertTrue(error.message().contains("Size 5 outside allowable range [0, 0]"));
 
-    // Multi-tier interval narrowing test
+    // Multi-tier interval combination test: parent has minSize, child has maxSize
     String multiTierSource = """
         {
           :defs {
-            :BaseRange { #minSize 3 #maxSize 10 } :String
-            :NarrowRange { #minSize 5 #maxSize 8 } :BaseRange
+            :BaseMin { #minSize 5 } :String
+            :NarrowRange { #maxSize 8 } :BaseMin
           }
           :type :NarrowRange
           :body "1234"
