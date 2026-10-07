@@ -21,8 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Exhaustive Cartesian Combinatorial Facet Matrix Test Suite (MCT §5.1-§5.6.4).
  * <p>
  * Evaluates the full Cartesian product T x F across the 6 foundation base types
- * (:Int, :Float, :String, :Boolean, :TimeEpoch, :DateTime) and 24 canonical facets across 7 tiers.
- * Verifies that all 108 invalid pairings fail closed deterministically with normative diagnostic codes:
+ * (:Int, :Float, :String, :Boolean, :TimeEpoch, :DateTime), products (:Tuple),
+ * and collections (:Seq, :Set, :Map) against 24 canonical facets across 7 tiers.
+ * Verifies that all 184 invalid pairings fail closed deterministically with normative diagnostic codes:
  * <ul>
  *   <li>{@link DiagnosticBag#ERR_STRING_CARDINALITY_PROHIBITED} for {@code #size} on {@code :String}</li>
  *   <li>{@link DiagnosticBag#ERR_DISCRETE_BOUND_KIND_PROHIBITED} for {@code #minExcl} or {@code #maxIncl} on discrete types</li>
@@ -38,7 +39,10 @@ public class StvnCartesianFacetMatrixTest {
       ":Boolean",
       ":TimeEpoch",
       ":DateTime",
-      ":Tuple( :Int :String )"
+      ":Tuple( :Int :String )",
+      ":Seq( :Int )",
+      ":Set( :Int )",
+      ":Map( :String :Int )"
   );
 
   private static final Map<String, Set<String>> PERMITTED_FACETS = Map.of(
@@ -48,7 +52,10 @@ public class StvnCartesianFacetMatrixTest {
       ":Boolean", Set.of("equatable", "comparable"),
       ":TimeEpoch", Set.of("s", "ms", "us", "ns", "equatable", "comparable", "minIncl", "maxExcl"),
       ":DateTime", Set.of("offset", "zoned", "audited", "equatable", "comparable", "minIncl", "maxExcl"),
-      ":Tuple( :Int :String )", Set.of("equatable", "comparable")
+      ":Tuple( :Int :String )", Set.of("equatable", "comparable"),
+      ":Seq( :Int )", Set.of("minSize", "maxSize", "equatable", "comparable"),
+      ":Set( :Int )", Set.of("minSize", "maxSize", "equatable", "comparable"),
+      ":Map( :String :Int )", Set.of("invertible", "minSize", "maxSize", "equatable", "comparable")
   );
 
   private record FacetSpec(String name, String syntax, String dateTimeSyntax) {}
@@ -140,9 +147,9 @@ public class StvnCartesianFacetMatrixTest {
   }
 
   @Test
-  @DisplayName("Cartesian Combinatorial Matrix: Total invalid pairs must equal exactly 125")
+  @DisplayName("Cartesian Combinatorial Matrix: Total invalid pairs must equal exactly 184")
   void testCombinatorialMatrixSize() {
     long invalidCount = invalidFacetTypeCombinations().count();
-    org.junit.jupiter.api.Assertions.assertEquals(125, invalidCount, "Matrix must evaluate exactly 125 invalid pairs (168 total - 43 valid)");
+    org.junit.jupiter.api.Assertions.assertEquals(184, invalidCount, "Matrix must evaluate exactly 184 invalid pairs (240 total - 56 valid)");
   }
 }

@@ -1,17 +1,17 @@
 // ==============================================================================
 // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
 // ==============================================================================
-// FIXTURE-ID:         val_iso_map_equatable
-// MATRIX-POSITION:    2.1
+// FIXTURE-ID:         val_iso_map_invertible_comparable
+// MATRIX-POSITION:    2.2
 // MATRIX-CATEGORY:    Trait
-// TARGET-TYPE:        :Map
-// FACET-NAME:         #equatable
+// TARGET-TYPE:        :Map (invertible)
+// FACET-NAME:         #comparable
 // COVERAGE-KIND:      ISOLATED_VALID
-// DESCRIPTION:        Enables key equality comparison (for keys only; values are unconstrained)
+// DESCRIPTION:        Opt-in comparison (disabled by default; unordered invertible maps lack natural total ordering)
 // ==============================================================================
 {
   :defs {
-  :TestedType { #equatable #TRUE } :Map( :String :Int )
+  :TestedType { #invertible #comparable #TRUE } :Map( :String :Int )
   }
   :type :TestedType
   :body { [ "k" 1 ] }

@@ -1,18 +1,18 @@
 // ==============================================================================
 // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
 // ==============================================================================
-// FIXTURE-ID:         val_iso_map_equatable
-// MATRIX-POSITION:    2.1
+// FIXTURE-ID:         val_iso_tuple_comparable
+// MATRIX-POSITION:    2.2
 // MATRIX-CATEGORY:    Trait
-// TARGET-TYPE:        :Map
-// FACET-NAME:         #equatable
+// TARGET-TYPE:        :Tuple
+// FACET-NAME:         #comparable
 // COVERAGE-KIND:      ISOLATED_VALID
-// DESCRIPTION:        Enables key equality comparison (for keys only; values are unconstrained)
+// DESCRIPTION:        Enables lexicographical total ordering comparison across fields (derived inductively from all constituent fields)
 // ==============================================================================
 {
   :defs {
-  :TestedType { #equatable #TRUE } :Map( :String :Int )
+  :TestedType { #comparable #TRUE } :Tuple( :Int :String )
   }
   :type :TestedType
-  :body { [ "k" 1 ] }
+  :body ( 42 "alpha" )
 }

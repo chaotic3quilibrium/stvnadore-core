@@ -521,6 +521,8 @@ public final class MetadataFixtureGenerator {
       }
     } else if (":Int".equals(clean)) {
       if ("unsigned".equals(q) && !"unsigned".equals(row.tagName())) return "#unsigned ";
+    } else if (":Map".equals(clean)) {
+      if ("invertible".equals(q)) return "#invertible ";
     }
     return "";
   }
@@ -549,7 +551,7 @@ public final class MetadataFixtureGenerator {
     }
     String kind = row.parameterKind();
     return switch (kind) {
-      case ":Boolean" -> "#" + row.tagName() + " #TRUE";
+      case ":Boolean" -> "#" + row.tagName() + " #TRUE"; // Emits valid boolean syntax; never emits literal "Derived"
       case ":Int" -> {
         if ("size".equals(row.tagName())) yield "#size 32";
         if ("minSize".equals(row.tagName())) yield "#minSize 1";
@@ -596,6 +598,7 @@ public final class MetadataFixtureGenerator {
       case ":Seq" -> ":Seq( :Int )";
       case ":Set" -> ":Set( :Int )";
       case ":Map" -> ":Map( :String :Int )";
+      case ":Tuple" -> ":Tuple( :Int :String )";
       case ":Enum" -> ":Enum [ #VAL_A #VAL_B ]";
       default -> clean;
     };
@@ -619,6 +622,7 @@ public final class MetadataFixtureGenerator {
       case ":Seq" -> "[ 1 2 3 ]";
       case ":Set" -> "[ 1 2 3 ]";
       case ":Map" -> "{ [ \"k\" 1 ] }";
+      case ":Tuple" -> "( 42 \"alpha\" )";
       default -> "0";
     };
   }
