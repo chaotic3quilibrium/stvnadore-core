@@ -1062,7 +1062,8 @@ $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow
 | **`:Tuple`** | **Derived** | **Derived** | Inductively equatable and comparable if all constituent field types conform |
 | **`:Seq`** | **Derived** | **Derived** | Inductively equatable and comparable if element type conforms |
 | **`:Set`** | **Derived** | `#FALSE` | Equatable if element type conforms; unordered sets lack natural total ordering |
-| **`:Map`** | **Derived** | `#FALSE` | Equatable if key and value types conform; unordered maps lack natural total ordering |
+| **`:Map` (Standard)** | **Derived (Keys)** | `#FALSE` | Derived strictly from key type $K$; values are unconstrained; unordered maps lack natural total ordering |
+| **`:Map` (`#invertible`)** | **Derived (Bijective)** | `#FALSE` | Requires both $K$ and $V$ to be `#equatable #TRUE` (dual-set bijection); unordered maps lack natural total ordering |
 
 ### 6.3 Trait Derivation and Override Rules
 
@@ -1087,8 +1088,11 @@ Composite schemas calculate `#equatable` and `#comparable` capabilities using in
 3. **Unordered Collections (`:Set` and `:Map`):**
    * Sets require equatable elements ($\text{equatable}(T) = \text{true}$). They derive equatability from element $T$, but default to non-comparable:
      $$\text{equatable}(\text{Set}(T)) = \text{equatable}(T), \quad \text{comparable}(\text{Set}(T)) = \text{false}$$
-   * Maps require equatable keys ($\text{equatable}(K) = \text{true}$). They derive equatability from both key $K$ and value $V$, but default to non-comparable:
-     $$\text{equatable}(\text{Map}(K, V)) = \text{equatable}(K) \land \text{equatable}(V), \quad \text{comparable}(\text{Map}(K, V)) = \text{false}$$
+   * Standard Maps require equatable keys ($\text{equatable}(K) = \text{true}$). Values $V$ are unconstrained. Equatability derives strictly from the key domain:
+     $$\text{equatable}(\text{Map}(K, V)) = \text{equatable}(K), \quad \text{comparable}(\text{Map}(K, V)) = \text{false}$$
+   * Invertible Maps (`#invertible`) enforce a dual-set bijection. Both keys $K$ and values $V$ must resolve to equatable:
+     $$\text{equatable}(\text{Map}_{\text{inv}}(K, V)) = \text{equatable}(K) \land \text{equatable}(V), \quad \text{comparable}(\text{Map}_{\text{inv}}(K, V)) = \text{false}$$
+     If value type $V$ resolves to $\text{equatable}(V) = \text{false}$ (e.g. continuous `:Float`), the compiler rejects the schema with `ERR_TRAIT_VIOLATION`.
 
 #### 6.3.2 Explicit Nominal Overrides
 

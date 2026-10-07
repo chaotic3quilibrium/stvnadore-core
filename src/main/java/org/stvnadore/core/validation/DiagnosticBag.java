@@ -86,6 +86,10 @@ public final class DiagnosticBag {
   public static final String ERR_CONSTRAINT_VIOLATION = "ERR_CONSTRAINT_VIOLATION";
   /** Error code emitted when an AST payload literal kind conflicts with the expected schema constructor. */
   public static final String ERR_TYPE_MISMATCH = "ERR_TYPE_MISMATCH";
+  /** Error code emitted when duplicate keys appear in a map payload (SPEC § 6.2, § 6.3). */
+  public static final String ERR_DUPLICATE_MAP_KEY = "DUPLICATE_MAP_KEY";
+  /** Error code emitted when duplicate values appear in an invertible map payload (SPEC § 6.2, § 6.3). */
+  public static final String ERR_DUPLICATE_INVERTED_MAP_VALUE = "DUPLICATE_INVERTED_MAP_VALUE";
 
   // Normative STVN 2.0.0 Standard Diagnostic Codes
   /** Error code emitted when a :TimeEpoch type declaration lacks a mandatory scale facet (SPEC-02). */

@@ -2299,7 +2299,8 @@ public class StvnTypeResolver {
               if (inner.size() >= 2) {
                 var valOpt = resolvePrimitiveSchema(doc, inner.get(1), visited, true, diagnosticBag);
                 if (valOpt.isPresent() && valOpt.get().constraints().equatable().equals(Optional.of(false))) {
-                  throw new MalformedSchemaException("Inverted map values require types to be #equatable #TRUE");
+                  throw new MalformedSchemaException("Inverted map values require types to be #equatable #TRUE",
+                      schemaNode.getStart().getStartIndex(), schemaNode.getStop().getStopIndex() + 1);
                 }
               }
             }
@@ -2367,7 +2368,17 @@ public class StvnTypeResolver {
         var keySchema = children.get(0);
         var keyConstraints = keySchema.constraints();
         if (keyConstraints != null && keyConstraints.equatable().equals(Optional.of(false))) {
-          throw new MalformedSchemaException("Map keys require types to be #equatable #TRUE");
+          throw new MalformedSchemaException("Map keys require types to be #equatable #TRUE",
+              schemaNode.getStart().getStartIndex(), schemaNode.getStop().getStopIndex() + 1);
+        }
+      }
+      var localMeta = extractConstraints(schemaNode.metadataMap());
+      if (localMeta.invertible() && children.size() >= 2 && !children.get(1).isPoisonedSentinel()) {
+        var valSchema = children.get(1);
+        var valConstraints = valSchema.constraints();
+        if (valConstraints != null && valConstraints.equatable().equals(Optional.of(false))) {
+          throw new MalformedSchemaException("Inverted map values require types to be #equatable #TRUE",
+              schemaNode.getStart().getStartIndex(), schemaNode.getStop().getStopIndex() + 1);
         }
       }
     }
@@ -2521,8 +2532,20 @@ public class StvnTypeResolver {
         } else {
           equatable = Optional.of(true);
         }
+      } else if (isMapType(baseText)) {
+        if (children.size() >= 2) {
+          boolean keyEq = children.get(0).constraints().equatable().orElse(true);
+          if (constraints.invertible()) {
+            boolean valEq = children.get(1).constraints().equatable().orElse(true);
+            equatable = Optional.of(keyEq && valEq);
+          } else {
+            equatable = Optional.of(keyEq);
+          }
+        } else {
+          equatable = Optional.of(true);
+        }
       } else if (baseText.equals(StvnVocabulary.TYPE_TUPLE) || baseText.equals(StvnVocabulary.TYPE_UNION) ||
-          baseText.equals(StvnVocabulary.TYPE_EITHER) || isMapType(baseText)) {
+          baseText.equals(StvnVocabulary.TYPE_EITHER)) {
         if (!children.isEmpty()) {
           equatable = Optional.of(children.stream().allMatch(c -> c.constraints().equatable().orElse(false)));
         } else {
@@ -3290,6 +3313,25 @@ public class StvnTypeResolver {
             }
           }
         }
+        var metaConstraints = extractConstraints(schemaNode.metadataMap());
+        if (metaConstraints.invertible() && inner.size() >= 2) {
+          var valNode = inner.get(1);
+          var resolvedValOpt = resolvePrimitiveSchema(doc, valNode, new java.util.HashSet<>(visited));
+          if (resolvedValOpt.isPresent() && !resolvedValOpt.get().isPoisonedSentinel()) {
+            var resolvedVal = resolvedValOpt.get();
+            var equatable = resolvedVal.constraints().equatable().orElse(false);
+            if (!equatable) {
+              int line = schemaNode.getStart().getLine();
+              int col = schemaNode.getStart().getCharPositionInLine();
+              int start = schemaNode.getStart().getStartIndex();
+              int end = schemaNode.getStop().getStopIndex() + 1;
+              diagnosticBag.addError(
+                  "Inverted map values require types to be #equatable #TRUE",
+                  start, end, line, col, null, DiagnosticBag.ERR_TRAIT_VIOLATION
+              );
+            }
+          }
+        }
       }
     }
 
@@ -3405,6 +3447,8 @@ public class StvnTypeResolver {
           code = DiagnosticBag.ERR_UNDEFINED_TYPE;
         } else if (msg.contains("filter facets")) {
           code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
+        } else if (msg.contains("require types to be #equatable #TRUE")) {
+          code = DiagnosticBag.ERR_TRAIT_VIOLATION;
         }
         diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       } catch (CircularReferenceException e) {
@@ -3429,7 +3473,9 @@ public class StvnTypeResolver {
         var base = getPrimitiveBaseType(rootSchema);
         validateMetadataMapConstraints(base != null ? base : rootSchema.getText(), rootSchema.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
       }
-      validateSchemaCapabilities(doc, rootSchema, new java.util.HashSet<>(), diagnosticBag);
+      if (resolvedOpt.isPresent()) {
+        validateSchemaCapabilities(doc, rootSchema, new java.util.HashSet<>(), diagnosticBag);
+      }
     }
   }
 
@@ -3533,6 +3579,8 @@ public class StvnTypeResolver {
         code = DiagnosticBag.ERR_FACET_ORDER_VIOLATION;
       } else if (msg.contains("defines an empty domain")) {
         code = DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;
+      } else if (msg.contains("require types to be #equatable #TRUE")) {
+        code = DiagnosticBag.ERR_TRAIT_VIOLATION;
       }
       diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       markTypePoisoned(doc, typeName);

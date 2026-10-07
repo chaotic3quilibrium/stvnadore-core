@@ -322,6 +322,8 @@ public final class StvnCompiler {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_FACET_ORDER_VIOLATION;
           } else if (msg.contains("defines an empty domain")) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;
+          } else if (msg.contains("require types to be #equatable #TRUE")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_TRAIT_VIOLATION;
           }
         } else if (t instanceof org.stvnadore.core.validation.StvnMalformedLiteralException e) {
           startOffset = e.startOffset();
@@ -331,6 +333,10 @@ public final class StvnCompiler {
           endOffset = e.endOffset();
           if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
+          } else if (e.getMessage() != null && e.getMessage().contains("Duplicate inverted map value detected")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_DUPLICATE_INVERTED_MAP_VALUE;
+          } else if (e.getMessage() != null && e.getMessage().contains("Duplicate map key detected")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_DUPLICATE_MAP_KEY;
           }
         } else if (t instanceof org.stvnadore.core.validation.MalformedPayloadException e) {
           startOffset = e.startOffset();
@@ -400,6 +406,10 @@ public final class StvnCompiler {
           endOffset = e.endOffset();
           if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
             errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
+          } else if (e.getMessage() != null && e.getMessage().contains("Duplicate inverted map value detected")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_DUPLICATE_INVERTED_MAP_VALUE;
+          } else if (e.getMessage() != null && e.getMessage().contains("Duplicate map key detected")) {
+            errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_DUPLICATE_MAP_KEY;
           }
         } else if (t instanceof org.stvnadore.core.validation.StvnIntegerOverflowException e) {
           startOffset = e.startOffset();
