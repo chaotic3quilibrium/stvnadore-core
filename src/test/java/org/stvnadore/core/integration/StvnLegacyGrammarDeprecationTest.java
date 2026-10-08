@@ -98,8 +98,8 @@ public class StvnLegacyGrammarDeprecationTest {
   }
 
   @Test
-  @DisplayName("TC-DEP-08: Legacy fenced string arrow delimiter emits syntax error")
-  void testLegacyFencedStringArrowDeprecation() {
+  @DisplayName("TC-DEP-08: Prohibited fenced string arrow delimiter emits ERR_PROHIBITED_FENCE_ARROW")
+  void testLegacyFencedStringArrowProhibition() {
     String source = """
         {
           :type :String
@@ -109,9 +109,9 @@ public class StvnLegacyGrammarDeprecationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Fenced arrow syntax must trigger syntax error");
+    assertTrue(result.hasErrors(), "Prohibited fenced arrow syntax must trigger fatal error");
     var diag = result.diagnostics().getFirst();
-    assertTrue(diag.errorCode().map(c -> c.contains("SYNTAX_ERROR")).orElse(false)
-        || diag.message().toLowerCase().contains("syntax error"));
+    assertEquals(DiagnosticBag.ERR_PROHIBITED_FENCE_ARROW, diag.errorCode().orElse(null));
+    assertTrue(diag.message().contains("Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited"));
   }
 }

@@ -166,6 +166,9 @@ public final class StvnErrorListener extends BaseErrorListener {
       errorCode = Optional.of(DiagnosticBag.ERR_DATETIME_MODE_INVALID);
     } else if (sanitizedMessage.contains("Metadata facet #preserveIndent requires an explicit boolean value")) {
       errorCode = Optional.of(DiagnosticBag.ERR_INVALID_METADATA_FACET);
+    } else if (sanitizedMessage.contains("delimiter arrow '->' is prohibited")
+        || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().startsWith("\"\"\"->["))) {
+      errorCode = Optional.of(DiagnosticBag.ERR_PROHIBITED_FENCE_ARROW);
     }
 
     if (this.strict) {
@@ -359,6 +362,9 @@ public final class StvnErrorListener extends BaseErrorListener {
   }
 
   private static String formatMalformedFenceMessage(String tokenText) {
+    if (tokenText.startsWith("\"\"\"->[")) {
+      return "Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited";
+    }
     int start = tokenText.indexOf('[');
     int end = tokenText.indexOf(']', start >= 0 ? start : 0);
     String tag = (start >= 0 && end > start) ? tokenText.substring(start + 1, end) : "";

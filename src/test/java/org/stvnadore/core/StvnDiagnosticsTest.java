@@ -684,8 +684,8 @@ public class StvnDiagnosticsTest {
   }
 
   @Test
-  @DisplayName("Rule STR-04 Deprecation: Encountering '->' emits ERROR diagnostic and fails compilation")
-  void testFencedStringArrowDelimiterEmitsDeprecationWarning() {
+  @DisplayName("Rule STR-04 Prohibition: Encountering '->' emits ERROR diagnostic and fails compilation")
+  void testFencedStringArrowDelimiterEmitsProhibitionError() {
     String input = """
         {
           :type :String
@@ -696,14 +696,15 @@ public class StvnDiagnosticsTest {
         """;
 
     var result = StvnCompiler.compileToResult(input);
-    Assertions.assertFalse(result.isSuccess(), "Compilation must fail when deprecated arrow delimiter is used");
+    Assertions.assertFalse(result.isSuccess(), "Compilation must fail when prohibited arrow delimiter is used");
     Assertions.assertTrue(result.hasErrors(), "Must contain ERROR diagnostics");
     Assertions.assertEquals(1, result.diagnostics().size());
 
     var diag = result.diagnostics().getFirst();
     Assertions.assertEquals(StvnDiagnostic.DiagnosticSeverity.ERROR, diag.severity());
-    Assertions.assertTrue(diag.errorCode().map(c -> c.contains("SYNTAX_ERROR")).orElse(false)
-        || diag.message().toLowerCase().contains("syntax error"), "Expected syntax error diagnostic: " + diag);
+    Assertions.assertEquals(java.util.Optional.of(DiagnosticBag.ERR_PROHIBITED_FENCE_ARROW), diag.errorCode());
+    Assertions.assertTrue(diag.message().contains("Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited"),
+        "Expected prohibition error message: " + diag);
   }
 
   @Test

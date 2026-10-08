@@ -38,7 +38,7 @@ public record StvnDiagnostic(
   public enum DiagnosticSeverity {
     /** Fatal error that prevents compilation or validation from succeeding. */
     ERROR,
-    /** Non-fatal warning indicating semantic discrepancies or deprecated constructs. */
+    /** Non-fatal warning indicating semantic discrepancies or non-fatal structural issues. */
     WARNING,
     /** Informational diagnostic conveying contextual AST insights. */
     INFO,

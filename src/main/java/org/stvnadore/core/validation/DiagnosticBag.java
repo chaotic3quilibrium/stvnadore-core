@@ -82,6 +82,8 @@ public final class DiagnosticBag {
   public static final String ERR_BARE_HASH_PROHIBITED = "ERR_BARE_HASH_PROHIBITED";
   /** Error code emitted when a negative zero integer literal is encountered (prohibited on :Int). */
   public static final String ERR_INVALID_NUMERIC_LITERAL = "ERR_INVALID_NUMERIC_LITERAL";
+  /** Error code emitted when a prohibited fenced string delimiter arrow is encountered under Rule STR-04. */
+  public static final String ERR_PROHIBITED_FENCE_ARROW = "ERR_PROHIBITED_FENCE_ARROW";
   /** Error code emitted when a payload value violates declared or aliased cardinality bounds. */
   public static final String ERR_CONSTRAINT_VIOLATION = "ERR_CONSTRAINT_VIOLATION";
   /** Error code emitted when an AST payload literal kind conflicts with the expected schema constructor. */

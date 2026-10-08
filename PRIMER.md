@@ -375,7 +375,7 @@ Traits govern capability states:
 STVN supports three string presentation formats:
 1. **Simple String:** `"Single-line quoted text with escapes \n"`
 2. **Block String:** Multi-line triple-quoted string `""" Line 1 \n Line 2 """`
-3. **Fenced String:** Tagged multi-line string `"""[TAG] ... [TAG]"""` (Note: `"""->[TAG]` is deprecated as of v1.1.1)
+3. **Fenced String:** Tagged multi-line string `"""[TAG] ... [TAG]"""` (Note: legacy `"""->[TAG]` is prohibited in v2.0.0)
 
 ### 6.2 Fenced Multi-Line Strings for STVN Containing STVN
 
@@ -491,4 +491,4 @@ Bare unqualified references (such as `:Port`) trigger `ERR_UNKNOWN_TYPE`. Docume
 
 ### 8.2 Security Considerations: `:Sha256` Adoption and `:Sha1` Excision
 
-In accordance with modern cryptographic standards, STVN has completely deprecated and excised `:Sha1` from all compiler registries, schema flatteners, and binary codecs. All cryptographic hashes and digests in STVN standard tooling mandate 256-bit `:Sha256` (`{ #minSize 64 #maxSize 64 } :String`).
+In accordance with modern cryptographic standards, STVN has completely excised `:Sha1` from all compiler registries, schema flatteners, and binary codecs. All cryptographic hashes and digests in STVN standard tooling mandate 256-bit `:Sha256` (`{ #minSize 64 #maxSize 64 } :String`).

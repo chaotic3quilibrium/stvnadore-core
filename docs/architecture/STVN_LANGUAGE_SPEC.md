@@ -2147,7 +2147,7 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E023` | `EITHER_LEFT_MISSING_TAG` | Semantic | Fatal | Value intended for `:Either` Left branch was emitted without explicit `#L` tag. |
 | `E024` | `UNION_BRANCH_AMBIGUOUS` | Semantic | Fatal | Value conforms to multiple union branches without explicit `#index` tag. |
 | `E025` | `FENCE_DELIMITER_MISMATCH` | Lexical | Fatal | Closing fenced string tag does not match opening tag. |
-| `E026` | `FENCE_DEPRECATED_ARROW` | Lexical | Fatal | Fenced string opening contains deprecated `->` arrow syntax. |
+| `E026` | `FENCE_PROHIBITED_ARROW` | Lexical | Fatal | Fenced string opening contains prohibited `->` arrow syntax. |
 | `E027` | `OPAQUE_TYPE_BRAND_MISMATCH` | Semantic | Fatal | Assignment between nominal types with distinct SHA-256 CAS identities. |
 | `E028` | `CONSTANT_TYPE_MISMATCH` | Semantic | Fatal | Constant definition value does not conform to its declared type. |
 | `E029` | `DEAD_CODE_CANONICAL_FAIL` | Serialization | Fatal | Transitively unreachable definition emitted in canonical serialization. |
@@ -2196,8 +2196,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_FACET_ORDER_VIOLATION` | `"ERR_FACET_ORDER_VIOLATION"` | Fatal | Metadata facets violate the 5-tier canonical sequence. |
 | `ERR_DUPLICATE_METADATA_FACET` | `"ERR_DUPLICATE_METADATA_FACET"` | Fatal | Duplicate facet tag declared within the same metadata block. |
 | `ERR_CAS_PREIMAGE_AMBIGUITY` | `"ERR_CAS_PREIMAGE_AMBIGUITY"` | Fatal | Nominal types collide or CAS preimage bijectivity is violated. |
-| `ERR_DEPRECATED_FENCE_ARROW` | `"ERR_DEPRECATED_FENCE_ARROW"` | Fatal | Deprecated fenced string delimiter arrow `"""->[TAG]` rejected. |
-| `WARN_DEPRECATED_FENCE_ARROW` | `"RULE_STR_04_DEPRECATED_ARROW"` | Warning | Warning emitted when legacy Rule STR-04 delimiter arrow is encountered. |
+| `ERR_PROHIBITED_FENCE_ARROW` | `"ERR_PROHIBITED_FENCE_ARROW"` | Fatal | Prohibited fenced string delimiter arrow `"""->[TAG]` rejected. |
 
 ### C.4 Discrete Half-Open Interval Semantics ($[minIncl, maxExcl)$)
 
@@ -2340,7 +2339,7 @@ LITERAL_STRING_SIMPLE : '"' (~["\\\r\n] | '\\' .)* '"' ;
 
 fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
 
-// Fenced String Rule STR-04 (Without deprecated '->' arrow)
+// Fenced String Rule STR-04 (Without prohibited '->' arrow)
 FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     String text = getText();
     int start = text.indexOf('[') + 1;

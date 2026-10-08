@@ -1,5 +1,5 @@
 // @spec: SPEC-06-STRING-CARD
-// @case: Negative - Reject fenced string deprecated arrow rejected
+// @case: Negative - Reject fenced string prohibited arrow rejected
 // @error: SYNTAX_ERROR
 {
   :defs {}

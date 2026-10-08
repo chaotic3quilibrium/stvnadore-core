@@ -82,7 +82,7 @@ public class StvnIrSnapshotTest {
         {
           :type :String
           :body \"\"\"->[XML]
-          <note>deprecated arrow</note>
+          <note>prohibited arrow</note>
           \"\"\"[XML]
         }
         """;

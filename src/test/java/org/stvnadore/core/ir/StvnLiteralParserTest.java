@@ -101,12 +101,11 @@ class StvnLiteralParserTest {
   }
 
   @Test
-  void testFencedStringParsingOptionalArrow() {
+  void testFencedStringArrowProhibited() {
     String withArrow = "\"\"\"->[SQL]\nSELECT 1;\n[SQL]\"\"\"";
-    var parsedWith = StvnLiteralParser.parseStringNew(withArrow, true);
-    Assertions.assertEquals(StvnValue.StringStyle.FENCED, parsedWith.style());
-    Assertions.assertEquals("SQL", parsedWith.optionalFenceTag().orElseThrow());
-    Assertions.assertEquals("SELECT 1;\n", parsedWith.text());
+    var ex = Assertions.assertThrows(IllegalArgumentException.class,
+        () -> StvnLiteralParser.parseStringNew(withArrow, true));
+    Assertions.assertEquals("Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited", ex.getMessage());
 
     String withoutArrow = "\"\"\"[SQL]\nSELECT 1;\n[SQL]\"\"\"";
     var parsedWithout = StvnLiteralParser.parseStringNew(withoutArrow, true);

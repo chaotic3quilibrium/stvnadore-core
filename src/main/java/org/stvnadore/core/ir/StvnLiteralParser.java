@@ -192,7 +192,10 @@ public final class StvnLiteralParser {
    */
   public static ParsedString parseStringNew(String rawText, boolean preserveIndent) {
     if (rawText.startsWith("\"\"\"")) {
-      boolean isFenced = rawText.startsWith("\"\"\"->[") || rawText.startsWith("\"\"\"[");
+      if (rawText.startsWith("\"\"\"->[")) {
+        throw new IllegalArgumentException("Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited");
+      }
+      boolean isFenced = rawText.startsWith("\"\"\"[");
       int newlineIndex = rawText.indexOf('\n');
 
       // Failsafe: if somehow a single-line block string snuck past the validator

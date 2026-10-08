@@ -65,7 +65,7 @@ class CanonicalLayoutWriterTest {
   }
 
   @Test
-  void testCanonicalNormalizationOfFencedStringArrowDeprecation() {
+  void testCanonicalNormalizationOfFencedStringArrowProhibition() {
     String legacySource = """
         {
           :defs {

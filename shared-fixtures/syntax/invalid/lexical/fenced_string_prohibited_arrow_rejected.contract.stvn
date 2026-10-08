@@ -1,5 +1,5 @@
 {
-  // fenced_string_deprecated_arrow_rejected.contract.stvn
+  // fenced_string_prohibited_arrow_rejected.contract.stvn
   :defs {
     :include [ "../error_contract.stvn_inclf" ]
   }
@@ -8,7 +8,7 @@
 
   :body (
     #SYNTAX_ERROR
-    "mismatched input"
+    "Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited"
     "java.lang.RuntimeException"
   )
 }

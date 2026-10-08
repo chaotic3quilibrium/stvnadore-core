@@ -118,6 +118,11 @@ FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     }
 } ;
 
+PROHIBITED_FENCE_START : '"""->[' ~[\r\n]* '\n' {
+    setType(MALFORMED_FENCE_OPEN);
+    pushMode(MALFORMED_FENCED_STRING);
+} ;
+
 MALFORMED_FENCE_OPEN : '"""[' ~[\r\n]* '\n' {
     pushMode(MALFORMED_FENCED_STRING);
 } ;
