@@ -95,6 +95,20 @@ public final class DiagnosticBag {
   /** Error code emitted when duplicate values appear in an invertible map payload (SPEC § 6.2, § 6.3). */
   public static final String ERR_DUPLICATE_INVERTED_MAP_VALUE = "DUPLICATE_INVERTED_MAP_VALUE";
 
+  // Document Identity & Metadata Governance Codes
+  /** Error code emitted when a document #kind facet conflicts with its physical file extension. */
+  public static final String ERR_DOCUMENT_KIND_MISMATCH = "ERR_DOCUMENT_KIND_MISMATCH";
+  /** Error code emitted when a file on disk lacks a visible non-empty stem (bare dotfile). */
+  public static final String ERR_INVALID_FILENAME_STEM = "ERR_INVALID_FILENAME_STEM";
+  /** Error code emitted when a :meta block is placed out of order (after :defs, :type, or :body). */
+  public static final String ERR_META_POSITION_INVALID = "ERR_META_POSITION_INVALID";
+  /** Warning code emitted when a declared #name facet does not match the filename stem slot 0. */
+  public static final String WARN_DOCUMENT_NAME_MISMATCH = "WARN_DOCUMENT_NAME_MISMATCH";
+  /** Warning code emitted when a declared #domain facet is omitted from filename stem slot 1. */
+  public static final String WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME = "WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME";
+  /** Error code emitted when a legacy excised file extension (.stvn_incl, .stvn_inclf, .stvn_cas) is encountered. */
+  public static final String ERR_LEGACY_FILE_EXTENSION_PURGED = "ERR_LEGACY_FILE_EXTENSION_PURGED";
+
   // Normative STVN 2.0.0 Standard Diagnostic Codes
   /** Error code emitted when a :TimeEpoch type declaration lacks a mandatory scale facet (SPEC-02). */
   public static final String ERR_TEMPORAL_SCALE_MISSING = "ERR_TEMPORAL_SCALE_MISSING";

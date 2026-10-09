@@ -42,6 +42,9 @@
       * [3.8.2 Semantics & Substitution Rules](#382-semantics--substitution-rules)
     * [3.9 Package Enclosures (`:package`) and Scoped Imports (`:use`)](#39-package-enclosures-package-and-scoped-imports-use)
       * [Scoping Invariants](#scoping-invariants)
+    * [3.10 Document Identity & `:meta` Enclosure](#310-document-identity--meta-enclosure)
+      * [3.10.1 Syntactic & Structural Rules](#3101-syntactic--structural-rules)
+      * [3.10.2 Filename Decomposition & Binding](#3102-filename-decomposition--binding)
   * [4. Module Ingestion and Namespace Isolation](#4-module-ingestion-and-namespace-isolation)
     * [4.1 Single-Import Constraint](#41-single-import-constraint)
     * [4.2 Namespace Eviction Cascade](#42-namespace-eviction-cascade)
@@ -151,18 +154,30 @@
 
 ### 1.1 Root Enclosure Rule
 
-Every text-based STVN document **must** enclose its entire content within a single root curly brace pair `{ ... }`. Compilers **must reject** any file missing this outer boundary. Zero tokens, directives, or triviaâ€”except whitespace and single-line commentsâ€”may appear outside this outer enclosure.
+Every text-based STVN document **must** enclose its entire content within a single root curly brace pair `{ ... }`. Compilers **must reject** any file missing this outer boundary. Zero tokens, directives, or trivia—except whitespace and single-line comments—may appear outside this outer enclosure.
+
+Within this root enclosure, top-level sections must strictly adhere to the following sequence:
+
+$$\text{documentRoot} \longrightarrow \texttt{:meta}^{?} \longrightarrow \texttt{:defs}^{?} \longrightarrow (\texttt{:type} \;\; \texttt{:body})^{?}$$
+
+The `:meta` block is a first-class root enclosure entry that strictly precedes `:defs`, `:type`, and `:body`. Placing `:meta` after `:defs`, after `:type`, or after `:body` is an unrecoverable syntax error at the parser gate (`ERR_META_POSITION_INVALID`).
+
+The `:meta` block is optional on primary modular documents (`.stvn`), but mandatory across all other file types.
 
 ### 1.2 File Extension Matrix
 
-| Extension         | Purpose                  | `:defs` Section | `:type` Section | `:body` Section | Directives Allowed                 |
-|:------------------|:-------------------------|:----------------|:----------------|:----------------|:-----------------------------------|
-| **`.stvn`**       | Primary Modular Document | Optional        | **Required**    | **Required**    | `:include`, `:package`, `:use`     |
-| **`.stvn_f`**     | Flat Hermetic Document   | Optional        | **Required**    | **Required**    | None (`:include` is prohibited)    |
-| **`.stvn_incl`**  | Transitive Shared Module | **Required**    | **Prohibited**  | **Prohibited**  | `:include`, `:package`, `:use` (DAG resolution) |
-| **`.stvn_inclf`** | Flat Leaf Module         | **Required**    | **Prohibited**  | **Prohibited**  | `:package`, `:use` (`:include` is prohibited) |
-| **`.stvn_bin`**   | Zero-Copy Compact Binary | Embedded        | Embedded        | Embedded        | N/A (Bytecode)                     |
-| **`.stvn_cas`**   | Repository Profile       | **Required**    | **Required**    | **Required**    | N/A (Predefined Repository Envelope) |
+| Extension          | Semantic Kind (`#kind`) | Purpose                  | `:meta` Block | `:defs` Section | `:type` & `:body` | Directives Allowed                 |
+|:-------------------|:------------------------|:-------------------------|:--------------|:----------------|:------------------|:-----------------------------------|
+| **`.stvn`**        | `#BODY`                 | Primary Modular Document | Optional      | Optional        | **Required**      | `:include`, `:package`, `:use`     |
+| **`.stvn_d`**      | `#DEFS`                 | Definitions Module       | **Required**  | **Required**    | **Prohibited**    | `:include`, `:package`, `:use`     |
+| **`.stvn_f`**      | `#BODY_FLAT`            | Flat Hermetic Document   | **Required**  | Optional        | **Required**      | None (`:include` is prohibited)    |
+| **`.stvn_df`**     | `#DEFS_FLAT`            | Flat Leaf Definitions    | **Required**  | **Required**    | **Prohibited**    | `:package`, `:use` (`:include` prohibited) |
+| **`.stvn_bf`**     | `#BODY_FLAT`            | Binary Flat Body Payload | Embedded Wire | Embedded Wire   | Embedded Wire     | None (`:include` is prohibited)    |
+| **`.stvn_bdf`**    | `#DEFS_FLAT`            | Binary Flat Definitions  | Embedded Wire | Embedded Wire   | **Prohibited**    | None (`:include` is prohibited)    |
+
+CAS envelopes are formalized as dot-separated `<name>.cas.stvn_f` (`#domain "cas"`, `#kind #BODY_FLAT`). Compiler IR dumps are retained as `<name>.stvn_ir`.
+
+Legacy extensions (`.stvn_incl`, `.stvn_inclf`, `.stvn_cas`, `.stvn_bin`) are permanently excised. Encountering them emits fatal diagnostic `ERR_LEGACY_FILE_EXTENSION_PURGED`.
 
 ### 1.3 Strict Zero-Tab Invariant
 
@@ -499,6 +514,38 @@ Authors can organize definitions into explicit namespace packages and import sym
 5. **No Trailing Slashes:** Specifying a trailing slash in `:use` target paths emits `ERR_TRAILING_SLASH_PROHIBITED`.
 6. **Section 4.2 Eviction Integration:** Symbols imported via `:use` undergo eviction cascade: local definitions take precedence, explicit aliases resolve collisions, and unmitigated collisions emit `ERR_NAMESPACE_COLLISION`.
 
+---
+
+### 3.10 Document Identity & `:meta` Enclosure
+
+Every STVN document may declare an identity block using the `:meta` root enclosure:
+
+```stvn
+{
+  :meta {
+    #name "telemetry_schema"
+    #domain "telemetry"
+    #kind #DEFS_FLAT
+  }
+  :defs {
+    :NodeId { #unsigned #size 32 } :Int
+  }
+}
+```
+
+#### 3.10.1 Syntactic & Structural Rules
+1. **Closed Enclosure:** `:meta { ... }` accepts strictly three facet keys: `#name`, `#domain`, and `#kind`. Unknown facets emit `ERR_INVALID_METADATA_FACET`.
+2. **3-Tier Monotonic Order:** Facets must appear in monotonic sequence: `#name` $\longrightarrow$ `#domain` $\longrightarrow$ `#kind`. Reversals emit `ERR_FACET_ORDER_VIOLATION`.
+3. **Empty Block Prohibition:** Empty `:meta {}` blocks are prohibited and emit `ERR_EMPTY_METADATA_BLOCK`.
+4. **POSIX Identifier Validation:** Values for `#name` and `#domain` must be string literals matching `^[a-zA-Z0-9_-]{1,64}$`. Path slashes and dots are prohibited.
+5. **Kind Enumeration:** The `#kind` facet must be one of `#BODY`, `#DEFS`, `#BODY_FLAT`, or `#DEFS_FLAT`.
+
+#### 3.10.2 Filename Decomposition & Binding
+1. Filenames decompose by dot (`.`): `stem[0] = name`, `stem[1] = domain`, trailing token = extension.
+2. Single stem segments before the extension (e.g., `billing.stvn_df`) bind strictly to `name` (slot 0).
+3. Every file must have a non-empty stem (`stem.length >= 1`). Bare dotfiles emit `ERR_INVALID_FILENAME_STEM`.
+4. Core compiler emits fatal `ERR_DOCUMENT_KIND_MISMATCH` on kind/extension discrepancies, and warnings (`WARN_DOCUMENT_NAME_MISMATCH`, `WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME`) on stem discrepancies.
+5. Repository ingress gates enforce fatal rejection (`ERR_SCHEMA_IDENTITY_MISMATCH`) on any identity divergence.
 
 ---
 
@@ -1208,7 +1255,13 @@ $$f: \text{NominalSchema} \longleftrightarrow \text{CAS Hash}$$
 
 #### CAS Stability Under Pass 2 Execution
 Because the CAS hash preimage is derived directly from the canonical flattened schema text:
-$$\text{CAS Hash} = \text{SHA-256}(\text{StvnSchemaFlattener.flatten}(\text{SchemaSource}))$$
+$$\text{CAS Hash} = \text{SHA-256}(\text{UTF-8}(\text{CanonicalFlattenedText}))$$
+
+The canonical string emitted by `StvnSchemaFlattener` incorporates the `:meta` block as its leading section:
+$$\text{Preimage} = \text{UTF-8}\Big(\texttt{"\{ :meta \{ ... \} :defs \{ ... \} \}"}\Big)$$
+
+If `#domain` or `#name` were omitted, they are omitted from the flattened text.
+
 the Pass 2 architectural changes permanently lock the hashing inputs prior to the 2.0.0 release:
 1. **Decoy Alias Purge:** Eliminating `:org/stvnadore/prelude/TimeEpoch` and `:org/stvnadore/prelude/DateTime` ensures these types hash as fundamental kernel constructors rather than nominal prelude aliases pointing to `:Int` or `:String`.
 2. **Scale Flag Canonicalization:** Replacing `{ #unit #ms }` with bare `{ #ms }` ensures a compact, permanent canonical syntax for epoch hashes.
@@ -2152,6 +2205,12 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E028` | `CONSTANT_TYPE_MISMATCH` | Semantic | Fatal | Constant definition value does not conform to its declared type. |
 | `E029` | `DEAD_CODE_CANONICAL_FAIL` | Serialization | Fatal | Transitively unreachable definition emitted in canonical serialization. |
 | `E030` | `TYPE_RESOLUTION_FAILURE` | Semantic | Fatal | Referenced nominal type or constant symbol is not declared in scope. |
+| `E031` | `DOCUMENT_KIND_MISMATCH` | Semantic | Fatal | Document #kind facet conflicts with physical file extension. |
+| `E032` | `INVALID_FILENAME_STEM` | Syntactic | Fatal | Filename lacks visible non-empty stem segment (bare dotfile). |
+| `E033` | `META_POSITION_INVALID` | Syntactic | Fatal | :meta root block placed after :defs, :type, or :body. |
+| `E034` | `LEGACY_FILE_EXTENSION_PURGED` | Syntactic | Fatal | Excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas) used. |
+| `W001` | `DOCUMENT_NAME_MISMATCH` | Semantic | Warning | Declared #name does not match filename stem slot 0. |
+| `W002` | `DOCUMENT_DOMAIN_OMITTED_IN_FILENAME` | Semantic | Warning | Declared #domain is omitted from filename stem slot 1. |
 
 ### C.3 Normative STVN 2.0.0 Diagnostic Codes
 
@@ -2197,6 +2256,12 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_DUPLICATE_METADATA_FACET` | `"ERR_DUPLICATE_METADATA_FACET"` | Fatal | Duplicate facet tag declared within the same metadata block. |
 | `ERR_CAS_PREIMAGE_AMBIGUITY` | `"ERR_CAS_PREIMAGE_AMBIGUITY"` | Fatal | Nominal types collide or CAS preimage bijectivity is violated. |
 | `ERR_PROHIBITED_FENCE_ARROW` | `"ERR_PROHIBITED_FENCE_ARROW"` | Fatal | Prohibited fenced string delimiter arrow `"""->[TAG]` rejected. |
+| `ERR_DOCUMENT_KIND_MISMATCH` | `"ERR_DOCUMENT_KIND_MISMATCH"` | Fatal | Document #kind facet conflicts with physical file extension. |
+| `ERR_INVALID_FILENAME_STEM` | `"ERR_INVALID_FILENAME_STEM"` | Fatal | Filename lacks visible non-empty stem segment (bare dotfile). |
+| `ERR_META_POSITION_INVALID` | `"ERR_META_POSITION_INVALID"` | Fatal | :meta block placed out of order (after :defs, :type, or :body). |
+| `WARN_DOCUMENT_NAME_MISMATCH` | `"WARN_DOCUMENT_NAME_MISMATCH"` | Warning | #name declared in :meta does not match filename stem slot 0. |
+| `WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME` | `"WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME"` | Warning | #domain declared in :meta is omitted from filename stem slot 1. |
+| `ERR_LEGACY_FILE_EXTENSION_PURGED` | `"ERR_LEGACY_FILE_EXTENSION_PURGED"` | Fatal | Legacy excised file extension passed to compiler or include. |
 
 ### C.4 Discrete Half-Open Interval Semantics ($[minIncl, maxExcl)$)
 
@@ -2261,6 +2326,7 @@ RBRACE : '}' ;
 FSLASH : '/' ;
 
 // Structural Keywords
+KW_META    : ':meta' ;
 KW_DEFS    : ':defs' ;
 KW_TYPE    : ':type' ;
 KW_BODY    : ':body' ;
@@ -2309,6 +2375,13 @@ KW_PRESERVE_INDENT : '#preserveIndent' ;
 KW_REGEX           : '#regex' ;
 KW_FILTER_INCL     : '#filterIncl' ;
 KW_FILTER_EXCL     : '#filterExcl' ;
+KW_META_NAME       : '#name' ;
+KW_META_DOMAIN     : '#domain' ;
+KW_META_KIND       : '#kind' ;
+KW_KIND_BODY       : '#BODY' ;
+KW_KIND_DEFS       : '#DEFS' ;
+KW_KIND_BODY_FLAT  : '#BODY_FLAT' ;
+KW_KIND_DEFS_FLAT  : '#DEFS_FLAT' ;
 
 // Value Keywords and Literals
 KW_TRUE        : '#TRUE' ;
@@ -2401,7 +2474,20 @@ options {
 
 stvnDocument : LBRACE documentBody RBRACE EOF ;
 
-documentBody : defsEntry? (typeEntry bodyEntry)? ;
+documentBody : metaEntry? defsEntry? (typeEntry bodyEntry)? ;
+
+metaEntry : KW_META metaBlock ;
+metaBlock : LBRACE metaElement* RBRACE ;
+metaElement : metaNameFacet
+            | metaDomainFacet
+            | metaKindFacet
+            | metaUnknownFacet
+            ;
+metaNameFacet   : KW_META_NAME stringLiteral ;
+metaDomainFacet : KW_META_DOMAIN stringLiteral ;
+metaKindFacet   : KW_META_KIND metaKindValue ;
+metaKindValue   : KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_FLAT | KW_KIND_DEFS_FLAT ;
+metaUnknownFacet : valueKeyword (value | schemaType)? ;
 
 defsEntry : KW_DEFS LBRACE defsElement* RBRACE ;
 

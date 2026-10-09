@@ -77,6 +77,9 @@ public final class StvnVocabulary {
   // 3. STRUCTURAL DOCUMENT KEYWORDS
   // ============================================================================
 
+  /** Structural keyword for document identity metadata blocks ({@code :meta}). */
+  public static final String KEYWORD_META = ":meta";
+
   /** Structural keyword for nominal type definition blocks ({@code :defs}). */
   public static final String KEYWORD_DEFS = ":defs";
 
@@ -177,6 +180,29 @@ public final class StvnVocabulary {
   // Tier 7: Directives
   /** Lexical keyword for string whitespace stripping directive ({@code #strip}). */
   public static final String FACET_KW_STRIP = "#strip";
+
+  // Document Identity Facets
+  /** Lexical keyword for document identity name facet ({@code #name}). */
+  public static final String FACET_KW_META_NAME = "#name";
+
+  /** Lexical keyword for document identity domain facet ({@code #domain}). */
+  public static final String FACET_KW_META_DOMAIN = "#domain";
+
+  /** Lexical keyword for document identity kind facet ({@code #kind}). */
+  public static final String FACET_KW_META_KIND = "#kind";
+
+  // Document Kind Enum Constant Tokens
+  /** Document kind enum constant token for textual full document body ({@code #BODY}). */
+  public static final String KIND_KW_BODY = "#BODY";
+
+  /** Document kind enum constant token for textual definitions ({@code #DEFS}). */
+  public static final String KIND_KW_DEFS = "#DEFS";
+
+  /** Document kind enum constant token for flattened document body ({@code #BODY_FLAT}). */
+  public static final String KIND_KW_BODY_FLAT = "#BODY_FLAT";
+
+  /** Document kind enum constant token for flattened definitions ({@code #DEFS_FLAT}). */
+  public static final String KIND_KW_DEFS_FLAT = "#DEFS_FLAT";
 
   // ============================================================================
   // 5. CANONICAL BARE FACET NAMES (AST & DICTIONARY KEYS)

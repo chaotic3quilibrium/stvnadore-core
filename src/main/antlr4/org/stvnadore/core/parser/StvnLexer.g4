@@ -25,6 +25,7 @@ LBRACE : '{' ;
 RBRACE : '}' ;
 FSLASH : '/' ;
 
+KW_META    : ':meta' ;
 KW_DEFS    : ':defs' ;
 KW_TYPE    : ':type' ;
 KW_BODY    : ':body' ;
@@ -32,6 +33,15 @@ KW_INCLUDE : ':include' ;
 KW_PACKAGE : ':package' ;
 KW_USE     : ':use' ;
 KW_STRIP   : '#strip' ;
+
+KW_META_NAME   : '#name' ;
+KW_META_DOMAIN : '#domain' ;
+KW_META_KIND   : '#kind' ;
+
+KW_KIND_BODY      : '#BODY' ;
+KW_KIND_DEFS      : '#DEFS' ;
+KW_KIND_BODY_FLAT : '#BODY_FLAT' ;
+KW_KIND_DEFS_FLAT : '#DEFS_FLAT' ;
 
 KW_EQUATABLE       : '#equatable' ;
 KW_COMPARABLE      : '#comparable' ;
