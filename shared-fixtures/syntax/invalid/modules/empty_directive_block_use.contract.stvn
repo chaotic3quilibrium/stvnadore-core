@@ -1,7 +1,7 @@
 {
   // empty_directive_block_use.contract.stvn
   :defs {
-    :include [ "../error_contract.stvn_df" ]
+    :include [ "../error_contract.stvn_d" ]
   }
 
   :type :ErrorContract

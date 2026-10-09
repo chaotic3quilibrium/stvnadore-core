@@ -22,7 +22,7 @@ metaElement : metaNameFacet
 metaNameFacet   : KW_META_NAME stringLiteral ;
 metaDomainFacet : KW_META_DOMAIN stringLiteral ;
 metaKindFacet   : KW_META_KIND metaKindValue ;
-metaKindValue   : KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_FLAT | KW_KIND_DEFS_FLAT ;
+metaKindValue   : KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_INCLUDE | KW_KIND_DEFS_INCLUDE ;
 metaUnknownFacet : valueKeyword (value | schemaType)? ;
 
 // Inclusion definitions integrated alongside type structures
@@ -205,5 +205,5 @@ valueKeywordStart : VALUE_KEYWORD_BASE
                   | KW_OFFSET | KW_ZONED | KW_AUDITED
                   | KW_SCALE_S | KW_SCALE_MS | KW_SCALE_US | KW_SCALE_NS
                   | KW_META_NAME | KW_META_DOMAIN | KW_META_KIND
-                  | KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_FLAT | KW_KIND_DEFS_FLAT
+                  | KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_INCLUDE | KW_KIND_DEFS_INCLUDE
                   ;

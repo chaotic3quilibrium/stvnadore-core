@@ -27,18 +27,18 @@ class StvnSchemaFlattenerTest {
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
     // Nominal sorting: :Age should come before :User
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :Age { #minIncl 0 #maxIncl 150 } :Int32 :User { #regex \"^[a-z]+$\" } :String } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :Age { #minIncl 0 #maxIncl 150 } :Int32 :User { #regex \"^[a-z]+$\" } :String } }";
     Assertions.assertEquals(expected, result);
   }
 
   @Test
   void testTransitiveImportsAndSorting() {
     Map<String, String> workspace = Map.of(
-        "main.stvn", """
+        "main.stvn_i", """
             {
               :defs {
                 :include [
-                  "types/user.stvn_d"
+                  "types/user.stvn_di"
                 ]
                 :Status :Enum[#Active #Inactive]
               }
@@ -46,7 +46,7 @@ class StvnSchemaFlattenerTest {
               :body ( "Alice" 30 )
             }
             """,
-        "types/user.stvn_d", """
+        "types/user.stvn_di", """
             {
               :defs {
                 :include [
@@ -66,23 +66,23 @@ class StvnSchemaFlattenerTest {
             """
     );
 
-    String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
+    String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     // Sorted alphabetically by nominal name:
     // :Age
     // :Status
     // :User
     // :Username
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :Age :Int32 :Status :Enum[#Active #Inactive] :User :Tuple(:Username :Age) :Username { #regex \"^[A-Za-z0-9_]+$\" } :String } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :Age :Int32 :Status :Enum[#Active #Inactive] :User :Tuple(:Username :Age) :Username { #regex \"^[A-Za-z0-9_]+$\" } :String } }";
     Assertions.assertEquals(expected, result);
   }
 
   @Test
   void testDirectCycleThrows() {
     Map<String, String> workspace = Map.of(
-        "main.stvn", """
+        "main.stvn_i", """
             {
               :defs {
-                :include [ "main.stvn" ]
+                :include [ "main.stvn_i" ]
               }
             }
             """
@@ -90,35 +90,35 @@ class StvnSchemaFlattenerTest {
 
     CyclicDependencyException ex = Assertions.assertThrows(
         CyclicDependencyException.class,
-        () -> StvnSchemaFlattener.flatten(workspace, "main.stvn")
+        () -> StvnSchemaFlattener.flatten(workspace, "main.stvn_i")
     );
 
-    Assertions.assertTrue(ex.getMessage().contains("Cycle detected: main.stvn -> main.stvn"));
+    Assertions.assertTrue(ex.getMessage().contains("Cycle detected: main.stvn_i -> main.stvn_i"));
     Assertions.assertEquals(1, ex.getOffendingIncludePathsRaw().size());
-    Assertions.assertEquals("main.stvn", ex.getOffendingIncludePathsRaw().get(0));
+    Assertions.assertEquals("main.stvn_i", ex.getOffendingIncludePathsRaw().get(0));
   }
 
   @Test
   void testIndirectCycleThrows() {
     Map<String, String> workspace = Map.of(
-        "main.stvn", """
+        "main.stvn_i", """
             {
               :defs {
-                :include [ "module_a.stvn_d" ]
+                :include [ "module_a.stvn_di" ]
               }
             }
             """,
-        "module_a.stvn_d", """
+        "module_a.stvn_di", """
             {
               :defs {
-                :include [ "module_b.stvn_d" ]
+                :include [ "module_b.stvn_di" ]
               }
             }
             """,
-        "module_b.stvn_d", """
+        "module_b.stvn_di", """
             {
               :defs {
-                :include [ "module_a.stvn_d" ]
+                :include [ "module_a.stvn_di" ]
               }
             }
             """
@@ -126,17 +126,17 @@ class StvnSchemaFlattenerTest {
 
     CyclicDependencyException ex = Assertions.assertThrows(
         CyclicDependencyException.class,
-        () -> StvnSchemaFlattener.flatten(workspace, "main.stvn")
+        () -> StvnSchemaFlattener.flatten(workspace, "main.stvn_i")
     );
 
-    // main.stvn -> module_a -> module_b -> module_a
-    Assertions.assertTrue(ex.getMessage().contains("Cycle detected: module_a.stvn_d -> module_b.stvn_d -> module_a.stvn_d"));
+    // main.stvn_i -> module_a -> module_b -> module_a
+    Assertions.assertTrue(ex.getMessage().contains("Cycle detected: module_a.stvn_di -> module_b.stvn_di -> module_a.stvn_di"));
   }
 
   @Test
   void testDuplicateModuleImportThrows() {
     Map<String, String> workspace = Map.of(
-        "main.stvn", """
+        "main.stvn_i", """
             {
               :defs {
                 :include [
@@ -157,7 +157,7 @@ class StvnSchemaFlattenerTest {
 
     DuplicateModuleImportException ex = Assertions.assertThrows(
         DuplicateModuleImportException.class,
-        () -> StvnSchemaFlattener.flatten(workspace, "main.stvn")
+        () -> StvnSchemaFlattener.flatten(workspace, "main.stvn_i")
     );
 
     Assertions.assertTrue(ex.getMessage().contains("Duplicate module import detected for path: common.stvn_d"));
@@ -166,7 +166,7 @@ class StvnSchemaFlattenerTest {
   @Test
   void testCollisionAbsoluteLocalPriority() {
     Map<String, String> workspace = Map.of(
-        "main.stvn", """
+        "main.stvn_i", """
             {
               :defs {
                 :include [
@@ -185,16 +185,16 @@ class StvnSchemaFlattenerTest {
             """
     );
 
-    String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
+    String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     // Local priority evicts the imported :ConflictType :Int32, leaving :ConflictType :String
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :ConflictType :String } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :ConflictType :String } }";
     Assertions.assertEquals(expected, result);
   }
 
   @Test
   void testCollisionAsymmetricIngestionEviction() {
     Map<String, String> workspace = Map.of(
-        "main.stvn", """
+        "main.stvn_i", """
             {
               :defs {
                 :include [
@@ -222,18 +222,18 @@ class StvnSchemaFlattenerTest {
             """
     );
 
-    String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
+    String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     // :ConflictType from module_a is renamed to :AliasA, which evicts its LHS name (:ConflictType) from the collision,
     // allowing module_b's raw :ConflictType to survive.
     // Alphabetical order: :AliasA, :ConflictType
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :AliasA :Int32 :ConflictType :String } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :AliasA :Int32 :ConflictType :String } }";
     Assertions.assertEquals(expected, result);
   }
 
   @Test
   void testCollisionDualIngestionEviction() {
     Map<String, String> workspace = Map.of(
-        "main.stvn", """
+        "main.stvn_i", """
             {
               :defs {
                 :include [
@@ -263,17 +263,17 @@ class StvnSchemaFlattenerTest {
             """
     );
 
-    String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
+    String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     // Both aliases survive, but the raw LHS name (:ConflictType) is evicted and unresolved in the local namespace.
     // No exception is thrown because the collision itself was mitigated by alias renaming.
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :AliasA :Int32 :AliasB :String } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :AliasA :Int32 :AliasB :String } }";
     Assertions.assertEquals(expected, result);
   }
 
   @Test
   void testCollisionUnmitigatedRawCollisionThrows() {
     Map<String, String> workspace = Map.of(
-        "main.stvn", """
+        "main.stvn_i", """
             {
               :defs {
                 :include [
@@ -301,14 +301,14 @@ class StvnSchemaFlattenerTest {
 
     Assertions.assertThrows(
         NamespaceCollisionException.class,
-        () -> StvnSchemaFlattener.flatten(workspace, "main.stvn")
+        () -> StvnSchemaFlattener.flatten(workspace, "main.stvn_i")
     );
   }
 
   @Test
   void testReferenceRewriting() {
     Map<String, String> workspace = Map.of(
-        "main.stvn", """
+        "main.stvn_i", """
             {
               :defs {
                 :include [
@@ -330,9 +330,9 @@ class StvnSchemaFlattenerTest {
             """
     );
 
-    String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
+    String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     // TypeA's internal reference to :ConflictType must be rewritten to :ConflictTypeA
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :ConflictType :Int32 :ConflictTypeA :String :TypeA :Tuple(:ConflictTypeA :Int32) } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :ConflictType :Int32 :ConflictTypeA :String :TypeA :Tuple(:ConflictTypeA :Int32) } }";
     Assertions.assertEquals(expected, result);
   }
 
@@ -354,7 +354,7 @@ class StvnSchemaFlattenerTest {
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
     // Comments must be gone, whitespace normalized to single spaces, constraints sorted.
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :TypeA :Int32 :TypeB { #regex \"^[a-z]+$\" } :String } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :TypeA :Int32 :TypeB { #regex \"^[a-z]+$\" } :String } }";
     Assertions.assertEquals(expected, result);
   }
 
@@ -369,7 +369,7 @@ class StvnSchemaFlattenerTest {
           }
         }
         """);
-    workspace1.put("main.stvn", """
+    workspace1.put("main.stvn_i", """
         {
           :defs {
             :include [
@@ -382,7 +382,7 @@ class StvnSchemaFlattenerTest {
 
     // Workspace 2: Standard Unix forward slashes, different file insertion order (TreeMap)
     Map<String, String> workspace2 = new TreeMap<>();
-    workspace2.put("main.stvn", """
+    workspace2.put("main.stvn_i", """
         {
           :defs {
             :include [
@@ -400,12 +400,12 @@ class StvnSchemaFlattenerTest {
         }
         """);
 
-    String result1 = StvnSchemaFlattener.flatten(workspace1, "main.stvn");
-    String result2 = StvnSchemaFlattener.flatten(workspace2, "main.stvn");
+    String result1 = StvnSchemaFlattener.flatten(workspace1, "main.stvn_i");
+    String result2 = StvnSchemaFlattener.flatten(workspace2, "main.stvn_i");
 
     // Both must yield identical byte-for-byte outputs
     Assertions.assertEquals(result1, result2);
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :Status :Enum[#Active #Inactive] :User :Tuple(:Username :Age) } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :Status :Enum[#Active #Inactive] :User :Tuple(:Username :Age) } }";
     Assertions.assertEquals(expected, result1);
   }
 }

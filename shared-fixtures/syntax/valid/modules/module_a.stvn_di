@@ -1,0 +1,10 @@
+{
+  :meta {
+    #name "module_a"
+    #kind #DEFS_INCLUDE
+  }
+  :defs {
+    :TypeA :Int
+    :ConflictType :Int
+  }
+}

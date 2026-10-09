@@ -1,0 +1,16 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         empty_module
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Helper include module declaring a nominal type for :include
+// ==============================================================================
+{
+  :meta {
+    #name "empty_module"
+    #kind #DEFS_INCLUDE
+  }
+  :defs {
+    :IncludeType :Int
+  }
+}

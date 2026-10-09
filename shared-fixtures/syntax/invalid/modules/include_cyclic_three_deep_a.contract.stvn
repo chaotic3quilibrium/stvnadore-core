@@ -1,14 +1,14 @@
 {
   // include_cyclic_three_deep_a.contract.stvn
   :defs {
-    :include [ "../error_contract.stvn_df" ]
+    :include [ "../error_contract.stvn_d" ]
   }
 
   :type :ErrorContract
 
   :body (
     #CYCLIC_DEPENDENCY
-    "Cycle detected: include_cyclic_three_deep_a.stvn -> include_cyclic_three_deep_b.stvn_d -> include_cyclic_three_deep_c.stvn_d -> include_cyclic_three_deep_a.stvn"
+    "Cycle detected: include_cyclic_three_deep_a.stvn_i -> include_cyclic_three_deep_b.stvn_di -> include_cyclic_three_deep_c.stvn_di -> include_cyclic_three_deep_a.stvn_i"
     "org.stvnadore.core.validation.CyclicDependencyException"
   )
 }

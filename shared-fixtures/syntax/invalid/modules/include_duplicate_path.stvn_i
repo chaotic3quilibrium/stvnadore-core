@@ -1,0 +1,13 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject include duplicate path
+// @error: DUPLICATE_IMPORT
+{
+  :defs {
+    :include [
+      "./module_raw_a.stvn_di"
+      "./module_raw_a.stvn_di"
+    ]
+  }
+  :type :Boolean
+  :body #TRUE
+}

@@ -67,10 +67,11 @@ public class StvnMetadataMatrixTest {
           "Stale fixture content detected in: " + relative + ". Re-run MetadataFixtureGenerator.main().");
     }
 
-    // 2. Assert no orphaned .stvn or .stvn_d files exist on disk
+    // 2. Assert no orphaned .stvn, .stvn_d, .stvn_i, or .stvn_di files exist on disk
     try (Stream<Path> stream = Files.walk(FIXTURE_ROOT)) {
       List<Path> diskFiles = stream.filter(Files::isRegularFile)
-          .filter(p -> p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_d"))
+          .filter(p -> p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_d")
+              || p.toString().endsWith(".stvn_i") || p.toString().endsWith(".stvn_di"))
           .toList();
 
       for (Path diskFile : diskFiles) {
@@ -171,7 +172,7 @@ public class StvnMetadataMatrixTest {
     if (!Files.exists(target)) return Stream.empty();
     try (Stream<Path> stream = Files.walk(target)) {
       return stream.filter(Files::isRegularFile)
-          .filter(p -> p.toString().endsWith(".stvn")) // exclude .stvn_d helper
+          .filter(p -> p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i")) // exclude .stvn_di helper
           .sorted()
           .map(file -> {
             try {

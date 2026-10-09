@@ -38,10 +38,10 @@ KW_META_NAME   : '#name' ;
 KW_META_DOMAIN : '#domain' ;
 KW_META_KIND   : '#kind' ;
 
-KW_KIND_BODY      : '#BODY' ;
-KW_KIND_DEFS      : '#DEFS' ;
-KW_KIND_BODY_FLAT : '#BODY_FLAT' ;
-KW_KIND_DEFS_FLAT : '#DEFS_FLAT' ;
+KW_KIND_BODY         : '#BODY' ;
+KW_KIND_DEFS         : '#DEFS' ;
+KW_KIND_BODY_INCLUDE : '#BODY_INCLUDE' ;
+KW_KIND_DEFS_INCLUDE : '#DEFS_INCLUDE' ;
 
 KW_EQUATABLE       : '#equatable' ;
 KW_COMPARABLE      : '#comparable' ;

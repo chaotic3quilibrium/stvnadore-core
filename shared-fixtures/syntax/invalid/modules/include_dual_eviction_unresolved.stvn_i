@@ -1,0 +1,17 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject include dual eviction unresolved
+// @error: MALFORMED_SCHEMA
+{
+  :defs {
+    :include [
+      "./module_dual_a.stvn_di" {
+        :ConflictType :AliasA
+      }
+      "./module_dual_b.stvn_di" {
+        :ConflictType :AliasB
+      }
+    ]
+  }
+  :type :ConflictType
+  :body "this should fail downstream because :ConflictType is unresolved"
+}

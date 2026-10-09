@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "include_cyclic_indirect_b"
+    #kind #DEFS_INCLUDE
+  }
+  :defs {
+    :include [
+      "include_cyclic_indirect.stvn_i"
+    ]
+  }
+}

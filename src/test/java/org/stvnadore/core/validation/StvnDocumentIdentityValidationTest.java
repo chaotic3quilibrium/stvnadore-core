@@ -65,8 +65,8 @@ public class StvnDocumentIdentityValidationTest {
   }
 
   @Test
-  @DisplayName("TC-ID-04: Physical .stvn_df flat definitions module requires mandatory :meta header")
-  void testFlatDefinitionsDocumentRequiresMetaWhenExtensionIsStvnDf() {
+  @DisplayName("TC-ID-04: Physical .stvn_di modular definitions module requires mandatory :meta header")
+  void testModularDefinitionsDocumentRequiresMetaWhenExtensionIsStvnDi() {
     String source = """
         {
           :defs {
@@ -74,7 +74,7 @@ public class StvnDocumentIdentityValidationTest {
           }
         }
         """;
-    var result = StvnCompiler.compileToResult(source, "common.stvn_df");
+    var result = StvnCompiler.compileToResult(source, "common.stvn_di");
     assertFalse(result.isSuccess());
     assertTrue(result.hasErrors());
     var diag = result.diagnostics().getFirst();
@@ -83,20 +83,17 @@ public class StvnDocumentIdentityValidationTest {
   }
 
   @Test
-  @DisplayName("TC-ID-05: Physical .stvn_f flat body document requires mandatory :meta header")
-  void testFlatBodyDocumentRequiresMetaWhenExtensionIsStvnF() {
+  @DisplayName("TC-ID-05: Physical .stvn_i modular body document omitting :meta defaults cleanly to BODY_INCLUDE")
+  void testModularBodyDocumentAllowsOmittedMeta() {
     String source = """
         {
           :type :Int
           :body 50
         }
         """;
-    var result = StvnCompiler.compileToResult(source, "payload.stvn_f");
-    assertFalse(result.isSuccess());
-    assertTrue(result.hasErrors());
-    var diag = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.errorCode().orElse(null));
-    assertTrue(diag.message().contains("Mandatory :meta block missing"));
+    var result = StvnCompiler.compileToResult(source, "payload.stvn_i");
+    assertTrue(result.isSuccess());
+    assertFalse(result.hasErrors());
   }
 
   @Test
@@ -120,18 +117,18 @@ public class StvnDocumentIdentityValidationTest {
   }
 
   @Test
-  @DisplayName("TC-ID-07: Kind mismatch between #DEFS_FLAT and .stvn_f extension emits fatal error")
-  void testKindMismatchBetweenBodyFlatAndDefsFlat() {
+  @DisplayName("TC-ID-07: Kind mismatch between #BODY_INCLUDE and .stvn extension emits fatal error")
+  void testKindMismatchBetweenBodyIncludeAndStvn() {
     String source = """
         {
           :meta {
-            #kind #DEFS_FLAT
+            #kind #BODY_INCLUDE
           }
           :type :Int
           :body 42
         }
         """;
-    var result = StvnCompiler.compileToResult(source, "payload.stvn_f");
+    var result = StvnCompiler.compileToResult(source, "payload.stvn");
     assertFalse(result.isSuccess());
     assertTrue(result.hasErrors());
     var diag = result.diagnostics().getFirst();
@@ -139,19 +136,19 @@ public class StvnDocumentIdentityValidationTest {
   }
 
   @Test
-  @DisplayName("TC-ID-08: Bare dotfile lacking visible stem segment (.stvn_df) emits ERR_INVALID_FILENAME_STEM")
+  @DisplayName("TC-ID-08: Bare dotfile lacking visible stem segment (.stvn_di) emits ERR_INVALID_FILENAME_STEM")
   void testNonEmptyStemInvariantBareDotfileRejected() {
     String source = """
         {
           :meta {
-            #kind #DEFS_FLAT
+            #kind #DEFS_INCLUDE
           }
           :defs {
             :MyType :Int
           }
         }
         """;
-    var result = StvnCompiler.compileToResult(source, ".stvn_df");
+    var result = StvnCompiler.compileToResult(source, ".stvn_di");
     assertFalse(result.isSuccess());
     assertTrue(result.hasErrors());
     var diag = result.diagnostics().getFirst();
@@ -352,6 +349,28 @@ public class StvnDocumentIdentityValidationTest {
   void testLegacyExtensionStvnBinRejected() {
     String source = "{ :type :Int :body 1 }";
     var result = StvnCompiler.compileToResult(source, "payload.stvn_bin");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    assertEquals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED, diag.errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-19a: Excised legacy extension .stvn_f fails closed immediately")
+  void testLegacyExtensionStvnFRejected() {
+    String source = "{ :type :Int :body 1 }";
+    var result = StvnCompiler.compileToResult(source, "payload.stvn_f");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    assertEquals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED, diag.errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-19b: Excised legacy extension .stvn_df fails closed immediately")
+  void testLegacyExtensionStvnDfRejected() {
+    String source = "{ :meta { #kind #DEFS } :defs { :T :Int } }";
+    var result = StvnCompiler.compileToResult(source, "module.stvn_df");
     assertFalse(result.isSuccess());
     assertTrue(result.hasErrors());
     var diag = result.diagnostics().getFirst();

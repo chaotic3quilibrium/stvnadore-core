@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "network_service"
+    #kind #DEFS_INCLUDE
+  }
+  // network_service.stvn_d
+  :defs {
+    :net/http/Status :Enum [ #net/http/OK #net/http/NotFound #net/http/Error ]
+    :net/http/Header :Tuple( :String :String )
+  }
+}

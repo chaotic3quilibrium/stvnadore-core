@@ -66,12 +66,12 @@ public class StvnPackageAndUseScopingTest {
   }
 
   @Test
-  @DisplayName("TC-PKG-03: Ingress gate enforcement for .stvn_f emits ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT")
+  @DisplayName("TC-PKG-03: Ingress gate enforcement for .stvn emits ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT")
   void testIngressGateEnforcementForFlatDocument(@TempDir Path tempDir) throws IOException {
-    Path flatFile = tempDir.resolve("payload.stvn_f");
+    Path flatFile = tempDir.resolve("payload.stvn");
     String content = """
         {
-          :meta { #kind #BODY_FLAT }
+          :meta { #kind #BODY }
           :defs {
             :include [ "common.stvn_d" ]
             :Local :String
@@ -83,7 +83,7 @@ public class StvnPackageAndUseScopingTest {
     Files.writeString(flatFile, content);
 
     var result = StvnCompiler.compileToResult(content, flatFile.toString());
-    Assertions.assertFalse(result.isSuccess(), "Includes in .stvn_f must fail compilation before lowering");
+    Assertions.assertFalse(result.isSuccess(), "Includes in .stvn must fail compilation before lowering");
     Assertions.assertTrue(result.diagnostics().stream()
         .anyMatch(d -> DiagnosticBag.ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT.equals(d.errorCode().orElse(null))),
         "Must emit ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT: " + result.diagnostics());
@@ -240,7 +240,7 @@ public class StvnPackageAndUseScopingTest {
           :body 8080
         }
         """;
-    Path docFile = tempDir.resolve("main.stvn");
+    Path docFile = tempDir.resolve("main.stvn_i");
     Files.writeString(docFile, docContent);
 
     var result = StvnCompiler.compileToResult(docContent, docFile.toString());

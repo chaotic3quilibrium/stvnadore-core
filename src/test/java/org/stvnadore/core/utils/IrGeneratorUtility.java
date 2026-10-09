@@ -35,7 +35,7 @@ public final class IrGeneratorUtility {
     int processedCount = 0;
 
     try (Stream<Path> paths = Files.walk(FIXTURES_DIR)) {
-      List<Path> files = paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_f")).toList();
+      List<Path> files = paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i")).toList();
       for (Path file : files) {
         processFixture(file);
         processedCount++;

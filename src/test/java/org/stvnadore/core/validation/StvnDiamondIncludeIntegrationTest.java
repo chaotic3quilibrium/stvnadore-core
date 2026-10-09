@@ -21,28 +21,28 @@ public class StvnDiamondIncludeIntegrationTest {
   @DisplayName("Diamond dependency graph (A -> B, C -> D) flattens successfully without NamespaceCollisionException")
   void testDiamondDependencyGraphFlattensSuccessfully() {
     Map<String, String> workspace = Map.of(
-        "A.stvn", """
+        "A.stvn_i", """
             {
               :defs {
-                :include [ "b.stvn_d" "c.stvn_d" ]
+                :include [ "b.stvn_di" "c.stvn_di" ]
                 :TypeA :Tuple( :TypeB :TypeC )
               }
               :type :TypeA
               :body ( ( 42 10 ) ( 42 "hello" ) )
             }
             """,
-        "b.stvn_d", """
+        "b.stvn_di", """
             {
-              :meta { #kind #DEFS }
+              :meta { #kind #DEFS_INCLUDE }
               :defs {
                 :include [ "d.stvn_d" ]
                 :TypeB :Tuple( :TypeD :Int )
               }
             }
             """,
-        "c.stvn_d", """
+        "c.stvn_di", """
             {
-              :meta { #kind #DEFS }
+              :meta { #kind #DEFS_INCLUDE }
               :defs {
                 :include [ "d.stvn_d" ]
                 :TypeC :Tuple( :TypeD :String )
@@ -60,7 +60,7 @@ public class StvnDiamondIncludeIntegrationTest {
     );
 
     // Flattening must succeed cleanly without throwing NamespaceCollisionException
-    String flattened = assertDoesNotThrow(() -> StvnSchemaFlattener.flatten(workspace, "A.stvn"));
+    String flattened = assertDoesNotThrow(() -> StvnSchemaFlattener.flatten(workspace, "A.stvn_i"));
 
     assertNotNull(flattened);
     assertTrue(flattened.contains(":TypeD { #size 32 } :Int"), "Flattened output must contain shared definition :TypeD");
@@ -85,28 +85,28 @@ public class StvnDiamondIncludeIntegrationTest {
   @DisplayName("Diamond dependency with shared typed constants and multiple types deduplicates cleanly")
   void testDiamondIncludeWithConstantsAndMultipleTypes() {
     Map<String, String> workspace = Map.of(
-        "root.stvn", """
+        "root.stvn_i", """
             {
               :defs {
-                :include [ "module1.stvn_d" "module2.stvn_d" ]
+                :include [ "module1.stvn_di" "module2.stvn_di" ]
                 :RootType :Tuple( :Type1 :Type2 )
               }
               :type :RootType
               :body ( 1 2 )
             }
             """,
-        "module1.stvn_d", """
+        "module1.stvn_di", """
             {
-              :meta { #kind #DEFS }
+              :meta { #kind #DEFS_INCLUDE }
               :defs {
                 :include [ "base.stvn_d" ]
                 :Type1 :BaseType
               }
             }
             """,
-        "module2.stvn_d", """
+        "module2.stvn_di", """
             {
-              :meta { #kind #DEFS }
+              :meta { #kind #DEFS_INCLUDE }
               :defs {
                 :include [ "base.stvn_d" ]
                 :Type2 :BaseType
@@ -124,7 +124,7 @@ public class StvnDiamondIncludeIntegrationTest {
             """
     );
 
-    String flattened = assertDoesNotThrow(() -> StvnSchemaFlattener.flatten(workspace, "root.stvn"));
+    String flattened = assertDoesNotThrow(() -> StvnSchemaFlattener.flatten(workspace, "root.stvn_i"));
     assertNotNull(flattened);
     assertTrue(flattened.contains(":BaseType :Int"));
     assertTrue(flattened.contains("#BASE_CONST :Int 100"));
@@ -134,26 +134,26 @@ public class StvnDiamondIncludeIntegrationTest {
   @DisplayName("Diamond dependency where root also directly includes the diamond leaf D")
   void testDiamondIncludeDirectIncludeInRoot() {
     Map<String, String> workspace = Map.of(
-        "root.stvn", """
+        "root.stvn_i", """
             {
               :defs {
-                :include [ "leaf.stvn_d" "mid1.stvn_d" "mid2.stvn_d" ]
+                :include [ "leaf.stvn_d" "mid1.stvn_di" "mid2.stvn_di" ]
                 :Root :Tuple( :Mid1 :Mid2 :Leaf )
               }
             }
             """,
-        "mid1.stvn_d", """
+        "mid1.stvn_di", """
             {
-              :meta { #kind #DEFS }
+              :meta { #kind #DEFS_INCLUDE }
               :defs {
                 :include [ "leaf.stvn_d" ]
                 :Mid1 :Leaf
               }
             }
             """,
-        "mid2.stvn_d", """
+        "mid2.stvn_di", """
             {
-              :meta { #kind #DEFS }
+              :meta { #kind #DEFS_INCLUDE }
               :defs {
                 :include [ "leaf.stvn_d" ]
                 :Mid2 :Leaf
@@ -170,7 +170,7 @@ public class StvnDiamondIncludeIntegrationTest {
             """
     );
 
-    String flattened = assertDoesNotThrow(() -> StvnSchemaFlattener.flatten(workspace, "root.stvn"));
+    String flattened = assertDoesNotThrow(() -> StvnSchemaFlattener.flatten(workspace, "root.stvn_i"));
     assertNotNull(flattened);
     assertTrue(flattened.contains(":Leaf { #exact } :Float"));
   }
@@ -179,24 +179,24 @@ public class StvnDiamondIncludeIntegrationTest {
   @DisplayName("Genuine namespace collisions across distinct source modules are still rejected")
   void testGenuineCollisionAcrossDistinctModulesStillFails() {
     Map<String, String> workspace = Map.of(
-        "A.stvn", """
+        "A.stvn_i", """
             {
               :defs {
-                :include [ "b.stvn_d" "c.stvn_d" ]
+                :include [ "b.stvn_di" "c.stvn_di" ]
               }
             }
             """,
-        "b.stvn_d", """
+        "b.stvn_di", """
             {
-              :meta { #kind #DEFS }
+              :meta { #kind #DEFS_INCLUDE }
               :defs {
                 :include [ "d1.stvn_d" ]
               }
             }
             """,
-        "c.stvn_d", """
+        "c.stvn_di", """
             {
-              :meta { #kind #DEFS }
+              :meta { #kind #DEFS_INCLUDE }
               :defs {
                 :include [ "d2.stvn_d" ]
               }
@@ -223,7 +223,7 @@ public class StvnDiamondIncludeIntegrationTest {
     // Two distinct modules (d1 and d2) defining :ConflictingType MUST trigger NamespaceCollisionException
     NamespaceCollisionException ex = assertThrows(
         NamespaceCollisionException.class,
-        () -> StvnSchemaFlattener.flatten(workspace, "A.stvn")
+        () -> StvnSchemaFlattener.flatten(workspace, "A.stvn_i")
     );
     assertTrue(ex.getMessage().contains("ConflictingType"), "Exception must mention the conflicting identifier");
   }

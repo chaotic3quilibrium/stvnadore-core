@@ -192,17 +192,17 @@ public final class StvnVocabulary {
   public static final String FACET_KW_META_KIND = "#kind";
 
   // Document Kind Enum Constant Tokens
-  /** Document kind enum constant token for textual full document body ({@code #BODY}). */
+  /** Document kind enum constant token for hermetic document body ({@code #BODY}). */
   public static final String KIND_KW_BODY = "#BODY";
 
-  /** Document kind enum constant token for textual definitions ({@code #DEFS}). */
+  /** Document kind enum constant token for hermetic definitions schema ({@code #DEFS}). */
   public static final String KIND_KW_DEFS = "#DEFS";
 
-  /** Document kind enum constant token for flattened document body ({@code #BODY_FLAT}). */
-  public static final String KIND_KW_BODY_FLAT = "#BODY_FLAT";
+  /** Document kind enum constant token for modular document body ({@code #BODY_INCLUDE}). */
+  public static final String KIND_KW_BODY_INCLUDE = "#BODY_INCLUDE";
 
-  /** Document kind enum constant token for flattened definitions ({@code #DEFS_FLAT}). */
-  public static final String KIND_KW_DEFS_FLAT = "#DEFS_FLAT";
+  /** Document kind enum constant token for modular definitions module ({@code #DEFS_INCLUDE}). */
+  public static final String KIND_KW_DEFS_INCLUDE = "#DEFS_INCLUDE";
 
   // ============================================================================
   // 5. CANONICAL BARE FACET NAMES (AST & DICTIONARY KEYS)

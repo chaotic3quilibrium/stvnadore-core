@@ -1,7 +1,7 @@
 {
   // freestanding_map_entry_disallowed.contract.stvn
   :defs {
-    :include [ "../error_contract.stvn_df" ]
+    :include [ "../error_contract.stvn_d" ]
   }
 
   :type :ErrorContract

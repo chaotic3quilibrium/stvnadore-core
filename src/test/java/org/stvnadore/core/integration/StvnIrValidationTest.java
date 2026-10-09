@@ -130,7 +130,7 @@ public class StvnIrValidationTest {
             {
               // %s
               :defs {
-                :include [ "../error_contract.stvn_df" ]
+                :include [ "../error_contract.stvn_d" ]
               }
 
               :type :ErrorContract
@@ -371,13 +371,13 @@ public class StvnIrValidationTest {
     try (Stream<Path> paths = Files.walk(INVALID_FIXTURES_DIR)) {
       List<Path> targetFiles = paths.filter(Files::isRegularFile).filter(p -> {
         String s = p.toString();
-        if (s.endsWith(".contract.stvn") || s.endsWith("error_contract.stvn_df") || s.endsWith(".stvn_ir") || s.endsWith(".stvn_bin")) {
+        if (s.endsWith(".contract.stvn") || s.endsWith("error_contract.stvn_d") || s.endsWith(".stvn_ir") || s.endsWith(".stvn_bin")) {
           return false;
         }
-        if (s.endsWith(".stvn")) {
+        if (s.endsWith(".stvn") || s.endsWith(".stvn_i")) {
           return true;
         }
-        if (s.endsWith(".stvn_df") || s.endsWith(".stvn_d") || s.endsWith(".stvn_f")) {
+        if (s.endsWith(".stvn_d") || s.endsWith(".stvn_di")) {
           String baseName = p.getFileName().toString();
           String contractFileName = baseName.substring(0, baseName.lastIndexOf('.')) + ".contract.stvn";
           return Files.exists(p.resolveSibling(contractFileName));
@@ -492,8 +492,8 @@ public class StvnIrValidationTest {
 
   @org.junit.jupiter.api.Test
   public void testIncludeLegal() throws Exception {
-    String input = java.nio.file.Files.readString(java.nio.file.Paths.get("shared-fixtures/syntax/valid/modules/include_legal.stvn"));
-    var astOpt = StvnCompiler.compilePayload(input, "shared-fixtures/syntax/valid/modules/include_legal.stvn");
+    String input = java.nio.file.Files.readString(java.nio.file.Paths.get("shared-fixtures/syntax/valid/modules/include_legal.stvn_i"));
+    var astOpt = StvnCompiler.compilePayload(input, "shared-fixtures/syntax/valid/modules/include_legal.stvn_i");
     Assertions.assertTrue(astOpt.isPresent());
     var ast = astOpt.get();
     Assertions.assertNotNull(ast);

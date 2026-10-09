@@ -101,7 +101,7 @@ public class StvnIrSnapshotTest {
       return Stream.empty();
     }
     try (var paths = Files.walk(FIXTURES_DIR)) {
-      var files = paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_f")).toList();
+      var files = paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i")).toList();
       return files.stream().map(p -> Arguments.of(p.getFileName().toString(), p));
     }
   }

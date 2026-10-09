@@ -27,7 +27,7 @@ class StvnConstantStripTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
@@ -58,7 +58,7 @@ class StvnConstantStripTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
@@ -87,7 +87,7 @@ class StvnConstantStripTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
@@ -128,7 +128,7 @@ class StvnConstantStripTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
@@ -159,7 +159,7 @@ class StvnConstantStripTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
@@ -180,7 +180,7 @@ class StvnConstantStripTest {
   @DisplayName("StvnSchemaFlattener strips and emits constants canonically")
   void testFlattenerStripsAndEmitsConstants() {
     Map<String, String> workspace = Map.of(
-        "main.stvn", """
+        "main.stvn_i", """
             {
               :defs {
                 :include [ "net.stvn_d" { #strip } ]
@@ -201,7 +201,7 @@ class StvnConstantStripTest {
             """
     );
 
-    String flattened = StvnSchemaFlattener.flatten(workspace, "main.stvn");
+    String flattened = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     Assertions.assertTrue(flattened.contains("#PORT :Int 8080"),
         "Flattened output must contain stripped #PORT: " + flattened);
     Assertions.assertTrue(flattened.contains(":Port :Int"),

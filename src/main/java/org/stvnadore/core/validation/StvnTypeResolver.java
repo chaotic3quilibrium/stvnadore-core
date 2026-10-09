@@ -484,8 +484,9 @@ public class StvnTypeResolver {
           constAccumulator.computeIfAbsent(constName, k -> new ArrayList<>())
               .add(new NamespaceClaim<>(constName, constDef, "Inline Document", ClaimType.LOCAL));
         } else if (child instanceof StvnParser.IncludeStmtContext includeStmt) {
-          if (currentDocPath != null && (currentDocPath.endsWith(".stvn_f") || currentDocPath.endsWith(".stvn_df") || currentDocPath.endsWith(".stvn_inclf"))) {
-            String msg = "Flat document or leaf module (.stvn_f / .stvn_df) cannot contain include statements: " + currentDocPath;
+          if (currentDocPath != null && ((currentDocPath.endsWith(".stvn") && !currentDocPath.endsWith(".contract.stvn"))
+              || currentDocPath.endsWith(".stvn_d") || currentDocPath.endsWith(".stvn_b") || currentDocPath.endsWith(".stvn_bd"))) {
+            String msg = "Hermetic document or schema (.stvn / .stvn_d) cannot contain include statements: " + currentDocPath;
             diagnosticBag.addError(
                 msg,
                 includeStmt.getStart().getStartIndex(),
@@ -3415,7 +3416,9 @@ public class StvnTypeResolver {
 
       // 1. Fail-closed legacy extension rejection
       if (fileName.endsWith(".stvn_incl") || fileName.endsWith(".stvn_inclf")
-          || fileName.endsWith(".stvn_cas") || fileName.endsWith(".stvn_bin")) {
+          || fileName.endsWith(".stvn_cas") || fileName.endsWith(".stvn_bin")
+          || fileName.endsWith(".stvn_f") || fileName.endsWith(".stvn_df")
+          || fileName.endsWith(".stvn_bf") || fileName.endsWith(".stvn_bdf")) {
         int dotIdx = fileName.indexOf('.');
         String legacyExt = dotIdx >= 0 ? fileName.substring(dotIdx) : fileName;
         diagnosticBag.addError(
@@ -3460,7 +3463,8 @@ public class StvnTypeResolver {
         ext != null ? StvnDocumentKind.fromExtension(ext) : Optional.empty();
 
     if (metaEntry == null) {
-      if (expectedKindOpt.isPresent() && expectedKindOpt.get() != StvnDocumentKind.BODY) {
+      if (expectedKindOpt.isPresent() && (expectedKindOpt.get() == StvnDocumentKind.DEFS
+          || expectedKindOpt.get() == StvnDocumentKind.DEFS_INCLUDE)) {
         diagnosticBag.addError(
             "Mandatory :meta block missing; document kind '" + expectedKindOpt.get().keyword() + "' is required for extension '" + ext + "'",
             doc.getStart() != null ? doc.getStart().getStartIndex() : 0,

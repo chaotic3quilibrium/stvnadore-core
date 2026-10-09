@@ -13,17 +13,17 @@ import java.util.Optional;
 @NullMarked
 public enum StvnDocumentKind {
 
-  /** Textual document body containing payload and optional definitions (.stvn). */
+  /** Textual canonical hermetic document body (.stvn) or binary body (.stvn_b). */
   BODY(StvnVocabulary.KIND_KW_BODY, ".stvn"),
 
-  /** Textual modular definitions schema module (.stvn_d). */
+  /** Textual hermetic definitions schema (.stvn_d) or binary definitions (.stvn_bd). */
   DEFS(StvnVocabulary.KIND_KW_DEFS, ".stvn_d"),
 
-  /** Textual flattened hermetic document body (.stvn_f) or binary body (.stvn_bf). */
-  BODY_FLAT(StvnVocabulary.KIND_KW_BODY_FLAT, ".stvn_f"),
+  /** Textual modular document body with optional includes (.stvn_i). */
+  BODY_INCLUDE(StvnVocabulary.KIND_KW_BODY_INCLUDE, ".stvn_i"),
 
-  /** Textual flattened definitions schema (.stvn_df) or binary definitions (.stvn_bdf). */
-  DEFS_FLAT(StvnVocabulary.KIND_KW_DEFS_FLAT, ".stvn_df");
+  /** Textual modular definitions schema module with includes (.stvn_di). */
+  DEFS_INCLUDE(StvnVocabulary.KIND_KW_DEFS_INCLUDE, ".stvn_di");
 
   private final String keyword;
   private final String primaryExtension;
@@ -74,10 +74,10 @@ public enum StvnDocumentKind {
    */
   public static Optional<StvnDocumentKind> fromExtension(String extension) {
     return switch (extension) {
-      case ".stvn" -> Optional.of(BODY);
-      case ".stvn_d" -> Optional.of(DEFS);
-      case ".stvn_f", ".stvn_bf" -> Optional.of(BODY_FLAT);
-      case ".stvn_df", ".stvn_bdf" -> Optional.of(DEFS_FLAT);
+      case ".stvn", ".stvn_b" -> Optional.of(BODY);
+      case ".stvn_d", ".stvn_bd" -> Optional.of(DEFS);
+      case ".stvn_i" -> Optional.of(BODY_INCLUDE);
+      case ".stvn_di" -> Optional.of(DEFS_INCLUDE);
       default -> Optional.empty();
     };
   }

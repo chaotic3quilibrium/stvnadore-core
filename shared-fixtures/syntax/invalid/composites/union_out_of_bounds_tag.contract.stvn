@@ -1,7 +1,7 @@
 {
   // union_out_of_bounds_tag.contract.stvn
   :defs {
-    :include [ "../error_contract.stvn_df" ]
+    :include [ "../error_contract.stvn_d" ]
   }
 
   :type :ErrorContract

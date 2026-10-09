@@ -26,7 +26,7 @@ public class StvnSchemaFlattenerV2Test {
         }
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :Text { #preserveIndent #TRUE } :String } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :Text { #preserveIndent #TRUE } :String } }";
     assertEquals(expected, flattened);
   }
 
@@ -43,7 +43,7 @@ public class StvnSchemaFlattenerV2Test {
         }
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :Text { #preserveIndent #FALSE } :String } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :Text { #preserveIndent #FALSE } :String } }";
     assertEquals(expected, flattened);
   }
 
@@ -61,7 +61,7 @@ public class StvnSchemaFlattenerV2Test {
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
     // 7-tier Semantic Category Order: Tier 1 (#unsigned #audited) < Tier 3 (#size 32) < Tier 4 (#minIncl 10)
-    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :ComplexInt { #unsigned #audited #size 32 #minIncl 10 } :Int } }";
+    String expected = "{ :meta { #kind #DEFS } :defs { :ComplexInt { #unsigned #audited #size 32 #minIncl 10 } :Int } }";
     assertEquals(expected, flattened);
   }
 

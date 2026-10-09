@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "enum_subset_module"
+    #kind #DEFS
+  }
+  // enum_subset_module.stvn_d
+  :defs {
+    :HttpProtocol :Enum [ #HTTP_1_0 #HTTP_1_1 #HTTP_2_0 #HTTP_3_0 ]
+    :ModernHttp { #filterExcl [ #HTTP_1_0 ] } :HttpProtocol
+  }
+}

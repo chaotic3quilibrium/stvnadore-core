@@ -94,30 +94,30 @@ public class StvnDefinitionsTest {
   void testLeafModuleIncludeRestriction() {
     String input = """
         {
-          :meta { #kind #DEFS_FLAT }
+          :meta { #kind #DEFS }
           :defs {
-            :include [ "other.stvn_df" ]
+            :include [ "other.stvn_d" ]
             :MyType :String
           }
         }
         """;
 
-    var result = StvnCompiler.compileToResult(input, "leaf.stvn_df");
+    var result = StvnCompiler.compileToResult(input, "leaf.stvn_d");
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
     var diag = result.diagnostics().getFirst();
-    Assertions.assertTrue(diag.message().contains("Flat document or leaf module (.stvn_f / .stvn_df) cannot contain include statements"));
+    Assertions.assertTrue(diag.message().contains("Hermetic document or schema (.stvn / .stvn_d) cannot contain include statements"));
     Assertions.assertEquals(DiagnosticBag.ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT, diag.errorCode().orElse(null));
   }
 
   @Test
   @DisplayName("Transitive include with multiple definition errors accumulates all diagnostics across files")
   void testTransitiveIncludeMultiErrors(@TempDir Path tempDir) throws IOException {
-    Path incl = tempDir.resolve("common.stvn_df");
+    Path incl = tempDir.resolve("common.stvn_d");
     Files.writeString(incl, """
         {
-          :meta { #kind #DEFS_FLAT }
+          :meta { #kind #DEFS }
           :defs {
             :BrokenRegex { #regex "[" } :String
             :BrokenRange { #minIncl 100 #maxIncl 1 } :Int32
@@ -125,11 +125,11 @@ public class StvnDefinitionsTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
-            :include [ "common.stvn_df" ]
+            :include [ "common.stvn_d" ]
             :LocalBroken { #preserveIndent #TRUE } :Int32
           }
           :type :String

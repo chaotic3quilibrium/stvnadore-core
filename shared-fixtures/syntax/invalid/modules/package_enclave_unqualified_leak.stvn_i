@@ -1,0 +1,11 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject package enclave unqualified leak
+// @error: MALFORMED_SCHEMA
+{
+  // package_enclave_unqualified_leak.stvn
+  :defs {
+    :include [ "packaged_module.stvn_di" ]
+  }
+  :type :LocalPort
+  :body 8080
+}

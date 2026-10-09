@@ -1,0 +1,10 @@
+{
+  :meta {
+    #name "flat_module_with_include"
+    #kind #DEFS
+  }
+  :defs {
+    :include [ "network_primitives.stvn_d" ]
+    :PortNumber :Int
+  }
+}

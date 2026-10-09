@@ -1,0 +1,9 @@
+{
+  :meta {
+    #name "module_asym_b"
+    #kind #DEFS_INCLUDE
+  }
+  :defs {
+    :ConflictType :String
+  }
+}

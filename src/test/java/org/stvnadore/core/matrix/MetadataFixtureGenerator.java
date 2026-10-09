@@ -143,7 +143,7 @@ public final class MetadataFixtureGenerator {
         {
           :meta {
             #name "empty_module"
-            #kind #DEFS
+            #kind #DEFS_INCLUDE
           }
           :defs {
             :IncludeType :Int
@@ -151,7 +151,7 @@ public final class MetadataFixtureGenerator {
         }
         """;
     list.add(new GeneratedFixture(
-        Path.of("valid", "isolated", "empty_module.stvn_d"),
+        Path.of("valid", "isolated", "empty_module.stvn_di"),
         helperContent,
         CoverageKind.ISOLATED_VALID,
         Optional.empty(),
@@ -461,12 +461,13 @@ public final class MetadataFixtureGenerator {
   }
 
   private static GeneratedFixture generateDirectiveIsolatedFixture(MetadataMatrixRow row) {
-    String fileName = "val_iso_" + sanitizeName(row.cleanBaseType()) + "_" + sanitizeName(row.tagName()) + ".stvn";
-    Path relPath = Path.of("valid", "isolated", fileName);
     boolean isInclude = row.cleanBaseType().contains("include");
+    String ext = isInclude ? ".stvn_i" : ".stvn";
+    String fileName = "val_iso_" + sanitizeName(row.cleanBaseType()) + "_" + sanitizeName(row.tagName()) + ext;
+    Path relPath = Path.of("valid", "isolated", fileName);
 
     String defsContent = isInclude
-        ? "    :include [ \"empty_module.stvn_d\" { #strip } ]"
+        ? "    :include [ \"empty_module.stvn_di\" { #strip } ]"
         : "    :package :PkgA { :TestedType :Int }\n    :use [ :PkgA { #strip } ]";
     String testedType = isInclude ? ":IncludeType" : ":TestedType";
     String bodyVal = "42";
@@ -491,7 +492,7 @@ public final class MetadataFixtureGenerator {
           :body %s
         }
         """.formatted(
-        fileName.replace(".stvn", ""),
+        fileName.replace(".stvn_i", "").replace(".stvn", ""),
         row.position(),
         row.modifying(),
         row.tagName(),

@@ -1,0 +1,12 @@
+{
+  :meta {
+    #name "packaged_module"
+    #kind #DEFS_INCLUDE
+  }
+  // packaged_module.stvn_d
+  :defs {
+    :package :Remote {
+      :LocalPort :Int
+    }
+  }
+}

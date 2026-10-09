@@ -193,14 +193,14 @@ public class StvnSchemaValidationTest {
   void testStandaloneIncludeHeaderWithBrokenRegexFailsEagerly() {
     String input = """
         {
-          :meta { #kind #DEFS_FLAT }
+          :meta { #kind #DEFS }
           :defs {
             :BrokenPattern { #regex "(?i" } :String
           }
         }
         """;
 
-    var result = StvnCompiler.compileToResult(input, "primitives.stvn_df");
+    var result = StvnCompiler.compileToResult(input, "primitives.stvn_d");
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
@@ -341,7 +341,7 @@ public class StvnSchemaValidationTest {
   void testMultiErrorModularHeaderValidation() {
     String input = """
         {
-          :meta { #kind #DEFS_FLAT }
+          :meta { #kind #DEFS }
           :defs {
             :BrokenA { #minIncl 10 #maxExcl 1 } :Int
             :BrokenB { #regex "[" } :String
@@ -350,7 +350,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    var result = StvnCompiler.compileToResult(input, "header.stvn_df");
+    var result = StvnCompiler.compileToResult(input, "header.stvn_d");
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
     Assertions.assertEquals(3, result.diagnostics().size(), "Must report all 3 header definition errors");

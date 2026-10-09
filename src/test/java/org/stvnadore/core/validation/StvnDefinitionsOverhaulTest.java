@@ -358,7 +358,7 @@ public class StvnDefinitionsOverhaulTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
@@ -389,7 +389,7 @@ public class StvnDefinitionsOverhaulTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
@@ -419,7 +419,7 @@ public class StvnDefinitionsOverhaulTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
@@ -448,7 +448,7 @@ public class StvnDefinitionsOverhaulTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
@@ -505,7 +505,7 @@ public class StvnDefinitionsOverhaulTest {
         }
         """);
 
-    Path mainFile = tempDir.resolve("main.stvn");
+    Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
           :defs {
@@ -522,9 +522,9 @@ public class StvnDefinitionsOverhaulTest {
 
     Map<String, String> workspace = Map.of(
         "net.stvn_d", Files.readString(netModule),
-        "main.stvn", mainContent
+        "main.stvn_i", mainContent
     );
-    String flattenedDefs = StvnSchemaFlattener.flatten(workspace, "main.stvn");
+    String flattenedDefs = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     String flattenedDocument = flattenedDefs.replaceFirst("\\}\\s*$", ":type :Port :body 8080 }");
 
     var flattenedResult = StvnCompiler.compileToResult(flattenedDocument);

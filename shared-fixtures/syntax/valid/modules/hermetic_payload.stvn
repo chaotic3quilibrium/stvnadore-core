@@ -1,0 +1,27 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Positive - Hermetic flat payload file without includes
+{
+  // hermetic_payload.stvn_f
+  // Flat Hermetic Payload Document Tier (Zero :include Statements)
+  // Specification: STVN v1.2.0 (ECD-2026-04-A1)
+  :meta {
+    #name "hermetic_payload"
+    #kind #BODY
+  }
+  :defs {
+    :package :org/stvnadore/payload {
+      :TransactionId { #minSize 16 #maxSize 16 } :String
+      :StatusCode { #unsigned #size 16 } :Int
+      #STATUS_SUCCESS :StatusCode 200
+    }
+
+    :Response :Tuple( :org/stvnadore/payload/TransactionId :org/stvnadore/payload/StatusCode )
+  }
+
+  :type :Response
+
+  :body (
+    "TX-20260911-0001"
+    200
+  )
+}

@@ -352,7 +352,7 @@ public final class StvnSchemaFlattener {
       entryMeta.name().ifPresent(n -> metaBuilder.append(" #name \"").append(n).append("\""));
       entryMeta.domain().ifPresent(d -> metaBuilder.append(" #domain \"").append(d).append("\""));
     }
-    metaBuilder.append(" #kind #DEFS_FLAT }");
+    metaBuilder.append(" #kind #DEFS }");
 
     // Assemble final output
     String joinedDefs = String.join(" ", outputDefinitions);
@@ -470,10 +470,10 @@ public final class StvnSchemaFlattener {
 
     if (docCtx.documentBody() != null && docCtx.documentBody().defsEntry() != null) {
       var defsEntry = docCtx.documentBody().defsEntry();
-      if (normalizedPath.endsWith(".stvn_f") || normalizedPath.endsWith(".stvn_df") || normalizedPath.endsWith(".stvn_inclf")) {
+      if (normalizedPath.endsWith(".stvn") || normalizedPath.endsWith(".stvn_d") || normalizedPath.endsWith(".stvn_b") || normalizedPath.endsWith(".stvn_bd")) {
         for (var de : defsEntry.defsElement()) {
           if (de.includeStmt() != null) {
-            throw new MalformedSchemaException("Flat document (.stvn_f / .stvn_df) cannot contain includes: " + normalizedPath);
+            throw new MalformedSchemaException("Hermetic document or schema (.stvn / .stvn_d) cannot contain includes: " + normalizedPath);
           }
         }
       }

@@ -1,0 +1,13 @@
+// @spec: SPEC-05-FACET-ORDER
+// @case: Negative - Reject invalid parameterized strip
+// @error: SYNTAX_ERROR
+{
+  // invalid_parameterized_strip.stvn
+  // Specification: STVN v1.2.0 (ECD-2026-04)
+  :defs {
+    :include [ "module_a.stvn_di" { #strip "pkg/sub/" } ]
+  }
+
+  :type :Int
+  :body 42
+}

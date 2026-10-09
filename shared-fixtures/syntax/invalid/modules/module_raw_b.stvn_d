@@ -1,9 +1,0 @@
-{
-  :meta {
-    #name "module_raw_b"
-    #kind #DEFS
-  }
-  :defs {
-    :ConflictType :String
-  }
-}

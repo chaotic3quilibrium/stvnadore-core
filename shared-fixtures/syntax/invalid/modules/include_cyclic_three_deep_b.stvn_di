@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "include_cyclic_three_deep_b"
+    #kind #DEFS_INCLUDE
+  }
+  :defs {
+    :include [
+      "include_cyclic_three_deep_c.stvn_di"
+    ]
+  }
+}

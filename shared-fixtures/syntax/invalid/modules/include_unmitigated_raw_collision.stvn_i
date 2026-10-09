@@ -1,0 +1,13 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject include unmitigated raw collision
+// @error: NAMESPACE_COLLISION
+{
+  :defs {
+    :include [
+      "./module_raw_a.stvn_di"
+      "./module_raw_b.stvn_di"
+    ]
+  }
+  :type :Int
+  :body 42
+}

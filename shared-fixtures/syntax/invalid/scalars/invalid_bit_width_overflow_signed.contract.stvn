@@ -1,7 +1,7 @@
 {
   // invalid_bit_width_overflow_signed.contract.stvn
   :defs {
-    :include [ "../error_contract.stvn_df" ]
+    :include [ "../error_contract.stvn_d" ]
   }
 
   :type :ErrorContract

@@ -1,0 +1,10 @@
+// @spec: SPEC-12-SYNTAX-LEXICAL
+// @case: Negative - Reject trap4 unbracketed include
+// @error: SYNTAX_ERROR
+{
+  :defs {
+    :include "./module_a.stvn_di"
+  }
+  :type :Int
+  :body 42
+}
