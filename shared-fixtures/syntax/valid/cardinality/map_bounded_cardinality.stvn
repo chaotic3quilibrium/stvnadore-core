@@ -1,7 +1,10 @@
 // @spec: SPEC-08-COLLECTIONS
 // @case: Positive - Bounded map cardinality between 1 and 10 entries
 {
-  // map_bounded_cardinality.stvn
+  :meta {
+    #name "map_bounded_cardinality"
+    #kind #BODY
+  }
   :defs {
     :BoundedMap { #minSize 1 #maxSize 10 } :Map( :String :Int )
   }

@@ -504,4 +504,254 @@ public class StvnDocumentIdentityValidationTest {
     var diag = result.diagnostics().getFirst();
     assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, diag.errorCode().orElse(null));
   }
+
+  @Test
+  @DisplayName("TC-ID-26: Canonical .stvn document with explicit :meta compiles cleanly")
+  void testCanonicalStvnWithExplicitMetaCompilesCleanly() {
+    String source = """
+        {
+          :meta {
+            #name "payload"
+            #kind #BODY
+          }
+          :type :Int
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "payload.stvn");
+    assertTrue(result.isSuccess());
+    assertFalse(result.hasErrors());
+    assertFalse(result.hasWarnings());
+    var doc = result.document().orElseThrow();
+    assertEquals("payload", doc.requireMeta().name().orElse(null));
+    assertEquals(StvnDocumentKind.BODY, doc.requireMeta().kind().orElseThrow());
+  }
+
+  @Test
+  @DisplayName("TC-ID-27: Canonical .stvn_i document with explicit :meta compiles cleanly")
+  void testCanonicalStvnIWithExplicitMetaCompilesCleanly() {
+    String source = """
+        {
+          :meta {
+            #name "modular_payload"
+            #kind #BODY_INCLUDE
+          }
+          :type :Int
+          :body 84
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "modular_payload.stvn_i");
+    assertTrue(result.isSuccess());
+    assertFalse(result.hasErrors());
+    assertFalse(result.hasWarnings());
+    var doc = result.document().orElseThrow();
+    assertEquals("modular_payload", doc.requireMeta().name().orElse(null));
+    assertEquals(StvnDocumentKind.BODY_INCLUDE, doc.requireMeta().kind().orElseThrow());
+  }
+
+  @Test
+  @DisplayName("TC-ID-28: Canonical .stvn_b binary document requires mandatory :meta header")
+  void testBinaryDocumentRequiresMetaWhenExtensionIsStvnB() {
+    String source = """
+        {
+          :type :Int
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "binary_payload.stvn_b");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.errorCode().orElse(null));
+    assertTrue(diag.message().contains("Mandatory :meta block missing"));
+  }
+
+  @Test
+  @DisplayName("TC-ID-29: Canonical .stvn_bd binary definitions schema requires mandatory :meta header")
+  void testBinaryDefinitionsDocumentRequiresMetaWhenExtensionIsStvnBd() {
+    String source = """
+        {
+          :defs {
+            :MyType :Int
+          }
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "binary_schema.stvn_bd");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.errorCode().orElse(null));
+    assertTrue(diag.message().contains("Mandatory :meta block missing"));
+  }
+
+  @Test
+  @DisplayName("TC-ID-30: Canonical .stvn_b with matching :meta header compiles cleanly")
+  void testBinaryDocumentWithMatchingMetaCompilesCleanly() {
+    String source = """
+        {
+          :meta {
+            #name "binary_payload"
+            #kind #BODY
+          }
+          :type :Int
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "binary_payload.stvn_b");
+    assertTrue(result.isSuccess());
+    assertFalse(result.hasErrors());
+    assertFalse(result.hasWarnings());
+  }
+
+  @Test
+  @DisplayName("TC-ID-31: Kind mismatch between #DEFS and .stvn_b emits fatal error")
+  void testKindMismatchBetweenDefsAndStvnB() {
+    String source = """
+        {
+          :meta {
+            #kind #DEFS
+          }
+          :type :Int
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "payload.stvn_b");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-32: Prohibited :include in flat .stvn payload emits ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT")
+  void testIncludesProhibitedInFlatStvnDocument() {
+    String source = """
+        {
+          :meta {
+            #kind #BODY
+          }
+          :defs {
+            :include [ "module.stvn_di" ]
+          }
+          :type :Int
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "main.stvn");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-33: Prohibited :include in flat .stvn_d schema emits ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT")
+  void testIncludesProhibitedInFlatStvnDSchema() {
+    String source = """
+        {
+          :meta {
+            #kind #DEFS
+          }
+          :defs {
+            :include [ "module.stvn_di" ]
+          }
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "schema.stvn_d");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-34: Prohibited :include in binary .stvn_b document emits ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT")
+  void testIncludesProhibitedInBinaryStvnBDocument() {
+    String source = """
+        {
+          :meta {
+            #kind #BODY
+          }
+          :defs {
+            :include [ "module.stvn_di" ]
+          }
+          :type :Int
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "payload.stvn_b");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-35: Excised legacy extension .stvn_bf fails closed immediately")
+  void testLegacyExtensionStvnBfRejected() {
+    String source = "{ :type :Int :body 1 }";
+    var result = StvnCompiler.compileToResult(source, "payload.stvn_bf");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-36: Excised legacy extension .stvn_bdf fails closed immediately")
+  void testLegacyExtensionStvnBdfRejected() {
+    String source = "{ :meta { #kind #DEFS } :defs { :T :Int } }";
+    var result = StvnCompiler.compileToResult(source, "schema.stvn_bdf");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-37: Non-POSIX character in #domain emits ERR_INVALID_METADATA_FACET")
+  void testInvalidPosixPatternInDomainRejected() {
+    String source = """
+        {
+          :meta {
+            #domain "invalid domain!"
+            #kind #DEFS
+          }
+          :defs {
+            :T :Int
+          }
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "mod.stvn_d");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-38: Bare dotfile (.stvn_b) emits ERR_INVALID_FILENAME_STEM")
+  void testBareStvnBRejected() {
+    String source = "{ :meta { #kind #BODY } :type :Int :body 1 }";
+    var result = StvnCompiler.compileToResult(source, ".stvn_b");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_INVALID_FILENAME_STEM, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-39: Tag subset variation (#domain, #kind) with slot 1 matching compiles cleanly")
+  void testTagSubsetDomainAndKindCompilesCleanly() {
+    String source = """
+        {
+          :meta {
+            #domain "auth"
+            #kind #DEFS
+          }
+          :defs {
+            :T :Int
+          }
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "wildcard.auth.stvn_d");
+    assertTrue(result.isSuccess());
+    assertFalse(result.hasErrors());
+    assertFalse(result.hasWarnings());
+    var doc = result.document().orElseThrow();
+    assertTrue(doc.requireMeta().name().isEmpty());
+    assertEquals("auth", doc.requireMeta().domain().orElse(null));
+  }
 }

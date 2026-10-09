@@ -96,7 +96,7 @@
     * [9.1 Opaque Nominal Branding Principle](#91-opaque-nominal-branding-principle)
     * [9.2 The Nominal Bijectivity Invariant ($1:1$ Law)](#92-the-nominal-bijectivity-invariant-11-law)
     * [9.3 CAS Digesting & Schema Hashing Integration](#93-cas-digesting--schema-hashing-integration)
-  * [10. Binary Format (`.stvn_bin`) Wire Framing & Schema Governance](#10-binary-format-stvn_bin-wire-framing--schema-governance)
+  * [10. Binary Format (`.stvn_b`) Wire Framing & Schema Governance](#10-binary-format-stvn_b-wire-framing--schema-governance)
     * [10.1 Control Byte Bitwise Architecture (Byte 4)](#101-control-byte-bitwise-architecture-byte-4)
       * [Bitwise Operations](#bitwise-operations)
     * [10.2 Bits 6..4: `BinaryEncodingStrategy` Taxonomy](#102-bits-64-binaryencodingstrategy-taxonomy)
@@ -1276,9 +1276,9 @@ When `StvnSchemaHasher` calculates the SHA-256 CAS fingerprint of a schema:
 
 ---
 
-## 10. Binary Format (`.stvn_bin`) Wire Framing & Schema Governance
+## 10. Binary Format (`.stvn_b`) Wire Framing & Schema Governance
 
-The STVN binary stream (`.stvn_bin`) begins with a mandatory 5-byte header frame:
+The STVN binary stream (`.stvn_b`) begins with a mandatory 5-byte header frame:
 * **Bytes 0â€“3 (4 Bytes):** Magic identifier (`MAGIC_BYTES = 0x5354564E`, ASCII `"STVN"`).
 * **Byte 4 (1 Byte):** Codec Control Byte partitioned into a 1:3:4 bitwise layout.
 
@@ -1423,7 +1423,7 @@ graph TD
 
 ### 10.5 Tripartite Temporal Wire Encoding & Memory Layouts
 
-STVN binary encoding (`.stvn_bin`) utilizes deterministic, fixed-width, zero-copy, little-endian memory layouts for temporal primitives:
+STVN binary encoding (`.stvn_b`) utilizes deterministic, fixed-width, zero-copy, little-endian memory layouts for temporal primitives:
 
 ```
 +===================================================================================================+
@@ -1461,7 +1461,7 @@ STVN binary encoding (`.stvn_bin`) utilizes deterministic, fixed-width, zero-cop
 
 #### Header IANA Zone Dictionary Pool
 To prevent redundant string allocation on the wire:
-1. All unique IANA zone identifiers (e.g. `"America/Chicago"`, `"Europe/London"`) in a document are deduplicated into a contiguous UTF-8 dictionary table located in the `.stvn_bin` header segment.
+1. All unique IANA zone identifiers (e.g. `"America/Chicago"`, `"Europe/London"`) in a document are deduplicated into a contiguous UTF-8 dictionary table located in the `.stvn_b` header segment.
 2. Inlined temporal payloads store an unsigned 16-bit dictionary index (`zone_dict_id: u16`), supporting up to 65,536 distinct time zones per binary document.
 3. Decoders unpack `zone_dict_id` via $O(1)$ table lookup into native JSR-310 `ZoneId` instances without string reallocation.
 

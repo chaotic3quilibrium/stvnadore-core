@@ -1,7 +1,10 @@
 // @spec: SPEC-06-STRING-CARD
 // @case: Positive - Nested fenced string with tag delimiters
 {
-  // fenced_string_nested.stvn
+  :meta {
+    #name "fenced_string_nested"
+    #kind #BODY
+  }
   :defs {
     :SchemaName :String
     :StvnInclf  { #preserveIndent #TRUE } :String

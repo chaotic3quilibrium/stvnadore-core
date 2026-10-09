@@ -1,7 +1,10 @@
 // @spec: SPEC-08-COLLECTIONS
 // @case: Positive - Bounded sequence cardinality between 1 and 8 elements
 {
-  // seq_bounded_cardinality.stvn
+  :meta {
+    #name "seq_bounded_cardinality"
+    #kind #BODY
+  }
   :defs {
     :BoundedSequence { #minSize 1 #maxSize 8 } :Seq( :Int )
   }

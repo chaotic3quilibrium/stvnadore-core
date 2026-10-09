@@ -1,7 +1,10 @@
 // @spec: SPEC-10-SUM-TYPES
 // @case: Positive - Algebraic sum, either, option, and product types
 {
-  // algebraic_full.stvn
+  :meta {
+    #name "algebraic_full"
+    #kind #BODY
+  }
   :defs {
     :OptText       :Option( :String )
     :EitherResult  :Either( :Int :String )

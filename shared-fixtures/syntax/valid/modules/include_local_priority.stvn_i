@@ -1,6 +1,10 @@
 // @spec: SPEC-09-MODULES-INCLUDES
 // @case: Positive - Local definition priority over included definitions
 {
+  :meta {
+    #name "include_local_priority"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     :include [
       "./module_local_a.stvn_di"

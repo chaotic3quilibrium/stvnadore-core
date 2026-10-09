@@ -1,7 +1,10 @@
 // @spec: SPEC-05-FACET-ORDER
 // @case: Positive - Conforming metadata facets and traits
 {
-  // metadata_and_traits.stvn
+  :meta {
+    #name "metadata_and_traits"
+    #kind #BODY
+  }
   :defs {
     :RestrictedPort   { #unsigned #size 16 #minIncl 1024 #maxExcl 65536 } :Int
     :ScoreRange       { #size 64 #minExcl 0.0 #maxIncl 10.0 } :Float

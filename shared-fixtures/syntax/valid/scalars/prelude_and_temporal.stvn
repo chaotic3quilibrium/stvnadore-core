@@ -1,7 +1,10 @@
 // @spec: SPEC-02-TEMPORAL-EPOCH
 // @case: Positive - Prelude types and temporal scalar primitives
 {
-  // prelude_and_temporal.stvn
+  :meta {
+    #name "prelude_and_temporal"
+    #kind #BODY
+  }
   :defs {
     :EpochSeconds   { #s } :TimeEpoch
     :EpochMillis    { #ms } :TimeEpoch

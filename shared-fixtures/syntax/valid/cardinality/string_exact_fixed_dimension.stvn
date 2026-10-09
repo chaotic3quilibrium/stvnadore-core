@@ -1,7 +1,10 @@
 // @spec: SPEC-06-STRING-CARD
 // @case: Positive - Exact fixed dimension string matching 4 characters
 {
-  // string_exact_fixed_dimension.stvn
+  :meta {
+    #name "string_exact_fixed_dimension"
+    #kind #BODY
+  }
   :defs {
     :FixedCode { #minSize 4 #maxSize 4 } :String
   }

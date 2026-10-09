@@ -1,7 +1,10 @@
 // @spec: SPEC-09-MODULES-INCLUDES
 // @case: Positive - Package declaration and scoped use imports
 {
-  // package_and_scoped_use.stvn
+  :meta {
+    #name "package_and_scoped_use"
+    #kind #BODY
+  }
   // Specification: STVN v1.2.0 (ECD-2026-04)
   :defs {
     :package :org/example/network {

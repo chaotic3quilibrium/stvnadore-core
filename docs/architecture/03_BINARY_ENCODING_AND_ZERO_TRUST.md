@@ -10,7 +10,7 @@
 **Table of Contents**
 
 <!-- TOC -->
-  * [1. Binary Wire Framing (`.stvn_bin`)](#1-binary-wire-framing-stvn_bin)
+  * [1. Binary Wire Framing (`.stvn_b`)](#1-binary-wire-framing-stvn_b)
     * [Wire Framing Architecture & Formula](#wire-framing-architecture--formula)
     * [Wire Layout Architecture Diagram](#wire-layout-architecture-diagram)
     * [Byte-by-Byte Wire Framing Breakdown Table](#byte-by-byte-wire-framing-breakdown-table)
@@ -34,7 +34,7 @@
 
 ---
 
-## 1. Binary Wire Framing (`.stvn_bin`)
+## 1. Binary Wire Framing (`.stvn_b`)
 
 The STVN binary stream is encoded in Little-Endian byte order with a deterministic, cryptographically verified header and trailer structure.
 
@@ -169,7 +169,7 @@ STVN eliminates string parsing overhead for temporal types by embedding fixed-wi
 ```
 
 ### Header IANA Zone Dictionary Pool
-To avoid repeating long time zone identifier strings (e.g. `"America/Argentina/Buenos_Aires"`), `.stvn_bin` binary headers contain an indexed zone dictionary table mapping unique `ZoneId` strings to 16-bit unsigned integers (`zone_dict_id: u16`), enabling zero-allocation JSR-310 lookups.
+To avoid repeating long time zone identifier strings (e.g. `"America/Argentina/Buenos_Aires"`), `.stvn_b` binary headers contain an indexed zone dictionary table mapping unique `ZoneId` strings to 16-bit unsigned integers (`zone_dict_id: u16`), enabling zero-allocation JSR-310 lookups.
 
 ---
 

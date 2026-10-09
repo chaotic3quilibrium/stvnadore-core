@@ -1,7 +1,10 @@
 // @spec: SPEC-07-NOMINAL-BIJECT
 // @case: Positive - Namespaced path navigation and scoping
 {
-  // namespaced_paths.stvn
+  :meta {
+    #name "namespaced_paths"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     :include [ "network_service.stvn_di" { :net/http/Status :HttpStatus :net/http/Header :HttpHeader } ]
 

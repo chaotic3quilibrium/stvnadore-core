@@ -3464,7 +3464,8 @@ public class StvnTypeResolver {
 
     if (metaEntry == null) {
       if (expectedKindOpt.isPresent() && (expectedKindOpt.get() == StvnDocumentKind.DEFS
-          || expectedKindOpt.get() == StvnDocumentKind.DEFS_INCLUDE)) {
+          || expectedKindOpt.get() == StvnDocumentKind.DEFS_INCLUDE
+          || ".stvn_b".equals(ext))) {
         diagnosticBag.addError(
             "Mandatory :meta block missing; document kind '" + expectedKindOpt.get().keyword() + "' is required for extension '" + ext + "'",
             doc.getStart() != null ? doc.getStart().getStartIndex() : 0,

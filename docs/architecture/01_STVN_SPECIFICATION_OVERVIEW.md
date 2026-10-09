@@ -66,7 +66,7 @@ Every text-based STVN document must enclose its content within a single root cur
 | `.stvn_f`     | Flat Hermetic Payload Document   | `:type`, `:body` (Optional `:defs`) | `:include`                   |
 | `.stvn_incl`  | Transitive Shared Module         | `:defs`                             | `:type`, `:body`             |
 | `.stvn_inclf` | Flat Standalone Module           | `:defs`                             | `:type`, `:body`, `:include` |
-| `.stvn_bin`   | Zero-Copy Binary Bytecode        | Embedded Binary Header              | N/A                          |
+| `.stvn_b`     | Zero-Copy Binary Bytecode        | Embedded Binary Header              | N/A                          |
 | `.stvn_cas`   | CAS Storage Profile Envelope     | `:Tuple( :String :String :String )` | N/A                          |
 
 ---

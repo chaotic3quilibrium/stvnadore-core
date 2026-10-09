@@ -1,6 +1,10 @@
 // @spec: SPEC-07-NOMINAL-BIJECT
 // @case: Positive - Transitive nominal canonicalization and hashing
 {
+  :meta {
+    #name "transitive_canonicalization"
+    #kind #BODY
+  }
   :defs {
     :package :org/stvnadore/finance {
       :Transaction :Tuple(:Int :Float)

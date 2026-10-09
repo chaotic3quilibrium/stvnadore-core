@@ -56,7 +56,8 @@ public final class IrGeneratorUtility {
     String generatedSnapshot = serializeIr(irNode);
 
     Path irSnapshotPath = stvnFile.resolveSibling(stvnFile.getFileName().toString() + "_ir");
-    Path binSnapshotPath = stvnFile.resolveSibling(stvnFile.getFileName().toString() + "_bin");
+    String baseName = stvnFile.getFileName().toString().replaceAll("\\.stvn(_i)?$", "");
+    Path binSnapshotPath = stvnFile.resolveSibling(baseName + ".stvn_b");
 
     if (UPDATE_MODE) {
       Files.writeString(irSnapshotPath, generatedSnapshot);

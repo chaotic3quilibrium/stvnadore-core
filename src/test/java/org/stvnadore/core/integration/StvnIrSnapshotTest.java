@@ -38,7 +38,8 @@ public class StvnIrSnapshotTest {
     var liveSnapshot = IrGeneratorUtility.serializeIr(liveIr);
 
     var snapshotPath = stvnFile.resolveSibling(stvnFile.getFileName().toString() + "_ir");
-    var binSnapshotPath = stvnFile.resolveSibling(stvnFile.getFileName().toString() + "_bin");
+    var baseName = stvnFile.getFileName().toString().replaceAll("\\.stvn(_i)?$", "");
+    var binSnapshotPath = stvnFile.resolveSibling(baseName + ".stvn_b");
 
     var cleanLive = liveSnapshot.replace("\r\n", "\n").trim();
     boolean isChecksummed = fileName.contains("crc32c");

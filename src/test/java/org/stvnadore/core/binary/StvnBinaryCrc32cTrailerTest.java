@@ -194,7 +194,7 @@ class StvnBinaryCrc32cTrailerTest {
     try (Stream<Path> stream = Files.walk(validDir)) {
       List<Path> nonCrcBins = stream
           .filter(Files::isRegularFile)
-          .filter(p -> p.toString().endsWith(".stvn_bin"))
+          .filter(p -> p.toString().endsWith(".stvn_b"))
           .filter(p -> !p.getFileName().toString().contains("crc32c"))
           .toList();
 

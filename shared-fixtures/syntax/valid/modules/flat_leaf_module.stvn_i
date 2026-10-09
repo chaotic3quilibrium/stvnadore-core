@@ -1,7 +1,10 @@
 // @spec: SPEC-09-MODULES-INCLUDES
 // @case: Positive - Flat leaf module definition
 {
-  // flat_leaf_module.stvn
+  :meta {
+    #name "flat_leaf_module"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     :include [ "network_primitives.stvn_d" ]
 

@@ -1,7 +1,10 @@
 // @spec: SPEC-05-FACET-ORDER
 // @case: Positive - Bare metadata flags across scalar and temporal domains
 {
-  // bare_metadata_flags.stvn
+  :meta {
+    #name "bare_metadata_flags"
+    #kind #BODY
+  }
   // Specification: STVN v2.0.0
   // Positive verification fixture for bare metadata flags across all supported scalar and temporal domains.
   :defs {

@@ -1,7 +1,10 @@
 // @spec: SPEC-11-ENUM-SUBSETS
 // @case: Positive - Transitive enum subset narrowing chain
 {
-  // enum_subset_transitive_chain.stvn
+  :meta {
+    #name "enum_subset_transitive_chain"
+    #kind #BODY
+  }
   :defs {
     :TaskStatus :Enum [
       #BACKLOG

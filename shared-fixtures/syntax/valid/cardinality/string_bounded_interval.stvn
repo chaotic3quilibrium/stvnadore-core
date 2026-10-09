@@ -1,7 +1,10 @@
 // @spec: SPEC-06-STRING-CARD
 // @case: Positive - Bounded string interval between 1 and 64 characters
 {
-  // string_bounded_interval.stvn
+  :meta {
+    #name "string_bounded_interval"
+    #kind #BODY
+  }
   :defs {
     :BoundedText { #minSize 1 #maxSize 64 } :String
   }

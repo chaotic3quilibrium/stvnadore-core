@@ -1,7 +1,10 @@
 // @spec: SPEC-08-COLLECTIONS
 // @case: Positive - Comprehensive collection types including Seq, Set, and Map
 {
-  // collections_full.stvn
+  :meta {
+    #name "collections_full"
+    #kind #BODY
+  }
   :defs {
     :IntSequence       :Seq( :Int )
     :NonEmptySequence  { #minSize 1 } :Seq( :String )

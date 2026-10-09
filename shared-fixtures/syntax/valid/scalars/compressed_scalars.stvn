@@ -1,7 +1,10 @@
 // @spec: SPEC-01-SCALAR-KERNEL
 // @case: Positive - Compressed scalar encoding format
 {
-  // compressed_scalars.stvn
+  :meta {
+    #name "compressed_scalars"
+    #kind #BODY
+  }
   :defs {
     :BoolFlag   :Boolean
     :OptVal     :Option( :String )

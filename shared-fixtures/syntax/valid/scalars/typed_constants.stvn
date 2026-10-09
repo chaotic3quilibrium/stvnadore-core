@@ -1,7 +1,10 @@
 // @spec: SPEC-01-SCALAR-KERNEL
 // @case: Positive - Typed constant declarations and evaluations
 {
-  // typed_constants.stvn
+  :meta {
+    #name "typed_constants"
+    #kind #BODY
+  }
   :defs {
     :RetryCount         { #unsigned #size 8 } :Int
     :PortNum            { #unsigned #size 16 } :Int

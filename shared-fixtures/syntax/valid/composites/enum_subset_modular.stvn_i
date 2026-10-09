@@ -1,7 +1,10 @@
 // @spec: SPEC-11-ENUM-SUBSETS
 // @case: Positive - Modular enum subset imported from external module
 {
-  // enum_subset_modular.stvn
+  :meta {
+    #name "enum_subset_modular"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     :include [ "enum_subset_module.stvn_d" ]
     :MuxProtocol { #filterIncl [ #HTTP_2_0 #HTTP_3_0 ] } :ModernHttp

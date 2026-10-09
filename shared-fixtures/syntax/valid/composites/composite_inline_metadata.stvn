@@ -1,6 +1,10 @@
 // @spec: SPEC-08-COLLECTIONS, SPEC-10-SUM-TYPES
 // @case: Positive - Inline metadata blocks across all composite constructors
 {
+  :meta {
+    #name "composite_inline_metadata"
+    #kind #BODY
+  }
   :defs {
     :Pair          :Tuple( { #size 16 } :Int { #size 32 } :Int )
     :DisjointSum   :Either( :Float { #unsigned #size 32 } :Int )

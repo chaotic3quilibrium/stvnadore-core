@@ -353,7 +353,7 @@ public class StvnIrValidationTest {
       return Stream.empty();
     }
     try (Stream<Path> paths = Files.walk(INVALID_FIXTURES_DIR)) {
-      List<Path> binaryFiles = paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn_bin")).toList();
+      List<Path> binaryFiles = paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn_b")).toList();
       return binaryFiles.stream().map(binPath -> {
         String baseName = binPath.getFileName().toString();
         String contractFileName = baseName.substring(0, baseName.lastIndexOf('.')) + ".contract.stvn";
@@ -371,7 +371,7 @@ public class StvnIrValidationTest {
     try (Stream<Path> paths = Files.walk(INVALID_FIXTURES_DIR)) {
       List<Path> targetFiles = paths.filter(Files::isRegularFile).filter(p -> {
         String s = p.toString();
-        if (s.endsWith(".contract.stvn") || s.endsWith("error_contract.stvn_d") || s.endsWith(".stvn_ir") || s.endsWith(".stvn_bin")) {
+        if (s.endsWith(".contract.stvn") || s.endsWith("error_contract.stvn_d") || s.endsWith(".stvn_ir") || s.endsWith(".stvn_b")) {
           return false;
         }
         if (s.endsWith(".stvn") || s.endsWith(".stvn_i")) {

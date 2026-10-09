@@ -1,7 +1,10 @@
 // @spec: SPEC-11-ENUM-SUBSETS
 // @case: Positive - Enum subset with inclusive filtering
 {
-  // enum_subset_inclusive.stvn
+  :meta {
+    #name "enum_subset_inclusive"
+    #kind #BODY
+  }
   :defs {
     :Environment :Enum [ #LOCAL #DEV #STAGING #CANARY #PROD ]
     :PreReleaseEnv { #filterIncl [ #DEV #STAGING #CANARY ] } :Environment

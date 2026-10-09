@@ -1,7 +1,10 @@
 // @spec: SPEC-10-SUM-TYPES
 // @case: Positive - Sum type with explicitly tagged duplicate branch types
 {
-  // sum_type_duplicate_branches_explicit.stvn
+  :meta {
+    #name "sum_type_duplicate_branches_explicit"
+    #kind #BODY
+  }
   // Verifies that sum types with duplicate nominal branches compile cleanly when explicit tags are used.
   :defs {
     :IdenticalEither :Either( :Int :Int )

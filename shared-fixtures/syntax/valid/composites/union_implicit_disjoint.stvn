@@ -1,6 +1,10 @@
 // @spec: SPEC-10-SUM-TYPES
 // @case: Positive - Implicit disjoint union inference
 {
+  :meta {
+    #name "union_implicit_disjoint"
+    #kind #BODY
+  }
   :defs {
     :DisjointUnion :Union(:Int :String)
   }

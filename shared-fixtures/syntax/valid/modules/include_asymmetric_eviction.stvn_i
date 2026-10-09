@@ -1,6 +1,10 @@
 // @spec: SPEC-09-MODULES-INCLUDES
 // @case: Positive - Asymmetric include eviction precedence
 {
+  :meta {
+    #name "include_asymmetric_eviction"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     :include [
       "./module_asym_a.stvn_di" {
