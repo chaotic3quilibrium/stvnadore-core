@@ -37,7 +37,7 @@ class StvnSchemaHasherHygieneTest {
     };
 
     for (String source : sources) {
-      var ir = StvnCompiler.compile(source).orElseThrow();
+      var ir = StvnCompiler.compilePayload(source).orElseThrow();
       assertNotNull(ir.schema(), "Schema must be non-null for source: " + source);
 
       byte[] sha256First = StvnSchemaHasher.computeSha256(ir.schema());
@@ -78,7 +78,7 @@ class StvnSchemaHasherHygieneTest {
     };
 
     for (String source : testSources) {
-      var ir = StvnCompiler.compile(source).orElseThrow();
+      var ir = StvnCompiler.compilePayload(source).orElseThrow();
       byte[] actualSha256 = StvnSchemaHasher.computeSha256(ir.schema());
       byte[] legacySha256 = legacyComputeSha256(ir.schema());
 
@@ -90,7 +90,7 @@ class StvnSchemaHasherHygieneTest {
   @Test
   @DisplayName("TC-HASH-03: Verify anonymous cycle detection and nominal cycle determinism")
   void testCycleDetection() {
-    var doc = StvnCompiler.compile("""
+    var doc = StvnCompiler.compilePayload("""
         {
           :defs {
             :Node :Option(:Node)

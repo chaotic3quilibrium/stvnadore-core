@@ -18,7 +18,7 @@ class StvnTextPrinterTest {
   }
 
   private void assertVisualLayout(VisualMatrix matrix) {
-    var referenceAst = StvnCompiler.compile(matrix.noisedInput()).orElseThrow();
+    var referenceAst = StvnCompiler.compilePayload(matrix.noisedInput()).orElseThrow();
     Assertions.assertNotNull(referenceAst);
 
     var compactPrinter = new CompactTextPrinter(matrix.options());
@@ -39,9 +39,9 @@ class StvnTextPrinterTest {
       );
       var envelopePrinter = new PrettyTextPrinter(envelopeOptions);
       var envelopeStr = envelopePrinter.printToString(referenceAst);
-      roundTripAst = StvnCompiler.compile(envelopeStr).orElseThrow();
+      roundTripAst = StvnCompiler.compilePayload(envelopeStr).orElseThrow();
     } else {
-      roundTripAst = StvnCompiler.compile(prettyStr).orElseThrow();
+      roundTripAst = StvnCompiler.compilePayload(prettyStr).orElseThrow();
     }
     Assertions.assertEquals(referenceAst, roundTripAst);
   }
@@ -796,7 +796,7 @@ class StvnTextPrinterTest {
     };
 
     for (var i = 0; i < inputs.length; i++) {
-      var ast = StvnCompiler.compile(inputs[i]).orElseThrow();
+      var ast = StvnCompiler.compilePayload(inputs[i]).orElseThrow();
       Assertions.assertNotNull(ast);
       var canonical = StvnCompiler.toCanonicalString(ast);
       Assertions.assertEquals(expectedCanonical[i], canonical);

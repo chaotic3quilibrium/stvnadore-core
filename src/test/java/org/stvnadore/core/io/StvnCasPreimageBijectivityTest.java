@@ -49,9 +49,9 @@ public class StvnCasPreimageBijectivityTest {
         }
         """;
 
-    var ast16 = StvnCompiler.compile(docSize16).orElseThrow();
-    var ast32 = StvnCompiler.compile(docSize32).orElseThrow();
-    var astBare = StvnCompiler.compile(docBareInt).orElseThrow();
+    var ast16 = StvnCompiler.compilePayload(docSize16).orElseThrow();
+    var ast32 = StvnCompiler.compilePayload(docSize32).orElseThrow();
+    var astBare = StvnCompiler.compilePayload(docBareInt).orElseThrow();
 
     String canon16 = StvnCompiler.toCanonicalString(ast16);
     String canon32 = StvnCompiler.toCanonicalString(ast32);
@@ -98,8 +98,8 @@ public class StvnCasPreimageBijectivityTest {
         }
         """;
 
-    var astUnsigned = StvnCompiler.compile(docUnsigned).orElseThrow();
-    var astSigned = StvnCompiler.compile(docSigned).orElseThrow();
+    var astUnsigned = StvnCompiler.compilePayload(docUnsigned).orElseThrow();
+    var astSigned = StvnCompiler.compilePayload(docSigned).orElseThrow();
 
     String canonUnsigned = StvnCompiler.toCanonicalString(astUnsigned);
     String canonSigned = StvnCompiler.toCanonicalString(astSigned);
@@ -157,10 +157,10 @@ public class StvnCasPreimageBijectivityTest {
         }
         """;
 
-    var astS = StvnCompiler.compile(docS).orElseThrow();
-    var astMs = StvnCompiler.compile(docMs).orElseThrow();
-    var astUs = StvnCompiler.compile(docUs).orElseThrow();
-    var astNs = StvnCompiler.compile(docNs).orElseThrow();
+    var astS = StvnCompiler.compilePayload(docS).orElseThrow();
+    var astMs = StvnCompiler.compilePayload(docMs).orElseThrow();
+    var astUs = StvnCompiler.compilePayload(docUs).orElseThrow();
+    var astNs = StvnCompiler.compilePayload(docNs).orElseThrow();
 
     String canonS = StvnCompiler.toCanonicalString(astS);
     String canonMs = StvnCompiler.toCanonicalString(astMs);
@@ -221,9 +221,9 @@ public class StvnCasPreimageBijectivityTest {
         }
         """;
 
-    var astOffset = StvnCompiler.compile(docOffset).orElseThrow();
-    var astZoned = StvnCompiler.compile(docZoned).orElseThrow();
-    var astAudited = StvnCompiler.compile(docAudited).orElseThrow();
+    var astOffset = StvnCompiler.compilePayload(docOffset).orElseThrow();
+    var astZoned = StvnCompiler.compilePayload(docZoned).orElseThrow();
+    var astAudited = StvnCompiler.compilePayload(docAudited).orElseThrow();
 
     String canonOffset = StvnCompiler.toCanonicalString(astOffset);
     String canonZoned = StvnCompiler.toCanonicalString(astZoned);
@@ -266,8 +266,8 @@ public class StvnCasPreimageBijectivityTest {
         }
         """;
 
-    var astBounded = StvnCompiler.compile(docBounded).orElseThrow();
-    var astUnbounded = StvnCompiler.compile(docUnbounded).orElseThrow();
+    var astBounded = StvnCompiler.compilePayload(docBounded).orElseThrow();
+    var astUnbounded = StvnCompiler.compilePayload(docUnbounded).orElseThrow();
 
     String canonBounded = StvnCompiler.toCanonicalString(astBounded);
     String canonUnbounded = StvnCompiler.toCanonicalString(astUnbounded);
@@ -302,8 +302,8 @@ public class StvnCasPreimageBijectivityTest {
         }
         """;
 
-    var astExact = StvnCompiler.compile(docExact).orElseThrow();
-    var astContinuous = StvnCompiler.compile(docContinuous).orElseThrow();
+    var astExact = StvnCompiler.compilePayload(docExact).orElseThrow();
+    var astContinuous = StvnCompiler.compilePayload(docContinuous).orElseThrow();
 
     String canonExact = StvnCompiler.toCanonicalString(astExact);
     String canonContinuous = StvnCompiler.toCanonicalString(astContinuous);
@@ -331,28 +331,28 @@ public class StvnCasPreimageBijectivityTest {
         """;
 
     // 1. Initial compilation
-    StvnCompilationResult<StvnValue> r1 = StvnCompiler.compileToResult(source);
+    var r1 = StvnCompiler.compileToResult(source);
     assertTrue(r1.isSuccess(), "Initial compilation of 64-bit unsigned integer with 10^19 payload must succeed");
     assertFalse(r1.hasErrors());
 
     // 2. Canonical serialization
-    String canonical1 = StvnCompiler.toCanonicalString(r1.orElseThrow());
+    String canonical1 = StvnCompiler.toCanonicalString(r1.orElseThrow().requirePayload());
     assertTrue(canonical1.contains("#unsigned"), "Canonical output must serialize #unsigned");
     assertTrue(canonical1.contains("#size 64"), "Canonical output must serialize #size 64");
     assertTrue(canonical1.contains("10000000000000000000"), "Canonical output must retain full large integer payload");
 
     // 3. Recompilation of canonical output
-    StvnCompilationResult<StvnValue> r2 = StvnCompiler.compileToResult(canonical1);
+    var r2 = StvnCompiler.compileToResult(canonical1);
     assertTrue(r2.isSuccess(), "Recompilation of canonical output must succeed cleanly without CAPACITY_OVERFLOW");
     assertFalse(r2.hasErrors(), "Recompilation must produce 0 errors");
 
     // 4. Idempotency: C(P(C(P(T)))) == C(P(T))
-    String canonical2 = StvnCompiler.toCanonicalString(r2.orElseThrow());
+    String canonical2 = StvnCompiler.toCanonicalString(r2.orElseThrow().requirePayload());
     assertEquals(canonical1, canonical2, "Canonical round-trip recompilation idempotency invariant violated");
 
     // 5. CAS Fingerprint stability
-    byte[] fp1 = StvnCompiler.computeCasFingerprint(r1.orElseThrow());
-    byte[] fp2 = StvnCompiler.computeCasFingerprint(r2.orElseThrow());
+    byte[] fp1 = StvnCompiler.computeCasFingerprint(r1.orElseThrow().requirePayload());
+    byte[] fp2 = StvnCompiler.computeCasFingerprint(r2.orElseThrow().requirePayload());
     assertArrayEquals(fp1, fp2, "CAS fingerprints across recompilation cycles must be bit-for-byte identical");
   }
 
@@ -369,16 +369,16 @@ public class StvnCasPreimageBijectivityTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> resEpoch = StvnCompiler.compileToResult(sourceEpoch);
+    var resEpoch = StvnCompiler.compileToResult(sourceEpoch);
     assertTrue(resEpoch.isSuccess());
-    String canonEpoch1 = StvnCompiler.toCanonicalString(resEpoch.orElseThrow());
-    StvnCompilationResult<StvnValue> resEpochRecompiled = StvnCompiler.compileToResult(canonEpoch1);
+    String canonEpoch1 = StvnCompiler.toCanonicalString(resEpoch.orElseThrow().requirePayload());
+    var resEpochRecompiled = StvnCompiler.compileToResult(canonEpoch1);
     assertTrue(resEpochRecompiled.isSuccess());
-    String canonEpoch2 = StvnCompiler.toCanonicalString(resEpochRecompiled.orElseThrow());
+    String canonEpoch2 = StvnCompiler.toCanonicalString(resEpochRecompiled.orElseThrow().requirePayload());
     assertEquals(canonEpoch1, canonEpoch2);
     assertArrayEquals(
-        StvnCompiler.computeCasFingerprint(resEpoch.orElseThrow()),
-        StvnCompiler.computeCasFingerprint(resEpochRecompiled.orElseThrow())
+        StvnCompiler.computeCasFingerprint(resEpoch.orElseThrow().requirePayload()),
+        StvnCompiler.computeCasFingerprint(resEpochRecompiled.orElseThrow().requirePayload())
     );
 
     String sourceDtOffset = """
@@ -391,16 +391,16 @@ public class StvnCasPreimageBijectivityTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> resDtOffset = StvnCompiler.compileToResult(sourceDtOffset);
+    var resDtOffset = StvnCompiler.compileToResult(sourceDtOffset);
     assertTrue(resDtOffset.isSuccess());
-    String canonDtOffset1 = StvnCompiler.toCanonicalString(resDtOffset.orElseThrow());
-    StvnCompilationResult<StvnValue> resDtOffsetRecompiled = StvnCompiler.compileToResult(canonDtOffset1);
+    String canonDtOffset1 = StvnCompiler.toCanonicalString(resDtOffset.orElseThrow().requirePayload());
+    var resDtOffsetRecompiled = StvnCompiler.compileToResult(canonDtOffset1);
     assertTrue(resDtOffsetRecompiled.isSuccess());
-    String canonDtOffset2 = StvnCompiler.toCanonicalString(resDtOffsetRecompiled.orElseThrow());
+    String canonDtOffset2 = StvnCompiler.toCanonicalString(resDtOffsetRecompiled.orElseThrow().requirePayload());
     assertEquals(canonDtOffset1, canonDtOffset2);
     assertArrayEquals(
-        StvnCompiler.computeCasFingerprint(resDtOffset.orElseThrow()),
-        StvnCompiler.computeCasFingerprint(resDtOffsetRecompiled.orElseThrow())
+        StvnCompiler.computeCasFingerprint(resDtOffset.orElseThrow().requirePayload()),
+        StvnCompiler.computeCasFingerprint(resDtOffsetRecompiled.orElseThrow().requirePayload())
     );
   }
 
@@ -419,7 +419,7 @@ public class StvnCasPreimageBijectivityTest {
         }
         """;
 
-    var ast = StvnCompiler.compile(source).orElseThrow();
+    var ast = StvnCompiler.compilePayload(source).orElseThrow();
     String canonical = StvnCompiler.toCanonicalString(ast);
 
     // Independent definitions should sort lexicographically: :Alpha < :Mango < :Zebra

@@ -31,7 +31,7 @@ public class StvnIrSnapshotTest {
     var stvnContent = Files.readString(stvnFile).replace("\r\n", "\n");
     
     // Compile live STVN content to IR
-    var liveIr = StvnCompiler.compile(stvnContent, stvnFile.toString())
+    var liveIr = StvnCompiler.compilePayload(stvnContent, stvnFile.toString())
         .orElseThrow(() -> new AssertionError("Failed to compile valid fixture: " + stvnFile));
 
     // Serialize to Option B layout

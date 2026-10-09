@@ -92,13 +92,13 @@ public class StvnIrValidationTest {
   @MethodSource("provideValidationCases")
   public void testValidation(String displayName, ValidationTestCase testCase) {
     if (testCase.isSuccess()) {
-      var ast = StvnCompiler.compile(testCase.input()).orElseThrow();
+      var ast = StvnCompiler.compilePayload(testCase.input()).orElseThrow();
       Assertions.assertNotNull(ast);
       var actualAstString = ast.toString();
       Assertions.assertEquals(testCase.expectedAstString(), actualAstString);
     } else {
       var exception = Assertions.assertThrows(RuntimeException.class, () -> {
-        StvnCompiler.compile(testCase.input());
+        StvnCompiler.compilePayload(testCase.input());
       });
       var expectedError = testCase.expectedError();
       Assertions.assertNotNull(expectedError);
@@ -117,7 +117,7 @@ public class StvnIrValidationTest {
 
     if (UPDATE_MODE) {
       try {
-        StvnCompiler.compile(stvnContent, testCase.stvnPath().toString());
+        StvnCompiler.compilePayload(stvnContent, testCase.stvnPath().toString());
         Assertions.fail("Expected malformed fixture to fail compilation, but it succeeded: " + testCase.stvnPath());
       } catch (Throwable e) {
         String expectedException = e.getClass().getName();
@@ -130,7 +130,7 @@ public class StvnIrValidationTest {
             {
               // %s
               :defs {
-                :include [ "../error_contract.stvn_inclf" ]
+                :include [ "../error_contract.stvn_df" ]
               }
 
               :type :ErrorContract
@@ -159,13 +159,13 @@ public class StvnIrValidationTest {
     );
 
     String contractContent = Files.readString(testCase.contractPath());
-    StvnValue contractAst = StvnCompiler.compile(contractContent, testCase.contractPath().toString())
+    StvnValue contractAst = StvnCompiler.compilePayload(contractContent, testCase.contractPath().toString())
         .orElseThrow(() -> new AssertionError("Failed to compile contract: " + testCase.contractPath()));
     
     StvnErrorContract contract = StvnErrorContract.fromAst(contractAst);
 
     Throwable exception = Assertions.assertThrows(Throwable.class, () -> {
-      StvnCompiler.compile(stvnContent, testCase.stvnPath().toString());
+      StvnCompiler.compilePayload(stvnContent, testCase.stvnPath().toString());
     }, "Expected compilation to throw an exception for malformed fixture: " + testCase.stvnPath());
 
     contract.expectedExceptionClass().ifPresent(expectedException -> {
@@ -215,7 +215,7 @@ public class StvnIrValidationTest {
     Assertions.assertTrue(testCase.hasContract(), "Missing contract for binary fixture: " + testCase.stvnPath());
     byte[] bytes = Files.readAllBytes(testCase.stvnPath());
     String contractContent = Files.readString(testCase.contractPath());
-    var contractAst = StvnCompiler.compile(contractContent, testCase.contractPath().toString()).orElseThrow();
+    var contractAst = StvnCompiler.compilePayload(contractContent, testCase.contractPath().toString()).orElseThrow();
     var contract = StvnErrorContract.fromAst(contractAst);
 
     var thrown = Assertions.assertThrows(RuntimeException.class, () -> {
@@ -371,13 +371,13 @@ public class StvnIrValidationTest {
     try (Stream<Path> paths = Files.walk(INVALID_FIXTURES_DIR)) {
       List<Path> targetFiles = paths.filter(Files::isRegularFile).filter(p -> {
         String s = p.toString();
-        if (s.endsWith(".contract.stvn") || s.endsWith("error_contract.stvn_inclf") || s.endsWith(".stvn_ir") || s.endsWith(".stvn_bin")) {
+        if (s.endsWith(".contract.stvn") || s.endsWith("error_contract.stvn_df") || s.endsWith(".stvn_ir") || s.endsWith(".stvn_bin")) {
           return false;
         }
         if (s.endsWith(".stvn")) {
           return true;
         }
-        if (s.endsWith(".stvn_inclf") || s.endsWith(".stvn_incl") || s.endsWith(".stvn_f")) {
+        if (s.endsWith(".stvn_df") || s.endsWith(".stvn_d") || s.endsWith(".stvn_f")) {
           String baseName = p.getFileName().toString();
           String contractFileName = baseName.substring(0, baseName.lastIndexOf('.')) + ".contract.stvn";
           return Files.exists(p.resolveSibling(contractFileName));
@@ -493,7 +493,7 @@ public class StvnIrValidationTest {
   @org.junit.jupiter.api.Test
   public void testIncludeLegal() throws Exception {
     String input = java.nio.file.Files.readString(java.nio.file.Paths.get("shared-fixtures/syntax/valid/modules/include_legal.stvn"));
-    var astOpt = StvnCompiler.compile(input, "shared-fixtures/syntax/valid/modules/include_legal.stvn");
+    var astOpt = StvnCompiler.compilePayload(input, "shared-fixtures/syntax/valid/modules/include_legal.stvn");
     Assertions.assertTrue(astOpt.isPresent());
     var ast = astOpt.get();
     Assertions.assertNotNull(ast);
@@ -514,7 +514,7 @@ public class StvnIrValidationTest {
         """;
     var exUnderflow = org.junit.jupiter.api.Assertions.assertThrows(
         org.stvnadore.core.validation.MalformedPayloadException.class,
-        () -> org.stvnadore.core.StvnCompiler.compile(underflow)
+        () -> org.stvnadore.core.StvnCompiler.compilePayload(underflow)
     );
     int rparen = underflow.lastIndexOf(')');
     org.junit.jupiter.api.Assertions.assertEquals(rparen, exUnderflow.startOffset());
@@ -528,7 +528,7 @@ public class StvnIrValidationTest {
         """;
     var exOverflow = org.junit.jupiter.api.Assertions.assertThrows(
         org.stvnadore.core.validation.MalformedPayloadException.class,
-        () -> org.stvnadore.core.StvnCompiler.compile(overflow)
+        () -> org.stvnadore.core.StvnCompiler.compilePayload(overflow)
     );
     int startExcess = overflow.indexOf("84");
     int endExcess = overflow.indexOf("126") + "126".length();
@@ -543,37 +543,37 @@ public class StvnIrValidationTest {
     Assertions.assertTrue(Files.exists(cardDir), "Cardinality fixture directory must exist");
 
     // 1. Exact string fixed dimension
-    var fixedAst = StvnCompiler.compile(Files.readString(cardDir.resolve("string_exact_fixed_dimension.stvn"))).orElseThrow();
+    var fixedAst = StvnCompiler.compilePayload(Files.readString(cardDir.resolve("string_exact_fixed_dimension.stvn"))).orElseThrow();
     Assertions.assertInstanceOf(StvnString.class, fixedAst);
     Assertions.assertEquals("STVN", ((StvnString) fixedAst).value());
 
     // 2. Bounded string interval
-    var boundedAst = StvnCompiler.compile(Files.readString(cardDir.resolve("string_bounded_interval.stvn"))).orElseThrow();
+    var boundedAst = StvnCompiler.compilePayload(Files.readString(cardDir.resolve("string_bounded_interval.stvn"))).orElseThrow();
     Assertions.assertInstanceOf(StvnString.class, boundedAst);
     Assertions.assertEquals("A compliant payload within interval", ((StvnString) boundedAst).value());
 
     // 3. Unbounded string default
-    var unboundedAst = StvnCompiler.compile(Files.readString(cardDir.resolve("string_unbounded_default.stvn"))).orElseThrow();
+    var unboundedAst = StvnCompiler.compilePayload(Files.readString(cardDir.resolve("string_unbounded_default.stvn"))).orElseThrow();
     Assertions.assertInstanceOf(StvnString.class, unboundedAst);
     Assertions.assertTrue(((StvnString) unboundedAst).value().startsWith("Standard string payload"));
 
     // 4. Bounded sequence cardinality
-    var seqAst = StvnCompiler.compile(Files.readString(cardDir.resolve("seq_bounded_cardinality.stvn"))).orElseThrow();
+    var seqAst = StvnCompiler.compilePayload(Files.readString(cardDir.resolve("seq_bounded_cardinality.stvn"))).orElseThrow();
     Assertions.assertInstanceOf(StvnValue.StvnSeq.class, seqAst);
     Assertions.assertEquals(5, ((StvnValue.StvnSeq) seqAst).elements().size());
 
     // 5. Bounded set cardinality
-    var setAst = StvnCompiler.compile(Files.readString(cardDir.resolve("set_bounded_cardinality.stvn"))).orElseThrow();
+    var setAst = StvnCompiler.compilePayload(Files.readString(cardDir.resolve("set_bounded_cardinality.stvn"))).orElseThrow();
     Assertions.assertInstanceOf(StvnValue.StvnSet.class, setAst);
     Assertions.assertEquals(3, ((StvnValue.StvnSet) setAst).elements().size());
 
     // 6. Bounded map cardinality
-    var mapAst = StvnCompiler.compile(Files.readString(cardDir.resolve("map_bounded_cardinality.stvn"))).orElseThrow();
+    var mapAst = StvnCompiler.compilePayload(Files.readString(cardDir.resolve("map_bounded_cardinality.stvn"))).orElseThrow();
     Assertions.assertInstanceOf(StvnValue.StvnMap.class, mapAst);
     Assertions.assertEquals(2, ((StvnValue.StvnMap) mapAst).entries().size());
 
     // 7. Collection minimum only
-    var minOnlyAst = StvnCompiler.compile(Files.readString(cardDir.resolve("collection_minimum_only.stvn"))).orElseThrow();
+    var minOnlyAst = StvnCompiler.compilePayload(Files.readString(cardDir.resolve("collection_minimum_only.stvn"))).orElseThrow();
     Assertions.assertInstanceOf(StvnValue.StvnSeq.class, minOnlyAst);
     Assertions.assertEquals(3, ((StvnValue.StvnSeq) minOnlyAst).elements().size());
   }

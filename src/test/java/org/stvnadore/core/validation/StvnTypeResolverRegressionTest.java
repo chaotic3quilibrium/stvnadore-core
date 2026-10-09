@@ -633,7 +633,7 @@ class StvnTypeResolverRegressionTest {
         """;
     var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.hasErrors(), "Valid nominal type :IntCounter must compile cleanly");
-    Assertions.assertEquals(42L, Assertions.assertInstanceOf(StvnInteger.class, result.document().orElseThrow()).value().longValue());
+    Assertions.assertEquals(42L, Assertions.assertInstanceOf(StvnInteger.class, result.document().orElseThrow().requirePayload()).value().longValue());
   }
 
   @Test
@@ -650,7 +650,7 @@ class StvnTypeResolverRegressionTest {
         """;
     var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.hasErrors(), "Valid nominal type :StringList must compile cleanly");
-    Assertions.assertInstanceOf(StvnValue.StvnSeq.class, result.document().orElseThrow());
+    Assertions.assertInstanceOf(StvnValue.StvnSeq.class, result.document().orElseThrow().requirePayload());
   }
 
   @Test
@@ -667,7 +667,7 @@ class StvnTypeResolverRegressionTest {
         """;
     var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.hasErrors(), "Valid nominal type :SeqRecord must compile cleanly");
-    Assertions.assertInstanceOf(StvnValue.StvnTuple.class, result.document().orElseThrow());
+    Assertions.assertInstanceOf(StvnValue.StvnTuple.class, result.document().orElseThrow().requirePayload());
   }
 
   @Test
@@ -684,7 +684,7 @@ class StvnTypeResolverRegressionTest {
         """;
     var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.hasErrors(), "Valid nominal type :MapStore must compile cleanly");
-    Assertions.assertInstanceOf(StvnValue.StvnTuple.class, result.document().orElseThrow());
+    Assertions.assertInstanceOf(StvnValue.StvnTuple.class, result.document().orElseThrow().requirePayload());
   }
 
   @Test
@@ -702,6 +702,6 @@ class StvnTypeResolverRegressionTest {
     var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.hasErrors(), "Nominal :Int32 in :defs must compile cleanly");
     Assertions.assertTrue(result.isSuccess(), "Compilation must succeed");
-    Assertions.assertInstanceOf(StvnValue.StvnInteger.class, result.document().orElseThrow());
+    Assertions.assertInstanceOf(StvnValue.StvnInteger.class, result.document().orElseThrow().requirePayload());
   }
 }

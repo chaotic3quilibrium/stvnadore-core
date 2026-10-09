@@ -25,7 +25,7 @@ class StvnStrictParserTest {
     
     // Default compile uses STRICT mode internally
     var ex = Assertions.assertThrows(RuntimeException.class, () -> {
-      StvnCompiler.compile(input);
+      StvnCompiler.compilePayload(input);
     });
     
     Assertions.assertTrue(ex.getMessage().contains("STVN Syntax Error") || ex.getMessage().contains("mismatched input"));
@@ -61,7 +61,7 @@ class StvnStrictParserTest {
         }
         """;
     
-    var val = StvnCompiler.compile(input, null, StvnParserConfig.STRICT);
+    var val = StvnCompiler.compilePayload(input, null, StvnParserConfig.STRICT);
     Assertions.assertTrue(val.isPresent());
   }
 

@@ -36,7 +36,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnTuple.class, ir);
@@ -69,7 +69,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnTuple.class, ir);
@@ -99,7 +99,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnTuple.class, ir);
@@ -134,7 +134,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnOption.class, ir);
@@ -157,7 +157,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnOption.class, ir);
@@ -182,7 +182,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnOption.class, ir);
@@ -207,7 +207,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnEither.class, ir);
@@ -252,7 +252,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payloadExplicit);
+    var irOpt = StvnCompiler.compilePayload(payloadExplicit);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnEither.class, ir);
@@ -277,7 +277,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnEither.class, ir);
@@ -302,7 +302,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnUnion.class, ir);
@@ -334,7 +334,7 @@ public class StvnSchemaDirectedKeywordsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnTuple.class, ir);

@@ -17,9 +17,10 @@ class StvnConstantStripTest {
   @Test
   @DisplayName("Bare #strip imports strip constant path up to terminal slash preserving '#' sigil")
   void testBareStripConstantImports(@TempDir Path tempDir) throws IOException {
-    Path module = tempDir.resolve("module.stvn_incl");
+    Path module = tempDir.resolve("module.stvn_d");
     Files.writeString(module, """
         {
+          :meta { #kind #DEFS }
           :defs {
             #pkg/sub/TIMEOUT :Int 5000
           }
@@ -30,7 +31,7 @@ class StvnConstantStripTest {
     String mainContent = """
         {
           :defs {
-            :include [ "module.stvn_incl" { #strip } ]
+            :include [ "module.stvn_d" { #strip } ]
           }
           :type :Int
           :body #TIMEOUT
@@ -46,9 +47,10 @@ class StvnConstantStripTest {
   @Test
   @DisplayName("Unary #strip strips all imported constants to terminal identifiers")
   void testUnaryStripMultipleConstants(@TempDir Path tempDir) throws IOException {
-    Path module = tempDir.resolve("module.stvn_incl");
+    Path module = tempDir.resolve("module.stvn_d");
     Files.writeString(module, """
         {
+          :meta { #kind #DEFS }
           :defs {
             #pkg/sub/TIMEOUT :Int 5000
             #other/RETRIES :Int 3
@@ -60,7 +62,7 @@ class StvnConstantStripTest {
     String mainContent = """
         {
           :defs {
-            :include [ "module.stvn_incl" { #strip } ]
+            :include [ "module.stvn_d" { #strip } ]
           }
           :type :Tuple( :Int :Int )
           :body ( #TIMEOUT #RETRIES )
@@ -75,9 +77,10 @@ class StvnConstantStripTest {
   @Test
   @DisplayName("Parameterized #strip fails at syntax gate")
   void testParameterizedStripFailsAtSyntaxGate(@TempDir Path tempDir) throws IOException {
-    Path module = tempDir.resolve("module.stvn_incl");
+    Path module = tempDir.resolve("module.stvn_d");
     Files.writeString(module, """
         {
+          :meta { #kind #DEFS }
           :defs {
             #config/db/POOL_SIZE :Int 10
           }
@@ -88,7 +91,7 @@ class StvnConstantStripTest {
     String mainContent = """
         {
           :defs {
-            :include [ "module.stvn_incl" { #strip "config/db/" } ]
+            :include [ "module.stvn_d" { #strip "config/db/" } ]
           }
           :type :Int
           :body #POOL_SIZE
@@ -105,18 +108,20 @@ class StvnConstantStripTest {
   @Test
   @DisplayName("Unmitigated constant collision emits ERR_NAMESPACE_COLLISION")
   void testUnmitigatedConstantCollisionEmitsDiagnostic(@TempDir Path tempDir) throws IOException {
-    Path modA = tempDir.resolve("module_a.stvn_incl");
+    Path modA = tempDir.resolve("module_a.stvn_d");
     Files.writeString(modA, """
         {
+          :meta { #kind #DEFS }
           :defs {
             #PORT :Int 8080
           }
         }
         """);
 
-    Path modB = tempDir.resolve("module_b.stvn_incl");
+    Path modB = tempDir.resolve("module_b.stvn_d");
     Files.writeString(modB, """
         {
+          :meta { #kind #DEFS }
           :defs {
             #PORT :Int 9090
           }
@@ -127,7 +132,7 @@ class StvnConstantStripTest {
     String mainContent = """
         {
           :defs {
-            :include [ "module_a.stvn_incl" "module_b.stvn_incl" ]
+            :include [ "module_a.stvn_d" "module_b.stvn_d" ]
           }
           :type :Int
           :body #PORT
@@ -144,9 +149,10 @@ class StvnConstantStripTest {
   @Test
   @DisplayName("Local constant definition evicts raw imported constant")
   void testLocalConstantPriorityEviction(@TempDir Path tempDir) throws IOException {
-    Path modA = tempDir.resolve("module_a.stvn_incl");
+    Path modA = tempDir.resolve("module_a.stvn_d");
     Files.writeString(modA, """
         {
+          :meta { #kind #DEFS }
           :defs {
             #PORT :Int 8080
           }
@@ -157,7 +163,7 @@ class StvnConstantStripTest {
     String mainContent = """
         {
           :defs {
-            :include [ "module_a.stvn_incl" ]
+            :include [ "module_a.stvn_d" ]
             #PORT :Int 3000
           }
           :type :Int
@@ -177,15 +183,16 @@ class StvnConstantStripTest {
         "main.stvn", """
             {
               :defs {
-                :include [ "net.stvn_incl" { #strip } ]
+                :include [ "net.stvn_d" { #strip } ]
                 :App :Tuple( :Port )
               }
               :type :App
               :body ( #PORT )
             }
             """,
-        "net.stvn_incl", """
+        "net.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
                 #pkg/net/PORT :Int 8080
                 :pkg/net/Port :Int

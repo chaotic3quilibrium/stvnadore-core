@@ -4,8 +4,8 @@
 {
   :defs {
     :include [
-      "../../valid/modules/module_a.stvn_incl"
-      "../../valid/modules/module_b.stvn_incl"
+      "../../valid/modules/module_a.stvn_d"
+      "../../valid/modules/module_b.stvn_d"
     ]
   }
   :type :Boolean

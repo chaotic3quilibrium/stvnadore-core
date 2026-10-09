@@ -3,10 +3,10 @@
 {
   :defs {
     :include [
-      "./module_asym_a.stvn_incl" {
+      "./module_asym_a.stvn_d" {
         :ConflictType :AliasedType
       }
-      "./module_asym_b.stvn_incl"
+      "./module_asym_b.stvn_d"
     ]
   }
   :type :Tuple( :AliasedType :ConflictType )

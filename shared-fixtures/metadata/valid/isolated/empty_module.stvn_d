@@ -6,6 +6,10 @@
 // DESCRIPTION:        Helper include module declaring a nominal type for :include
 // ==============================================================================
 {
+  :meta {
+    #name "empty_module"
+    #kind #DEFS
+  }
   :defs {
     :IncludeType :Int
   }

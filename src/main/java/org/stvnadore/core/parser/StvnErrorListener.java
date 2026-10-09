@@ -169,6 +169,9 @@ public final class StvnErrorListener extends BaseErrorListener {
     } else if (sanitizedMessage.contains("delimiter arrow '->' is prohibited")
         || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().startsWith("\"\"\"->["))) {
       errorCode = Optional.of(DiagnosticBag.ERR_PROHIBITED_FENCE_ARROW);
+    } else if (sanitizedMessage.contains("':meta'")
+        || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().equals(StvnVocabulary.KEYWORD_META))) {
+      errorCode = Optional.of(DiagnosticBag.ERR_META_POSITION_INVALID);
     }
 
     if (this.strict) {

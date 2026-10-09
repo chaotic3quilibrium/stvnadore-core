@@ -1,4 +1,8 @@
 {
+  :meta {
+    #name "include_cyclic_indirect_b"
+    #kind #DEFS
+  }
   :defs {
     :include [
       "include_cyclic_indirect.stvn"

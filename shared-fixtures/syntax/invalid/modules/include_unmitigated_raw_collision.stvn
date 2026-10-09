@@ -4,8 +4,8 @@
 {
   :defs {
     :include [
-      "./module_raw_a.stvn_incl"
-      "./module_raw_b.stvn_incl"
+      "./module_raw_a.stvn_d"
+      "./module_raw_b.stvn_d"
     ]
   }
   :type :Int

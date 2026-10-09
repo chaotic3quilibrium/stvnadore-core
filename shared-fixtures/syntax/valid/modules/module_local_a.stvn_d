@@ -1,0 +1,9 @@
+{
+  :meta {
+    #name "module_local_a"
+    #kind #DEFS
+  }
+  :defs {
+    :ConflictType :String
+  }
+}

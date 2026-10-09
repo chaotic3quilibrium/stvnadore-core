@@ -25,7 +25,7 @@ public class StvnSchemaTypeMetadataTest {
         """;
     var res = StvnCompiler.compileToResult(source);
     Assertions.assertFalse(res.hasErrors(), "Compilation failed: " + res.diagnostics());
-    var doc = res.document().orElseThrow();
+    var doc = res.document().orElseThrow().requirePayload();
     Assertions.assertInstanceOf(StvnValue.StvnEither.class, doc);
   }
 

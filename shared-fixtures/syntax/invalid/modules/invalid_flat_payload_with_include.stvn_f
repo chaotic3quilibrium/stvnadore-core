@@ -4,8 +4,12 @@
 {
   // invalid_flat_payload_with_include.stvn_f
   // Specification: STVN v1.2.0 (ECD-2026-04-A1)
+  :meta {
+    #name "invalid_flat_payload_with_include"
+    #kind #BODY_FLAT
+  }
   :defs {
-    :include [ "network_primitives.stvn_inclf" ]
+    :include [ "network_primitives.stvn_df" ]
     :Host :String
   }
 

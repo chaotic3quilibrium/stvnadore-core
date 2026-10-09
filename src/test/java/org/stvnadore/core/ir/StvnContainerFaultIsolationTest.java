@@ -33,8 +33,8 @@ public class StvnContainerFaultIsolationTest {
 
     var docOpt = result.document();
     assertTrue(docOpt.isPresent(), "AST must be preserved under fault isolation");
-    assertTrue(docOpt.get() instanceof StvnValue.StvnSeq, "Root must be StvnSeq");
-    var seq = (StvnValue.StvnSeq) docOpt.get();
+    assertTrue(docOpt.get().requirePayload() instanceof StvnValue.StvnSeq, "Root must be StvnSeq");
+    var seq = (StvnValue.StvnSeq) docOpt.get().requirePayload();
 
     assertEquals(5, seq.elements().size(), "Container length M must equal source cardinality N");
 
@@ -69,8 +69,8 @@ public class StvnContainerFaultIsolationTest {
 
     var docOpt = result.document();
     assertTrue(docOpt.isPresent(), "AST must be preserved under fault isolation");
-    assertTrue(docOpt.get() instanceof StvnValue.StvnSet, "Root must be StvnSet");
-    var set = (StvnValue.StvnSet) docOpt.get();
+    assertTrue(docOpt.get().requirePayload() instanceof StvnValue.StvnSet, "Root must be StvnSet");
+    var set = (StvnValue.StvnSet) docOpt.get().requirePayload();
 
     assertEquals(3, set.elements().size(), "Set length M must equal source cardinality N");
     var elementsList = new java.util.ArrayList<>(set.elements());
@@ -100,8 +100,8 @@ public class StvnContainerFaultIsolationTest {
 
     var docOpt = result.document();
     assertTrue(docOpt.isPresent(), "AST must be preserved under fault isolation");
-    assertTrue(docOpt.get() instanceof StvnValue.StvnMap, "Root must be StvnMap");
-    var map = (StvnValue.StvnMap) docOpt.get();
+    assertTrue(docOpt.get().requirePayload() instanceof StvnValue.StvnMap, "Root must be StvnMap");
+    var map = (StvnValue.StvnMap) docOpt.get().requirePayload();
 
     assertEquals(3, map.entries().size(), "Map entry count M must equal source cardinality N");
     var values = new java.util.ArrayList<>(map.entries().values());

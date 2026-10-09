@@ -10,6 +10,7 @@ module org.stvnadore.core {
     requires transitive static org.jspecify;
 
     exports org.stvnadore.core;
+    exports org.stvnadore.core.ast;
     exports org.stvnadore.core.stdlib;
     exports org.stvnadore.core.validation;
     exports org.stvnadore.core.ir;

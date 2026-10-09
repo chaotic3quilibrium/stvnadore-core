@@ -25,7 +25,7 @@ class StvnUnionValidationTest {
           :body #1 42
         }
         """;
-    var valueOpt = StvnCompiler.compile(input);
+    var valueOpt = StvnCompiler.compilePayload(input);
     Assertions.assertTrue(valueOpt.isPresent());
     StvnValue val = valueOpt.get();
     Assertions.assertTrue(val instanceof StvnUnion);
@@ -44,7 +44,7 @@ class StvnUnionValidationTest {
           :body "hello"
         }
         """;
-    var valueOpt = StvnCompiler.compile(input);
+    var valueOpt = StvnCompiler.compilePayload(input);
     Assertions.assertTrue(valueOpt.isPresent());
     StvnValue val = valueOpt.get();
     Assertions.assertTrue(val instanceof StvnUnion);
@@ -64,7 +64,7 @@ class StvnUnionValidationTest {
         }
         """;
     var exception = Assertions.assertThrows(StvnMalformedLiteralException.class, () -> {
-      StvnCompiler.compile(input);
+      StvnCompiler.compilePayload(input);
     });
     Assertions.assertTrue(exception.getMessage().contains("Union variant tag '#3' exceeds branch count (2)"));
     int tagStart = input.indexOf("#3");
@@ -84,7 +84,7 @@ class StvnUnionValidationTest {
         }
         """;
     var exception = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> {
-      StvnCompiler.compile(input);
+      StvnCompiler.compilePayload(input);
     });
     Assertions.assertTrue(exception.getMessage().contains("Ambiguous implicit resolution: Value matches multiple branches"));
   }
@@ -102,7 +102,7 @@ class StvnUnionValidationTest {
         }
         """;
     var exception = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> {
-      StvnCompiler.compile(input);
+      StvnCompiler.compilePayload(input);
     });
     Assertions.assertTrue(exception.getMessage().contains("Ambiguous implicit resolution: Value matches multiple branches"));
   }
@@ -119,7 +119,7 @@ class StvnUnionValidationTest {
           :body #Left 42
         }
         """;
-    var valOpt = StvnCompiler.compile(input);
+    var valOpt = StvnCompiler.compilePayload(input);
     Assertions.assertTrue(valOpt.isPresent());
     Assertions.assertInstanceOf(StvnValue.StvnEither.class, valOpt.get());
     var either = (StvnValue.StvnEither) valOpt.get();

@@ -35,7 +35,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
 
     Assertions.assertFalse(result.isSuccess(), "Compilation should not be clean success due to integer overflows");
     Assertions.assertTrue(result.hasErrors(), "Result must have error diagnostics");
@@ -47,7 +47,7 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertEquals(DiagnosticSeverity.ERROR, diagnostics.get(0).severity());
     Assertions.assertEquals(DiagnosticSeverity.ERROR, diagnostics.get(1).severity());
 
-    StvnValue doc = result.document().get();
+    StvnValue doc = result.document().get().requirePayload();
     Assertions.assertInstanceOf(StvnSeq.class, doc);
     StvnSeq seq = (StvnSeq) doc;
     Assertions.assertEquals(5, seq.elements().size());
@@ -73,7 +73,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
 
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
@@ -84,7 +84,7 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertEquals("DUPLICATE_SET_ELEMENT", diags.get(0).errorCode().orElse(""));
     Assertions.assertEquals("DUPLICATE_SET_ELEMENT", diags.get(1).errorCode().orElse(""));
 
-    StvnValue doc = result.document().get();
+    StvnValue doc = result.document().get().requirePayload();
     Assertions.assertInstanceOf(StvnSet.class, doc);
     StvnSet set = (StvnSet) doc;
     Assertions.assertEquals(4, set.elements().size());
@@ -103,7 +103,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
 
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
@@ -112,7 +112,7 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertTrue(diags.stream().anyMatch(d -> "TUPLE_ARITY_MISMATCH".equals(d.errorCode().orElse(""))),
         "Must record TUPLE_ARITY_MISMATCH diagnostic");
 
-    StvnValue doc = result.document().get();
+    StvnValue doc = result.document().get().requirePayload();
     Assertions.assertInstanceOf(StvnTuple.class, doc);
     StvnTuple tuple = (StvnTuple) doc;
     Assertions.assertEquals(4, tuple.elements().size());
@@ -139,7 +139,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
 
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
@@ -148,7 +148,7 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertTrue(diags.size() >= 3, "Expected at least 3 diagnostics: invalid key 200, invalid value 300, duplicate key 1");
     Assertions.assertTrue(diags.stream().anyMatch(d -> "DUPLICATE_MAP_KEY".equals(d.errorCode().orElse(""))));
 
-    StvnValue doc = result.document().get();
+    StvnValue doc = result.document().get().requirePayload();
     Assertions.assertInstanceOf(StvnMap.class, doc);
   }
 
@@ -169,7 +169,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
 
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
@@ -191,12 +191,12 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> unionRes = StvnCompiler.compileToResult(unionOverflowInput);
+    var unionRes = StvnCompiler.compileToResult(unionOverflowInput);
     Assertions.assertFalse(unionRes.isSuccess());
     Assertions.assertTrue(unionRes.hasErrors());
     Assertions.assertTrue(unionRes.diagnostics().stream().anyMatch(d -> "UNION_BRANCH_OVERFLOW".equals(d.errorCode().orElse(""))));
-    Assertions.assertInstanceOf(StvnUnion.class, unionRes.document().get());
-    StvnUnion union = (StvnUnion) unionRes.document().get();
+    Assertions.assertInstanceOf(StvnUnion.class, unionRes.document().get().requirePayload());
+    StvnUnion union = (StvnUnion) unionRes.document().get().requirePayload();
     Assertions.assertInstanceOf(StvnError.class, union.value());
 
     String eitherMismatchInput = """
@@ -206,11 +206,11 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> eitherRes = StvnCompiler.compileToResult(eitherMismatchInput);
+    var eitherRes = StvnCompiler.compileToResult(eitherMismatchInput);
     Assertions.assertFalse(eitherRes.isSuccess());
     Assertions.assertTrue(eitherRes.hasErrors());
-    Assertions.assertInstanceOf(StvnEither.class, eitherRes.document().get());
-    StvnEither either = (StvnEither) eitherRes.document().get();
+    Assertions.assertInstanceOf(StvnEither.class, eitherRes.document().get().requirePayload());
+    StvnEither either = (StvnEither) eitherRes.document().get().requirePayload();
     Assertions.assertInstanceOf(StvnError.class, either.value());
   }
 
@@ -225,7 +225,7 @@ public class StvnDiagnosticAccumulationTest {
     sb.append("]\n}\n");
 
     StvnParserConfig config = new StvnParserConfig(false, 50);
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(sb.toString(), null, config);
+    var result = StvnCompiler.compileToResult(sb.toString(), null, config);
 
     Assertions.assertTrue(result.hasErrors());
     Assertions.assertTrue(result.hasWarnings());
@@ -246,7 +246,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> successRes = StvnCompiler.compileToResult(cleanInput);
+    var successRes = StvnCompiler.compileToResult(cleanInput);
     Assertions.assertTrue(successRes.isSuccess());
     Assertions.assertFalse(successRes.hasErrors());
     Assertions.assertFalse(successRes.hasWarnings());
@@ -257,7 +257,7 @@ public class StvnDiagnosticAccumulationTest {
     successRes.ifSuccess(doc -> executed.set(true));
     Assertions.assertTrue(executed.get());
 
-    StvnCompilationResult<Integer> mapped = successRes.map(doc -> ((StvnInteger) doc).value().intValue());
+    StvnCompilationResult<Integer> mapped = successRes.map(doc -> ((StvnInteger) doc.requirePayload()).value().intValue());
     Assertions.assertEquals(42, mapped.document().orElse(0));
 
     String errorInput = """
@@ -270,7 +270,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> failRes = StvnCompiler.compileToResult(errorInput);
+    var failRes = StvnCompiler.compileToResult(errorInput);
     Assertions.assertFalse(failRes.isSuccess());
     Assertions.assertTrue(failRes.hasErrors());
     Assertions.assertThrows(RuntimeException.class, failRes::orElseThrow);
@@ -289,9 +289,9 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.document().isPresent());
-    StvnValue partialAst = result.document().get();
+    StvnValue partialAst = result.document().get().requirePayload();
 
     var encoder = new StvnBinaryEncoder(true, new org.stvnadore.core.binary.SchemaIdentityStrategy.UniversalDefault());
     Assertions.assertThrows(IllegalStateException.class, () -> {
@@ -312,9 +312,9 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.document().isPresent());
-    StvnValue partialAst = result.document().get();
+    StvnValue partialAst = result.document().get().requirePayload();
 
     StringWriter sw = new StringWriter();
     CanonicalStvnWriter writer = new CanonicalStvnWriter();
@@ -336,7 +336,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
 
     Assertions.assertFalse(result.isSuccess(), "Compilation must fail for undeclared tuple types");
     Assertions.assertTrue(result.hasErrors(), "Result must have error diagnostics");
@@ -368,7 +368,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
 
     Assertions.assertTrue(result.hasErrors());
     List<StvnDiagnostic> diags = result.diagnostics();
@@ -395,7 +395,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
 
     Assertions.assertTrue(result.hasErrors());
     List<StvnDiagnostic> diags = result.diagnostics();
@@ -418,7 +418,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
 
     Assertions.assertTrue(result.hasErrors());
     List<StvnDiagnostic> diags = result.diagnostics();
@@ -437,7 +437,7 @@ public class StvnDiagnosticAccumulationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
 
     Assertions.assertTrue(result.hasErrors());
     List<StvnDiagnostic> diags = result.diagnostics();

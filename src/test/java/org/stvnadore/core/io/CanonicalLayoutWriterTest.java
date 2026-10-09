@@ -90,10 +90,10 @@ class CanonicalLayoutWriterTest {
         }
         """;
 
-    Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compile(legacySource),
+    Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(legacySource),
         "Legacy '->' arrow delimiter must be rejected under Rule STR-04");
 
-    var modernAst = StvnCompiler.compile(modernSource).orElseThrow();
+    var modernAst = StvnCompiler.compilePayload(modernSource).orElseThrow();
 
     // 1. Assert byte-for-byte canonical serialized output
     String canonicalModern = StvnCompiler.toCanonicalString(modernAst);

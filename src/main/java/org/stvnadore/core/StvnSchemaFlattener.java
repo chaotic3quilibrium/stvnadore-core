@@ -340,9 +340,23 @@ public final class StvnSchemaFlattener {
       return nameA.compareTo(nameB);
     });
 
+    // Build canonical :meta header block
+    ParsedDocument entryDoc = parsedCache.get(normEntryPoint);
+    org.stvnadore.core.ast.StvnDocumentMeta entryMeta = null;
+    if (entryDoc != null && entryDoc.docCtx() != null && entryDoc.docCtx().documentBody() != null) {
+      entryMeta = org.stvnadore.core.ir.StvnIrVisitor.extractMeta(entryDoc.docCtx().documentBody().metaEntry()).orElse(null);
+    }
+
+    StringBuilder metaBuilder = new StringBuilder(":meta {");
+    if (entryMeta != null) {
+      entryMeta.name().ifPresent(n -> metaBuilder.append(" #name \"").append(n).append("\""));
+      entryMeta.domain().ifPresent(d -> metaBuilder.append(" #domain \"").append(d).append("\""));
+    }
+    metaBuilder.append(" #kind #DEFS_FLAT }");
+
     // Assemble final output
     String joinedDefs = String.join(" ", outputDefinitions);
-    return "{ :defs { " + joinedDefs + " } }";
+    return "{ " + metaBuilder + " :defs { " + joinedDefs + " } }";
   }
 
   private static String getNominalName(String canonicalDef) {
@@ -456,10 +470,10 @@ public final class StvnSchemaFlattener {
 
     if (docCtx.documentBody() != null && docCtx.documentBody().defsEntry() != null) {
       var defsEntry = docCtx.documentBody().defsEntry();
-      if (normalizedPath.endsWith(".stvn_f") || normalizedPath.endsWith(".stvn_inclf")) {
+      if (normalizedPath.endsWith(".stvn_f") || normalizedPath.endsWith(".stvn_df") || normalizedPath.endsWith(".stvn_inclf")) {
         for (var de : defsEntry.defsElement()) {
           if (de.includeStmt() != null) {
-            throw new MalformedSchemaException("Flat document (.stvn_f / .stvn_inclf) cannot contain includes: " + normalizedPath);
+            throw new MalformedSchemaException("Flat document (.stvn_f / .stvn_df) cannot contain includes: " + normalizedPath);
           }
         }
       }

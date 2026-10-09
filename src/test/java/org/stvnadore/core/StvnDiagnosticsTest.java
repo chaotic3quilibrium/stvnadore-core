@@ -34,7 +34,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors(), "Empty enum :Enum[] must fail compilation");
     Assertions.assertFalse(result.isSuccess());
 
@@ -59,7 +59,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compile(input));
+    var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(input));
     Assertions.assertTrue(ex.getMessage().contains("STVN Syntax Error"));
     Assertions.assertTrue(
         ex.getMessage().contains("empty enum variant list") || ex.getMessage().contains("<value keyword>")
@@ -76,7 +76,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors(), "Empty :Tuple() must produce error diagnostics");
 
     var diag = result.diagnostics().getFirst();
@@ -99,7 +99,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors(), "Empty :Union() must produce error diagnostics");
 
     var diag = result.diagnostics().getFirst();
@@ -121,7 +121,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compile(input));
+    var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(input));
     Assertions.assertTrue(ex.getMessage().contains("STVN Syntax Error"));
     Assertions.assertTrue(
         ex.getMessage().contains("empty enum variant list") || ex.getMessage().contains("<value keyword>")
@@ -138,7 +138,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors());
     var diag = result.diagnostics().getFirst();
     Assertions.assertTrue(
@@ -159,7 +159,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors(), "Empty enum in :defs must fail compilation");
     var diag = result.diagnostics().getFirst();
     Assertions.assertTrue(
@@ -177,7 +177,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    var res = StvnCompiler.compile(input);
+    var res = StvnCompiler.compilePayload(input);
     Assertions.assertTrue(res.isPresent());
   }
 
@@ -194,7 +194,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    var res = StvnCompiler.compile(input);
+    var res = StvnCompiler.compilePayload(input);
     Assertions.assertTrue(res.isPresent());
   }
 
@@ -208,7 +208,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors(), "Empty :Set() must fail compilation");
     Assertions.assertFalse(result.isSuccess());
 
@@ -231,7 +231,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors(), "Undeclared :SetNonEmpty must fail compilation");
 
     var diag = result.diagnostics().getFirst();
@@ -252,7 +252,7 @@ public class StvnDiagnosticsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors(), "Empty :Set() inside :defs must fail compilation");
 
     var diag = result.diagnostics().getFirst();
@@ -271,7 +271,7 @@ public class StvnDiagnosticsTest {
   })
   @DisplayName("All single-argument collections emit uniform diagnostic on empty arguments")
   void testSingleArgumentCollectionsDiagnosticUniformity(String input) {
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors());
 
     var diag = result.diagnostics().getFirst();
@@ -288,7 +288,7 @@ public class StvnDiagnosticsTest {
   })
   @DisplayName("All two-argument collections emit uniform diagnostic on empty arguments")
   void testTwoArgumentCollectionsDiagnosticUniformity(String input) {
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors());
 
     var diag = result.diagnostics().getFirst();
@@ -312,7 +312,7 @@ public class StvnDiagnosticsTest {
   })
   @DisplayName("Soundness assertion: diagnostics never dump raw 30+ token vocabulary sets")
   void testNoRawVocabularyDumpsAcrossNegativeInputs(String input) {
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.hasErrors());
 
     for (var diag : result.diagnostics()) {
@@ -375,7 +375,7 @@ public class StvnDiagnosticsTest {
           :body #Left 1
         }
         """;
-    var leftValOpt = StvnCompiler.compile(leftInput);
+    var leftValOpt = StvnCompiler.compilePayload(leftInput);
     Assertions.assertTrue(leftValOpt.isPresent());
     Assertions.assertInstanceOf(StvnEither.class, leftValOpt.get());
     var leftEither = (StvnEither) leftValOpt.get();
@@ -394,7 +394,7 @@ public class StvnDiagnosticsTest {
           :body #Right 1
         }
         """;
-    var rightValOpt = StvnCompiler.compile(rightInput);
+    var rightValOpt = StvnCompiler.compilePayload(rightInput);
     Assertions.assertTrue(rightValOpt.isPresent());
     Assertions.assertInstanceOf(StvnEither.class, rightValOpt.get());
     var rightEither = (StvnEither) rightValOpt.get();
@@ -449,7 +449,7 @@ public class StvnDiagnosticsTest {
           :body [ #Left "test" ]
         }
         """;
-    var resLeft = StvnCompiler.compile(inputLeft);
+    var resLeft = StvnCompiler.compilePayload(inputLeft);
     Assertions.assertTrue(resLeft.isPresent());
     var seqLeft = (StvnSeq) resLeft.get();
     var optLeft = (StvnOption) seqLeft.elements().getFirst();
@@ -465,7 +465,7 @@ public class StvnDiagnosticsTest {
           :body [ 42.5 ]
         }
         """;
-    var resRight = StvnCompiler.compile(inputRight);
+    var resRight = StvnCompiler.compilePayload(inputRight);
     Assertions.assertTrue(resRight.isPresent());
     var seqRight = (StvnSeq) resRight.get();
     var optRight = (StvnOption) seqRight.elements().getFirst();
@@ -502,7 +502,7 @@ public class StvnDiagnosticsTest {
           :body ( #Left 1 "a" )
         }
         """;
-    var res = StvnCompiler.compile(input);
+    var res = StvnCompiler.compilePayload(input);
     Assertions.assertTrue(res.isPresent());
     var tuple = (StvnTuple) res.get();
     var el0 = (StvnEither) tuple.elements().get(0);
@@ -795,7 +795,7 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :include [ "common.stvn_incl" {} ]
+            :include [ "common.stvn_d" {} ]
           }
           :type :String
           :body "val"

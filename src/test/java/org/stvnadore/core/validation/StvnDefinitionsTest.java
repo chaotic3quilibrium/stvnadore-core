@@ -33,7 +33,7 @@ public class StvnDefinitionsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
@@ -56,7 +56,7 @@ public class StvnDefinitionsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
@@ -79,7 +79,7 @@ public class StvnDefinitionsTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
@@ -94,28 +94,30 @@ public class StvnDefinitionsTest {
   void testLeafModuleIncludeRestriction() {
     String input = """
         {
+          :meta { #kind #DEFS_FLAT }
           :defs {
-            :include [ "other.stvn_inclf" ]
+            :include [ "other.stvn_df" ]
             :MyType :String
           }
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input, "leaf.stvn_inclf");
+    var result = StvnCompiler.compileToResult(input, "leaf.stvn_df");
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
     var diag = result.diagnostics().getFirst();
-    Assertions.assertTrue(diag.message().contains("Flat document or leaf module (.stvn_f / .stvn_inclf) cannot contain include statements"));
+    Assertions.assertTrue(diag.message().contains("Flat document or leaf module (.stvn_f / .stvn_df) cannot contain include statements"));
     Assertions.assertEquals(DiagnosticBag.ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT, diag.errorCode().orElse(null));
   }
 
   @Test
   @DisplayName("Transitive include with multiple definition errors accumulates all diagnostics across files")
   void testTransitiveIncludeMultiErrors(@TempDir Path tempDir) throws IOException {
-    Path incl = tempDir.resolve("common.stvn_inclf");
+    Path incl = tempDir.resolve("common.stvn_df");
     Files.writeString(incl, """
         {
+          :meta { #kind #DEFS_FLAT }
           :defs {
             :BrokenRegex { #regex "[" } :String
             :BrokenRange { #minIncl 100 #maxIncl 1 } :Int32
@@ -127,7 +129,7 @@ public class StvnDefinitionsTest {
     String mainContent = """
         {
           :defs {
-            :include [ "common.stvn_inclf" ]
+            :include [ "common.stvn_df" ]
             :LocalBroken { #preserveIndent #TRUE } :Int32
           }
           :type :String
@@ -136,7 +138,7 @@ public class StvnDefinitionsTest {
         """;
     Files.writeString(mainFile, mainContent);
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(mainContent, mainFile.toString());
+    var result = StvnCompiler.compileToResult(mainContent, mainFile.toString());
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
     Assertions.assertTrue(result.diagnostics().size() >= 3, "Must accumulate diagnostics from both included file and root document");

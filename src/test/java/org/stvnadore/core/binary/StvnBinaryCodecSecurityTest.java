@@ -110,7 +110,7 @@ public class StvnBinaryCodecSecurityTest {
       buf.putInt(100_000_000);
       buf.flip();
 
-      var schema = StvnCompiler.compile("{ :type :String :body \"\" }").orElseThrow().schema();
+      var schema = StvnCompiler.compilePayload("{ :type :String :body \"\" }").orElseThrow().schema();
       var root = StvnBinaryDecoder.open(buf);
 
       MalformedPayloadException ex = assertThrows(
@@ -134,7 +134,7 @@ public class StvnBinaryCodecSecurityTest {
       buf.putInt(50_000_000);
       buf.flip();
 
-      var schema = StvnCompiler.compile("{ :type :Seq(:Int) :body [ 0 ] }").orElseThrow().schema();
+      var schema = StvnCompiler.compilePayload("{ :type :Seq(:Int) :body [ 0 ] }").orElseThrow().schema();
       var root = StvnBinaryDecoder.open(buf);
 
       MalformedPayloadException ex = assertThrows(
@@ -157,7 +157,7 @@ public class StvnBinaryCodecSecurityTest {
       buf.putInt(20_000_000);
       buf.flip();
 
-      var schema = StvnCompiler.compile("{ :type :Map(:String :Int) :body { [ \"k\" 1 ] } }").orElseThrow().schema();
+      var schema = StvnCompiler.compilePayload("{ :type :Map(:String :Int) :body { [ \"k\" 1 ] } }").orElseThrow().schema();
       var root = StvnBinaryDecoder.open(buf);
 
       MalformedPayloadException ex = assertThrows(
@@ -183,7 +183,7 @@ public class StvnBinaryCodecSecurityTest {
                              "98765432109876543210987654321098765432109876543210";
       BigInteger bigInt = new BigInteger(hundredDigits);
 
-      ResolvedSchema bareIntSchema = StvnCompiler.compile("{ :type :Int :body 0 }").orElseThrow().schema();
+      ResolvedSchema bareIntSchema = StvnCompiler.compilePayload("{ :type :Int :body 0 }").orElseThrow().schema();
       StvnInteger original = new StvnInteger(bareIntSchema, bigInt, 0, false);
 
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -209,7 +209,7 @@ public class StvnBinaryCodecSecurityTest {
                              "55554444333322221111";
       BigInteger bigInt = new BigInteger(hundredDigits);
 
-      ResolvedSchema bareIntSchema = StvnCompiler.compile("{ :type :Int :body 0 }").orElseThrow().schema();
+      ResolvedSchema bareIntSchema = StvnCompiler.compilePayload("{ :type :Int :body 0 }").orElseThrow().schema();
       StvnInteger original = new StvnInteger(bareIntSchema, bigInt, 0, false);
 
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -227,7 +227,7 @@ public class StvnBinaryCodecSecurityTest {
     void testSmallBareIntRoundTripsInline() {
       BigInteger smallVal = BigInteger.valueOf(42);
 
-      ResolvedSchema bareIntSchema = StvnCompiler.compile("{ :type :Int :body 0 }").orElseThrow().schema();
+      ResolvedSchema bareIntSchema = StvnCompiler.compilePayload("{ :type :Int :body 0 }").orElseThrow().schema();
       StvnInteger original = new StvnInteger(bareIntSchema, smallVal, 32, false);
 
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -252,7 +252,7 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-FLOAT-01: Float.NaN round-trips without BigDecimal crash")
     void testFloat32NaNRoundTrip() {
-      ResolvedSchema schema = StvnCompiler.compile("""
+      ResolvedSchema schema = StvnCompiler.compilePayload("""
           {
             :defs { :F32 { #size 32 } :Float }
             :type :F32
@@ -282,7 +282,7 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-FLOAT-02: Double.NaN round-trips without BigDecimal crash")
     void testFloat64NaNRoundTrip() {
-      ResolvedSchema schema = StvnCompiler.compile("""
+      ResolvedSchema schema = StvnCompiler.compilePayload("""
           {
             :defs { :F64 { #size 64 } :Float }
             :type :F64
@@ -309,7 +309,7 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-FLOAT-03: Float32 +Infinity and -Infinity round-trip accurately")
     void testFloat32InfinitiesRoundTrip() {
-      ResolvedSchema schema = StvnCompiler.compile("""
+      ResolvedSchema schema = StvnCompiler.compilePayload("""
           {
             :defs { :F32 { #size 32 } :Float }
             :type :F32
@@ -342,7 +342,7 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-FLOAT-04: Float64 +Infinity and -Infinity round-trip accurately")
     void testFloat64InfinitiesRoundTrip() {
-      ResolvedSchema schema = StvnCompiler.compile("""
+      ResolvedSchema schema = StvnCompiler.compilePayload("""
           {
             :defs { :F64 { #size 64 } :Float }
             :type :F64
@@ -375,14 +375,14 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-FLOAT-05: Negative zero (-0.0f and -0.0d) preserves sign bit across wire")
     void testNegativeZeroPreservesSignBit() {
-      ResolvedSchema schema32 = StvnCompiler.compile("""
+      ResolvedSchema schema32 = StvnCompiler.compilePayload("""
           {
             :defs { :F32 { #size 32 } :Float }
             :type :F32
             :body 0.0
           }
           """).orElseThrow().schema();
-      ResolvedSchema schema64 = StvnCompiler.compile("""
+      ResolvedSchema schema64 = StvnCompiler.compilePayload("""
           {
             :defs { :F64 { #size 64 } :Float }
             :type :F64
@@ -424,7 +424,7 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-STRAT7-01: ExplicitSha256 encodes with Bit 7 set (control byte 0x87)")
     void testStrategy0x7EncodesWithBit7Set() {
-      var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
+      var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
       byte[] hash = StvnSchemaHasher.computeSha256(ir.schema());
 
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.ExplicitSha256(hash));
@@ -444,7 +444,7 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-STRAT7-02: Clearing Bit 7 (0x87 -> 0x07) fails closed with MalformedPayloadException")
     void testBit7TamperFailsClosed() {
-      var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
+      var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
       byte[] hash = StvnSchemaHasher.computeSha256(ir.schema());
 
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.ExplicitSha256(hash));
@@ -523,7 +523,7 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-PTR-03: Child slot pointer in tuple pointing backward into headers is rejected")
     void testChildPointerTableHijackingRejected() {
-      var tupleIr = StvnCompiler.compile("""
+      var tupleIr = StvnCompiler.compilePayload("""
           {
             :type :Tuple( :String :String )
             :body ( "first" "second" )

@@ -26,7 +26,7 @@ public class StvnSchemaFlattenerV2Test {
         }
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    String expected = "{ :defs { :Text { #preserveIndent #TRUE } :String } }";
+    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :Text { #preserveIndent #TRUE } :String } }";
     assertEquals(expected, flattened);
   }
 
@@ -43,7 +43,7 @@ public class StvnSchemaFlattenerV2Test {
         }
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    String expected = "{ :defs { :Text { #preserveIndent #FALSE } :String } }";
+    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :Text { #preserveIndent #FALSE } :String } }";
     assertEquals(expected, flattened);
   }
 
@@ -61,7 +61,7 @@ public class StvnSchemaFlattenerV2Test {
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
     // 7-tier Semantic Category Order: Tier 1 (#unsigned #audited) < Tier 3 (#size 32) < Tier 4 (#minIncl 10)
-    String expected = "{ :defs { :ComplexInt { #unsigned #audited #size 32 #minIncl 10 } :Int } }";
+    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :ComplexInt { #unsigned #audited #size 32 #minIncl 10 } :Int } }";
     assertEquals(expected, flattened);
   }
 
@@ -79,7 +79,7 @@ public class StvnSchemaFlattenerV2Test {
         }
         """;
     String pass1 = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    String wrappedPass1 = "{ :defs " + pass1.substring(8, pass1.length() - 2) + " :type :Tuple(:A :B) :body ( 1 \"text\" ) }";
+    String wrappedPass1 = "{ " + pass1.substring(2, pass1.length() - 2) + " :type :Tuple(:A :B) :body ( 1 \"text\" ) }";
     String pass2 = StvnSchemaFlattener.flatten(Map.of("test.stvn", wrappedPass1), "test.stvn");
     assertEquals(pass1, pass2, "Flattener output must remain strictly idempotent");
   }

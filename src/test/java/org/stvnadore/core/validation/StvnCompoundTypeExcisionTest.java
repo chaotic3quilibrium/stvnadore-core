@@ -49,7 +49,7 @@ public class StvnCompoundTypeExcisionTest {
     var result = StvnCompiler.compileToResult(doc, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.hasErrors(), "Nominal :Uint64 must compile cleanly");
     Assertions.assertTrue(result.diagnostics().isEmpty(), "Must produce zero diagnostics");
-    Assertions.assertInstanceOf(StvnValue.StvnInteger.class, result.document().orElseThrow());
+    Assertions.assertInstanceOf(StvnValue.StvnInteger.class, result.document().orElseThrow().requirePayload());
   }
 
   @Test
@@ -87,7 +87,7 @@ public class StvnCompoundTypeExcisionTest {
     var result = StvnCompiler.compileToResult(doc, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.hasErrors(), "Nominal :StringFixed4 must compile cleanly");
     Assertions.assertTrue(result.diagnostics().isEmpty());
-    Assertions.assertInstanceOf(StvnValue.StvnString.class, result.document().orElseThrow());
+    Assertions.assertInstanceOf(StvnValue.StvnString.class, result.document().orElseThrow().requirePayload());
   }
 
   @Test

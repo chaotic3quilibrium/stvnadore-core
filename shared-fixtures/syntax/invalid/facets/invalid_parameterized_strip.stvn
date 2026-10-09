@@ -5,7 +5,7 @@
   // invalid_parameterized_strip.stvn
   // Specification: STVN v1.2.0 (ECD-2026-04)
   :defs {
-    :include [ "module_a.stvn_incl" { #strip "pkg/sub/" } ]
+    :include [ "module_a.stvn_d" { #strip "pkg/sub/" } ]
   }
 
   :type :Int

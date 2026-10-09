@@ -1,6 +1,0 @@
-{
-  :defs {
-    :include [ "network_primitives.stvn_inclf" ]
-    :PortNumber :Int
-  }
-}

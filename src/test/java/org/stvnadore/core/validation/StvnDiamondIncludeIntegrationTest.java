@@ -24,31 +24,34 @@ public class StvnDiamondIncludeIntegrationTest {
         "A.stvn", """
             {
               :defs {
-                :include [ "b.stvn_incl" "c.stvn_incl" ]
+                :include [ "b.stvn_d" "c.stvn_d" ]
                 :TypeA :Tuple( :TypeB :TypeC )
               }
               :type :TypeA
               :body ( ( 42 10 ) ( 42 "hello" ) )
             }
             """,
-        "b.stvn_incl", """
+        "b.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
-                :include [ "d.stvn_incl" ]
+                :include [ "d.stvn_d" ]
                 :TypeB :Tuple( :TypeD :Int )
               }
             }
             """,
-        "c.stvn_incl", """
+        "c.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
-                :include [ "d.stvn_incl" ]
+                :include [ "d.stvn_d" ]
                 :TypeC :Tuple( :TypeD :String )
               }
             }
             """,
-        "d.stvn_incl", """
+        "d.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
                 :TypeD { #size 32 } :Int
               }
@@ -85,31 +88,34 @@ public class StvnDiamondIncludeIntegrationTest {
         "root.stvn", """
             {
               :defs {
-                :include [ "module1.stvn_incl" "module2.stvn_incl" ]
+                :include [ "module1.stvn_d" "module2.stvn_d" ]
                 :RootType :Tuple( :Type1 :Type2 )
               }
               :type :RootType
               :body ( 1 2 )
             }
             """,
-        "module1.stvn_incl", """
+        "module1.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
-                :include [ "base.stvn_incl" ]
+                :include [ "base.stvn_d" ]
                 :Type1 :BaseType
               }
             }
             """,
-        "module2.stvn_incl", """
+        "module2.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
-                :include [ "base.stvn_incl" ]
+                :include [ "base.stvn_d" ]
                 :Type2 :BaseType
               }
             }
             """,
-        "base.stvn_incl", """
+        "base.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
                 :BaseType :Int
                 #BASE_CONST :Int 100
@@ -131,29 +137,32 @@ public class StvnDiamondIncludeIntegrationTest {
         "root.stvn", """
             {
               :defs {
-                :include [ "leaf.stvn_incl" "mid1.stvn_incl" "mid2.stvn_incl" ]
+                :include [ "leaf.stvn_d" "mid1.stvn_d" "mid2.stvn_d" ]
                 :Root :Tuple( :Mid1 :Mid2 :Leaf )
               }
             }
             """,
-        "mid1.stvn_incl", """
+        "mid1.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
-                :include [ "leaf.stvn_incl" ]
+                :include [ "leaf.stvn_d" ]
                 :Mid1 :Leaf
               }
             }
             """,
-        "mid2.stvn_incl", """
+        "mid2.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
-                :include [ "leaf.stvn_incl" ]
+                :include [ "leaf.stvn_d" ]
                 :Mid2 :Leaf
               }
             }
             """,
-        "leaf.stvn_incl", """
+        "leaf.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
                 :Leaf { #exact } :Float
               }
@@ -173,33 +182,37 @@ public class StvnDiamondIncludeIntegrationTest {
         "A.stvn", """
             {
               :defs {
-                :include [ "b.stvn_incl" "c.stvn_incl" ]
+                :include [ "b.stvn_d" "c.stvn_d" ]
               }
             }
             """,
-        "b.stvn_incl", """
+        "b.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
-                :include [ "d1.stvn_incl" ]
+                :include [ "d1.stvn_d" ]
               }
             }
             """,
-        "c.stvn_incl", """
+        "c.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
-                :include [ "d2.stvn_incl" ]
+                :include [ "d2.stvn_d" ]
               }
             }
             """,
-        "d1.stvn_incl", """
+        "d1.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
                 :ConflictingType :Int
               }
             }
             """,
-        "d2.stvn_incl", """
+        "d2.stvn_d", """
             {
+              :meta { #kind #DEFS }
               :defs {
                 :ConflictingType :String
               }

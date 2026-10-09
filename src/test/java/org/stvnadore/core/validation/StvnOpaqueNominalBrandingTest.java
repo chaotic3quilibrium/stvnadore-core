@@ -60,8 +60,8 @@ public class StvnOpaqueNominalBrandingTest {
     String source1 = "{ :defs { :UserId :Int } :type :UserId :body 42 }";
     String source2 = "{ :defs { :AccountId :Int } :type :AccountId :body 42 }";
 
-    var ast1 = StvnCompiler.compile(source1).orElseThrow();
-    var ast2 = StvnCompiler.compile(source2).orElseThrow();
+    var ast1 = StvnCompiler.compilePayload(source1).orElseThrow();
+    var ast2 = StvnCompiler.compilePayload(source2).orElseThrow();
 
     assertNotNull(ast1.schema());
     assertNotNull(ast2.schema());

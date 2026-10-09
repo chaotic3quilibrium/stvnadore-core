@@ -4,6 +4,10 @@
   // hermetic_payload.stvn_f
   // Flat Hermetic Payload Document Tier (Zero :include Statements)
   // Specification: STVN v1.2.0 (ECD-2026-04-A1)
+  :meta {
+    #name "hermetic_payload"
+    #kind #BODY_FLAT
+  }
   :defs {
     :package :org/stvnadore/payload {
       :TransactionId { #minSize 16 #maxSize 16 } :String

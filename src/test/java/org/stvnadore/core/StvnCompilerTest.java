@@ -32,7 +32,7 @@ public class StvnCompilerTest {
 
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.isSuccess(), "Source compilation must succeed: " + result.diagnostics());
-    StvnValue ast = result.orElseThrow();
+    StvnValue ast = result.orElseThrow().requirePayload();
 
     String canonical = StvnCompiler.toCanonicalString(ast);
 
@@ -55,7 +55,7 @@ public class StvnCompilerTest {
     // 4. Assert re-compilation round-trip produces clean AST without errors
     var roundTrip = StvnCompiler.compileToResult(canonical);
     Assertions.assertTrue(roundTrip.isSuccess(), "Canonical output must re-compile with zero errors: " + roundTrip.diagnostics());
-    Assertions.assertEquals(canonical, StvnCompiler.toCanonicalString(roundTrip.orElseThrow()),
+    Assertions.assertEquals(canonical, StvnCompiler.toCanonicalString(roundTrip.orElseThrow().requirePayload()),
         "Canonical serialization must be idempotent");
   }
 
@@ -78,7 +78,7 @@ public class StvnCompilerTest {
 
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.isSuccess(), "Compilation must succeed: " + result.diagnostics());
-    String canonical = StvnCompiler.toCanonicalString(result.orElseThrow());
+    String canonical = StvnCompiler.toCanonicalString(result.orElseThrow().requirePayload());
 
     Assertions.assertTrue(canonical.contains(":D :Int"));
     Assertions.assertTrue(canonical.contains(":C :Tuple(:D)"));
@@ -109,7 +109,7 @@ public class StvnCompilerTest {
 
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.isSuccess());
-    String pretty = AstPrettyPrinter.print(result.orElseThrow());
+    String pretty = AstPrettyPrinter.print(result.orElseThrow().requirePayload());
 
     Assertions.assertTrue(pretty.contains(":org/example/geo/Coord :Float"));
     Assertions.assertTrue(pretty.contains(":Point :Tuple(:org/example/geo/Coord :org/example/geo/Coord)"));
@@ -286,9 +286,48 @@ public class StvnCompilerTest {
         "Must not emit spurious TUPLE_ARITY_MISMATCH on closing delimiter ')'"
     );
     Assertions.assertTrue(result.document().isPresent());
-    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnTuple.class, result.document().get());
-    var tuple = (org.stvnadore.core.ir.StvnValue.StvnTuple) result.document().get();
+    var payloadOpt = result.document().get().payload();
+    Assertions.assertTrue(payloadOpt.isPresent());
+    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnTuple.class, payloadOpt.get());
+    var tuple = (org.stvnadore.core.ir.StvnValue.StvnTuple) payloadOpt.get();
     Assertions.assertEquals(6, tuple.elements().size(), "Tuple must maintain full element cardinality");
     Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnError.class, tuple.elements().get(2), "Malformed child element must be recorded as StvnError");
+  }
+
+  @Test
+  @DisplayName("TC-COMP-11: Facade elevation compile returns StvnCompilationResult<StvnDocument>")
+  void testFacadeElevationCompileDocument() {
+    String source = """
+        {
+          :meta {
+            #name "my_doc"
+            #kind #BODY
+          }
+          :type :Int
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compile(source);
+    Assertions.assertTrue(result.isSuccess());
+    var doc = result.orElseThrow();
+    Assertions.assertTrue(doc.hasMeta());
+    Assertions.assertTrue(doc.hasPayload());
+    Assertions.assertEquals("my_doc", doc.requireMeta().name().orElseThrow());
+    Assertions.assertEquals(org.stvnadore.core.ast.StvnDocumentKind.BODY, doc.requireMeta().kind().orElseThrow());
+    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnInteger.class, doc.requirePayload());
+  }
+
+  @Test
+  @DisplayName("TC-COMP-12: Facade elevation compilePayload returns Optional<StvnValue>")
+  void testFacadeElevationCompilePayload() {
+    String source = """
+        {
+          :type :Int
+          :body 42
+        }
+        """;
+    var payloadOpt = StvnCompiler.compilePayload(source);
+    Assertions.assertTrue(payloadOpt.isPresent());
+    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnInteger.class, payloadOpt.get());
   }
 }

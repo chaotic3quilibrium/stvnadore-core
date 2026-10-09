@@ -30,7 +30,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess(), "Compilation must fail on broken regex in :defs");
     Assertions.assertTrue(result.hasErrors(), "Result must contain error diagnostics");
 
@@ -55,7 +55,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess(), "Compilation must fail on inverted range in :defs");
     Assertions.assertTrue(result.hasErrors());
 
@@ -80,7 +80,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess(), "Compilation must fail on string bound on int in :defs");
     Assertions.assertTrue(result.hasErrors());
 
@@ -105,7 +105,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
@@ -129,7 +129,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
@@ -153,7 +153,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
@@ -177,7 +177,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
@@ -193,14 +193,14 @@ public class StvnSchemaValidationTest {
   void testStandaloneIncludeHeaderWithBrokenRegexFailsEagerly() {
     String input = """
         {
-          // primitives.stvn_inclf
+          :meta { #kind #DEFS_FLAT }
           :defs {
             :BrokenPattern { #regex "(?i" } :String
           }
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input, "primitives.stvn_inclf");
+    var result = StvnCompiler.compileToResult(input, "primitives.stvn_df");
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
 
@@ -224,12 +224,12 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.isSuccess(), "Valid regex with escaped brackets must succeed");
     Assertions.assertFalse(result.hasErrors());
     Assertions.assertTrue(result.document().isPresent());
 
-    StvnValue val = result.document().get();
+    StvnValue val = result.document().get().requirePayload();
     Assertions.assertInstanceOf(StvnString.class, val);
     Assertions.assertEquals("[hello]", ((StvnString) val).value());
   }
@@ -248,7 +248,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.isSuccess(), "Valid unreferenced schemas must compile cleanly");
     Assertions.assertFalse(result.hasErrors());
   }
@@ -268,7 +268,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
     Assertions.assertEquals(3, result.diagnostics().size(), "Must accumulate all 3 regex errors in single pass");
@@ -298,7 +298,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
     Assertions.assertEquals(4, result.diagnostics().size(), "Must accumulate all 4 mixed constraint violations");
@@ -326,7 +326,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input);
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
     Assertions.assertEquals(1, result.diagnostics().size(), "Must report only the root regex error without cascade diagnostics");
@@ -341,6 +341,7 @@ public class StvnSchemaValidationTest {
   void testMultiErrorModularHeaderValidation() {
     String input = """
         {
+          :meta { #kind #DEFS_FLAT }
           :defs {
             :BrokenA { #minIncl 10 #maxExcl 1 } :Int
             :BrokenB { #regex "[" } :String
@@ -349,7 +350,7 @@ public class StvnSchemaValidationTest {
         }
         """;
 
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(input, "header.stvn_inclf");
+    var result = StvnCompiler.compileToResult(input, "header.stvn_df");
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertTrue(result.hasErrors());
     Assertions.assertEquals(3, result.diagnostics().size(), "Must report all 3 header definition errors");

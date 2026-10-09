@@ -12,6 +12,7 @@ import org.stvnadore.core.parser.StvnParser.SchemaTypeContext;
 import org.stvnadore.core.parser.StvnParser.TypeDefinitionContext;
 import org.stvnadore.core.parser.StvnParser.ValueContext;
 import org.stvnadore.core.parser.StvnParser.SumTypeContext;
+import org.stvnadore.core.ast.StvnDocumentKind;
 import org.stvnadore.core.stdlib.StvnPrelude;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.StvnVocabulary;
@@ -483,10 +484,8 @@ public class StvnTypeResolver {
           constAccumulator.computeIfAbsent(constName, k -> new ArrayList<>())
               .add(new NamespaceClaim<>(constName, constDef, "Inline Document", ClaimType.LOCAL));
         } else if (child instanceof StvnParser.IncludeStmtContext includeStmt) {
-          if (currentDocPath != null && (currentDocPath.endsWith(".stvn_f") || currentDocPath.endsWith(".stvn_inclf"))) {
-            String msg = currentDocPath.endsWith(".stvn_f")
-                ? "Flat document or leaf module (.stvn_f / .stvn_inclf) cannot contain include statements: " + currentDocPath
-                : "Flat document or leaf module (.stvn_f / .stvn_inclf) cannot contain include statements (Leaf module (.stvn_inclf) cannot contain include statements): " + currentDocPath;
+          if (currentDocPath != null && (currentDocPath.endsWith(".stvn_f") || currentDocPath.endsWith(".stvn_df") || currentDocPath.endsWith(".stvn_inclf"))) {
+            String msg = "Flat document or leaf module (.stvn_f / .stvn_df) cannot contain include statements: " + currentDocPath;
             diagnosticBag.addError(
                 msg,
                 includeStmt.getStart().getStartIndex(),
@@ -3391,6 +3390,304 @@ public class StvnTypeResolver {
   }
 
   /**
+   * Validates document identity metadata, positional filename stem bindings, and kind/extension conformance.
+   *
+   * @param doc           the parsed document context to validate
+   * @param docPath       the optional physical file path identifier
+   * @param diagnosticBag the accumulator bag for recording diagnostics
+   */
+  public static void validateDocumentIdentity(
+      @Nullable StvnDocumentContext doc,
+      @Nullable String docPath,
+      DiagnosticBag diagnosticBag
+  ) {
+    if (doc == null || doc == StvnPrelude.getPreludeDocument()) {
+      return;
+    }
+
+    String ext = null;
+    String[] dotParts = null;
+
+    if (docPath != null && !docPath.isEmpty()) {
+      String normalized = docPath.replace('\\', '/');
+      int lastSlash = normalized.lastIndexOf('/');
+      String fileName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
+
+      // 1. Fail-closed legacy extension rejection
+      if (fileName.endsWith(".stvn_incl") || fileName.endsWith(".stvn_inclf")
+          || fileName.endsWith(".stvn_cas") || fileName.endsWith(".stvn_bin")) {
+        int dotIdx = fileName.indexOf('.');
+        String legacyExt = dotIdx >= 0 ? fileName.substring(dotIdx) : fileName;
+        diagnosticBag.addError(
+            "Excised legacy file extension '" + legacyExt + "' is permanently prohibited",
+            doc.getStart() != null ? doc.getStart().getStartIndex() : 0,
+            doc.getStart() != null ? doc.getStart().getStopIndex() + 1 : 1,
+            doc.getStart() != null ? doc.getStart().getLine() : 1,
+            doc.getStart() != null ? doc.getStart().getCharPositionInLine() : 0,
+            null,
+            DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED
+        );
+        return;
+      }
+
+      // 2. Filename decomposition & bare dotfile check
+      if (fileName.startsWith(".")) {
+        diagnosticBag.addError(
+            "Filename '" + fileName + "' lacks a visible non-empty stem segment before extension; bare dotfiles are prohibited",
+            doc.getStart() != null ? doc.getStart().getStartIndex() : 0,
+            doc.getStart() != null ? doc.getStart().getStopIndex() + 1 : 1,
+            doc.getStart() != null ? doc.getStart().getLine() : 1,
+            doc.getStart() != null ? doc.getStart().getCharPositionInLine() : 0,
+            null,
+            DiagnosticBag.ERR_INVALID_FILENAME_STEM
+        );
+        return;
+      }
+
+      int lastDot = fileName.lastIndexOf('.');
+      if (lastDot >= 0) {
+        ext = fileName.substring(lastDot);
+        String stemPart = fileName.substring(0, lastDot);
+        dotParts = stemPart.split("\\.");
+      }
+    }
+
+    // 3. Inspect :meta block
+    var body = doc.documentBody();
+    var metaEntry = body != null ? body.metaEntry() : null;
+
+    Optional<StvnDocumentKind> expectedKindOpt =
+        ext != null ? StvnDocumentKind.fromExtension(ext) : Optional.empty();
+
+    if (metaEntry == null) {
+      if (expectedKindOpt.isPresent() && expectedKindOpt.get() != StvnDocumentKind.BODY) {
+        diagnosticBag.addError(
+            "Mandatory :meta block missing; document kind '" + expectedKindOpt.get().keyword() + "' is required for extension '" + ext + "'",
+            doc.getStart() != null ? doc.getStart().getStartIndex() : 0,
+            doc.getStart() != null ? doc.getStart().getStopIndex() + 1 : 1,
+            doc.getStart() != null ? doc.getStart().getLine() : 1,
+            doc.getStart() != null ? doc.getStart().getCharPositionInLine() : 0,
+            null,
+            DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+        );
+      }
+      return;
+    }
+
+    var metaBlock = metaEntry.metaBlock();
+    if (metaBlock == null || metaBlock.metaElement() == null || metaBlock.metaElement().isEmpty()) {
+      int start = metaBlock != null && metaBlock.getStart() != null ? metaBlock.getStart().getStartIndex() : metaEntry.getStart().getStartIndex();
+      int stop = metaBlock != null && metaBlock.getStop() != null ? metaBlock.getStop().getStopIndex() + 1 : metaEntry.getStop().getStopIndex() + 1;
+      int line = metaBlock != null && metaBlock.getStart() != null ? metaBlock.getStart().getLine() : metaEntry.getStart().getLine();
+      int col = metaBlock != null && metaBlock.getStart() != null ? metaBlock.getStart().getCharPositionInLine() : metaEntry.getStart().getCharPositionInLine();
+      diagnosticBag.addError(
+          "Metadata block ':meta {}' must not be empty",
+          start,
+          stop,
+          line,
+          col,
+          null,
+          DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
+      );
+      return;
+    }
+
+    boolean seenName = false;
+    boolean seenDomain = false;
+    boolean seenKind = false;
+    int currentTier = 0;
+
+    String declaredName = null;
+    String declaredDomain = null;
+    StvnDocumentKind declaredKind = null;
+
+    ParserRuleContext nameNode = null;
+    ParserRuleContext domainNode = null;
+    ParserRuleContext kindNode = null;
+
+    for (var el : metaBlock.metaElement()) {
+      if (el.metaUnknownFacet() != null) {
+        var unk = el.metaUnknownFacet();
+        String facetTag = unk.valueKeyword() != null ? unk.valueKeyword().getText() : unk.getText();
+        diagnosticBag.addError(
+            "Invalid metadata facet tag '" + facetTag + "' in ':meta' block",
+            unk.getStart().getStartIndex(),
+            unk.getStop().getStopIndex() + 1,
+            unk.getStart().getLine(),
+            unk.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_INVALID_METADATA_FACET
+        );
+      } else if (el.metaNameFacet() != null) {
+        var nf = el.metaNameFacet();
+        if (seenName) {
+          diagnosticBag.addError(
+              "Duplicate metadata facet tag '#name' declared in ':meta' block",
+              nf.getStart().getStartIndex(),
+              nf.getStop().getStopIndex() + 1,
+              nf.getStart().getLine(),
+              nf.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
+          );
+        } else if (currentTier > 1) {
+          diagnosticBag.addError(
+              "Metadata facet '#name' violates 3-tier monotonic progression (#name -> #domain -> #kind)",
+              nf.getStart().getStartIndex(),
+              nf.getStop().getStopIndex() + 1,
+              nf.getStart().getLine(),
+              nf.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_FACET_ORDER_VIOLATION
+          );
+        }
+        seenName = true;
+        currentTier = Math.max(currentTier, 1);
+        nameNode = nf.stringLiteral();
+        try {
+          declaredName = extractRawStringValue(nf.stringLiteral().getText());
+          if (!declaredName.matches("^[a-zA-Z0-9_-]{1,64}$")) {
+            diagnosticBag.addError(
+                "Metadata #name '" + declaredName + "' does not match required atomic POSIX pattern ^[a-zA-Z0-9_-]{1,64}$",
+                nf.stringLiteral().getStart().getStartIndex(),
+                nf.stringLiteral().getStop().getStopIndex() + 1,
+                nf.stringLiteral().getStart().getLine(),
+                nf.stringLiteral().getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_INVALID_METADATA_FACET
+            );
+          }
+        } catch (Exception ignored) {
+        }
+      } else if (el.metaDomainFacet() != null) {
+        var df = el.metaDomainFacet();
+        if (seenDomain) {
+          diagnosticBag.addError(
+              "Duplicate metadata facet tag '#domain' declared in ':meta' block",
+              df.getStart().getStartIndex(),
+              df.getStop().getStopIndex() + 1,
+              df.getStart().getLine(),
+              df.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
+          );
+        } else if (currentTier > 2) {
+          diagnosticBag.addError(
+              "Metadata facet '#domain' violates 3-tier monotonic progression (#name -> #domain -> #kind)",
+              df.getStart().getStartIndex(),
+              df.getStop().getStopIndex() + 1,
+              df.getStart().getLine(),
+              df.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_FACET_ORDER_VIOLATION
+          );
+        }
+        seenDomain = true;
+        currentTier = Math.max(currentTier, 2);
+        domainNode = df.stringLiteral();
+        try {
+          declaredDomain = extractRawStringValue(df.stringLiteral().getText());
+          if (!declaredDomain.matches("^[a-zA-Z0-9_-]{1,64}$")) {
+            diagnosticBag.addError(
+                "Metadata #domain '" + declaredDomain + "' does not match required atomic POSIX pattern ^[a-zA-Z0-9_-]{1,64}$",
+                df.stringLiteral().getStart().getStartIndex(),
+                df.stringLiteral().getStop().getStopIndex() + 1,
+                df.stringLiteral().getStart().getLine(),
+                df.stringLiteral().getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_INVALID_METADATA_FACET
+            );
+          }
+        } catch (Exception ignored) {
+        }
+      } else if (el.metaKindFacet() != null) {
+        var kf = el.metaKindFacet();
+        if (seenKind) {
+          diagnosticBag.addError(
+              "Duplicate metadata facet tag '#kind' declared in ':meta' block",
+              kf.getStart().getStartIndex(),
+              kf.getStop().getStopIndex() + 1,
+              kf.getStart().getLine(),
+              kf.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
+          );
+        } else if (currentTier > 3) {
+          diagnosticBag.addError(
+              "Metadata facet '#kind' violates 3-tier monotonic progression (#name -> #domain -> #kind)",
+              kf.getStart().getStartIndex(),
+              kf.getStop().getStopIndex() + 1,
+              kf.getStart().getLine(),
+              kf.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_FACET_ORDER_VIOLATION
+          );
+        }
+        seenKind = true;
+        currentTier = Math.max(currentTier, 3);
+        kindNode = kf;
+        String kindText = kf.metaKindValue().getText();
+        declaredKind = StvnDocumentKind.fromKeyword(kindText).orElse(null);
+      }
+    }
+
+    // 4. Validate kind against physical file extension
+    if (declaredKind != null && expectedKindOpt.isPresent()) {
+      if (declaredKind != expectedKindOpt.get()) {
+        diagnosticBag.addError(
+            "Document kind '" + declaredKind.keyword() + "' does not match file extension '" + ext + "' (expected '" + expectedKindOpt.get().keyword() + "')",
+            kindNode != null ? kindNode.getStart().getStartIndex() : metaEntry.getStart().getStartIndex(),
+            kindNode != null ? kindNode.getStop().getStopIndex() + 1 : metaEntry.getStop().getStopIndex() + 1,
+            kindNode != null ? kindNode.getStart().getLine() : metaEntry.getStart().getLine(),
+            kindNode != null ? kindNode.getStart().getCharPositionInLine() : metaEntry.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+        );
+      }
+    }
+
+    // 5. Stem matching against #name and #domain
+    if (dotParts != null && dotParts.length >= 1) {
+      String stemName = dotParts[0];
+      if (declaredName != null && !declaredName.equals(stemName)) {
+        diagnosticBag.addWarning(
+            "Declared #name '" + declaredName + "' does not match filename stem slot 0 '" + stemName + "'",
+            nameNode != null ? nameNode.getStart().getStartIndex() : metaEntry.getStart().getStartIndex(),
+            nameNode != null ? nameNode.getStop().getStopIndex() + 1 : metaEntry.getStop().getStopIndex() + 1,
+            nameNode != null ? nameNode.getStart().getLine() : metaEntry.getStart().getLine(),
+            nameNode != null ? nameNode.getStart().getCharPositionInLine() : metaEntry.getStart().getCharPositionInLine(),
+            DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
+        );
+      }
+
+      if (declaredDomain != null) {
+        if (dotParts.length == 1) {
+          diagnosticBag.addWarning(
+              "Declared #domain '" + declaredDomain + "' is omitted from filename stem slot 1",
+              domainNode != null ? domainNode.getStart().getStartIndex() : metaEntry.getStart().getStartIndex(),
+              domainNode != null ? domainNode.getStop().getStopIndex() + 1 : metaEntry.getStop().getStopIndex() + 1,
+              domainNode != null ? domainNode.getStart().getLine() : metaEntry.getStart().getLine(),
+              domainNode != null ? domainNode.getStart().getCharPositionInLine() : metaEntry.getStart().getCharPositionInLine(),
+              DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME
+          );
+        } else {
+          String stemDomain = dotParts[1];
+          if (!declaredDomain.equals(stemDomain)) {
+            diagnosticBag.addWarning(
+                "Declared #domain '" + declaredDomain + "' does not match filename stem slot 1 '" + stemDomain + "'",
+                domainNode != null ? domainNode.getStart().getStartIndex() : metaEntry.getStart().getStartIndex(),
+                domainNode != null ? domainNode.getStop().getStopIndex() + 1 : metaEntry.getStop().getStopIndex() + 1,
+                domainNode != null ? domainNode.getStart().getLine() : metaEntry.getStart().getLine(),
+                domainNode != null ? domainNode.getStart().getCharPositionInLine() : metaEntry.getStart().getCharPositionInLine(),
+                DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
+            );
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Performs static analysis validation of all constraints within the active document,
    * accumulating diagnostic violations into the provided {@link DiagnosticBag}.
    *
@@ -3401,6 +3698,8 @@ public class StvnTypeResolver {
     if (doc == null || doc.documentBody() == null) {
       return;
     }
+    String currentDocPath = documentPaths.get(doc);
+    validateDocumentIdentity(doc, currentDocPath, diagnosticBag);
     getDocumentDefinitions(doc, diagnosticBag);
     var defsEntry = doc.documentBody().defsEntry();
     if (defsEntry != null && defsEntry.defsElement() != null) {

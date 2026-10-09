@@ -29,7 +29,7 @@ class StvnVariantTrajectoryTest {
           :body #Some 42
         }
         """;
-    var longVal = StvnCompiler.compile(longFormInput).orElseThrow();
+    var longVal = StvnCompiler.compilePayload(longFormInput).orElseThrow();
     Assertions.assertInstanceOf(StvnOption.class, longVal);
     var longOpt = (StvnOption) longVal;
     var longTrajectory = longOpt.trajectory();
@@ -44,7 +44,7 @@ class StvnVariantTrajectoryTest {
           :body #S 42
         }
         """;
-    var shortVal = StvnCompiler.compile(shortFormInput).orElseThrow();
+    var shortVal = StvnCompiler.compilePayload(shortFormInput).orElseThrow();
     Assertions.assertInstanceOf(StvnOption.class, shortVal);
     var shortOpt = (StvnOption) shortVal;
     var shortTrajectory = shortOpt.trajectory();
@@ -59,7 +59,7 @@ class StvnVariantTrajectoryTest {
           :body #None
         }
         """;
-    var noneLongVal = StvnCompiler.compile(noneLongInput).orElseThrow();
+    var noneLongVal = StvnCompiler.compilePayload(noneLongInput).orElseThrow();
     Assertions.assertInstanceOf(StvnOption.class, noneLongVal);
     var noneLongOpt = (StvnOption) noneLongVal;
     var noneLongTrajectory = noneLongOpt.trajectory();
@@ -74,7 +74,7 @@ class StvnVariantTrajectoryTest {
           :body #N
         }
         """;
-    var noneShortVal = StvnCompiler.compile(noneShortInput).orElseThrow();
+    var noneShortVal = StvnCompiler.compilePayload(noneShortInput).orElseThrow();
     Assertions.assertInstanceOf(StvnOption.class, noneShortVal);
     var noneShortOpt = (StvnOption) noneShortVal;
     var noneShortTrajectory = noneShortOpt.trajectory();
@@ -91,7 +91,7 @@ class StvnVariantTrajectoryTest {
           :body 42
         }
         """;
-    var val = StvnCompiler.compile(input).orElseThrow();
+    var val = StvnCompiler.compilePayload(input).orElseThrow();
     Assertions.assertInstanceOf(StvnOption.class, val);
     var opt = (StvnOption) val;
     var trajectory = opt.trajectory();
@@ -109,7 +109,7 @@ class StvnVariantTrajectoryTest {
           :body #Right 42
         }
         """;
-    var rightLongVal = StvnCompiler.compile(rightLongInput).orElseThrow();
+    var rightLongVal = StvnCompiler.compilePayload(rightLongInput).orElseThrow();
     Assertions.assertInstanceOf(StvnEither.class, rightLongVal);
     var rightLongEither = (StvnEither) rightLongVal;
     var rightLongTraj = rightLongEither.trajectory();
@@ -124,7 +124,7 @@ class StvnVariantTrajectoryTest {
           :body #R 42
         }
         """;
-    var rightShortVal = StvnCompiler.compile(rightShortInput).orElseThrow();
+    var rightShortVal = StvnCompiler.compilePayload(rightShortInput).orElseThrow();
     Assertions.assertInstanceOf(StvnEither.class, rightShortVal);
     var rightShortEither = (StvnEither) rightShortVal;
     var rightShortTraj = rightShortEither.trajectory();
@@ -139,7 +139,7 @@ class StvnVariantTrajectoryTest {
           :body #Left "err"
         }
         """;
-    var leftLongVal = StvnCompiler.compile(leftLongInput).orElseThrow();
+    var leftLongVal = StvnCompiler.compilePayload(leftLongInput).orElseThrow();
     Assertions.assertInstanceOf(StvnEither.class, leftLongVal);
     var leftLongEither = (StvnEither) leftLongVal;
     var leftLongTraj = leftLongEither.trajectory();
@@ -154,7 +154,7 @@ class StvnVariantTrajectoryTest {
           :body #L "err"
         }
         """;
-    var leftShortVal = StvnCompiler.compile(leftShortInput).orElseThrow();
+    var leftShortVal = StvnCompiler.compilePayload(leftShortInput).orElseThrow();
     Assertions.assertInstanceOf(StvnEither.class, leftShortVal);
     var leftShortEither = (StvnEither) leftShortVal;
     var leftShortTraj = leftShortEither.trajectory();
@@ -171,7 +171,7 @@ class StvnVariantTrajectoryTest {
           :body 42
         }
         """;
-    var val = StvnCompiler.compile(input).orElseThrow();
+    var val = StvnCompiler.compilePayload(input).orElseThrow();
     Assertions.assertInstanceOf(StvnEither.class, val);
     var either = (StvnEither) val;
     var trajectory = either.trajectory();
@@ -195,7 +195,7 @@ class StvnVariantTrajectoryTest {
         }
         """;
 
-    var compiled = StvnCompiler.compile(fixture).orElseThrow();
+    var compiled = StvnCompiler.compilePayload(fixture).orElseThrow();
     Assertions.assertInstanceOf(StvnSeq.class, compiled);
     var seq = (StvnSeq) compiled;
     List<StvnValue> elements = seq.elements();

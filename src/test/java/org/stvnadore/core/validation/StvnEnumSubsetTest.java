@@ -31,9 +31,9 @@ public class StvnEnumSubsetTest {
           :body #Active
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertTrue(result.isSuccess(), "Compilation failed: " + result.diagnostics());
-    var ir = result.orElseThrow();
+    var ir = result.orElseThrow().requirePayload();
     assertInstanceOf(StvnValue.StvnEnum.class, ir);
     var e = (StvnValue.StvnEnum) ir;
     assertEquals("#Active", e.keyword());
@@ -62,9 +62,9 @@ public class StvnEnumSubsetTest {
           :body #Pending
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertTrue(result.isSuccess(), "Compilation failed: " + result.diagnostics());
-    var ir = result.orElseThrow();
+    var ir = result.orElseThrow().requirePayload();
     var subset = ir.schema().enumSubset().orElseThrow();
     assertEquals(List.of("#Pending", "#Active", "#Suspended"), subset.allowedVariants());
     assertEquals(List.of("#Pending", "#Active", "#Suspended", "#Deleted"), subset.rootVariants());
@@ -85,9 +85,9 @@ public class StvnEnumSubsetTest {
           :body #Active
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertTrue(result.isSuccess(), "Compilation failed: " + result.diagnostics());
-    var ir = result.orElseThrow();
+    var ir = result.orElseThrow().requirePayload();
     var subset = ir.schema().enumSubset().orElseThrow();
     assertEquals(":ImmediateStatus", subset.name());
     assertEquals(":WorkingStatus", subset.parentType());
@@ -109,7 +109,7 @@ public class StvnEnumSubsetTest {
           :body #Deleted
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertFalse(result.isSuccess());
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("not permitted in enum subset")));
   }
@@ -127,7 +127,7 @@ public class StvnEnumSubsetTest {
           :body #Active
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertFalse(result.isSuccess());
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("mutually exclusive")));
   }
@@ -145,7 +145,7 @@ public class StvnEnumSubsetTest {
           :body #Active
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertFalse(result.isSuccess());
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("cannot be empty")));
   }
@@ -163,7 +163,7 @@ public class StvnEnumSubsetTest {
           :body #Active
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertFalse(result.isSuccess());
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("Complete exclusion violation")));
   }
@@ -182,7 +182,7 @@ public class StvnEnumSubsetTest {
           :body #Deleted
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertFalse(result.isSuccess());
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("Monotonic narrowing violation")));
   }
@@ -200,7 +200,7 @@ public class StvnEnumSubsetTest {
           :body #Active
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertFalse(result.isSuccess());
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("Root ordering violation")));
   }
@@ -217,7 +217,7 @@ public class StvnEnumSubsetTest {
           :body #A
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertFalse(result.isSuccess());
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("cannot be applied to inline enum constructors")));
   }
@@ -234,7 +234,7 @@ public class StvnEnumSubsetTest {
           :body 42
         }
         """;
-    StvnCompilationResult<StvnValue> result = StvnCompiler.compileToResult(stvn);
+    var result = StvnCompiler.compileToResult(stvn);
     assertFalse(result.isSuccess());
     assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("filter facets are not allowed on :Int")));
   }
@@ -242,7 +242,7 @@ public class StvnEnumSubsetTest {
   @Test
   @DisplayName("TC-SUBSET-12: Zero-trust binary decoding rejects ordinal outside subset boundary")
   void testBinaryDecodeRejectsInvalidOrdinal() {
-    var validIr = StvnCompiler.compile("""
+    var validIr = StvnCompiler.compilePayload("""
         {
           :defs {
             :Status :Enum [ #Pending #Active #Suspended #Deleted ]
@@ -256,7 +256,7 @@ public class StvnEnumSubsetTest {
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     ByteBuffer buf = encoder.encode(validIr); // Contains byte 0x03 for #Deleted
 
-    var workingSchema = StvnCompiler.compile("""
+    var workingSchema = StvnCompiler.compilePayload("""
         {
           :defs {
             :Status :Enum [ #Pending #Active #Suspended #Deleted ]
@@ -276,7 +276,7 @@ public class StvnEnumSubsetTest {
   @Test
   @DisplayName("TC-SUBSET-13: Schema Hasher distinguishes subsets and prevents CAS collisions")
   void testSchemaHasherDifferentiatesSubsets() {
-    var schemaA = StvnCompiler.compile("""
+    var schemaA = StvnCompiler.compilePayload("""
         {
           :defs {
             :Status :Enum [ #Pending #Active #Suspended ]
@@ -286,7 +286,7 @@ public class StvnEnumSubsetTest {
         }
         """).orElseThrow().schema();
 
-    var schemaB = StvnCompiler.compile("""
+    var schemaB = StvnCompiler.compilePayload("""
         {
           :defs {
             :Status :Enum [ #Pending #Active #Suspended ]

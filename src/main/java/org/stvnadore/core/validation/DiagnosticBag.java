@@ -279,6 +279,23 @@ public final class DiagnosticBag {
   }
 
   /**
+   * Helper method to record a warning-level diagnostic with offset span.
+   *
+   * @param message     the descriptive warning message
+   * @param startOffset the 0-based character start offset
+   * @param endOffset   the 0-based character end offset
+   * @param errorCode   the optional standardized error code identifier, or {@code null}
+   */
+  public void addWarning(
+      String message,
+      int startOffset,
+      int endOffset,
+      @Nullable String errorCode
+  ) {
+    addWarning(message, startOffset, endOffset, -1, -1, errorCode);
+  }
+
+  /**
    * Checks if any accumulated diagnostic has {@link DiagnosticSeverity#ERROR}.
    *
    * @return {@code true} if any error diagnostic is present

@@ -4,7 +4,7 @@
 {
   :defs {
     :include [
-      "include_cyclic_indirect_b.stvn_incl"
+      "include_cyclic_indirect_b.stvn_d"
     ]
   }
   :type :Int

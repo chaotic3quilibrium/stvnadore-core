@@ -35,7 +35,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnTuple.class, ir);
@@ -67,7 +67,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnTuple.class, ir);
@@ -86,7 +86,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnInteger.class, ir);
@@ -105,7 +105,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var irOpt = StvnCompiler.compile(payload);
+    var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     Assertions.assertEquals(8080L, ((StvnInteger) irOpt.get()).value().longValue());
   }
@@ -122,7 +122,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var ex = Assertions.assertThrows(MalformedSchemaException.class, () -> StvnCompiler.compile(payload));
+    var ex = Assertions.assertThrows(MalformedSchemaException.class, () -> StvnCompiler.compilePayload(payload));
     Assertions.assertTrue(ex.getMessage().contains("Constraint violation (#HTTP_PORT)"));
   }
 
@@ -138,7 +138,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var ex = Assertions.assertThrows(MalformedSchemaException.class, () -> StvnCompiler.compile(payload));
+    var ex = Assertions.assertThrows(MalformedSchemaException.class, () -> StvnCompiler.compilePayload(payload));
     Assertions.assertTrue(ex.getMessage().contains("Constraint violation (#SEMVER)"));
   }
 
@@ -155,7 +155,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var ex = Assertions.assertThrows(CircularReferenceException.class, () -> StvnCompiler.compile(payload));
+    var ex = Assertions.assertThrows(CircularReferenceException.class, () -> StvnCompiler.compilePayload(payload));
     Assertions.assertTrue(ex.getMessage().contains("Circular constant definition detected"));
   }
 
@@ -172,7 +172,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var ex = Assertions.assertThrows(IllegalStateException.class, () -> StvnCompiler.compile(payload));
+    var ex = Assertions.assertThrows(IllegalStateException.class, () -> StvnCompiler.compilePayload(payload));
     Assertions.assertTrue(ex.getMessage().contains("Zero-Shadowing constraint violated: #MAX_LIMIT"));
   }
 
@@ -188,7 +188,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compile(payload));
+    var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(payload));
     Assertions.assertTrue(ex.getMessage().contains("STVN Syntax Error") || ex.getMessage().contains("mismatched input"));
   }
 
@@ -204,7 +204,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compile(payload));
+    var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(payload));
     Assertions.assertTrue(ex.getMessage().contains("STVN Syntax Error") || ex.getMessage().contains("mismatched input"));
   }
 
@@ -217,7 +217,7 @@ public class StvnTypedConstantsTest {
         }
         """;
 
-    var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(payload));
+    var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(payload));
     Assertions.assertTrue(ex.getMessage().contains("Undeclared value keyword or constant: '#UNDECLARED_CONST'"));
   }
 }

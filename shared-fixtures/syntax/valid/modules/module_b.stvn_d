@@ -1,4 +1,8 @@
 {
+  :meta {
+    #name "module_b"
+    #kind #DEFS
+  }
   :defs {
     :TypeB :String
     :ConflictType :String

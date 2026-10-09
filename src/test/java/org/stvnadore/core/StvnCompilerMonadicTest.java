@@ -14,7 +14,7 @@ class StvnCompilerMonadicTest {
     var result = StvnCompiler.analyze(source);
     Assertions.assertTrue(result.value().isPresent());
     Assertions.assertTrue(result.diagnostics().isEmpty());
-    Assertions.assertEquals("{:type :Int :body 42}", StvnCompiler.toCanonicalString(result.value().get()));
+    Assertions.assertEquals("{:type :Int :body 42}", StvnCompiler.toCanonicalString(result.value().get().requirePayload()));
   }
 
   @Test

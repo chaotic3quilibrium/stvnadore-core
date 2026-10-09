@@ -5,9 +5,13 @@ import org.antlr.v4.runtime.Token;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.ast.StvnDocument;
+import org.stvnadore.core.ast.StvnDocumentKind;
+import org.stvnadore.core.ast.StvnDocumentMeta;
 import org.stvnadore.core.ir.StvnValue.*;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.parser.StvnParser.BodyEntryContext;
+import org.stvnadore.core.parser.StvnParser.MetaEntryContext;
 import org.stvnadore.core.parser.StvnParser.StvnDocumentContext;
 import org.stvnadore.core.parser.StvnParserBaseVisitor;
 import org.stvnadore.core.validation.DiagnosticBag;
@@ -95,6 +99,59 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
     return bodyEntry == null
         ? Optional.empty()
         : Optional.of(new StvnIrVisitor(documentContext, diagnosticBag).visit(bodyEntry.value()));
+  }
+
+  /**
+   * Extracts {@link StvnDocumentMeta} from the parsed {@code :meta} block.
+   *
+   * @param metaEntry the parsed meta entry context, or {@code null}
+   * @return an {@link Optional} containing the extracted metadata, or empty if metaEntry is null
+   */
+  public static Optional<StvnDocumentMeta> extractMeta(@Nullable MetaEntryContext metaEntry) {
+    if (metaEntry == null || metaEntry.metaBlock() == null) {
+      return Optional.empty();
+    }
+    String name = null;
+    String domain = null;
+    StvnDocumentKind kind = null;
+    if (metaEntry.metaBlock().metaElement() != null) {
+      for (var el : metaEntry.metaBlock().metaElement()) {
+        if (el.metaNameFacet() != null) {
+          name = StvnLiteralParser.parseString(el.metaNameFacet().stringLiteral().getText(), true);
+        } else if (el.metaDomainFacet() != null) {
+          domain = StvnLiteralParser.parseString(el.metaDomainFacet().stringLiteral().getText(), true);
+        } else if (el.metaKindFacet() != null) {
+          kind = StvnDocumentKind.fromKeyword(el.metaKindFacet().metaKindValue().getText()).orElse(null);
+        }
+      }
+    }
+    return Optional.of(new StvnDocumentMeta(
+        Optional.ofNullable(name),
+        Optional.ofNullable(domain),
+        Optional.ofNullable(kind)
+    ));
+  }
+
+  /**
+   * Translates a parsed {@link StvnDocumentContext} into an elevated, validated {@link StvnDocument} record.
+   *
+   * @param documentContext the active parsed document context
+   * @param diagnosticBag   the accumulator bag for recording semantic diagnostics
+   * @return the constructed {@link StvnDocument} AST record
+   */
+  public static StvnDocument buildDocument(
+      StvnDocumentContext documentContext,
+      org.stvnadore.core.validation.DiagnosticBag diagnosticBag
+  ) {
+    StvnTypeResolver.validateDocumentConstraints(documentContext, diagnosticBag);
+    var body = documentContext.documentBody();
+    Optional<StvnDocumentMeta> meta = body != null ? extractMeta(body.metaEntry()) : Optional.empty();
+    Optional<StvnValue> payload = Optional.empty();
+    if (body != null && body.bodyEntry() != null) {
+      var val = new StvnIrVisitor(documentContext, diagnosticBag).visit(body.bodyEntry().value());
+      payload = Optional.ofNullable(val);
+    }
+    return new StvnDocument(meta, payload, Optional.of(documentContext));
   }
 
   private int[] getLineCol(ParserRuleContext ctx) {

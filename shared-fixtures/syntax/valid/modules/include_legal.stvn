@@ -3,8 +3,8 @@
 {
   :defs {
     :include [
-      "./module_a.stvn_incl"
-      "./module_b.stvn_incl" {
+      "./module_a.stvn_d"
+      "./module_b.stvn_d" {
         :ConflictType :ConflictTypeB
       }
     ]

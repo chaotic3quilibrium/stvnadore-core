@@ -1,7 +1,7 @@
 {
   // inline_metadata_empty_block.contract.stvn
   :defs {
-    :include [ "../error_contract.stvn_inclf" ]
+    :include [ "../error_contract.stvn_df" ]
   }
 
   :type :ErrorContract

@@ -25,7 +25,7 @@ class AstPrinterTest {
           )
         }
         """;
-    StvnValue ast = StvnCompiler.compile(source).orElseThrow();
+    StvnValue ast = StvnCompiler.compilePayload(source).orElseThrow();
     String printed = AstPrettyPrinter.print(ast);
 
     // Verify 2-space indentation standard
@@ -40,7 +40,7 @@ class AstPrinterTest {
     Assertions.assertFalse(printed.contains("\t"), "Output must not contain tab characters");
 
     // Verify round-trip compilation
-    StvnValue roundTrip = StvnCompiler.compile(printed).orElseThrow();
+    StvnValue roundTrip = StvnCompiler.compilePayload(printed).orElseThrow();
     Assertions.assertEquals(ast, roundTrip, "Round-trip AST must be mathematically identical");
   }
 
@@ -48,7 +48,7 @@ class AstPrinterTest {
   @DisplayName("AstPrettyPrinter accepts configurable indentation width")
   void testAstPrettyPrinterConfigurableIndent() {
     String source = "{ :type :Int :body 42 }";
-    StvnValue ast = StvnCompiler.compile(source).orElseThrow();
+    StvnValue ast = StvnCompiler.compilePayload(source).orElseThrow();
 
     String printed4 = AstPrettyPrinter.print(ast, 4);
     Assertions.assertTrue(printed4.contains("    :type :Int\n    :body 42"),
@@ -73,7 +73,7 @@ class AstPrinterTest {
           )
         }
         """;
-    StvnValue ast = StvnCompiler.compile(source).orElseThrow();
+    StvnValue ast = StvnCompiler.compilePayload(source).orElseThrow();
     String compact = AstCompactPrinter.print(ast);
 
     // Verify compact single-line layout
@@ -87,7 +87,7 @@ class AstPrinterTest {
     Assertions.assertFalse(compact.contains("\t"), "Output must not contain tab characters");
 
     // Verify round-trip compilation
-    StvnValue roundTrip = StvnCompiler.compile(compact).orElseThrow();
+    StvnValue roundTrip = StvnCompiler.compilePayload(compact).orElseThrow();
     Assertions.assertEquals(ast, roundTrip, "Round-trip AST must be mathematically identical");
   }
 
@@ -95,7 +95,7 @@ class AstPrinterTest {
   @DisplayName("AstPrettyPrinter and AstCompactPrinter support Writer destinations")
   void testWriterDestinations() throws Exception {
     String source = "{ :type :String :body \"Test\" }";
-    StvnValue ast = StvnCompiler.compile(source).orElseThrow();
+    StvnValue ast = StvnCompiler.compilePayload(source).orElseThrow();
 
     var prettySw = new StringWriter();
     AstPrettyPrinter.print(ast, prettySw);

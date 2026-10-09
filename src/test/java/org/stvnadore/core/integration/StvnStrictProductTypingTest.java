@@ -25,7 +25,7 @@ class StvnStrictProductTypingTest {
             :body #Some 42
           }
           """;
-      var val = StvnCompiler.compile(input).orElseThrow();
+      var val = StvnCompiler.compilePayload(input).orElseThrow();
       Assertions.assertInstanceOf(StvnOption.class, val);
       var opt = (StvnOption) val;
       Assertions.assertTrue(opt.value().isPresent());
@@ -42,7 +42,7 @@ class StvnStrictProductTypingTest {
             :body #Some ( 42 )
           }
           """;
-      var val = StvnCompiler.compile(input).orElseThrow();
+      var val = StvnCompiler.compilePayload(input).orElseThrow();
       Assertions.assertInstanceOf(StvnOption.class, val);
       var opt = (StvnOption) val;
       Assertions.assertTrue(opt.value().isPresent());
@@ -61,7 +61,7 @@ class StvnStrictProductTypingTest {
             :body #Some ( 10 20 )
           }
           """;
-      var val = StvnCompiler.compile(input).orElseThrow();
+      var val = StvnCompiler.compilePayload(input).orElseThrow();
       Assertions.assertInstanceOf(StvnOption.class, val);
       var opt = (StvnOption) val;
       Assertions.assertTrue(opt.value().isPresent());
@@ -81,7 +81,7 @@ class StvnStrictProductTypingTest {
             :body #Right "OK"
           }
           """;
-      var val = StvnCompiler.compile(input).orElseThrow();
+      var val = StvnCompiler.compilePayload(input).orElseThrow();
       Assertions.assertInstanceOf(StvnEither.class, val);
       var either = (StvnEither) val;
       Assertions.assertTrue(either.isRight());
@@ -98,7 +98,7 @@ class StvnStrictProductTypingTest {
             :body #Right ( "OK" )
           }
           """;
-      var val = StvnCompiler.compile(input).orElseThrow();
+      var val = StvnCompiler.compilePayload(input).orElseThrow();
       Assertions.assertInstanceOf(StvnEither.class, val);
       var either = (StvnEither) val;
       Assertions.assertTrue(either.isRight());
@@ -117,7 +117,7 @@ class StvnStrictProductTypingTest {
             :body #1 1024
           }
           """;
-      var val = StvnCompiler.compile(input).orElseThrow();
+      var val = StvnCompiler.compilePayload(input).orElseThrow();
       Assertions.assertInstanceOf(StvnUnion.class, val);
       var union = (StvnUnion) val;
       Assertions.assertEquals(0, union.tagIndex());
@@ -139,7 +139,7 @@ class StvnStrictProductTypingTest {
             :body #Some ( 42 )
           }
           """;
-      var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(input));
+      var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(input));
       Assertions.assertTrue(ex.getMessage().contains("Type mismatch") || ex.getMessage().contains("Tuple"));
     }
 
@@ -152,7 +152,7 @@ class StvnStrictProductTypingTest {
             :body #Right ( "OK" )
           }
           """;
-      var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(input));
+      var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(input));
       Assertions.assertTrue(ex.getMessage().contains("Type mismatch") || ex.getMessage().contains("Tuple"));
     }
 
@@ -165,7 +165,7 @@ class StvnStrictProductTypingTest {
             :body #1 ( 1024 )
           }
           """;
-      var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(input));
+      var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(input));
       Assertions.assertTrue(ex.getMessage().contains("Type mismatch") || ex.getMessage().contains("Tuple"));
     }
 
@@ -178,7 +178,7 @@ class StvnStrictProductTypingTest {
             :body 42
           }
           """;
-      var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compile(input));
+      var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(input));
       Assertions.assertTrue(ex.getMessage().contains("Type mismatch"));
     }
 
@@ -191,7 +191,7 @@ class StvnStrictProductTypingTest {
             :body #S ( "test" )
           }
           """;
-      var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compile(input));
+      var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(input));
       Assertions.assertTrue(ex.getMessage().contains("Type mismatch") || ex.getMessage().contains("Tuple"));
     }
   }

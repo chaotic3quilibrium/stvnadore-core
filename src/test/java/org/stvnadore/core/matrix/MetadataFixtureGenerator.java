@@ -123,7 +123,7 @@ public final class MetadataFixtureGenerator {
 
   /**
    * Generates isolated valid fixtures for all permitted matrix rows.
-   * Also generates the supporting include helper fixture {@code empty_module.stvn_incl}.
+   * Also generates the supporting include helper fixture {@code empty_module.stvn_d}.
    *
    * @param rows parsed canonical matrix rows
    * @return list of isolated valid fixtures
@@ -141,13 +141,17 @@ public final class MetadataFixtureGenerator {
         // DESCRIPTION:        Helper include module declaring a nominal type for :include
         // ==============================================================================
         {
+          :meta {
+            #name "empty_module"
+            #kind #DEFS
+          }
           :defs {
             :IncludeType :Int
           }
         }
         """;
     list.add(new GeneratedFixture(
-        Path.of("valid", "isolated", "empty_module.stvn_incl"),
+        Path.of("valid", "isolated", "empty_module.stvn_d"),
         helperContent,
         CoverageKind.ISOLATED_VALID,
         Optional.empty(),
@@ -462,7 +466,7 @@ public final class MetadataFixtureGenerator {
     boolean isInclude = row.cleanBaseType().contains("include");
 
     String defsContent = isInclude
-        ? "    :include [ \"empty_module.stvn_incl\" { #strip } ]"
+        ? "    :include [ \"empty_module.stvn_d\" { #strip } ]"
         : "    :package :PkgA { :TestedType :Int }\n    :use [ :PkgA { #strip } ]";
     String testedType = isInclude ? ":IncludeType" : ":TestedType";
     String bodyVal = "42";

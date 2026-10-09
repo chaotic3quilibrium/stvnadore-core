@@ -86,7 +86,7 @@ public class StvnEndToEndIntegrationTest {
   private void runTestProfile(TestProfile testProfile) {
     System.out.printf("Running test: %s%n", testProfile.displayName());
     try {
-      var irOpt = StvnCompiler.compile(testProfile.stvnPayload());
+      var irOpt = StvnCompiler.compilePayload(testProfile.stvnPayload());
 
       // PATHWAY B: Harness boundary check to guard against syntax compilation errors in error-profile payloads
       if (irOpt.isPresent()) {
@@ -2050,7 +2050,7 @@ public class StvnEndToEndIntegrationTest {
 
   @org.junit.jupiter.api.Test
   public void testSha256TamperValidation() {
-      var ir = org.stvnadore.core.StvnCompiler.compile("""
+      var ir = org.stvnadore.core.StvnCompiler.compilePayload("""
           {
             :type :Int
             :body 42
@@ -2101,7 +2101,7 @@ public class StvnEndToEndIntegrationTest {
             :body ( 0 "" )
           }
           """;
-      var ir = org.stvnadore.core.StvnCompiler.compile("""
+      var ir = org.stvnadore.core.StvnCompiler.compilePayload("""
           {
             :type :Tuple( :Int :String )
             :body ( 42 "ETL data" )
@@ -2131,7 +2131,7 @@ public class StvnEndToEndIntegrationTest {
             :body "hello"
           }
           """;
-      var ir = org.stvnadore.core.StvnCompiler.compile("""
+      var ir = org.stvnadore.core.StvnCompiler.compilePayload("""
           {
             :defs {
               :I32 { #size 32 } :Int
@@ -2162,8 +2162,8 @@ public class StvnEndToEndIntegrationTest {
           }
           """;
       var input2 = "{:type :Seq(:Int) :body [1 2 3]}";
-      var ir1 = org.stvnadore.core.StvnCompiler.compile(input1).orElseThrow();
-      var ir2 = org.stvnadore.core.StvnCompiler.compile(input2).orElseThrow();
+      var ir1 = org.stvnadore.core.StvnCompiler.compilePayload(input1).orElseThrow();
+      var ir2 = org.stvnadore.core.StvnCompiler.compilePayload(input2).orElseThrow();
       org.junit.jupiter.api.Assertions.assertNotNull(ir1);
       org.junit.jupiter.api.Assertions.assertNotNull(ir2);
 
@@ -2178,8 +2178,8 @@ public class StvnEndToEndIntegrationTest {
 
   @org.junit.jupiter.api.Test
   public void testPositionalIdentityDifferentiation() {
-      var ir1 = org.stvnadore.core.StvnCompiler.compile("{:type :Seq(:Int) :body [1 2 3]}").orElseThrow();
-      var ir2 = org.stvnadore.core.StvnCompiler.compile("{:type :Seq(:Int) :body [3 2 1]}").orElseThrow();
+      var ir1 = org.stvnadore.core.StvnCompiler.compilePayload("{:type :Seq(:Int) :body [1 2 3]}").orElseThrow();
+      var ir2 = org.stvnadore.core.StvnCompiler.compilePayload("{:type :Seq(:Int) :body [3 2 1]}").orElseThrow();
       org.junit.jupiter.api.Assertions.assertNotNull(ir1);
       org.junit.jupiter.api.Assertions.assertNotNull(ir2);
 
@@ -2217,7 +2217,7 @@ public class StvnEndToEndIntegrationTest {
 
   @org.junit.jupiter.api.Test
   public void testBlockStringCollapsingAndRetention() {
-      var ir1 = org.stvnadore.core.StvnCompiler.compile("""
+      var ir1 = org.stvnadore.core.StvnCompiler.compilePayload("""
           {
             :type :String
             :body \"\"\"
@@ -2229,7 +2229,7 @@ public class StvnEndToEndIntegrationTest {
       var canon1 = org.stvnadore.core.StvnCompiler.toCanonicalString(ir1);
       org.junit.jupiter.api.Assertions.assertTrue(canon1.contains("\"hello\\nworld\\n\""));
 
-      var ir2 = org.stvnadore.core.StvnCompiler.compile("""
+      var ir2 = org.stvnadore.core.StvnCompiler.compilePayload("""
           {
             :defs {
               :preserved { #preserveIndent #TRUE } :String

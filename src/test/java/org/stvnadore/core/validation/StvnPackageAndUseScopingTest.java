@@ -36,7 +36,7 @@ public class StvnPackageAndUseScopingTest {
 
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.isSuccess(), "LHS expansion to FQNI must compile cleanly: " + result.diagnostics());
-    StvnValue val = result.orElseThrow();
+    StvnValue val = result.orElseThrow().requirePayload();
     Assertions.assertInstanceOf(StvnValue.StvnInteger.class, val);
     Assertions.assertEquals(8080L, ((StvnValue.StvnInteger) val).value().longValue());
   }
@@ -71,8 +71,9 @@ public class StvnPackageAndUseScopingTest {
     Path flatFile = tempDir.resolve("payload.stvn_f");
     String content = """
         {
+          :meta { #kind #BODY_FLAT }
           :defs {
-            :include [ "common.stvn_incl" ]
+            :include [ "common.stvn_d" ]
             :Local :String
           }
           :type :Local
@@ -161,7 +162,7 @@ public class StvnPackageAndUseScopingTest {
 
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.isSuccess(), "Constant stripping must preserve '#' sigil and resolve: " + result.diagnostics());
-    StvnValue val = result.orElseThrow();
+    StvnValue val = result.orElseThrow().requirePayload();
     Assertions.assertInstanceOf(StvnValue.StvnInteger.class, val);
     Assertions.assertEquals(5000L, ((StvnValue.StvnInteger) val).value().longValue());
   }
@@ -183,7 +184,7 @@ public class StvnPackageAndUseScopingTest {
     String source = """
         {
           :defs {
-            :include [ "module.stvn_incl" { #strip "pkg/sub/" } ]
+            :include [ "module.stvn_d" { #strip "pkg/sub/" } ]
           }
           :type :Int
           :body 1
@@ -217,9 +218,10 @@ public class StvnPackageAndUseScopingTest {
   @Test
   @DisplayName("Package enclave barrier: Unqualified reference to packaged symbol across include fails closed with ERR_UNKNOWN_TYPE")
   void testPackagedTypeUnqualifiedLeakFailsClosed(@TempDir Path tempDir) throws IOException {
-    Path modFile = tempDir.resolve("network.stvn_incl");
+    Path modFile = tempDir.resolve("network.stvn_d");
     String modContent = """
         {
+          :meta { #kind #DEFS }
           :defs {
             :package :Network {
               :Port :Int
@@ -232,7 +234,7 @@ public class StvnPackageAndUseScopingTest {
     String docContent = """
         {
           :defs {
-            :include [ "network.stvn_incl" ]
+            :include [ "network.stvn_d" ]
           }
           :type :Port
           :body 8080

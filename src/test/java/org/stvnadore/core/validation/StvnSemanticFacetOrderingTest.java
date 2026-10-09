@@ -49,7 +49,7 @@ public class StvnSemanticFacetOrderingTest {
     // Tier 1: #preserveIndent #TRUE #equatable #TRUE #comparable #TRUE
     // Tier 3: #minSize 4 #maxSize 16
     // Tier 5: #regex "^[A-Z0-9]+$"
-    String expected = "{ :defs { :TargetType { #preserveIndent #TRUE #equatable #TRUE #comparable #TRUE #minSize 4 #maxSize 16 #regex \"^[A-Z0-9]+$\" } :String } }";
+    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :TargetType { #preserveIndent #TRUE #equatable #TRUE #comparable #TRUE #minSize 4 #maxSize 16 #regex \"^[A-Z0-9]+$\" } :String } }";
     Assertions.assertEquals(expected, flattened);
   }
 
@@ -76,7 +76,7 @@ public class StvnSemanticFacetOrderingTest {
     // Tier 1: #unsigned
     // Tier 3: #size 16
     // Tier 4: #minIncl 0 #maxExcl 100
-    String expected = "{ :defs { :BoundedInt { #unsigned #size 16 #minIncl 0 #maxExcl 100 } :Int } }";
+    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :BoundedInt { #unsigned #size 16 #minIncl 0 #maxExcl 100 } :Int } }";
     Assertions.assertEquals(expected, flattened);
   }
 
@@ -101,7 +101,7 @@ public class StvnSemanticFacetOrderingTest {
     // Expected:
     // Tier 2: #s
     // Tier 4: #minIncl 1000000000 #maxExcl 2000000000
-    String expected = "{ :defs { :EpochWindow { #s #minIncl 1000000000 #maxExcl 2000000000 } :TimeEpoch } }";
+    String expected = "{ :meta { #kind #DEFS_FLAT } :defs { :EpochWindow { #s #minIncl 1000000000 #maxExcl 2000000000 } :TimeEpoch } }";
     Assertions.assertEquals(expected, flattened);
   }
 
@@ -123,7 +123,7 @@ public class StvnSemanticFacetOrderingTest {
         }
         """;
 
-    var ast = StvnCompiler.compile(source).orElseThrow();
+    var ast = StvnCompiler.compilePayload(source).orElseThrow();
     var compactPrinter = new CompactTextPrinter(new PrinterOptions());
     String compactOutput = compactPrinter.printToString(ast);
     String expectedCompact = "{:defs {:Port {#unsigned #size 16 #minIncl 1024 #maxExcl 65536} :Int} :type :Port :body 8080}";
@@ -175,7 +175,7 @@ public class StvnSemanticFacetOrderingTest {
         }
         """;
 
-    var astA = StvnCompiler.compile(sourceA).orElseThrow();
+    var astA = StvnCompiler.compilePayload(sourceA).orElseThrow();
     byte[] hashA = StvnSchemaHasher.computeSha256(astA.schema());
     Assertions.assertNotNull(hashA);
 

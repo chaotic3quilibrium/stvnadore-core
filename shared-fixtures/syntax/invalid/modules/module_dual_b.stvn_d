@@ -1,0 +1,9 @@
+{
+  :meta {
+    #name "module_dual_b"
+    #kind #DEFS
+  }
+  :defs {
+    :ConflictType :String
+  }
+}

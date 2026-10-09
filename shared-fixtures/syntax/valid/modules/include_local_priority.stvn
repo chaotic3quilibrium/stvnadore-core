@@ -3,7 +3,7 @@
 {
   :defs {
     :include [
-      "./module_local_a.stvn_incl"
+      "./module_local_a.stvn_d"
     ]
     :ConflictType :Int
   }

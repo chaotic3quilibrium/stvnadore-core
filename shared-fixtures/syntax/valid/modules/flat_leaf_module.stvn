@@ -3,7 +3,7 @@
 {
   // flat_leaf_module.stvn
   :defs {
-    :include [ "network_primitives.stvn_inclf" ]
+    :include [ "network_primitives.stvn_df" ]
 
     :NetworkConfig :Tuple( :HostName :Port :Protocol :BitFlag )
   }

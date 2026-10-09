@@ -41,7 +41,7 @@ class StvnRecordMapperTest {
   void testBidirectionalCompositeMapping() {
     var profile = new UserProfile("Alice", 30, Optional.of("Hello world"));
 
-    var doc = StvnCompiler.compile("""
+    var doc = StvnCompiler.compilePayload("""
         {
           :type :Map( :String :String )
           :body {}
@@ -88,7 +88,7 @@ class StvnRecordMapperTest {
   void testSealedUnionExtraction() {
     // 1. Union Variant Mapping (Status - N-way Union)
     var status = new Suspended(5);
-    var statusDoc = StvnCompiler.compile("""
+    var statusDoc = StvnCompiler.compilePayload("""
         {
           :defs {
             :Active :Map( :String :String )
@@ -112,7 +112,7 @@ class StvnRecordMapperTest {
 
     // 2. Either Variant Mapping (Decision - 2-way Either)
     var decision = new Right(42);
-    var decisionDoc = StvnCompiler.compile("""
+    var decisionDoc = StvnCompiler.compilePayload("""
         {
           :defs {
             :LeftBranch :Map( :String :String )
@@ -138,7 +138,7 @@ class StvnRecordMapperTest {
   @Test
   void testPOJOBootstrapRejection() {
     var pojo = new SimplePOJO("not-a-record");
-    var doc = StvnCompiler.compile("""
+    var doc = StvnCompiler.compilePayload("""
         {
           :type :Map( :String :String )
           :body {}
@@ -158,7 +158,7 @@ class StvnRecordMapperTest {
 
   @Test
   void testNullOptionalFailureInduction() {
-    var doc = StvnCompiler.compile("""
+    var doc = StvnCompiler.compilePayload("""
         {
           :type :Map( :String :String )
           :body {}
@@ -174,7 +174,7 @@ class StvnRecordMapperTest {
 
   @Test
   void testConstraintValidationViolations() {
-    var doc = StvnCompiler.compile("""
+    var doc = StvnCompiler.compilePayload("""
         {
           :type :Map( :String :String )
           :body {}
@@ -208,7 +208,7 @@ class StvnRecordMapperTest {
   @Test
   void testStvnBitsValidationAndInference() {
     var record = new BitsRecord(java.math.BigInteger.valueOf(127), java.math.BigInteger.TEN);
-    var doc = StvnCompiler.compile("{ :defs { :U7 { #unsigned #size 7 } :Int :I128 { #size 128 } :Int } :type :Tuple( :U7 :I128 ) :body (0 0) }").orElseThrow();
+    var doc = StvnCompiler.compilePayload("{ :defs { :U7 { #unsigned #size 7 } :Int :I128 { #size 128 } :Int } :type :Tuple( :U7 :I128 ) :body (0 0) }").orElseThrow();
     var schema = doc.schema();
 
     var mapped = StvnMapper.toValue(record, schema).orElseThrow();
@@ -223,7 +223,7 @@ class StvnRecordMapperTest {
       StvnMapper.toValue(recordOverrun, schema);
     });
 
-    var docUnannotated = StvnCompiler.compile("{ :type :Tuple( :Int ) :body (0) }").orElseThrow();
+    var docUnannotated = StvnCompiler.compilePayload("{ :type :Tuple( :Int ) :body (0) }").orElseThrow();
     var schemaUnannotated = docUnannotated.schema();
     var unannotatedRecord = new UnannotatedBigIntRecord(42, java.math.BigInteger.TEN);
     assertThrows(MalformedPayloadException.class, () -> {

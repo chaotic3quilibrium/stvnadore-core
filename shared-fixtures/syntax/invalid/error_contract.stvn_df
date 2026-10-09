@@ -1,7 +1,11 @@
 {
-  // File:        error_contract.stvn_inclf
+  :meta {
+    #name "error_contract"
+    #kind #DEFS_FLAT
+  }
+  // File:        error_contract.stvn_df
   // Description: Canonical schema module for STVN negative fixture assertion contracts
-  // Specification: STVN v1.0.0
+  // Specification: STVN v2.0.0
   :defs {
     :ErrorCategory :Enum [
       #SYNTAX_ERROR

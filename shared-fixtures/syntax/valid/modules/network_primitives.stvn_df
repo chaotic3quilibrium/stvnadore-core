@@ -1,5 +1,9 @@
 {
-  // network_primitives.stvn_inclf
+  :meta {
+    #name "network_primitives"
+    #kind #DEFS_FLAT
+  }
+  // network_primitives.stvn_df
   :defs {
     :BitFlag        { #unsigned #size 1 } :Int
     :UnixPermission { #unsigned #size 3 } :Int

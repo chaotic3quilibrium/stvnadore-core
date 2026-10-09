@@ -25,7 +25,7 @@ class StvnBinaryCodecNibbleTest {
   @Test
   @DisplayName("TC-ENC-01: Bitwise packing correctly combines 1:3:4 partition")
   void testBitwisePackingZeroCopyPostOrderStrategy() {
-    var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), BinaryEncodingStrategy.ZERO_COPY_POST_ORDER);
     ByteBuffer buf = encoder.encode(ir);
 
@@ -66,7 +66,7 @@ class StvnBinaryCodecNibbleTest {
   @Test
   @DisplayName("TC-CRC-07: Sentinel 0x7 throws UnsupportedEncodingStrategyException with extension message")
   void testSentinel0x7ThrowsUnsupportedEncodingStrategyException() {
-    var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     ByteBuffer buf = encoder.encode(ir);
 
@@ -88,7 +88,7 @@ class StvnBinaryCodecNibbleTest {
   @ValueSource(ints = {0x10, 0x20, 0x30, 0x40, 0x50, 0x60})
   @DisplayName("TC-CRC-08: Unmapped strategy codes 0x1 through 0x6 throw UnsupportedEncodingStrategyException")
   void testUnmappedStrategyCodes0x1Through0x6(int corruptedByte4) {
-    var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     ByteBuffer buf = encoder.encode(ir);
 
@@ -106,7 +106,7 @@ class StvnBinaryCodecNibbleTest {
   @ValueSource(ints = {0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F})
   @DisplayName("TC-DEC-02: Unmapped lower nibble throws StvnSerializationException")
   void testUnmappedLowerNibbleThrowsStvnSerializationException(int corruptedByte4) {
-    var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     ByteBuffer buf = encoder.encode(ir);
 
@@ -122,7 +122,7 @@ class StvnBinaryCodecNibbleTest {
   @Test
   @DisplayName("TC-DEC-03: Zero-trust SHA-256 mismatch throws PoisonedRegistryPayloadException")
   void testTamperedSha256ThrowsPoisonedRegistryPayloadException() {
-    var ir = StvnCompiler.compile("{ :type :Int :body 42 }").orElseThrow();
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
     byte[] hash = StvnSchemaHasher.computeSha256(ir.schema());
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.ExplicitSha256(hash));
     ByteBuffer buf = encoder.encode(ir);
