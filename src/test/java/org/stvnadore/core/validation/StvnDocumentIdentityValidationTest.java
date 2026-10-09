@@ -2,8 +2,22 @@ package org.stvnadore.core.validation;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.ast.StvnDocumentKind;
+import org.stvnadore.core.ast.StvnDocumentMeta;
+import org.stvnadore.core.binary.BinaryEncodingStrategy;
+import org.stvnadore.core.binary.SchemaIdentityStrategy;
+import org.stvnadore.core.binary.StvnBinaryDecoder;
+import org.stvnadore.core.binary.StvnBinaryEncoder;
+import org.stvnadore.core.binary.StvnSchemaHasher;
+import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
+import org.stvnadore.core.binary.exceptions.StvnCorruptedBitPatternException;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -753,5 +767,282 @@ public class StvnDocumentIdentityValidationTest {
     var doc = result.document().orElseThrow();
     assertTrue(doc.requireMeta().name().isEmpty());
     assertEquals("auth", doc.requireMeta().domain().orElse(null));
+  }
+
+  // =========================================================================
+  // TC-BIN-ID-01 .. TC-BIN-ID-15: Binary Wire Document Identity & Metadata
+  // =========================================================================
+
+  @Test
+  @DisplayName("TC-BIN-ID-01: Binary .stvn_b with #BODY kind and matching #name compiles cleanly")
+  void testBinaryStvnBWithBodyKindCompilesCleanly() {
+    String schema = "{ :type :Int :body 0 }";
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("valid_name"), Optional.empty(), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(schema));
+    var buf = encoder.encode(ir, meta);
+    byte[] bytes = new byte[buf.remaining()];
+    buf.get(bytes);
+
+    var result = StvnCompiler.compileToResult(bytes, "valid_name.stvn_b");
+    assertTrue(result.isSuccess(), "Binary compilation must succeed: " + result.diagnostics());
+    assertFalse(result.hasErrors());
+    var doc = result.document().orElseThrow();
+    assertTrue(doc.meta().isPresent());
+    var decodedMeta = doc.meta().get();
+    assertEquals("valid_name", decodedMeta.name().orElse(null));
+    assertEquals(Optional.of(StvnDocumentKind.BODY), decodedMeta.kind());
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-02: Binary .stvn_b with #DEFS kind fails closed with ERR_DOCUMENT_KIND_MISMATCH")
+  void testBinaryStvnBWithDefsKindFailsClosed() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("valid_name"), Optional.empty(), Optional.of(StvnDocumentKind.DEFS));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+    byte[] bytes = new byte[buf.remaining()];
+    buf.get(bytes);
+
+    var result = StvnCompiler.compileToResult(bytes, "valid_name.stvn_b");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-03: Binary .stvn_bd with #DEFS kind and matching stem compiles cleanly")
+  void testBinaryStvnBdWithDefsKindCompilesCleanly() {
+    String schema = "{ :type :Int :body 0 }";
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("my_defs"), Optional.empty(), Optional.of(StvnDocumentKind.DEFS));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(schema));
+    var buf = encoder.encode(ir, meta);
+    byte[] bytes = new byte[buf.remaining()];
+    buf.get(bytes);
+
+    var result = StvnCompiler.compileToResult(bytes, "my_defs.stvn_bd");
+    assertTrue(result.isSuccess(), "Binary .stvn_bd compilation must succeed: " + result.diagnostics());
+    assertFalse(result.hasErrors());
+    var doc = result.document().orElseThrow();
+    assertTrue(doc.meta().isPresent());
+    var decodedMeta = doc.meta().get();
+    assertEquals("my_defs", decodedMeta.name().orElse(null));
+    assertEquals(Optional.of(StvnDocumentKind.DEFS), decodedMeta.kind());
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-04: Binary .stvn_bd with #BODY kind fails closed with ERR_DOCUMENT_KIND_MISMATCH")
+  void testBinaryStvnBdWithBodyKindFailsClosed() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("my_defs"), Optional.empty(), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+    byte[] bytes = new byte[buf.remaining()];
+    buf.get(bytes);
+
+    var result = StvnCompiler.compileToResult(bytes, "my_defs.stvn_bd");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-05: Permutation neither: HAS_NAME=0, HAS_DOMAIN=0 decodes 1-byte metadata frame")
+  void testPermutationNeitherNameNorDomain() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.empty(), Optional.empty(), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+
+    assertEquals((byte) 0x00, buf.get(5), "Byte 5 must be 0x00 (KIND=#BODY, HAS_NAME=0, HAS_DOMAIN=0)");
+    var root = StvnBinaryDecoder.open(buf);
+    assertTrue(root.documentMeta().isPresent());
+    var decoded = root.documentMeta().get();
+    assertTrue(decoded.name().isEmpty());
+    assertTrue(decoded.domain().isEmpty());
+    assertEquals(Optional.of(StvnDocumentKind.BODY), decoded.kind());
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-06: Permutation name only: HAS_NAME=1, HAS_DOMAIN=0 decodes #name, domain empty")
+  void testPermutationNameOnly() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("test_payload"), Optional.empty(), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+
+    assertEquals((byte) 0x04, buf.get(5), "Byte 5 must be 0x04 (KIND=#BODY, HAS_NAME=1, HAS_DOMAIN=0)");
+    var root = StvnBinaryDecoder.open(buf);
+    assertTrue(root.documentMeta().isPresent());
+    var decoded = root.documentMeta().get();
+    assertEquals("test_payload", decoded.name().orElse(null));
+    assertTrue(decoded.domain().isEmpty());
+    assertEquals(Optional.of(StvnDocumentKind.BODY), decoded.kind());
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-07: Permutation domain only: HAS_NAME=0, HAS_DOMAIN=1 decodes #domain, name empty")
+  void testPermutationDomainOnly() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.empty(), Optional.of("org_example"), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+
+    assertEquals((byte) 0x08, buf.get(5), "Byte 5 must be 0x08 (KIND=#BODY, HAS_NAME=0, HAS_DOMAIN=1)");
+    var root = StvnBinaryDecoder.open(buf);
+    assertTrue(root.documentMeta().isPresent());
+    var decoded = root.documentMeta().get();
+    assertTrue(decoded.name().isEmpty());
+    assertEquals("org_example", decoded.domain().orElse(null));
+    assertEquals(Optional.of(StvnDocumentKind.BODY), decoded.kind());
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-08: Permutation both: HAS_NAME=1, HAS_DOMAIN=1 decodes both #name and #domain")
+  void testPermutationBothNameAndDomain() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("entity_cfg"), Optional.of("cluster_prod"), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+
+    assertEquals((byte) 0x0C, buf.get(5), "Byte 5 must be 0x0C (KIND=#BODY, HAS_NAME=1, HAS_DOMAIN=1)");
+    var root = StvnBinaryDecoder.open(buf);
+    assertTrue(root.documentMeta().isPresent());
+    var decoded = root.documentMeta().get();
+    assertEquals("entity_cfg", decoded.name().orElse(null));
+    assertEquals("cluster_prod", decoded.domain().orElse(null));
+    assertEquals(Optional.of(StvnDocumentKind.BODY), decoded.kind());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0x10, 0x20, 0x40, 0x80, 0xF0})
+  @DisplayName("TC-BIN-ID-09: Reserved bits non-zero in Byte 5 throws StvnCorruptedBitPatternException")
+  void testReservedBitsNonZeroThrowsStvnCorruptedBitPatternException(int corruptedByte5) {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir);
+
+    ByteBuffer corrupted = buf.duplicate();
+    corrupted.put(5, (byte) (corrupted.get(5) | corruptedByte5));
+
+    assertThrows(
+        StvnCorruptedBitPatternException.class,
+        () -> StvnBinaryDecoder.open(corrupted)
+    );
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, 65, 128, 255})
+  @DisplayName("TC-BIN-ID-10: Corrupted name_len out of bounds throws MalformedPayloadException")
+  void testCorruptedNameLengthPrefixThrowsMalformedPayloadException(int invalidLen) {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("valid_name"), Optional.empty(), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+
+    ByteBuffer corrupted = buf.duplicate();
+    corrupted.put(6, (byte) invalidLen);
+
+    var ex = assertThrows(
+        MalformedPayloadException.class,
+        () -> StvnBinaryDecoder.open(corrupted)
+    );
+    assertTrue(ex.getMessage().contains("Invalid metadata #name length prefix"));
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-11: Non-POSIX ASCII character in #name throws MalformedPayloadException")
+  void testNonPosixAsciiInNameThrowsMalformedPayloadException() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("valid_name"), Optional.empty(), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+
+    ByteBuffer corrupted = buf.duplicate();
+    corrupted.put(7, (byte) '$');
+
+    var ex = assertThrows(
+        MalformedPayloadException.class,
+        () -> StvnBinaryDecoder.open(corrupted)
+    );
+    assertTrue(ex.getMessage().contains("Metadata #name does not match atomic POSIX pattern"));
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-12: Realigned CRC-32C trailer computes over entire header frame including Byte 5+")
+  void testCrc32cTrailerComputesOverEntireHeaderFrame() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("crc_test"), Optional.of("domain_test"), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), BinaryEncodingStrategy.ZERO_COPY_POST_ORDER, true);
+    var buf = encoder.encode(ir, meta);
+
+    byte controlByte = buf.get(4);
+    assertTrue((controlByte & (byte) 0x80) != 0, "CRC-32C bit 7 must be set");
+
+    var root = StvnBinaryDecoder.open(buf);
+    assertNotNull(root);
+    var decoded = root.documentMeta().orElseThrow();
+    assertEquals("crc_test", decoded.name().orElse(null));
+    assertEquals("domain_test", decoded.domain().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-13: Tampering ExplicitSha256 hash at realigned offset 6 throws PoisonedRegistryPayloadException")
+  void testTamperedExplicitSha256AtRealignedOffsetThrows() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    byte[] hash = StvnSchemaHasher.computeSha256(ir.schema());
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.ExplicitSha256(hash));
+    var buf = encoder.encode(ir);
+
+    ByteBuffer tampered = buf.duplicate().order(ByteOrder.LITTLE_ENDIAN);
+    tampered.put(6, (byte) (tampered.get(6) ^ 0xFF));
+    java.util.zip.CRC32C crc = new java.util.zip.CRC32C();
+    ByteBuffer view = tampered.duplicate().order(ByteOrder.LITTLE_ENDIAN);
+    view.position(0);
+    view.limit(tampered.limit() - 4);
+    crc.update(view);
+    tampered.putInt(tampered.limit() - 4, (int) crc.getValue());
+
+    assertThrows(
+        PoisonedRegistryPayloadException.class,
+        () -> {
+          var root = StvnBinaryDecoder.open(tampered);
+          StvnBinaryDecoder.unpack(root, Optional.of(ir.schema()));
+        }
+    );
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-14: Valid binary snapshots match encoder output bit-for-bit")
+  void testValidBinarySnapshotsBitForBitEquivalence() throws java.io.IOException {
+    java.nio.file.Path validFixtures = java.nio.file.Paths.get("shared-fixtures/syntax/valid");
+    try (var paths = java.nio.file.Files.walk(validFixtures)) {
+      var binFiles = paths.filter(java.nio.file.Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn_b")).toList();
+      assertFalse(binFiles.isEmpty(), "Valid binary snapshot fixtures must not be empty");
+      for (var binPath : binFiles) {
+        byte[] onDisk = java.nio.file.Files.readAllBytes(binPath);
+        var root = StvnBinaryDecoder.open(ByteBuffer.wrap(onDisk));
+        assertNotNull(root, "Must open binary snapshot cleanly: " + binPath);
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-15: Dynamic invalid binary test across all 3 invalid .stvn_b files traps contracts")
+  void testInvalidBinaryFixturesTrapExpectedExceptions() throws java.io.IOException {
+    java.nio.file.Path invalidFixtures = java.nio.file.Paths.get("shared-fixtures/syntax/invalid");
+    try (var paths = java.nio.file.Files.walk(invalidFixtures)) {
+      var binFiles = paths.filter(java.nio.file.Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn_b")).toList();
+      assertEquals(3, binFiles.size(), "Expected exactly 3 invalid binary fixtures");
+      for (var binPath : binFiles) {
+        byte[] bytes = java.nio.file.Files.readAllBytes(binPath);
+        assertThrows(RuntimeException.class, () -> {
+          var buf = ByteBuffer.wrap(bytes);
+          var root = StvnBinaryDecoder.open(buf);
+          StvnBinaryDecoder.unpack(root, Optional.empty());
+        }, "Invalid fixture must throw exception: " + binPath);
+      }
+    }
   }
 }

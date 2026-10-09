@@ -13,6 +13,7 @@ import org.stvnadore.core.parser.StvnParser.TypeDefinitionContext;
 import org.stvnadore.core.parser.StvnParser.ValueContext;
 import org.stvnadore.core.parser.StvnParser.SumTypeContext;
 import org.stvnadore.core.ast.StvnDocumentKind;
+import org.stvnadore.core.ast.StvnDocumentMeta;
 import org.stvnadore.core.stdlib.StvnPrelude;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.StvnVocabulary;
@@ -3684,6 +3685,122 @@ public class StvnTypeResolver {
                 domainNode != null ? domainNode.getStop().getStopIndex() + 1 : metaEntry.getStop().getStopIndex() + 1,
                 domainNode != null ? domainNode.getStart().getLine() : metaEntry.getStart().getLine(),
                 domainNode != null ? domainNode.getStart().getCharPositionInLine() : metaEntry.getStart().getCharPositionInLine(),
+                DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
+            );
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Validates document identity metadata decoded from an STVN binary payload (.stvn_b, .stvn_bd)
+   * against the file path or URI contract.
+   *
+   * @param meta          the decoded metadata record, or null if absent
+   * @param docPath       the optional URI or file path identifier
+   * @param diagnosticBag the accumulator bag for recording semantic diagnostics
+   */
+  public static void validateBinaryDocumentIdentity(
+      @Nullable StvnDocumentMeta meta,
+      @Nullable String docPath,
+      DiagnosticBag diagnosticBag
+  ) {
+    if (docPath == null || docPath.isEmpty()) {
+      return;
+    }
+
+    String normalized = docPath.replace('\\', '/');
+    int lastSlash = normalized.lastIndexOf('/');
+    String fileName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
+
+    // 1. Fail-closed legacy extension rejection
+    if (fileName.endsWith(".stvn_incl") || fileName.endsWith(".stvn_inclf")
+        || fileName.endsWith(".stvn_cas") || fileName.endsWith(".stvn_bin")
+        || fileName.endsWith(".stvn_f") || fileName.endsWith(".stvn_df")
+        || fileName.endsWith(".stvn_bf") || fileName.endsWith(".stvn_bdf")) {
+      int dotIdx = fileName.indexOf('.');
+      String legacyExt = dotIdx >= 0 ? fileName.substring(dotIdx) : fileName;
+      diagnosticBag.addError(
+          "Excised legacy file extension '" + legacyExt + "' is permanently prohibited",
+          0, 1, 1, 0, null,
+          DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED
+      );
+      return;
+    }
+
+    // 2. Filename decomposition & bare dotfile check
+    if (fileName.startsWith(".")) {
+      diagnosticBag.addError(
+          "Filename '" + fileName + "' lacks a visible non-empty stem segment before extension; bare dotfiles are prohibited",
+          0, 1, 1, 0, null,
+          DiagnosticBag.ERR_INVALID_FILENAME_STEM
+      );
+      return;
+    }
+
+    int lastDot = fileName.lastIndexOf('.');
+    String ext = null;
+    String[] dotParts = null;
+    if (lastDot >= 0) {
+      ext = fileName.substring(lastDot);
+      String stemPart = fileName.substring(0, lastDot);
+      dotParts = stemPart.split("\\.");
+    }
+
+    Optional<StvnDocumentKind> expectedKindOpt =
+        ext != null ? StvnDocumentKind.fromExtension(ext) : Optional.empty();
+
+    if (meta == null) {
+      if (expectedKindOpt.isPresent() && (expectedKindOpt.get() == StvnDocumentKind.DEFS
+          || ".stvn_b".equals(ext))) {
+        diagnosticBag.addError(
+            "Mandatory :meta block missing; document kind '" + expectedKindOpt.get().keyword() + "' is required for extension '" + ext + "'",
+            0, 1, 1, 0, null,
+            DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+        );
+      }
+      return;
+    }
+
+    StvnDocumentKind declaredKind = meta.kind().orElse(null);
+    if (declaredKind != null && expectedKindOpt.isPresent()) {
+      if (declaredKind != expectedKindOpt.get()) {
+        diagnosticBag.addError(
+            "Document kind '" + declaredKind.keyword() + "' does not match file extension '" + ext + "' (expected '" + expectedKindOpt.get().keyword() + "')",
+            0, 1, 1, 0, null,
+            DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+        );
+      }
+    }
+
+    if (dotParts != null && dotParts.length >= 1) {
+      String stemName = dotParts[0];
+      if (meta.name().isPresent()) {
+        String declaredName = meta.name().get();
+        if (!declaredName.equals(stemName)) {
+          diagnosticBag.addWarning(
+              "Declared #name '" + declaredName + "' does not match filename stem slot 0 '" + stemName + "'",
+              0, 1, 1, 0,
+              DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
+          );
+        }
+      }
+
+      if (meta.domain().isPresent()) {
+        String declaredDomain = meta.domain().get();
+        if (dotParts.length == 1) {
+          diagnosticBag.addWarning(
+              "Declared #domain '" + declaredDomain + "' is omitted from filename stem slot 1",
+              0, 1, 1, 0,
+              DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME
+          );
+        } else {
+          String stemDomain = dotParts[1];
+          if (!declaredDomain.equals(stemDomain)) {
+            diagnosticBag.addWarning(
+                "Declared #domain '" + declaredDomain + "' does not match filename stem slot 1 '" + stemDomain + "'",
+                0, 1, 1, 0,
                 DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
             );
           }

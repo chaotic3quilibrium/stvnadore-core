@@ -31,8 +31,12 @@ public class StvnIrSnapshotTest {
     var stvnContent = Files.readString(stvnFile).replace("\r\n", "\n");
     
     // Compile live STVN content to IR
-    var liveIr = StvnCompiler.compilePayload(stvnContent, stvnFile.toString())
+    var compilation = StvnCompiler.compile(stvnContent, stvnFile.toString(), org.stvnadore.core.StvnParserConfig.DEFAULT);
+    var liveDoc = compilation.document()
         .orElseThrow(() -> new AssertionError("Failed to compile valid fixture: " + stvnFile));
+    var liveIr = liveDoc.payload()
+        .orElseThrow(() -> new AssertionError("Failed to extract payload from fixture: " + stvnFile));
+    var meta = liveDoc.meta().orElse(null);
 
     // Serialize to Option B layout
     var liveSnapshot = IrGeneratorUtility.serializeIr(liveIr);
@@ -47,7 +51,7 @@ public class StvnIrSnapshotTest {
     if (Boolean.getBoolean("updateSnapshots")) {
       Files.writeString(snapshotPath, cleanLive);
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), isChecksummed);
-      var buf = encoder.encode(liveIr);
+      var buf = encoder.encode(liveIr, meta);
       var liveBin = new byte[buf.remaining()];
       buf.get(liveBin);
       Files.write(binSnapshotPath, liveBin);
@@ -69,7 +73,7 @@ public class StvnIrSnapshotTest {
     var expectedBin = Files.readAllBytes(binSnapshotPath);
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), isChecksummed);
-    var buf = encoder.encode(liveIr);
+    var buf = encoder.encode(liveIr, meta);
     var liveBin = new byte[buf.remaining()];
     buf.get(liveBin);
 

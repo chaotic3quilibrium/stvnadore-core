@@ -2,6 +2,9 @@ package org.stvnadore.core.binary;
 
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.ast.StvnDocumentKind;
+import org.stvnadore.core.ast.StvnDocumentMeta;
+import org.stvnadore.core.utils.StvnBinaryUtils;
 import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
 import org.stvnadore.core.binary.exceptions.StvnCorruptedBitPatternException;
 import org.stvnadore.core.binary.exceptions.StvnSerializationException;
@@ -75,27 +78,29 @@ public class StvnBinaryDecoder {
    * @param identityStrategy the active schema strategy, if any
    * @param encodingStrategy the active binary encoding strategy
    * @param payloadStart     the minimum permissible payload boundary
+   * @param meta             the decoded document metadata, if present
    */
   public record DecodeContext(
       ByteBuffer buffer,
       int offsetSize,
       Optional<SchemaIdentityStrategy> identityStrategy,
       BinaryEncodingStrategy encodingStrategy,
-      int payloadStart
+      int payloadStart,
+      Optional<StvnDocumentMeta> meta
   ) {
     /**
-     * Constructs a DecodeContext defaulting to {@link BinaryEncodingStrategy#ZERO_COPY_POST_ORDER} and payloadStart 0.
+     * Constructs a DecodeContext defaulting to {@link BinaryEncodingStrategy#ZERO_COPY_POST_ORDER}, payloadStart 0, and empty meta.
      *
      * @param buffer           the raw byte buffer
      * @param offsetSize       the pointer offset size
      * @param identityStrategy the active schema strategy, if any
      */
     public DecodeContext(ByteBuffer buffer, int offsetSize, Optional<SchemaIdentityStrategy> identityStrategy) {
-      this(buffer, offsetSize, identityStrategy, BinaryEncodingStrategy.ZERO_COPY_POST_ORDER, 0);
+      this(buffer, offsetSize, identityStrategy, BinaryEncodingStrategy.ZERO_COPY_POST_ORDER, 0, Optional.empty());
     }
 
     /**
-     * Constructs a DecodeContext defaulting payloadStart to 0.
+     * Constructs a DecodeContext defaulting payloadStart to 0 and empty meta.
      *
      * @param buffer           the raw byte buffer
      * @param offsetSize       the pointer offset size
@@ -103,7 +108,29 @@ public class StvnBinaryDecoder {
      * @param encodingStrategy the active binary encoding strategy
      */
     public DecodeContext(ByteBuffer buffer, int offsetSize, Optional<SchemaIdentityStrategy> identityStrategy, BinaryEncodingStrategy encodingStrategy) {
-      this(buffer, offsetSize, identityStrategy, encodingStrategy, 0);
+      this(buffer, offsetSize, identityStrategy, encodingStrategy, 0, Optional.empty());
+    }
+
+    /**
+     * Constructs a DecodeContext defaulting meta to empty.
+     *
+     * @param buffer           the raw byte buffer
+     * @param offsetSize       the pointer offset size
+     * @param identityStrategy the active schema strategy, if any
+     * @param encodingStrategy the active binary encoding strategy
+     * @param payloadStart     the minimum permissible payload boundary
+     */
+    public DecodeContext(ByteBuffer buffer, int offsetSize, Optional<SchemaIdentityStrategy> identityStrategy, BinaryEncodingStrategy encodingStrategy, int payloadStart) {
+      this(buffer, offsetSize, identityStrategy, encodingStrategy, payloadStart, Optional.empty());
+    }
+
+    /**
+     * Alias for {@link #meta()} returning the document identity metadata.
+     *
+     * @return the document metadata
+     */
+    public Optional<StvnDocumentMeta> documentMeta() {
+      return meta;
     }
 
     /**
@@ -156,12 +183,33 @@ public class StvnBinaryDecoder {
    * @param context    the decoding context containing the buffer and offset sizes
    * @param rootOffset the absolute buffer address of the root element
    * @param schema     the resolved schema configuration for the root element, if available
+   * @param meta       the decoded document metadata, if present
    */
   public record RootPointer(
       DecodeContext context,
       int rootOffset,
-      Optional<ResolvedSchema> schema
+      Optional<ResolvedSchema> schema,
+      Optional<StvnDocumentMeta> meta
   ) {
+    /**
+     * Constructs a RootPointer inheriting document metadata from the decoding context.
+     *
+     * @param context    the decoding context containing the buffer and offset sizes
+     * @param rootOffset the absolute buffer address of the root element
+     * @param schema     the resolved schema configuration for the root element, if available
+     */
+    public RootPointer(DecodeContext context, int rootOffset, Optional<ResolvedSchema> schema) {
+      this(context, rootOffset, schema, context.meta());
+    }
+
+    /**
+     * Alias for {@link #meta()} returning the document identity metadata.
+     *
+     * @return the document metadata
+     */
+    public Optional<StvnDocumentMeta> documentMeta() {
+      return meta;
+    }
   }
 
   private record HeaderInfo(
@@ -169,7 +217,8 @@ public class StvnBinaryDecoder {
       int offsetSize,
       @Nullable SchemaIdentityStrategy identityStrategy,
       BinaryEncodingStrategy encodingStrategy,
-      int payloadStart
+      int payloadStart,
+      StvnDocumentMeta documentMeta
   ) {
   }
 
@@ -179,8 +228,8 @@ public class StvnBinaryDecoder {
 
   private static HeaderInfo parseHeader(ByteBuffer buffer) {
     buffer.order(ByteOrder.LITTLE_ENDIAN);
-    if (buffer.remaining() < 5) {
-      throw new IllegalArgumentException("Buffer too small for STVN binary header: requires at least 5 bytes");
+    if (buffer.remaining() < 6) {
+      throw new IllegalArgumentException("Buffer too small for STVN binary header: requires at least 6 bytes");
     }
     if (buffer.get(0) != (byte) 'S' || buffer.get(1) != (byte) 'T' ||
         buffer.get(2) != (byte) 'V' || buffer.get(3) != (byte) 'N') {
@@ -199,8 +248,8 @@ public class StvnBinaryDecoder {
 
     ByteBuffer effectiveBuffer = buffer;
     if (hasTrailerCrc32c) {
-      if (buffer.remaining() < 9) {
-        throw new MalformedPayloadException("Buffer too small for STVN binary with CRC-32C trailer: requires at least 9 bytes, found " + buffer.remaining());
+      if (buffer.remaining() < StvnBinaryUtils.MIN_CRC32C_BUFFER_CAPACITY) {
+        throw new MalformedPayloadException("Buffer too small for STVN binary with CRC-32C trailer: requires at least " + StvnBinaryUtils.MIN_CRC32C_BUFFER_CAPACITY + " bytes, found " + buffer.remaining());
       }
       int totalLimit = buffer.limit();
       int payloadLimit = totalLimit - 4;
@@ -223,6 +272,63 @@ public class StvnBinaryDecoder {
     BinaryEncodingStrategy encodingStrategy = BinaryEncodingStrategy.fromCode(encodingCode);
 
     int currentPos = 5;
+    byte metaControlByte = buffer.get(currentPos++);
+    if ((metaControlByte & StvnBinaryUtils.META_MASK_RESERVED) != 0) {
+      throw new StvnCorruptedBitPatternException(
+          "Zero-Trust Violation: Non-zero reserved bits in MetaControlByte (Byte 5): 0x"
+              + Integer.toHexString(Byte.toUnsignedInt(metaControlByte)));
+    }
+
+    int kindBits = metaControlByte & StvnBinaryUtils.META_MASK_KIND;
+    StvnDocumentKind kind = switch (kindBits) {
+      case 0b00 -> StvnDocumentKind.BODY;
+      case 0b01 -> StvnDocumentKind.DEFS;
+      case 0b10 -> StvnDocumentKind.BODY_INCLUDE;
+      case 0b11 -> StvnDocumentKind.DEFS_INCLUDE;
+      default -> throw new IllegalStateException();
+    };
+
+    boolean hasName = (metaControlByte & StvnBinaryUtils.META_MASK_HAS_NAME) != 0;
+    boolean hasDomain = (metaControlByte & StvnBinaryUtils.META_MASK_HAS_DOMAIN) != 0;
+
+    Optional<String> nameOpt = Optional.empty();
+    if (hasName) {
+      validateAllocationBounds(1, buffer, currentPos);
+      int nameLen = Byte.toUnsignedInt(buffer.get(currentPos++));
+      if (nameLen < 1 || nameLen > StvnBinaryUtils.MAX_METADATA_IDENTIFIER_LENGTH) {
+        throw new MalformedPayloadException("Invalid metadata #name length prefix: " + nameLen);
+      }
+      validateAllocationBounds(nameLen, buffer, currentPos);
+      byte[] nameBytes = new byte[nameLen];
+      buffer.get(currentPos, nameBytes);
+      currentPos += nameLen;
+      String name = new String(nameBytes, StandardCharsets.UTF_8);
+      if (!name.matches("^[a-zA-Z0-9_-]{1,64}$")) {
+        throw new MalformedPayloadException("Metadata #name does not match atomic POSIX pattern: " + name);
+      }
+      nameOpt = Optional.of(name);
+    }
+
+    Optional<String> domainOpt = Optional.empty();
+    if (hasDomain) {
+      validateAllocationBounds(1, buffer, currentPos);
+      int domainLen = Byte.toUnsignedInt(buffer.get(currentPos++));
+      if (domainLen < 1 || domainLen > StvnBinaryUtils.MAX_METADATA_IDENTIFIER_LENGTH) {
+        throw new MalformedPayloadException("Invalid metadata #domain length prefix: " + domainLen);
+      }
+      validateAllocationBounds(domainLen, buffer, currentPos);
+      byte[] domainBytes = new byte[domainLen];
+      buffer.get(currentPos, domainBytes);
+      currentPos += domainLen;
+      String domain = new String(domainBytes, StandardCharsets.UTF_8);
+      if (!domain.matches("^[a-zA-Z0-9_-]{1,64}$")) {
+        throw new MalformedPayloadException("Metadata #domain does not match atomic POSIX pattern: " + domain);
+      }
+      domainOpt = Optional.of(domain);
+    }
+
+    StvnDocumentMeta documentMeta = new StvnDocumentMeta(nameOpt, domainOpt, Optional.of(kind));
+
     SchemaIdentityStrategy strategy = switch (identityCode) {
       case 0 -> new SchemaIdentityStrategy.UniversalDefault();
       case 1 -> new SchemaIdentityStrategy.UuidV8Hash();
@@ -279,14 +385,14 @@ public class StvnBinaryDecoder {
     byte flags = buffer.get(currentPos++);
     int offsetSize = 1 << (flags & 0b0000_0011);
 
-    return new HeaderInfo(effectiveBuffer, offsetSize, strategy, encodingStrategy, currentPos);
+    return new HeaderInfo(effectiveBuffer, offsetSize, strategy, encodingStrategy, currentPos, documentMeta);
   }
 
   private static RootPointer createRootPointer(ByteBuffer buffer, HeaderInfo header, @Nullable ResolvedSchema schema) {
     int payloadStart = header.payloadStart() + header.offsetSize();
-    DecodeContext ctx = new DecodeContext(header.effectiveBuffer(), header.offsetSize(), Optional.ofNullable(header.identityStrategy()), header.encodingStrategy(), payloadStart);
+    DecodeContext ctx = new DecodeContext(header.effectiveBuffer(), header.offsetSize(), Optional.ofNullable(header.identityStrategy()), header.encodingStrategy(), payloadStart, Optional.of(header.documentMeta()));
     int rootOffset = ctx.readPointer(header.payloadStart(), payloadStart);
-    return new RootPointer(ctx, rootOffset, Optional.ofNullable(schema));
+    return new RootPointer(ctx, rootOffset, Optional.ofNullable(schema), Optional.of(header.documentMeta()));
   }
 
   // ===========================================================================

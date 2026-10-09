@@ -99,13 +99,15 @@ public class StvnBinaryCodecSecurityTest {
       ByteBuffer buf = ByteBuffer.allocate(20).order(ByteOrder.LITTLE_ENDIAN);
       // Magic 'STVN'
       buf.put((byte) 'S').put((byte) 'T').put((byte) 'V').put((byte) 'N');
-      // Control byte: Strategy 0 (UniversalDefault), Post-Order, no CRC trailer
+      // Control byte: Strategy 0 (UniversalDefault), Post-Order, no CRC trailer (Byte 4)
       buf.put((byte) 0x00);
-      // Flags: offsetSize = 1 byte
+      // MetaControlByte: #BODY (Byte 5)
       buf.put((byte) 0x00);
-      // Root pointer pointing to offset 7
-      buf.put((byte) 7);
-      // At offset 7: derived length prefix claiming 100,000,000 bytes (0xC0 followed by int)
+      // Flags: offsetSize = 1 byte (Byte 6)
+      buf.put((byte) 0x00);
+      // Root pointer pointing to offset 8 (Byte 7)
+      buf.put((byte) 8);
+      // At offset 8: derived length prefix claiming 100,000,000 bytes (0xC0 followed by int)
       buf.put((byte) 0xC0);
       buf.putInt(100_000_000);
       buf.flip();
@@ -126,10 +128,11 @@ public class StvnBinaryCodecSecurityTest {
     void testOutlinedSequenceAllocationBombTrapped() {
       ByteBuffer buf = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN);
       buf.put((byte) 'S').put((byte) 'T').put((byte) 'V').put((byte) 'N');
-      buf.put((byte) 0x00);
-      buf.put((byte) 0x00);
-      buf.put((byte) 7);
-      // Derived length prefix claiming 50,000,000 elements
+      buf.put((byte) 0x00); // controlByte (Byte 4)
+      buf.put((byte) 0x00); // metaControlByte: #BODY (Byte 5)
+      buf.put((byte) 0x00); // flags (Byte 6)
+      buf.put((byte) 8);    // root pointer pointing to offset 8 (Byte 7)
+      // Derived length prefix claiming 50,000,000 elements (Byte 8+)
       buf.put((byte) 0xC0);
       buf.putInt(50_000_000);
       buf.flip();
@@ -149,10 +152,11 @@ public class StvnBinaryCodecSecurityTest {
     void testOutlinedMapAllocationBombTrapped() {
       ByteBuffer buf = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN);
       buf.put((byte) 'S').put((byte) 'T').put((byte) 'V').put((byte) 'N');
-      buf.put((byte) 0x00);
-      buf.put((byte) 0x00);
-      buf.put((byte) 7);
-      // Derived length prefix claiming 20,000,000 entries
+      buf.put((byte) 0x00); // controlByte (Byte 4)
+      buf.put((byte) 0x00); // metaControlByte: #BODY (Byte 5)
+      buf.put((byte) 0x00); // flags (Byte 6)
+      buf.put((byte) 8);    // root pointer pointing to offset 8 (Byte 7)
+      // Derived length prefix claiming 20,000,000 entries (Byte 8+)
       buf.put((byte) 0xC0);
       buf.putInt(20_000_000);
       buf.flip();
@@ -483,13 +487,14 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-PTR-01: Root pointer pointing backward into header (< payloadStart) is rejected")
     void testBackwardPointerIntoHeaderRejected() {
-      // 1-byte offset size, payloadStart = 5 + 1 (flags) + 1 (root pointer) = 7
+      // 1-byte offset size, payloadStart = 5 + 1 (meta) + 1 (flags) + 1 (root pointer) = 8
       ByteBuffer buf = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN);
       buf.put((byte) 'S').put((byte) 'T').put((byte) 'V').put((byte) 'N');
-      buf.put((byte) 0x00); // controlByte
-      buf.put((byte) 0x00); // flags: offsetSize = 1 byte
-      buf.put((byte) 3);    // Root pointer points to offset 3 (inside magic bytes!)
-      for (int i = 7; i < 16; i++) buf.put((byte) 0x00);
+      buf.put((byte) 0x00); // controlByte (Byte 4)
+      buf.put((byte) 0x00); // metaControlByte: #BODY (Byte 5)
+      buf.put((byte) 0x00); // flags: offsetSize = 1 byte (Byte 6)
+      buf.put((byte) 3);    // Root pointer points to offset 3 (inside magic bytes!) (Byte 7)
+      for (int i = 8; i < 16; i++) buf.put((byte) 0x00);
       buf.flip();
 
       MalformedPayloadException ex = assertThrows(
@@ -498,7 +503,7 @@ public class StvnBinaryCodecSecurityTest {
       );
       assertTrue(ex.getMessage().contains("Pointer table hijacking detected"),
           "Expected pointer hijacking exception, got: " + ex.getMessage());
-      assertTrue(ex.getMessage().contains("offset 3 outside valid payload range [7, 16)"));
+      assertTrue(ex.getMessage().contains("offset 3 outside valid payload range [8, 16)"));
     }
 
     @Test
@@ -506,10 +511,11 @@ public class StvnBinaryCodecSecurityTest {
     void testForwardPointerOutOfBoundsRejected() {
       ByteBuffer buf = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN);
       buf.put((byte) 'S').put((byte) 'T').put((byte) 'V').put((byte) 'N');
-      buf.put((byte) 0x00);
-      buf.put((byte) 0x00);
-      buf.put((byte) 50); // Root pointer points to offset 50 (limit is 16)
-      for (int i = 7; i < 16; i++) buf.put((byte) 0x00);
+      buf.put((byte) 0x00); // controlByte (Byte 4)
+      buf.put((byte) 0x00); // metaControlByte: #BODY (Byte 5)
+      buf.put((byte) 0x00); // flags: offsetSize = 1 byte (Byte 6)
+      buf.put((byte) 50); // Root pointer points to offset 50 (limit is 16) (Byte 7)
+      for (int i = 8; i < 16; i++) buf.put((byte) 0x00);
       buf.flip();
 
       MalformedPayloadException ex = assertThrows(
@@ -517,7 +523,7 @@ public class StvnBinaryCodecSecurityTest {
           () -> StvnBinaryDecoder.open(buf)
       );
       assertTrue(ex.getMessage().contains("Pointer table hijacking detected"));
-      assertTrue(ex.getMessage().contains("offset 50 outside valid payload range [7, 16)"));
+      assertTrue(ex.getMessage().contains("offset 50 outside valid payload range [8, 16)"));
     }
 
     @Test
@@ -559,26 +565,27 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-MAGIC-01: Literal ASCII preamble 'STVN' [0x53, 0x54, 0x56, 0x4E] is valid")
     void testLiteralAsciiMagicPreambleValid() {
-      ByteBuffer buf = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN);
+      ByteBuffer buf = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN);
       buf.put((byte) 'S');
       buf.put((byte) 'T');
       buf.put((byte) 'V');
       buf.put((byte) 'N');
-      buf.put((byte) 0x00); // controlByte
-      buf.put((byte) 0x00); // flags
-      buf.put((byte) 7);    // root pointer
-      buf.put((byte) 0);    // payload
+      buf.put((byte) 0x00); // controlByte (Byte 4)
+      buf.put((byte) 0x00); // metaControlByte: #BODY (Byte 5)
+      buf.put((byte) 0x00); // flags (Byte 6)
+      buf.put((byte) 8);    // root pointer (Byte 7)
+      buf.put((byte) 0);    // payload (Byte 8)
       buf.flip();
 
       var root = StvnBinaryDecoder.open(buf);
       assertNotNull(root);
-      assertEquals(7, root.rootOffset());
+      assertEquals(8, root.rootOffset());
     }
 
     @Test
     @DisplayName("TC-SEC-MAGIC-02: Little-Endian integer preamble 'NVTS' [0x4E, 0x56, 0x54, 0x53] fails closed")
     void testLittleEndianInvertedMagicPreambleFailsClosed() {
-      ByteBuffer buf = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN);
+      ByteBuffer buf = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN);
       // Inverted little-endian putInt(0x5354564E)
       buf.put((byte) 'N');
       buf.put((byte) 'V');
@@ -586,7 +593,8 @@ public class StvnBinaryCodecSecurityTest {
       buf.put((byte) 'S');
       buf.put((byte) 0x00);
       buf.put((byte) 0x00);
-      buf.put((byte) 7);
+      buf.put((byte) 0x00);
+      buf.put((byte) 8);
       buf.put((byte) 0);
       buf.flip();
 
@@ -598,8 +606,8 @@ public class StvnBinaryCodecSecurityTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0, 1, 2, 3, 4})
-    @DisplayName("TC-SEC-MAGIC-03: Buffer smaller than 5 bytes fails closed")
+    @ValueSource(ints = {0, 1, 2, 3, 4, 5})
+    @DisplayName("TC-SEC-MAGIC-03: Buffer smaller than 6 bytes fails closed")
     void testBufferSmallerThanHeaderSize(int capacity) {
       ByteBuffer buf = ByteBuffer.allocate(capacity).order(ByteOrder.LITTLE_ENDIAN);
       for (int i = 0; i < capacity; i++) {

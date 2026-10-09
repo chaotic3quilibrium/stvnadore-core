@@ -2075,7 +2075,7 @@ public class StvnEndToEndIntegrationTest {
 
       // Tamper with the hash in the encoded buffer
       var tampered = encoded.duplicate().order(java.nio.ByteOrder.LITTLE_ENDIAN);
-      tampered.put(5, (byte) (tampered.get(5) ^ 0xFF));
+      tampered.put(6, (byte) (tampered.get(6) ^ 0xFF));
       java.util.zip.CRC32C crc = new java.util.zip.CRC32C();
       java.nio.ByteBuffer view = tampered.duplicate().order(java.nio.ByteOrder.LITTLE_ENDIAN);
       view.position(0);

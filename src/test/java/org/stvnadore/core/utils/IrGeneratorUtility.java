@@ -49,8 +49,12 @@ public final class IrGeneratorUtility {
     String stvnContent = Files.readString(stvnFile).replace("\r\n", "\n");
     
     // Compile STVN input to IR
-    StvnValue irNode = StvnCompiler.compilePayload(stvnContent, stvnFile.toString())
+    var compilation = StvnCompiler.compile(stvnContent, stvnFile.toString(), org.stvnadore.core.StvnParserConfig.DEFAULT);
+    var liveDoc = compilation.document()
         .orElseThrow(() -> new IllegalStateException("Failed to compile valid fixture: " + stvnFile));
+    StvnValue irNode = liveDoc.payload()
+        .orElseThrow(() -> new IllegalStateException("Failed to extract payload from fixture: " + stvnFile));
+    var meta = liveDoc.meta().orElse(null);
 
     // Convert the IR to the standardized snapshot text format
     String generatedSnapshot = serializeIr(irNode);
@@ -64,7 +68,7 @@ public final class IrGeneratorUtility {
       
       boolean isCrc = stvnFile.getFileName().toString().contains("crc32c");
       var encoder = new org.stvnadore.core.binary.StvnBinaryEncoder(true, new org.stvnadore.core.binary.SchemaIdentityStrategy.UniversalDefault(), isCrc);
-      java.nio.ByteBuffer buf = encoder.encode(irNode);
+      java.nio.ByteBuffer buf = encoder.encode(irNode, meta);
       byte[] encoded = new byte[buf.remaining()];
       buf.get(encoded);
       Files.write(binSnapshotPath, encoded);

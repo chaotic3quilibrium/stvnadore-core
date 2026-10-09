@@ -22,8 +22,23 @@ public final class StvnBinaryUtils {
   public static final int CONTROL_MASK_SCHEMA_IDENTITY = 0x0F;
   /** Strategy code 0x7 reserved as an extension sentinel. */
   public static final int ENCODING_STRATEGY_EXTENSION_SENTINEL = 0x07;
-  /** Minimum byte buffer size required when CRC-32C trailer flag is enabled (5-byte header + 4-byte CRC-32C). */
-  public static final int MIN_CRC32C_BUFFER_CAPACITY = 9;
+
+  /** Bitmask for Bits 1..0 of Byte 5: Document Kind (0x03). */
+  public static final int META_MASK_KIND = 0x03;
+  /** Bitmask for Bit 2 of Byte 5: HAS_NAME flag (0x04). */
+  public static final int META_MASK_HAS_NAME = 0x04;
+  /** Bitmask for Bit 3 of Byte 5: HAS_DOMAIN flag (0x08). */
+  public static final int META_MASK_HAS_DOMAIN = 0x08;
+  /** Bitmask for Bits 7..4 of Byte 5: RESERVED bits (0xF0). */
+  public static final int META_MASK_RESERVED = 0xF0;
+
+  /** Maximum permissible byte length for metadata #name and #domain identifier strings. */
+  public static final int MAX_METADATA_IDENTIFIER_LENGTH = 64;
+
+  /** Minimum header size for STVN binary stream (4B Magic + 1B Control + 1B MetaControl + 1B Flags + 1B RootPointer = 8B). */
+  public static final int MIN_BINARY_HEADER_SIZE = 8;
+  /** Minimum header capacity when CRC-32C trailer is enabled (8B Header + 4B CRC-32C = 12B). */
+  public static final int MIN_CRC32C_BUFFER_CAPACITY = 12;
   /** Size in bytes of the CRC-32C trailer. */
   public static final int CRC32C_TRAILER_SIZE = 4;
 

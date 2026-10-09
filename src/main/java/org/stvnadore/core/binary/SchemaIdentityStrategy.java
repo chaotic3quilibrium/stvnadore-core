@@ -111,9 +111,9 @@ public sealed interface SchemaIdentityStrategy {
   }
 
   /**
-   * Self-describing schema strategy that carries the inline source text definition content.
+   * Self-describing schema strategy that carries the inline source text definition content (.stvn_d).
    *
-   * @param stvnInclfContent the source STVN schema content
+   * @param stvnInclfContent the source STVN definitions schema content (.stvn_d)
    */
   record SelfDescribingSchema(String stvnInclfContent) implements SchemaIdentityStrategy {
   }

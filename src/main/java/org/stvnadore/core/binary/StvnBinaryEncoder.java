@@ -12,6 +12,9 @@ import java.util.zip.CRC32C;
 
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.ast.StvnDocumentKind;
+import org.stvnadore.core.ast.StvnDocumentMeta;
+import org.stvnadore.core.utils.StvnBinaryUtils;
 import org.stvnadore.core.validation.StvnTypeResolver;
 
 /**
@@ -136,7 +139,21 @@ public class StvnBinaryEncoder {
    * @throws org.stvnadore.core.binary.exceptions.StvnSerializationException if structural fields or schemas are invalid
    */
   public ByteBuffer encode(StvnValue root) {
+    return encode(root, StvnDocumentMeta.ofKind(StvnDocumentKind.BODY));
+  }
+
+  /**
+   * Encodes the provided root STVN IR AST value tree and document metadata into a binary byte buffer.
+   *
+   * @param root the root value node of the AST to encode
+   * @param meta the document identity metadata to serialize into Byte 5+
+   * @return a read-only, little-endian byte buffer containing the STVN binary payload
+   * @throws org.stvnadore.core.binary.exceptions.StvnSerializationException if structural fields or schemas are invalid
+   */
+  public ByteBuffer encode(StvnValue root, @Nullable StvnDocumentMeta meta) {
     this.stringCache.clear();
+
+    StvnDocumentMeta effectiveMeta = meta != null ? meta : StvnDocumentMeta.ofKind(StvnDocumentKind.BODY);
 
     if (identityStrategy != null && root.schema() != null) {
       StvnBinaryDecoder.validateSchemaHash(root.schema(), identityStrategy);
@@ -145,8 +162,21 @@ public class StvnBinaryEncoder {
     // 1. Calculate static footprint and pointer count (Root takes 1 pointer in header)
     Footprint fp = calculateFootprint(root).add(new Footprint(0, 1));
 
-    // 2. Base header size: 4 (Magic) + 1 (Control Byte) + 1 (Flags) + Strategy Payload
-    long baseHeader = 6;
+    // 2. Calculate metadata frame footprint (Byte 5 + optional strings)
+    long metaFrameLength = 1; // Byte 5 (MetaControlByte)
+    byte[] nameBytes = null;
+    if (effectiveMeta.name().isPresent()) {
+      nameBytes = effectiveMeta.name().get().getBytes(StandardCharsets.UTF_8);
+      metaFrameLength += 1 + nameBytes.length; // 1B len + bytes
+    }
+    byte[] domainBytes = null;
+    if (effectiveMeta.domain().isPresent()) {
+      domainBytes = effectiveMeta.domain().get().getBytes(StandardCharsets.UTF_8);
+      metaFrameLength += 1 + domainBytes.length; // 1B len + bytes
+    }
+
+    // Base header size: 4 (Magic) + 1 (Control) + metaFrameLength + 1 (Flags) + Strategy Payload
+    long baseHeader = 5 + metaFrameLength + 1;
     if (identityStrategy != null) {
       baseHeader += switch (identityStrategy) {
         case SchemaIdentityStrategy.UniversalDefault ignored -> 0;
@@ -184,7 +214,7 @@ public class StvnBinaryEncoder {
     // 5. Execute post-order traversal
     int rootOffset = writeValuePostOrder(root);
     int payloadLimit = buffer.position();
-    writeHeader(rootOffset);
+    writeHeader(rootOffset, effectiveMeta, nameBytes, domainBytes);
 
     int totalLimit = payloadLimit;
     if (hasTrailerCrc32c) {
@@ -933,7 +963,12 @@ public class StvnBinaryEncoder {
     }
   }
 
-  private void writeHeader(int rootOffset) {
+  private void writeHeader(
+      int rootOffset,
+      StvnDocumentMeta meta,
+      byte @Nullable [] nameBytes,
+      byte @Nullable [] domainBytes
+  ) {
     int finalPos = buffer.position();
     buffer.position(0);
     // Write literal ASCII bytes in network byte order ['S', 'T', 'V', 'N']
@@ -948,6 +983,27 @@ public class StvnBinaryEncoder {
     int identityBits = identityCode & 0x0F;
     byte controlByte = (byte) (trailerBit | encodingBits | identityBits);
     buffer.put(controlByte);
+
+    // Byte 5: MetaControlByte
+    int kindBits = switch (meta.kind().orElse(StvnDocumentKind.BODY)) {
+      case BODY -> 0b00;
+      case DEFS -> 0b01;
+      case BODY_INCLUDE -> 0b10;
+      case DEFS_INCLUDE -> 0b11;
+    };
+    int hasNameBit = (nameBytes != null) ? StvnBinaryUtils.META_MASK_HAS_NAME : 0x00;
+    int hasDomainBit = (domainBytes != null) ? StvnBinaryUtils.META_MASK_HAS_DOMAIN : 0x00;
+    byte metaControlByte = (byte) (hasDomainBit | hasNameBit | kindBits);
+    buffer.put(metaControlByte);
+
+    if (nameBytes != null) {
+      buffer.put((byte) nameBytes.length);
+      buffer.put(nameBytes);
+    }
+    if (domainBytes != null) {
+      buffer.put((byte) domainBytes.length);
+      buffer.put(domainBytes);
+    }
 
     if (identityStrategy != null) {
       switch (identityStrategy) {

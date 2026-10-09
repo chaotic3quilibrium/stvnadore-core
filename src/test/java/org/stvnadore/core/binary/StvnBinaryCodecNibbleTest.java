@@ -127,9 +127,9 @@ class StvnBinaryCodecNibbleTest {
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.ExplicitSha256(hash));
     ByteBuffer buf = encoder.encode(ir);
 
-    // Tamper with byte in SHA-256 payload (Byte 5 is the first byte of the 32B hash)
+    // Tamper with byte in SHA-256 payload (Byte 6 is the first byte of the 32B hash)
     ByteBuffer tampered = buf.duplicate().order(ByteOrder.LITTLE_ENDIAN);
-    tampered.put(5, (byte) (tampered.get(5) ^ 0xFF));
+    tampered.put(6, (byte) (tampered.get(6) ^ 0xFF));
     java.util.zip.CRC32C crc = new java.util.zip.CRC32C();
     ByteBuffer view = tampered.duplicate().order(ByteOrder.LITTLE_ENDIAN);
     view.position(0);

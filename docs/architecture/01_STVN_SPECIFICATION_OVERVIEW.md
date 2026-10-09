@@ -60,14 +60,15 @@ STVN strictly mandates single-line comments (`// ...`). Multi-line block comment
 
 Every text-based STVN document must enclose its content within a single root curly brace pair `{ ... }`.
 
-| Extension     | File Purpose                     | Required Sections                   | Prohibited Sections          |
-|:--------------|:---------------------------------|:------------------------------------|:-----------------------------|
-| `.stvn`       | Primary Modular Document         | `:type`, `:body` (Optional `:defs`) | N/A                          |
-| `.stvn_f`     | Flat Hermetic Payload Document   | `:type`, `:body` (Optional `:defs`) | `:include`                   |
-| `.stvn_incl`  | Transitive Shared Module         | `:defs`                             | `:type`, `:body`             |
-| `.stvn_inclf` | Flat Standalone Module           | `:defs`                             | `:type`, `:body`, `:include` |
-| `.stvn_b`     | Zero-Copy Binary Bytecode        | Embedded Binary Header              | N/A                          |
-| `.stvn_cas`   | CAS Storage Profile Envelope     | `:Tuple( :String :String :String )` | N/A                          |
+| Extension     | Document Kind    | Encoding | Required Sections                   | Prohibited Sections          |
+|:--------------|:-----------------|:---------|:------------------------------------|:-----------------------------|
+| `.stvn`       | `#BODY`          | Textual  | `:body`                             | `:include`                   |
+| `.stvn_i`     | `#BODY_INCLUDE`  | Textual  | `:body`                             | None                         |
+| `.stvn_d`     | `#DEFS`          | Textual  | `:defs`                             | `:body`, `:include`          |
+| `.stvn_di`    | `#DEFS_INCLUDE`  | Textual  | `:defs`                             | `:body`                      |
+| `.stvn_b`     | `#BODY`          | Binary   | Header + Payload                    | `:include`                   |
+| `.stvn_bd`    | `#DEFS`          | Binary   | Header + Payload                    | `:include`, `:body`          |
+| `.cas.stvn`   | `#BODY`          | Textual  | `:Tuple( :String :String :String )` | None                         |
 
 ---
 

@@ -42,21 +42,22 @@ The STVN binary stream is encoded in Little-Endian byte order with a determinist
 
 The canonical wire layout satisfies the mathematical framing composition:
 
-$$\underbrace{\text{'S','T','V','N'}}_{\text{4B Magic Preamble}} \;\parallel\; \underbrace{\text{0x87}}_{\text{Control Byte}} \;\parallel\; \underbrace{\text{CAS Address}}_{\text{32B SHA-256 Digest}} \;\parallel\; \underbrace{\text{Wire Payload}}_{\text{Offset Size + Root Pointer + AST}} \;\parallel\; \underbrace{\text{CRC-32C}}_{\text{4B IEEE 802.3 Trailer}}$$
+$$\underbrace{\text{'S','T','V','N'}}_{\text{4B Magic Preamble}} \;\parallel\; \underbrace{\text{Control Byte}}_{\text{Byte 4}} \;\parallel\; \underbrace{\text{Meta Frame}}_{\text{Byte 5+ (1..131B)}} \;\parallel\; \underbrace{\text{CAS Address}}_{\text{32B SHA-256 Digest}} \;\parallel\; \underbrace{\text{Wire Payload}}_{\text{Offset Size + Root Pointer + AST}} \;\parallel\; \underbrace{\text{CRC-32C}}_{\text{4B IEEE 802.3 Trailer}}$$
 
 ```
-+-------------------+---------------+-----------------------+---------------+--------------------+--------------------+
-| Bytes 0-3 (4B)    | Byte 4 (1B)   | Bytes 5..N (0..Var B) | Byte N+1 (1B) | Bytes N+2.. (1..8B)| Trailing (0 or 4B) |
-| "STVN" Magic      | Control Byte  | Schema Identity Data  | Flags (Offset)| Root Node Pointer  | [CRC-32C Trailer]  |
-+-------------------+---------------+-----------------------+---------------+--------------------+--------------------+
++-------------------+---------------+-----------------------+-----------------------+---------------+--------------------+--------------------+
+| Bytes 0-3 (4B)    | Byte 4 (1B)   | Byte 5..M (1..131B)   | Byte M+1..N (0..Var B)| Byte N+1 (1B) | Bytes N+2.. (1..8B)| Trailing (0 or 4B) |
+| "STVN" Magic      | Control Byte  | Document Metadata     | Schema Identity Data  | Flags (Offset)| Root Node Pointer  | [CRC-32C Trailer]  |
++-------------------+---------------+-----------------------+-----------------------+---------------+--------------------+--------------------+
 ```
 
 ### Wire Layout Architecture Diagram
 
 ```mermaid
 flowchart LR
-    M["Magic 'STVN' (4B)"] --> C["Control Byte 0x87 (1B)"]
-    C --> CAS["CAS Preimage Digest (32B)"]
+    M["Magic 'STVN' (4B)"] --> C["Control Byte (1B)"]
+    C --> META["Document Metadata Frame (1..131B)"]
+    META --> CAS["CAS Preimage Digest (32B)"]
     CAS --> FLG["Offset Flags (1B)"]
     FLG --> PTR["Root Pointer (1/2/4B)"]
     PTR --> PL["AST Wire Payload (Var B)"]
@@ -69,10 +70,11 @@ flowchart LR
 | :--- | :--- | :--- | :--- | :--- |
 | `0..3` | Magic Preamble | 4 Bytes | Must equal ASCII `'S','T','V','N'` (`0x5354564E`). | `IllegalArgumentException` |
 | `4` | Control Byte | 1 Byte | Bit 7 must be `1` (`0x80`) when Strategy `0x7` (`ExplicitSha256`) is selected (`0x87`). | `MalformedPayloadException` |
-| `5..36` | Schema Identity Data | 32 Bytes | Contains 32-byte cryptographic SHA-256 CAS preimage digest. Must match `computeSha256(schema)`. | `PoisonedRegistryPayloadException` |
-| `37` | Offset Flags | 1 Byte | Encodes pointer offset size: `1 << (flags & 0x03)` (1, 2, or 4 bytes). | `MalformedPayloadException` |
-| `38..38+S` | Root Node Pointer | $S \in \{1, 2, 4\}$ | Points to root element; must satisfy $targetOffset \ge payloadStart \land targetOffset < limit$. | `MalformedPayloadException` |
-| `38+S..(limit-4)`| Wire Payload Arena | Variable | Post-order serialized AST records, collections, and scalars. Validated via `validateAllocationBounds()`. | `MalformedPayloadException` |
+| `5..M` | Document Metadata Frame | 1..131 Bytes | Byte 5 `MetaControlByte` bitwise layout (`KIND`, `HAS_NAME`, `HAS_DOMAIN`, `RESERVED` bits 7..4 = 0) + optional `#name`, `#domain`. | `StvnCorruptedBitPatternException` / `MalformedPayloadException` |
+| `M+1..N` | Schema Identity Data | 0..32 Bytes | Contains schema identifier data (e.g. 32-byte cryptographic SHA-256 CAS preimage digest for Strategy `0x7`). | `PoisonedRegistryPayloadException` |
+| `N+1` | Offset Flags | 1 Byte | Encodes pointer offset size: `1 << (flags & 0x03)` (1, 2, or 4 bytes). | `MalformedPayloadException` |
+| `N+2..N+1+S` | Root Node Pointer | $S \in \{1, 2, 4\}$ | Points to root element; must satisfy $targetOffset \ge payloadStart \land targetOffset < limit$. | `MalformedPayloadException` |
+| `N+2+S..(limit-4)`| Wire Payload Arena | Variable | Post-order serialized AST records, collections, and scalars. Validated via `validateAllocationBounds()`. | `MalformedPayloadException` |
 | `(limit-4)..limit`| CRC-32C Trailer | 4 Bytes | Castagnoli CRC-32C checksum over range `[0, limit - 4)`. | `MalformedPayloadException` |
 
 ### Byte 4 Control Byte (1:3:4 Bitwise Partition)

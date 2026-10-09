@@ -96,8 +96,8 @@ class StvnBinaryCrc32cTrailerTest {
     byte[] bytes = new byte[buf.remaining()];
     buf.duplicate().get(bytes);
 
-    // Tamper with a byte inside the payload arena (e.g. byte 6)
-    bytes[6] ^= 0x01;
+    // Tamper with a byte inside the payload arena (last byte before 4-byte CRC-32C trailer)
+    bytes[bytes.length - 5] ^= 0x01;
 
     ByteBuffer corrupted = ByteBuffer.wrap(bytes);
     MalformedPayloadException ex = assertThrows(
@@ -129,9 +129,9 @@ class StvnBinaryCrc32cTrailerTest {
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {5, 6, 7, 8})
-  @DisplayName("TC-CRC-05: Truncated buffer below 9 bytes throws MalformedPayloadException")
-  void testCrc32cTruncatedBufferBelow9Bytes(int size) {
+  @ValueSource(ints = {6, 7, 8, 9, 10, 11})
+  @DisplayName("TC-CRC-05: Truncated buffer below 12 bytes throws MalformedPayloadException")
+  void testCrc32cTruncatedBufferBelow12Bytes(int size) {
     ByteBuffer shortBuf = ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN);
     shortBuf.put((byte) 'S').put((byte) 'T').put((byte) 'V').put((byte) 'N');
     shortBuf.put((byte) StvnBinaryUtils.CONTROL_MASK_TRAILER_CRC32C); // Bit 7 set

@@ -22,8 +22,8 @@
     * [1.2 File Extension Matrix](#12-file-extension-matrix)
     * [1.3 Strict Zero-Tab Invariant](#13-strict-zero-tab-invariant)
   * [2. Concrete Syntax Examples](#2-concrete-syntax-examples)
-    * [2.1 Flat Include Module (`.stvn_inclf`)](#21-flat-include-module-stvn_inclf)
-    * [2.2 Transitive Include Module (`.stvn_incl`)](#22-transitive-include-module-stvn_incl)
+    * [2.1 Hermetic Definitions Schema (`.stvn_d`)](#21-hermetic-definitions-schema-stvn_d)
+    * [2.2 Modular Definitions Module (`.stvn_di`)](#22-modular-definitions-module-stvn_di)
     * [2.3 Standard Payload Document (`.stvn`)](#23-standard-payload-document-stvn)
   * [3. Lexical and Syntactic Enclosure Rules](#3-lexical-and-syntactic-enclosure-rules)
     * [3.1 Hash Symbol (`#`) Semantic Taxonomy](#31-hash-symbol--semantic-taxonomy)
@@ -172,7 +172,7 @@ The `:meta` block is optional on primary modular documents (`.stvn`), but mandat
 | **`.stvn_i`** | `#BODY_INCLUDE` | Textual | Optional | Optional | **Optional** | **Required** | Modular payload document requiring external module loader. |
 | **`.stvn_d`** | `#DEFS` | Textual | **Required** | **Required** | **Prohibited** | **Prohibited** | Hermetic definitions schema (canonical CAS unit). |
 | **`.stvn_di`** | `#DEFS_INCLUDE` | Textual | **Required** | **Required** | **Optional** | **Prohibited** | Modular definitions schema module with `:include` directives. |
-| **`.stvn_b`** | `#BODY` | Binary | **Required** | **Required** | **Prohibited** | **Required** | Binary hermetic payload document. |
+| **`.stvn_b`** | `#BODY` | Binary | **Required** | Optional | **Prohibited** | **Required** | Binary hermetic payload document. |
 | **`.stvn_bd`** | `#DEFS` | Binary | **Required** | **Required** | **Prohibited** | **Prohibited** | Binary hermetic definitions schema. |
 
 CAS envelopes are formalized as dot-separated `<name>.cas.stvn` (`#domain "cas"`, `#kind #BODY`). Compiler IR dumps are retained as `<name>.ir.stvn_i` or `<name>.stvn_ir`.
@@ -193,11 +193,11 @@ When a lexer encounters a tab character, the lexer produces a `TAB_CHARACTER` to
 
 ## 2. Concrete Syntax Examples
 
-### 2.1 Flat Include Module (`.stvn_inclf`)
+### 2.1 Hermetic Definitions Schema (`.stvn_d`)
 
 ```stvn
 {
-  // network_primitives.stvn_inclf
+  // network_primitives.stvn_d
   :defs {
     :BitFlag        { #unsigned #size 1 } :Int
     :UnixPermission { #unsigned #size 3 } :Int
@@ -209,13 +209,13 @@ When a lexer encounters a tab character, the lexer produces a `TAB_CHARACTER` to
 }
 ```
 
-### 2.2 Transitive Include Module (`.stvn_incl`)
+### 2.2 Modular Definitions Module (`.stvn_di`)
 
 ```stvn
 {
-  // telemetry_models.stvn_incl
+  // telemetry_models.stvn_di
   :defs {
-    :include ["network_primitives.stvn_inclf" { :HostName :RemoteHost }]
+    :include ["network_primitives.stvn_d" { :HostName :RemoteHost }]
 
     :NodeStatus     :Enum [ #HEALTHY #DEGRADED #UNREACHABLE ]
     :AudioSample24  { #size 24 } :Int
@@ -230,13 +230,13 @@ When a lexer encounters a tab character, the lexer produces a `TAB_CHARACTER` to
 }
 ```
 
-### 2.3 Standard Payload Document (`.stvn`)
+### 2.3 Standard Payload Document (`.stvn_i`)
 
 ```stvn
 {
-  // telemetry_report.stvn
+  // telemetry_report.stvn_i
   :defs {
-    :include ["telemetry_models.stvn_incl"]
+    :include ["telemetry_models.stvn_di"]
 
     :NodeReport :Tuple(
       :Endpoint 
@@ -324,7 +324,7 @@ The colon character (`:`) is the canonical prefix sigil for the Typic Track in S
 | Category | Token Pattern | Examples | Context / Purpose |
 |:---|:---|:---|:---|
 | **Root Block Keywords** | `:defs`, `:type`, `:body` | `:defs { ... }`<br>`:type :AppPayload`<br>`:body ( ... )` | Declares mandatory and optional top-level document sections |
-| **Module Directives** | `:include`, `:package`, `:use` | `:include [ "lib.stvn_inclf" ]`<br>`:package :org/example { ... }`<br>`:use [ :org/example ]` | Directs the module resolver to import external definitions, establish packages, or import symbols |
+| **Module Directives** | `:include`, `:package`, `:use` | `:include [ "lib.stvn_d" ]`<br>`:package :org/example { ... }`<br>`:use [ :org/example ]` | Directs the module resolver to import external definitions, establish packages, or import symbols |
 | **Orthogonal Base Type Tokens** | `:Boolean`, `:Int`, `:Float`, `:String` | `:Boolean`, `:Int`, `:Float`, `:String` | Pure atomic base scalar type identifiers |
 | **Algebraic & Collection Type Constructors** | `:Tuple`, `:Enum`, `:Option`, `:Either`, `:Union`, `:Seq`, `:Set`, `:Map` | `:Tuple( ... )`, `:Enum [ ... ]`, `:Option( ... )`, `:Either( ... )`, `:Union( ... )`, `:Seq( ... )`, `:Set( ... )`, `:Map( ... )` | Parameterized sum, product, and collection type constructors |
 | **Standard Library Prelude Types** | `:org/stvnadore/prelude/` `[A-Za-z0-9_]+` | `:org/stvnadore/prelude/TimeEpoch`, `:org/stvnadore/prelude/DateTime`, `:org/stvnadore/prelude/Uuid`, `:org/stvnadore/prelude/Port` | Standard library domain types located under `:org/stvnadore/prelude/*` |
@@ -415,13 +415,13 @@ All `:include` directives inside a `:defs` block **must** be enclosed within squ
 ```stvn
 :defs {
   // Direct import
-  :include [ "network_primitives.stvn_inclf" ]
+  :include [ "network_primitives.stvn_d" ]
 
   // Import with atomic unary prefix strip (terminal segment slicing)
-  :include [ "types/network.stvn_incl" { #strip } ]
+  :include [ "types/network.stvn_di" { #strip } ]
 
   // Import with explicit namespace alias mapping block
-  :include [ "shared_models.stvn_incl" { :HostName :RemoteHost :Port :RemotePort } ]
+  :include [ "shared_models.stvn_di" { :HostName :RemoteHost :Port :RemotePort } ]
 }
 ```
 
@@ -450,7 +450,7 @@ A path-delimited identifier consists of a base keyword start token followed by o
 3. **Module Alias Compatibility:** Namespaced identifiers can be targeted by include alias blocks inside `:defs`:
    ```stvn
    :defs {
-     :include [ "networking.stvn_incl" { :net/http/Status :HttpStatus } ]
+     :include [ "networking.stvn_di" { :net/http/Status :HttpStatus } ]
    }
    ```
 
@@ -910,7 +910,7 @@ WHERE active = TRUE;
 ```
 
 ```stvn
-// CAS Content-Addressable Storage envelope with canonical SHA-256 digest tag
+// CAS Content-Addressable Storage envelope with canonical SHA-256 digest tag (.cas.stvn)
 :type :Tuple( :String :String )
 :body (
   "payload.stvn"
@@ -1278,9 +1278,38 @@ When `StvnSchemaHasher` calculates the SHA-256 CAS fingerprint of a schema:
 
 ## 10. Binary Format (`.stvn_b`) Wire Framing & Schema Governance
 
-The STVN binary stream (`.stvn_b`) begins with a mandatory 5-byte header frame:
+The STVN binary stream (`.stvn_b`, `.stvn_bd`) begins with a mandatory header frame:
 * **Bytes 0â€“3 (4 Bytes):** Magic identifier (`MAGIC_BYTES = 0x5354564E`, ASCII `"STVN"`).
 * **Byte 4 (1 Byte):** Codec Control Byte partitioned into a 1:3:4 bitwise layout.
+* **Byte 5+ (1 to 131 Bytes):** Document Metadata Frame (`:meta` encoding).
+
+### 10.1a Document Metadata Frame Architecture (Byte 5+)
+
+Byte 5 encodes document structural kind and presence flags for document identity identifiers:
+
+```
+ 7   6   5   4   3   2   1   0
++---+---+---+---+---+---+---+---+
+|   RESERVED    | D | N | KIND  |
++---+---+---+---+---+---+---+---+
+  |               |   |   |
+  |               |   |   +--> Bits 1..0 (0x03): KIND (0b00=#BODY, 0b01=#DEFS,
+  |               |   |                         0b10=#BODY_INCLUDE, 0b11=#DEFS_INCLUDE)
+  |               |   +------> Bit 2     (0x04): HAS_NAME   (1 = Present, 0 = Absent)
+  |               +----------> Bit 3     (0x08): HAS_DOMAIN (1 = Present, 0 = Absent)
+  +--------------------------> Bits 7..4 (0xF0): RESERVED   (Must be strictly 0b0000)
+```
+
+* **Bits 7..4 (`0xF0`): RESERVED.** Must be strictly `0b0000`. Any non-zero bit pattern triggers `StvnCorruptedBitPatternException`.
+* **Bit 3 (`0x08`): HAS_DOMAIN.** If `1`, `#domain` length and UTF-8 string follow `#name`. If `0`, consumes 0 bytes.
+* **Bit 2 (`0x04`): HAS_NAME.** If `1`, `#name` length and UTF-8 string follow Byte 5. If `0`, consumes 0 bytes.
+* **Bits 1..0 (`0x03`): KIND.** Encodes `StvnDocumentKind`: `0b00` = `#BODY`, `0b01` = `#DEFS`, `0b10` = `#BODY_INCLUDE`, `0b11` = `#DEFS_INCLUDE`.
+
+#### Identifier Length and Wire Encoding
+* Both `#name` and `#domain` strictly adhere to atomic POSIX identifier pattern `^[a-zA-Z0-9_-]{1,64}$`.
+* Length prefixes (`name_len: u8`, `domain_len: u8`) are single-byte unsigned integers ($1 \le \text{len} \le 64$).
+* Characters are single-byte ASCII.
+
 
 ### 10.1 Control Byte Bitwise Architecture (Byte 4)
 
@@ -1337,7 +1366,7 @@ Byte 4 separates CRC-32C trailer presence (`HAS_TRAILER_CRC32C`), wire layout fr
 | **`0x5`** | `UniversalVersion` | 4B int version | Matches schema via global sequential integer version. |
 | **`0x6`** | `ExplicitUuid` | 16B UUID value | Zero-Trust: Decoded UUID must match `hashSchema(schema)`. |
 | **`0x7`** | `ExplicitSha256` | 32B SHA-256 digest | Zero-Trust: Decoded digest must match `computeSha256(schema)`. Tampering throws `PoisonedRegistryPayloadException`. |
-| **`0x8`** | `SelfDescribingSchema` | 4B int len + UTF-8 string | Ephemeral Sandbox: Compiles inline `.stvn_inclf` schema in JVM memory. |
+| **`0x8`** | `SelfDescribingSchema` | 4B int len + UTF-8 string | Ephemeral Sandbox: Compiles inline `.stvn_d` schema in JVM memory. |
 | **`0x9`â€“`0xF`** | *Unmapped* | Undefined | Decoder immediately throws `StvnSerializationException`. |
 
 ### 10.4 Header Decoding & Strategy Dispatch Pipeline
@@ -1387,14 +1416,14 @@ graph TD
 
   %% 0x6: Zero-Trust UUID
   IdentDispatch -->|0x6| CB6["ReadA: 16 Bytes"]
-  CB6 --> Fetch6["Fetch .stvn_inclf Schema File<br>from Registry"]
+  CB6 --> Fetch6["Fetch .stvn_d Schema File<br>from Registry"]
   Fetch6 --> V6{"Does Downloaded Schema Hash<br>Match Header UUID?"}
   V6 -->|No| Ex6["Throw Verification Exception<br>(128-bit Collision / Mismatch)"]
   V6 -->|Yes| End
 
   %% 0x7: Zero-Trust SHA-256
   IdentDispatch -->|0x7| CB7["ReadA: 32 Bytes"]
-  CB7 --> Fetch7["Fetch .stvn_inclf Schema File<br>from Registry"]
+  CB7 --> Fetch7["Fetch .stvn_d Schema File<br>from Registry"]
   Fetch7 --> V7{"Does Canonically Serialized Schema<br>Match 32-Byte Header Hash?"}
   V7 -->|No| Ex7["Throw PoisonedRegistryPayloadException"]
   V7 -->|Yes| End
@@ -1403,7 +1432,7 @@ graph TD
   IdentDispatch -->|0x8| CB8["ReadA: 4 Bytes"]
   CB8 --> Len8["Interpret ReadA as Unsigned Int<br>(Payload Length)"]
   Len8 --> CB8_B["ReadB: Read Length + 1 Bytes"]
-  CB8_B --> Parse8["Convert ReadB to Unicode Literal<br>(Extract Inline .stvn_inclf)"]
+  CB8_B --> Parse8["Convert ReadB to Unicode Literal<br>(Extract Inline .stvn_d)"]
   Parse8 --> Guard8{"Enforce Memory Constraint:<br>Is Schema Strictly Ephemeral?"}
   Guard8 -->|No / Disk Write Attempt| Ex8["Block Process / Throw Security Exception"]
   Guard8 -->|Yes / JVM Memory Only| End
@@ -1858,7 +1887,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
 {
   // prelude_and_temporal.stvn
   :defs {
-    :include [ "org/stvnadore/prelude.stvn_incl" ]
+    :include [ "org/stvnadore/prelude.stvn_di" ]
 
     // Reference canonical prelude types
     :HostUuid   :org/stvnadore/prelude/Uuid
@@ -1970,20 +1999,20 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
 
 ```stvn
 {
-  // ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad.stvn_cas
+  // ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad.cas.stvn
   //   Used by the STVN Schema Repository
   //   cas = Content Addressable Storage
   //   Note how the contained STVN document is intentionally un-indented
   :defs {
     :SchemaName :String
-    :StvnInclf { #preserveIndent #TRUE } :String  // the full .stvn_inclf as a STVN containing STVN
+    :StvnDef { #preserveIndent #TRUE } :String  // the full .stvn_d as a STVN containing STVN
   }  
-  :type :Tuple(:SchemaName :StvnInclf)
+  :type :Tuple(:SchemaName :StvnDef)
   :body (
-    "example-schema.stvn_inclf"
+    "example-schema.stvn_d"
     """[SHA256-ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad]
 {
-  // example-schema.stvn_inclf
+  // example-schema.stvn_d
   :defs {
     :CustomAlias :String
   }
@@ -2037,9 +2066,9 @@ This appendix documents invalid syntax constructs from other data formats and hi
 // Diagnostic: E004
 // ----------------------------------------------------------------------------
 // INVALID: Missing outer brackets for :include directive.
-:include "file.stvn_inclf"                               // FATAL: Syntax error
+:include "file.stvn_d"                                   // FATAL: Syntax error
 // CORRECT: Bracketed directive list:
-:include [ "file.stvn_inclf" ]
+:include [ "file.stvn_d" ]
 
 // ----------------------------------------------------------------------------
 // TRAP 5: Tuple Payloads Using Square Brackets (ILLEGAL)
@@ -2228,7 +2257,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_UNKNOWN_TYPE` | `"ERR_UNKNOWN_TYPE"` | Fatal | Unqualified type reference is not found in document scope or prelude. |
 | `ERR_RESERVED_KEYWORD_ON_LHS` | `"ERR_RESERVED_KEYWORD_ON_LHS"` | Fatal | Reserved type keyword declared on left-hand side of type definition. |
 | `ERR_INTEGER_OVERFLOW` | `"ERR_INTEGER_OVERFLOW"` | Fatal | Integer literal exceeds capacity bounds of declared bit-width. |
-| `ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT` | `"ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT"` | Fatal | Include statement declared inside flat document (`.stvn_f` or `.stvn_inclf`). |
+| `ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT` | `"ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT"` | Fatal | Include statement declared inside flat document (`.stvn` or `.stvn_d`). |
 | `ERR_NESTED_PACKAGE_PROHIBITED` | `"ERR_NESTED_PACKAGE_PROHIBITED"` | Fatal | Package enclosure is illegally nested inside another package enclosure. |
 | `ERR_TRAILING_SLASH_PROHIBITED` | `"ERR_TRAILING_SLASH_PROHIBITED"` | Fatal | Module `:use` path specification contains trailing slash characters. |
 | `ERR_SUM_TYPE_COLLISION` | `"SUM_TYPE_TAG_COLLISION"` | Fatal | Algebraic sum type branches share duplicate tag identifiers. |
@@ -2752,7 +2781,7 @@ A local definition in `:defs` takes precedence over an imported raw identifier. 
 
 ```stvn
 {
-  // Module A: network_base.stvn_inclf
+  // Module A: network_base.stvn_d
   :defs {
     :Port { #minIncl 1 #maxIncl 1024 #unsigned #T #size 16 } :Int
   }
@@ -2763,9 +2792,9 @@ A local definition in `:defs` takes precedence over an imported raw identifier. 
 {
   // Main Document: local_override.stvn
   :defs {
-    :include [ "network_base.stvn_inclf" ]
+    :include [ "network_base.stvn_d" ]
 
-    // LOCAL DEFINITION: Evicts imported :Port from network_base.stvn_inclf
+    // LOCAL DEFINITION: Evicts imported :Port from network_base.stvn_d
     :Port { #minIncl 1025 #maxIncl 65535 #unsigned #T #size 16 } :Int
 
     :ServerConfig :Tuple( :Port )
@@ -2784,7 +2813,7 @@ Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` with
 
 ```stvn
 {
-  // Module A: dns_types.stvn_inclf
+  // Module A: dns_types.stvn_d
   :defs {
     :HostName { #maxSize 64 #regex "^[a-z.]+$" } :String
   }
@@ -2793,7 +2822,7 @@ Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` with
 
 ```stvn
 {
-  // Module B: system_types.stvn_inclf
+  // Module B: system_types.stvn_d
   :defs {
     :HostName { #minSize 16 #maxSize 16 #regex "^[A-Z0-9_-]+$" } :String
   }
@@ -2805,10 +2834,10 @@ Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` with
   // Main Document: asymmetric_mapping.stvn
   :defs {
     // Aliases dns_types.:HostName -> :RemoteHost
-    :include [ "dns_types.stvn_inclf" { :HostName :RemoteHost } ]
+    :include [ "dns_types.stvn_d" { :HostName :RemoteHost } ]
 
     // Imports system_types.:HostName raw into the active scope
-    :include [ "system_types.stvn_inclf" ]
+    :include [ "system_types.stvn_d" ]
 
     :NetworkRoute :Tuple( :RemoteHost :HostName )
   }
@@ -2829,7 +2858,7 @@ Module A and Module B both export `:Status`. The importing document aliases both
 
 ```stvn
 {
-  // Module A: network_status.stvn_inclf
+  // Module A: network_status.stvn_d
   :defs {
     :Status :Enum [ #CONNECTED #DISCONNECTED #CONNECTING ]
   }
@@ -2838,7 +2867,7 @@ Module A and Module B both export `:Status`. The importing document aliases both
 
 ```stvn
 {
-  // Module B: database_status.stvn_inclf
+  // Module B: database_status.stvn_d
   :defs {
     :Status :Enum [ #ONLINE #OFFLINE #READ_ONLY #FAILOVER ]
   }
@@ -2850,8 +2879,8 @@ Module A and Module B both export `:Status`. The importing document aliases both
   // Main Document: dual_alias.stvn
   :defs {
     // Both modules alias :Status to explicit local identifiers
-    :include [ "network_status.stvn_inclf"  { :Status :NetworkStatus } ]
-    :include [ "database_status.stvn_inclf" { :Status :DbStatus } ]
+    :include [ "network_status.stvn_d"  { :Status :NetworkStatus } ]
+    :include [ "database_status.stvn_d" { :Status :DbStatus } ]
 
     :SystemState :Tuple( :NetworkStatus :DbStatus )
   }
@@ -2875,7 +2904,7 @@ Two modules export the identical raw identifier `:Config` without alias mapping.
 
 ```stvn
 {
-  // Module A: app_config.stvn_inclf
+  // Module A: app_config.stvn_d
   :defs {
     :Config :Tuple( :String { #maxSize 128 } :Int { #unsigned #T #size 16 } )
   }
@@ -2884,7 +2913,7 @@ Two modules export the identical raw identifier `:Config` without alias mapping.
 
 ```stvn
 {
-  // Module B: db_config.stvn_inclf
+  // Module B: db_config.stvn_d
   :defs {
     :Config :Tuple( :String { #maxSize 256 } :String { #maxSize 64 } :Int { #unsigned #T #size 32 } )
   }
@@ -2895,8 +2924,8 @@ Two modules export the identical raw identifier `:Config` without alias mapping.
 {
   // Main Document: unmitigated_collision.stvn (FATAL REJECTION)
   :defs {
-    :include [ "app_config.stvn_inclf" ]
-    :include [ "db_config.stvn_inclf" ] // FATAL: Raw ':Config' collides with app_config ':Config'
+    :include [ "app_config.stvn_d" ]
+    :include [ "db_config.stvn_d" ] // FATAL: Raw ':Config' collides with app_config ':Config'
 
     :App :Tuple( :Config )
   } // <-- Gate Execution fails here: Throws E006 (NAMESPACE_COLLISION)
@@ -2916,10 +2945,10 @@ A file path string literal may appear in `:include` only once per `:defs` block.
 {
   // Main Document: duplicate_import.stvn (FATAL REJECTION)
   :defs {
-    :include [ "network_base.stvn_inclf" ]
-    // FATAL: "network_base.stvn_inclf" is already imported in this :defs block.
+    :include [ "network_base.stvn_d" ]
+    // FATAL: "network_base.stvn_d" is already imported in this :defs block.
     // Combining imports into a single include directive or alias map is mandatory.
-    :include [ "network_base.stvn_inclf" { :Port :AltPort } ]
+    :include [ "network_base.stvn_d" { :Port :AltPort } ]
   } // <-- Gate Execution fails: Throws E005 (DUPLICATE_MODULE_IMPORT)
 
   :type :Int { #unsigned #T #size 16 }
@@ -2935,7 +2964,7 @@ Hierarchical, slash-delimited type identifiers (for example, `:aws/s3/BucketName
 
 ```stvn
 {
-  // Module: cloud_services.stvn_inclf
+  // Module: cloud_services.stvn_d
   :defs {
     :aws/s3/BucketName     { #minSize 3 #maxSize 63 #regex "^[a-z0-9.-]{3,63}$" } :String
     :azure/blob/Container  { #minSize 3 #maxSize 63 #regex "^[a-z0-9-]{3,63}$" }  :String
@@ -2948,7 +2977,7 @@ Hierarchical, slash-delimited type identifiers (for example, `:aws/s3/BucketName
   // Main Document: path_aliasing.stvn
   :defs {
     // Consume AWS path identifier raw, alias Azure path identifier to flat local alias
-    :include [ "cloud_services.stvn_inclf" { :azure/blob/Container :AzureContainer } ]
+    :include [ "cloud_services.stvn_d" { :azure/blob/Container :AzureContainer } ]
 
     :StorageTargets :Tuple( :aws/s3/BucketName :AzureContainer )
   }

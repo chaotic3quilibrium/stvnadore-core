@@ -8,6 +8,8 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.ast.StvnDocument;
 import org.stvnadore.core.ast.StvnDocumentMeta;
+import org.stvnadore.core.binary.StvnBinaryDecoder;
+import org.stvnadore.core.binary.StvnBinaryDecoder.RootPointer;
 import org.stvnadore.core.ir.StvnIrVisitor;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.parser.StvnErrorListener;
@@ -15,6 +17,7 @@ import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -227,7 +230,99 @@ public final class StvnCompiler {
    * @since 2.0.0
    */
   public static StvnCompilationResult<StvnDocument> compile(Path path, StvnParserConfig config) throws IOException {
+    String fileName = path.getFileName().toString();
+    if (fileName.endsWith(".stvn_b") || fileName.endsWith(".stvn_bd")) {
+      byte[] bytes = Files.readAllBytes(path);
+      return compile(bytes, path.toString(), config);
+    }
     return compile(Files.readString(path), path.toString(), config);
+  }
+
+  /**
+   * Compiles an STVN binary byte array payload into a monadic compilation result.
+   *
+   * @param bytes   the raw STVN binary bytes
+   * @param docPath the optional URI or file path identifier
+   * @param config  the parser configuration
+   * @return the monadic compilation result enclosing the AST document and diagnostics
+   */
+  public static StvnCompilationResult<StvnDocument> compile(
+      byte[] bytes,
+      @Nullable String docPath,
+      StvnParserConfig config
+  ) {
+    Objects.requireNonNull(bytes, "bytes must not be null");
+    Objects.requireNonNull(config, "config must not be null");
+
+    var diagnosticBag = new org.stvnadore.core.validation.DiagnosticBag(config.maxDiagnostics());
+    try {
+      var buffer = ByteBuffer.wrap(bytes);
+      RootPointer root = StvnBinaryDecoder.open(buffer);
+      Optional<StvnDocumentMeta> meta = root.meta();
+
+      // Execute document identity validation against docPath
+      org.stvnadore.core.validation.StvnTypeResolver.validateBinaryDocumentIdentity(
+          meta.orElse(null), docPath, diagnosticBag);
+
+      Optional<StvnValue> payload = Optional.empty();
+      try {
+        StvnValue unpacked = StvnBinaryDecoder.unpack(root, Optional.empty());
+        payload = Optional.ofNullable(unpacked);
+      } catch (Throwable t) {
+        diagnosticBag.addError("Failed to unpack binary payload: " + t.getMessage(), 0, bytes.length, 1, 0, null, "MALFORMED_PAYLOAD");
+      }
+
+      var document = new StvnDocument(meta, payload, Optional.empty());
+      return diagnosticBag.hasErrors()
+          ? StvnCompilationResult.partial(document, diagnosticBag.toList())
+          : StvnCompilationResult.success(document, diagnosticBag.toList());
+    } catch (Throwable t) {
+      diagnosticBag.addError(t.getMessage() != null ? t.getMessage() : t.toString(), 0, bytes.length, 1, 0, t, "STVN_BINARY_INGRESS_ERROR");
+      return StvnCompilationResult.failure(diagnosticBag.toList());
+    }
+  }
+
+  /**
+   * Compiles an STVN binary ByteBuffer payload into a monadic compilation result.
+   *
+   * @param buffer  the raw STVN binary ByteBuffer
+   * @param docPath the optional URI or file path identifier
+   * @param config  the parser configuration
+   * @return the monadic compilation result enclosing the AST document and diagnostics
+   */
+  public static StvnCompilationResult<StvnDocument> compile(
+      ByteBuffer buffer,
+      @Nullable String docPath,
+      StvnParserConfig config
+  ) {
+    Objects.requireNonNull(buffer, "buffer must not be null");
+    Objects.requireNonNull(config, "config must not be null");
+
+    var diagnosticBag = new org.stvnadore.core.validation.DiagnosticBag(config.maxDiagnostics());
+    try {
+      RootPointer root = StvnBinaryDecoder.open(buffer);
+      Optional<StvnDocumentMeta> meta = root.meta();
+
+      // Execute document identity validation against docPath
+      org.stvnadore.core.validation.StvnTypeResolver.validateBinaryDocumentIdentity(
+          meta.orElse(null), docPath, diagnosticBag);
+
+      Optional<StvnValue> payload = Optional.empty();
+      try {
+        StvnValue unpacked = StvnBinaryDecoder.unpack(root, Optional.empty());
+        payload = Optional.ofNullable(unpacked);
+      } catch (Throwable t) {
+        diagnosticBag.addError("Failed to unpack binary payload: " + t.getMessage(), 0, buffer.remaining(), 1, 0, null, "MALFORMED_PAYLOAD");
+      }
+
+      var document = new StvnDocument(meta, payload, Optional.empty());
+      return diagnosticBag.hasErrors()
+          ? StvnCompilationResult.partial(document, diagnosticBag.toList())
+          : StvnCompilationResult.success(document, diagnosticBag.toList());
+    } catch (Throwable t) {
+      diagnosticBag.addError(t.getMessage() != null ? t.getMessage() : t.toString(), 0, buffer.remaining(), 1, 0, t, "STVN_BINARY_INGRESS_ERROR");
+      return StvnCompilationResult.failure(diagnosticBag.toList());
+    }
   }
 
   /**
@@ -405,6 +500,37 @@ public final class StvnCompiler {
       StvnParserConfig config
   ) {
     return compile(source, docPath, config);
+  }
+
+  /**
+   * Compiles an STVN binary payload with a document path identifier into a monadic {@link StvnCompilationResult}.
+   *
+   * @param bytes   the raw STVN binary bytes
+   * @param docPath the optional URI or file path identifier, or {@code null}
+   * @return the monadic compilation result
+   * @throws NullPointerException if {@code bytes} is {@code null}
+   * @since 2.0.0
+   */
+  public static StvnCompilationResult<StvnDocument> compileToResult(byte[] bytes, @Nullable String docPath) {
+    return compile(bytes, docPath, StvnParserConfig.DEFAULT);
+  }
+
+  /**
+   * Compiles an STVN binary payload with a document path and custom parser configuration into a monadic {@link StvnCompilationResult}.
+   *
+   * @param bytes   the raw STVN binary bytes
+   * @param docPath the optional URI or file path identifier, or {@code null}
+   * @param config  the parser configuration specifying diagnostics threshold and strictness
+   * @return the monadic compilation result
+   * @throws NullPointerException if {@code bytes} or {@code config} is {@code null}
+   * @since 2.0.0
+   */
+  public static StvnCompilationResult<StvnDocument> compileToResult(
+      byte[] bytes,
+      @Nullable String docPath,
+      StvnParserConfig config
+  ) {
+    return compile(bytes, docPath, config);
   }
 
   /**
