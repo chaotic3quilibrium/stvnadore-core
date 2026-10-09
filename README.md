@@ -287,7 +287,7 @@ STVN elevates date-time values into base primitive types `:DateTime` and `:TimeE
 ### 7. Zero-Copy Protocol Engine & High-Bit Masking
 
 * **9-Pathway Wire Negotiation**: Decodes payloads dynamically through 9 control-byte pathways using 1-based length prefixes.
-* **Header IANA Zone Dictionary Pool**: Deduplicates time zone strings in `.stvn_bin` headers into 16-bit indices (`zone_dict_id: u16`), enabling zero-allocation JSR-310 `ZoneId` lookups.
+* **Header IANA Zone Dictionary Pool**: Deduplicates time zone strings in `.stvn_b` headers into 16-bit indices (`zone_dict_id: u16`), enabling zero-allocation JSR-310 `ZoneId` lookups.
 * **Zero-Trust Hash Validation**: Verifies explicit UUID (`0x06`) and SHA-256 (`0x07`) headers against computed schema hashes before decoding payloads.
 
 ---

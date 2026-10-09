@@ -314,7 +314,7 @@ STVN supports arbitrary positive bit-widths ($n \ge 1$), eliminating hardware-co
 
 ### 4.2 Mathematical Bounds and High-Bit Mask Validation
 
-In binary encoding (`.stvn_bin`), $n$-bit integers occupy $B = \lceil n/8 \rceil$ bytes:
+In binary encoding (`.stvn_b`), $n$-bit integers occupy $B = \lceil n/8 \rceil$ bytes:
 
 $$\text{Containment Bytes } B = \lfloor (n + 7) / 8 \rfloor$$
 
