@@ -1,0 +1,41 @@
+{
+  :meta {
+    #name "bare_metadata_flags"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":IndentedBlock" ( "{#preserveIndent#TRUE}:String" ":IndentedBlock" ( #TRUE #TRUE ) ) ]
+      [ ":UnsignedPort" ( "{#unsigned#size16}:Int" ":UnsignedPort" ( #TRUE #TRUE ) ) ]
+      [ ":ExactCurrency" ( "{#exact}:Float" ":ExactCurrency" ( #TRUE #TRUE ) ) ]
+      [ ":BijectiveRegistry" ( "{#invertible}:Map(:String:Int)" ":BijectiveRegistry" ( #TRUE #FALSE ) ) ]
+      [ ":UtcTimestamp" ( "{#offset}:DateTime" ":UtcTimestamp" ( #TRUE #TRUE ) ) ]
+      [ ":JurisdictionTime" ( "{#zoned}:DateTime" ":JurisdictionTime" ( #TRUE #TRUE ) ) ]
+      [ ":AuditedEventTime" ( "{#audited}:DateTime" ":AuditedEventTime" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:IndentedBlock:UnsignedPort:ExactCurrency:BijectiveRegistry:UtcTimestamp:JurisdictionTime:AuditedEventTime)" "" ( #TRUE #FALSE ) ) ]
+    }
+    #11 [
+      #4 "      Indented block line 1\n        Indented block line 2\n    "
+      #2 ( 8080 16 #TRUE )
+      #3 199.99
+      #14 ( #TRUE [
+        (
+          #4 "alpha"
+          #2 ( 1 32 #FALSE )
+        )
+        (
+          #4 "beta"
+          #2 ( 2 32 #FALSE )
+        )
+      ] )
+      #4 "2026-09-21T17:30Z"
+      #4 "2026-09-21T17:30[America/Chicago]"
+      #4 "2026-09-21T17:30-05:00[America/Chicago]"
+    ]
+  )
+}

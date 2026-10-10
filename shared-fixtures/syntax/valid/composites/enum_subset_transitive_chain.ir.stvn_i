@@ -1,0 +1,21 @@
+{
+  :meta {
+    #name "enum_subset_transitive_chain"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":TaskStatus" ( ":Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]" ":TaskStatus" ( #TRUE #TRUE ) ) ]
+      [ ":ActiveStatus" ( ":Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]" ":ActiveStatus" ( #TRUE #TRUE ) ) ]
+      [ ":WorkableStatus" ( ":Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]" ":WorkableStatus" ( #TRUE #TRUE ) ) ]
+      [ ":ExecutionStatus" ( ":Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]" ":ExecutionStatus" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]" ":ExecutionStatus" ( #TRUE #TRUE ) ) ]
+    }
+    #5 ( "#IN_PROGRESS" 2 )
+  )
+}

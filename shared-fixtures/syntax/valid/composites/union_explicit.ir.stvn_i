@@ -1,0 +1,20 @@
+{
+  :meta {
+    #name "union_explicit"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":MyUnion" ( ":Union(:Int:String)" ":MyUnion" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Union(:Int:String)" ":MyUnion" ( #TRUE #TRUE ) ) ]
+    }
+    #10 ( 1
+      #2 ( 42 32 #FALSE )
+    )
+  )
+}

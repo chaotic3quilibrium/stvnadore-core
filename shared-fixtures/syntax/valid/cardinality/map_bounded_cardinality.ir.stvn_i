@@ -1,0 +1,27 @@
+{
+  :meta {
+    #name "map_bounded_cardinality"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":BoundedMap" ( "{#minSize1#maxSize10}:Map(:String:Int)" ":BoundedMap" ( #TRUE #FALSE ) ) ]
+      [ "<:type>" ( "{#minSize1#maxSize10}:Map(:String:Int)" ":BoundedMap" ( #TRUE #FALSE ) ) ]
+    }
+    #14 ( #FALSE [
+      (
+        #4 "host"
+        #2 ( 8080 32 #FALSE )
+      )
+      (
+        #4 "port"
+        #2 ( 9090 32 #FALSE )
+      )
+    ] )
+  )
+}

@@ -1,0 +1,27 @@
+{
+  :meta {
+    #name "transitive_canonicalization"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":org/stvnadore/finance/Transaction" ( ":Tuple(:Int:Float)" ":org/stvnadore/finance/Transaction" ( #FALSE #TRUE ) ) ]
+      [ ":org/stvnadore/finance/CreationTime" ( ":Int" ":org/stvnadore/finance/CreationTime" ( #TRUE #TRUE ) ) ]
+      [ ":A" ( ":String" ":A" ( #TRUE #TRUE ) ) ]
+      [ ":T" ( ":Tuple(:LocalTx:A)" ":T" ( #FALSE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:LocalTx:A)" ":T" ( #FALSE #TRUE ) ) ]
+    }
+    #11 [
+      #11 [
+        #2 ( 1001 32 #FALSE )
+        #3 49.99
+      ]
+      #4 "a"
+    ]
+  )
+}

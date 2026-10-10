@@ -1,0 +1,19 @@
+{
+  :meta {
+    #name "enum_subset_inclusive"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":Environment" ( ":Enum[#LOCAL#DEV#STAGING#CANARY#PROD]" ":Environment" ( #TRUE #TRUE ) ) ]
+      [ ":PreReleaseEnv" ( ":Enum[#LOCAL#DEV#STAGING#CANARY#PROD]" ":PreReleaseEnv" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Enum[#LOCAL#DEV#STAGING#CANARY#PROD]" ":PreReleaseEnv" ( #TRUE #TRUE ) ) ]
+    }
+    #5 ( "#STAGING" 2 )
+  )
+}

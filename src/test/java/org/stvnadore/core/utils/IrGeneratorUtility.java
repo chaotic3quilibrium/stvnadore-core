@@ -6,16 +6,16 @@ import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
-import org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints;
 import org.stvnadore.core.validation.StvnTypeResolver;
-import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.parser.StvnParser.StvnDocumentContext;
 
 /**
@@ -24,6 +24,7 @@ import org.stvnadore.core.parser.StvnParser.StvnDocumentContext;
 public final class IrGeneratorUtility {
 
   private static final Path FIXTURES_DIR = Paths.get("shared-fixtures/syntax/valid");
+  private static final Path SUBSTRATE_SCHEMA_PATH = Paths.get("shared-fixtures/syntax/valid/modules/stvn_ir_substrate.stvn_d");
   private static final boolean UPDATE_MODE = Boolean.getBoolean("updateSnapshots");
 
   private IrGeneratorUtility() {
@@ -35,7 +36,9 @@ public final class IrGeneratorUtility {
     int processedCount = 0;
 
     try (Stream<Path> paths = Files.walk(FIXTURES_DIR)) {
-      List<Path> files = paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i")).toList();
+      List<Path> files = paths.filter(Files::isRegularFile)
+          .filter(p -> (p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i")) && !p.getFileName().toString().endsWith(".ir.stvn_i"))
+          .toList();
       for (Path file : files) {
         processFixture(file);
         processedCount++;
@@ -56,12 +59,12 @@ public final class IrGeneratorUtility {
         .orElseThrow(() -> new IllegalStateException("Failed to extract payload from fixture: " + stvnFile));
     var meta = liveDoc.meta().orElse(null);
 
-    // Convert the IR to the standardized snapshot text format
-    String generatedSnapshot = serializeIr(irNode);
-
-    Path irSnapshotPath = stvnFile.resolveSibling(stvnFile.getFileName().toString() + "_ir");
     String baseName = stvnFile.getFileName().toString().replaceAll("\\.stvn(_i)?$", "");
+    Path irSnapshotPath = stvnFile.resolveSibling(baseName + ".ir.stvn_i");
     Path binSnapshotPath = stvnFile.resolveSibling(baseName + ".stvn_b");
+
+    String relativeSubstratePath = stvnFile.getParent().relativize(SUBSTRATE_SCHEMA_PATH).toString().replace('\\', '/');
+    String generatedSnapshot = serializeSnapshotDocument(baseName, relativeSubstratePath, irNode);
 
     if (UPDATE_MODE) {
       Files.writeString(irSnapshotPath, generatedSnapshot);
@@ -95,46 +98,39 @@ public final class IrGeneratorUtility {
   }
 
   /**
-   * Translates the StvnValue graph into our standardized Indented Symbolic Property Tree text format.
+   * Backward-compatible convenience serialization entry point.
    */
   public static String serializeIr(StvnValue value) {
-    StringBuilder sb = new StringBuilder();
-    StvnDocumentContext doc = findDocumentContext(value);
-    
-    // 1. Prepend TypeRegistry index
-    sb.append("TypeRegistry:\n");
-    if (doc != null && doc.documentBody() != null && doc.documentBody().defsEntry() != null) {
-      var defsEntry = doc.documentBody().defsEntry();
-      if (defsEntry.defsElement() != null) {
-        for (var de : defsEntry.defsElement()) {
-          if (de.typeDefinition() != null) {
-            String kw = de.typeDefinition().typeDefTarget().getText();
-            sb.append("  - ").append(kw).append("\n");
-            resolveNominalSchema(doc, kw).ifPresent(s -> serializeSchema(doc, s, 6, sb, true));
-          } else if (de.packageEnclosure() != null) {
-            var pkgPath = de.packageEnclosure().packagePath().getText();
-            if (de.packageEnclosure().packageElement() != null) {
-              for (var pe : de.packageEnclosure().packageElement()) {
-                if (pe.typeDefinition() != null) {
-                  String localName = pe.typeDefinition().typeDefTarget().getText().substring(1);
-                  String fqni = pkgPath + "/" + localName;
-                  sb.append("  - ").append(fqni).append("\n");
-                  resolveNominalSchema(doc, fqni).ifPresent(s -> serializeSchema(doc, s, 6, sb, true));
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    sb.append("  - <:type>\n");
-    if (value.schema() != null) {
-      serializeSchema(doc, value.schema(), 6, sb, true);
-    }
+    return serializeSnapshotDocument("snapshot", "stvn_ir_substrate.stvn_d", value);
+  }
 
-    // 2. Prepend ValuePayload block
-    sb.append("ValuePayload:\n");
-    serializeIrNode(doc, value, 2, 2, sb);
+  /**
+   * Translates the StvnValue graph and TypeRegistry into a valid STVN document adhering to stvn_ir_substrate.stvn_d.
+   */
+  public static String serializeSnapshotDocument(String baseName, String relativeSubstratePath, StvnValue rootValue) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("{\n");
+    sb.append("  :meta {\n");
+    sb.append("    #name \"").append(escapeString(baseName)).append("\"\n");
+    sb.append("    #domain \"ir\"\n");
+    sb.append("    #kind #BODY_INCLUDE\n");
+    sb.append("  }\n");
+    sb.append("  :defs {\n");
+    sb.append("    :include [ \"").append(escapeString(relativeSubstratePath)).append("\" { #strip } ]\n");
+    sb.append("  }\n");
+    sb.append("  :type :IrSnapshotDocument\n");
+    sb.append("  :body (\n");
+
+    // 1. TypeRegistry map
+    StvnDocumentContext doc = findDocumentContext(rootValue);
+    sb.append("    {\n");
+    serializeTypeRegistry(doc, rootValue, sb);
+    sb.append("    }\n");
+
+    // 2. Lowered IrValue coproduct
+    serializeIrValue(rootValue, 4, sb);
+    sb.append("\n  )\n");
+    sb.append("}\n");
     return sb.toString();
   }
 
@@ -171,356 +167,173 @@ public final class IrGeneratorUtility {
     });
   }
 
-  private static void serializeIrNode(StvnDocumentContext doc, StvnValue value, int firstLineIndent, int subsequentIndent, StringBuilder sb) {
-    // Check if the value is a primitive type to apply single-line inline serialization
+  private static void serializeTypeRegistry(StvnDocumentContext doc, StvnValue rootValue, StringBuilder sb) {
+    Set<String> seenKeys = new LinkedHashSet<>();
+    if (doc != null && doc.documentBody() != null && doc.documentBody().defsEntry() != null) {
+      var defsEntry = doc.documentBody().defsEntry();
+      if (defsEntry.defsElement() != null) {
+        for (var de : defsEntry.defsElement()) {
+          if (de.typeDefinition() != null) {
+            String kw = de.typeDefinition().typeDefTarget().getText();
+            if (seenKeys.add(kw)) {
+              var schemaOpt = resolveNominalSchema(doc, kw);
+              if (schemaOpt.isPresent()) {
+                emitRegistryEntry(kw, schemaOpt.get(), sb);
+              } else {
+                emitFallbackRegistryEntry(kw, sb);
+              }
+            }
+          } else if (de.packageEnclosure() != null) {
+            var pkgPath = de.packageEnclosure().packagePath().getText();
+            if (de.packageEnclosure().packageElement() != null) {
+              for (var pe : de.packageEnclosure().packageElement()) {
+                if (pe.typeDefinition() != null) {
+                  String localName = pe.typeDefinition().typeDefTarget().getText().substring(1);
+                  String fqni = pkgPath + "/" + localName;
+                  if (seenKeys.add(fqni)) {
+                    var schemaOpt = resolveNominalSchema(doc, fqni);
+                    if (schemaOpt.isPresent()) {
+                      emitRegistryEntry(fqni, schemaOpt.get(), sb);
+                    } else {
+                      emitFallbackRegistryEntry(fqni, sb);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    if (rootValue.schema() != null && seenKeys.add("<:type>")) {
+      emitRegistryEntry("<:type>", rootValue.schema(), sb);
+    }
+  }
+
+  private static void emitRegistryEntry(String key, ResolvedSchema schema, StringBuilder sb) {
+    String nodeText = schema.node() != null ? schema.node().getText() : ":Any";
+    String aliasText = schema.aliasName().orElse("");
+    boolean equatable = schema.constraints().equatable().orElse(true);
+    boolean comparable = schema.constraints().comparable().orElse(true);
+    sb.append("      [ \"").append(escapeString(key)).append("\" ( \"")
+      .append(escapeString(nodeText)).append("\" \"")
+      .append(escapeString(aliasText)).append("\" ( ")
+      .append(equatable ? "#TRUE" : "#FALSE").append(" ")
+      .append(comparable ? "#TRUE" : "#FALSE").append(" ) ) ]\n");
+  }
+
+  private static void emitFallbackRegistryEntry(String key, StringBuilder sb) {
+    sb.append("      [ \"").append(escapeString(key)).append("\" ( \":Any\" \"\" ( #TRUE #TRUE ) ) ]\n");
+  }
+
+  private static void serializeIrValue(StvnValue value, int indent, StringBuilder sb) {
+    String spaces = " ".repeat(indent);
     if (value instanceof StvnValue.StvnBoolean b) {
-      String typeOrAlias = b.schema() != null ? b.schema().aliasName().orElse(b.schema().node().getText()) : ":Boolean";
-      if (firstLineIndent >= 0) {
-        sb.append(" ".repeat(firstLineIndent));
-      }
-      sb.append("StvnBoolean(").append(typeOrAlias).append("): ").append(b.value()).append("\n");
+      sb.append(spaces).append("#1 ").append(b.value() ? "#TRUE" : "#FALSE");
     } else if (value instanceof StvnValue.StvnInteger i) {
-      String typeOrAlias = i.schema() != null ? i.schema().aliasName().orElse(i.schema().node().getText()) : ":Int32";
-      if (firstLineIndent >= 0) {
-        sb.append(" ".repeat(firstLineIndent));
-      }
-      sb.append("StvnInteger(").append(typeOrAlias).append("): ").append(i.value()).append("\n");
+      sb.append(spaces).append("#2 ( ").append(i.value()).append(" ")
+        .append(i.bitWidth()).append(" ")
+        .append(i.isUnsigned() ? "#TRUE" : "#FALSE").append(" )");
     } else if (value instanceof StvnValue.StvnFloat f) {
-      String typeOrAlias = f.schema() != null ? f.schema().aliasName().orElse(f.schema().node().getText()) : ":Float64";
-      if (firstLineIndent >= 0) {
-        sb.append(" ".repeat(firstLineIndent));
+      sb.append(spaces).append("#3 ");
+      if (f.isNaN()) {
+        sb.append("#NaN");
+      } else if (f.isPositiveInfinity()) {
+        sb.append("#+Infinity");
+      } else if (f.isNegativeInfinity()) {
+        sb.append("#-Infinity");
+      } else if (f.isNegativeZero()) {
+        sb.append("-0.0");
+      } else {
+        String s = f.value().toPlainString();
+        if (!s.contains(".")) {
+          s += ".0";
+        }
+        sb.append(s);
       }
-      sb.append("StvnFloat(").append(typeOrAlias).append("): ").append(f.value()).append("\n");
     } else if (value instanceof StvnValue.StvnString s) {
-      String typeOrAlias = s.schema() != null ? s.schema().aliasName().orElse(s.schema().node().getText()) : ":String";
-      if (firstLineIndent >= 0) {
-        sb.append(" ".repeat(firstLineIndent));
-      }
-      sb.append("StvnString(").append(typeOrAlias).append("): \"").append(escapeString(s.value())).append("\"\n");
-    } else if (value instanceof StvnValue.StvnTime t) {
-      String typeOrAlias = t.schema() != null ? t.schema().aliasName().orElse(t.schema().node().getText()) : ":Time";
-      if (firstLineIndent >= 0) {
-        sb.append(" ".repeat(firstLineIndent));
-      }
-      sb.append("StvnTime(").append(typeOrAlias).append("): ").append(t.value().toString()).append("\n");
-    } else if (value instanceof StvnValue.StvnDateTimeOffset dto) {
-      String typeOrAlias = dto.schema() != null ? dto.schema().aliasName().orElse(dto.schema().node().getText()) : ":DateTimeOffset";
-      if (firstLineIndent >= 0) {
-        sb.append(" ".repeat(firstLineIndent));
-      }
-      sb.append("StvnDateTimeOffset(").append(typeOrAlias).append("): ").append(dto.value().toString()).append("\n");
-    } else if (value instanceof StvnValue.StvnDateTimeZoned dtz) {
-      String typeOrAlias = dtz.schema() != null ? dtz.schema().aliasName().orElse(dtz.schema().node().getText()) : ":DateTimeZoned";
-      if (firstLineIndent >= 0) {
-        sb.append(" ".repeat(firstLineIndent));
-      }
-      sb.append("StvnDateTimeZoned(").append(typeOrAlias).append("): ").append(dtz.localDateTime().toString()).append("[").append(dtz.zoneId().getId()).append("]\n");
-    } else if (value instanceof StvnValue.StvnDateTimeAudited dta) {
-      String typeOrAlias = dta.schema() != null ? dta.schema().aliasName().orElse(dta.schema().node().getText()) : ":DateTimeAudited";
-      if (firstLineIndent >= 0) {
-        sb.append(" ".repeat(firstLineIndent));
-      }
-      sb.append("StvnDateTimeAudited(").append(typeOrAlias).append("): ").append(dta.offsetDateTime().toString()).append("[").append(dta.zoneId().getId()).append("]\n");
+      sb.append(spaces).append("#4 \"").append(escapeString(s.value())).append("\"");
     } else if (value instanceof StvnValue.StvnEnum e) {
-      String typeOrAlias = e.schema() != null ? e.schema().aliasName().orElse(e.schema().node().getText()) : ":Enum";
-      if (firstLineIndent >= 0) {
-        sb.append(" ".repeat(firstLineIndent));
+      sb.append(spaces).append("#5 ( \"").append(escapeString(e.keyword())).append("\" ").append(e.sequentialIndex()).append(" )");
+    } else if (value instanceof StvnValue.StvnOption opt) {
+      if (opt.isNone()) {
+        sb.append(spaces).append("#7 #NONE");
+      } else {
+        sb.append(spaces).append("#6 ( #SOME\n");
+        serializeIrValue(opt.value().get(), indent + 2, sb);
+        sb.append("\n").append(spaces).append(")");
       }
-      sb.append("StvnEnum(").append(typeOrAlias).append("): ").append(e.keyword()).append("\n");
-    } else {
-      // Container / composite types remain multi-line but omit schema serialization
-      if (firstLineIndent >= 0) {
-        sb.append(" ".repeat(firstLineIndent));
+    } else if (value instanceof StvnValue.StvnEither either) {
+      if (either.isRight()) {
+        sb.append(spaces).append("#9 ( #RIGHT\n");
+        serializeIrValue(either.value(), indent + 2, sb);
+        sb.append("\n").append(spaces).append(")");
+      } else {
+        sb.append(spaces).append("#8 ( #LEFT\n");
+        serializeIrValue(either.value(), indent + 2, sb);
+        sb.append("\n").append(spaces).append(")");
       }
-      sb.append(value.getClass().getSimpleName()).append("\n");
-      
-      if (value instanceof StvnValue.StvnSeq seq) {
-        if (seq.isNonEmpty()) {
-          sb.append(" ".repeat(subsequentIndent)).append("  isNonEmpty: true\n");
-        }
-        sb.append(" ".repeat(subsequentIndent)).append("  elements:\n");
-        for (StvnValue elem : seq.elements()) {
-          sb.append(" ".repeat(subsequentIndent)).append("    - ");
-          serializeIrNode(doc, elem, -1, subsequentIndent + 6, sb);
-        }
-      } else if (value instanceof StvnValue.StvnSet set) {
-        if (set.isNonEmpty()) {
-          sb.append(" ".repeat(subsequentIndent)).append("  isNonEmpty: true\n");
-        }
-        sb.append(" ".repeat(subsequentIndent)).append("  elements:\n");
-        for (StvnValue elem : set.elements()) {
-          sb.append(" ".repeat(subsequentIndent)).append("    - ");
-          serializeIrNode(doc, elem, -1, subsequentIndent + 6, sb);
-        }
-      } else if (value instanceof StvnValue.StvnTuple tuple) {
-        sb.append(" ".repeat(subsequentIndent)).append("  elements:\n");
-        for (StvnValue elem : tuple.elements()) {
-          sb.append(" ".repeat(subsequentIndent)).append("    - ");
-          serializeIrNode(doc, elem, -1, subsequentIndent + 6, sb);
-        }
-      } else if (value instanceof StvnValue.StvnMap map) {
-        if (map.isNonEmpty()) {
-          sb.append(" ".repeat(subsequentIndent)).append("  isNonEmpty: true\n");
-        }
-        if (map.isInvertible()) {
-          sb.append(" ".repeat(subsequentIndent)).append("  isInvertible: true\n");
-        }
-        sb.append(" ".repeat(subsequentIndent)).append("  entries:\n");
-        for (var entry : map.entries().entrySet()) {
-          sb.append(" ".repeat(subsequentIndent)).append("    - pair:\n");
-          sb.append(" ".repeat(subsequentIndent)).append("        key: ");
-          serializeIrNode(doc, entry.getKey(), -1, subsequentIndent + 13, sb);
-          sb.append(" ".repeat(subsequentIndent)).append("        value: ");
-          serializeIrNode(doc, entry.getValue(), -1, subsequentIndent + 15, sb);
-        }
-      } else if (value instanceof StvnValue.StvnOption opt) {
-        if (opt.isNone()) {
-          sb.append(" ".repeat(subsequentIndent)).append("  value: null\n");
-        } else {
-          sb.append(" ".repeat(subsequentIndent)).append("  value: ");
-          serializeIrNode(doc, opt.value().get(), -1, subsequentIndent + 9, sb);
-        }
-      } else if (value instanceof StvnValue.StvnEither either) {
-        sb.append(" ".repeat(subsequentIndent)).append("  isRight: ").append(either.isRight()).append("\n");
-        if (either.isAmbiguous()) {
-          sb.append(" ".repeat(subsequentIndent)).append("  isAmbiguous: true\n");
-        }
-        sb.append(" ".repeat(subsequentIndent)).append("  value: ");
-        serializeIrNode(doc, either.value(), -1, subsequentIndent + 9, sb);
-      } else if (value instanceof StvnValue.StvnUnion union) {
-        sb.append(" ".repeat(subsequentIndent)).append("  tagIndex: ").append(union.tagIndex()).append("\n");
-        sb.append(" ".repeat(subsequentIndent)).append("  value: ");
-        serializeIrNode(doc, union.value(), -1, subsequentIndent + 9, sb);
+    } else if (value instanceof StvnValue.StvnUnion union) {
+      sb.append(spaces).append("#10 ( ").append(union.tagIndex() + 1).append("\n");
+      serializeIrValue(union.value(), indent + 2, sb);
+      sb.append("\n").append(spaces).append(")");
+    } else if (value instanceof StvnValue.StvnTuple tuple) {
+      sb.append(spaces).append("#11 [");
+      for (StvnValue elem : tuple.elements()) {
+        sb.append("\n");
+        serializeIrValue(elem, indent + 2, sb);
       }
-    }
-  }
-
-  private static void serializeSchema(StvnDocumentContext doc, ResolvedSchema schema, int indent, StringBuilder sb, boolean isRegistry) {
-    String spaces = " ".repeat(indent);
-    sb.append(spaces).append("schema:\n");
-    sb.append(spaces).append("  node: ").append(schema.node().getText()).append("\n");
-    if (schema.aliasName().isPresent()) {
-      sb.append(spaces).append("  aliasName: ").append(schema.aliasName().get()).append("\n");
-    }
-    if (schema.implicitUnionTag().isPresent()) {
-      sb.append(spaces).append("  implicitUnionTag: ").append(schema.implicitUnionTag().get()).append("\n");
-    }
-    
-    serializeConstraints(doc, schema, indent + 2, sb, isRegistry);
-    
-    if (schema.underlyingSchema().isPresent()) {
-      sb.append(spaces).append("  underlyingSchema:\n");
-      ResolvedSchema underlying = schema.underlyingSchema().get();
-      sb.append(spaces).append("    node: ").append(underlying.node().getText()).append("\n");
-      if (underlying.aliasName().isPresent()) {
-        sb.append(spaces).append("    aliasName: ").append(underlying.aliasName().get()).append("\n");
+      if (!tuple.elements().isEmpty()) {
+        sb.append("\n").append(spaces);
       }
-    }
-  }
-
-  private static boolean isConstraintDefinedInLocal(StvnConstraints local, String name) {
-    if (local == null) return false;
-    switch (name) {
-      case "minIncl": return local.minIncl().isPresent();
-      case "minExcl": return local.minExcl().isPresent();
-      case "maxIncl": return local.maxIncl().isPresent();
-      case "maxExcl": return local.maxExcl().isPresent();
-      case "regex": return local.regex().isPresent();
-      case "preserveIndent": return local.preserveIndent();
-      case "equatable": return local.equatable().isPresent();
-      case "comparable": return local.comparable().isPresent();
-      default: return false;
-    }
-  }
-
-  private static boolean isConstraintActive(StvnConstraints cons, String name) {
-    if (cons == null) return false;
-    switch (name) {
-      case "minIncl": return cons.minIncl().isPresent();
-      case "minExcl": return cons.minExcl().isPresent();
-      case "maxIncl": return cons.maxIncl().isPresent();
-      case "maxExcl": return cons.maxExcl().isPresent();
-      case "regex": return cons.regex().isPresent();
-      case "preserveIndent": return cons.preserveIndent();
-      case "equatable": return cons.equatable().isPresent();
-      case "comparable": return cons.comparable().isPresent();
-      default: return false;
-    }
-  }
-
-  private static Optional<String> getDerivedProvenance(StvnDocumentContext doc, ResolvedSchema schema, String traitName) {
-    if (doc == null || schema == null || schema.node() == null) {
-      return Optional.empty();
-    }
-    String baseText = StvnTypeResolver.getPrimitiveBaseType(schema.node());
-    if (baseText == null) return Optional.empty();
-
-    boolean isSeq = baseText.equals(StvnVocabulary.TYPE_SEQ);
-    boolean isSet = baseText.equals(StvnVocabulary.TYPE_SET);
-    boolean isMap = baseText.equals(StvnVocabulary.TYPE_MAP);
-
-    if (traitName.equals("comparable")) {
-      if (isSeq || baseText.equals(":Option") ||
-          baseText.equals(":Tuple") || baseText.equals(":Union") ||
-          baseText.equals(":Either")) {
-        List<org.stvnadore.core.parser.StvnParser.SchemaTypeContext> inner = StvnTypeResolver.getInnerSchemas(schema.node());
-        for (var childNode : inner) {
-          var childSchemaOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, childNode, new java.util.HashSet<>());
-          if (childSchemaOpt.isPresent()) {
-            var childSchema = childSchemaOpt.get();
-            if (childSchema.constraints().comparable().orElse(true) == false) {
-              String elemName = childSchema.aliasName().orElse(childSchema.node().getText());
-              return Optional.of("(derived from " + elemName + ")");
-            }
-          }
-        }
+      sb.append("]");
+    } else if (value instanceof StvnValue.StvnSeq seq) {
+      sb.append(spaces).append("#12 ( ").append(seq.isNonEmpty() ? "#TRUE" : "#FALSE").append(" [");
+      for (StvnValue elem : seq.elements()) {
+        sb.append("\n");
+        serializeIrValue(elem, indent + 2, sb);
       }
-    } else if (traitName.equals("equatable")) {
-      if (isSeq || isSet || baseText.equals(":Option") ||
-          baseText.equals(":Tuple") || baseText.equals(":Union") ||
-          baseText.equals(":Either") || isMap) {
-        List<org.stvnadore.core.parser.StvnParser.SchemaTypeContext> inner = StvnTypeResolver.getInnerSchemas(schema.node());
-        for (var childNode : inner) {
-          var childSchemaOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, childNode, new java.util.HashSet<>());
-          if (childSchemaOpt.isPresent()) {
-            var childSchema = childSchemaOpt.get();
-            if (childSchema.constraints().equatable().orElse(true) == false) {
-              String elemName = childSchema.aliasName().orElse(childSchema.node().getText());
-              return Optional.of("(derived from " + elemName + ")");
-            }
-          }
-        }
+      if (!seq.elements().isEmpty()) {
+        sb.append("\n").append(spaces);
       }
-    }
-    return Optional.empty();
-  }
-
-  private static String getProvenance(
-      StvnDocumentContext doc,
-      ResolvedSchema schema,
-      String name,
-      boolean isRegistry,
-      Optional<Object> valueOpt
-  ) {
-    if (valueOpt.isPresent() && (name.equals("comparable") || name.equals("equatable"))) {
-      boolean val = (Boolean) valueOpt.get();
-      if (!val) {
-        var derived = getDerivedProvenance(doc, schema, name);
-        if (derived.isPresent()) {
-          return derived.get();
-        }
+      sb.append("] )");
+    } else if (value instanceof StvnValue.StvnSet set) {
+      sb.append(spaces).append("#13 [");
+      for (StvnValue elem : set.elements()) {
+        sb.append("\n");
+        serializeIrValue(elem, indent + 2, sb);
       }
-    }
-
-    if (isRegistry) {
-      ResolvedSchema curr = schema;
-      int idx = 0;
-      ResolvedSchema matchSchema = null;
-      int matchIdx = -1;
-      while (curr != null) {
-        if (curr.localConstraints().isPresent() && isConstraintDefinedInLocal(curr.localConstraints().get(), name)) {
-          matchSchema = curr;
-          matchIdx = idx;
-          break;
-        }
-        curr = curr.underlyingSchema().orElse(null);
-        idx++;
+      if (!set.elements().isEmpty()) {
+        sb.append("\n").append(spaces);
       }
-
-      if (matchSchema != null) {
-        if (matchIdx == 0) {
-          boolean mutates = false;
-          if (schema.underlyingSchema().isPresent()) {
-            var parentCons = schema.underlyingSchema().get().constraints();
-            if (isConstraintActive(parentCons, name)) {
-              mutates = true;
-            }
-          }
-          if (name.equals("comparable") || name.equals("equatable")) {
-            mutates = true;
-          }
-          return mutates ? "(explicit override)" : "(explicit)";
-        } else {
-          if (matchSchema.aliasName().isPresent()) {
-            return "(inherited from " + matchSchema.aliasName().get() + ")";
-          }
-        }
+      sb.append("]");
+    } else if (value instanceof StvnValue.StvnMap map) {
+      sb.append(spaces).append("#14 ( ").append(map.isInvertible() ? "#TRUE" : "#FALSE").append(" [");
+      for (var entry : map.entries().entrySet()) {
+        sb.append("\n").append(spaces).append("  (\n");
+        serializeIrValue(entry.getKey(), indent + 4, sb);
+        sb.append("\n");
+        serializeIrValue(entry.getValue(), indent + 4, sb);
+        sb.append("\n").append(spaces).append("  )");
       }
-      return "(default)";
-    } else {
-      if (schema != null && schema.aliasName().isPresent()) {
-        ResolvedSchema curr = schema;
-        boolean definedInChain = false;
-        while (curr != null) {
-          if (curr.localConstraints().isPresent() && isConstraintDefinedInLocal(curr.localConstraints().get(), name)) {
-            definedInChain = true;
-            break;
-          }
-          curr = curr.underlyingSchema().orElse(null);
-        }
-        if (definedInChain) {
-          return "(inherited from " + schema.aliasName().get() + ")";
-        }
+      if (!map.entries().isEmpty()) {
+        sb.append("\n").append(spaces);
       }
-      return "(default)";
-    }
-  }
-
-  private static void serializeConstraints(StvnDocumentContext doc, ResolvedSchema schema, int indent, StringBuilder sb, boolean isRegistry) {
-    String spaces = " ".repeat(indent);
-    StvnConstraints constraints = schema.constraints();
-    boolean hasConstraints = constraints.minIncl().isPresent()
-        || constraints.minExcl().isPresent()
-        || constraints.maxIncl().isPresent()
-        || constraints.maxExcl().isPresent()
-        || constraints.regex().isPresent()
-        || constraints.preserveIndent()
-        || constraints.equatable().isPresent()
-        || constraints.comparable().isPresent();
-        
-    if (!hasConstraints) {
-      return;
-    }
-    
-    sb.append(spaces).append("constraints:\n");
-    if (constraints.preserveIndent()) {
-      String prov = getProvenance(doc, schema, "preserveIndent", isRegistry, Optional.of(true));
-      sb.append(spaces).append("  preserveIndent: true ").append(prov).append("\n");
-    }
-    if (constraints.equatable().isPresent()) {
-      boolean val = constraints.equatable().get();
-      String prov = getProvenance(doc, schema, "equatable", isRegistry, Optional.of(val));
-      sb.append(spaces).append("  equatable: ").append(val).append(" ").append(prov).append("\n");
-    }
-    if (constraints.comparable().isPresent()) {
-      boolean val = constraints.comparable().get();
-      String prov = getProvenance(doc, schema, "comparable", isRegistry, Optional.of(val));
-      sb.append(spaces).append("  comparable: ").append(val).append(" ").append(prov).append("\n");
-    }
-    if (constraints.minIncl().isPresent()) {
-      BigDecimal val = constraints.minIncl().get();
-      String prov = getProvenance(doc, schema, "minIncl", isRegistry, Optional.empty());
-      sb.append(spaces).append("  minIncl: ").append(val).append(" ").append(prov).append("\n");
-    }
-    if (constraints.minExcl().isPresent()) {
-      BigDecimal val = constraints.minExcl().get();
-      String prov = getProvenance(doc, schema, "minExcl", isRegistry, Optional.empty());
-      sb.append(spaces).append("  minExcl: ").append(val).append(" ").append(prov).append("\n");
-    }
-    if (constraints.maxIncl().isPresent()) {
-      BigDecimal val = constraints.maxIncl().get();
-      String prov = getProvenance(doc, schema, "maxIncl", isRegistry, Optional.empty());
-      sb.append(spaces).append("  maxIncl: ").append(val).append(" ").append(prov).append("\n");
-    }
-    if (constraints.maxExcl().isPresent()) {
-      BigDecimal val = constraints.maxExcl().get();
-      String prov = getProvenance(doc, schema, "maxExcl", isRegistry, Optional.empty());
-      sb.append(spaces).append("  maxExcl: ").append(val).append(" ").append(prov).append("\n");
-    }
-    if (constraints.regex().isPresent()) {
-      String val = constraints.regex().get();
-      String prov = getProvenance(doc, schema, "regex", isRegistry, Optional.empty());
-      sb.append(spaces).append("  regex: \"").append(escapeString(val)).append("\" ").append(prov).append("\n");
+      sb.append("] )");
+    } else if (value instanceof StvnValue.StvnTime t) {
+      if (t.value() instanceof BigInteger bi) {
+        sb.append(spaces).append("#2 ( ").append(bi).append(" 64 #FALSE )");
+      } else {
+        sb.append(spaces).append("#4 \"").append(escapeString(t.value().toString())).append("\"");
+      }
+    } else if (value instanceof StvnValue.StvnDateTimeOffset dto) {
+      sb.append(spaces).append("#4 \"").append(escapeString(dto.value().toString())).append("\"");
+    } else if (value instanceof StvnValue.StvnDateTimeZoned dtz) {
+      sb.append(spaces).append("#4 \"").append(escapeString(dtz.localDateTime().toString() + "[" + dtz.zoneId().getId() + "]")).append("\"");
+    } else if (value instanceof StvnValue.StvnDateTimeAudited dta) {
+      sb.append(spaces).append("#4 \"").append(escapeString(dta.offsetDateTime().toString() + "[" + dta.zoneId().getId() + "]")).append("\"");
+    } else if (value != null) {
+      sb.append(spaces).append("#4 \"").append(escapeString(value.toString())).append("\"");
     }
   }
 
@@ -532,6 +345,6 @@ public final class IrGeneratorUtility {
             .replace("\"", "\\\"")
             .replace("\n", "\\n")
             .replace("\r", "\\r")
-            .replace("\t", "\\t");
+            .replace("\t", "    ");
   }
 }

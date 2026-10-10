@@ -1,0 +1,40 @@
+{
+  :meta {
+    #name "crc32c_trailer_valid"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":Environment" ( ":Enum[#LOCAL#DEV#STAGING#CANARY#PROD]" ":Environment" ( #TRUE #TRUE ) ) ]
+      [ ":DeployEnv" ( ":Enum[#LOCAL#DEV#STAGING#CANARY#PROD]" ":DeployEnv" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:Int:Float:String:Boolean:Seq(:String):Map(:String:Int):DeployEnv)" "" ( #FALSE #FALSE ) ) ]
+    }
+    #11 [
+      #2 ( 42 32 #FALSE )
+      #3 3.141592653589793
+      #4 "STVN Protocol Engine"
+      #1 #TRUE
+      #12 ( #FALSE [
+        #4 "Alpha"
+        #4 "Beta"
+        #4 "Gamma"
+      ] )
+      #14 ( #FALSE [
+        (
+          #4 "timeout_ms"
+          #2 ( 5000 32 #FALSE )
+        )
+        (
+          #4 "retry_limit"
+          #2 ( 3 32 #FALSE )
+        )
+      ] )
+      #5 ( "#STAGING" 2 )
+    ]
+  )
+}

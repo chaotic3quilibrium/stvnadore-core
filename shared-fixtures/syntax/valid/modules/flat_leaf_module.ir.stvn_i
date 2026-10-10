@@ -1,0 +1,23 @@
+{
+  :meta {
+    #name "flat_leaf_module"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":NetworkConfig" ( ":Tuple(:HostName:Port:Protocol:BitFlag)" ":NetworkConfig" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:HostName:Port:Protocol:BitFlag)" ":NetworkConfig" ( #TRUE #TRUE ) ) ]
+    }
+    #11 [
+      #4 "gateway.internal"
+      #2 ( 8443 16 #TRUE )
+      #5 ( "#HTTPS" 1 )
+      #2 ( 1 1 #TRUE )
+    ]
+  )
+}

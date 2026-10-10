@@ -1,0 +1,69 @@
+{
+  :meta {
+    #name "canonical_scalars"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":IntBit1" ( "{#size1}:Int" ":IntBit1" ( #TRUE #TRUE ) ) ]
+      [ ":IntBit7" ( "{#size7}:Int" ":IntBit7" ( #TRUE #TRUE ) ) ]
+      [ ":IntBit24" ( "{#size24}:Int" ":IntBit24" ( #TRUE #TRUE ) ) ]
+      [ ":IntBit64" ( "{#size64}:Int" ":IntBit64" ( #TRUE #TRUE ) ) ]
+      [ ":IntBit128" ( "{#size128}:Int" ":IntBit128" ( #TRUE #TRUE ) ) ]
+      [ ":DefaultSigned" ( ":Int" ":DefaultSigned" ( #TRUE #TRUE ) ) ]
+      [ ":UintBit1" ( "{#unsigned#size1}:Int" ":UintBit1" ( #TRUE #TRUE ) ) ]
+      [ ":UintBit3" ( "{#unsigned#size3}:Int" ":UintBit3" ( #TRUE #TRUE ) ) ]
+      [ ":UintBit49" ( "{#unsigned#size49}:Int" ":UintBit49" ( #TRUE #TRUE ) ) ]
+      [ ":UintBit64" ( "{#unsigned#size64}:Int" ":UintBit64" ( #TRUE #TRUE ) ) ]
+      [ ":UintBit128" ( "{#unsigned#size128}:Int" ":UintBit128" ( #TRUE #TRUE ) ) ]
+      [ ":DefaultUnsigned" ( "{#unsigned}:Int" ":DefaultUnsigned" ( #TRUE #TRUE ) ) ]
+      [ ":DefaultFloat" ( ":Float" ":DefaultFloat" ( #FALSE #TRUE ) ) ]
+      [ ":SingleFloat" ( "{#size32}:Float" ":SingleFloat" ( #FALSE #TRUE ) ) ]
+      [ ":DoubleFloat" ( "{#size64}:Float" ":DoubleFloat" ( #FALSE #TRUE ) ) ]
+      [ ":FinancialValue" ( "{#exact}:Float" ":FinancialValue" ( #TRUE #TRUE ) ) ]
+      [ ":UnboundedText" ( ":String" ":UnboundedText" ( #TRUE #TRUE ) ) ]
+      [ ":BoundedText" ( "{#maxSize64}:String" ":BoundedText" ( #TRUE #TRUE ) ) ]
+      [ ":BoundedText4k" ( "{#maxSize4096}:String" ":BoundedText4k" ( #TRUE #TRUE ) ) ]
+      [ ":MaxCapacityText" ( "{#maxSize16777216}:String" ":MaxCapacityText" ( #TRUE #TRUE ) ) ]
+      [ ":ExtendedCapacityText" ( "{#maxSize33554432}:String" ":ExtendedCapacityText" ( #TRUE #TRUE ) ) ]
+      [ ":MandatoryText" ( "{#minSize1#maxSize128}:String" ":MandatoryText" ( #TRUE #TRUE ) ) ]
+      [ ":ExactKeyText" ( "{#minSize16#maxSize16}:String" ":ExactKeyText" ( #TRUE #TRUE ) ) ]
+      [ ":FlagState" ( ":Boolean" ":FlagState" ( #TRUE #TRUE ) ) ]
+      [ ":ServerState" ( ":Enum[#INITIALIZING#ACTIVE#DEGRADED#OFFLINE]" ":ServerState" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:IntBit1:IntBit7:IntBit24:IntBit64:IntBit128:DefaultSigned:UintBit1:UintBit3:UintBit49:UintBit64:UintBit128:DefaultUnsigned:DefaultFloat:SingleFloat:DoubleFloat:FinancialValue:UnboundedText:BoundedText:BoundedText4k:MaxCapacityText:ExtendedCapacityText:MandatoryText:ExactKeyText:FlagState:FlagState:ServerState)" "" ( #FALSE #TRUE ) ) ]
+    }
+    #11 [
+      #2 ( 0 1 #FALSE )
+      #2 ( -64 7 #FALSE )
+      #2 ( -8388600 24 #FALSE )
+      #2 ( -9223372036854775808 64 #FALSE )
+      #2 ( -170141183460469231731687303715884105728 128 #FALSE )
+      #2 ( -2147483648 32 #FALSE )
+      #2 ( 1 1 #TRUE )
+      #2 ( 7 3 #TRUE )
+      #2 ( 500000000000000 49 #TRUE )
+      #2 ( 18446744073709551615 64 #TRUE )
+      #2 ( 340282366920938463463374607431768211455 128 #TRUE )
+      #2 ( 4294967295 32 #TRUE )
+      #3 3.141592653589793
+      #3 1.5
+      #3 -0.00000001
+      #3 12450.75
+      #4 "Standard text without manual character limits"
+      #4 "1234567890123456789012345678901234567890123456789012345678901234"
+      #4 "Text bounded by default inspection threshold of 4096 characters"
+      #4 "Text bounded by default allocation limit of 16777216 characters"
+      #4 "Text with explicit nominal dimension larger than 16 MiB (33554432 characters)"
+      #4 "Text requiring at least 1 character and at most 128"
+      #4 "1234567890abcdef"
+      #1 #TRUE
+      #1 #FALSE
+      #5 ( "#ACTIVE" 1 )
+    ]
+  )
+}

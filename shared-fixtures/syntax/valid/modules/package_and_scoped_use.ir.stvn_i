@@ -1,0 +1,23 @@
+{
+  :meta {
+    #name "package_and_scoped_use"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":org/example/network/Port" ( "{#unsigned#size16}:Int" ":org/example/network/Port" ( #TRUE #TRUE ) ) ]
+      [ ":org/example/network/HostName" ( "{#minSize1}:String" ":org/example/network/HostName" ( #TRUE #TRUE ) ) ]
+      [ ":org/example/service/ServiceConfig" ( ":Tuple(:HostName:Port)" ":org/example/service/ServiceConfig" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:HostName:Port)" ":org/example/service/ServiceConfig" ( #TRUE #TRUE ) ) ]
+    }
+    #11 [
+      #4 "api.internal"
+      #2 ( 8080 16 #TRUE )
+    ]
+  )
+}

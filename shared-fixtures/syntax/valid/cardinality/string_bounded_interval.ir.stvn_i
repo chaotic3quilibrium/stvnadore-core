@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "string_bounded_interval"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":BoundedText" ( "{#minSize1#maxSize64}:String" ":BoundedText" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#minSize1#maxSize64}:String" ":BoundedText" ( #TRUE #TRUE ) ) ]
+    }
+    #4 "A compliant payload within interval"
+  )
+}

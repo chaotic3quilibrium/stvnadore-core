@@ -1,0 +1,22 @@
+{
+  :meta {
+    #name "fenced_string_nested"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":SchemaName" ( ":String" ":SchemaName" ( #TRUE #TRUE ) ) ]
+      [ ":StvnInclf" ( "{#preserveIndent#TRUE}:String" ":StvnInclf" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:SchemaName:StvnInclf)" "" ( #TRUE #TRUE ) ) ]
+    }
+    #11 [
+      #4 "schemaName"
+      #4 "{\n  :defs {\n    :CustomAlias :String\n  }\n}\n    "
+    ]
+  )
+}

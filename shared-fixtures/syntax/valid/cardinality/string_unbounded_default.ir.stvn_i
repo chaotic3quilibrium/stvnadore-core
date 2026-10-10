@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "string_unbounded_default"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":UnboundedText" ( ":String" ":UnboundedText" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":String" ":UnboundedText" ( #TRUE #TRUE ) ) ]
+    }
+    #4 "Standard string payload subject to default 16 MiB allocation capacity limit"
+  )
+}

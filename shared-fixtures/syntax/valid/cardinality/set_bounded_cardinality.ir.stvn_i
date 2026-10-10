@@ -1,0 +1,22 @@
+{
+  :meta {
+    #name "set_bounded_cardinality"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":BoundedSet" ( "{#minSize2#maxSize5}:Set(:String)" ":BoundedSet" ( #TRUE #FALSE ) ) ]
+      [ "<:type>" ( "{#minSize2#maxSize5}:Set(:String)" ":BoundedSet" ( #TRUE #FALSE ) ) ]
+    }
+    #13 [
+      #4 "Alpha"
+      #4 "Beta"
+      #4 "Gamma"
+    ]
+  )
+}

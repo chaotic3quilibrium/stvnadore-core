@@ -1,0 +1,54 @@
+{
+  :meta {
+    #name "prelude_and_temporal"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":EpochSeconds" ( "{#s}:TimeEpoch" ":EpochSeconds" ( #TRUE #TRUE ) ) ]
+      [ ":EpochMillis" ( "{#ms}:TimeEpoch" ":EpochMillis" ( #TRUE #TRUE ) ) ]
+      [ ":EpochNanos" ( "{#ns}:TimeEpoch" ":EpochNanos" ( #TRUE #TRUE ) ) ]
+      [ ":OffsetDateTime" ( "{#offset}:DateTime" ":OffsetDateTime" ( #TRUE #TRUE ) ) ]
+      [ ":ZonedDateTime" ( "{#zoned}:DateTime" ":ZonedDateTime" ( #TRUE #TRUE ) ) ]
+      [ ":AuditedDateTime" ( "{#audited}:DateTime" ":AuditedDateTime" ( #TRUE #TRUE ) ) ]
+      [ ":IdUuid" ( "{#minSize36#maxSize36#regex\"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$\"}:String" ":IdUuid" ( #TRUE #TRUE ) ) ]
+      [ ":IdUlid" ( "{#minSize26#maxSize26#regex\"^[0-7][0-9A-HJKMNP-TV-Z]{25}$\"}:String" ":IdUlid" ( #TRUE #TRUE ) ) ]
+      [ ":HashSha256" ( "{#minSize64#maxSize64#regex\"^[0-9a-fA-F]{64}$\"}:String" ":HashSha256" ( #TRUE #TRUE ) ) ]
+      [ ":VersionSemVer" ( "{#minSize5#maxSize128#regex\"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$\"}:String" ":VersionSemVer" ( #TRUE #TRUE ) ) ]
+      [ ":ContactEmail" ( "{#minSize3#maxSize254#regex\"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$\"}:String" ":ContactEmail" ( #TRUE #TRUE ) ) ]
+      [ ":NetworkIPv4" ( "{#minSize7#maxSize15#regex\"^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$\"}:String" ":NetworkIPv4" ( #TRUE #TRUE ) ) ]
+      [ ":NetworkPort" ( "{#unsigned#size16#minIncl1#maxExcl65536}:Int" ":NetworkPort" ( #TRUE #TRUE ) ) ]
+      [ ":RatioPercent" ( "{#size64#minIncl0.0#maxIncl100.0}:Float" ":RatioPercent" ( #FALSE #TRUE ) ) ]
+      [ ":RatioProb" ( "{#size64#minIncl0.0#maxIncl1.0}:Float" ":RatioProb" ( #FALSE #TRUE ) ) ]
+      [ ":MoneyAmount" ( "{#exact}:Float" ":MoneyAmount" ( #TRUE #TRUE ) ) ]
+      [ ":GeoLat" ( "{#size64#minIncl-90.0#maxIncl90.0}:Float" ":GeoLat" ( #FALSE #TRUE ) ) ]
+      [ ":GeoLon" ( "{#size64#minIncl-180.0#maxIncl180.0}:Float" ":GeoLon" ( #FALSE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:EpochSeconds:EpochMillis:EpochNanos:OffsetDateTime:ZonedDateTime:AuditedDateTime:IdUuid:IdUlid:HashSha256:VersionSemVer:ContactEmail:NetworkIPv4:NetworkPort:RatioPercent:RatioProb:MoneyAmount:GeoLat:GeoLon)" "" ( #FALSE #TRUE ) ) ]
+    }
+    #11 [
+      #2 ( 1773532800 64 #FALSE )
+      #2 ( 1773532800000 64 #FALSE )
+      #2 ( 1773532800000000000 64 #FALSE )
+      #4 "2026-03-15T08:00-05:00"
+      #4 "2026-03-15T08:00[America/Chicago]"
+      #4 "2026-03-15T08:00-05:00[America/Chicago]"
+      #4 "123e4567-e89b-12d3-a456-426614174000"
+      #4 "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+      #4 "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      #4 "1.2.3-beta.1"
+      #4 "developer@example.com"
+      #4 "192.168.1.1"
+      #2 ( 8443 16 #TRUE )
+      #3 99.95
+      #3 0.85
+      #3 149.99
+      #3 32.7767
+      #3 -96.7970
+    ]
+  )
+}

@@ -1,0 +1,22 @@
+{
+  :meta {
+    #name "include_legal"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ "<:type>" ( ":Tuple(:TypeA:TypeB:ConflictType:ConflictTypeB)" "" ( #TRUE #TRUE ) ) ]
+    }
+    #11 [
+      #2 ( 42 32 #FALSE )
+      #4 "hello"
+      #2 ( 100 32 #FALSE )
+      #4 "world"
+    ]
+  )
+}

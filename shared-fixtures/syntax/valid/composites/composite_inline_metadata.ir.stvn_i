@@ -1,0 +1,60 @@
+{
+  :meta {
+    #name "composite_inline_metadata"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":Pair" ( ":Tuple({#size16}:Int{#size32}:Int)" ":Pair" ( #TRUE #TRUE ) ) ]
+      [ ":DisjointSum" ( ":Either(:Float{#unsigned#size32}:Int)" ":DisjointSum" ( #FALSE #TRUE ) ) ]
+      [ ":NullableText" ( ":Option({#minSize1#maxSize50}:String)" ":NullableText" ( #TRUE #TRUE ) ) ]
+      [ ":VariantUnion" ( ":Union({#size8}:Int:Boolean{#size64}:Float)" ":VariantUnion" ( #FALSE #TRUE ) ) ]
+      [ ":IntegerBuffer" ( ":Seq({#unsigned#size16}:Int)" ":IntegerBuffer" ( #TRUE #TRUE ) ) ]
+      [ ":IdentSet" ( ":Set({#minSize3#maxSize3}:String)" ":IdentSet" ( #TRUE #FALSE ) ) ]
+      [ ":ConfigMap" ( ":Map(:String{#minIncl1#maxExcl65536}:Int)" ":ConfigMap" ( #TRUE #FALSE ) ) ]
+      [ "<:type>" ( ":Tuple(:Pair:DisjointSum:NullableText:VariantUnion:IntegerBuffer:IdentSet:ConfigMap)" "" ( #FALSE #FALSE ) ) ]
+    }
+    #11 [
+      #11 [
+        #2 ( 1000 16 #FALSE )
+        #2 ( 50000 32 #FALSE )
+      ]
+      #9 ( #RIGHT
+        #2 ( 4294967295 32 #TRUE )
+      )
+      #6 ( #SOME
+        #4 "Standard Payload Text"
+      )
+      #10 ( 1
+        #2 ( 127 8 #FALSE )
+      )
+      #12 ( #FALSE [
+        #2 ( 10 16 #TRUE )
+        #2 ( 20 16 #TRUE )
+        #2 ( 30 16 #TRUE )
+        #2 ( 40 16 #TRUE )
+        #2 ( 50 16 #TRUE )
+      ] )
+      #13 [
+        #4 "ABC"
+        #4 "DEF"
+        #4 "GHI"
+      ]
+      #14 ( #FALSE [
+        (
+          #4 "http_port"
+          #2 ( 8080 32 #FALSE )
+        )
+        (
+          #4 "https_port"
+          #2 ( 8443 32 #FALSE )
+        )
+      ] )
+    ]
+  )
+}

@@ -175,7 +175,7 @@ The `:meta` block is optional on primary modular documents (`.stvn`), but mandat
 | **`.stvn_b`** | `#BODY` | Binary | **Required** | Optional | **Prohibited** | **Required** | Binary hermetic payload document. |
 | **`.stvn_bd`** | `#DEFS` | Binary | **Required** | **Required** | **Prohibited** | **Prohibited** | Binary hermetic definitions schema. |
 
-CAS envelopes are formalized as dot-separated `<name>.cas.stvn` (`#domain "cas"`, `#kind #BODY`). Compiler IR dumps are retained as `<name>.ir.stvn_i` or `<name>.stvn_ir`.
+CAS envelopes are formalized as dot-separated `<name>.cas.stvn` (`#domain "cas"`, `#kind #BODY`). Compiler IR snapshots are formalized as dot-separated `<name>.ir.stvn_i` (`#domain "ir"`, `#kind #BODY_INCLUDE`).
 
 Legacy extensions (`.stvn_incl`, `.stvn_inclf`, `.stvn_cas`, `.stvn_bin`, `.stvn_f`, `.stvn_df`, `.stvn_bf`, `.stvn_bdf`) are permanently excised. Encountering them emits fatal diagnostic `ERR_LEGACY_FILE_EXTENSION_PURGED`.
 

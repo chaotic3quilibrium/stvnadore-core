@@ -1,0 +1,22 @@
+{
+  :meta {
+    #name "collection_minimum_only"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":NonEmptySequence" ( "{#minSize1}:Seq(:String)" ":NonEmptySequence" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#minSize1}:Seq(:String)" ":NonEmptySequence" ( #TRUE #TRUE ) ) ]
+    }
+    #12 ( #TRUE [
+      #4 "alpha"
+      #4 "beta"
+      #4 "gamma"
+    ] )
+  )
+}

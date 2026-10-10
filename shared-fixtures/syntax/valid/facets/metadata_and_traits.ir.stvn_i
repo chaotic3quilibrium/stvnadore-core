@@ -1,0 +1,32 @@
+{
+  :meta {
+    #name "metadata_and_traits"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":RestrictedPort" ( "{#unsigned#size16#minIncl1024#maxExcl65536}:Int" ":RestrictedPort" ( #TRUE #TRUE ) ) ]
+      [ ":ScoreRange" ( "{#size64#minExcl0.0#maxIncl10.0}:Float" ":ScoreRange" ( #FALSE #TRUE ) ) ]
+      [ ":NegativeOffset" ( "{#size32#minIncl-100#maxExcl0}:Int" ":NegativeOffset" ( #TRUE #TRUE ) ) ]
+      [ ":RegexIdentifier" ( "{#minSize1#maxSize32#regex\"^[a-z][a-z0-9_-]{2,31}$\"}:String" ":RegexIdentifier" ( #TRUE #TRUE ) ) ]
+      [ ":RawScriptBlock" ( "{#preserveIndent#TRUE}:String" ":RawScriptBlock" ( #TRUE #TRUE ) ) ]
+      [ ":BitwiseFloat" ( "{#equatable#TRUE#size64}:Float" ":BitwiseFloat" ( #TRUE #TRUE ) ) ]
+      [ ":NonEquatableInt" ( "{#equatable#FALSE#size32}:Int" ":NonEquatableInt" ( #FALSE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:RestrictedPort:ScoreRange:NegativeOffset:RegexIdentifier:RawScriptBlock:BitwiseFloat:NonEquatableInt)" "" ( #FALSE #TRUE ) ) ]
+    }
+    #11 [
+      #2 ( 8080 16 #TRUE )
+      #3 9.5
+      #2 ( -50 32 #FALSE )
+      #4 "server_node_01"
+      #4 "      Line 1 indented\n        Line 2 further indented\n    "
+      #3 3.141592653589793
+      #2 ( 42 32 #FALSE )
+    ]
+  )
+}

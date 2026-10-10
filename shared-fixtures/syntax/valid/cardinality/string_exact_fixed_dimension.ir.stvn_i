@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "string_exact_fixed_dimension"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":FixedCode" ( "{#minSize4#maxSize4}:String" ":FixedCode" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#minSize4#maxSize4}:String" ":FixedCode" ( #TRUE #TRUE ) ) ]
+    }
+    #4 "STVN"
+  )
+}

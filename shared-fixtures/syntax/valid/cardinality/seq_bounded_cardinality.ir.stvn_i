@@ -1,0 +1,24 @@
+{
+  :meta {
+    #name "seq_bounded_cardinality"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":BoundedSequence" ( "{#minSize1#maxSize8}:Seq(:Int)" ":BoundedSequence" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#minSize1#maxSize8}:Seq(:Int)" ":BoundedSequence" ( #TRUE #TRUE ) ) ]
+    }
+    #12 ( #TRUE [
+      #2 ( 10 32 #FALSE )
+      #2 ( 20 32 #FALSE )
+      #2 ( 30 32 #FALSE )
+      #2 ( 40 32 #FALSE )
+      #2 ( 50 32 #FALSE )
+    ] )
+  )
+}

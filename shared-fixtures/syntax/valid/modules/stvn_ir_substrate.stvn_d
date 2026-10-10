@@ -1,0 +1,40 @@
+{
+  :meta {
+    #name "stvn_ir_substrate"
+    #domain "compiler_ir"
+    #kind #DEFS
+  }
+  :defs {
+    :package :org/stvnadore/ir {
+      // 1. Scalar Primitives
+      :IrBoolean :Boolean
+      :IrInt :Tuple( { #size 256 } :Int { #unsigned #size 256 #minIncl 1 } :Int :Boolean )
+      :IrFloat :Float
+      :IrString :String
+      :IrEnum :Tuple( :String { #unsigned #minIncl 0 } :Int )
+
+      // 2. Sum Type Variants (Nominal Disjointness via Option 2)
+      :IrOptionSome :Tuple( :Enum [ #SOME ] :IrValue )
+      :IrOptionNone :Enum [ #NONE ]
+      :IrEitherLeft :Tuple( :Enum [ #LEFT ] :IrValue )
+      :IrEitherRight :Tuple( :Enum [ #RIGHT ] :IrValue )
+      :IrUnionVal :Tuple( { #unsigned #minIncl 1 } :Int :IrValue )
+
+      // 3. Dynamic Unbounded Product & Collection Nodes
+      :IrTuple :Seq( :IrValue )
+      :IrSeq :Tuple( :Boolean :Seq( :IrValue ) )
+      :IrSet :Seq( :IrValue )
+      :IrMapEntry :Tuple( :IrValue :IrValue )
+      :IrMap :Tuple( :Boolean :Seq( :IrMapEntry ) )
+
+      // 4. Recursive Value Node Coproduct
+      :IrValue :Union( :IrBoolean :IrInt :IrFloat :IrString :IrEnum :IrOptionSome :IrOptionNone :IrEitherLeft :IrEitherRight :IrUnionVal :IrTuple :IrSeq :IrSet :IrMap )
+
+      // 5. Schema Registry & Root Document Snapshot
+      :TraitConstraints :Tuple( :Boolean :Boolean )
+      :RegisteredSchema :Tuple( :String :String :TraitConstraints )
+      :TypeRegistry :Map( :String :RegisteredSchema )
+      :IrSnapshotDocument :Tuple( :TypeRegistry :IrValue )
+    }
+  }
+}

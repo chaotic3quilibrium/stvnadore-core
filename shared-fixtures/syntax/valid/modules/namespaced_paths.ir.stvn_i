@@ -1,0 +1,24 @@
+{
+  :meta {
+    #name "namespaced_paths"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":app/v1/Response" ( ":Tuple(:HttpStatus:HttpHeader)" ":app/v1/Response" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:HttpStatus:HttpHeader)" ":app/v1/Response" ( #TRUE #TRUE ) ) ]
+    }
+    #11 [
+      #5 ( "#net/http/OK" 0 )
+      #11 [
+        #4 "Content-Type"
+        #4 "application/stvn"
+      ]
+    ]
+  )
+}

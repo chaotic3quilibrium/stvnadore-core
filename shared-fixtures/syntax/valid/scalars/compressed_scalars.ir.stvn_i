@@ -1,0 +1,33 @@
+{
+  :meta {
+    #name "compressed_scalars"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":BoolFlag" ( ":Boolean" ":BoolFlag" ( #TRUE #TRUE ) ) ]
+      [ ":OptVal" ( ":Option(:String)" ":OptVal" ( #TRUE #TRUE ) ) ]
+      [ ":ChoiceVal" ( ":Either(:Int:String)" ":ChoiceVal" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:BoolFlag:BoolFlag:OptVal:OptVal:ChoiceVal:ChoiceVal)" "" ( #TRUE #TRUE ) ) ]
+    }
+    #11 [
+      #1 #TRUE
+      #1 #FALSE
+      #6 ( #SOME
+        #4 "Payload"
+      )
+      #7 #NONE
+      #8 ( #LEFT
+        #2 ( -100 32 #FALSE )
+      )
+      #9 ( #RIGHT
+        #4 "Success"
+      )
+    ]
+  )
+}

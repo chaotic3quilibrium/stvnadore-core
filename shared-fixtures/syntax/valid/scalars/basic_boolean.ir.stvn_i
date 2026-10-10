@@ -1,0 +1,22 @@
+{
+  :meta {
+    #name "basic_boolean"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ "<:type>" ( ":Seq(:Boolean)" "" ( #TRUE #TRUE ) ) ]
+    }
+    #12 ( #FALSE [
+      #1 #TRUE
+      #1 #FALSE
+      #1 #TRUE
+      #1 #FALSE
+    ] )
+  )
+}

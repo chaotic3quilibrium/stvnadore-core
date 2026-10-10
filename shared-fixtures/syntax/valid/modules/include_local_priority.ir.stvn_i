@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "include_local_priority"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":ConflictType" ( ":Int" ":ConflictType" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Int" ":ConflictType" ( #TRUE #TRUE ) ) ]
+    }
+    #2 ( 42 32 #FALSE )
+  )
+}
