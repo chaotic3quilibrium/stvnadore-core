@@ -397,15 +397,12 @@ public class StvnTypeResolver {
     // Pass 1: Implicit ingestion of standard library prelude under :org/stvnadore/prelude/
     if (doc != org.stvnadore.core.stdlib.StvnPrelude.getPreludeDocument()) {
       var preludeDoc = org.stvnadore.core.stdlib.StvnPrelude.getPreludeDocument();
-      if (preludeDoc.documentBody() != null && preludeDoc.documentBody().defsEntry() != null) {
-        for (var de : preludeDoc.documentBody().defsEntry().defsElement()) {
-          if (de.typeDefinition() != null) {
-            var pDef = de.typeDefinition();
-            String pName = pDef.typeDefTarget() != null ? pDef.typeDefTarget().getText() : pDef.getText();
-            accumulator.computeIfAbsent(pName, k -> new ArrayList<>())
-                .add(new NamespaceClaim<>(pName, pDef, "Prelude", ClaimType.RAW_IMPORT));
-          }
-        }
+      var preludeDefs = getDocumentDefinitions(preludeDoc);
+      for (var entry : preludeDefs.entrySet()) {
+        var pName = entry.getKey();
+        var pDef = entry.getValue().defNode();
+        accumulator.computeIfAbsent(pName, k -> new ArrayList<>())
+            .add(new NamespaceClaim<>(pName, pDef, "Prelude", ClaimType.RAW_IMPORT));
       }
     }
 
@@ -5350,6 +5347,16 @@ public class StvnTypeResolver {
       for (var de : preludeDoc.documentBody().defsEntry().defsElement()) {
         if (de.typeDefinition() != null && de.typeDefinition().schemaType() == schemaType) {
           return Optional.of(de.typeDefinition().typeDefTarget().getText());
+        } else if (de.packageEnclosure() != null) {
+          var pkgPath = de.packageEnclosure().packagePath().getText();
+          if (de.packageEnclosure().packageElement() != null) {
+            for (var pe : de.packageEnclosure().packageElement()) {
+              if (pe.typeDefinition() != null && pe.typeDefinition().schemaType() == schemaType) {
+                String localName = pe.typeDefinition().typeDefTarget().getText().substring(1);
+                return Optional.of(pkgPath + "/" + localName);
+              }
+            }
+          }
         }
       }
     }

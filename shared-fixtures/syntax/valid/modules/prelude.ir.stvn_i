@@ -1,0 +1,22 @@
+{
+  :meta {
+    #name "prelude"
+    #domain "ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":org/stvnadore/prelude/PosixId" ( ":String" ":org/stvnadore/prelude/PosixId" ( #TRUE #TRUE ) ) ]
+      [ ":org/stvnadore/prelude/PolyglotCodeId" ( ":String" ":org/stvnadore/prelude/PolyglotCodeId" ( #TRUE #TRUE ) ) ]
+      [ ":org/stvnadore/prelude/meta/StvnPosixId64" ( ":org/stvnadore/prelude/PosixId" ":org/stvnadore/prelude/meta/StvnPosixId64" ( #TRUE #TRUE ) ) ]
+      [ ":org/stvnadore/prelude/meta/StvnDocumentKind" ( ":Enum[#BODY#DEFS#BODY_INCLUDE#DEFS_INCLUDE]" ":org/stvnadore/prelude/meta/StvnDocumentKind" ( #TRUE #TRUE ) ) ]
+      [ ":org/stvnadore/prelude/meta/StvnDocumentMeta" ( ":Tuple(:Option(:org/stvnadore/prelude/meta/StvnPosixId64):Option(:org/stvnadore/prelude/meta/StvnPosixId64):org/stvnadore/prelude/meta/StvnDocumentKind)" ":org/stvnadore/prelude/meta/StvnDocumentMeta" ( #TRUE #TRUE ) ) ]
+      [ ":org/stvnadore/prelude/meta/StvnCatalogMeta" ( ":Tuple(:org/stvnadore/prelude/meta/StvnPosixId64:org/stvnadore/prelude/meta/StvnPosixId64:org/stvnadore/prelude/meta/StvnDocumentKind)" ":org/stvnadore/prelude/meta/StvnCatalogMeta" ( #TRUE #TRUE ) ) ]
+    }
+    #7 #NONE
+  )
+}

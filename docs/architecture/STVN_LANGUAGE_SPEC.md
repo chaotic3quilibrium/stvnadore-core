@@ -1251,6 +1251,14 @@ When comparing schemas or evaluating structural equality (`isSameSchemaNodeRecur
 2. **FQNI Equality:** Two nominal types match if and only if their Fully Qualified Nominal Identifiers (FQNIs) match identically.
 3. **Incompatible Unification:** Unifying distinct nominal types (`:UserId` vs `:AccountId`) triggers compile-time diagnostic `ERR_INCOMPATIBLE_NOMINAL_TYPE`.
 
+### 9.1.1 The Anti-Subtyping & Total Nominal Override Principle
+
+In STVN, structural subtyping, refinement subtyping lattices, and Liskov substitutability do not exist. Nominal type definitions in `:defs` blocks create opaque nominal brands, not subtyping relationships:
+
+1. **No Subtyping Lattice:** A nominal definition `:Child :Parent` does not establish an "is-a" subtyping relationship. A value of type `:Child` cannot be supplied where type `:Parent` is expected, and vice versa. Each nominal type forms an isolated, opaque type domain.
+2. **Explicit Attribute Override Principle:** Attaching a metadata block to a base type (`:NewType { ... } :BaseType`) constitutes an explicit facet attribute override, not a monotonic narrowing. The new type copies the base type as a template and overrides specified metadata facets according to target facet governance rules (§ 6.1). Overrides may narrow, widen, or replace overridable attributes (such as `#minSize`, `#maxSize`, `#regex`), provided the overridden attributes are valid for the underlying primitive.
+3. **Scope Distinction for Monotonic Narrowing:** Monotonic narrowing applies strictly and exclusively to closed variant projections in Enum Subset Filtering (§ 4.8.3). It does not govern general nominal type definitions.
+
 ### 9.2 The Nominal Bijectivity Invariant ($1:1$ Law)
 
 Nominal schema identity is an intrinsic component of the schema value. As formalized in `STVN_REPOSITORY_SPEC.md` (`STVN-SPEC-REPO-02`), STVN establishes a mathematical bijection between nominal schemas and CAS hashes:
@@ -1509,25 +1517,39 @@ To prevent redundant string allocation on the wire:
 
 ### 11.1 Canonical Prelude Definitions
 
-The runtime environment pre-registers the canonical prelude under `:org/stvnadore/prelude/`:
+The runtime environment pre-registers the canonical prelude under `:org/stvnadore/prelude/` and `:org/stvnadore/prelude/meta/`:
 
 ```stvn
 {
   :defs {
-    :org/stvnadore/prelude/Uuid { #minSize 36 #maxSize 36 #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } :String
-    :org/stvnadore/prelude/Ulid { #minSize 26 #maxSize 26 #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" } :String
-    :org/stvnadore/prelude/Sha256 { #minSize 64 #maxSize 64 #regex "^[0-9a-fA-F]{64}$" } :String
-    :org/stvnadore/prelude/SemVer { #minSize 5 #maxSize 128 #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
+    :package :org/stvnadore/prelude {
+      :Uuid { #minSize 36 #maxSize 36 #regex "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } :String
+      :Ulid { #minSize 26 #maxSize 26 #regex "^[0-7][0-9A-HJKMNP-TV-Z]{25}$" } :String
+      :Sha256 { #minSize 64 #maxSize 64 #regex "^[0-9a-fA-F]{64}$" } :String
+      :SemVer { #minSize 5 #maxSize 128 #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
 
-    :org/stvnadore/prelude/Email { #minSize 3 #maxSize 254 #regex "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" } :String
-    :org/stvnadore/prelude/IPv4  { #minSize 7 #maxSize 15 #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" } :String
-    :org/stvnadore/prelude/Port  { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
+      :Email { #minSize 3 #maxSize 254 #regex "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" } :String
+      :IPv4  { #minSize 7 #maxSize 15 #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" } :String
+      :Port  { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
 
-    :org/stvnadore/prelude/Percentage  { #size 64 #minIncl 0.0 #maxIncl 100.0 } :Float
-    :org/stvnadore/prelude/Probability { #size 64 #minIncl 0.0 #maxIncl 1.0 }   :Float
-    :org/stvnadore/prelude/Currency    { #exact } :Float
-    :org/stvnadore/prelude/Latitude    { #size 64 #minIncl -90.0 #maxIncl 90.0 }   :Float
-    :org/stvnadore/prelude/Longitude   { #size 64 #minIncl -180.0 #maxIncl 180.0 } :Float
+      :Percentage  { #size 64 #minIncl 0.0 #maxIncl 100.0 } :Float
+      :Probability { #size 64 #minIncl 0.0 #maxIncl 1.0 }   :Float
+      :Currency    { #exact } :Float
+      :Latitude    { #size 64 #minIncl -90.0 #maxIncl 90.0 }   :Float
+      :Longitude   { #size 64 #minIncl -180.0 #maxIncl 180.0 } :Float
+
+      :PosixId { #minSize 1 #maxSize 255 #regex "^[a-zA-Z0-9_-]+$" } :String
+      :PolyglotCodeId { #minSize 1 #maxSize 128 #regex "^[a-zA-Z_][a-zA-Z0-9_]*$" } :String
+    }
+
+    :package :org/stvnadore/prelude/meta {
+      :use [ :org/stvnadore/prelude { #strip } ]
+
+      :StvnPosixId64 { #maxSize 64 } :PosixId
+      :StvnDocumentKind :Enum [ #BODY #DEFS #BODY_INCLUDE #DEFS_INCLUDE ]
+      :StvnDocumentMeta :Tuple( :Option(:StvnPosixId64) :Option(:StvnPosixId64) :StvnDocumentKind )
+      :StvnCatalogMeta :Tuple( :StvnPosixId64 :StvnPosixId64 :StvnDocumentKind )
+    }
   }
 }
 ```

@@ -502,4 +502,26 @@ public final class StvnVocabulary {
 
   /** Default indentation width in spaces for canonical text formatting (2 spaces). */
   public static final int DEFAULT_INDENT_WIDTH = 2;
+
+  // ============================================================================
+  // 12. CANONICAL PRELUDE IDENTIFIERS & META-CIRCULAR SUBSTRATE
+  // ============================================================================
+
+  /** Canonical FQNI for universal POSIX filesystem identifiers ({@code :org/stvnadore/prelude/PosixId}). */
+  public static final String PRELUDE_TYPE_POSIX_ID = ":org/stvnadore/prelude/PosixId";
+
+  /** Canonical FQNI for polyglot code identifiers ({@code :org/stvnadore/prelude/PolyglotCodeId}). */
+  public static final String PRELUDE_TYPE_POLYGLOT_CODE_ID = ":org/stvnadore/prelude/PolyglotCodeId";
+
+  /** Canonical FQNI for 64-character document POSIX identifiers ({@code :org/stvnadore/prelude/meta/StvnPosixId64}). */
+  public static final String META_TYPE_POSIX_ID_64 = ":org/stvnadore/prelude/meta/StvnPosixId64";
+
+  /** Canonical FQNI for document kind enum ({@code :org/stvnadore/prelude/meta/StvnDocumentKind}). */
+  public static final String META_TYPE_DOCUMENT_KIND = ":org/stvnadore/prelude/meta/StvnDocumentKind";
+
+  /** Canonical FQNI for document metadata tuple ({@code :org/stvnadore/prelude/meta/StvnDocumentMeta}). */
+  public static final String META_TYPE_DOCUMENT_META = ":org/stvnadore/prelude/meta/StvnDocumentMeta";
+
+  /** Canonical FQNI for authoritative catalog metadata tuple ({@code :org/stvnadore/prelude/meta/StvnCatalogMeta}). */
+  public static final String META_TYPE_CATALOG_META = ":org/stvnadore/prelude/meta/StvnCatalogMeta";
 }

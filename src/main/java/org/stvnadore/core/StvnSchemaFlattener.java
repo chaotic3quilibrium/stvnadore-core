@@ -436,13 +436,8 @@ public final class StvnSchemaFlattener {
   private static boolean isPreludeType(String type) {
     if (DYNAMIC_PRELUDE_TYPES.isEmpty()) {
       var pDoc = StvnPrelude.getPreludeDocument();
-      if (pDoc.documentBody() != null && pDoc.documentBody().defsEntry() != null) {
-        for (var de : pDoc.documentBody().defsEntry().defsElement()) {
-          if (de.typeDefinition() != null) {
-            DYNAMIC_PRELUDE_TYPES.add(de.typeDefinition().typeDefTarget().getText());
-          }
-        }
-      }
+      var defs = org.stvnadore.core.validation.StvnTypeResolver.getDocumentDefinitions(pDoc);
+      DYNAMIC_PRELUDE_TYPES.addAll(defs.keySet());
     }
     return DYNAMIC_PRELUDE_TYPES.contains(type);
   }
