@@ -14,18 +14,18 @@ import org.stvnadore.core.printer.PrinterOptions;
 import java.util.Map;
 
 /**
- * Verification test suite for the 7-tier Semantic Category Order of metadata facets.
+ * Verification test suite for the 5-tier Semantic Category Order of metadata facets.
  * <p>
  * Ensures canonical serialization order across the flattener and text printers:
- * Tier 1 (Flags & Intrinsic Modes) -> Tier 2 (Scale) -> Tier 3 (Dimensions) ->
- * Tier 4 (Value Intervals) -> Tier 5 (Patterns) -> Tier 6 (Subsets) -> Tier 7 (Directives).
+ * Tier 1 (Definition) -> Tier 2 (Trait) -> Tier 3 (Bounds) ->
+ * Tier 4 (Constraint) -> Tier 5 (Directive).
  * Also asserts that permutation of input facets yields identical Content-Addressable Storage (CAS) hashes.
  */
 @NullMarked
 public class StvnSemanticFacetOrderingTest {
 
   @Test
-  @DisplayName("TC-ORDER-01: Multi-tier facet ordering in flattener output conforms to 7-tier canonical sequence")
+  @DisplayName("TC-ORDER-01: Multi-tier facet ordering in flattener output conforms to 5-tier canonical sequence")
   void testFlattenerConformsToSemanticCategoryOrder() {
     String source = """
         {
@@ -106,7 +106,7 @@ public class StvnSemanticFacetOrderingTest {
   }
 
   @Test
-  @DisplayName("TC-ORDER-04: Compact and Pretty text printers serialize metadata in 7-tier order")
+  @DisplayName("TC-ORDER-04: Compact and Pretty text printers serialize metadata in 5-tier order")
   void testPrintersSerializeInSemanticOrder() {
     String source = """
         {

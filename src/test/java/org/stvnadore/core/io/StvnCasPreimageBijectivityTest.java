@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Verification test suite for SHA-256 Content-Addressable Storage (CAS) Preimage Bijectivity
- * and 7-Tier Canonical Serialization Invariant Parity ($1:1$ Law).
+ * and 5-Tier Canonical Serialization Invariant Parity ($1:1$ Law).
  */
 @NullMarked
 public class StvnCasPreimageBijectivityTest {

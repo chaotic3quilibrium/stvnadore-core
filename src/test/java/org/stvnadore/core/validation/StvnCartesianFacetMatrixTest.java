@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>
  * Evaluates the full Cartesian product T x F across the 6 foundation base types
  * (:Int, :Float, :String, :Boolean, :TimeEpoch, :DateTime), products (:Tuple),
- * and collections (:Seq, :Set, :Map) against 24 canonical facets across 7 tiers.
+ * and collections (:Seq, :Set, :Map) against 24 canonical facets across 5 tiers.
  * Verifies that all 184 invalid pairings fail closed deterministically with normative diagnostic codes:
  * <ul>
  *   <li>{@link DiagnosticBag#ERR_STRING_CARDINALITY_PROHIBITED} for {@code #size} on {@code :String}</li>
