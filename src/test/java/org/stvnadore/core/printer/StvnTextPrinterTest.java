@@ -62,7 +62,7 @@ class StvnTextPrinterTest {
             }
             """,
         optionsAll,
-        "{:type :Int :body 42}",
+        "{:type :Int:body 42}",
         """
             {
                 :type :Int
@@ -100,7 +100,7 @@ class StvnTextPrinterTest {
             }
             """,
         optionsAll,
-        "{:type :Map(:String :Int) :body {[\"a\" 1]}}",
+        "{:type :Map(:String :Int):body{[\"a\" 1]}}",
         """
             {
                 :type :Map(:String :Int)
@@ -149,7 +149,7 @@ class StvnTextPrinterTest {
             }
             """,
         options2,
-        "{:type :Map(:String :Int) :body {[\"x\" 10] [\"y\" 20]}}",
+        "{:type :Map(:String :Int):body{[\"x\" 10][\"y\" 20]}}",
         """
             {
               :type :Map(:String :Int)
@@ -178,7 +178,7 @@ class StvnTextPrinterTest {
             }
             """,
         options4,
-        "{:type :Map(:String :Int) :body {[\"x\" 10] [\"y\" 20]}}",
+        "{:type :Map(:String :Int):body{[\"x\" 10][\"y\" 20]}}",
         """
             {
                 :type :Map(:String :Int)
@@ -423,7 +423,7 @@ class StvnTextPrinterTest {
             }
             """,
         optLong,
-        "{:type :Seq(:Option(:Enum[#None #N #Some #S #Left #L #Right #R #TRUE #T #FALSE #F])) :body [#Some #Left #Some #L #Some #Right #Some #R #Some #TRUE #Some #T #Some #FALSE #Some #F]}",
+        "{:type :Seq(:Option(:Enum[#None #N #Some #S #Left #L #Right #R #TRUE #T #FALSE #F])):body[#Some #Left #Some #L #Some #Right #Some #R #Some #TRUE #Some #T #Some #FALSE #Some #F]}",
         """
             {
                 :type :Seq(:Option(:Enum[#None #N #Some #S #Left #L #Right #R #TRUE #T #FALSE #F]))
@@ -441,7 +441,7 @@ class StvnTextPrinterTest {
             """,
         optLong,
         """
-            {:type :Either(:Int :String) :body #Right "#Left"}""",
+            {:type :Either(:Int :String):body #Right "#Left"}""",
         """
             {
                 :type :Either(:Int :String)
@@ -464,7 +464,7 @@ class StvnTextPrinterTest {
             PrinterOptions.SumTypePolicy.HAPPY_PATH_INFERRED
         ),
         """
-            {:type :Either(:Int :String) :body #R "#L"}""",
+            {:type :Either(:Int :String):body #R "#L"}""",
         """
             {
                 :type :Either(:Int :String)
@@ -495,7 +495,7 @@ class StvnTextPrinterTest {
             """,
         optDefault,
         """
-            {:type :String :body ""\"
+            {:type :String:body ""\"
             Hello
             World
             ""\"}""",
@@ -521,7 +521,7 @@ class StvnTextPrinterTest {
             """,
         optDefault,
         """
-            {:type :String :body ""\"[CUSTOM_FENCE]
+            {:type :String:body ""\"[CUSTOM_FENCE]
             Nested fenced content
             [CUSTOM_FENCE]""\"}""",
         """
@@ -543,7 +543,7 @@ class StvnTextPrinterTest {
             """,
         optDefault,
         """
-            {:type :Tuple(:Int :String :Boolean) :body (42 "Answer" #FALSE)}""",
+            {:type :Tuple(:Int :String :Boolean):body(42 "Answer" #FALSE)}""",
         """
             {
                 :type :Tuple(:Int :String :Boolean)
@@ -573,7 +573,7 @@ class StvnTextPrinterTest {
             }
             """,
         optDefault,
-        "{:defs {:age {#minIncl 0 #maxExcl 121} :Int} :type :age :body 42}",
+        "{:defs{:age{#minIncl 0 #maxExcl 121}:Int}:type :age:body 42}",
         """
             {
                 :defs {
@@ -613,7 +613,7 @@ class StvnTextPrinterTest {
             }""",
         optDefault,
         """
-            {:defs {:preservedBlock {#preserveIndent #TRUE} :String} :type :preservedBlock :body ""\"
+            {:defs{:preservedBlock{#preserveIndent #TRUE}:String}:type :preservedBlock:body ""\"
                   Line 1
                     Nested Indent
                   Line 3
@@ -654,7 +654,7 @@ class StvnTextPrinterTest {
             }
             """,
         optDefault,
-        "{:defs {:myFloat {#equatable #TRUE} :Float} :type :myFloat :body 3.14}",
+        "{:defs{:myFloat{#equatable #TRUE}:Float}:type :myFloat:body 3.14}",
         """
             {
                 :defs {
@@ -677,7 +677,7 @@ class StvnTextPrinterTest {
             }
             """,
         optDefault,
-        "{:defs {:mySeq {#comparable #FALSE} :Seq(:Float)} :type :mySeq :body [1.0 2.0]}",
+        "{:defs{:mySeq{#comparable #FALSE}:Seq(:Float)}:type :mySeq:body[1.0 2.0]}",
         """
             {
                 :defs {
@@ -710,7 +710,7 @@ class StvnTextPrinterTest {
             }
             """,
         optDefault,
-        "{:defs {:code {#regex \"^[A-Z]{3}$\"} :String} :type :code :body \"STV\"}",
+        "{:defs{:code{#regex \"^[A-Z]{3}$\"}:String}:type :code:body \"STV\"}",
         """
             {
                 :defs {
@@ -745,7 +745,7 @@ class StvnTextPrinterTest {
             }
             """,
         optDefault,
-        "{:defs {:baseInt {#minIncl 10} :Int :restrictedInt {#comparable #FALSE #maxExcl 101} :baseInt :finalInt {#comparable #TRUE} :restrictedInt} :type :finalInt :body 42}",
+        "{:defs{:baseInt{#minIncl 10}:Int :restrictedInt{#comparable #FALSE #maxExcl 101}:baseInt :finalInt{#comparable #TRUE}:restrictedInt}:type :finalInt:body 42}",
         """
             {
                 :defs {
@@ -781,18 +781,18 @@ class StvnTextPrinterTest {
     };
 
     var expectedCanonical = new String[] {
-      "{:type :Boolean :body #TRUE}",
-      "{:type :Boolean :body #TRUE}",
-      "{:type :Boolean :body #FALSE}",
-      "{:type :Boolean :body #FALSE}",
-      "{:type :Option(:Boolean):body #None}",
-      "{:type :Option(:Boolean):body #None}",
-      "{:type :Either(:Int :String):body #Left 1}",
-      "{:type :Either(:Int :String):body #Left 1}",
-      "{:type :Either(:Int :String):body \"a\"}",
-      "{:type :Either(:Int :String):body \"a\"}",
-      "{:type :Option(:Enum[#Y #N]):body #Some #N}",
-      "{:type :Option(:Enum[#Y #N]):body #Some #N}"
+      "{:type :Boolean:body #T}",
+      "{:type :Boolean:body #T}",
+      "{:type :Boolean:body #F}",
+      "{:type :Boolean:body #F}",
+      "{:type :Option(:Boolean):body #N}",
+      "{:type :Option(:Boolean):body #N}",
+      "{:type :Either(:Int :String):body #L 1}",
+      "{:type :Either(:Int :String):body #L 1}",
+      "{:type :Either(:Int :String):body #R \"a\"}",
+      "{:type :Either(:Int :String):body #R \"a\"}",
+      "{:type :Option(:Enum[#Y #N]):body #S #N}",
+      "{:type :Option(:Enum[#Y #N]):body #S #N}"
     };
 
     for (var i = 0; i < inputs.length; i++) {
@@ -823,7 +823,7 @@ class StvnTextPrinterTest {
         }
         """,
         optShort,
-        "{:defs {:myInt :Int} :type :myInt :body 42}",
+        "{:defs{:myInt :Int}:type :myInt:body 42}",
         """
         {
             :defs {
@@ -856,7 +856,7 @@ class StvnTextPrinterTest {
         }
         """,
         optShort,
-        "{:defs {:myInt {#equatable #T #comparable #F} :Int} :type :myInt :body 42}",
+        "{:defs{:myInt{#equatable #T #comparable #F}:Int}:type :myInt:body 42}",
         """
         {
             :defs {
@@ -897,7 +897,7 @@ class StvnTextPrinterTest {
         }
         """,
         optShortExplicit,
-        "{:type :Tuple(:Option(:String) :Option(:String)) :body (#N #S \"value\")}",
+        "{:type :Tuple(:Option(:String):Option(:String)):body(#N #S \"value\")}",
         """
         {
             :type :Tuple(:Option(:String) :Option(:String))
@@ -914,7 +914,7 @@ class StvnTextPrinterTest {
         }
         """,
         optShortInferred,
-        "{:type :Tuple(:Option(:String) :Option(:String)) :body (#N \"value\")}",
+        "{:type :Tuple(:Option(:String):Option(:String)):body(#N \"value\")}",
         """
         {
             :type :Tuple(:Option(:String) :Option(:String))
@@ -932,7 +932,7 @@ class StvnTextPrinterTest {
         }
         """,
         optShortExplicit,
-        "{:type :Tuple(:Either(:Int :String) :Either(:Int :String)) :body (#L 42 #R \"hello\")}",
+        "{:type :Tuple(:Either(:Int :String):Either(:Int :String)):body(#L 42 #R \"hello\")}",
         """
         {
             :type :Tuple(:Either(:Int :String) :Either(:Int :String))
@@ -949,7 +949,7 @@ class StvnTextPrinterTest {
         }
         """,
         optShortInferred,
-        "{:type :Tuple(:Either(:Int :String) :Either(:Int :String)) :body (#L 42 \"hello\")}",
+        "{:type :Tuple(:Either(:Int :String):Either(:Int :String)):body(#L 42 \"hello\")}",
         """
         {
             :type :Tuple(:Either(:Int :String) :Either(:Int :String))
@@ -984,7 +984,7 @@ class StvnTextPrinterTest {
         }
         """,
         options,
-        "{:defs {:AuditedDateTime {#audited} :DateTime :OffsetDateTime {#offset} :DateTime :ZonedDateTime {#zoned} :DateTime} :type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime) :body (\"2026-03-15T08:00:00-05:00\" \"2026-03-15T08:00:00[America/Chicago]\" \"2026-03-15T08:00:00-05:00[America/Chicago]\")}",
+        "{:defs{:AuditedDateTime{#audited}:DateTime :OffsetDateTime{#offset}:DateTime :ZonedDateTime{#zoned}:DateTime}:type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime):body(\"2026-03-15T08:00:00-05:00\" \"2026-03-15T08:00:00[America/Chicago]\" \"2026-03-15T08:00:00-05:00[America/Chicago]\")}",
         """
         {
             :defs {

@@ -77,7 +77,7 @@ class AstPrinterTest {
     String compact = AstCompactPrinter.print(ast);
 
     // Verify compact single-line layout
-    Assertions.assertEquals("{:type :Tuple(:Boolean :Option(:Boolean)) :body (#T #N)}", compact);
+    Assertions.assertEquals("{:type :Tuple(:Boolean :Option(:Boolean)):body(#T #N)}", compact);
 
     // Verify short-form keywords
     Assertions.assertTrue(compact.contains("#T"), "Output must contain #T");
@@ -103,6 +103,59 @@ class AstPrinterTest {
 
     var compactSw = new StringWriter();
     AstCompactPrinter.print(ast, compactSw);
-    Assertions.assertEquals("{:type :String :body \"Test\"}", compactSw.toString());
+    Assertions.assertEquals("{:type :String:body \"Test\"}", compactSw.toString());
+  }
+
+  @Test
+  @DisplayName("AstCompactPrinter fails closed on unannotated value with HAPPY_PATH_INFERRED")
+  void testFailClosedPerimeter() {
+    var printer = new AstCompactPrinter(new PrinterOptions(
+        PrinterOptions.Coverage.ALL_SECTIONS,
+        0,
+        PrinterOptions.SymbolStyle.SHORT_FORM,
+        PrinterOptions.SumTypePolicy.HAPPY_PATH_INFERRED
+    ));
+
+    // Poisoned sentinel schema lacking valid context
+    var validValue = StvnCompiler.compilePayload("{ :type :Boolean :body #TRUE }").orElseThrow();
+    var poisonedSchema = new org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema(
+        validValue.schema().node(),
+        validValue.schema().constraints(),
+        validValue.schema().aliasName(),
+        validValue.schema().implicitUnionTag(),
+        validValue.schema().sumTypeNode(),
+        validValue.schema().underlyingSchema(),
+        validValue.schema().localConstraints(),
+        true,
+        validValue.schema().enumSubset()
+    );
+    var poisonedValue = new org.stvnadore.core.ir.StvnValue.StvnBoolean(poisonedSchema, true);
+
+    var exPoisoned = Assertions.assertThrows(IllegalStateException.class, () -> printer.printToString(poisonedValue));
+    Assertions.assertEquals(
+        "Cannot apply HAPPY_PATH_INFERRED without schema context: target schema is required to verify variant elision legality under Rules A, B, and I.",
+        exPoisoned.getMessage()
+    );
+  }
+
+  @Test
+  @DisplayName("AstCompactPrinter serializes StvnDocument")
+  void testDocumentSerialization() {
+    String source = """
+        {
+          :meta {
+            #name "test-doc"
+            #domain "org.stvnadore"
+            #kind #BODY
+          }
+          :type :Int
+          :body 42
+        }
+        """;
+    var doc = StvnCompiler.compile(source).document().orElseThrow();
+    String compact = AstCompactPrinter.print(doc);
+    Assertions.assertTrue(compact.contains(":meta{"));
+    Assertions.assertTrue(compact.contains("#name \"test-doc\""));
+    Assertions.assertTrue(compact.contains(":type :Int:body 42"));
   }
 }

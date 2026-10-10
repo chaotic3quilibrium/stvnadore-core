@@ -13,55 +13,55 @@ import java.io.StringWriter;
 class CanonicalLayoutWriterTest {
 
   @Test
-  void testParameterBypassingDefensiveLongForm() throws IOException {
-    // Assert writeBoolean ignores SymbolStyle.SHORT_FORM and outputs LONG_FORM representation
+  void testParameterBypassingDefensiveShortForm() throws IOException {
+    // Assert writeBoolean ignores SymbolStyle.LONG_FORM and outputs SHORT_FORM representation
     var writerTrue = new StringWriter();
     var layoutTrue = new CanonicalLayoutWriter(writerTrue);
-    layoutTrue.writeBoolean(true, PrinterOptions.SymbolStyle.SHORT_FORM);
-    Assertions.assertEquals("#TRUE", writerTrue.toString());
+    layoutTrue.writeBoolean(true, PrinterOptions.SymbolStyle.LONG_FORM);
+    Assertions.assertEquals("#T", writerTrue.toString());
 
     var writerFalse = new StringWriter();
     var layoutFalse = new CanonicalLayoutWriter(writerFalse);
-    layoutFalse.writeBoolean(false, PrinterOptions.SymbolStyle.SHORT_FORM);
-    Assertions.assertEquals("#FALSE", writerFalse.toString());
+    layoutFalse.writeBoolean(false, PrinterOptions.SymbolStyle.LONG_FORM);
+    Assertions.assertEquals("#F", writerFalse.toString());
 
-    // Assert openOptionSomeTag ignores SymbolStyle.SHORT_FORM and outputs LONG_FORM representation
+    // Assert openOptionSomeTag ignores SymbolStyle.LONG_FORM and outputs SHORT_FORM representation
     var writerSome = new StringWriter();
     var layoutSome = new CanonicalLayoutWriter(writerSome);
-    layoutSome.openOptionSomeTag(PrinterOptions.SymbolStyle.SHORT_FORM);
-    Assertions.assertEquals("#Some", writerSome.toString());
+    layoutSome.openOptionSomeTag(PrinterOptions.SymbolStyle.LONG_FORM);
+    Assertions.assertEquals("#S", writerSome.toString());
 
-    // Assert writeOptionNone ignores SymbolStyle.SHORT_FORM and outputs LONG_FORM representation
+    // Assert writeOptionNone ignores SymbolStyle.LONG_FORM and outputs SHORT_FORM representation
     var writerNone = new StringWriter();
     var layoutNone = new CanonicalLayoutWriter(writerNone);
-    layoutNone.writeOptionNone(PrinterOptions.SymbolStyle.SHORT_FORM);
-    Assertions.assertEquals("#None", writerNone.toString());
+    layoutNone.writeOptionNone(PrinterOptions.SymbolStyle.LONG_FORM);
+    Assertions.assertEquals("#N", writerNone.toString());
 
-    // Assert openEitherTag ignores SymbolStyle.SHORT_FORM and outputs LONG_FORM representation for Left
+    // Assert openEitherTag ignores SymbolStyle.LONG_FORM and outputs SHORT_FORM representation for Left
     var writerLeft = new StringWriter();
     var layoutLeft = new CanonicalLayoutWriter(writerLeft);
-    layoutLeft.openEitherTag(false, PrinterOptions.SymbolStyle.SHORT_FORM);
-    Assertions.assertEquals("#Left", writerLeft.toString());
+    layoutLeft.openEitherTag(false, PrinterOptions.SymbolStyle.LONG_FORM);
+    Assertions.assertEquals("#L", writerLeft.toString());
 
-    // Assert openEitherTag ignores SymbolStyle.SHORT_FORM and outputs LONG_FORM representation for Right
+    // Assert openEitherTag ignores SymbolStyle.LONG_FORM and outputs SHORT_FORM representation for Right
     var writerRight = new StringWriter();
     var layoutRight = new CanonicalLayoutWriter(writerRight);
-    layoutRight.openEitherTag(true, PrinterOptions.SymbolStyle.SHORT_FORM);
-    Assertions.assertEquals("#Right", writerRight.toString());
+    layoutRight.openEitherTag(true, PrinterOptions.SymbolStyle.LONG_FORM);
+    Assertions.assertEquals("#R", writerRight.toString());
   }
 
   @Test
-  void testFirewallCoercionOfShortFormTags() throws IOException {
-    // Assert openTag catches short-form tokens and coerces them to their long-form equivalents
+  void testFirewallCoercionOfLongFormTags() throws IOException {
+    // Assert openTag catches long-form tokens and coerces them to their short-form equivalents
     var writer = new StringWriter();
     var layout = new CanonicalLayoutWriter(writer);
 
-    layout.openTag("#S");
-    layout.openTag("#L");
-    layout.openTag("#R");
+    layout.openTag("#Some");
+    layout.openTag("#Left");
+    layout.openTag("#Right");
 
     // The writer separates non-punctuation tokens with a space
-    Assertions.assertEquals("#Some #Left #Right", writer.toString());
+    Assertions.assertEquals("#S #L #R", writer.toString());
   }
 
   @Test

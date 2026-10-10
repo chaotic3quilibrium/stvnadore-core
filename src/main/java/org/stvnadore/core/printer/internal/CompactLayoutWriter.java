@@ -15,12 +15,13 @@ import java.math.BigInteger;
  * <p>
  * This layout writer formats STVN values into a stream without inserting unnecessary
  * whitespace (such as carriage returns, indentation spaces, or empty lines). It separates
- * adjacent literal tokens using exactly a single space.
+ * adjacent literal tokens using exactly a single space while eliminating bracket padding.
  * </p>
  */
 @NullMarked
 public final class CompactLayoutWriter implements LayoutWriter {
   private final Writer writer;
+  private String lastToken = "";
 
   /**
    * Constructs a new {@code CompactLayoutWriter} wrapping the specified writer target.
@@ -31,19 +32,43 @@ public final class CompactLayoutWriter implements LayoutWriter {
     this.writer = writer;
   }
 
+  private void writeToken(String token) throws IOException {
+    if (token.isEmpty()) {
+      return;
+    }
+    if (!lastToken.isEmpty()) {
+      boolean omitSpace = isPunctuation(lastToken) || isPunctuation(token)
+          || (token.equals(StvnVocabulary.KEYWORD_BODY) && lastToken.startsWith(":"));
+      if (!omitSpace) {
+        if (!lastToken.endsWith("\n")) {
+          writer.write(' ');
+        }
+      }
+    }
+    writer.write(token);
+    lastToken = token;
+  }
+
+  private static final String PUNCTUATION = "()[]{}";
+
+  @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+  private boolean isPunctuation(String token) {
+    return (token.length() == 1) && PUNCTUATION.contains(token);
+  }
+
   @Override
   public void writeLiteral(String val) throws IOException {
-    writer.write(val);
+    writeToken(val);
   }
 
   @Override
   public void writeBoolean(boolean val, PrinterOptions.SymbolStyle style) throws IOException {
     if (style == PrinterOptions.SymbolStyle.LONG_FORM) {
-      writer.write(val
+      writeToken(val
           ? StvnVocabulary.VAL_TRUE
           : StvnVocabulary.VAL_FALSE);
     } else {
-      writer.write(val
+      writeToken(val
           ? StvnVocabulary.VAL_TRUE_SHORT
           : StvnVocabulary.VAL_FALSE_SHORT);
     }
@@ -51,41 +76,37 @@ public final class CompactLayoutWriter implements LayoutWriter {
 
   @Override
   public void writeInteger(BigInteger val) throws IOException {
-    writer.write(val.toString());
+    writeToken(val.toString());
   }
 
   @Override
   public void writeFloat(BigDecimal val, FloatPrecision precision) throws IOException {
-    writer.write(formatFloat(val, precision));
+    writeToken(formatFloat(val, precision));
   }
 
   @Override
   public void writeEnumKeyword(String keyword) throws IOException {
-    writer.write(keyword);
+    writeToken(keyword);
   }
 
   @Override
   public void writeSimpleString(String s) throws IOException {
-    writer.write("\"");
-    writer.write(escapeString(s));
-    writer.write("\"");
+    writeToken("\"" + escapeString(s) + "\"");
   }
 
   @Override
   public void writeBlockString(String s) throws IOException {
-    writer.write("\"\"\"\n");
-    writer.write(s);
-    writer.write("\"\"\"");
+    writeToken("\"\"\"\n" + s + "\"\"\"");
   }
 
   @Override
   public void openGroup(String delimiter) throws IOException {
-    writer.write(delimiter);
+    writeToken(delimiter);
   }
 
   @Override
   public void closeGroup(String delimiter) throws IOException {
-    writer.write(delimiter);
+    writeToken(delimiter);
   }
 
   @Override
@@ -117,8 +138,7 @@ public final class CompactLayoutWriter implements LayoutWriter {
 
   @Override
   public void openTag(String tag) throws IOException {
-    writer.write(tag);
-    writer.write(" ");
+    writeToken(tag);
   }
 
   @Override
@@ -129,7 +149,7 @@ public final class CompactLayoutWriter implements LayoutWriter {
 
   @Override
   public void appendSeparator() throws IOException {
-    writer.write(" ");
+    // no-op, handled by writeToken delimiter checking
   }
 
   @SuppressWarnings("RedundantThrows")

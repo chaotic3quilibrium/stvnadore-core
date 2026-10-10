@@ -52,6 +52,93 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
   }
 
   /**
+   * Serializes the given STVN document into the specified writer in its canonical form.
+   *
+   * @param document the STVN document to serialize
+   * @param target   the destination writer
+   * @throws IOException          if an I/O error occurs during serialization
+   * @throws NullPointerException if any argument is null
+   */
+  public void print(org.stvnadore.core.ast.StvnDocument document, Writer target) throws IOException {
+    java.util.Objects.requireNonNull(document, "document must not be null");
+    java.util.Objects.requireNonNull(target, "target must not be null");
+    var layout = new CanonicalLayoutWriter(target);
+    layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+
+    if (document.hasMeta()) {
+      var meta = document.requireMeta();
+      layout.writeLiteral(StvnVocabulary.KEYWORD_META);
+      layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+      if (meta.name().isPresent()) {
+        layout.writeLiteral(StvnVocabulary.FACET_KW_META_NAME);
+        layout.writeSimpleString(meta.name().get());
+      }
+      if (meta.domain().isPresent()) {
+        layout.writeLiteral(StvnVocabulary.FACET_KW_META_DOMAIN);
+        layout.writeSimpleString(meta.domain().get());
+      }
+      if (meta.kind().isPresent()) {
+        layout.writeLiteral(StvnVocabulary.FACET_KW_META_KIND);
+        layout.writeLiteral(meta.kind().get().keyword());
+      }
+      layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
+    }
+
+    if (document.hasPayload()) {
+      var value = document.requirePayload();
+      var schema = value.schema();
+      List<ResolvedCanonicalDefinition> defs = StvnCanonicalDefinitionsResolver.resolveDefinitions(value);
+      if (!defs.isEmpty()) {
+        layout.writeLiteral(StvnVocabulary.KEYWORD_DEFS);
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+
+        for (var s : defs) {
+          layout.writeLiteral(s.canonicalName());
+          writeConstraints(s.constraints(), layout);
+          writeSchemaType(s.schemaNode(), layout, s.lexicalContext(), false);
+        }
+
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
+      }
+
+      layout.writeLiteral(StvnVocabulary.KEYWORD_TYPE);
+      if (schema != null) {
+        var alias = schema.aliasName().orElse(null);
+        if (alias != null) {
+          layout.writeLiteral(alias);
+        } else {
+          writeSchemaType(schema.node(), layout, schema.node(), true);
+        }
+      } else {
+        throw new IOException("Missing schema context for canonical serialization");
+      }
+
+      layout.writeLiteral(StvnVocabulary.KEYWORD_BODY);
+      writeValue(value, layout);
+    }
+
+    layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
+    layout.flush();
+  }
+
+  /**
+   * Serializes the given STVN document and returns its canonical string representation.
+   *
+   * @param document the STVN document to serialize
+   * @return the canonical STVN string representation
+   */
+  public String printToString(org.stvnadore.core.ast.StvnDocument document) {
+    java.util.Objects.requireNonNull(document, "document must not be null");
+    var sw = new java.io.StringWriter();
+    try {
+      print(document, sw);
+    } catch (IOException e) {
+      throw new RuntimeException("Unreachable IOException in StringWriter", e);
+    }
+    return sw.toString();
+  }
+
+  /**
    * Serializes the given STVN value tree into the specified writer in its canonical form.
    *
    * @param value  the STVN value tree to serialize
@@ -118,7 +205,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
     }
     if (constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
-      layout.writeBoolean(constraints.preserveIndent(), PrinterOptions.SymbolStyle.LONG_FORM);
+      layout.writeBoolean(constraints.preserveIndent(), PrinterOptions.SymbolStyle.SHORT_FORM);
     }
     if (constraints.offset() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_OFFSET);
@@ -132,12 +219,12 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
     var equatable = constraints.equatable().orElse(null);
     if (equatable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_EQUATABLE);
-      layout.writeBoolean(equatable, PrinterOptions.SymbolStyle.LONG_FORM);
+      layout.writeBoolean(equatable, PrinterOptions.SymbolStyle.SHORT_FORM);
     }
     var comparable = constraints.comparable().orElse(null);
     if (comparable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_COMPARABLE);
-      layout.writeBoolean(comparable, PrinterOptions.SymbolStyle.LONG_FORM);
+      layout.writeBoolean(comparable, PrinterOptions.SymbolStyle.SHORT_FORM);
     }
 
     // Tier 2: Temporal Scale
@@ -306,7 +393,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
   @SuppressWarnings("unused")
   private void writeValue(StvnValue val, CanonicalLayoutWriter layout) throws IOException {
     switch (val) {
-      case StvnBoolean(var schema, var value) -> layout.writeBoolean(value, PrinterOptions.SymbolStyle.LONG_FORM);
+      case StvnBoolean(var schema, var value) -> layout.writeBoolean(value, PrinterOptions.SymbolStyle.SHORT_FORM);
       case StvnInteger(var schema, var value, var bitWidth, var isUnsigned) -> layout.writeInteger(value);
 
       case StvnFloat f -> {
@@ -395,45 +482,20 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
       case StvnOption(var schema, var valueOpt, var trajectory) -> {
         var value = valueOpt.orElse(null);
         if (value != null) {
-          boolean isNoneColliding = false;
-          if (value instanceof StvnString strVal) {
-            isNoneColliding = isControlKeyword(strVal.value());
-          } else if (value instanceof StvnEnum enumVal) {
-            isNoneColliding = isControlKeyword(enumVal.keyword());
-          }
-
-          if (isNoneColliding) {
-            layout.openOptionSomeTag(PrinterOptions.SymbolStyle.LONG_FORM);
-            writeValue(value, layout);
-            layout.closeTag();
-          } else {
-            writeValue(value, layout);
-          }
+          layout.openOptionSomeTag(PrinterOptions.SymbolStyle.SHORT_FORM);
+          writeValue(value, layout);
+          layout.closeTag();
         } else {
-          layout.writeOptionNone(PrinterOptions.SymbolStyle.LONG_FORM);
+          layout.writeOptionNone(PrinterOptions.SymbolStyle.SHORT_FORM);
         }
       }
 
       case StvnEither(var schema, var value, var isRight, var isAmbiguous, var trajectory) -> {
+        layout.openEitherTag(isRight, PrinterOptions.SymbolStyle.SHORT_FORM);
         if (value != null) {
-          boolean isEitherColliding = false;
-          if (value instanceof StvnString strVal) {
-            isEitherColliding = isControlKeyword(strVal.value());
-          } else if (value instanceof StvnEnum enumVal) {
-            isEitherColliding = isControlKeyword(enumVal.keyword());
-          }
-
-          if (isRight && !isEitherColliding) {
-            writeValue(value, layout);
-          } else {
-            layout.openEitherTag(isRight, PrinterOptions.SymbolStyle.LONG_FORM);
-            writeValue(value, layout);
-            layout.closeTag();
-          }
-        } else {
-          layout.openEitherTag(isRight, PrinterOptions.SymbolStyle.LONG_FORM);
-          layout.closeTag();
+          writeValue(value, layout);
         }
+        layout.closeTag();
       }
 
       case StvnUnion(var schema, var value, var tagIndex) -> {

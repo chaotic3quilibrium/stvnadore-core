@@ -441,6 +441,60 @@ public final class StvnCompiler {
   }
 
   /**
+   * Serializes the given {@link org.stvnadore.core.ast.StvnDocument} to compact STVN text using custom options.
+   *
+   * @param document the document to serialize
+   * @param options  the printer options to apply
+   * @return the compact STVN string representation
+   */
+  public static String compactPrint(org.stvnadore.core.ast.StvnDocument document, org.stvnadore.core.printer.PrinterOptions options) {
+    return org.stvnadore.core.printer.AstCompactPrinter.print(document, options);
+  }
+
+  /**
+   * Serializes the given {@link org.stvnadore.core.ast.StvnDocument} to compact STVN text using default compact options.
+   *
+   * @param document the document to serialize
+   * @return the compact STVN string representation
+   */
+  public static String compactPrint(org.stvnadore.core.ast.StvnDocument document) {
+    return org.stvnadore.core.printer.AstCompactPrinter.print(document);
+  }
+
+  /**
+   * Serializes the given {@link StvnValue} payload with explicit schema to compact STVN text using custom options.
+   *
+   * @param payload the value payload to serialize
+   * @param schema  the explicit target schema
+   * @param options the printer options to apply
+   * @return the compact STVN string representation
+   */
+  public static String compactPrint(StvnValue payload, org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema schema, org.stvnadore.core.printer.PrinterOptions options) {
+    return org.stvnadore.core.printer.AstCompactPrinter.print(payload, schema, options);
+  }
+
+  /**
+   * Serializes the given {@link StvnValue} payload to compact STVN text using custom options.
+   *
+   * @param payload the value payload to serialize
+   * @param options the printer options to apply
+   * @return the compact STVN string representation
+   */
+  public static String compactPrint(StvnValue payload, org.stvnadore.core.printer.PrinterOptions options) {
+    return org.stvnadore.core.printer.AstCompactPrinter.print(payload, options);
+  }
+
+  /**
+   * Serializes the given {@link StvnValue} payload to compact STVN text using default compact options.
+   *
+   * @param payload the value payload to serialize
+   * @return the compact STVN string representation
+   */
+  public static String compactPrint(StvnValue payload) {
+    return org.stvnadore.core.printer.AstCompactPrinter.print(payload);
+  }
+
+  /**
    * Generates a stable SHA-256 content-addressable storage (CAS) fingerprint of the given {@link StvnValue} AST node.
    *
    * @param value the {@link StvnValue} AST node to fingerprint

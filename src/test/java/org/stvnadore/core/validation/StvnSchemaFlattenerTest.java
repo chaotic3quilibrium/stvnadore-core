@@ -27,7 +27,7 @@ class StvnSchemaFlattenerTest {
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
     // Nominal sorting: :Age should come before :User
-    String expected = "{ :meta { #kind #DEFS } :defs { :Age { #minIncl 0 #maxIncl 150 } :Int32 :User { #regex \"^[a-z]+$\" } :String } }";
+    String expected = "{:meta{#kind #DEFS}:defs{:Age{#minIncl 0 #maxIncl 150}:Int32 :User{#regex \"^[a-z]+$\"}:String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -72,7 +72,7 @@ class StvnSchemaFlattenerTest {
     // :Status
     // :User
     // :Username
-    String expected = "{ :meta { #kind #DEFS } :defs { :Age :Int32 :Status :Enum[#Active #Inactive] :User :Tuple(:Username :Age) :Username { #regex \"^[A-Za-z0-9_]+$\" } :String } }";
+    String expected = "{:meta{#kind #DEFS}:defs{:Age :Int32 :Status :Enum[#Active #Inactive] :User :Tuple(:Username :Age) :Username{#regex \"^[A-Za-z0-9_]+$\"}:String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -187,7 +187,7 @@ class StvnSchemaFlattenerTest {
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     // Local priority evicts the imported :ConflictType :Int32, leaving :ConflictType :String
-    String expected = "{ :meta { #kind #DEFS } :defs { :ConflictType :String } }";
+    String expected = "{:meta{#kind #DEFS}:defs{:ConflictType :String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -226,7 +226,7 @@ class StvnSchemaFlattenerTest {
     // :ConflictType from module_a is renamed to :AliasA, which evicts its LHS name (:ConflictType) from the collision,
     // allowing module_b's raw :ConflictType to survive.
     // Alphabetical order: :AliasA, :ConflictType
-    String expected = "{ :meta { #kind #DEFS } :defs { :AliasA :Int32 :ConflictType :String } }";
+    String expected = "{:meta{#kind #DEFS}:defs{:AliasA :Int32 :ConflictType :String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -266,7 +266,7 @@ class StvnSchemaFlattenerTest {
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     // Both aliases survive, but the raw LHS name (:ConflictType) is evicted and unresolved in the local namespace.
     // No exception is thrown because the collision itself was mitigated by alias renaming.
-    String expected = "{ :meta { #kind #DEFS } :defs { :AliasA :Int32 :AliasB :String } }";
+    String expected = "{:meta{#kind #DEFS}:defs{:AliasA :Int32 :AliasB :String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -332,7 +332,7 @@ class StvnSchemaFlattenerTest {
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     // TypeA's internal reference to :ConflictType must be rewritten to :ConflictTypeA
-    String expected = "{ :meta { #kind #DEFS } :defs { :ConflictType :Int32 :ConflictTypeA :String :TypeA :Tuple(:ConflictTypeA :Int32) } }";
+    String expected = "{:meta{#kind #DEFS}:defs{:ConflictType :Int32 :ConflictTypeA :String :TypeA :Tuple(:ConflictTypeA :Int32)}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -354,7 +354,7 @@ class StvnSchemaFlattenerTest {
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
     // Comments must be gone, whitespace normalized to single spaces, constraints sorted.
-    String expected = "{ :meta { #kind #DEFS } :defs { :TypeA :Int32 :TypeB { #regex \"^[a-z]+$\" } :String } }";
+    String expected = "{:meta{#kind #DEFS}:defs{:TypeA :Int32 :TypeB{#regex \"^[a-z]+$\"}:String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -405,7 +405,7 @@ class StvnSchemaFlattenerTest {
 
     // Both must yield identical byte-for-byte outputs
     Assertions.assertEquals(result1, result2);
-    String expected = "{ :meta { #kind #DEFS } :defs { :Status :Enum[#Active #Inactive] :User :Tuple(:Username :Age) } }";
+    String expected = "{:meta{#kind #DEFS}:defs{:Status :Enum[#Active #Inactive] :User :Tuple(:Username :Age)}}";
     Assertions.assertEquals(expected, result1);
   }
 }

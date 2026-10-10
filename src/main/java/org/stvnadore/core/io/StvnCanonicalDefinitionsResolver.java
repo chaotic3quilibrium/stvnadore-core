@@ -14,6 +14,7 @@ import org.stvnadore.core.parser.StvnParser.ConstantDefinitionContext;
 import org.stvnadore.core.validation.StvnTypeResolver;
 import org.stvnadore.core.validation.StvnTypeResolver.ConstantDefSource;
 import org.stvnadore.core.validation.StvnTypeResolver.DefSource;
+import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 import org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints;
 
 import java.util.*;
@@ -75,9 +76,22 @@ public final class StvnCanonicalDefinitionsResolver {
    * @since 1.3.0
    */
   public static List<ResolvedCanonicalDefinition> resolveDefinitions(StvnValue value) {
+    return resolveDefinitions(value, null);
+  }
+
+  /**
+   * Resolves the transitively reachable definitions for the given AST value and optional explicit schema.
+   *
+   * @param value          the root AST value node to serialize
+   * @param explicitSchema the explicit schema context, or null
+   * @return a list of resolved canonical definitions ordered with dependencies preceding dependents
+   * @since 2.0.0
+   */
+  public static List<ResolvedCanonicalDefinition> resolveDefinitions(StvnValue value, @Nullable ResolvedSchema explicitSchema) {
     var doc = findDocumentContext(value);
+    var schema = explicitSchema != null ? explicitSchema : value.schema();
     if (doc == null) {
-      return fallbackLinearChain(value);
+      return fallbackLinearChain(schema);
     }
 
     var allTypes = StvnTypeResolver.getDocumentDefinitionsCache(doc);
@@ -87,7 +101,6 @@ public final class StvnCanonicalDefinitionsResolver {
     }
 
     Set<String> initialSeeds = new LinkedHashSet<>();
-    var schema = value.schema();
     if (schema != null) {
       schema.aliasName().ifPresent(initialSeeds::add);
       collectReferencedNominalSymbols(schema.node(), doc, initialSeeds);
@@ -274,8 +287,7 @@ public final class StvnCanonicalDefinitionsResolver {
     return null;
   }
 
-  private static List<ResolvedCanonicalDefinition> fallbackLinearChain(StvnValue value) {
-    var schema = value.schema();
+  private static List<ResolvedCanonicalDefinition> fallbackLinearChain(@Nullable ResolvedSchema schema) {
     if (schema == null || schema.aliasName().isEmpty()) {
       return List.of();
     }

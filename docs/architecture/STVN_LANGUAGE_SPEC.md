@@ -353,15 +353,24 @@ STVN enforces strict lexical whitespace discipline to eliminate formatting ambig
 1. **Permissible Whitespace:** The only valid structural and indentation whitespace characters are standard ASCII spaces (`U+0020`), carriage returns (`\r`, `U+000D`), and line feeds (`\n`, `U+000A`).
 2. **Strict Zero-Tab Invariant:** Tab characters (`\t`, `U+0009`) are **completely prohibited** as structural or indentation whitespace throughout STVN documents. The presence of a raw tab character in document structure is a fatal syntax violation (`ERR_TAB_CHARACTER_FORBIDDEN`). Tab characters inside single-line strings must be escaped (`\t`).
 3. **Canonical Indentation Standard:** Canonical STVN formatting dictates a strict 2-space indentation standard (`indentWidth = 2`). All nested blocks (inside `{ ... }`, `( ... )`, `[ ... ]`) indent by 2 spaces per hierarchy level.
-4. **Canonical AST Printers & Serialization Rules:**
-   - **`CanonicalStvnWriter`:** Emits deterministic canonical form with minimal structural whitespace for cryptographic hashing and Content-Addressable Storage (CAS).
+4. **Zero Bracket Padding:** Both compact serialization and canonical CAS normalizers strip all optional whitespace adjacent to structural delimiters (`(`, `)`, `[`, `]`, `{`, `}`). Sibling tokens inside collections and compounds separate by a single ASCII space only when neither adjacent token is a structural delimiter (e.g., `[1 2 3]`, `("host" 8080)`, `{["k" "v"]}`).
+5. **Decoupled AST Printers & Normalization Profiles:**
+   - **`CanonicalStvnWriter` & `StvnSchemaFlattener` (Frozen CAS Normalizer):** Emits immutable, deterministic preimages strictly for SHA-256 Content-Addressable Storage (CAS) hashing ($f: \text{Schema} \longleftrightarrow \text{CAS Hash}$). The CAS normalizer is architecturally decoupled from presentation printers and cannot be reconfigured at runtime. Its profile is permanently frozen:
+     - *Coverage:* `ALL_SECTIONS`.
+     - *SymbolStyle:* `SHORT_FORM` (`#T`, `#F`, `#S`, `#N`, `#L`, `#R`).
+     - *SumTypePolicy:* `FORCE_EXPLICIT` (context-free; every sum variant constructor explicitly emitted without elision).
+     - *Delimiter Whitespace:* Zero bracket padding and collapsed outer `:meta` enclosure (`{:meta{#name "x"#domain "y"#kind #DEFS}:defs{...}}`).
+   - **`AstCompactPrinter` & `PrinterOptions` (Configurable Presentation Serializer):** Serializes documents and payloads for network transfer, caching, and IDE buffer actions across three orthogonal dimensions:
+     - *Coverage:* `ALL_SECTIONS` vs. `BODY_ONLY`.
+     - *SymbolStyle:* `LONG_FORM` vs. `SHORT_FORM`.
+     - *SumTypePolicy:* `FORCE_EXPLICIT` vs. `HAPPY_PATH_INFERRED`. Under `HAPPY_PATH_INFERRED`, Option C Smart Schema Sourcing resolves schema metadata from an explicit argument, `document.defs()`, or `value.schema()`, failing closed with `IllegalStateException` on unannotated values lacking schema context.
+     - *Delimiter Whitespace:* Zero bracket padding.
    - **`AstPrettyPrinter`:** Emits long-form keywords (`#TRUE`, `#FALSE`, `#Some`, `#None`) with a configurable 2-space indented hierarchy.
-   - **`AstCompactPrinter`:** Emits short-form keywords (`#T`, `#F`, `#S`, `#N`) with minimal structural whitespace collapsed to single lines.
    - **Transitive Reachability Invariant:** Serializers compute the reachability closure of nominal type and constant definitions reachable from the root `:type` and `:body`. All reachable definitions are emitted in `:defs`.
    - **Universal Alias Desugaring:** Scoped aliases declared via `:use` desugar directly into Fully Qualified Nominal Identifiers (FQNIs). Canonical output contains zero `:package` or `:use` wrappers.
    - **Dead-Code Elimination:** Definitions unreferenced by the root `:type` or `:body` payload are strictly pruned.
    - **Topological Ordering:** Retained definitions in `:defs` emit in topological dependency order (dependencies precede dependents).
-5. **String Capacity Governance (MCT Â§ 3.1.3):**
+6. **String Capacity Governance (MCT § 3.1.3):**
    - **Default Unbounded Allocation Limit:** Unadorned `:String` instances default to a maximum allocation limit of 16,777,216 characters (16 MiB).
    - **Default Inspection Threshold:** 4,096 characters.
    - **Logical Character Cardinality:** Bounded strings declare `{ #maxSize N } :String` or `{ #minSize 1 #maxSize N } :String` up to the signed 32-bit integer boundary ($1 \le N \le 2,147,483,647$). Machine bit-width facet `#size` is prohibited on `:String`.
@@ -1257,10 +1266,10 @@ $$f: \text{NominalSchema} \longleftrightarrow \text{CAS Hash}$$
 Because the CAS hash preimage is derived directly from the canonical flattened schema text:
 $$\text{CAS Hash} = \text{SHA-256}(\text{UTF-8}(\text{CanonicalFlattenedText}))$$
 
-The canonical string emitted by `StvnSchemaFlattener` incorporates the canonical hermetic `:meta` block as its leading section:
-$$\text{Preimage} = \text{UTF-8}\Big(\texttt{"\{ :meta \{ ... #kind #DEFS \} :defs \{ ... \} \}"}\Big)$$
+The canonical string emitted by `StvnSchemaFlattener` incorporates the collapsed, zero-padded hermetic `:meta` block as its leading section:
+$$\text{Preimage} = \text{UTF-8}\Big(\texttt{"\{:meta\{\#name \"x\"\#domain \"y\"\#kind \#DEFS\}:defs\{...\}\}"}\Big)$$
 
-If `#domain` or `#name` were omitted, they are omitted from the flattened text.
+If `#domain` or `#name` are omitted from the document metadata, they are omitted from the preimage. Preimages strictly enforce zero bracket padding (`{...}`, `(...)`, `[...]`), frozen short-form tags (`#T`, `#F`, `#S`, `#N`, `#L`, `#R`), and `FORCE_EXPLICIT` sum variants.
 
 the Pass 2 architectural changes permanently lock the hashing inputs prior to the 2.0.0 release:
 1. **Decoy Alias Purge:** Eliminating `:org/stvnadore/prelude/TimeEpoch` and `:org/stvnadore/prelude/DateTime` ensures these types hash as fundamental kernel constructors rather than nominal prelude aliases pointing to `:Int` or `:String`.

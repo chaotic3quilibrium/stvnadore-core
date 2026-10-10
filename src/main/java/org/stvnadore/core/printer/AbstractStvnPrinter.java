@@ -1,11 +1,13 @@
 package org.stvnadore.core.printer;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.ast.StvnDocument;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.printer.internal.LayoutWriter;
 import org.stvnadore.core.printer.internal.PatternPrinterDispatcher;
 import org.stvnadore.core.printer.internal.PrettyLayoutWriter;
+import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -56,6 +58,18 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
 
   @Override
   public void print(StvnValue value, Writer target) throws IOException {
+    print(value, (ResolvedSchema) null, target);
+  }
+
+  /**
+   * Serializes the given STVN value with an explicit schema context.
+   *
+   * @param value          the STVN value tree to serialize
+   * @param explicitSchema optional explicit target schema, or null
+   * @param target         the target writer destination
+   * @throws IOException if an I/O error occurs during serialization
+   */
+  public void print(StvnValue value, @org.jspecify.annotations.Nullable ResolvedSchema explicitSchema, Writer target) throws IOException {
     var layout = createLayoutWriter(target);
     if (options.coverage() == PrinterOptions.Coverage.BODY_ONLY) {
       PatternPrinterDispatcher.dispatch(value, layout, options);
@@ -67,8 +81,8 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
         layout.indent();
       }
 
-      var schema = value.schema();
-      List<ResolvedCanonicalDefinition> defs = StvnCanonicalDefinitionsResolver.resolveDefinitions(value);
+      var schema = explicitSchema != null ? explicitSchema : value.schema();
+      List<ResolvedCanonicalDefinition> defs = StvnCanonicalDefinitionsResolver.resolveDefinitions(value, explicitSchema);
       if (!defs.isEmpty()) {
         layout.writeLiteral(StvnVocabulary.KEYWORD_DEFS);
         layout.appendSeparator();
@@ -144,6 +158,176 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
       layout.closeGroup("}");
     }
     layout.flush();
+  }
+
+  /**
+   * Serializes the given STVN value with an explicit schema context to a string.
+   *
+   * @param value          the STVN value tree to serialize
+   * @param explicitSchema the explicit target schema
+   * @return the serialized string
+   */
+  public String printToString(StvnValue value, ResolvedSchema explicitSchema) {
+    var sw = new java.io.StringWriter();
+    try {
+      print(value, explicitSchema, sw);
+    } catch (IOException e) {
+      throw new RuntimeException("Unreachable IOException in StringWriter", e);
+    }
+    return sw.toString();
+  }
+
+  /**
+   * Serializes the given STVN document into the specified writer.
+   *
+   * @param document the STVN document to serialize
+   * @param target   the target writer destination
+   * @throws IOException if an I/O error occurs during serialization
+   */
+  public void print(StvnDocument document, Writer target) throws IOException {
+    var layout = createLayoutWriter(target);
+    if (options.coverage() == PrinterOptions.Coverage.BODY_ONLY) {
+      if (document.hasPayload()) {
+        PatternPrinterDispatcher.dispatch(document.requirePayload(), layout, options);
+      }
+    } else {
+      layout.openGroup("{");
+      var pretty = layout instanceof PrettyLayoutWriter;
+      if (pretty) {
+        layout.newline();
+        layout.indent();
+      }
+
+      if (document.hasMeta()) {
+        var meta = document.requireMeta();
+        layout.writeLiteral(StvnVocabulary.KEYWORD_META);
+        layout.appendSeparator();
+        layout.openGroup("{");
+        var firstMeta = true;
+        if (meta.name().isPresent()) {
+          firstMeta = false;
+          layout.writeLiteral(StvnVocabulary.FACET_KW_META_NAME);
+          layout.appendSeparator();
+          layout.writeSimpleString(meta.name().get());
+        }
+        if (meta.domain().isPresent()) {
+          if (!firstMeta && pretty) layout.appendSeparator();
+          firstMeta = false;
+          layout.writeLiteral(StvnVocabulary.FACET_KW_META_DOMAIN);
+          layout.appendSeparator();
+          layout.writeSimpleString(meta.domain().get());
+        }
+        if (meta.kind().isPresent()) {
+          if (!firstMeta && pretty) layout.appendSeparator();
+          firstMeta = false;
+          layout.writeLiteral(StvnVocabulary.FACET_KW_META_KIND);
+          layout.appendSeparator();
+          layout.writeLiteral(meta.kind().get().keyword());
+        }
+        layout.closeGroup("}");
+        if (pretty) {
+          layout.newline();
+        } else {
+          layout.appendSeparator();
+        }
+      }
+
+      if (document.hasPayload()) {
+        var value = document.requirePayload();
+        var schema = value.schema();
+        List<ResolvedCanonicalDefinition> defs = StvnCanonicalDefinitionsResolver.resolveDefinitions(value);
+        if (!defs.isEmpty()) {
+          layout.writeLiteral(StvnVocabulary.KEYWORD_DEFS);
+          layout.appendSeparator();
+          layout.openGroup("{");
+
+          var firstDef = true;
+          for (var s : defs) {
+            if (!firstDef) {
+              if (pretty) {
+                layout.newline();
+              } else {
+                layout.appendSeparator();
+              }
+            }
+            if (firstDef && pretty) {
+              layout.newline();
+              layout.indent();
+            }
+            firstDef = false;
+
+            layout.writeLiteral(s.canonicalName());
+
+            var constraints = s.constraints();
+            if (!isConstraintsEmpty(constraints)) {
+              layout.appendSeparator();
+              writeConstraints(constraints, layout);
+            }
+
+            layout.appendSeparator();
+            writeSchemaType(s.schemaNode(), layout, s.lexicalContext(), false);
+          }
+
+          if (pretty) {
+            layout.outdent();
+            layout.newline();
+          }
+          layout.closeGroup("}");
+
+          if (pretty) {
+            layout.newline();
+          } else {
+            layout.appendSeparator();
+          }
+        }
+
+        layout.writeLiteral(StvnVocabulary.KEYWORD_TYPE);
+        layout.appendSeparator();
+        if (schema != null) {
+          var alias = schema.aliasName().orElse(null);
+          if (alias != null) {
+            layout.writeLiteral(alias);
+          } else {
+            writeSchemaType(schema.node(), layout, schema.node(), true);
+          }
+        } else {
+          throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing schema context");
+        }
+
+        if (pretty) {
+          layout.newline();
+        } else {
+          layout.appendSeparator();
+        }
+
+        layout.writeLiteral(StvnVocabulary.KEYWORD_BODY);
+        layout.appendSeparator();
+        PatternPrinterDispatcher.dispatch(value, layout, options);
+      }
+
+      if (pretty) {
+        layout.outdent();
+        layout.newline();
+      }
+      layout.closeGroup("}");
+    }
+    layout.flush();
+  }
+
+  /**
+   * Serializes the given STVN document to a string.
+   *
+   * @param document the STVN document to serialize
+   * @return the serialized string
+   */
+  public String printToString(StvnDocument document) {
+    var sw = new java.io.StringWriter();
+    try {
+      print(document, sw);
+    } catch (IOException e) {
+      throw new RuntimeException("Unreachable IOException in StringWriter", e);
+    }
+    return sw.toString();
   }
 
   private void writeConstraints(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints constraints, LayoutWriter layout) throws IOException {

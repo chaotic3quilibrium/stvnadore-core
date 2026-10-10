@@ -83,4 +83,25 @@ public record StvnDocument(
   public StvnDocumentMeta requireMeta() {
     return meta.orElseThrow(() -> new NoSuchElementException("Document contains no :meta header"));
   }
+
+  /**
+   * Returns the definitions entry context from the underlying parse tree, if present.
+   *
+   * @return optional definitions entry context
+   */
+  public Optional<org.stvnadore.core.parser.StvnParser.DefsEntryContext> defs() {
+    return parseTree.flatMap(docCtx -> Optional.ofNullable(
+        docCtx.documentBody() != null ? docCtx.documentBody().defsEntry() : null
+    ));
+  }
+
+  /**
+   * Indicates whether this document contains declared {@code :defs} definitions.
+   *
+   * @return {@code true} if definitions are present, {@code false} otherwise
+   */
+  public boolean hasDefs() {
+    return defs().isPresent();
+  }
 }
+

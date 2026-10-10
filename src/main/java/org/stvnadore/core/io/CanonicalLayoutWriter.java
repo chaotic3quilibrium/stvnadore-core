@@ -39,8 +39,12 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
       return;
     }
     if (!lastToken.isEmpty()) {
-      if (!isPunctuation(lastToken) && !isPunctuation(token)) {
-        writer.write(' ');
+      boolean omitSpace = isPunctuation(lastToken) || isPunctuation(token)
+          || (token.equals(StvnVocabulary.KEYWORD_BODY) && lastToken.startsWith(":"));
+      if (!omitSpace) {
+        if (!lastToken.endsWith("\n")) {
+          writer.write(' ');
+        }
       }
     }
     writer.write(token);
@@ -61,12 +65,10 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
 
   @Override
   public void writeBoolean(boolean val, PrinterOptions.SymbolStyle style) throws IOException {
-    // Style parameter is intentionally ignored. Canonical layout writer must defensively
-    // enforce LONG_FORM (#TRUE / #FALSE) representation to maintain absolute cryptographic
-    // hash stability regardless of caller-side formatting configuration.
+    // Enforce Frozen Canonical CAS Normalizer Profile: SHORT_FORM (#T / #F)
     writeToken(val
-        ? StvnVocabulary.VAL_TRUE
-        : StvnVocabulary.VAL_FALSE);
+        ? StvnVocabulary.VAL_TRUE_SHORT
+        : StvnVocabulary.VAL_FALSE_SHORT);
   }
 
   @Override
@@ -106,32 +108,35 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
 
   @Override
   public void openOptionSomeTag(PrinterOptions.SymbolStyle style) throws IOException {
-    // Style parameter is intentionally ignored. Enforce LONG_FORM (#Some) variant for canonical consistency.
-    writeToken(StvnVocabulary.VAL_SOME);
+    // Enforce Frozen Canonical CAS Normalizer Profile: SHORT_FORM (#S)
+    writeToken(StvnVocabulary.VAL_SOME_SHORT);
   }
 
   @Override
   public void writeOptionNone(PrinterOptions.SymbolStyle style) throws IOException {
-    // Style parameter is intentionally ignored. Enforce LONG_FORM (#None) variant for canonical consistency.
-    writeToken(StvnVocabulary.VAL_NONE);
+    // Enforce Frozen Canonical CAS Normalizer Profile: SHORT_FORM (#N)
+    writeToken(StvnVocabulary.VAL_NONE_SHORT);
   }
 
   @Override
   public void openEitherTag(boolean isRight, PrinterOptions.SymbolStyle style) throws IOException {
-    // Style parameter is intentionally ignored. Enforce LONG_FORM (#Right / #Left) variant for canonical consistency.
+    // Enforce Frozen Canonical CAS Normalizer Profile: SHORT_FORM (#R / #L)
     writeToken(isRight
-        ? StvnVocabulary.VAL_RIGHT
-        : StvnVocabulary.VAL_LEFT);
+        ? StvnVocabulary.VAL_RIGHT_SHORT
+        : StvnVocabulary.VAL_LEFT_SHORT);
   }
 
   @Override
   public void openTag(String tag) throws IOException {
-    // Defensively coerce any short-form tags back to their canonical long-form counterparts.
+    // Defensively coerce any long-form tags to their canonical short-form counterparts.
     String canonicalTag;
     switch (tag) {
-      case StvnVocabulary.VAL_SOME_SHORT, StvnVocabulary.VAL_SOME -> canonicalTag = StvnVocabulary.VAL_SOME;
-      case StvnVocabulary.VAL_LEFT_SHORT, StvnVocabulary.VAL_LEFT -> canonicalTag = StvnVocabulary.VAL_LEFT;
-      case StvnVocabulary.VAL_RIGHT_SHORT, StvnVocabulary.VAL_RIGHT -> canonicalTag = StvnVocabulary.VAL_RIGHT;
+      case StvnVocabulary.VAL_SOME, StvnVocabulary.VAL_SOME_SHORT -> canonicalTag = StvnVocabulary.VAL_SOME_SHORT;
+      case StvnVocabulary.VAL_NONE, StvnVocabulary.VAL_NONE_SHORT -> canonicalTag = StvnVocabulary.VAL_NONE_SHORT;
+      case StvnVocabulary.VAL_LEFT, StvnVocabulary.VAL_LEFT_SHORT -> canonicalTag = StvnVocabulary.VAL_LEFT_SHORT;
+      case StvnVocabulary.VAL_RIGHT, StvnVocabulary.VAL_RIGHT_SHORT -> canonicalTag = StvnVocabulary.VAL_RIGHT_SHORT;
+      case StvnVocabulary.VAL_TRUE, StvnVocabulary.VAL_TRUE_SHORT -> canonicalTag = StvnVocabulary.VAL_TRUE_SHORT;
+      case StvnVocabulary.VAL_FALSE, StvnVocabulary.VAL_FALSE_SHORT -> canonicalTag = StvnVocabulary.VAL_FALSE_SHORT;
       default -> canonicalTag = tag;
     }
     writeToken(canonicalTag);
