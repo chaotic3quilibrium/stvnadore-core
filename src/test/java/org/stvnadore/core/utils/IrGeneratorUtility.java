@@ -24,7 +24,7 @@ import org.stvnadore.core.parser.StvnParser.StvnDocumentContext;
 public final class IrGeneratorUtility {
 
   private static final Path FIXTURES_DIR = Paths.get("shared-fixtures/syntax/valid");
-  private static final Path SUBSTRATE_SCHEMA_PATH = Paths.get("shared-fixtures/syntax/valid/modules/stvn_ir_substrate.stvn_d");
+  private static final Path SUBSTRATE_SCHEMA_PATH = Paths.get("shared-fixtures/syntax/valid/modules/stvn_ir_substrate.stvn_ir.stvn_d");
   private static final boolean UPDATE_MODE = Boolean.getBoolean("updateSnapshots");
 
   private IrGeneratorUtility() {
@@ -37,7 +37,7 @@ public final class IrGeneratorUtility {
 
     try (Stream<Path> paths = Files.walk(FIXTURES_DIR)) {
       List<Path> files = paths.filter(Files::isRegularFile)
-          .filter(p -> (p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i")) && !p.getFileName().toString().endsWith(".ir.stvn_i"))
+          .filter(p -> (p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i")) && !p.getFileName().toString().endsWith(".stvn_ir.stvn_i"))
           .toList();
       for (Path file : files) {
         processFixture(file);
@@ -60,7 +60,7 @@ public final class IrGeneratorUtility {
     var meta = liveDoc.meta().orElse(null);
 
     String baseName = stvnFile.getFileName().toString().replaceAll("\\.stvn(_i)?$", "");
-    Path irSnapshotPath = stvnFile.resolveSibling(baseName + ".ir.stvn_i");
+    Path irSnapshotPath = stvnFile.resolveSibling(baseName + ".stvn_ir.stvn_i");
     Path binSnapshotPath = stvnFile.resolveSibling(baseName + ".stvn_b");
 
     String relativeSubstratePath = stvnFile.getParent().relativize(SUBSTRATE_SCHEMA_PATH).toString().replace('\\', '/');
@@ -101,18 +101,18 @@ public final class IrGeneratorUtility {
    * Backward-compatible convenience serialization entry point.
    */
   public static String serializeIr(StvnValue value) {
-    return serializeSnapshotDocument("snapshot", "stvn_ir_substrate.stvn_d", value);
+    return serializeSnapshotDocument("snapshot", "stvn_ir_substrate.stvn_ir.stvn_d", value);
   }
 
   /**
-   * Translates the StvnValue graph and TypeRegistry into a valid STVN document adhering to stvn_ir_substrate.stvn_d.
+   * Translates the StvnValue graph and TypeRegistry into a valid STVN document adhering to stvn_ir_substrate.stvn_ir.stvn_d.
    */
   public static String serializeSnapshotDocument(String baseName, String relativeSubstratePath, StvnValue rootValue) {
     StringBuilder sb = new StringBuilder();
     sb.append("{\n");
     sb.append("  :meta {\n");
     sb.append("    #name \"").append(escapeString(baseName)).append("\"\n");
-    sb.append("    #domain \"ir\"\n");
+    sb.append("    #domain \"stvn_ir\"\n");
     sb.append("    #kind #BODY_INCLUDE\n");
     sb.append("  }\n");
     sb.append("  :defs {\n");

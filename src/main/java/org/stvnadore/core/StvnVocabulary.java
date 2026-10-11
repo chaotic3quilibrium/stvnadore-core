@@ -524,4 +524,23 @@ public final class StvnVocabulary {
 
   /** Canonical FQNI for authoritative catalog metadata tuple ({@code :org/stvnadore/prelude/meta/StvnCatalogMeta}). */
   public static final String META_TYPE_CATALOG_META = ":org/stvnadore/prelude/meta/StvnCatalogMeta";
+
+  // ============================================================================
+  // 13. CANONICAL COMPILER IR SUBSTRATE IDENTIFIERS
+  // ============================================================================
+
+  /** Canonical FQNI for IR trait constraints tuple ({@code :org/stvnadore/ir/IrTraitConstraints}). */
+  public static final String IR_TYPE_TRAIT_CONSTRAINTS = ":org/stvnadore/ir/IrTraitConstraints";
+
+  /** Canonical FQNI for IR registered schema tuple ({@code :org/stvnadore/ir/IrRegisteredSchema}). */
+  public static final String IR_TYPE_REGISTERED_SCHEMA = ":org/stvnadore/ir/IrRegisteredSchema";
+
+  /** Canonical FQNI for IR type registry map ({@code :org/stvnadore/ir/IrTypeRegistry}). */
+  public static final String IR_TYPE_TYPE_REGISTRY = ":org/stvnadore/ir/IrTypeRegistry";
+
+  /** Canonical FQNI for IR snapshot root document tuple ({@code :org/stvnadore/ir/IrSnapshotDocument}). */
+  public static final String IR_TYPE_SNAPSHOT_DOCUMENT = ":org/stvnadore/ir/IrSnapshotDocument";
+
+  /** Canonical FQNI for recursive IR value coproduct union ({@code :org/stvnadore/ir/IrValue}). */
+  public static final String IR_TYPE_VALUE = ":org/stvnadore/ir/IrValue";
 }

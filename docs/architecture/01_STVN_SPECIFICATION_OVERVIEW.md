@@ -68,7 +68,7 @@ Every text-based STVN document must enclose its content within a single root cur
 | `.stvn_di`    | `#DEFS_INCLUDE`  | Textual  | `:defs`                             | `:body`                      |
 | `.stvn_b`     | `#BODY`          | Binary   | Header + Payload                    | `:include`                   |
 | `.stvn_bd`    | `#DEFS`          | Binary   | Header + Payload                    | `:include`, `:body`          |
-| `.cas.stvn`   | `#BODY`          | Textual  | `:Tuple( :String :String :String )` | None                         |
+| `.stvn_cas.stvn` | `#BODY`          | Textual  | `:Tuple( :String :String :String )` | None                         |
 
 ---
 

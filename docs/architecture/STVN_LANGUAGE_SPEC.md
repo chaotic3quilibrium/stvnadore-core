@@ -175,7 +175,7 @@ The `:meta` block is optional on primary modular documents (`.stvn`), but mandat
 | **`.stvn_b`** | `#BODY` | Binary | **Required** | Optional | **Prohibited** | **Required** | Binary hermetic payload document. |
 | **`.stvn_bd`** | `#DEFS` | Binary | **Required** | **Required** | **Prohibited** | **Prohibited** | Binary hermetic definitions schema. |
 
-CAS envelopes are formalized as dot-separated `<name>.cas.stvn` (`#domain "cas"`, `#kind #BODY`). Compiler IR snapshots are formalized as dot-separated `<name>.ir.stvn_i` (`#domain "ir"`, `#kind #BODY_INCLUDE`).
+CAS envelopes are formalized as dot-separated `<name>.stvn_cas.stvn` (`#domain "stvn_cas"`, `#kind #BODY`). Compiler IR snapshots are formalized as dot-separated `<name>.stvn_ir.stvn_i` (`#domain "stvn_ir"`, `#kind #BODY_INCLUDE`).
 
 Legacy extensions (`.stvn_incl`, `.stvn_inclf`, `.stvn_cas`, `.stvn_bin`, `.stvn_f`, `.stvn_df`, `.stvn_bf`, `.stvn_bdf`) are permanently excised. Encountering them emits fatal diagnostic `ERR_LEGACY_FILE_EXTENSION_PURGED`.
 
@@ -919,7 +919,7 @@ WHERE active = TRUE;
 ```
 
 ```stvn
-// CAS Content-Addressable Storage envelope with canonical SHA-256 digest tag (.cas.stvn)
+// CAS Content-Addressable Storage envelope with canonical SHA-256 digest tag (.stvn_cas.stvn)
 :type :Tuple( :String :String )
 :body (
   "payload.stvn"
@@ -2030,7 +2030,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
 
 ```stvn
 {
-  // ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad.cas.stvn
+  // ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad.stvn_cas.stvn
   //   Used by the STVN Schema Repository
   //   cas = Content Addressable Storage
   //   Note how the contained STVN document is intentionally un-indented

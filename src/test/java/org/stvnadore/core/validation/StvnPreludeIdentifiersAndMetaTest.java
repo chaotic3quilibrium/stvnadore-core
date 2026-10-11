@@ -375,28 +375,30 @@ public class StvnPreludeIdentifiersAndMetaTest {
   }
 
   @Test
-  @DisplayName("TC-PRELUDE-FIXTURE-01: Canonical shared fixture prelude.stvn_d exists and is non-empty")
+  @DisplayName("TC-PRELUDE-FIXTURE-01: Canonical shared fixture prelude.stvn_core.stvn_d exists and compiles with zero diagnostics")
   void testCanonicalPreludeFixtureExistsAndIsNonEmpty() throws IOException {
-    var path = Paths.get("shared-fixtures/syntax/valid/modules/prelude.stvn_d");
-    assertTrue(Files.exists(path), "prelude.stvn_d fixture file must exist");
+    var path = Paths.get("shared-fixtures/syntax/valid/modules/prelude.stvn_core.stvn_d");
+    assertTrue(Files.exists(path), "prelude.stvn_core.stvn_d fixture file must exist");
     var content = Files.readString(path);
-    assertFalse(content.isBlank(), "prelude.stvn_d fixture must not be blank");
-    assertTrue(content.contains(":PosixId"), "prelude.stvn_d must contain :PosixId");
-    assertTrue(content.contains(":PolyglotCodeId"), "prelude.stvn_d must contain :PolyglotCodeId");
-    assertTrue(content.contains(":StvnPosixId64"), "prelude.stvn_d must contain :StvnPosixId64");
-    assertTrue(content.contains(":StvnDocumentKind"), "prelude.stvn_d must contain :StvnDocumentKind");
-    assertTrue(content.contains(":StvnDocumentMeta"), "prelude.stvn_d must contain :StvnDocumentMeta");
-    assertTrue(content.contains(":StvnCatalogMeta"), "prelude.stvn_d must contain :StvnCatalogMeta");
+    assertFalse(content.isBlank(), "prelude.stvn_core.stvn_d fixture must not be blank");
+    var compilation = StvnCompiler.compile(content, path.toString(), StvnParserConfig.DEFAULT);
+    assertTrue(compilation.diagnostics().isEmpty(), "prelude.stvn_core.stvn_d must compile with zero diagnostics: " + compilation.diagnostics());
+    assertTrue(content.contains(":PosixId"), "prelude.stvn_core.stvn_d must contain :PosixId");
+    assertTrue(content.contains(":PolyglotCodeId"), "prelude.stvn_core.stvn_d must contain :PolyglotCodeId");
+    assertTrue(content.contains(":StvnPosixId64"), "prelude.stvn_core.stvn_d must contain :StvnPosixId64");
+    assertTrue(content.contains(":StvnDocumentKind"), "prelude.stvn_core.stvn_d must contain :StvnDocumentKind");
+    assertTrue(content.contains(":StvnDocumentMeta"), "prelude.stvn_core.stvn_d must contain :StvnDocumentMeta");
+    assertTrue(content.contains(":StvnCatalogMeta"), "prelude.stvn_core.stvn_d must contain :StvnCatalogMeta");
   }
 
   @Test
-  @DisplayName("TC-PRELUDE-FIXTURE-02: Canonical IR snapshot prelude.ir.stvn_i compiles cleanly")
+  @DisplayName("TC-PRELUDE-FIXTURE-02: Canonical IR snapshot prelude.stvn_ir.stvn_i compiles cleanly")
   void testCanonicalPreludeIrSnapshotCompilesCleanly() throws IOException {
-    var path = Paths.get("shared-fixtures/syntax/valid/modules/prelude.ir.stvn_i");
-    assertTrue(Files.exists(path), "prelude.ir.stvn_i snapshot file must exist");
+    var path = Paths.get("shared-fixtures/syntax/valid/modules/prelude.stvn_ir.stvn_i");
+    assertTrue(Files.exists(path), "prelude.stvn_ir.stvn_i snapshot file must exist");
     var content = Files.readString(path);
     var result = StvnCompiler.compileToResult(content, path.toString(), StvnParserConfig.DEFAULT);
-    assertTrue(result.isSuccess(), "prelude.ir.stvn_i must compile cleanly: " + result.diagnostics());
+    assertTrue(result.diagnostics().isEmpty(), "prelude.stvn_ir.stvn_i must compile with zero diagnostics: " + result.diagnostics());
   }
 
   @Test
@@ -408,5 +410,12 @@ public class StvnPreludeIdentifiersAndMetaTest {
     assertEquals(":org/stvnadore/prelude/meta/StvnDocumentKind", StvnVocabulary.META_TYPE_DOCUMENT_KIND);
     assertEquals(":org/stvnadore/prelude/meta/StvnDocumentMeta", StvnVocabulary.META_TYPE_DOCUMENT_META);
     assertEquals(":org/stvnadore/prelude/meta/StvnCatalogMeta", StvnVocabulary.META_TYPE_CATALOG_META);
+
+    // Section 13 IR Substrate FQNI constants
+    assertEquals(":org/stvnadore/ir/IrTraitConstraints", StvnVocabulary.IR_TYPE_TRAIT_CONSTRAINTS);
+    assertEquals(":org/stvnadore/ir/IrRegisteredSchema", StvnVocabulary.IR_TYPE_REGISTERED_SCHEMA);
+    assertEquals(":org/stvnadore/ir/IrTypeRegistry", StvnVocabulary.IR_TYPE_TYPE_REGISTRY);
+    assertEquals(":org/stvnadore/ir/IrSnapshotDocument", StvnVocabulary.IR_TYPE_SNAPSHOT_DOCUMENT);
+    assertEquals(":org/stvnadore/ir/IrValue", StvnVocabulary.IR_TYPE_VALUE);
   }
 }

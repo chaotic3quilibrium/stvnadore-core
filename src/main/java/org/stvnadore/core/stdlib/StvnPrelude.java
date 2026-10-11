@@ -25,7 +25,12 @@ public final class StvnPrelude {
    */
   public static final String PRELUDE_STVN_D = """
       {
-        //File:        prelude.stvn_d
+        :meta {
+          #name "prelude"
+          #domain "stvn_core"
+          #kind #DEFS
+        }
+        //File:        prelude.stvn_core.stvn_d
         //Description: Made available implicitly in every .stvn* file
         //Version:     2.0.0
         //Date:        2026.10.10
@@ -53,7 +58,7 @@ public final class StvnPrelude {
           :package :org/stvnadore/prelude/meta {
             :use [ :org/stvnadore/prelude { #strip } ]
 
-            :StvnPosixId64 { #maxSize 64 } :PosixId
+            :StvnPosixId64 { #minSize 1 #maxSize 64 #regex "^[a-zA-Z0-9_-]+$" } :String
             :StvnDocumentKind :Enum [ #BODY #DEFS #BODY_INCLUDE #DEFS_INCLUDE ]
             :StvnDocumentMeta :Tuple( :Option(:StvnPosixId64) :Option(:StvnPosixId64) :StvnDocumentKind )
             :StvnCatalogMeta :Tuple( :StvnPosixId64 :StvnPosixId64 :StvnDocumentKind )

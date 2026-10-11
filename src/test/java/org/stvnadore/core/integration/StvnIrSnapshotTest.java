@@ -25,7 +25,7 @@ import org.stvnadore.core.binary.SchemaIdentityStrategy;
 public class StvnIrSnapshotTest {
 
   private static final Path FIXTURES_DIR = Paths.get("shared-fixtures/syntax/valid");
-  private static final Path SUBSTRATE_SCHEMA_PATH = Paths.get("shared-fixtures/syntax/valid/modules/stvn_ir_substrate.stvn_d");
+  private static final Path SUBSTRATE_SCHEMA_PATH = Paths.get("shared-fixtures/syntax/valid/modules/stvn_ir_substrate.stvn_ir.stvn_d");
 
   @ParameterizedTest(name = "Snapshot Test - {0}")
   @MethodSource("provideFixtureFiles")
@@ -41,7 +41,7 @@ public class StvnIrSnapshotTest {
     var meta = liveDoc.meta().orElse(null);
 
     var baseName = stvnFile.getFileName().toString().replaceAll("\\.stvn(_i)?$", "");
-    var snapshotPath = stvnFile.resolveSibling(baseName + ".ir.stvn_i");
+    var snapshotPath = stvnFile.resolveSibling(baseName + ".stvn_ir.stvn_i");
     var binSnapshotPath = stvnFile.resolveSibling(baseName + ".stvn_b");
 
     var relativeSubstratePath = stvnFile.getParent().relativize(SUBSTRATE_SCHEMA_PATH).toString().replace('\\', '/');
@@ -69,13 +69,13 @@ public class StvnIrSnapshotTest {
 
     Assertions.assertEquals(cleanExpected, cleanLive, "Snapshot mismatch for fixture: " + stvnFile);
 
-    // Compiler verification: Compile the .ir.stvn_i snapshot directly
+    // Compiler verification: Compile the .stvn_ir.stvn_i snapshot directly
     var snapshotCompilation = StvnCompiler.compile(expectedSnapshot, snapshotPath.toString(), StvnParserConfig.DEFAULT);
-    Assertions.assertFalse(snapshotCompilation.hasErrors(), "Failed to compile IR snapshot document: " + snapshotCompilation.diagnostics());
+    Assertions.assertTrue(snapshotCompilation.diagnostics().isEmpty(), "IR snapshot compilation produced unexpected diagnostics: " + snapshotCompilation.diagnostics());
     var snapshotDoc = snapshotCompilation.document().orElseThrow();
     Assertions.assertTrue(snapshotDoc.hasPayload(), "Compiled IR snapshot has no payload body");
     var snapshotPayload = (StvnValue.StvnTuple) snapshotDoc.requirePayload();
-    Assertions.assertEquals(2, snapshotPayload.elements().size(), "IR snapshot root tuple must have arity 2 (TypeRegistry, IrValue)");
+    Assertions.assertEquals(2, snapshotPayload.elements().size(), "IR snapshot root tuple must have arity 2 (IrTypeRegistry, IrValue)");
 
     // Binary verification check
     Assertions.assertTrue(Files.exists(binSnapshotPath), "Missing expected binary snapshot file: " + binSnapshotPath);
@@ -91,7 +91,7 @@ public class StvnIrSnapshotTest {
   }
 
   @Test
-  @DisplayName("Zero-Deprecation Invariant: Zero legacy .stvn_ir or .stvn_i_ir files remain in shared-fixtures")
+  @DisplayName("Zero-Deprecation Invariant: Zero legacy .stvn_ir, .stvn_i_ir, or .ir.stvn_i files remain in shared-fixtures")
   public void testZeroLegacyIrSnapshotsRemainOnDisk() throws IOException {
     Path fixturesRoot = Paths.get("shared-fixtures");
     if (!Files.exists(fixturesRoot)) {
@@ -100,7 +100,7 @@ public class StvnIrSnapshotTest {
     try (Stream<Path> stream = Files.walk(fixturesRoot)) {
       List<Path> legacyFiles = stream
           .filter(Files::isRegularFile)
-          .filter(p -> p.getFileName().toString().endsWith(".stvn_ir") || p.getFileName().toString().endsWith(".stvn_i_ir"))
+          .filter(p -> p.getFileName().toString().endsWith(".stvn_ir") || p.getFileName().toString().endsWith(".stvn_i_ir") || p.getFileName().toString().endsWith(".ir.stvn_i"))
           .toList();
       Assertions.assertTrue(legacyFiles.isEmpty(),
           "Found unmigrated legacy IR snapshot files: " + legacyFiles);
@@ -134,7 +134,7 @@ public class StvnIrSnapshotTest {
     }
     try (var paths = Files.walk(FIXTURES_DIR)) {
       var files = paths.filter(Files::isRegularFile)
-          .filter(p -> (p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i")) && !p.getFileName().toString().endsWith(".ir.stvn_i"))
+          .filter(p -> (p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i")) && !p.getFileName().toString().endsWith(".stvn_ir.stvn_i"))
           .toList();
       return files.stream().map(p -> Arguments.of(p.getFileName().toString(), p));
     }
