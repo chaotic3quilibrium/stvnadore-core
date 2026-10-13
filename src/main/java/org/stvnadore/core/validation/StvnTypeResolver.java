@@ -22,6 +22,7 @@ import org.stvnadore.core.ir.StvnLiteralParser;
 import java.io.IOException;
 import java.io.Serial;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -364,8 +365,14 @@ public class StvnTypeResolver {
       return kw;
     }
     var preludeDoc = StvnPrelude.getPreludeDocument();
-    if (preludeDoc != null && findConstantDefInDocument(preludeDoc, kw).isPresent()) {
-      return kw;
+    if (preludeDoc != null) {
+      if (findConstantDefInDocument(preludeDoc, kw).isPresent()) {
+        return kw;
+      }
+      String preludeFqni = StvnVocabulary.SIGIL_VALUE + "org/stvnadore/prelude/" + (kw.startsWith(StvnVocabulary.SIGIL_VALUE) ? kw.substring(1) : kw);
+      if (findConstantDefInDocument(preludeDoc, preludeFqni).isPresent()) {
+        return preludeFqni;
+      }
     }
     return kw;
   }
@@ -402,6 +409,13 @@ public class StvnTypeResolver {
         var pName = entry.getKey();
         var pDef = entry.getValue().defNode();
         accumulator.computeIfAbsent(pName, k -> new ArrayList<>())
+            .add(new NamespaceClaim<>(pName, pDef, "Prelude", ClaimType.RAW_IMPORT));
+      }
+      var preludeConsts = getDocumentConstantDefinitions(preludeDoc);
+      for (var entry : preludeConsts.entrySet()) {
+        var pName = entry.getKey();
+        var pDef = entry.getValue().defNode();
+        constAccumulator.computeIfAbsent(pName, k -> new ArrayList<>())
             .add(new NamespaceClaim<>(pName, pDef, "Prelude", ClaimType.RAW_IMPORT));
       }
     }
@@ -651,8 +665,11 @@ public class StvnTypeResolver {
               }
 
               for (var entry : importedConstDefs.entrySet()) {
-                var originalName = entry.getKey();
                 var constSource = entry.getValue();
+                if ("Prelude".equals(constSource.sourceName())) {
+                  continue;
+                }
+                var originalName = entry.getKey();
 
                 var candidateName = originalName;
                 if (hasStrip) {
@@ -1874,6 +1891,17 @@ public class StvnTypeResolver {
             val = new BigDecimal(numCtx.metadataValue().floatLiteral().getText());
           else if (numCtx.metadataValue().stringLiteral() != null)
             dateVal = extractRawStringValue(numCtx.metadataValue().stringLiteral().getText());
+          else if (numCtx.metadataValue().valueKeyword() != null) {
+            var doc = findEnclosingDocument(metadataMap);
+            var constDefOpt = findConstantDefinition(doc, numCtx.metadataValue().valueKeyword().getText(), numCtx.metadataValue());
+            if (constDefOpt.isPresent()) {
+              var constVal = resolveConstantValue(doc, constDefOpt.get(), new HashSet<>());
+              if (constVal instanceof BigDecimal bd) val = bd;
+              else if (constVal instanceof BigInteger bi) val = new BigDecimal(bi);
+              else if (constVal instanceof Integer i) val = BigDecimal.valueOf(i);
+              else if (constVal instanceof String s) dateVal = s;
+            }
+          }
         }
 
         if (val != null) {
@@ -1888,16 +1916,33 @@ public class StvnTypeResolver {
         }
       } else if (entry.metadataString() != null) {
         var strCtx = entry.metadataString();
-        if (strCtx.KW_REGEX() != null && strCtx.metadataValue() != null && strCtx.metadataValue().stringLiteral() != null) {
-          regex = extractRawStringValue(strCtx.metadataValue().stringLiteral().getText());
+        if (strCtx.KW_REGEX() != null && strCtx.metadataValue() != null) {
+          if (strCtx.metadataValue().stringLiteral() != null) {
+            regex = extractRawStringValue(strCtx.metadataValue().stringLiteral().getText());
+          } else if (strCtx.metadataValue().valueKeyword() != null) {
+            var doc = findEnclosingDocument(metadataMap);
+            var constDefOpt = findConstantDefinition(doc, strCtx.metadataValue().valueKeyword().getText(), strCtx.metadataValue());
+            if (constDefOpt.isPresent()) {
+              regex = resolveConstantStringValue(doc, constDefOpt.get());
+            }
+          }
         }
       } else if (entry.metadataBool() != null) {
         var boolCtx = entry.metadataBool();
         var mv = boolCtx.metadataValue();
         if (mv != null) {
-          var boolLit = mv.booleanLiteral();
-          if (boolLit != null) {
-            var isTrue = boolLit.KW_TRUE() != null || boolLit.KW_TRUE_SHORT() != null;
+          Boolean isTrue = null;
+          if (mv.booleanLiteral() != null) {
+            var boolLit = mv.booleanLiteral();
+            isTrue = boolLit.KW_TRUE() != null || boolLit.KW_TRUE_SHORT() != null;
+          } else if (mv.valueKeyword() != null) {
+            var doc = findEnclosingDocument(metadataMap);
+            var constDefOpt = findConstantDefinition(doc, mv.valueKeyword().getText(), mv);
+            if (constDefOpt.isPresent()) {
+              isTrue = resolveConstantBooleanValue(doc, constDefOpt.get());
+            }
+          }
+          if (isTrue != null) {
             if (boolCtx.KW_EQUATABLE() != null) {
               equatable = isTrue;
               explicitOverrides.add("equatable");
@@ -1910,10 +1955,23 @@ public class StvnTypeResolver {
       } else if (entry.metadataSize() != null) {
         var sizeCtx = entry.metadataSize();
         Integer sz = null;
-        if (sizeCtx.metadataValue() != null && sizeCtx.metadataValue().integerLiteral() != null) {
-          try {
-            sz = StvnLiteralParser.parseBigInteger(sizeCtx.metadataValue().integerLiteral().getText()).intValueExact();
-          } catch (Exception ignored) {}
+        if (sizeCtx.metadataValue() != null) {
+          if (sizeCtx.metadataValue().integerLiteral() != null) {
+            try {
+              sz = StvnLiteralParser.parseBigInteger(sizeCtx.metadataValue().integerLiteral().getText()).intValueExact();
+            } catch (Exception ignored) {}
+          } else if (sizeCtx.metadataValue().valueKeyword() != null) {
+            var doc = findEnclosingDocument(metadataMap);
+            var constDefOpt = findConstantDefinition(doc, sizeCtx.metadataValue().valueKeyword().getText(), sizeCtx.metadataValue());
+            if (constDefOpt.isPresent()) {
+              var bi = resolveConstantIntegerValue(doc, constDefOpt.get());
+              if (bi != null) {
+                try {
+                  sz = bi.intValueExact();
+                } catch (Exception ignored) {}
+              }
+            }
+          }
         }
         if (sizeCtx.KW_SIZE() != null) {
           size = sz;
@@ -1928,9 +1986,21 @@ public class StvnTypeResolver {
       } else if (entry.metadataTrait() != null) {
         var traitCtx = entry.metadataTrait();
         if (traitCtx.KW_PRESERVE_INDENT() != null) {
-          var bLit = traitCtx.booleanLiteral();
-          preserveIndent = bLit != null && (bLit.KW_TRUE() != null || bLit.KW_TRUE_SHORT() != null);
-          explicitOverrides.add(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
+          Boolean b = null;
+          if (traitCtx.booleanLiteral() != null) {
+            var bLit = traitCtx.booleanLiteral();
+            b = bLit.KW_TRUE() != null || bLit.KW_TRUE_SHORT() != null;
+          } else if (traitCtx.valueKeyword() != null) {
+            var doc = findEnclosingDocument(metadataMap);
+            var constDefOpt = findConstantDefinition(doc, traitCtx.valueKeyword().getText(), traitCtx.valueKeyword());
+            if (constDefOpt.isPresent()) {
+              b = resolveConstantBooleanValue(doc, constDefOpt.get());
+            }
+          }
+          if (b != null) {
+            preserveIndent = b;
+            explicitOverrides.add(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
+          }
         }
       } else if (entry.metadataFlag() != null) {
         var flagCtx = entry.metadataFlag();
@@ -2108,6 +2178,10 @@ public class StvnTypeResolver {
     if (results.isEmpty()) {
       var preludeDoc = StvnPrelude.getPreludeDocument();
       findConstantDefInDocument(preludeDoc, targetName).ifPresent(s -> results.add(new ConstantDefSource(s.defNode(), "Prelude")));
+      if (results.isEmpty() && preludeDoc != null) {
+        String preludeFqni = StvnVocabulary.SIGIL_VALUE + "org/stvnadore/prelude/" + (targetName.startsWith(StvnVocabulary.SIGIL_VALUE) ? targetName.substring(1) : targetName);
+        findConstantDefInDocument(preludeDoc, preludeFqni).ifPresent(s -> results.add(new ConstantDefSource(s.defNode(), "Prelude")));
+      }
     }
 
     return results;
@@ -2135,6 +2209,152 @@ public class StvnTypeResolver {
   public static Optional<ConstantDefinitionContext> findConstantDefinition(@Nullable StvnDocumentContext doc, String keyword, @Nullable ParserRuleContext contextNode) {
     String resolved = resolveConstantIdentifier(doc, keyword, contextNode);
     return findAllConstantDefinitions(doc, resolved).stream().findFirst().map(ConstantDefSource::defNode);
+  }
+
+  /**
+   * Climbs the AST ancestor hierarchy from a starting parse tree node to locate its enclosing STVN document.
+   *
+   * @param node the parse tree node to start searching from
+   * @return the enclosing document context, or null if unreachable
+   */
+  public static @Nullable StvnDocumentContext findEnclosingDocument(@Nullable ParseTree node) {
+    ParseTree cur = node;
+    while (cur != null) {
+      if (cur instanceof StvnParser.StvnDocumentContext doc) {
+        return doc;
+      }
+      cur = cur.getParent();
+    }
+    return null;
+  }
+
+  /**
+   * Resolves the canonical primitive base type of a constant definition.
+   *
+   * @param doc the STVN document context
+   * @param constDef the constant definition context node
+   * @return the primitive base type name, or null
+   */
+  public static @Nullable String getConstantBaseType(@Nullable StvnDocumentContext doc, @Nullable ConstantDefinitionContext constDef) {
+    if (constDef == null || constDef.schemaType() == null) {
+      return null;
+    }
+    var schemaType = constDef.schemaType();
+    var base = getPrimitiveBaseType(schemaType);
+    if (base != null) {
+      if (StvnVocabulary.TYPE_STRING.equals(base) || StvnVocabulary.TYPE_INT.equals(base)
+          || StvnVocabulary.TYPE_FLOAT.equals(base) || StvnVocabulary.TYPE_BOOLEAN.equals(base)
+          || StvnVocabulary.TYPE_TIME_EPOCH.equals(base) || StvnVocabulary.TYPE_DATE_TIME.equals(base)) {
+        return base;
+      }
+      var resolved = resolvePrimitiveSchema(doc, schemaType, new HashSet<>(), new DiagnosticBag());
+      if (resolved.isPresent()) {
+        return getUltimateBaseType(resolved.get());
+      }
+    }
+    return base;
+  }
+
+  /**
+   * Resolves the literal evaluation value of a constant definition node, tracing reference chains.
+   *
+   * @param doc the STVN document context
+   * @param constDef the constant definition context node
+   * @param visited set tracking visited constant identifiers to detect reference cycles
+   * @return the resolved literal value object, or null
+   */
+  public static @Nullable Object resolveConstantValue(
+      @Nullable StvnDocumentContext doc,
+      @Nullable ConstantDefinitionContext constDef,
+      Set<String> visited) {
+    if (constDef == null || constDef.value() == null) {
+      return null;
+    }
+    String constName = constDef.valueKeyword() != null ? constDef.valueKeyword().getText() : "";
+    if (!constName.isEmpty()) {
+      if (visited.contains(constName)) {
+        return null;
+      }
+      visited.add(constName);
+    }
+    var val = constDef.value();
+    if (val.stringLiteral() != null) {
+      return extractRawStringValue(val.stringLiteral().getText());
+    } else if (val.integerLiteral() != null) {
+      try {
+        return StvnLiteralParser.parseBigInteger(val.integerLiteral().getText());
+      } catch (Exception e) {
+        return null;
+      }
+    } else if (val.floatLiteral() != null) {
+      try {
+        return new BigDecimal(val.floatLiteral().getText());
+      } catch (Exception e) {
+        return null;
+      }
+    } else if (val.booleanLiteral() != null) {
+      var b = val.booleanLiteral();
+      return b.KW_TRUE() != null || b.KW_TRUE_SHORT() != null;
+    } else if (val.valueKeyword() != null) {
+      var targetOpt = findConstantDefinition(doc, val.valueKeyword().getText(), val);
+      if (targetOpt.isPresent()) {
+        return resolveConstantValue(doc, targetOpt.get(), visited);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Resolves the evaluated string literal value of a constant definition node.
+   *
+   * @param doc the STVN document context
+   * @param constDef the constant definition context node
+   * @return the resolved string value, or null
+   */
+  public static @Nullable String resolveConstantStringValue(@Nullable StvnDocumentContext doc, @Nullable ConstantDefinitionContext constDef) {
+    var obj = resolveConstantValue(doc, constDef, new HashSet<>());
+    return obj instanceof String s ? s : null;
+  }
+
+  /**
+   * Resolves the evaluated integer value of a constant definition node.
+   *
+   * @param doc the STVN document context
+   * @param constDef the constant definition context node
+   * @return the resolved integer value as BigInteger, or null
+   */
+  public static @Nullable BigInteger resolveConstantIntegerValue(@Nullable StvnDocumentContext doc, @Nullable ConstantDefinitionContext constDef) {
+    var obj = resolveConstantValue(doc, constDef, new HashSet<>());
+    if (obj instanceof BigInteger bi) return bi;
+    if (obj instanceof Integer i) return BigInteger.valueOf(i);
+    return null;
+  }
+
+  /**
+   * Resolves the evaluated numeric value of a constant definition node.
+   *
+   * @param doc the STVN document context
+   * @param constDef the constant definition context node
+   * @return the resolved numeric value as BigDecimal, or null
+   */
+  public static @Nullable BigDecimal resolveConstantNumericValue(@Nullable StvnDocumentContext doc, @Nullable ConstantDefinitionContext constDef) {
+    var obj = resolveConstantValue(doc, constDef, new HashSet<>());
+    if (obj instanceof BigDecimal bd) return bd;
+    if (obj instanceof BigInteger bi) return new BigDecimal(bi);
+    if (obj instanceof Integer i) return BigDecimal.valueOf(i);
+    return null;
+  }
+
+  /**
+   * Resolves the evaluated boolean value of a constant definition node.
+   *
+   * @param doc the STVN document context
+   * @param constDef the constant definition context node
+   * @return the resolved boolean value, or null
+   */
+  public static @Nullable Boolean resolveConstantBooleanValue(@Nullable StvnDocumentContext doc, @Nullable ConstantDefinitionContext constDef) {
+    var obj = resolveConstantValue(doc, constDef, new HashSet<>());
+    return obj instanceof Boolean b ? b : null;
   }
 
   /**
@@ -4188,7 +4408,7 @@ public class StvnTypeResolver {
         );
         return;
       }
-      var targetOpt = findConstantDefinition(doc, refConst);
+      var targetOpt = findConstantDefinition(doc, refConst, constDef.value().valueKeyword());
       if (targetOpt.isPresent()) {
         var nextVisited = new LinkedHashSet<>(visited);
         nextVisited.add(refConst);
@@ -4457,11 +4677,24 @@ public class StvnTypeResolver {
   private static Optional<Integer> extractEntrySize(StvnParser.MetadataEntryContext entry) {
     if (entry.metadataSize() != null && entry.metadataSize().KW_SIZE() != null) {
       var sizeCtx = entry.metadataSize();
-      if (sizeCtx.metadataValue() != null && sizeCtx.metadataValue().integerLiteral() != null) {
-        try {
-          return Optional.of(org.stvnadore.core.ir.StvnLiteralParser.parseBigInteger(
-              sizeCtx.metadataValue().integerLiteral().getText()).intValueExact());
-        } catch (Exception ignored) {}
+      if (sizeCtx.metadataValue() != null) {
+        if (sizeCtx.metadataValue().integerLiteral() != null) {
+          try {
+            return Optional.of(org.stvnadore.core.ir.StvnLiteralParser.parseBigInteger(
+                sizeCtx.metadataValue().integerLiteral().getText()).intValueExact());
+          } catch (Exception ignored) {}
+        } else if (sizeCtx.metadataValue().valueKeyword() != null) {
+          var doc = findEnclosingDocument(entry);
+          var constDefOpt = findConstantDefinition(doc, sizeCtx.metadataValue().valueKeyword().getText(), sizeCtx.metadataValue());
+          if (constDefOpt.isPresent()) {
+            var bi = resolveConstantIntegerValue(doc, constDefOpt.get());
+            if (bi != null) {
+              try {
+                return Optional.of(bi.intValueExact());
+              } catch (Exception ignored) {}
+            }
+          }
+        }
       }
     }
     return Optional.empty();
@@ -4940,7 +5173,56 @@ public class StvnTypeResolver {
         int mvLine = mv.getStart().getLine();
         int mvCol = mv.getStart().getCharPositionInLine();
 
-        if (isDateTime) {
+        if (mv.valueKeyword() != null) {
+          var constKw = mv.valueKeyword().getText();
+          var doc = findEnclosingDocument(metadataMap);
+          var constDefOpt = findConstantDefinition(doc, constKw, mv.valueKeyword());
+          if (constDefOpt.isEmpty()) {
+            diagnosticBag.addError(
+                "Undefined constant: " + constKw,
+                mv.valueKeyword().getStart().getStartIndex(),
+                mv.valueKeyword().getStop().getStopIndex() + 1,
+                mv.valueKeyword().getStart().getLine(),
+                mv.valueKeyword().getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_UNDEFINED_CONSTANT
+            );
+          } else {
+            var constDef = constDefOpt.get();
+            var constBase = getConstantBaseType(doc, constDef);
+            if (isIntegerType && !isIntegerType(constBase)) {
+              diagnosticBag.addError(
+                  "Constraint violation (" + name + "): #" + constraintName + " requires a :Int constant, found " + constBase,
+                  mv.valueKeyword().getStart().getStartIndex(),
+                  mv.valueKeyword().getStop().getStopIndex() + 1,
+                  mv.valueKeyword().getStart().getLine(),
+                  mv.valueKeyword().getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+              );
+            } else if (isFloatType && !isFloatType(constBase)) {
+              diagnosticBag.addError(
+                  "Constraint violation (" + name + "): #" + constraintName + " requires a :Float constant, found " + constBase,
+                  mv.valueKeyword().getStart().getStartIndex(),
+                  mv.valueKeyword().getStop().getStopIndex() + 1,
+                  mv.valueKeyword().getStart().getLine(),
+                  mv.valueKeyword().getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+              );
+            } else if ((isDateTime || isStringType) && !StvnVocabulary.TYPE_STRING.equals(constBase)) {
+              diagnosticBag.addError(
+                  "Constraint violation (" + name + "): #" + constraintName + " requires a :String constant, found " + constBase,
+                  mv.valueKeyword().getStart().getStartIndex(),
+                  mv.valueKeyword().getStop().getStopIndex() + 1,
+                  mv.valueKeyword().getStart().getLine(),
+                  mv.valueKeyword().getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+              );
+            }
+          }
+        } else if (isDateTime) {
           if (mv.stringLiteral() == null) {
             diagnosticBag.addError(
                 "Constraint violation (" + name + "): #" + constraintName + " for " + baseType + " requires a string literal",
@@ -4994,9 +5276,7 @@ public class StvnTypeResolver {
               );
             }
           }
-        }
-
-        if (isFloatType) {
+        } else if (isFloatType) {
           if (mv.floatLiteral() == null) {
             if (mv.booleanLiteral() != null) {
               diagnosticBag.addError(
@@ -5026,9 +5306,43 @@ public class StvnTypeResolver {
         var strCtx = entry.metadataString();
         var mv = strCtx.metadataValue();
         if (mv != null && strCtx.KW_REGEX() != null) {
-          if (mv.stringLiteral() == null) {
+          String rawPattern = null;
+          if (mv.stringLiteral() != null) {
+            rawPattern = extractRawStringValue(mv.stringLiteral().getText());
+          } else if (mv.valueKeyword() != null) {
+            var constKw = mv.valueKeyword().getText();
+            var doc = findEnclosingDocument(metadataMap);
+            var constDefOpt = findConstantDefinition(doc, constKw, mv.valueKeyword());
+            if (constDefOpt.isEmpty()) {
+              diagnosticBag.addError(
+                  "Undefined constant: " + constKw,
+                  mv.valueKeyword().getStart().getStartIndex(),
+                  mv.valueKeyword().getStop().getStopIndex() + 1,
+                  mv.valueKeyword().getStart().getLine(),
+                  mv.valueKeyword().getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_UNDEFINED_CONSTANT
+              );
+            } else {
+              var constDef = constDefOpt.get();
+              var constBase = getConstantBaseType(doc, constDef);
+              if (!StvnVocabulary.TYPE_STRING.equals(constBase)) {
+                diagnosticBag.addError(
+                    "Constraint violation (" + name + "): #regex requires a :String constant, found " + constBase,
+                    mv.valueKeyword().getStart().getStartIndex(),
+                    mv.valueKeyword().getStop().getStopIndex() + 1,
+                    mv.valueKeyword().getStart().getLine(),
+                    mv.valueKeyword().getStart().getCharPositionInLine(),
+                    null,
+                    DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+                );
+              } else {
+                rawPattern = resolveConstantStringValue(doc, constDef);
+              }
+            }
+          } else {
             diagnosticBag.addError(
-                "Constraint violation (" + name + "): #regex requires a string literal",
+                "Constraint violation (" + name + "): #regex requires a string literal or constant identifier",
                 mv.getStart().getStartIndex(),
                 mv.getStop().getStopIndex() + 1,
                 mv.getStart().getLine(),
@@ -5036,18 +5350,18 @@ public class StvnTypeResolver {
                 null,
                 DiagnosticBag.ERR_INCOMPATIBLE_TYPE
             );
-          } else {
-            var rawPattern = extractRawStringValue(mv.stringLiteral().getText());
+          }
+          if (rawPattern != null) {
             try {
               java.util.regex.Pattern.compile(rawPattern);
             } catch (java.util.regex.PatternSyntaxException e) {
+              var pinStart = mv.valueKeyword() != null ? mv.valueKeyword().getStart().getStartIndex() : (mv.stringLiteral() != null ? mv.stringLiteral().getStart().getStartIndex() : mv.getStart().getStartIndex());
+              var pinEnd = mv.valueKeyword() != null ? mv.valueKeyword().getStop().getStopIndex() + 1 : (mv.stringLiteral() != null ? mv.stringLiteral().getStop().getStopIndex() + 1 : mv.getStop().getStopIndex() + 1);
+              var pinLine = mv.valueKeyword() != null ? mv.valueKeyword().getStart().getLine() : (mv.stringLiteral() != null ? mv.stringLiteral().getStart().getLine() : mv.getStart().getLine());
+              var pinCol = mv.valueKeyword() != null ? mv.valueKeyword().getStart().getCharPositionInLine() : (mv.stringLiteral() != null ? mv.stringLiteral().getStart().getCharPositionInLine() : mv.getStart().getCharPositionInLine());
               diagnosticBag.addError(
                   "Constraint violation (" + name + "): Invalid regex pattern: " + rawPattern,
-                  mv.stringLiteral().getStart().getStartIndex(),
-                  mv.stringLiteral().getStop().getStopIndex() + 1,
-                  mv.stringLiteral().getStart().getLine(),
-                  mv.stringLiteral().getStart().getCharPositionInLine(),
-                  e,
+                  pinStart, pinEnd, pinLine, pinCol, e,
                   DiagnosticBag.ERR_INVALID_REGEX
               );
             }
@@ -5060,8 +5374,38 @@ public class StvnTypeResolver {
         var mv = boolCtx.metadataValue();
         if (mv != null) {
           var text = mv.getText();
-          var isValid = mv.booleanLiteral() != null;
-          if (!isValid) {
+          if (mv.booleanLiteral() != null) {
+            // Valid literal
+          } else if (mv.valueKeyword() != null) {
+            var constKw = mv.valueKeyword().getText();
+            var doc = findEnclosingDocument(metadataMap);
+            var constDefOpt = findConstantDefinition(doc, constKw, mv.valueKeyword());
+            if (constDefOpt.isEmpty()) {
+              diagnosticBag.addError(
+                  "Undefined constant: " + constKw,
+                  mv.valueKeyword().getStart().getStartIndex(),
+                  mv.valueKeyword().getStop().getStopIndex() + 1,
+                  mv.valueKeyword().getStart().getLine(),
+                  mv.valueKeyword().getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_UNDEFINED_CONSTANT
+              );
+            } else {
+              var constDef = constDefOpt.get();
+              var constBase = getConstantBaseType(doc, constDef);
+              if (!StvnVocabulary.TYPE_BOOLEAN.equals(constBase)) {
+                diagnosticBag.addError(
+                    "Constraint violation (" + name + "): #" + constraintName + " requires a :Boolean constant, found " + constBase,
+                    mv.valueKeyword().getStart().getStartIndex(),
+                    mv.valueKeyword().getStop().getStopIndex() + 1,
+                    mv.valueKeyword().getStart().getLine(),
+                    mv.valueKeyword().getStart().getCharPositionInLine(),
+                    null,
+                    DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+                );
+              }
+            }
+          } else {
             var foundType = "";
             if (mv.integerLiteral() != null) foundType = "integer";
             else if (mv.floatLiteral() != null) foundType = "float";
@@ -5076,6 +5420,86 @@ public class StvnTypeResolver {
                 null,
                 DiagnosticBag.ERR_INCOMPATIBLE_TYPE
             );
+          }
+        }
+      } else if (entry.metadataSize() != null) {
+        var sizeCtx = entry.metadataSize();
+        var facetName = sizeCtx.KW_SIZE() != null ? "size" : (sizeCtx.KW_MIN_SIZE() != null ? "minSize" : "maxSize");
+        var mv = sizeCtx.metadataValue();
+        if (mv != null) {
+          if (mv.integerLiteral() != null) {
+            // Valid literal
+          } else if (mv.valueKeyword() != null) {
+            var constKw = mv.valueKeyword().getText();
+            var doc = findEnclosingDocument(metadataMap);
+            var constDefOpt = findConstantDefinition(doc, constKw, mv.valueKeyword());
+            if (constDefOpt.isEmpty()) {
+              diagnosticBag.addError(
+                  "Undefined constant: " + constKw,
+                  mv.valueKeyword().getStart().getStartIndex(),
+                  mv.valueKeyword().getStop().getStopIndex() + 1,
+                  mv.valueKeyword().getStart().getLine(),
+                  mv.valueKeyword().getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_UNDEFINED_CONSTANT
+              );
+            } else {
+              var constDef = constDefOpt.get();
+              var constBase = getConstantBaseType(doc, constDef);
+              if (!isIntegerType(constBase)) {
+                diagnosticBag.addError(
+                    "Constraint violation (" + name + "): #" + facetName + " requires a :Int constant, found " + constBase,
+                    mv.valueKeyword().getStart().getStartIndex(),
+                    mv.valueKeyword().getStop().getStopIndex() + 1,
+                    mv.valueKeyword().getStart().getLine(),
+                    mv.valueKeyword().getStart().getCharPositionInLine(),
+                    null,
+                    DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+                );
+              }
+            }
+          } else {
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): #" + facetName + " requires an integer literal or constant identifier",
+                mv.getStart().getStartIndex(),
+                mv.getStop().getStopIndex() + 1,
+                mv.getStart().getLine(),
+                mv.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+            );
+          }
+        }
+      } else if (entry.metadataTrait() != null) {
+        var traitCtx = entry.metadataTrait();
+        if (traitCtx.valueKeyword() != null) {
+          var constKw = traitCtx.valueKeyword().getText();
+          var doc = findEnclosingDocument(metadataMap);
+          var constDefOpt = findConstantDefinition(doc, constKw, traitCtx.valueKeyword());
+          if (constDefOpt.isEmpty()) {
+            diagnosticBag.addError(
+                "Undefined constant: " + constKw,
+                traitCtx.valueKeyword().getStart().getStartIndex(),
+                traitCtx.valueKeyword().getStop().getStopIndex() + 1,
+                traitCtx.valueKeyword().getStart().getLine(),
+                traitCtx.valueKeyword().getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_UNDEFINED_CONSTANT
+            );
+          } else {
+            var constDef = constDefOpt.get();
+            var constBase = getConstantBaseType(doc, constDef);
+            if (!StvnVocabulary.TYPE_BOOLEAN.equals(constBase)) {
+              diagnosticBag.addError(
+                  "Constraint violation (" + name + "): #preserveIndent requires a :Boolean constant, found " + constBase,
+                  traitCtx.valueKeyword().getStart().getStartIndex(),
+                  traitCtx.valueKeyword().getStop().getStopIndex() + 1,
+                  traitCtx.valueKeyword().getStart().getLine(),
+                  traitCtx.valueKeyword().getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+              );
+            }
           }
         }
       }
@@ -5167,20 +5591,34 @@ public class StvnTypeResolver {
           else if (numCtx.KW_MAX_EXCL() != null) constraintName = "maxExcl";
 
           var mv = numCtx.metadataValue();
-          if (mv != null && mv.integerLiteral() != null) {
-            var valBI = StvnLiteralParser.parseBigInteger(mv.integerLiteral().getText());
-            var maxBound = constraintName.equals("maxExcl") ? maxPhys.add(java.math.BigInteger.ONE) : maxPhys;
-            var minBound = constraintName.equals("minExcl") ? minPhys.subtract(java.math.BigInteger.ONE) : minPhys;
-            if (valBI.compareTo(minBound) < 0 || valBI.compareTo(maxBound) > 0) {
-              diagnosticBag.addError(
-                  "Constraint violation (" + name + "): #" + constraintName + " value " + valBI + " is out of bounds for physical capacity of " + baseType + " (" + minPhys + " to " + maxPhys + ")",
-                  mv.integerLiteral().getStart().getStartIndex(),
-                  mv.integerLiteral().getStop().getStopIndex() + 1,
-                  mv.integerLiteral().getStart().getLine(),
-                  mv.integerLiteral().getStart().getCharPositionInLine(),
-                  null,
-                  DiagnosticBag.ERR_CAPACITY_OVERFLOW
-              );
+          if (mv != null) {
+            java.math.BigInteger valBI = null;
+            ParserRuleContext pinNode = null;
+            if (mv.integerLiteral() != null) {
+              valBI = StvnLiteralParser.parseBigInteger(mv.integerLiteral().getText());
+              pinNode = mv.integerLiteral();
+            } else if (mv.valueKeyword() != null) {
+              var doc = findEnclosingDocument(metadataMap);
+              var constDefOpt = findConstantDefinition(doc, mv.valueKeyword().getText(), mv.valueKeyword());
+              if (constDefOpt.isPresent()) {
+                valBI = resolveConstantIntegerValue(doc, constDefOpt.get());
+                pinNode = mv.valueKeyword();
+              }
+            }
+            if (valBI != null && pinNode != null) {
+              var maxBound = constraintName.equals("maxExcl") ? maxPhys.add(java.math.BigInteger.ONE) : maxPhys;
+              var minBound = constraintName.equals("minExcl") ? minPhys.subtract(java.math.BigInteger.ONE) : minPhys;
+              if (valBI.compareTo(minBound) < 0 || valBI.compareTo(maxBound) > 0) {
+                diagnosticBag.addError(
+                    "Constraint violation (" + name + "): #" + constraintName + " value " + valBI + " is out of bounds for physical capacity of " + baseType + " (" + minPhys + " to " + maxPhys + ")",
+                    pinNode.getStart().getStartIndex(),
+                    pinNode.getStop().getStopIndex() + 1,
+                    pinNode.getStart().getLine(),
+                    pinNode.getStart().getCharPositionInLine(),
+                    null,
+                    DiagnosticBag.ERR_CAPACITY_OVERFLOW
+                );
+              }
             }
           }
         }
@@ -5237,15 +5675,27 @@ public class StvnTypeResolver {
             else if (numCtx.KW_MAX_EXCL() != null) constraintName = "maxExcl";
 
             var mv = numCtx.metadataValue();
-            if (mv != null && mv.floatLiteral() != null) {
-              var valBD = new java.math.BigDecimal(mv.floatLiteral().getText());
-              if (valBD.compareTo(minPhys) < 0 || valBD.compareTo(maxPhys) > 0) {
+            if (mv != null) {
+              java.math.BigDecimal valBD = null;
+              ParserRuleContext pinNode = null;
+              if (mv.floatLiteral() != null) {
+                valBD = new java.math.BigDecimal(mv.floatLiteral().getText());
+                pinNode = mv.floatLiteral();
+              } else if (mv.valueKeyword() != null) {
+                var doc = findEnclosingDocument(metadataMap);
+                var constDefOpt = findConstantDefinition(doc, mv.valueKeyword().getText(), mv.valueKeyword());
+                if (constDefOpt.isPresent()) {
+                  valBD = resolveConstantNumericValue(doc, constDefOpt.get());
+                  pinNode = mv.valueKeyword();
+                }
+              }
+              if (valBD != null && pinNode != null && (valBD.compareTo(minPhys) < 0 || valBD.compareTo(maxPhys) > 0)) {
                 diagnosticBag.addError(
                     "Constraint violation (" + name + "): #" + constraintName + " value " + valBD + " is out of bounds for physical capacity of " + baseType + " (" + minPhys + " to " + maxPhys + ")",
-                    mv.floatLiteral().getStart().getStartIndex(),
-                    mv.floatLiteral().getStop().getStopIndex() + 1,
-                    mv.floatLiteral().getStart().getLine(),
-                    mv.floatLiteral().getStart().getCharPositionInLine(),
+                    pinNode.getStart().getStartIndex(),
+                    pinNode.getStop().getStopIndex() + 1,
+                    pinNode.getStart().getLine(),
+                    pinNode.getStart().getCharPositionInLine(),
                     null,
                     DiagnosticBag.ERR_CAPACITY_OVERFLOW
                 );

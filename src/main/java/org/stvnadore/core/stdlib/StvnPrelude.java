@@ -41,7 +41,10 @@ public final class StvnPrelude {
             :Sha256 { #minSize 64 #maxSize 64 #regex "^[0-9a-fA-F]{64}$" } :String
             :SemVer { #minSize 5 #maxSize 128 #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
 
-            :Email { #minSize 3 #maxSize 254 #regex "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" } :String
+            //lowercase only
+            #EMAIL_REGEX :String "^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$"
+            :Email { #minSize 3 #maxSize 254 #regex #EMAIL_REGEX } :String
+            :EmailMixedCase { #minSize 3 #maxSize 254 #regex "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" } :String
             :IPv4  { #minSize 7 #maxSize 15 #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" } :String
             :Port  { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
 
@@ -51,14 +54,16 @@ public final class StvnPrelude {
             :Latitude    { #size 64 #minIncl -90.0 #maxIncl 90.0 }   :Float
             :Longitude   { #size 64 #minIncl -180.0 #maxIncl 180.0 } :Float
 
-            :PosixId { #minSize 1 #maxSize 255 #regex "^[a-zA-Z0-9_-]+$" } :String
-            :PolyglotCodeId { #minSize 1 #maxSize 128 #regex "^[a-zA-Z_][a-zA-Z0-9_]*$" } :String
+            #POSIX_ID_REGEX :String "^[a-zA-Z0-9_-]+$"
+            :PosixId { #minSize 1 #maxSize 255 #regex #POSIX_ID_REGEX } :String
+            #POLYGLOT_CODE_ID_REGEX :String "^[a-zA-Z_][a-zA-Z0-9_]*$"
+            :PolyglotCodeId { #minSize 1 #maxSize 128 #regex #POLYGLOT_CODE_ID_REGEX } :String
           }
 
           :package :org/stvnadore/prelude/meta {
             :use [ :org/stvnadore/prelude { #strip } ]
 
-            :StvnPosixId64 { #minSize 1 #maxSize 64 #regex "^[a-zA-Z0-9_-]+$" } :String
+            :StvnPosixId64 { #minSize 1 #maxSize 64 #regex #POSIX_ID_REGEX } :String
             :StvnDocumentKind :Enum [ #BODY #DEFS #BODY_INCLUDE #DEFS_INCLUDE ]
             :StvnDocumentMeta :Tuple( :Option(:StvnPosixId64) :Option(:StvnPosixId64) :StvnDocumentKind )
             :StvnCatalogMeta :Tuple( :StvnPosixId64 :StvnPosixId64 :StvnDocumentKind )

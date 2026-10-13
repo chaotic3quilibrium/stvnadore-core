@@ -28,6 +28,10 @@ public final class DiagnosticBag {
   public static final String ERR_CAPACITY_OVERFLOW = "CAPACITY_OVERFLOW";
   /** Error code emitted when metadata trait values are incompatible with the target type. */
   public static final String ERR_INCOMPATIBLE_TYPE = "INCOMPATIBLE_METADATA_TYPE";
+  /** Error code emitted when a referenced metadata facet constant identifier has not been defined. */
+  public static final String ERR_UNDEFINED_CONSTANT = "UNDEFINED_CONSTANT";
+  /** Alias constant aligned with normative diagnostic naming. */
+  public static final String ERR_INCOMPATIBLE_METADATA_TYPE = ERR_INCOMPATIBLE_TYPE;
   /** Error code emitted when mutually exclusive boundary constraints are simultaneously declared. */
   public static final String ERR_MUTUALLY_EXCLUSIVE = "MUTUALLY_EXCLUSIVE_BOUNDS";
   /** Error code emitted when recursive type aliases form a circular self-reference without disjunction. */

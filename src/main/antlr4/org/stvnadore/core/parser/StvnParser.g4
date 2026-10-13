@@ -78,7 +78,7 @@ metadataEntry     : metadataBool | metadataTrait | metadataRange | metadataStrin
                   | metadataUnknownEntry ;
 metadataDirective : KW_STRIP ;
 metadataBool      : (KW_EQUATABLE | KW_COMPARABLE) metadataValue ;
-metadataTrait     : KW_PRESERVE_INDENT booleanLiteral ;
+metadataTrait     : KW_PRESERVE_INDENT (booleanLiteral | valueKeyword) ;
 metadataRange     : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
 metadataString : KW_REGEX metadataValue ;
 metadataFilter : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;

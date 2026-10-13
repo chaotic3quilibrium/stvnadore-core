@@ -513,6 +513,21 @@ public final class StvnVocabulary {
   /** Canonical FQNI for polyglot code identifiers ({@code :org/stvnadore/prelude/PolyglotCodeId}). */
   public static final String PRELUDE_TYPE_POLYGLOT_CODE_ID = ":org/stvnadore/prelude/PolyglotCodeId";
 
+  /** Canonical FQNI for email address identifiers ({@code :org/stvnadore/prelude/Email}). */
+  public static final String PRELUDE_TYPE_EMAIL = ":org/stvnadore/prelude/Email";
+
+  /** Canonical FQNI for mixed-case email address identifiers ({@code :org/stvnadore/prelude/EmailMixedCase}). */
+  public static final String PRELUDE_TYPE_EMAIL_MIXED_CASE = ":org/stvnadore/prelude/EmailMixedCase";
+
+  /** Canonical FQNI for email regex constant ({@code #org/stvnadore/prelude/EMAIL_REGEX}). */
+  public static final String PRELUDE_CONST_EMAIL_REGEX = "#org/stvnadore/prelude/EMAIL_REGEX";
+
+  /** Canonical FQNI for POSIX identifier regex constant ({@code #org/stvnadore/prelude/POSIX_ID_REGEX}). */
+  public static final String PRELUDE_CONST_POSIX_ID_REGEX = "#org/stvnadore/prelude/POSIX_ID_REGEX";
+
+  /** Canonical FQNI for polyglot code identifier regex constant ({@code #org/stvnadore/prelude/POLYGLOT_CODE_ID_REGEX}). */
+  public static final String PRELUDE_CONST_POLYGLOT_CODE_ID_REGEX = "#org/stvnadore/prelude/POLYGLOT_CODE_ID_REGEX";
+
   /** Canonical FQNI for 64-character document POSIX identifiers ({@code :org/stvnadore/prelude/meta/StvnPosixId64}). */
   public static final String META_TYPE_POSIX_ID_64 = ":org/stvnadore/prelude/meta/StvnPosixId64";
 
