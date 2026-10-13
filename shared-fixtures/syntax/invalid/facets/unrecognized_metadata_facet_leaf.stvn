@@ -1,0 +1,10 @@
+// @spec: SPEC-05-FACET-RECOVERY
+// @case: Negative - Reject unrecognized metadata facet with pinned diagnostic
+// @error: ERR_UNRECOGNIZED_METADATA_FACET
+{
+  :defs {
+    :Int64 { #sizex 64 } :Int
+  }
+  :type :Int64
+  :body 42
+}

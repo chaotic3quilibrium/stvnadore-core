@@ -32,6 +32,8 @@
     * [3.4 Comment Tokens](#34-comment-tokens)
     * [3.5 Metadata Annotation Placement Rules](#35-metadata-annotation-placement-rules)
       * [3.5.1 Empty Metadata Block Prohibition](#351-empty-metadata-block-prohibition)
+      * [3.5.2 Explicit Boolean Trait Facet Requirements](#352-explicit-boolean-trait-facet-requirements)
+      * [3.5.3 Unrecognized Metadata Facet Recovery](#353-unrecognized-metadata-facet-recovery)
     * [3.6 Module Include Directive Syntax](#36-module-include-directive-syntax)
       * [3.6.1 Empty Directive Block Prohibition](#361-empty-directive-block-prohibition)
     * [3.7 Namespaced and Path-Delimited Identifiers](#37-namespaced-and-path-delimited-identifiers)
@@ -414,6 +416,15 @@ Metadata constraint blocks `{ ... }` **must immediately precede** the target typ
 
 #### 3.5.1 Empty Metadata Block Prohibition
 Empty metadata blocks (`{}`) are prohibited on type definitions and constant definitions. An author must omit the `{}` tokens or specify valid metadata facets. Violations emit diagnostic `ERR_EMPTY_METADATA_BLOCK`.
+
+#### 3.5.2 Explicit Boolean Trait Facet Requirements
+Trait facets such as `#preserveIndent` require an explicit boolean value (`#TRUE`, `#FALSE`, `#T`, `#F`). Bare occurrences or non-boolean arguments are prohibited and emit `ERR_INVALID_METADATA_FACET`.
+
+#### 3.5.3 Unrecognized Metadata Facet Recovery
+Metadata facet maps on declarations (`metadataMap`) accept unrecognized facet entries without triggering parser panic mode recovery.
+1. The parser consumes unknown facet entries into a dedicated parse tree node (`metadataUnknownEntry`).
+2. Semantic validation emits diagnostic `ERR_UNRECOGNIZED_METADATA_FACET` pinned strictly to the unrecognized facet identifier token coordinate interval `[startOffset, endOffset)`.
+3. The containing declaration registers as a poisoned sentinel in local nominal scope. Sibling declarations in the same enclosure remain valid and export cleanly to including documents.
 
 ---
 

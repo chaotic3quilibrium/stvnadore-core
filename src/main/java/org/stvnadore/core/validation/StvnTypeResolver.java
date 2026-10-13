@@ -3335,7 +3335,7 @@ public class StvnTypeResolver {
 
     for (var child : getInnerSchemas(schemaNode)) {
       if (child.metadataMap() != null) {
-        if (child.metadataMap().metadataEntry().isEmpty()) {
+        if (child.metadataMap().metadataEntry().isEmpty() && !hasUnknownMetadataEntries(child.metadataMap())) {
           diagnosticBag.addError(
               "Empty metadata block is invalid; remove '{}' or specify valid facets",
               child.metadataMap().getStart().getStartIndex(),
@@ -3877,7 +3877,7 @@ public class StvnTypeResolver {
         diagnosticBag.addError(e.getMessage(), start, end, line, col, e, DiagnosticBag.ERR_CIRCULAR_TYPE);
       }
       if (rootSchema.metadataMap() != null) {
-        if (rootSchema.metadataMap().metadataEntry().isEmpty()) {
+        if (rootSchema.metadataMap().metadataEntry().isEmpty() && !hasUnknownMetadataEntries(rootSchema.metadataMap())) {
           diagnosticBag.addError(
               "Empty metadata block is invalid; remove '{}' or specify valid facets",
               rootSchema.metadataMap().getStart().getStartIndex(),
@@ -4011,7 +4011,7 @@ public class StvnTypeResolver {
     validateSchemaCapabilities(doc, typeDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     var metaMap = typeDef.schemaType() != null ? typeDef.schemaType().metadataMap() : null;
     if (metaMap != null) {
-      if (metaMap.metadataEntry().isEmpty()) {
+      if (metaMap.metadataEntry().isEmpty() && !hasUnknownMetadataEntries(metaMap)) {
         diagnosticBag.addError(
             "Empty metadata block is invalid; remove '{}' or specify valid facets",
             metaMap.getStart().getStartIndex(),
@@ -4021,6 +4021,15 @@ public class StvnTypeResolver {
             null,
             DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
         );
+      }
+      if (hasUnknownMetadataEntries(metaMap)) {
+        markTypePoisoned(doc, typeName);
+        if (typeDef.getParent() instanceof StvnParser.PackageElementContext peCtx
+            && peCtx.getParent() instanceof StvnParser.PackageEnclosureContext pkgEncCtx) {
+          var pkgPath = pkgEncCtx.packagePath().getText();
+          var fqni = pkgPath + "/" + typeName.substring(1);
+          markTypePoisoned(doc, fqni);
+        }
       }
       validateMetadataMapConstraints(typeName, metaMap, resolvedOpt.orElse(null), diagnosticBag);
       if (resolvedOpt.isPresent()) {
@@ -4122,7 +4131,7 @@ public class StvnTypeResolver {
     validateSchemaCapabilities(doc, constDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
     var constMetaMap = constDef.schemaType() != null ? constDef.schemaType().metadataMap() : null;
     if (constMetaMap != null) {
-      if (constMetaMap.metadataEntry().isEmpty()) {
+      if (constMetaMap.metadataEntry().isEmpty() && !hasUnknownMetadataEntries(constMetaMap)) {
         diagnosticBag.addError(
             "Empty metadata block is invalid; remove '{}' or specify valid facets",
             constMetaMap.getStart().getStartIndex(),
@@ -4378,8 +4387,23 @@ public class StvnTypeResolver {
     };
   }
 
+  private static boolean hasUnknownMetadataEntries(@Nullable MetadataMapContext metadataMap) {
+    if (metadataMap == null || metadataMap.metadataEntry() == null) {
+      return false;
+    }
+    for (var entry : metadataMap.metadataEntry()) {
+      if (entry.metadataUnknownEntry() != null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private static @Nullable String extractFacetName(StvnParser.MetadataEntryContext entry) {
     if (entry == null) return null;
+    if (entry.metadataUnknownEntry() != null) {
+      return null;
+    }
     if (entry.metadataTrait() != null) {
       var traitCtx = entry.metadataTrait();
       if (traitCtx.KW_PRESERVE_INDENT() != null) return StvnVocabulary.FACET_NAME_PRESERVE_INDENT;
@@ -4570,6 +4594,23 @@ public class StvnTypeResolver {
     Set<String> seenFacets = new HashSet<>();
 
     for (var entry : metadataMap.metadataEntry()) {
+      if (entry.metadataUnknownEntry() != null) {
+        var unk = entry.metadataUnknownEntry();
+        String facetTag = unk.unknownFacetKeyword() != null ? unk.unknownFacetKeyword().getText() : unk.getText();
+        var startNode = unk.unknownFacetKeyword() != null ? unk.unknownFacetKeyword().getStart() : unk.getStart();
+        var stopNode = unk.unknownFacetKeyword() != null ? unk.unknownFacetKeyword().getStop() : unk.getStop();
+        diagnosticBag.addError(
+            "Metadata violation (" + name + "): Unrecognized constraint facet '" + facetTag + "'",
+            startNode.getStartIndex(),
+            stopNode.getStopIndex() + 1,
+            startNode.getLine(),
+            startNode.getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_UNRECOGNIZED_METADATA_FACET
+        );
+        continue;
+      }
+
       String facetName = extractFacetName(entry);
       if (facetName == null) continue;
 

@@ -70,6 +70,8 @@ public final class DiagnosticBag {
   public static final String ERR_EMPTY_DIRECTIVE_BLOCK = "ERR_EMPTY_DIRECTIVE_BLOCK";
   /** Error code emitted when a metadata facet is applied to an incompatible target entity kind. */
   public static final String ERR_INVALID_METADATA_FACET = "ERR_INVALID_METADATA_FACET";
+  /** Error code emitted when an unrecognized constraint facet tag is encountered in a metadata block. */
+  public static final String ERR_UNRECOGNIZED_METADATA_FACET = "ERR_UNRECOGNIZED_METADATA_FACET";
   /** Error code emitted when a discrete type (:Int or { #exact } :Float) declares #maxIncl or #minExcl. */
   public static final String ERR_DISCRETE_BOUND_KIND_PROHIBITED = "ERR_DISCRETE_BOUND_KIND_PROHIBITED";
   /** Error code emitted when two incompatible nominal types are unified or compared. */

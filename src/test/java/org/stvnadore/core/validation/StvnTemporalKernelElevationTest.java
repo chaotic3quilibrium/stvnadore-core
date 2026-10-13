@@ -138,8 +138,9 @@ public class StvnTemporalKernelElevationTest {
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertFalse(result.isSuccess(), "Legacy #unit keyword must be rejected by grammar");
     Assertions.assertTrue(result.diagnostics().stream()
-        .anyMatch(d -> "STVN_SYNTAX_ERROR".equals(d.errorCode().orElse(null))),
-        "Must emit STVN_SYNTAX_ERROR when #unit keyword is encountered");
+        .anyMatch(d -> DiagnosticBag.ERR_UNRECOGNIZED_METADATA_FACET.equals(d.errorCode().orElse(null))
+            || "STVN_SYNTAX_ERROR".equals(d.errorCode().orElse(null))),
+        "Must emit ERR_UNRECOGNIZED_METADATA_FACET or STVN_SYNTAX_ERROR when legacy #unit keyword is encountered");
   }
 
   @Test

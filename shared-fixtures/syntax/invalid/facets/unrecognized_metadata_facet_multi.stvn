@@ -1,0 +1,13 @@
+// @spec: SPEC-05-FACET-RECOVERY
+// @case: Negative - Sibling definitions remain valid after unrecognized facet
+// @error: ERR_UNRECOGNIZED_METADATA_FACET
+{
+  :defs {
+    :package :com/nyse/primitives {
+      :Int64   { #sizex 64 } :Int
+      :MicCode { #minSize 4 #maxSize 4 #regex "^[A-Z]{4}$" } :String
+    }
+  }
+  :type :com/nyse/primitives/MicCode
+  :body "XNYS"
+}

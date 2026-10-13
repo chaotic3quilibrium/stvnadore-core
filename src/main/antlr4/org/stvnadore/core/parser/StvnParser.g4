@@ -74,7 +74,8 @@ metadataMap    : LBRACE metadataEntry* RBRACE ;
 
 // Enforced structural type verification branches
 metadataEntry     : metadataBool | metadataTrait | metadataRange | metadataString | metadataFilter | metadataDirective
-                  | metadataSize | metadataFlag ;
+                  | metadataSize | metadataFlag
+                  | metadataUnknownEntry ;
 metadataDirective : KW_STRIP ;
 metadataBool      : (KW_EQUATABLE | KW_COMPARABLE) metadataValue ;
 metadataTrait     : KW_PRESERVE_INDENT booleanLiteral ;
@@ -84,6 +85,21 @@ metadataFilter : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
 metadataSize   : (KW_SIZE | KW_MIN_SIZE | KW_MAX_SIZE) metadataValue ;
 metadataFlag   : (KW_UNSIGNED | KW_EXACT | KW_INVERTIBLE | KW_OFFSET | KW_ZONED | KW_AUDITED
                  | KW_SCALE_S | KW_SCALE_MS | KW_SCALE_US | KW_SCALE_NS) booleanLiteral? ;
+metadataUnknownEntry : unknownFacetKeyword (value | schemaType)?? ;
+
+unknownFacetKeyword : unknownFacetKeywordStart ( FSLASH IDENTIFIER )* ;
+
+unknownFacetKeywordStart : VALUE_KEYWORD_BASE
+                         | UNION_TAG_PREFIX
+                         | KW_FALSE | KW_FALSE_SHORT
+                         | KW_TRUE  | KW_TRUE_SHORT
+                         | KW_NONE  | KW_NONE_SHORT
+                         | KW_SOME  | KW_SOME_SHORT
+                         | KW_LEFT  | KW_LEFT_SHORT
+                         | KW_RIGHT | KW_RIGHT_SHORT
+                         | KW_META_NAME | KW_META_DOMAIN | KW_META_KIND
+                         | KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_INCLUDE | KW_KIND_DEFS_INCLUDE
+                         ;
 
 variantList    : LBRACK valueKeyword* RBRACK ;
 
