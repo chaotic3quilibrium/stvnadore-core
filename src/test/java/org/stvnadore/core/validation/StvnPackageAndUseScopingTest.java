@@ -170,7 +170,8 @@ public class StvnPackageAndUseScopingTest {
   @Test
   @DisplayName("TC-STRIP-01: Terminal slicing execution for types and constants")
   void testTerminalSlicingExecution() {
-    Assertions.assertEquals(":Uuid", StvnTypeResolver.sliceTerminal(":org/stvnadore/prelude/Uuid"));
+    Assertions.assertEquals(":UuidLowerCase", StvnTypeResolver.sliceTerminal(":org/stvnadore/prelude/UuidLowerCase"));
+    Assertions.assertEquals(":UuidMixedCase", StvnTypeResolver.sliceTerminal(":org/stvnadore/prelude/UuidMixedCase"));
     Assertions.assertEquals("#PORT", StvnTypeResolver.sliceTerminal("#org/stvnadore/network/PORT"));
     Assertions.assertEquals(":Simple", StvnTypeResolver.sliceTerminal(":Simple"));
     Assertions.assertEquals("#SIMPLE", StvnTypeResolver.sliceTerminal("#SIMPLE"));

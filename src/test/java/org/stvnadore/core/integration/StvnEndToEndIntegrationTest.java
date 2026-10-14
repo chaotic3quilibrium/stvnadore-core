@@ -203,7 +203,7 @@ public class StvnEndToEndIntegrationTest {
                 {
                   :defs {
                     :Status :Enum [ #INITIALIZED #PROCESSING #COMPLETED #FAILED ]
-                    :StatusRegistry :Map( :Status :org/stvnadore/prelude/Uuid )
+                    :StatusRegistry :Map( :Status :org/stvnadore/prelude/UuidLowerCase )
                     #StatusUuidMap :StatusRegistry {
                       [#INITIALIZED "f47ac10b-58cc-4372-a567-0e02b2c3d479"]
                       [#PROCESSING  "550e8400-e29b-41d4-a716-446655440000"]
@@ -557,7 +557,7 @@ public class StvnEndToEndIntegrationTest {
             "Uuid Validation - Mixed Case Success",
             """
                 {
-                  :type :Seq( :org/stvnadore/prelude/Uuid )
+                  :type :Seq( :org/stvnadore/prelude/UuidMixedCase )
                   :body [ "A6287828-1b9b-4295-B66D-015de536c4e1" ]
                 }
                 """),
@@ -566,11 +566,11 @@ public class StvnEndToEndIntegrationTest {
             "Uuid Validation - Malformed Length Short",
             """
                 {
-                  :type :Seq( :org/stvnadore/prelude/Uuid )
+                  :type :Seq( :org/stvnadore/prelude/UuidMixedCase )
                   :body [ "not-a-uuid" ]
                 }
                 """,
-            "Constraint violation (:org/stvnadore/prelude/Uuid): Fixed string must be exactly 36 characters long, got 10"),
+            "Constraint violation (:org/stvnadore/prelude/UuidMixedCase): Fixed string must be exactly 36 characters long, got 10"),
 
         TestProfile.create(
             "Uuid Validation - Standard String Bypasses Uuid Checks",
@@ -585,7 +585,7 @@ public class StvnEndToEndIntegrationTest {
             "Sha256 Validation - Lowercase Hex Success",
             """
                 {
-                  :type :Seq( :org/stvnadore/prelude/Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256LowerCase )
                   :body [ "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" ]
                 }
                 """),
@@ -594,7 +594,7 @@ public class StvnEndToEndIntegrationTest {
             "Sha256 Validation - Uppercase Hex Success",
             """
                 {
-                  :type :Seq( :org/stvnadore/prelude/Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256MixedCase )
                   :body [ "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD" ]
                 }
                 """),
@@ -603,7 +603,7 @@ public class StvnEndToEndIntegrationTest {
             "Sha256 Validation - Mixed Case Hex Success",
             """
                 {
-                  :type :Seq( :org/stvnadore/prelude/Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256MixedCase )
                   :body [ "bA7816bF8f01CfEa414140De5dAE2223B00361A396177A9cB410Ff61F20015aD" ]
                 }
                 """),
@@ -612,51 +612,51 @@ public class StvnEndToEndIntegrationTest {
             "Sha256 Validation - Error Length Short (40 chars)",
             """
                 {
-                  :type :Seq( :org/stvnadore/prelude/Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256LowerCase )
                   :body [ "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12" ]
                 }
                 """,
-            "Constraint violation (:org/stvnadore/prelude/Sha256): Fixed string must be exactly 64 characters long, got 40"),
+            "Constraint violation (:org/stvnadore/prelude/Sha256LowerCase): Fixed string must be exactly 64 characters long, got 40"),
 
         TestProfile.createError(
             "Sha256 Validation - Error Length Short (63 chars)",
             """
                 {
-                  :type :Seq( :org/stvnadore/prelude/Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256LowerCase )
                   :body [ "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015a" ]
                 }
                 """,
-            "Constraint violation (:org/stvnadore/prelude/Sha256): Fixed string must be exactly 64 characters long, got 63"),
+            "Constraint violation (:org/stvnadore/prelude/Sha256LowerCase): Fixed string must be exactly 64 characters long, got 63"),
 
         TestProfile.createError(
             "Sha256 Validation - Error Length Long (65 chars)",
             """
                 {
-                  :type :Seq( :org/stvnadore/prelude/Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256LowerCase )
                   :body [ "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad0" ]
                 }
                 """,
-            "Constraint violation (:org/stvnadore/prelude/Sha256): Fixed string must be exactly 64 characters long, got 65"),
+            "Constraint violation (:org/stvnadore/prelude/Sha256LowerCase): Fixed string must be exactly 64 characters long, got 65"),
 
         TestProfile.createError(
             "Sha256 Validation - Error Non-Hex Character",
             """
                 {
-                  :type :Seq( :org/stvnadore/prelude/Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256LowerCase )
                   :body [ "ga7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" ]
                 }
                 """,
-            "Constraint violation (:org/stvnadore/prelude/Sha256): String does not match required pattern: ^[0-9a-fA-F]{64}$"),
+            "Constraint violation (:org/stvnadore/prelude/Sha256LowerCase): String does not match required pattern: ^[0-9a-f]{64}$"),
 
         TestProfile.createError(
             "Sha256 Validation - Error Non-Hex Symbol",
             """
                 {
-                  :type :Seq( :org/stvnadore/prelude/Sha256 )
+                  :type :Seq( :org/stvnadore/prelude/Sha256MixedCase )
                   :body [ "ba7816bf8f01cfea414140de5dae2223-00361a396177a9cb410ff61f20015ad" ]
                 }
                 """,
-            "Constraint violation (:org/stvnadore/prelude/Sha256): String does not match required pattern: ^[0-9a-fA-F]{64}$"),
+            "Constraint violation (:org/stvnadore/prelude/Sha256MixedCase): String does not match required pattern: ^[0-9a-fA-F]{64}$"),
 
         TestProfile.createError(
             "Sha256 Validation - Removed Sha1 Rejection",
@@ -1177,7 +1177,7 @@ public class StvnEndToEndIntegrationTest {
                 {
                   :defs {
                     :StatusType :Enum [ #PENDING #ACTIVE #TERMINATED ]
-                    :StatusId :org/stvnadore/prelude/Uuid
+                    :StatusId :org/stvnadore/prelude/UuidLowerCase
                     :StatusRegistry { #invertible #minSize 1 } :Map( :StatusType :StatusId )
                   }
                   :type :StatusRegistry

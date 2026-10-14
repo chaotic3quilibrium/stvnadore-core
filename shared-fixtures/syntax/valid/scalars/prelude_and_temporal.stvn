@@ -13,11 +13,11 @@
     :ZonedDateTime  { #zoned } :DateTime
     :AuditedDateTime { #audited } :DateTime
 
-    :IdUuid         :org/stvnadore/prelude/Uuid
+    :IdUuid         :org/stvnadore/prelude/UuidLowerCase
     :IdUlid         :org/stvnadore/prelude/Ulid
-    :HashSha256     :org/stvnadore/prelude/Sha256
+    :HashSha256     :org/stvnadore/prelude/Sha256LowerCase
     :VersionSemVer  :org/stvnadore/prelude/SemVer
-    :ContactEmail   :org/stvnadore/prelude/Email
+    :ContactEmail   :org/stvnadore/prelude/EmailLowerCase
     :NetworkIPv4    :org/stvnadore/prelude/IPv4
     :NetworkPort    :org/stvnadore/prelude/Port
     :RatioPercent   :org/stvnadore/prelude/Percentage

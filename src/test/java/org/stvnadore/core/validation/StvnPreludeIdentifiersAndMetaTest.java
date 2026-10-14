@@ -383,6 +383,12 @@ public class StvnPreludeIdentifiersAndMetaTest {
     assertFalse(content.isBlank(), "prelude.stvn_core.stvn_d fixture must not be blank");
     var compilation = StvnCompiler.compile(content, path.toString(), StvnParserConfig.DEFAULT);
     assertTrue(compilation.diagnostics().isEmpty(), "prelude.stvn_core.stvn_d must compile with zero diagnostics: " + compilation.diagnostics());
+    assertTrue(content.contains(":UuidLowerCase"), "prelude.stvn_core.stvn_d must contain :UuidLowerCase");
+    assertTrue(content.contains(":UuidMixedCase"), "prelude.stvn_core.stvn_d must contain :UuidMixedCase");
+    assertTrue(content.contains(":Sha256LowerCase"), "prelude.stvn_core.stvn_d must contain :Sha256LowerCase");
+    assertTrue(content.contains(":Sha256MixedCase"), "prelude.stvn_core.stvn_d must contain :Sha256MixedCase");
+    assertTrue(content.contains(":EmailLowerCase"), "prelude.stvn_core.stvn_d must contain :EmailLowerCase");
+    assertTrue(content.contains(":EmailMixedCase"), "prelude.stvn_core.stvn_d must contain :EmailMixedCase");
     assertTrue(content.contains(":PosixId"), "prelude.stvn_core.stvn_d must contain :PosixId");
     assertTrue(content.contains(":PolyglotCodeId"), "prelude.stvn_core.stvn_d must contain :PolyglotCodeId");
     assertTrue(content.contains(":StvnPosixId64"), "prelude.stvn_core.stvn_d must contain :StvnPosixId64");
@@ -410,6 +416,20 @@ public class StvnPreludeIdentifiersAndMetaTest {
     assertEquals(":org/stvnadore/prelude/meta/StvnDocumentKind", StvnVocabulary.META_TYPE_DOCUMENT_KIND);
     assertEquals(":org/stvnadore/prelude/meta/StvnDocumentMeta", StvnVocabulary.META_TYPE_DOCUMENT_META);
     assertEquals(":org/stvnadore/prelude/meta/StvnCatalogMeta", StvnVocabulary.META_TYPE_CATALOG_META);
+
+    assertEquals(":org/stvnadore/prelude/UuidLowerCase", StvnVocabulary.TYPE_UUID_LOWER_CASE);
+    assertEquals(":org/stvnadore/prelude/UuidMixedCase", StvnVocabulary.TYPE_UUID_MIXED_CASE);
+    assertEquals(":org/stvnadore/prelude/Sha256LowerCase", StvnVocabulary.TYPE_SHA256_LOWER_CASE);
+    assertEquals(":org/stvnadore/prelude/Sha256MixedCase", StvnVocabulary.TYPE_SHA256_MIXED_CASE);
+    assertEquals(":org/stvnadore/prelude/EmailLowerCase", StvnVocabulary.TYPE_EMAIL_LOWER_CASE);
+    assertEquals(":org/stvnadore/prelude/EmailMixedCase", StvnVocabulary.TYPE_EMAIL_MIXED_CASE);
+
+    assertEquals(":org/stvnadore/prelude/#UUID_LOWER_CASE_REGEX", StvnVocabulary.CONST_UUID_LOWER_CASE_REGEX);
+    assertEquals(":org/stvnadore/prelude/#UUID_MIXED_CASE_REGEX", StvnVocabulary.CONST_UUID_MIXED_CASE_REGEX);
+    assertEquals(":org/stvnadore/prelude/#SHA256_LOWER_CASE_REGEX", StvnVocabulary.CONST_SHA256_LOWER_CASE_REGEX);
+    assertEquals(":org/stvnadore/prelude/#SHA256_MIXED_CASE_REGEX", StvnVocabulary.CONST_SHA256_MIXED_CASE_REGEX);
+    assertEquals(":org/stvnadore/prelude/#EMAIL_LOWER_CASE_REGEX", StvnVocabulary.CONST_EMAIL_LOWER_CASE_REGEX);
+    assertEquals(":org/stvnadore/prelude/#EMAIL_MIXED_CASE_REGEX", StvnVocabulary.CONST_EMAIL_MIXED_CASE_REGEX);
 
     // Section 13 IR Substrate FQNI constants
     assertEquals(":org/stvnadore/ir/IrTraitConstraints", StvnVocabulary.IR_TYPE_TRAIT_CONSTRAINTS);

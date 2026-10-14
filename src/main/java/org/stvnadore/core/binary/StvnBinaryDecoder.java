@@ -931,7 +931,10 @@ public class StvnBinaryDecoder {
     // -------------------------------------------------------------------------
     // 1. STRINGS
     // -------------------------------------------------------------------------
-    if (!isDateTime && (StvnVocabulary.TYPE_STRING.equals(baseType) || ":org/stvnadore/prelude/Uuid".equals(baseType) || ":Uuid".equals(baseType))) {
+    if (!isDateTime && (StvnVocabulary.TYPE_STRING.equals(baseType)
+        || ":org/stvnadore/prelude/UuidLowerCase".equals(baseType) || ":UuidLowerCase".equals(baseType)
+        || ":org/stvnadore/prelude/UuidMixedCase".equals(baseType) || ":UuidMixedCase".equals(baseType)
+        || ":org/stvnadore/prelude/Uuid".equals(baseType) || ":Uuid".equals(baseType))) {
       StvnBinaryDecoder.LengthResult lr = readDerivedLengthPrefix(ctx.buffer(), offset);
       int totalLength = lr.length();
       int dataStartOffset = offset + lr.bytesConsumed();

@@ -58,12 +58,12 @@ public class StvnPreludeStringBoundsTest {
   }
 
   @Test
-  @DisplayName("TC-PRELUDE-02: Validates Email bounds [3..254]")
+  @DisplayName("TC-PRELUDE-02: Validates EmailLowerCase bounds [3..254]")
   void testEmailBounds() {
     String valid = """
         {
           :defs {
-            :E :org/stvnadore/prelude/Email
+            :E :org/stvnadore/prelude/EmailLowerCase
           }
           :type :E
           :body "user@example.com"
@@ -75,7 +75,7 @@ public class StvnPreludeStringBoundsTest {
     String tooShort = """
         {
           :defs {
-            :E :org/stvnadore/prelude/Email
+            :E :org/stvnadore/prelude/EmailLowerCase
           }
           :type :E
           :body "a@"

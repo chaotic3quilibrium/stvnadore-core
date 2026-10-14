@@ -513,14 +513,101 @@ public final class StvnVocabulary {
   /** Canonical FQNI for polyglot code identifiers ({@code :org/stvnadore/prelude/PolyglotCodeId}). */
   public static final String PRELUDE_TYPE_POLYGLOT_CODE_ID = ":org/stvnadore/prelude/PolyglotCodeId";
 
-  /** Canonical FQNI for email address identifiers ({@code :org/stvnadore/prelude/Email}). */
+  // Symmetrically paired explicit casing regex constants
+  /** Canonical FQNI for lowercase UUID regex constant ({@code :org/stvnadore/prelude/#UUID_LOWER_CASE_REGEX}). */
+  public static final String CONST_UUID_LOWER_CASE_REGEX = ":org/stvnadore/prelude/#UUID_LOWER_CASE_REGEX";
+
+  /** Canonical FQNI for mixed-case UUID regex constant ({@code :org/stvnadore/prelude/#UUID_MIXED_CASE_REGEX}). */
+  public static final String CONST_UUID_MIXED_CASE_REGEX = ":org/stvnadore/prelude/#UUID_MIXED_CASE_REGEX";
+
+  /** Canonical FQNI for lowercase SHA-256 regex constant ({@code :org/stvnadore/prelude/#SHA256_LOWER_CASE_REGEX}). */
+  public static final String CONST_SHA256_LOWER_CASE_REGEX = ":org/stvnadore/prelude/#SHA256_LOWER_CASE_REGEX";
+
+  /** Canonical FQNI for mixed-case SHA-256 regex constant ({@code :org/stvnadore/prelude/#SHA256_MIXED_CASE_REGEX}). */
+  public static final String CONST_SHA256_MIXED_CASE_REGEX = ":org/stvnadore/prelude/#SHA256_MIXED_CASE_REGEX";
+
+  /** Canonical FQNI for lowercase email regex constant ({@code :org/stvnadore/prelude/#EMAIL_LOWER_CASE_REGEX}). */
+  public static final String CONST_EMAIL_LOWER_CASE_REGEX = ":org/stvnadore/prelude/#EMAIL_LOWER_CASE_REGEX";
+
+  /** Canonical FQNI for mixed-case email regex constant ({@code :org/stvnadore/prelude/#EMAIL_MIXED_CASE_REGEX}). */
+  public static final String CONST_EMAIL_MIXED_CASE_REGEX = ":org/stvnadore/prelude/#EMAIL_MIXED_CASE_REGEX";
+
+  // Symmetrically paired explicit casing nominal type identifiers
+  /** Canonical FQNI for lowercase UUID type ({@code :org/stvnadore/prelude/UuidLowerCase}). */
+  public static final String TYPE_UUID_LOWER_CASE = ":org/stvnadore/prelude/UuidLowerCase";
+
+  /** Canonical FQNI for mixed-case UUID type ({@code :org/stvnadore/prelude/UuidMixedCase}). */
+  public static final String TYPE_UUID_MIXED_CASE = ":org/stvnadore/prelude/UuidMixedCase";
+
+  /** Canonical FQNI for lowercase SHA-256 type ({@code :org/stvnadore/prelude/Sha256LowerCase}). */
+  public static final String TYPE_SHA256_LOWER_CASE = ":org/stvnadore/prelude/Sha256LowerCase";
+
+  /** Canonical FQNI for mixed-case SHA-256 type ({@code :org/stvnadore/prelude/Sha256MixedCase}). */
+  public static final String TYPE_SHA256_MIXED_CASE = ":org/stvnadore/prelude/Sha256MixedCase";
+
+  /** Canonical FQNI for lowercase email type ({@code :org/stvnadore/prelude/EmailLowerCase}). */
+  public static final String TYPE_EMAIL_LOWER_CASE = ":org/stvnadore/prelude/EmailLowerCase";
+
+  /** Canonical FQNI for mixed-case email type ({@code :org/stvnadore/prelude/EmailMixedCase}). */
+  public static final String TYPE_EMAIL_MIXED_CASE = ":org/stvnadore/prelude/EmailMixedCase";
+
+  // AST compiler constants starting with '#'
+  public static final String PRELUDE_CONST_UUID_LOWER_CASE_REGEX = "#org/stvnadore/prelude/UUID_LOWER_CASE_REGEX";
+  public static final String PRELUDE_CONST_UUID_MIXED_CASE_REGEX = "#org/stvnadore/prelude/UUID_MIXED_CASE_REGEX";
+  public static final String PRELUDE_CONST_SHA256_LOWER_CASE_REGEX = "#org/stvnadore/prelude/SHA256_LOWER_CASE_REGEX";
+  public static final String PRELUDE_CONST_SHA256_MIXED_CASE_REGEX = "#org/stvnadore/prelude/SHA256_MIXED_CASE_REGEX";
+  public static final String PRELUDE_CONST_EMAIL_LOWER_CASE_REGEX = "#org/stvnadore/prelude/EMAIL_LOWER_CASE_REGEX";
+  public static final String PRELUDE_CONST_EMAIL_MIXED_CASE_REGEX = "#org/stvnadore/prelude/EMAIL_MIXED_CASE_REGEX";
+
+  public static final String PRELUDE_TYPE_UUID_LOWER_CASE = TYPE_UUID_LOWER_CASE;
+  public static final String PRELUDE_TYPE_UUID_MIXED_CASE = TYPE_UUID_MIXED_CASE;
+  public static final String PRELUDE_TYPE_SHA256_LOWER_CASE = TYPE_SHA256_LOWER_CASE;
+  public static final String PRELUDE_TYPE_SHA256_MIXED_CASE = TYPE_SHA256_MIXED_CASE;
+
+  /**
+   * Deprecated bare email type identifier.
+   * @deprecated Replaced by {@link #TYPE_EMAIL_LOWER_CASE} and {@link #TYPE_EMAIL_MIXED_CASE}.
+   */
+  @Deprecated(since = "2.0.0", forRemoval = true)
   public static final String PRELUDE_TYPE_EMAIL = ":org/stvnadore/prelude/Email";
 
-  /** Canonical FQNI for mixed-case email address identifiers ({@code :org/stvnadore/prelude/EmailMixedCase}). */
-  public static final String PRELUDE_TYPE_EMAIL_MIXED_CASE = ":org/stvnadore/prelude/EmailMixedCase";
+  /**
+   * Deprecated bare email type identifier alias.
+   * @deprecated Replaced by {@link #TYPE_EMAIL_LOWER_CASE} and {@link #TYPE_EMAIL_MIXED_CASE}.
+   */
+  @Deprecated(since = "2.0.0", forRemoval = true)
+  public static final String TYPE_EMAIL = PRELUDE_TYPE_EMAIL;
 
-  /** Canonical FQNI for email regex constant ({@code #org/stvnadore/prelude/EMAIL_REGEX}). */
+  /**
+   * Deprecated bare UUID type identifier alias.
+   * @deprecated Replaced by {@link #TYPE_UUID_LOWER_CASE} and {@link #TYPE_UUID_MIXED_CASE}.
+   */
+  @Deprecated(since = "2.0.0", forRemoval = true)
+  public static final String TYPE_UUID = ":org/stvnadore/prelude/Uuid";
+
+  /**
+   * Deprecated bare SHA-256 type identifier alias.
+   * @deprecated Replaced by {@link #TYPE_SHA256_LOWER_CASE} and {@link #TYPE_SHA256_MIXED_CASE}.
+   */
+  @Deprecated(since = "2.0.0", forRemoval = true)
+  public static final String TYPE_SHA256 = ":org/stvnadore/prelude/Sha256";
+
+  /** Canonical FQNI for mixed-case email address identifiers ({@code :org/stvnadore/prelude/EmailMixedCase}). */
+  public static final String PRELUDE_TYPE_EMAIL_MIXED_CASE = TYPE_EMAIL_MIXED_CASE;
+
+  /**
+   * Deprecated bare email regex constant.
+   * @deprecated Replaced by {@link #CONST_EMAIL_LOWER_CASE_REGEX} and {@link #CONST_EMAIL_MIXED_CASE_REGEX}.
+   */
+  @Deprecated(since = "2.0.0", forRemoval = true)
   public static final String PRELUDE_CONST_EMAIL_REGEX = "#org/stvnadore/prelude/EMAIL_REGEX";
+
+  /**
+   * Deprecated bare email regex constant alias.
+   * @deprecated Replaced by {@link #CONST_EMAIL_LOWER_CASE_REGEX} and {@link #CONST_EMAIL_MIXED_CASE_REGEX}.
+   */
+  @Deprecated(since = "2.0.0", forRemoval = true)
+  public static final String CONST_EMAIL_REGEX = ":org/stvnadore/prelude/#EMAIL_REGEX";
 
   /** Canonical FQNI for POSIX identifier regex constant ({@code #org/stvnadore/prelude/POSIX_ID_REGEX}). */
   public static final String PRELUDE_CONST_POSIX_ID_REGEX = "#org/stvnadore/prelude/POSIX_ID_REGEX";
