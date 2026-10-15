@@ -500,7 +500,7 @@ public class StvnDefinitionsOverhaulTest {
         {
           :meta { #kind #DEFS }
           :defs {
-            :org/stvnadore/network/Port :org/stvnadore/prelude/Port
+            :org/example/network/Port :org/stvnadore/prelude/Port
           }
         }
         """);

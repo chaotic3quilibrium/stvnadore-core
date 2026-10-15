@@ -70,7 +70,7 @@ public class StvnIrSnapshotTest {
     Assertions.assertEquals(cleanExpected, cleanLive, "Snapshot mismatch for fixture: " + stvnFile);
 
     // Compiler verification: Compile the .stvn_ir.stvn_i snapshot directly
-    var snapshotCompilation = StvnCompiler.compile(expectedSnapshot, snapshotPath.toString(), StvnParserConfig.DEFAULT);
+    var snapshotCompilation = StvnCompiler.compile(expectedSnapshot, snapshotPath.toString(), StvnParserConfig.SYSTEM);
     Assertions.assertTrue(snapshotCompilation.diagnostics().isEmpty(), "IR snapshot compilation produced unexpected diagnostics: " + snapshotCompilation.diagnostics());
     var snapshotDoc = snapshotCompilation.document().orElseThrow();
     Assertions.assertTrue(snapshotDoc.hasPayload(), "Compiled IR snapshot has no payload body");

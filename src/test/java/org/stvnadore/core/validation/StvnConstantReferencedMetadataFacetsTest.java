@@ -385,7 +385,7 @@ public class StvnConstantReferencedMetadataFacetsTest {
   @Test
   @DisplayName("TC-CONST-FACET-11: Updated prelude compiles with 0 diagnostics under StvnCompiler.compileToResult")
   void testUpdatedPreludeCompilesCleanly() {
-    var result = StvnCompiler.compileToResult(StvnPrelude.PRELUDE_STVN_D, null, StvnParserConfig.DEFAULT);
+    var result = StvnCompiler.compileToResult(StvnPrelude.PRELUDE_STVN_D, null, StvnParserConfig.SYSTEM);
     assertTrue(result.isSuccess(), "StvnPrelude.PRELUDE_STVN_D must compile with zero diagnostics: " + result.diagnostics());
     assertTrue(result.diagnostics().isEmpty(), "Diagnostics list must be empty");
   }
@@ -397,7 +397,7 @@ public class StvnConstantReferencedMetadataFacetsTest {
     assertTrue(Files.exists(path), "prelude.stvn_core.stvn_d fixture file must exist");
     var content = Files.readString(path);
     assertFalse(content.isBlank(), "prelude.stvn_core.stvn_d fixture must not be blank");
-    var result = StvnCompiler.compileToResult(content, path.toString(), StvnParserConfig.DEFAULT);
+    var result = StvnCompiler.compileToResult(content, path.toString(), StvnParserConfig.SYSTEM);
     assertTrue(result.isSuccess(), "prelude.stvn_core.stvn_d must compile with zero diagnostics: " + result.diagnostics());
     assertTrue(result.diagnostics().isEmpty(), "Diagnostics list must be empty");
   }

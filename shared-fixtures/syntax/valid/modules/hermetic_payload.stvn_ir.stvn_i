@@ -10,10 +10,10 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":org/stvnadore/payload/TransactionId" ( "{#minSize16#maxSize16}:String" ":org/stvnadore/payload/TransactionId" ( #TRUE #TRUE ) ) ]
-      [ ":org/stvnadore/payload/StatusCode" ( "{#unsigned#size16}:Int" ":org/stvnadore/payload/StatusCode" ( #TRUE #TRUE ) ) ]
-      [ ":Response" ( ":Tuple(:org/stvnadore/payload/TransactionId:org/stvnadore/payload/StatusCode)" ":Response" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:org/stvnadore/payload/TransactionId:org/stvnadore/payload/StatusCode)" ":Response" ( #TRUE #TRUE ) ) ]
+      [ ":org/example/payload/TransactionId" ( "{#minSize16#maxSize16}:String" ":org/example/payload/TransactionId" ( #TRUE #TRUE ) ) ]
+      [ ":org/example/payload/StatusCode" ( "{#unsigned#size16}:Int" ":org/example/payload/StatusCode" ( #TRUE #TRUE ) ) ]
+      [ ":Response" ( ":Tuple(:org/example/payload/TransactionId:org/example/payload/StatusCode)" ":Response" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:org/example/payload/TransactionId:org/example/payload/StatusCode)" ":Response" ( #TRUE #TRUE ) ) ]
     }
     #11 [
       #4 "TX-20260911-0001"

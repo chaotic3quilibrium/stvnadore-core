@@ -543,6 +543,11 @@ Authors can organize definitions into explicit namespace packages and import sym
      Targeting any package not defined locally in the document or in the prelude is a fatal semantic error (`ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT`, diagnostic code `E035`).
    - **Modular Documents (`.stvn_i`, `.stvn_di`):** In addition to the prelude and co-located packages, `useTarget` may resolve to packages introduced into the compilation unit by an explicit `:include` statement.
 
+
+
+8. **Reserved Package Namespace Invariant:**
+   User-authored documents MUST NOT declare a `:package` enclosure, qualified type definition, or qualified constant definition targeting the reserved runtime namespace `:org/stvnadore/*` (e.g., `:org/stvnadore/prelude`, `:org/stvnadore/prelude/meta`, or any path with prefix `:org/stvnadore/`). The `:org/stvnadore/*` namespace hierarchy is strictly reserved for intrinsic runtime substrates and the standard library prelude (§ 11.1). Declaring a reserved package prefix in a user document is an unrecoverable semantic error (`ERR_RESERVED_PACKAGE_PROHIBITED`, diagnostic code `E037`).
+
 ---
 
 ### 3.10 Document Identity & `:meta` Enclosure
@@ -568,6 +573,7 @@ Every STVN document may declare an identity block using the `:meta` root enclosu
 3. **Empty Block Prohibition:** Empty `:meta {}` blocks are prohibited and emit `ERR_EMPTY_METADATA_BLOCK`.
 4. **POSIX Identifier Validation:** Values for `#name` and `#domain` must be string literals matching `^[a-zA-Z0-9_-]{1,64}$`. Path slashes and dots are prohibited.
 5. **Kind Enumeration:** The `#kind` facet must be one of `#BODY`, `#DEFS`, `#BODY_INCLUDE`, or `#DEFS_INCLUDE`.
+6. **Reserved System Domains:** User-authored documents MUST NOT declare system domains reserved for compiler internals, Intermediate Representation snapshots, and Content-Addressable Storage envelopes. The domain identifier strings `"stvn_core"`, `"stvn_ir"`, and `"stvn_cas"` are strictly reserved for system artifacts (§ 1.2). Declaring a reserved system domain in a user document is an unrecoverable semantic error (`ERR_RESERVED_DOMAIN_PROHIBITED`, diagnostic code `E038`).
 
 #### 3.10.2 Filename Decomposition & Binding
 1. Filenames decompose by dot (`.`): `stem[0] = name`, `stem[1] = domain`, trailing token = extension.
@@ -2291,6 +2297,8 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E034` | `LEGACY_FILE_EXTENSION_PURGED` | Syntactic | Fatal | Excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas) used. |
 | `E035` | `UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | Semantic | Fatal | Module :use in a flat hermetic document (.stvn / .stvn_d) targets an external package not declared in local :defs or prelude. |
 | `E036` | `ERR_REDUNDANT_METADATA_FACET` | Semantic | Fatal | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #minSize 0 on container, or bare primitive trait defaults). |
+| `E037` | `ERR_RESERVED_PACKAGE_PROHIBITED` | Semantic | Fatal | User document declares a :package enclosure, qualified type, or qualified constant targeting reserved runtime namespace :org/stvnadore/* (§ 3.9 Invariant 8). |
+| `E038` | `ERR_RESERVED_DOMAIN_PROHIBITED` | Semantic | Fatal | User document declares a reserved system domain (stvn_core, stvn_ir, stvn_cas) in root :meta (§ 3.10.1 Rule 6). |
 | `W001` | `DOCUMENT_NAME_MISMATCH` | Semantic | Warning | Declared #name does not match filename stem slot 0. |
 | `W002` | `DOCUMENT_DOMAIN_OMITTED_IN_FILENAME` | Semantic | Warning | Declared #domain is omitted from filename stem slot 1. |
 
@@ -2346,6 +2354,8 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME` | `"WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME"` | Warning | #domain declared in :meta is omitted from filename stem slot 1. |
 | `ERR_LEGACY_FILE_EXTENSION_PURGED` | `"ERR_LEGACY_FILE_EXTENSION_PURGED"` | Fatal | Legacy excised file extension passed to compiler or include. |
 | `ERR_REDUNDANT_METADATA_FACET` | `"ERR_REDUNDANT_METADATA_FACET"` | Fatal | Metadata facet is tautological or redundant, altering canonical preimage and causing CAS hash bifurcation (§ 9.2). |
+| `ERR_RESERVED_PACKAGE_PROHIBITED` | `"ERR_RESERVED_PACKAGE_PROHIBITED"` | Fatal | User document declares :package enclosure, qualified type, or qualified constant targeting reserved runtime namespace :org/stvnadore/* (§ 3.9 Invariant 8). |
+| `ERR_RESERVED_DOMAIN_PROHIBITED` | `"ERR_RESERVED_DOMAIN_PROHIBITED"` | Fatal | User document declares reserved system domain in :meta (stvn_core, stvn_ir, stvn_cas) (§ 3.10.1 Rule 6). |
 
 ### C.4 Discrete Half-Open Interval Semantics ($[minIncl, maxExcl)$)
 

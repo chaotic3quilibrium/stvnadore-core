@@ -80,6 +80,58 @@ public class StvnTypeResolver {
   private static final Map<StvnDocumentContext, Map<String, DefSource>> documentDefinitionsCache = Collections.synchronizedMap(new WeakHashMap<>());
   private static final Map<StvnDocumentContext, Map<String, ConstantDefSource>> documentConstantDefinitionsCache = Collections.synchronizedMap(new WeakHashMap<>());
   private static final Map<StvnDocumentContext, Set<String>> documentPoisonedTypes = Collections.synchronizedMap(new WeakHashMap<>());
+  private static final Map<StvnDocumentContext, org.stvnadore.core.StvnParserConfig> documentConfigs = Collections.synchronizedMap(new WeakHashMap<>());
+  private static final Set<String> RESERVED_SYSTEM_DOMAINS = Set.of(
+      "stvn_core",
+      "stvn_ir",
+      "stvn_cas"
+  );
+
+  /**
+   * Registers the active parser configuration for a document context.
+   *
+   * @param doc the document context
+   * @param config the parser configuration
+   */
+  public static void registerDocumentConfig(StvnDocumentContext doc, org.stvnadore.core.StvnParserConfig config) {
+    documentConfigs.put(doc, config);
+  }
+
+  private static boolean isSystemAuthority(@Nullable StvnDocumentContext doc) {
+    if (doc == null || doc == StvnPrelude.getPreludeDocument()) {
+      return true;
+    }
+    var config = documentConfigs.get(doc);
+    return config != null && config.systemMode();
+  }
+
+  /**
+   * Evaluates whether a package path targets the reserved runtime namespace (:org/stvnadore/*).
+   *
+   * @param pkgPath the package path to evaluate
+   * @return true if the package path is reserved, false otherwise
+   */
+  public static boolean isReservedPackage(@Nullable String pkgPath) {
+    if (pkgPath == null) return false;
+    String normalized = pkgPath.startsWith(":") ? pkgPath : ":" + pkgPath;
+    return normalized.equals(":org/stvnadore") || normalized.startsWith(":org/stvnadore/");
+  }
+
+  /**
+   * Evaluates whether a constant target identifier targets the reserved runtime namespace.
+   *
+   * @param constName the constant name to evaluate
+   * @return true if the constant name is reserved, false otherwise
+   */
+  public static boolean isReservedConstant(@Nullable String constName) {
+    if (constName == null) return false;
+    return constName.equals("#org/stvnadore")
+        || constName.startsWith("#org/stvnadore/")
+        || constName.equals(":org/stvnadore")
+        || constName.startsWith(":org/stvnadore/")
+        || constName.equals("org/stvnadore")
+        || constName.startsWith("org/stvnadore/");
+  }
 
   /**
    * Marks a nominal type as a poisoned sentinel in the document context.
@@ -447,6 +499,9 @@ public class StvnTypeResolver {
       for (var child : elements) {
         if (child instanceof StvnParser.TypeDefinitionContext typeDef) {
           var typeName = typeDef.typeDefTarget().getText();
+          if (!isSystemAuthority(doc) && isReservedPackage(typeName)) {
+            continue;
+          }
           var existingClaims = accumulator.get(typeName);
           if (existingClaims != null) {
             var hasLocal = false;
@@ -472,6 +527,9 @@ public class StvnTypeResolver {
               .add(new NamespaceClaim<>(typeName, typeDef, "Inline Document", ClaimType.LOCAL));
         } else if (child instanceof StvnParser.ConstantDefinitionContext constDef) {
           var constName = constDef.valueKeyword().getText();
+          if (!isSystemAuthority(doc) && isReservedConstant(constName)) {
+            continue;
+          }
           var existingClaims = constAccumulator.get(constName);
           if (existingClaims != null) {
             var hasLocal = false;
@@ -609,6 +667,10 @@ public class StvnTypeResolver {
               }
 
               documentPaths.put(importedDoc, resolvedPath.toString());
+              var parentConfig = documentConfigs.get(doc);
+              if (parentConfig != null) {
+                documentConfigs.put(importedDoc, parentConfig);
+              }
 
               var nextActive = new ArrayList<>(activePaths);
               nextActive.add(resolvedPathStr);
@@ -762,6 +824,20 @@ public class StvnTypeResolver {
       DiagnosticBag diagnosticBag
   ) {
     var pkgPath = pkgEnc.packagePath().getText();
+    var doc = findEnclosingDocument(pkgEnc);
+    if (!isSystemAuthority(doc) && isReservedPackage(pkgPath)) {
+      var pathNode = pkgEnc.packagePath();
+      diagnosticBag.addError(
+          "Reserved package namespace prohibited: '" + pkgPath + "' is reserved for runtime and standard library definitions",
+          pathNode.getStart().getStartIndex(),
+          pathNode.getStop().getStopIndex() + 1,
+          pathNode.getStart().getLine(),
+          pathNode.getStart().getCharPositionInLine(),
+          null,
+          DiagnosticBag.ERR_RESERVED_PACKAGE_PROHIBITED
+      );
+      return;
+    }
     if (pkgEnc.packageElement() == null) {
       return;
     }
@@ -3820,6 +3896,16 @@ public class StvnTypeResolver {
                 null,
                 DiagnosticBag.ERR_INVALID_METADATA_FACET
             );
+          } else if (!isSystemAuthority(doc) && RESERVED_SYSTEM_DOMAINS.contains(declaredDomain)) {
+            diagnosticBag.addError(
+                "Reserved system domain prohibited: '" + declaredDomain + "' is reserved for internal compiler substrates and CAS envelopes",
+                df.stringLiteral().getStart().getStartIndex(),
+                df.stringLiteral().getStop().getStopIndex() + 1,
+                df.stringLiteral().getStart().getLine(),
+                df.stringLiteral().getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED
+            );
           }
         } catch (Exception ignored) {
         }
@@ -4163,6 +4249,18 @@ public class StvnTypeResolver {
       markTypePoisoned(doc, typeName);
       return;
     }
+    if (!isSystemAuthority(doc) && isReservedPackage(typeName)) {
+      int line = typeDef.typeDefTarget().getStart().getLine();
+      int col = typeDef.typeDefTarget().getStart().getCharPositionInLine();
+      int start = typeDef.typeDefTarget().getStart().getStartIndex();
+      int end = typeDef.typeDefTarget().getStop().getStopIndex() + 1;
+      diagnosticBag.addError(
+          "Reserved package namespace prohibited: '" + typeName + "' is reserved for runtime and standard library definitions",
+          start, end, line, col, null, DiagnosticBag.ERR_RESERVED_PACKAGE_PROHIBITED
+      );
+      markTypePoisoned(doc, typeName);
+      return;
+    }
     if (typeDef.schemaType() != null
         && typeDef.schemaType().schemaConstructor() != null
         && typeDef.schemaType().schemaConstructor().sumType() != null
@@ -4314,6 +4412,17 @@ public class StvnTypeResolver {
       return;
     }
     var constName = constDef.valueKeyword().getText();
+    if (!isSystemAuthority(doc) && isReservedConstant(constName)) {
+      int line = constDef.valueKeyword().getStart().getLine();
+      int col = constDef.valueKeyword().getStart().getCharPositionInLine();
+      int start = constDef.valueKeyword().getStart().getStartIndex();
+      int end = constDef.valueKeyword().getStop().getStopIndex() + 1;
+      diagnosticBag.addError(
+          "Reserved package namespace prohibited: '" + constName + "' is reserved for runtime and standard library definitions",
+          start, end, line, col, null, DiagnosticBag.ERR_RESERVED_PACKAGE_PROHIBITED
+      );
+      return;
+    }
     var visited = new java.util.LinkedHashSet<String>();
     visited.add(constName);
     Optional<ResolvedSchema> resolvedOpt;

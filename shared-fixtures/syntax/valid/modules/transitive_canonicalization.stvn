@@ -6,11 +6,11 @@
     #kind #BODY
   }
   :defs {
-    :package :org/stvnadore/finance {
+    :package :com/example/finance {
       :Transaction :Tuple(:Int :Float)
       :CreationTime :Int
     }
-    :use [ :org/stvnadore/finance { :Transaction :LocalTx } ]
+    :use [ :com/example/finance { :Transaction :LocalTx } ]
     :A :String
     :T :Tuple(:LocalTx :A)
   }

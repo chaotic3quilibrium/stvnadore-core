@@ -9,13 +9,13 @@
     #kind #BODY
   }
   :defs {
-    :package :org/stvnadore/payload {
+    :package :org/example/payload {
       :TransactionId { #minSize 16 #maxSize 16 } :String
       :StatusCode { #unsigned #size 16 } :Int
       #STATUS_SUCCESS :StatusCode 200
     }
 
-    :Response :Tuple( :org/stvnadore/payload/TransactionId :org/stvnadore/payload/StatusCode )
+    :Response :Tuple( :org/example/payload/TransactionId :org/example/payload/StatusCode )
   }
 
   :type :Response

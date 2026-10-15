@@ -112,6 +112,7 @@ public final class StvnCompiler {
       if (docPath != null) {
         org.stvnadore.core.validation.StvnTypeResolver.documentPaths.put(docCtx, docPath);
       }
+      org.stvnadore.core.validation.StvnTypeResolver.registerDocumentConfig(docCtx, config);
 
       try {
         org.stvnadore.core.validation.StvnTypeResolver.validateDocumentConstraints(docCtx, diagnosticBag);

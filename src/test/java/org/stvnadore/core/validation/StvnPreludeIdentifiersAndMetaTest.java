@@ -381,7 +381,7 @@ public class StvnPreludeIdentifiersAndMetaTest {
     assertTrue(Files.exists(path), "prelude.stvn_core.stvn_d fixture file must exist");
     var content = Files.readString(path);
     assertFalse(content.isBlank(), "prelude.stvn_core.stvn_d fixture must not be blank");
-    var compilation = StvnCompiler.compile(content, path.toString(), StvnParserConfig.DEFAULT);
+    var compilation = StvnCompiler.compile(content, path.toString(), StvnParserConfig.SYSTEM);
     assertTrue(compilation.diagnostics().isEmpty(), "prelude.stvn_core.stvn_d must compile with zero diagnostics: " + compilation.diagnostics());
     assertTrue(content.contains(":UuidLowerCase"), "prelude.stvn_core.stvn_d must contain :UuidLowerCase");
     assertTrue(content.contains(":UuidMixedCase"), "prelude.stvn_core.stvn_d must contain :UuidMixedCase");
@@ -403,7 +403,7 @@ public class StvnPreludeIdentifiersAndMetaTest {
     var path = Paths.get("shared-fixtures/syntax/valid/modules/prelude.stvn_ir.stvn_i");
     assertTrue(Files.exists(path), "prelude.stvn_ir.stvn_i snapshot file must exist");
     var content = Files.readString(path);
-    var result = StvnCompiler.compileToResult(content, path.toString(), StvnParserConfig.DEFAULT);
+    var result = StvnCompiler.compileToResult(content, path.toString(), StvnParserConfig.SYSTEM);
     assertTrue(result.diagnostics().isEmpty(), "prelude.stvn_ir.stvn_i must compile with zero diagnostics: " + result.diagnostics());
   }
 

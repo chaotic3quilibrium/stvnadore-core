@@ -10,8 +10,8 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":org/stvnadore/finance/Transaction" ( ":Tuple(:Int:Float)" ":org/stvnadore/finance/Transaction" ( #FALSE #TRUE ) ) ]
-      [ ":org/stvnadore/finance/CreationTime" ( ":Int" ":org/stvnadore/finance/CreationTime" ( #TRUE #TRUE ) ) ]
+      [ ":com/example/finance/Transaction" ( ":Tuple(:Int:Float)" ":com/example/finance/Transaction" ( #FALSE #TRUE ) ) ]
+      [ ":com/example/finance/CreationTime" ( ":Int" ":com/example/finance/CreationTime" ( #TRUE #TRUE ) ) ]
       [ ":A" ( ":String" ":A" ( #TRUE #TRUE ) ) ]
       [ ":T" ( ":Tuple(:LocalTx:A)" ":T" ( #FALSE #TRUE ) ) ]
       [ "<:type>" ( ":Tuple(:LocalTx:A)" ":T" ( #FALSE #TRUE ) ) ]

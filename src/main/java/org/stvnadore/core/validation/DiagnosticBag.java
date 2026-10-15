@@ -98,6 +98,10 @@ public final class DiagnosticBag {
   public static final String ERR_NON_OVERRIDABLE_FACET = "ERR_NON_OVERRIDABLE_FACET";
   /** Error code emitted when a metadata facet declaration is tautological or redundant (SPEC § 5.1.1, § 5.5.3, § 9.2, E036). */
   public static final String ERR_REDUNDANT_METADATA_FACET = "ERR_REDUNDANT_METADATA_FACET";
+  /** Error code emitted when a package enclosure targets a reserved runtime namespace (SPEC § 3.9 Invariant 8, E037). */
+  public static final String ERR_RESERVED_PACKAGE_PROHIBITED = "ERR_RESERVED_PACKAGE_PROHIBITED";
+  /** Error code emitted when a document declares a reserved system domain in :meta (SPEC § 3.10.1 Rule 6, E038). */
+  public static final String ERR_RESERVED_DOMAIN_PROHIBITED = "ERR_RESERVED_DOMAIN_PROHIBITED";
   /** Error code emitted when duplicate keys appear in a map payload (SPEC § 6.2, § 6.3). */
   public static final String ERR_DUPLICATE_MAP_KEY = "DUPLICATE_MAP_KEY";
   /** Error code emitted when duplicate values appear in an invertible map payload (SPEC § 6.2, § 6.3). */

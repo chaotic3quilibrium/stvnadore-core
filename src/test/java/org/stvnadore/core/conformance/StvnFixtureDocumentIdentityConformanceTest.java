@@ -43,8 +43,11 @@ public class StvnFixtureDocumentIdentityConformanceTest {
     List<String> failures = new ArrayList<>();
 
     for (Path file : fixtureFiles) {
+      boolean isSystem = file.getFileName().toString().contains(".stvn_ir.")
+          || file.getFileName().toString().contains(".stvn_core.");
+      var config = isSystem ? StvnParserConfig.SYSTEM : StvnParserConfig.DEFAULT;
       String content = Files.readString(file);
-      var result = StvnCompiler.compile(content, file.toString(), StvnParserConfig.DEFAULT);
+      var result = StvnCompiler.compile(content, file.toString(), config);
       List<StvnDiagnostic> diagnostics = result.diagnostics();
 
       if (!diagnostics.isEmpty()) {

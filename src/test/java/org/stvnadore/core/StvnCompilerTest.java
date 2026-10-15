@@ -14,11 +14,11 @@ public class StvnCompilerTest {
     String source = """
         {
           :defs {
-            :package :org/stvnadore/finance {
+            :package :com/example/finance {
               :Transaction :Tuple(:Int :Float)
               :CreationTime :Int
             }
-            :use [ :org/stvnadore/finance { :Transaction :LocalTx } ]
+            :use [ :com/example/finance { :Transaction :LocalTx } ]
             :A :String
             :T :Tuple(:LocalTx :A)
           }
@@ -37,11 +37,11 @@ public class StvnCompilerTest {
     String canonical = StvnCompiler.toCanonicalString(ast);
 
     // 1. Assert intermediate definitions are retained
-    Assertions.assertTrue(canonical.contains(":org/stvnadore/finance/Transaction"),
-        "Must retain transitive dependency :org/stvnadore/finance/Transaction in canonical output: " + canonical);
+    Assertions.assertTrue(canonical.contains(":com/example/finance/Transaction"),
+        "Must retain transitive dependency :com/example/finance/Transaction in canonical output: " + canonical);
     Assertions.assertTrue(canonical.contains(":A :String"),
         "Must retain transitive dependency :A in canonical output: " + canonical);
-    Assertions.assertTrue(canonical.contains(":T :Tuple(:org/stvnadore/finance/Transaction :A)"),
+    Assertions.assertTrue(canonical.contains(":T :Tuple(:com/example/finance/Transaction :A)"),
         "Must rewrite :LocalTx to FQNI inside :T: " + canonical);
 
     // 2. Assert unreferenced dead code is pruned
