@@ -168,14 +168,14 @@ The `:meta` block is optional on primary modular documents (`.stvn`), but mandat
 
 ### 1.2 File Extension Matrix
 
-| Physical Extension | Semantic Kind (`#kind`) | Encoding | `:meta` Block | `:defs` Block | `:include` Directive | `:type` & `:body` | Primary Purpose |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **`.stvn`** | `#BODY` | Textual | Optional | Optional | **Prohibited** | **Required** | Canonical hermetic payload document. |
-| **`.stvn_i`** | `#BODY_INCLUDE` | Textual | Optional | Optional | **Optional** | **Required** | Modular payload document requiring external module loader. |
-| **`.stvn_d`** | `#DEFS` | Textual | **Required** | **Required** | **Prohibited** | **Prohibited** | Hermetic definitions schema (canonical CAS unit). |
-| **`.stvn_di`** | `#DEFS_INCLUDE` | Textual | **Required** | **Required** | **Optional** | **Prohibited** | Modular definitions schema module with `:include` directives. |
-| **`.stvn_b`** | `#BODY` | Binary | **Required** | Optional | **Prohibited** | **Required** | Binary hermetic payload document. |
-| **`.stvn_bd`** | `#DEFS` | Binary | **Required** | **Required** | **Prohibited** | **Prohibited** | Binary hermetic definitions schema. |
+| Physical Extension | Semantic Kind (`#kind`) | Encoding | `:meta` Block | `:defs` Block | `:include` Directive | `:use` Scope Domain | `:type` & `:body` | Primary Purpose |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **`.stvn`** | `#BODY` | Textual | Optional | Optional | **Prohibited** | **Restricted (Prelude & Local)** | **Required** | Canonical hermetic payload document. |
+| **`.stvn_i`** | `#BODY_INCLUDE` | Textual | Optional | Optional | **Optional** | **Full (Prelude, Local & Included)** | **Required** | Modular payload document requiring external module loader. |
+| **`.stvn_d`** | `#DEFS` | Textual | **Required** | **Required** | **Prohibited** | **Restricted (Prelude & Local)** | **Prohibited** | Hermetic definitions schema (canonical CAS unit). |
+| **`.stvn_di`** | `#DEFS_INCLUDE` | Textual | **Required** | **Required** | **Optional** | **Full (Prelude, Local & Included)** | **Prohibited** | Modular definitions schema module with `:include` directives. |
+| **`.stvn_b`** | `#BODY` | Binary | **Required** | Optional | **Prohibited** | **Restricted (Prelude & Local)** | **Required** | Binary hermetic payload document. |
+| **`.stvn_bd`** | `#DEFS` | Binary | **Required** | **Required** | **Prohibited** | **Restricted (Prelude & Local)** | **Prohibited** | Binary hermetic definitions schema. |
 
 CAS envelopes are formalized as dot-separated `<name>.stvn_cas.stvn` (`#domain "stvn_cas"`, `#kind #BODY`). Compiler IR snapshots are formalized as dot-separated `<name>.stvn_ir.stvn_i` (`#domain "stvn_ir"`, `#kind #BODY_INCLUDE`).
 
@@ -326,7 +326,9 @@ The colon character (`:`) is the canonical prefix sigil for the Typic Track in S
 | Category | Token Pattern | Examples | Context / Purpose |
 |:---|:---|:---|:---|
 | **Root Block Keywords** | `:defs`, `:type`, `:body` | `:defs { ... }`<br>`:type :AppPayload`<br>`:body ( ... )` | Declares mandatory and optional top-level document sections |
-| **Module Directives** | `:include`, `:package`, `:use` | `:include [ "lib.stvn_d" ]`<br>`:package :org/example { ... }`<br>`:use [ :org/example ]` | Directs the module resolver to import external definitions, establish packages, or import symbols |
+| **Module Include Directive** | `:include` | `:include [ "lib.stvn_d" ]` | File-system ingestion directive. Physically loads external definition files (`.stvn_d`, `.stvn_di`) into the compilation unit. Prohibited in flat hermetic files. |
+| **Package Enclosure Directive** | `:package` | `:package :org/example { ... }` | Lexical namespace boundary. Scopes contained definitions under a common path prefix within the document AST. |
+| **Scoped Import Directive** | `:use` | `:use [ :org/example { #strip } ]` | In-memory namespace projection and symbol alias directive. Projects or aliases symbols from already-ingested packages into lexical scope. Never executes file or network I/O. |
 | **Orthogonal Base Type Tokens** | `:Boolean`, `:Int`, `:Float`, `:String` | `:Boolean`, `:Int`, `:Float`, `:String` | Pure atomic base scalar type identifiers |
 | **Algebraic & Collection Type Constructors** | `:Tuple`, `:Enum`, `:Option`, `:Either`, `:Union`, `:Seq`, `:Set`, `:Map` | `:Tuple( ... )`, `:Enum [ ... ]`, `:Option( ... )`, `:Either( ... )`, `:Union( ... )`, `:Seq( ... )`, `:Set( ... )`, `:Map( ... )` | Parameterized sum, product, and collection type constructors |
 | **Standard Library Prelude Types** | `:org/stvnadore/prelude/` `[A-Za-z0-9_]+` | `:org/stvnadore/prelude/TimeEpoch`, `:org/stvnadore/prelude/DateTime`, `:org/stvnadore/prelude/Uuid`, `:org/stvnadore/prelude/Port` | Standard library domain types located under `:org/stvnadore/prelude/*` |
@@ -533,6 +535,13 @@ Authors can organize definitions into explicit namespace packages and import sym
 4. **No Package Nesting:** Enclosing `:package` within another `:package` is prohibited and emits `ERR_NESTED_PACKAGE_PROHIBITED`.
 5. **No Trailing Slashes:** Specifying a trailing slash in `:use` target paths emits `ERR_TRAILING_SLASH_PROHIBITED`.
 6. **Section 4.2 Eviction Integration:** Symbols imported via `:use` undergo eviction cascade: local definitions take precedence, explicit aliases resolve collisions, and unmitigated collisions emit `ERR_NAMESPACE_COLLISION`.
+7. **Zero-I/O & Closed Resolution Domain Invariant:**
+   The `:use` directive is strictly an in-memory lexical projection and symbol-aliasing mechanism. It **MUST NOT** perform filesystem I/O, external file resolution, or network loading.
+   - **Hermetic Documents (`.stvn`, `.stvn_d`):** The target package specified by `useTarget` MUST resolve exclusively to:
+     1. The standard library prelude (`:org/stvnadore/prelude` or `:org/stvnadore/prelude/*`).
+     2. A co-located `:package` enclosure declared within the *same* `:defs` block.
+     Targeting any package not defined locally in the document or in the prelude is a fatal semantic error (`ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT`, diagnostic code `E035`).
+   - **Modular Documents (`.stvn_i`, `.stvn_di`):** In addition to the prelude and co-located packages, `useTarget` may resolve to packages introduced into the compilation unit by an explicit `:include` statement.
 
 ---
 
@@ -2280,6 +2289,7 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E032` | `INVALID_FILENAME_STEM` | Syntactic | Fatal | Filename lacks visible non-empty stem segment (bare dotfile). |
 | `E033` | `META_POSITION_INVALID` | Syntactic | Fatal | :meta root block placed after :defs, :type, or :body. |
 | `E034` | `LEGACY_FILE_EXTENSION_PURGED` | Syntactic | Fatal | Excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas) used. |
+| `E035` | `UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | Semantic | Fatal | Module :use in a flat hermetic document (.stvn / .stvn_d) targets an external package not declared in local :defs or prelude. |
 | `W001` | `DOCUMENT_NAME_MISMATCH` | Semantic | Warning | Declared #name does not match filename stem slot 0. |
 | `W002` | `DOCUMENT_DOMAIN_OMITTED_IN_FILENAME` | Semantic | Warning | Declared #domain is omitted from filename stem slot 1. |
 
@@ -2300,6 +2310,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_RESERVED_KEYWORD_ON_LHS` | `"ERR_RESERVED_KEYWORD_ON_LHS"` | Fatal | Reserved type keyword declared on left-hand side of type definition. |
 | `ERR_INTEGER_OVERFLOW` | `"ERR_INTEGER_OVERFLOW"` | Fatal | Integer literal exceeds capacity bounds of declared bit-width. |
 | `ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT` | `"ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT"` | Fatal | Include statement declared inside flat document (`.stvn` or `.stvn_d`). |
+| `ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | `"ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT"` | Fatal | Scoped import `:use` in flat document targets package not declared in local `:defs` or prelude. |
 | `ERR_NESTED_PACKAGE_PROHIBITED` | `"ERR_NESTED_PACKAGE_PROHIBITED"` | Fatal | Package enclosure is illegally nested inside another package enclosure. |
 | `ERR_TRAILING_SLASH_PROHIBITED` | `"ERR_TRAILING_SLASH_PROHIBITED"` | Fatal | Module `:use` path specification contains trailing slash characters. |
 | `ERR_SUM_TYPE_COLLISION` | `"SUM_TYPE_TAG_COLLISION"` | Fatal | Algebraic sum type branches share duplicate tag identifiers. |
