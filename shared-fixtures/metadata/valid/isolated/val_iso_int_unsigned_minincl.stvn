@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #unsigned #minIncl 0 } :Int
+  :TestedType { #unsigned #minIncl 1 } :Int
   }
   :type :TestedType
   :body 42

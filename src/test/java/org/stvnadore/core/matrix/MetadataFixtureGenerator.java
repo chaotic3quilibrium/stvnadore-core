@@ -556,12 +556,20 @@ public final class MetadataFixtureGenerator {
     }
     String kind = row.parameterKind();
     return switch (kind) {
-      case ":Boolean" -> "#" + row.tagName() + " #TRUE"; // Emits valid boolean syntax; never emits literal "Derived"
+      case ":Boolean" -> {
+        if ("Trait".equalsIgnoreCase(row.category()) && ":TRUE".equals(row.defaultValue())) {
+          yield "#" + row.tagName() + " #FALSE";
+        }
+        yield "#" + row.tagName() + " #TRUE";
+      }
       case ":Int" -> {
         if ("size".equals(row.tagName())) yield "#size 32";
         if ("minSize".equals(row.tagName())) yield "#minSize 1";
         if ("maxSize".equals(row.tagName())) yield "#maxSize 10";
-        if ("minIncl".equals(row.tagName())) yield "#minIncl 0";
+        if ("minIncl".equals(row.tagName())) {
+          if ("unsigned".equals(row.domainQualifier())) yield "#minIncl 1";
+          yield "#minIncl 0";
+        }
         if ("maxExcl".equals(row.tagName())) yield "#maxExcl 100";
         yield "#" + row.tagName() + " 1";
       }
@@ -650,7 +658,7 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedBoolean {
-              #equatable #TRUE
+              #equatable #FALSE
             } :Boolean
           }
           :type :SaturatedBoolean
@@ -674,8 +682,6 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedInt {
-              #equatable #TRUE
-              #comparable #TRUE
               #size 32
               #minIncl -1000
               #maxExcl 1000
@@ -703,10 +709,8 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedUInt {
               #unsigned
-              #equatable #TRUE
-              #comparable #TRUE
               #size 32
-              #minIncl 0
+              #minIncl 1
               #maxExcl 65536
             } :Int
           }
@@ -732,7 +736,6 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedFloat32 {
               #equatable #TRUE
-              #comparable #TRUE
               #size 32
               #minIncl -1000.0
               #maxExcl 1000.0
@@ -760,7 +763,6 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedFloat64 {
               #equatable #TRUE
-              #comparable #TRUE
               #size 64
               #minIncl -1000.0
               #maxExcl 1000.0
@@ -788,8 +790,6 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedFloatExact {
               #exact
-              #equatable #TRUE
-              #comparable #TRUE
               #minIncl 0.0
               #maxExcl 100.0
             } :Float
@@ -816,8 +816,6 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedString {
               #preserveIndent #TRUE
-              #equatable #TRUE
-              #comparable #TRUE
               #minSize 2
               #maxSize 16
               #regex "^[a-z]+$"
@@ -1053,8 +1051,6 @@ public final class MetadataFixtureGenerator {
           :defs {
             :BaseEnum :Enum [ #VAL_A #VAL_B #VAL_C ]
             :SaturatedEnum {
-              #equatable #TRUE
-              #comparable #TRUE
               #filterIncl [ #VAL_A #VAL_B ]
             } :BaseEnum
           }

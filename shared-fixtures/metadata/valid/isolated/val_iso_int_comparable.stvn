@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #comparable #TRUE } :Int
+  :TestedType { #comparable #FALSE } :Int
   }
   :type :TestedType
   :body 42

@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #exact #equatable #TRUE } :Float
+  :TestedType { #exact #equatable #FALSE } :Float
   }
   :type :TestedType
   :body 3.14

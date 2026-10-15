@@ -10,8 +10,6 @@
   :defs {
     :SaturatedString {
       #preserveIndent #TRUE
-      #equatable #TRUE
-      #comparable #TRUE
       #minSize 2
       #maxSize 16
       #regex "^[a-z]+$"

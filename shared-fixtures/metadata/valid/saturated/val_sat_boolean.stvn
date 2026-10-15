@@ -9,7 +9,7 @@
 {
   :defs {
     :SaturatedBoolean {
-      #equatable #TRUE
+      #equatable #FALSE
     } :Boolean
   }
   :type :SaturatedBoolean

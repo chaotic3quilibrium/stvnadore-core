@@ -3,7 +3,7 @@
 // @error: ERR_CONSTRAINT_VIOLATION
 {
   :defs {
-    :EmptySeq { #minSize 0 #maxSize 0 } :Seq( :String )
+    :EmptySeq { #maxSize 0 } :Seq( :String )
   }
   :type :Seq( :EmptySeq )
   :body [ [] [ "illegal" ] ]

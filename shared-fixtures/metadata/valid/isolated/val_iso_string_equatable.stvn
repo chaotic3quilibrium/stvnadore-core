@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #equatable #TRUE } :String
+  :TestedType { #equatable #FALSE } :String
   }
   :type :TestedType
   :body "alpha"

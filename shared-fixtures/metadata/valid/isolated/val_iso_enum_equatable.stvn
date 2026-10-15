@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #equatable #TRUE } :Enum [ #VAL_A #VAL_B ]
+  :TestedType { #equatable #FALSE } :Enum [ #VAL_A #VAL_B ]
   }
   :type :TestedType
   :body #VAL_A

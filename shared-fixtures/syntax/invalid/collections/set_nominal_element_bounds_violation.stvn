@@ -3,7 +3,7 @@
 // @error: ERR_CONSTRAINT_VIOLATION
 {
   :defs {
-    :String0 { #minSize 0 #maxSize 0 } :String
+    :String0 { #maxSize 0 } :String
   }
   :type :Set( :String0 )
   :body [ "illegal" ]

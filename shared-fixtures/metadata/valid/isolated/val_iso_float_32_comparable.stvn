@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #comparable #TRUE #size 32 } :Float
+  :TestedType { #comparable #FALSE #size 32 } :Float
   }
   :type :TestedType
   :body 3.14

@@ -10,7 +10,6 @@
   :defs {
     :SaturatedFloat64 {
       #equatable #TRUE
-      #comparable #TRUE
       #size 64
       #minIncl -1000.0
       #maxExcl 1000.0

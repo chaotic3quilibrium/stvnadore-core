@@ -10,10 +10,8 @@
   :defs {
     :SaturatedUInt {
       #unsigned
-      #equatable #TRUE
-      #comparable #TRUE
       #size 32
-      #minIncl 0
+      #minIncl 1
       #maxExcl 65536
     } :Int
   }

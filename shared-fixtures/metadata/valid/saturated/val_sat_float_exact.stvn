@@ -10,8 +10,6 @@
   :defs {
     :SaturatedFloatExact {
       #exact
-      #equatable #TRUE
-      #comparable #TRUE
       #minIncl 0.0
       #maxExcl 100.0
     } :Float

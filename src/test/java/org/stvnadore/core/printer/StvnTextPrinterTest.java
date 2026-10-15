@@ -849,24 +849,24 @@ class StvnTextPrinterTest {
         """
         {
           :defs {
-            :myInt { #equatable #TRUE #comparable #FALSE } :Int
+            :myFloat { #equatable #TRUE #comparable #FALSE } :Float
           }
-          :type :myInt
-          :body 42
+          :type :myFloat
+          :body 3.14
         }
         """,
         optShort,
-        "{:defs{:myInt{#equatable #T #comparable #F}:Int}:type :myInt:body 42}",
+        "{:defs{:myFloat{#equatable #T #comparable #F}:Float}:type :myFloat:body 3.14}",
         """
         {
             :defs {
-                :myInt {
+                :myFloat {
                     #equatable #T
                     #comparable #F
-                } :Int
+                } :Float
             }
-            :type :myInt
-            :body 42
+            :type :myFloat
+            :body 3.14
         }"""
     );
     assertVisualLayout(matrix);

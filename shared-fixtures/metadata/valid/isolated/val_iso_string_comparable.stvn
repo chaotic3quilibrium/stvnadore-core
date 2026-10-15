@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #comparable #TRUE } :String
+  :TestedType { #comparable #FALSE } :String
   }
   :type :TestedType
   :body "alpha"

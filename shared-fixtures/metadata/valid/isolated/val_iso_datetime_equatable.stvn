@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #offset #equatable #TRUE } :DateTime
+  :TestedType { #offset #equatable #FALSE } :DateTime
   }
   :type :TestedType
   :body "2026-06-01T12:00:00Z"

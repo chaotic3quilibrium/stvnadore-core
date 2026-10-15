@@ -27,7 +27,7 @@ public class StvnTransitiveCapacityValidationTest {
     String validSource = """
         {
           :defs {
-            :String0 { #minSize 0 #maxSize 0 } :String
+            :String0 { #maxSize 0 } :String
           }
           :type :String0
           :body ""
@@ -40,7 +40,7 @@ public class StvnTransitiveCapacityValidationTest {
     String invalidSource = """
         {
           :defs {
-            :String0 { #minSize 0 #maxSize 0 } :String
+            :String0 { #maxSize 0 } :String
           }
           :type :String0
           :body "a"
@@ -60,7 +60,7 @@ public class StvnTransitiveCapacityValidationTest {
     String source = """
         {
           :defs {
-            :String0 { #minSize 0 #maxSize 0 } :String
+            :String0 { #maxSize 0 } :String
           }
           :type :Seq( :String0 )
           :body [ "" "a" "ab" ]
@@ -89,7 +89,7 @@ public class StvnTransitiveCapacityValidationTest {
     String source = """
         {
           :defs {
-            :EmptySeq { #minSize 0 #maxSize 0 } :Seq( :String )
+            :EmptySeq { #maxSize 0 } :Seq( :String )
           }
           :type :Seq( :EmptySeq )
           :body [ [] [ "item" ] ]
@@ -112,7 +112,7 @@ public class StvnTransitiveCapacityValidationTest {
     String source = """
         {
           :defs {
-            :String0 { #minSize 0 #maxSize 0 } :String
+            :String0 { #maxSize 0 } :String
           }
           :type :Set( :String0 )
           :body [ "x" ]
@@ -135,7 +135,7 @@ public class StvnTransitiveCapacityValidationTest {
     String source = """
         {
           :defs {
-            :String0 { #minSize 0 #maxSize 0 } :String
+            :String0 { #maxSize 0 } :String
           }
           :type :Map( :String0 :String0 )
           :body {
@@ -166,7 +166,7 @@ public class StvnTransitiveCapacityValidationTest {
     String validSource = """
         {
           :defs {
-            :BaseStr { #minSize 0 } :String
+            :BaseStr :String
             :StrictStr { #maxSize 0 } :BaseStr
           }
           :type :StrictStr
@@ -179,7 +179,7 @@ public class StvnTransitiveCapacityValidationTest {
     String invalidSource = """
         {
           :defs {
-            :BaseStr { #minSize 0 } :String
+            :BaseStr :String
             :StrictStr { #maxSize 0 } :BaseStr
           }
           :type :StrictStr

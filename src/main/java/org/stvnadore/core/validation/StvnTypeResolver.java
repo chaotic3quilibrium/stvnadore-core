@@ -5025,6 +5025,163 @@ public class StvnTypeResolver {
       }
     }
 
+    // 1C. Redundant Metadata Facet & Tautology Elimination (SPEC § 5.1.1, § 5.5.3, § 9.2, E036)
+    var localMetaConstraints = extractConstraints(metadataMap);
+    var effectiveConsolidated = resolved != null
+        ? localMetaConstraints.merge(resolved.constraints())
+        : localMetaConstraints;
+    String targetBaseType = normalizedBase != null ? normalizedBase : (name != null ? normalizeBaseType(name) : null);
+    boolean isUnsignedInt = StvnVocabulary.TYPE_INT.equals(targetBaseType) && effectiveConsolidated.unsigned();
+    boolean isContainerOrString = StvnVocabulary.TYPE_STRING.equals(targetBaseType)
+        || StvnVocabulary.TYPE_SEQ.equals(targetBaseType)
+        || StvnVocabulary.TYPE_SET.equals(targetBaseType)
+        || StvnVocabulary.TYPE_MAP.equals(targetBaseType);
+
+    for (var entry : metadataMap.metadataEntry()) {
+      if (entry.metadataRange() != null && entry.metadataRange().KW_MIN_INCL() != null) {
+        var rangeCtx = entry.metadataRange();
+        var mv = rangeCtx.metadataValue();
+        if (mv != null && isUnsignedInt) {
+          java.math.BigInteger val = null;
+          if (mv.integerLiteral() != null) {
+            val = StvnLiteralParser.parseBigInteger(mv.integerLiteral().getText());
+          } else if (mv.valueKeyword() != null) {
+            var doc = findEnclosingDocument(metadataMap);
+            var cOpt = findConstantDefinition(doc, mv.valueKeyword().getText(), mv.valueKeyword());
+            if (cOpt.isPresent()) {
+              val = resolveConstantIntegerValue(doc, cOpt.get());
+            }
+          }
+          if (val != null && java.math.BigInteger.ZERO.equals(val)) {
+            boolean ancestorEstablishesUnsigned = resolved != null
+                && resolved.constraints().unsigned()
+                && !localMetaConstraints.unsigned();
+            String message;
+            if (ancestorEstablishesUnsigned) {
+              String ancestorName = resolved.aliasName().orElse(resolved.underlyingSchema().flatMap(ResolvedSchema::aliasName).orElse("ancestor"));
+              message = "Constraint violation (" + name + "): facet '#minIncl 0' is redundant; ancestor '" + ancestorName + "' already establishes '#unsigned'";
+            } else {
+              message = "Constraint violation (" + name + "): facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, \\infty)";
+            }
+            diagnosticBag.addError(
+                message,
+                entry.getStart().getStartIndex(),
+                entry.getStop().getStopIndex() + 1,
+                entry.getStart().getLine(),
+                entry.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+            );
+          }
+        }
+      } else if (entry.metadataSize() != null && entry.metadataSize().KW_MIN_SIZE() != null) {
+        var sizeCtx = entry.metadataSize();
+        var mv = sizeCtx.metadataValue();
+        if (mv != null && isContainerOrString) {
+          Integer val = null;
+          if (mv.integerLiteral() != null) {
+            try {
+              val = Integer.parseInt(mv.integerLiteral().getText());
+            } catch (NumberFormatException ignored) {}
+          } else if (mv.valueKeyword() != null) {
+            var doc = findEnclosingDocument(metadataMap);
+            var cOpt = findConstantDefinition(doc, mv.valueKeyword().getText(), mv.valueKeyword());
+            if (cOpt.isPresent()) {
+              var bi = resolveConstantIntegerValue(doc, cOpt.get());
+              if (bi != null) val = bi.intValue();
+            }
+          }
+          if (val != null && val == 0) {
+            String targetDesc = StvnVocabulary.TYPE_STRING.equals(targetBaseType)
+                ? "string cardinality is inherently non-negative"
+                : "container cardinality is inherently non-negative";
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): facet '#minSize 0' is redundant; " + targetDesc,
+                entry.getStart().getStartIndex(),
+                entry.getStop().getStopIndex() + 1,
+                entry.getStart().getLine(),
+                entry.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+            );
+          }
+        }
+      } else if (entry.metadataBool() != null && targetBaseType != null) {
+        var boolCtx = entry.metadataBool();
+        var mv = boolCtx.metadataValue();
+        if (mv != null) {
+          Boolean declaredVal = null;
+          if (mv.booleanLiteral() != null) {
+            var boolLit = mv.booleanLiteral();
+            declaredVal = boolLit.KW_TRUE() != null || boolLit.KW_TRUE_SHORT() != null;
+          } else if (mv.valueKeyword() != null) {
+            var doc = findEnclosingDocument(metadataMap);
+            var constDefOpt = findConstantDefinition(doc, mv.valueKeyword().getText(), mv.valueKeyword());
+            if (constDefOpt.isPresent()) {
+              declaredVal = resolveConstantBooleanValue(doc, constDefOpt.get());
+            }
+          }
+          if (declaredVal != null) {
+            boolean isEquatable = boolCtx.KW_EQUATABLE() != null;
+            boolean isComparable = boolCtx.KW_COMPARABLE() != null;
+            if (isEquatable || isComparable) {
+              boolean isScalar = StvnVocabulary.TYPE_BOOLEAN.equals(targetBaseType)
+                  || StvnVocabulary.TYPE_INT.equals(targetBaseType)
+                  || StvnVocabulary.TYPE_FLOAT.equals(targetBaseType)
+                  || StvnVocabulary.TYPE_STRING.equals(targetBaseType);
+              String ancestorName = resolved != null
+                  ? resolved.aliasName().orElse(resolved.underlyingSchema().flatMap(ResolvedSchema::aliasName).orElse(null))
+                  : null;
+              boolean hasAncestor = ancestorName != null;
+
+              if (hasAncestor || isScalar) {
+                boolean defaultVal;
+                boolean hasAncestorTrait = false;
+                if (hasAncestor) {
+                  hasAncestorTrait = true;
+                  var ancestorRs = resolved.underlyingSchema().orElse(resolved);
+                  if (isEquatable && ancestorRs.constraints().equatable().isPresent()) {
+                    defaultVal = ancestorRs.constraints().equatable().get();
+                  } else if (isComparable && ancestorRs.constraints().comparable().isPresent()) {
+                    defaultVal = ancestorRs.constraints().comparable().get();
+                  } else {
+                    defaultVal = resolveDefaultTraitValue(targetBaseType, ancestorRs.constraints(), isEquatable, isComparable);
+                  }
+                } else {
+                  defaultVal = resolveDefaultTraitValue(targetBaseType, effectiveConsolidated, isEquatable, isComparable);
+                }
+
+                if (declaredVal == defaultVal) {
+                  String traitName = isEquatable ? "equatable" : "comparable";
+                  String message;
+                  if (hasAncestorTrait && ancestorName != null) {
+                    message = "Constraint violation (" + name + "): facet '#" + traitName + " " + (declaredVal ? "#TRUE" : "#FALSE") + "' is redundant; ancestor '" + ancestorName + "' already resolves to " + traitName + " " + (defaultVal ? "#TRUE" : "#FALSE");
+                  } else if (StvnVocabulary.TYPE_FLOAT.equals(targetBaseType) && !effectiveConsolidated.exact() && isEquatable && !declaredVal) {
+                    message = "Constraint violation (" + name + "): facet '#equatable #FALSE' is redundant; continuous ':Float' is non-equatable by default";
+                  } else if (StvnVocabulary.TYPE_FLOAT.equals(targetBaseType) && !effectiveConsolidated.exact() && isComparable && declaredVal) {
+                    message = "Constraint violation (" + name + "): facet '#comparable #TRUE' is redundant; continuous ':Float' is intrinsically comparable";
+                  } else if (StvnVocabulary.TYPE_FLOAT.equals(targetBaseType) && effectiveConsolidated.exact() && isEquatable && declaredVal) {
+                    message = "Constraint violation (" + name + "): facet '#equatable #TRUE' is redundant; exact decimal float is intrinsically equatable";
+                  } else {
+                    message = "Constraint violation (" + name + "): facet '#" + traitName + " " + (declaredVal ? "#TRUE" : "#FALSE") + "' is redundant; scalar primitive '" + targetBaseType + "' is intrinsically " + (isEquatable ? "equatable" : "comparable");
+                  }
+                  diagnosticBag.addError(
+                      message,
+                      entry.getStart().getStartIndex(),
+                      entry.getStop().getStopIndex() + 1,
+                      entry.getStart().getLine(),
+                      entry.getStart().getCharPositionInLine(),
+                      null,
+                      DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     var hasMinIncl = false;
     var hasMinExcl = false;
     var hasMaxIncl = false;
@@ -5742,6 +5899,22 @@ public class StvnTypeResolver {
         }
       }
     }
+  }
+
+  private static boolean resolveDefaultTraitValue(String normalizedBase, StvnConstraints constraints, boolean isEquatable, boolean isComparable) {
+    if (isComparable) {
+      if (StvnVocabulary.TYPE_SET.equals(normalizedBase) || StvnVocabulary.TYPE_MAP.equals(normalizedBase)) {
+        return false; // Sets and maps are non-comparable by default
+      }
+      return true; // All scalars, sequences, and enums are comparable by default
+    }
+    if (isEquatable) {
+      if (StvnVocabulary.TYPE_FLOAT.equals(normalizedBase) && !constraints.exact()) {
+        return false; // Continuous float defaults to equatable #FALSE
+      }
+      return true; // Boolean, Int, exact Float, String, TimeEpoch, DateTime, Enum, Seq, Set, Map default to true
+    }
+    return false;
   }
 
   private static void validateTemporalTypeConstraints(

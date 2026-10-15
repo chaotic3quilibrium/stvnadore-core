@@ -11,7 +11,7 @@
       :IrInt :Tuple( { #size 256 } :Int { #unsigned #size 256 #minIncl 1 } :Int :Boolean )
       :IrFloat :Float
       :IrString :String
-      :IrEnum :Tuple( :String { #unsigned #minIncl 0 } :Int )
+      :IrEnum :Tuple( :String { #unsigned } :Int )
 
       // 2. Sum Type Variants (Nominal Disjointness via Option 2)
       :IrOptionSome :Tuple( :Enum [ #SOME ] :IrValue )
