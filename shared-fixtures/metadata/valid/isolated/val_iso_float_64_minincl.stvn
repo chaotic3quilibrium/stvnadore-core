@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #size 64 #minIncl 0.0 } :Float
+  :TestedType { #minIncl 0.0 } :Float
   }
   :type :TestedType
   :body 3.14

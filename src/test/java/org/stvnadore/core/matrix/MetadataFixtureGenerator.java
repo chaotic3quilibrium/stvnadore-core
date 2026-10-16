@@ -521,9 +521,6 @@ public final class MetadataFixtureGenerator {
       if ("32".equals(q) && !"size".equals(row.tagName()) && !"equatable".equals(row.tagName()) && !"comparable".equals(row.tagName())) {
         return "#size 32 ";
       }
-      if ("64".equals(q) && !"size".equals(row.tagName()) && !"equatable".equals(row.tagName()) && !"comparable".equals(row.tagName())) {
-        return "#size 64 ";
-      }
     } else if (":Int".equals(clean)) {
       if ("unsigned".equals(q) && !"unsigned".equals(row.tagName())) return "#unsigned ";
     } else if (":Map".equals(clean)) {
@@ -543,9 +540,6 @@ public final class MetadataFixtureGenerator {
       if ("32".equals(q) && ("equatable".equals(row.tagName()) || "comparable".equals(row.tagName()))) {
         return " #size 32";
       }
-      if ("64".equals(q) && ("equatable".equals(row.tagName()) || "comparable".equals(row.tagName()))) {
-        return " #size 64";
-      }
     }
     return "";
   }
@@ -563,7 +557,12 @@ public final class MetadataFixtureGenerator {
         yield "#" + row.tagName() + " #TRUE";
       }
       case ":Int" -> {
-        if ("size".equals(row.tagName())) yield "#size 32";
+        if ("size".equals(row.tagName())) {
+          if (":Int".equals(row.cleanBaseType())) {
+            yield "#size 64";
+          }
+          yield "#size 32";
+        }
         if ("minSize".equals(row.tagName())) yield "#minSize 1";
         if ("maxSize".equals(row.tagName())) yield "#maxSize 10";
         if ("minIncl".equals(row.tagName())) {
@@ -682,7 +681,6 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedInt {
-              #size 32
               #minIncl -1000
               #maxExcl 1000
             } :Int
@@ -763,7 +761,6 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedFloat64 {
               #equatable #TRUE
-              #size 64
               #minIncl -1000.0
               #maxExcl 1000.0
             } :Float

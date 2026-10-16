@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class StvnCasPreimageBijectivityTest {
 
   @Test
-  @DisplayName("CAS Preimage Bijectivity: Bit-width variation (#size 16 vs #size 32 vs bare :Int)")
+  @DisplayName("CAS Preimage Bijectivity: Bit-width variation (#size 16 vs #size 64 vs bare :Int)")
   void testBitWidthCasPreimageBijectivity() {
     String docSize16 = """
         {
@@ -32,10 +32,10 @@ public class StvnCasPreimageBijectivityTest {
         }
         """;
 
-    String docSize32 = """
+    String docSize64 = """
         {
           :defs {
-            :TargetInt { #size 32 } :Int
+            :TargetInt { #size 64 } :Int
           }
           :type :TargetInt
           :body 42
@@ -50,29 +50,29 @@ public class StvnCasPreimageBijectivityTest {
         """;
 
     var ast16 = StvnCompiler.compilePayload(docSize16).orElseThrow();
-    var ast32 = StvnCompiler.compilePayload(docSize32).orElseThrow();
+    var ast64 = StvnCompiler.compilePayload(docSize64).orElseThrow();
     var astBare = StvnCompiler.compilePayload(docBareInt).orElseThrow();
 
     String canon16 = StvnCompiler.toCanonicalString(ast16);
-    String canon32 = StvnCompiler.toCanonicalString(ast32);
+    String canon64 = StvnCompiler.toCanonicalString(ast64);
     String canonBare = StvnCompiler.toCanonicalString(astBare);
 
     // Verify canonical strings are distinct
-    assertNotEquals(canon16, canon32, "Canonical strings for #size 16 and #size 32 must be distinct");
+    assertNotEquals(canon16, canon64, "Canonical strings for #size 16 and #size 64 must be distinct");
     assertNotEquals(canon16, canonBare, "Canonical strings for #size 16 and bare :Int must be distinct");
-    assertNotEquals(canon32, canonBare, "Canonical strings for #size 32 and bare :Int must be distinct");
+    assertNotEquals(canon64, canonBare, "Canonical strings for #size 64 and bare :Int must be distinct");
 
     assertTrue(canon16.contains("#size 16"), "Canonical string must retain #size 16 facet");
-    assertTrue(canon32.contains("#size 32"), "Canonical string must retain #size 32 facet");
+    assertTrue(canon64.contains("#size 64"), "Canonical string must retain #size 64 facet");
 
     // Verify SHA-256 CAS fingerprints are distinct (1:1 Nominal Bijectivity Invariant)
     byte[] fp16 = StvnCompiler.computeCasFingerprint(ast16);
-    byte[] fp32 = StvnCompiler.computeCasFingerprint(ast32);
+    byte[] fp64 = StvnCompiler.computeCasFingerprint(ast64);
     byte[] fpBare = StvnCompiler.computeCasFingerprint(astBare);
 
-    assertFalse(Arrays.equals(fp16, fp32), "CAS fingerprints must differ for #size 16 vs #size 32");
+    assertFalse(Arrays.equals(fp16, fp64), "CAS fingerprints must differ for #size 16 vs #size 64");
     assertFalse(Arrays.equals(fp16, fpBare), "CAS fingerprints must differ for #size 16 vs bare :Int");
-    assertFalse(Arrays.equals(fp32, fpBare), "CAS fingerprints must differ for #size 32 vs bare :Int");
+    assertFalse(Arrays.equals(fp64, fpBare), "CAS fingerprints must differ for #size 64 vs bare :Int");
   }
 
   @Test
@@ -91,7 +91,7 @@ public class StvnCasPreimageBijectivityTest {
     String docSigned = """
         {
           :defs {
-            :NumType { #size 32 } :Int
+            :NumType :Int
           }
           :type :NumType
           :body 42

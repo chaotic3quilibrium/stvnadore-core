@@ -375,9 +375,9 @@ STVN enforces strict lexical whitespace discipline to eliminate formatting ambig
    - **Dead-Code Elimination:** Definitions unreferenced by the root `:type` or `:body` payload are strictly pruned.
    - **Topological Ordering:** Retained definitions in `:defs` emit in topological dependency order (dependencies precede dependents).
 6. **String Capacity Governance (MCT § 3.1.3):**
-   - **Default Unbounded Allocation Limit:** Unadorned `:String` instances default to a maximum allocation limit of 16,777,216 characters (16 MiB).
+   - **Concrete Default Allocation Limit:** Unadorned `:String` instances default to character bounds `{ #minSize 0 #maxSize 16777216 }` (16 MiB allocation ceiling). Explicit `{ #minSize 0 }` is a redundant tautology rejected under `E036`.
    - **Default Inspection Threshold:** 4,096 characters.
-   - **Logical Character Cardinality:** Bounded strings declare `{ #maxSize N } :String` or `{ #minSize 1 #maxSize N } :String` up to the signed 32-bit integer boundary ($1 \le N \le 2,147,483,647$). Machine bit-width facet `#size` is prohibited on `:String`.
+   - **Logical Character Cardinality:** Bounded strings declare `{ #maxSize N } :String` or `{ #minSize 1 #maxSize N } :String`. The `#maxSize` facet itself accepts unbounded integer values ($N \in \mathbb{N}^+$, e.g. `#maxSize 16777216000000`). Machine bit-width facet `#size` is prohibited on `:String`.
 
 ---
 
@@ -792,14 +792,17 @@ The `:Int` keyword represents the universal integer type. All integer constraint
 
 | Facet | Argument | Default | Invariant |
 |:---|:---|:---|:---|
-| `#size` | Integer Literal ($\ge 1$) | Machine Native / Unbounded | Declares exact physical storage width in bits ($n$). Range is $[-2^{n-1}, 2^{n-1}-1]$ when signed, or $[0, 2^n - 1]$ when unsigned. |
+| `#size` | Integer Literal ($\ge 1$) | 32 (Signed) / Unbounded | Declares exact physical storage width in bits ($n \in \mathbb{N}^+$). Range is $[-2^{n-1}, 2^{n-1}-1]$ when signed, or $[0, 2^n - 1]$ when unsigned. Explicit `{ #size 32 }` on signed `:Int` is a redundant tautology rejected under `E036`. |
 | `#unsigned` | Bare Flag or Boolean | Signed (`false`) | Enforces non-negative physical unsigned boundaries. Replaces legacy `:Uint*`. |
 
 Canonical integer formulations:
-- Standard signed 32-bit integer: `{ #size 32 } :Int`
+- Standard signed 32-bit integer: `:Int` (Unadorned)
+- Signed 64-bit integer: `{ #size 64 } :Int`
+- Signed 16-bit integer: `{ #size 16 } :Int`
+- Unsigned 32-bit integer: `{ #unsigned #size 32 } :Int`
 - Unsigned 16-bit integer: `{ #unsigned #size 16 } :Int`
 - Arbitrary 7-bit unsigned integer: `{ #unsigned #size 7 } :Int`
-- Bare unadorned `:Int`: Represents unbounded arbitrary-precision signed integers in logical schemas, defaulting to 32 bits under standard binary wire encoding.
+- Bare unadorned `:Int`: Concretizes to signed 32-bit integer storage ($[-2^{31}, 2^{31} - 1]$).
 
 #### 5.1.2 Discrete Half-Open Interval Governance
 Under Value-Oriented Programming (VOP), all discrete mathematical domains reject closed upper bounds (`#maxIncl`) and open lower bounds (`#minExcl`):
@@ -845,14 +848,14 @@ The `:Float` keyword represents numeric values with fractional components:
 
 | Facet | Argument | Default | Invariant |
 |:---|:---|:---|:---|
-| `#size` | `32` or `64` | `64` | Configures IEEE-754 single-precision (32-bit) or double-precision (64-bit) floating-point storage. |
-| `#exact` | Bare Flag or Boolean | IEEE-754 binary | Enforces exact fixed-point or arbitrary-precision decimal arithmetic without binary rounding errors. Replaces legacy `:FloatExact`. |
+| `#size` | `32` or `64` | `64` | Configures IEEE-754 single-precision (32-bit) or double-precision (64-bit) floating-point storage. Continuous `:Float` intrinsically defaults to 64-bit double precision; explicit `{ #size 64 }` is a redundant tautology rejected under `E036`. |
+| `#exact` | Bare Flag or Boolean | IEEE-754 binary | Enforces exact arbitrary-precision decimal arithmetic mirroring Java `BigDecimal` (unscaled integer + 32-bit scale, variable-length wire encoding). Facet `#size` is strictly prohibited on `{ #exact } :Float`. |
 
 Continuous domains (standard `:Float` without `#exact`) represent continuous real numbers and accept all four boundary facets: `#minIncl`, `#maxIncl`, `#minExcl`, and `#maxExcl`.
 
 ```stvn
 // Continuous real numbers: all four facets permitted
-:Probability { #size 64 #minIncl 0.0 #maxIncl 1.0 } :Float
+:Probability { #minIncl 0.0 #maxIncl 1.0 } :Float
 
 // Discrete decimal currency: half-open interval required
 :Price { #exact #minIncl 0.00 #maxExcl 1000000.00 } :Float
@@ -1612,7 +1615,7 @@ In STVN Version 2.0.0, arbitrary bit-width integers declare the pure atomic base
   * Suffix values of zero (`#size 0`) are **prohibited**.
 
 * **Default Resolution:**
-  * Base unadorned token `:Int` compiles to logical unbounded signed integers, resolving to 32 bits under standard binary wire encoding.
+  * Base unadorned token `:Int` concretizes directly to a signed 32-bit integer ($[-2^{31}, 2^{31} - 1]$). Declaring explicit `{ #size 32 }` on signed `:Int` is a redundant tautology rejected under `E036`.
 
 ### A.2 Mathematical Range & Value Invariants
 
@@ -1679,7 +1682,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
     :IntBit24       { #size 24 } :Int
     :IntBit64       { #size 64 } :Int
     :IntBit128      { #size 128 } :Int
-    :DefaultSigned  { #size 32 } :Int
+    :DefaultSigned  :Int
 
     // Arbitrary bit-width unsigned integers
     :UintBit1       { #unsigned #size 1 } :Int
@@ -1692,7 +1695,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
     // Floating-point and exact numbers
     :DefaultFloat   :Float
     :SingleFloat    { #size 32 } :Float
-    :DoubleFloat    { #size 64 } :Float
+    :DoubleFloat    :Float
     :FinancialValue { #exact } :Float
 
     // Strings and size bounds
@@ -2202,7 +2205,7 @@ This appendix documents invalid syntax constructs from other data formats and hi
 :BadEmpty {} :Int { #size 32 }                           // FATAL: Empty metadata block '{}' is prohibited
 { #size 32 }                                             // FATAL: Free-floating metadata block without target
 // CORRECT: Non-empty metadata blocks attached directly to declarations:
-:GoodInt { #size 32 } :Int
+:GoodInt { #size 64 } :Int
 
 // ----------------------------------------------------------------------------
 // TRAP 12: Float Exactness Range Conflict or Non-IEEE Bit-Width (ILLEGAL)
@@ -2212,8 +2215,8 @@ This appendix documents invalid syntax constructs from other data formats and hi
 :BadFloat1 { #size 128 } :Float                          // FATAL: #size on :Float must be 32 or 64
 :BadFloat2 { #exact #T #minIncl 1.0 #maxIncl 10.0 } :Float // FATAL: #exact prohibits continuous ranges
 // CORRECT: Valid IEEE-754 precision declarations:
-:GoodFloat32 { #size 32 #exact #T } :Float
-:GoodFloat64 { #size 64 #minIncl 0.0 #maxIncl 1.0 } :Float
+:GoodFloat32 { #size 32 } :Float
+:GoodFloat64 { #minIncl 0.0 #maxIncl 1.0 } :Float
 
 // ----------------------------------------------------------------------------
 // TRAP 13: Non-Monotonic Enum Subset Filtering & Root Order Violations (ILLEGAL)

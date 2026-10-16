@@ -22,7 +22,7 @@
 
     :DefaultFloat   :Float
     :SingleFloat    { #size 32 } :Float
-    :DoubleFloat    { #size 64 } :Float
+    :DoubleFloat    :Float
     :FinancialValue { #exact } :Float
 
     :UnboundedText  :String

@@ -17,7 +17,7 @@ public class StvnSchemaTypeMetadataTest {
     String source = """
         {
           :defs {
-            :Choice :Either( :Float { #size 32 } :Int )
+            :Choice :Either( :Float { #size 16 } :Int )
           }
           :type :Choice
           :body #Right 42
@@ -69,7 +69,7 @@ public class StvnSchemaTypeMetadataTest {
     String source = """
         {
           :defs {
-            :Triad :Tuple( { #size 16 } :Int { #size 32 } :Int { #unsigned #size 64 } :Int )
+            :Triad :Tuple( { #size 16 } :Int { #size 64 } :Int { #unsigned #size 64 } :Int )
           }
           :type :Triad
           :body ( 100 200 400 )

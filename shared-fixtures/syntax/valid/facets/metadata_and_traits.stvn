@@ -7,15 +7,15 @@
   }
   :defs {
     :RestrictedPort   { #unsigned #size 16 #minIncl 1024 #maxExcl 65536 } :Int
-    :ScoreRange       { #size 64 #minExcl 0.0 #maxIncl 10.0 } :Float
-    :NegativeOffset   { #size 32 #minIncl -100 #maxExcl 0 } :Int
+    :ScoreRange       { #minExcl 0.0 #maxIncl 10.0 } :Float
+    :NegativeOffset   { #minIncl -100 #maxExcl 0 } :Int
 
     :RegexIdentifier  { #minSize 1 #maxSize 32 #regex "^[a-z][a-z0-9_-]{2,31}$" } :String
 
     :RawScriptBlock   { #preserveIndent #TRUE } :String
 
-    :BitwiseFloat     { #equatable #TRUE #size 64 } :Float
-    :NonEquatableInt  { #equatable #FALSE #size 32 } :Int
+    :BitwiseFloat     { #equatable #TRUE } :Float
+    :NonEquatableInt  { #equatable #FALSE } :Int
   }
 
   :type :Tuple(

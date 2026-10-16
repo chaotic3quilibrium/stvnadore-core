@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #size 64 #maxIncl 100.0 } :Float
+  :TestedType { #maxIncl 100.0 } :Float
   }
   :type :TestedType
   :body 3.14

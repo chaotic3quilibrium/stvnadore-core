@@ -162,7 +162,7 @@ public class StvnConstantReferencedMetadataFacetsTest {
           :defs {
             #LAT_MIN :Float -90.0
             #LAT_MAX :Float 90.0
-            :CustomLat { #size 64 #minIncl #LAT_MIN #maxIncl #LAT_MAX } :Float
+            :CustomLat { #minIncl #LAT_MIN #maxIncl #LAT_MAX } :Float
           }
           :type :CustomLat
           :body 45.5

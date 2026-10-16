@@ -125,26 +125,26 @@ public class StvnIntervalAlgebraSoundnessTest {
     String hexSizeSource = """
         {
           :defs {
-            :HexInt { #size 0x20 } :Int
+            :HexInt { #size 0x40 } :Int
           }
           :type :HexInt
           :body 42
         }
         """;
     var hexResult = StvnCompiler.compileToResult(hexSizeSource, null, StvnParserConfig.DEFAULT);
-    assertFalse(hexResult.hasErrors(), "Hex #size 0x20 (32 bits) must compile cleanly");
+    assertFalse(hexResult.hasErrors(), "Hex #size 0x40 (64 bits) must compile cleanly");
 
     String binSizeSource = """
         {
           :defs {
-            :BinInt { #size 0b00100000 } :Int
+            :BinInt { #size 0b01000000 } :Int
           }
           :type :BinInt
           :body 42
         }
         """;
     var binResult = StvnCompiler.compileToResult(binSizeSource, null, StvnParserConfig.DEFAULT);
-    assertFalse(binResult.hasErrors(), "Binary #size 0b00100000 (32 bits) must compile cleanly");
+    assertFalse(binResult.hasErrors(), "Binary #size 0b01000000 (64 bits) must compile cleanly");
   }
 
   // --------------------------------------------------------------------------
@@ -347,7 +347,7 @@ public class StvnIntervalAlgebraSoundnessTest {
     var f32Result = StvnCompiler.compileToResult(validFloat32Source, null, StvnParserConfig.DEFAULT);
     assertFalse(f32Result.hasErrors(), "#size 32 on :Float must compile cleanly");
 
-    String validFloat64Source = """
+    String redundantFloat64Source = """
         {
           :defs {
             :F64 { #size 64 } :Float
@@ -356,8 +356,9 @@ public class StvnIntervalAlgebraSoundnessTest {
           :body 3.141592653589793
         }
         """;
-    var f64Result = StvnCompiler.compileToResult(validFloat64Source, null, StvnParserConfig.DEFAULT);
-    assertFalse(f64Result.hasErrors(), "#size 64 on :Float must compile cleanly");
+    var f64Result = StvnCompiler.compileToResult(redundantFloat64Source, null, StvnParserConfig.DEFAULT);
+    assertTrue(f64Result.hasErrors(), "#size 64 on continuous :Float is redundant under E036");
+    assertTrue(f64Result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))));
   }
 
   // --------------------------------------------------------------------------

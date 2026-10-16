@@ -5183,6 +5183,51 @@ public class StvnTypeResolver {
             );
           }
         }
+      } else if (entry.metadataSize() != null && entry.metadataSize().KW_SIZE() != null) {
+        var sizeCtx = entry.metadataSize();
+        var mv = sizeCtx.metadataValue();
+        if (mv != null && targetBaseType != null) {
+          Integer val = null;
+          if (mv.integerLiteral() != null) {
+            try {
+              val = StvnLiteralParser.parseBigInteger(mv.integerLiteral().getText()).intValueExact();
+            } catch (Exception ignored) {}
+          } else if (mv.valueKeyword() != null) {
+            var doc = findEnclosingDocument(metadataMap);
+            var cOpt = findConstantDefinition(doc, mv.valueKeyword().getText(), mv.valueKeyword());
+            if (cOpt.isPresent()) {
+              var bi = resolveConstantIntegerValue(doc, cOpt.get());
+              if (bi != null) {
+                try {
+                  val = bi.intValueExact();
+                } catch (Exception ignored) {}
+              }
+            }
+          }
+          if (val != null) {
+            if (StvnVocabulary.TYPE_INT.equals(targetBaseType) && !effectiveConsolidated.unsigned() && val == 32) {
+              diagnosticBag.addError(
+                  "Constraint violation (" + name + "): facet '#size 32' is redundant; signed integer ':Int' intrinsically defaults to 32-bit storage",
+                  entry.getStart().getStartIndex(),
+                  entry.getStop().getStopIndex() + 1,
+                  entry.getStart().getLine(),
+                  entry.getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+              );
+            } else if (StvnVocabulary.TYPE_FLOAT.equals(targetBaseType) && !effectiveConsolidated.exact() && val == 64) {
+              diagnosticBag.addError(
+                  "Constraint violation (" + name + "): facet '#size 64' is redundant; continuous ':Float' intrinsically defaults to 64-bit IEEE-754 double precision",
+                  entry.getStart().getStartIndex(),
+                  entry.getStop().getStopIndex() + 1,
+                  entry.getStart().getLine(),
+                  entry.getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+              );
+            }
+          }
+        }
       } else if (entry.metadataSize() != null && entry.metadataSize().KW_MIN_SIZE() != null) {
         var sizeCtx = entry.metadataSize();
         var mv = sizeCtx.metadataValue();

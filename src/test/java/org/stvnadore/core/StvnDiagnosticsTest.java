@@ -343,7 +343,7 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :I32 { #size 32 } :Int
+            :I32 :Int
             :U32 { #unsigned #size 32 } :Int
             :EitherRepeat :Either( :I32 :U32 )
           }
@@ -367,7 +367,7 @@ public class StvnDiagnosticsTest {
     String leftInput = """
         {
           :defs {
-            :I32 { #size 32 } :Int
+            :I32 :Int
             :U32 { #unsigned #size 32 } :Int
             :EitherRepeat :Either( :I32 :U32 )
           }
@@ -386,7 +386,7 @@ public class StvnDiagnosticsTest {
     String rightInput = """
         {
           :defs {
-            :I32 { #size 32 } :Int
+            :I32 :Int
             :U32 { #unsigned #size 32 } :Int
             :EitherRepeat :Either( :I32 :U32 )
           }
@@ -520,7 +520,7 @@ public class StvnDiagnosticsTest {
         {
           :defs {
             :F32 { #size 32 } :Float
-            :F64 { #size 64 } :Float
+            :F64 :Float
           }
           :type :Either( :F32 :F64 )
           :body 1.5
@@ -541,7 +541,7 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :UserId { #size 32 } :Int
+            :UserId :Int
             :AccountId { #unsigned #size 32 } :Int
           }
           :type :Either( :UserId :AccountId )
@@ -563,7 +563,7 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :I32 { #size 32 } :Int
+            :I32 :Int
             :U32 { #unsigned #size 32 } :Int
           }
           :type :Option( :Either( :I32 :U32 ) )
@@ -585,7 +585,7 @@ public class StvnDiagnosticsTest {
     String input = """
         {
           :defs {
-            :I32 { #size 32 } :Int
+            :I32 :Int
             :U32 { #unsigned #size 32 } :Int
             #CONST_VAL :I32 100
           }

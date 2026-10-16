@@ -63,11 +63,11 @@ public final class StvnPrelude {
             :IPv4  { #minSize 7 #maxSize 15 #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" } :String
             :Port  { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
 
-            :Percentage  { #size 64 #minIncl 0.0 #maxIncl 100.0 } :Float
-            :Probability { #size 64 #minIncl 0.0 #maxIncl 1.0 }   :Float
+            :Percentage  { #minIncl 0.0 #maxIncl 100.0 } :Float
+            :Probability { #minIncl 0.0 #maxIncl 1.0 }   :Float
             :Currency    { #exact } :Float
-            :Latitude    { #size 64 #minIncl -90.0 #maxIncl 90.0 }   :Float
-            :Longitude   { #size 64 #minIncl -180.0 #maxIncl 180.0 } :Float
+            :Latitude    { #minIncl -90.0 #maxIncl 90.0 }   :Float
+            :Longitude   { #minIncl -180.0 #maxIncl 180.0 } :Float
 
             #POSIX_ID_REGEX :String "^[a-zA-Z0-9_-]+$"
             :PosixId { #minSize 1 #maxSize 255 #regex #POSIX_ID_REGEX } :String

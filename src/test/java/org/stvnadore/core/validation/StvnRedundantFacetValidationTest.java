@@ -625,4 +625,217 @@ public class StvnRedundantFacetValidationTest {
     assertEquals(expectedStart, diag.startOffset());
     assertEquals(expectedEnd, diag.endOffset());
   }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-01: Prohibits #size 32 on signed :Int domain (Signed Integer Sizing Tautology)")
+  void testRejectSignedIntSizeThirtyTwo() {
+    String source = """
+        {
+          :defs {
+            :MyInt { #size 32 } :Int
+          }
+          :type :MyInt
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Expected compilation failure for #size 32 on signed :Int");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    String targetToken = "#size 32";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset(), "Start offset must pinpoint '#size 32'");
+    assertEquals(expectedEnd, diag.endOffset(), "End offset must cover '#size 32'");
+    assertTrue(diag.message().contains("facet '#size 32' is redundant; signed integer ':Int' intrinsically defaults to 32-bit storage"));
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-02: Permits #size 64, 16, and 8 on signed :Int domain (Valid widenings/narrowings)")
+  void testAcceptNonDefaultSignedIntSizes() {
+    String source = """
+        {
+          :defs {
+            :I64 { #size 64 } :Int
+            :I16 { #size 16 } :Int
+            :I8  { #size 8 } :Int
+          }
+          :type :Tuple( :I64 :I16 :I8 )
+          :body ( 1000000000000 30000 120 )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertFalse(result.hasErrors(), "Non-default integer bit-widths (64, 16, 8) must compile cleanly");
+    assertTrue(result.document().isPresent());
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-05: Permits #unsigned #size 32 on :Int domain (Valid domain modification)")
+  void testAcceptUnsignedIntSizeThirtyTwo() {
+    String source = """
+        {
+          :defs {
+            :MyUInt { #unsigned #size 32 } :Int
+          }
+          :type :MyUInt
+          :body 4294967295
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertFalse(result.hasErrors(), "Unsigned 32-bit integer narrows negative domain to 0 and must compile cleanly");
+    assertTrue(result.document().isPresent());
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-06: Prohibits #size 64 on continuous :Float domain (Continuous Float Sizing Tautology)")
+  void testRejectContinuousFloatSizeSixtyFour() {
+    String source = """
+        {
+          :defs {
+            :MyFloat { #size 64 } :Float
+          }
+          :type :MyFloat
+          :body 3.141592653589793
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Expected compilation failure for #size 64 on continuous :Float");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    String targetToken = "#size 64";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset(), "Start offset must pinpoint '#size 64'");
+    assertEquals(expectedEnd, diag.endOffset(), "End offset must cover '#size 64'");
+    assertTrue(diag.message().contains("facet '#size 64' is redundant; continuous ':Float' intrinsically defaults to 64-bit IEEE-754 double precision"));
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-07: Permits #size 32 on continuous :Float domain (Valid single-precision narrowing)")
+  void testAcceptContinuousFloatSizeThirtyTwo() {
+    String source = """
+        {
+          :defs {
+            :SingleFloat { #size 32 } :Float
+          }
+          :type :SingleFloat
+          :body 3.14
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertFalse(result.hasErrors(), "Single precision #size 32 on continuous float must compile cleanly");
+    assertTrue(result.document().isPresent());
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-08: Permits #maxSize 16777216000000 on :String (Unbounded facet parameter)")
+  void testAcceptUnboundedStringMaxSize() {
+    String source = """
+        {
+          :defs {
+            :HugeString { #maxSize 16777216000000 } :String
+          }
+          :type :HugeString
+          :body "unbounded capacity test"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertFalse(result.hasErrors(), "Unbounded string maxSize parameter must compile cleanly");
+    assertTrue(result.document().isPresent());
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-09: Prohibits #size 32 on subtype deriving from bare :Int (Transitive sizing tautology)")
+  void testRejectTransitiveSignedIntSizeThirtyTwo() {
+    String source = """
+        {
+          :defs {
+            :Parent :Int
+            :Child { #size 32 } :Parent
+          }
+          :type :Child
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Expected compilation failure for #size 32 on child of bare :Int");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    String targetToken = "#size 32";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset());
+    assertEquals(expectedEnd, diag.endOffset());
+    assertTrue(diag.message().contains("facet '#size 32' is redundant; signed integer ':Int' intrinsically defaults to 32-bit storage"));
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-10: Prohibits #size 64 on subtype deriving from bare :Float (Transitive float sizing tautology)")
+  void testRejectTransitiveFloatSizeSixtyFour() {
+    String source = """
+        {
+          :defs {
+            :ParentFloat :Float
+            :Child { #size 64 } :ParentFloat
+          }
+          :type :Child
+          :body 3.141592653589793
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Expected compilation failure for #size 64 on child of bare :Float");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    String targetToken = "#size 64";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset());
+    assertEquals(expectedEnd, diag.endOffset());
+    assertTrue(diag.message().contains("facet '#size 64' is redundant; continuous ':Float' intrinsically defaults to 64-bit IEEE-754 double precision"));
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-11: Prohibits #size #SZ32 where #SZ32 resolves to constant 32 on signed :Int")
+  void testRejectRedundantSizeConstantReference() {
+    String source = """
+        {
+          :defs {
+            #SZ32 :Int 32
+            :MyType { #size #SZ32 } :Int
+          }
+          :type :MyType
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Constant reference resolving to 32 on signed :Int must be rejected as redundant");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    String targetToken = "#size #SZ32";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset());
+    assertEquals(expectedEnd, diag.endOffset());
+    assertTrue(diag.message().contains("facet '#size 32' is redundant; signed integer ':Int' intrinsically defaults to 32-bit storage"));
+  }
 }

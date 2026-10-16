@@ -6,10 +6,10 @@
     #kind #BODY
   }
   :defs {
-    :Pair          :Tuple( { #size 16 } :Int { #size 32 } :Int )
+    :Pair          :Tuple( { #size 16 } :Int :Int )
     :DisjointSum   :Either( :Float { #unsigned #size 32 } :Int )
     :NullableText  :Option( { #minSize 1 #maxSize 50 } :String )
-    :VariantUnion  :Union( { #size 8 } :Int :Boolean { #size 64 } :Float )
+    :VariantUnion  :Union( { #size 8 } :Int :Boolean :Float )
     :IntegerBuffer :Seq( { #unsigned #size 16 } :Int )
     :IdentSet      :Set( { #minSize 3 #maxSize 3 } :String )
     :ConfigMap     :Map( :String { #minIncl 1 #maxExcl 65536 } :Int )

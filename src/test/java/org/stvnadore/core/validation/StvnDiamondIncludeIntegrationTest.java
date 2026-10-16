@@ -53,7 +53,7 @@ public class StvnDiamondIncludeIntegrationTest {
             {
               :meta { #kind #DEFS }
               :defs {
-                :TypeD { #size 32 } :Int
+                :TypeD { #size 64 } :Int
               }
             }
             """
@@ -63,7 +63,7 @@ public class StvnDiamondIncludeIntegrationTest {
     String flattened = assertDoesNotThrow(() -> StvnSchemaFlattener.flatten(workspace, "A.stvn_i"));
 
     assertNotNull(flattened);
-    assertTrue(flattened.contains(":TypeD{#size 32}:Int"), "Flattened output must contain shared definition :TypeD");
+    assertTrue(flattened.contains(":TypeD{#size 64}:Int"), "Flattened output must contain shared definition :TypeD");
     assertTrue(flattened.contains(":TypeB"), "Flattened output must contain :TypeB");
     assertTrue(flattened.contains(":TypeC"), "Flattened output must contain :TypeC");
     assertTrue(flattened.contains(":TypeA"), "Flattened output must contain :TypeA");

@@ -10,10 +10,10 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":Pair" ( ":Tuple({#size16}:Int{#size32}:Int)" ":Pair" ( #TRUE #TRUE ) ) ]
+      [ ":Pair" ( ":Tuple({#size16}:Int:Int)" ":Pair" ( #TRUE #TRUE ) ) ]
       [ ":DisjointSum" ( ":Either(:Float{#unsigned#size32}:Int)" ":DisjointSum" ( #FALSE #TRUE ) ) ]
       [ ":NullableText" ( ":Option({#minSize1#maxSize50}:String)" ":NullableText" ( #TRUE #TRUE ) ) ]
-      [ ":VariantUnion" ( ":Union({#size8}:Int:Boolean{#size64}:Float)" ":VariantUnion" ( #FALSE #TRUE ) ) ]
+      [ ":VariantUnion" ( ":Union({#size8}:Int:Boolean:Float)" ":VariantUnion" ( #FALSE #TRUE ) ) ]
       [ ":IntegerBuffer" ( ":Seq({#unsigned#size16}:Int)" ":IntegerBuffer" ( #TRUE #TRUE ) ) ]
       [ ":IdentSet" ( ":Set({#minSize3#maxSize3}:String)" ":IdentSet" ( #TRUE #FALSE ) ) ]
       [ ":ConfigMap" ( ":Map(:String{#minIncl1#maxExcl65536}:Int)" ":ConfigMap" ( #TRUE #FALSE ) ) ]

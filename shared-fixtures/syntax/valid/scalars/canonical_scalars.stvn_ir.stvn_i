@@ -24,7 +24,7 @@
       [ ":DefaultUnsigned" ( "{#unsigned}:Int" ":DefaultUnsigned" ( #TRUE #TRUE ) ) ]
       [ ":DefaultFloat" ( ":Float" ":DefaultFloat" ( #FALSE #TRUE ) ) ]
       [ ":SingleFloat" ( "{#size32}:Float" ":SingleFloat" ( #FALSE #TRUE ) ) ]
-      [ ":DoubleFloat" ( "{#size64}:Float" ":DoubleFloat" ( #FALSE #TRUE ) ) ]
+      [ ":DoubleFloat" ( ":Float" ":DoubleFloat" ( #FALSE #TRUE ) ) ]
       [ ":FinancialValue" ( "{#exact}:Float" ":FinancialValue" ( #TRUE #TRUE ) ) ]
       [ ":UnboundedText" ( ":String" ":UnboundedText" ( #TRUE #TRUE ) ) ]
       [ ":BoundedText" ( "{#maxSize64}:String" ":BoundedText" ( #TRUE #TRUE ) ) ]

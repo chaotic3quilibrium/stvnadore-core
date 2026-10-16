@@ -288,7 +288,7 @@ public class StvnBinaryCodecSecurityTest {
     void testFloat64NaNRoundTrip() {
       ResolvedSchema schema = StvnCompiler.compilePayload("""
           {
-            :defs { :F64 { #size 64 } :Float }
+            :defs { :F64 :Float }
             :type :F64
             :body 0.0
           }
@@ -348,7 +348,7 @@ public class StvnBinaryCodecSecurityTest {
     void testFloat64InfinitiesRoundTrip() {
       ResolvedSchema schema = StvnCompiler.compilePayload("""
           {
-            :defs { :F64 { #size 64 } :Float }
+            :defs { :F64 :Float }
             :type :F64
             :body 0.0
           }
@@ -388,7 +388,7 @@ public class StvnBinaryCodecSecurityTest {
           """).orElseThrow().schema();
       ResolvedSchema schema64 = StvnCompiler.compilePayload("""
           {
-            :defs { :F64 { #size 64 } :Float }
+            :defs { :F64 :Float }
             :type :F64
             :body 0.0
           }

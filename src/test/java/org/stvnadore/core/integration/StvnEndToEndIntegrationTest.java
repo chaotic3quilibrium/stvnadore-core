@@ -490,7 +490,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :F64 { #size 64 } :Float
+                    :F64 :Float
                   }
                   :type :Seq( :F64 )
                   :body [ 1.7976931348623159E308 ]
@@ -1365,7 +1365,7 @@ public class StvnEndToEndIntegrationTest {
         """
             {
               :defs {
-                :I32 { #size 32 } :Int
+                :I32 :Int
                 :I64 { #size 64 } :Int
               }
               :type :Either( :Option( :I32 ) :Option( :I64 ) )
@@ -2124,7 +2124,7 @@ public class StvnEndToEndIntegrationTest {
       String invalidSchemaText = """
           {
             :defs {
-              :I32 { #size 32 } :Int
+              :I32 :Int
               :I16 { #size 16 } :Int
             }
             :type :Union( :I32 :I16 :String )
@@ -2134,7 +2134,7 @@ public class StvnEndToEndIntegrationTest {
       var ir = org.stvnadore.core.StvnCompiler.compilePayload("""
           {
             :defs {
-              :I32 { #size 32 } :Int
+              :I32 :Int
               :I16 { #size 16 } :Int
             }
             :type :Union( :I32 :I16 :String )

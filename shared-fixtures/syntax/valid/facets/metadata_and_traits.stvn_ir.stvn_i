@@ -11,12 +11,12 @@
   :body (
     {
       [ ":RestrictedPort" ( "{#unsigned#size16#minIncl1024#maxExcl65536}:Int" ":RestrictedPort" ( #TRUE #TRUE ) ) ]
-      [ ":ScoreRange" ( "{#size64#minExcl0.0#maxIncl10.0}:Float" ":ScoreRange" ( #FALSE #TRUE ) ) ]
-      [ ":NegativeOffset" ( "{#size32#minIncl-100#maxExcl0}:Int" ":NegativeOffset" ( #TRUE #TRUE ) ) ]
+      [ ":ScoreRange" ( "{#minExcl0.0#maxIncl10.0}:Float" ":ScoreRange" ( #FALSE #TRUE ) ) ]
+      [ ":NegativeOffset" ( "{#minIncl-100#maxExcl0}:Int" ":NegativeOffset" ( #TRUE #TRUE ) ) ]
       [ ":RegexIdentifier" ( "{#minSize1#maxSize32#regex\"^[a-z][a-z0-9_-]{2,31}$\"}:String" ":RegexIdentifier" ( #TRUE #TRUE ) ) ]
       [ ":RawScriptBlock" ( "{#preserveIndent#TRUE}:String" ":RawScriptBlock" ( #TRUE #TRUE ) ) ]
-      [ ":BitwiseFloat" ( "{#equatable#TRUE#size64}:Float" ":BitwiseFloat" ( #TRUE #TRUE ) ) ]
-      [ ":NonEquatableInt" ( "{#equatable#FALSE#size32}:Int" ":NonEquatableInt" ( #FALSE #TRUE ) ) ]
+      [ ":BitwiseFloat" ( "{#equatable#TRUE}:Float" ":BitwiseFloat" ( #TRUE #TRUE ) ) ]
+      [ ":NonEquatableInt" ( "{#equatable#FALSE}:Int" ":NonEquatableInt" ( #FALSE #TRUE ) ) ]
       [ "<:type>" ( ":Tuple(:RestrictedPort:ScoreRange:NegativeOffset:RegexIdentifier:RawScriptBlock:BitwiseFloat:NonEquatableInt)" "" ( #FALSE #TRUE ) ) ]
     }
     #11 [

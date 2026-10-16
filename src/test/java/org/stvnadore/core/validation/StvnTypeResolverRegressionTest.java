@@ -425,7 +425,7 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :MyInt32 { #size 32 } :Int
+            :MyInt32 :Int
             :MyUint32 { #unsigned #size 32 } :Int
           }
           :type :Seq(:Either(:MyInt32 :MyUint32))
@@ -693,7 +693,7 @@ class StvnTypeResolverRegressionTest {
     String input = """
         {
           :defs {
-            :Int32 { #size 32 } :Int
+            :Int32 :Int
           }
           :type :Int32
           :body 42

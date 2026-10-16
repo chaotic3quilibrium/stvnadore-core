@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #size 32 } :Int
+  :TestedType { #size 64 } :Int
   }
   :type :TestedType
   :body 42
