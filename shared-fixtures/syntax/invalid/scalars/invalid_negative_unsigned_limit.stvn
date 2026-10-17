@@ -3,7 +3,7 @@
 // @error: MALFORMED_SCHEMA
 {
   :defs {
-    :UnsignedType {#unsigned #size 32 #minIncl -5} :Int
+    :UnsignedType {#unsigned #minIncl -5} :Int
   }
   :type :UnsignedType
   :body 10

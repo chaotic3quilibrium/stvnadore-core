@@ -53,7 +53,7 @@ public class StvnSchemaTypeMetadataTest {
     String source = """
         {
           :defs {
-            :Queue :Seq( { #unsigned #size 32 } :Int )
+            :Queue :Seq( { #unsigned } :Int )
           }
           :type :Queue
           :body [ 10 20 30 ]

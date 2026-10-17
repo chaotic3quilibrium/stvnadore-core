@@ -103,7 +103,7 @@ class StvnStrictParserTest {
         {
           :defs {
             :I32 :Int
-            :U32 { #unsigned #size 32 } :Int
+            :U32 { #unsigned } :Int
             :EitherRepeat :Either( :I32 :U32 )
           }
           :type :EitherRepeat

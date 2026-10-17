@@ -426,7 +426,7 @@ class StvnTypeResolverRegressionTest {
         {
           :defs {
             :MyInt32 :Int
-            :MyUint32 { #unsigned #size 32 } :Int
+            :MyUint32 { #unsigned } :Int
           }
           :type :Seq(:Either(:MyInt32 :MyUint32))
           :body [ 1 ]

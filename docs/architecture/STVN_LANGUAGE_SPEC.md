@@ -225,7 +225,7 @@ When a lexer encounters a tab character, the lexer produces a `TAB_CHARACTER` to
 
     :Endpoint :Tuple( :RemoteHost :Port :Protocol )
 
-    :LatencyHistory { #minSize 1 } :Seq( { #unsigned #size 32 } :Int )
+    :LatencyHistory { #minSize 1 } :Seq( { #unsigned } :Int )
 
     :RouteTable { #invertible } :Map( :RemoteHost :IpAddress )
   }
@@ -247,7 +247,7 @@ When a lexer encounters a tab character, the lexer produces a `TAB_CHARACTER` to
       :PacketCounter 
       :LatencyHistory 
       :RouteTable 
-      :Option( { #unsigned #size 32 } :Int )    
+      :Option( { #unsigned } :Int )    
     )
   }
 
@@ -562,7 +562,7 @@ Every STVN document may declare an identity block using the `:meta` root enclosu
     #kind #DEFS
   }
   :defs {
-    :NodeId { #unsigned #size 32 } :Int
+    :NodeId { #unsigned } :Int
   }
 }
 ```
@@ -792,14 +792,14 @@ The `:Int` keyword represents the universal integer type. All integer constraint
 
 | Facet | Argument | Default | Invariant |
 |:---|:---|:---|:---|
-| `#size` | Integer Literal ($\ge 1$) | 32 (Signed) / Unbounded | Declares exact physical storage width in bits ($n \in \mathbb{N}^+$). Range is $[-2^{n-1}, 2^{n-1}-1]$ when signed, or $[0, 2^n - 1]$ when unsigned. Explicit `{ #size 32 }` on signed `:Int` is a redundant tautology rejected under `E036`. |
+| `#size` | Integer Literal ($\ge 1$) | 32 (Signed & Unsigned) / Unbounded | Declares exact physical storage width in bits ($n \in \mathbb{N}^+$). Range is $[-2^{n-1}, 2^{n-1}-1]$ when signed, or $[0, 2^n - 1]$ when unsigned. Explicit `{ #size 32 }` on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology rejected under `E036`. |
 | `#unsigned` | Bare Flag or Boolean | Signed (`false`) | Enforces non-negative physical unsigned boundaries. Replaces legacy `:Uint*`. |
 
 Canonical integer formulations:
 - Standard signed 32-bit integer: `:Int` (Unadorned)
 - Signed 64-bit integer: `{ #size 64 } :Int`
 - Signed 16-bit integer: `{ #size 16 } :Int`
-- Unsigned 32-bit integer: `{ #unsigned #size 32 } :Int`
+- Unsigned 32-bit integer: `{ #unsigned } :Int`
 - Unsigned 16-bit integer: `{ #unsigned #size 16 } :Int`
 - Arbitrary 7-bit unsigned integer: `{ #unsigned #size 7 } :Int`
 - Bare unadorned `:Int`: Concretizes to signed 32-bit integer storage ($[-2^{31}, 2^{31} - 1]$).
@@ -906,8 +906,8 @@ Sum variant tags (`#Some`, `#None`, `#Left`, `#Right`, `#S`, `#N`, `#L`, `#R`, a
 
 2. **Strict Product Demarcation:**
    Parentheses `( ... )` in STVN are strictly and exclusively product constructors (`:Tuple`). They are **never** function-call delimiters.
-   - If the target schema is a scalar (e.g., `:Option( { #unsigned #size 32 } :Int )`), supplying a parenthesized expression (`#Some ( 42 )`) is a fatal type mismatch (`MalformedPayloadException`).
-   - If the target schema is explicitly a product (e.g., `:Option( :Tuple( { #unsigned #size 32 } :Int ) )`), parentheses are mandatory: `#Some ( 42 )`.
+   - If the target schema is a scalar (e.g., `:Option( { #unsigned } :Int )`), supplying a parenthesized expression (`#Some ( 42 )`) is a fatal type mismatch (`MalformedPayloadException`).
+   - If the target schema is explicitly a product (e.g., `:Option( :Tuple( { #unsigned } :Int ) )`), parentheses are mandatory: `#Some ( 42 )`.
    - Multi-element product variants require parentheses matching the product schema arity: `:Option( :Tuple( :Int :Int ) )` with `#Some ( 1 2 )`.
 
 ---
@@ -1618,7 +1618,7 @@ In STVN Version 2.0.0, arbitrary bit-width integers declare the pure atomic base
   * Suffix values of zero (`#size 0`) are **prohibited**.
 
 * **Default Resolution:**
-  * Base unadorned token `:Int` concretizes directly to a signed 32-bit integer ($[-2^{31}, 2^{31} - 1]$). Declaring explicit `{ #size 32 }` on signed `:Int` is a redundant tautology rejected under `E036`.
+  * Base unadorned token `:Int` concretizes directly to a signed 32-bit integer ($[-2^{31}, 2^{31} - 1]$). Declaring explicit `{ #size 32 }` on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology rejected under `E036`.
 
 ### A.2 Mathematical Range & Value Invariants
 
@@ -1693,7 +1693,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
     :UintBit49      { #unsigned #size 49 } :Int
     :UintBit64      { #unsigned #size 64 } :Int
     :UintBit128     { #unsigned #size 128 } :Int
-    :DefaultUnsigned { #unsigned #size 32 } :Int
+    :DefaultUnsigned { #unsigned } :Int
 
     // Floating-point and exact numbers
     :DefaultFloat   :Float
@@ -1877,7 +1877,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
     :NonEmptySeq    { #minSize 1 } :Seq( :Int )
 
     // Sets
-    :StandardSet    :Set( { #unsigned #size 32 } :Int )
+    :StandardSet    :Set( { #unsigned } :Int )
     :NonEmptySet    { #minSize 1 } :Set( :String )
 
     // Standard Maps
@@ -1885,8 +1885,8 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
     :NonEmptyMap    { #minSize 1 } :Map( :String :String )
 
     // Invertible Maps (Dual-Set Invariant: Keys unique AND values unique)
-    :BijectiveMap   { #invertible } :Map( :String { #unsigned #size 32 } :Int )
-    :BijectiveNeMap { #invertible #minSize 1 } :Map( { #unsigned #size 32 } :Int :String )
+    :BijectiveMap   { #invertible } :Map( :String { #unsigned } :Int )
+    :BijectiveNeMap { #invertible #minSize 1 } :Map( { #unsigned } :Int :String )
   }
 
   :type :Tuple(
@@ -2302,7 +2302,7 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E033` | `META_POSITION_INVALID` | Syntactic | Fatal | :meta root block placed after :defs, :type, or :body. |
 | `E034` | `LEGACY_FILE_EXTENSION_PURGED` | Syntactic | Fatal | Excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas) used. |
 | `E035` | `UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | Semantic | Fatal | Module :use in a flat hermetic document (.stvn / .stvn_d) targets an external package not declared in local :defs or prelude. |
-| `E036` | `ERR_REDUNDANT_METADATA_FACET` | Semantic | Fatal | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #minSize 0 on container, #size 32 on signed :Int, #size 64 on continuous :Float, #maxSize 16777216 on { #exact } :Float, or bare primitive trait defaults). |
+| `E036` | `ERR_REDUNDANT_METADATA_FACET` | Semantic | Fatal | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #minSize 0 on container, #size 32 on signed :Int or unsigned { #unsigned } :Int, #size 64 on continuous :Float, #maxSize 16777216 on { #exact } :Float, or bare primitive trait defaults). |
 | `E037` | `ERR_RESERVED_PACKAGE_PROHIBITED` | Semantic | Fatal | User document declares a :package enclosure, qualified type, or qualified constant targeting reserved runtime namespace :org/stvnadore/* (§ 3.9 Invariant 8). |
 | `E038` | `ERR_RESERVED_DOMAIN_PROHIBITED` | Semantic | Fatal | User document declares a reserved system domain (stvn_core, stvn_ir, stvn_cas) in root :meta (§ 3.10.1 Rule 6). |
 | `W001` | `DOCUMENT_NAME_MISMATCH` | Semantic | Warning | Declared #name does not match filename stem slot 0. |
@@ -2986,7 +2986,7 @@ Two modules export the identical raw identifier `:Config` without alias mapping.
 {
   // Module B: db_config.stvn_d
   :defs {
-    :Config :Tuple( :String { #maxSize 256 } :String { #maxSize 64 } :Int { #unsigned #T #size 32 } )
+    :Config :Tuple( :String { #maxSize 256 } :String { #maxSize 64 } :Int { #unsigned } )
   }
 }
 ```

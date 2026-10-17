@@ -674,20 +674,97 @@ public class StvnRedundantFacetValidationTest {
   }
 
   @Test
-  @DisplayName("TC-SIZE-RED-05: Permits #unsigned #size 32 on :Int domain (Valid domain modification)")
-  void testAcceptUnsignedIntSizeThirtyTwo() {
+  @DisplayName("TC-SIZE-RED-05: Prohibits #unsigned #size 32 on :Int domain (Unsigned Integer Sizing Tautology)")
+  void testRejectUnsignedIntSizeThirtyTwo() {
     String source = """
         {
           :defs {
             :MyUInt { #unsigned #size 32 } :Int
           }
           :type :MyUInt
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Expected compilation failure for #size 32 on unsigned :Int");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    String targetToken = "#size 32";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset(), "Start offset must pinpoint '#size 32'");
+    assertEquals(expectedEnd, diag.endOffset(), "End offset must cover '#size 32'");
+    assertTrue(diag.message().contains("facet '#size 32' is redundant; unsigned integer '{ #unsigned } :Int' intrinsically defaults to 32-bit storage"));
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-05B: Permits unadorned { #unsigned } :Int with intrinsic 32-bit storage width")
+  void testAcceptBareUnsignedIntThirtyTwoBitBounds() {
+    String source = """
+        {
+          :defs {
+            :MyUInt { #unsigned } :Int
+          }
+          :type :MyUInt
           :body 4294967295
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertFalse(result.hasErrors(), "Unsigned 32-bit integer narrows negative domain to 0 and must compile cleanly");
+    assertFalse(result.hasErrors(), "Unadorned unsigned integer must compile cleanly up to 2^32 - 1");
     assertTrue(result.document().isPresent());
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-05C: Permits valid non-default bit-widths on unsigned integers")
+  void testAcceptNonDefaultUnsignedIntSizes() {
+    String source = """
+        {
+          :defs {
+            :U64 { #unsigned #size 64 } :Int
+            :U16 { #unsigned #size 16 } :Int
+            :U8  { #unsigned #size 8 } :Int
+            :U7  { #unsigned #size 7 } :Int
+          }
+          :type :Tuple( :U64 :U16 :U8 :U7 )
+          :body ( 1000000000000 65000 250 120 )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertFalse(result.hasErrors(), "Non-default unsigned bit-widths (64, 16, 8, 7) must compile cleanly");
+    assertTrue(result.document().isPresent());
+  }
+
+  @Test
+  @DisplayName("TC-SIZE-RED-05D: Prohibits #size 32 on subtype deriving from unsigned parent (Transitive unsigned sizing tautology)")
+  void testRejectTransitiveUnsignedIntSizeThirtyTwo() {
+    String source = """
+        {
+          :defs {
+            :ParentUInt { #unsigned } :Int
+            :ChildUInt  { #size 32 } :ParentUInt
+          }
+          :type :ChildUInt
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Expected compilation failure for #size 32 on child of unsigned parent");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    String targetToken = "#size 32";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset());
+    assertEquals(expectedEnd, diag.endOffset());
+    assertTrue(diag.message().contains("facet '#size 32' is redundant; unsigned integer '{ #unsigned } :Int' intrinsically defaults to 32-bit storage"));
   }
 
   @Test

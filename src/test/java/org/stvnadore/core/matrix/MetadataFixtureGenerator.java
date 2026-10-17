@@ -707,7 +707,6 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedUInt {
               #unsigned
-              #size 32
               #minIncl 1
               #maxExcl 65536
             } :Int

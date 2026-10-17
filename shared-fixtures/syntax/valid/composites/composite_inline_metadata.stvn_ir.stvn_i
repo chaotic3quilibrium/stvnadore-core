@@ -11,7 +11,7 @@
   :body (
     {
       [ ":Pair" ( ":Tuple({#size16}:Int:Int)" ":Pair" ( #TRUE #TRUE ) ) ]
-      [ ":DisjointSum" ( ":Either(:Float{#unsigned#size32}:Int)" ":DisjointSum" ( #FALSE #TRUE ) ) ]
+      [ ":DisjointSum" ( ":Either(:Float{#unsigned}:Int)" ":DisjointSum" ( #FALSE #TRUE ) ) ]
       [ ":NullableText" ( ":Option({#minSize1#maxSize50}:String)" ":NullableText" ( #TRUE #TRUE ) ) ]
       [ ":VariantUnion" ( ":Union({#size8}:Int:Boolean:Float)" ":VariantUnion" ( #FALSE #TRUE ) ) ]
       [ ":IntegerBuffer" ( ":Seq({#unsigned#size16}:Int)" ":IntegerBuffer" ( #TRUE #TRUE ) ) ]

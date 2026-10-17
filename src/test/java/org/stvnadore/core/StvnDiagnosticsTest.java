@@ -344,7 +344,7 @@ public class StvnDiagnosticsTest {
         {
           :defs {
             :I32 :Int
-            :U32 { #unsigned #size 32 } :Int
+            :U32 { #unsigned } :Int
             :EitherRepeat :Either( :I32 :U32 )
           }
           :type :EitherRepeat
@@ -368,7 +368,7 @@ public class StvnDiagnosticsTest {
         {
           :defs {
             :I32 :Int
-            :U32 { #unsigned #size 32 } :Int
+            :U32 { #unsigned } :Int
             :EitherRepeat :Either( :I32 :U32 )
           }
           :type :EitherRepeat
@@ -387,7 +387,7 @@ public class StvnDiagnosticsTest {
         {
           :defs {
             :I32 :Int
-            :U32 { #unsigned #size 32 } :Int
+            :U32 { #unsigned } :Int
             :EitherRepeat :Either( :I32 :U32 )
           }
           :type :EitherRepeat
@@ -542,7 +542,7 @@ public class StvnDiagnosticsTest {
         {
           :defs {
             :UserId :Int
-            :AccountId { #unsigned #size 32 } :Int
+            :AccountId { #unsigned } :Int
           }
           :type :Either( :UserId :AccountId )
           :body 100
@@ -564,7 +564,7 @@ public class StvnDiagnosticsTest {
         {
           :defs {
             :I32 :Int
-            :U32 { #unsigned #size 32 } :Int
+            :U32 { #unsigned } :Int
           }
           :type :Option( :Either( :I32 :U32 ) )
           :body 1
@@ -586,7 +586,7 @@ public class StvnDiagnosticsTest {
         {
           :defs {
             :I32 :Int
-            :U32 { #unsigned #size 32 } :Int
+            :U32 { #unsigned } :Int
             #CONST_VAL :I32 100
           }
           :type :Either( :I32 :U32 )

@@ -152,12 +152,12 @@ STVN's type system is built on Algebraic Data Types (ADTs), dividing composite d
   ```
 * **Strict Product Demarcation:** In STVN, parentheses `( ... )` strictly construct `:Tuple` instances. They are never function-call delimiters:
   ```stvn
-  // Given schema: :Option( { #unsigned #size 32 } :Int )
+  // Given schema: :Option( { #unsigned } :Int )
   #Some ( 42 )      // FATAL: Type mismatch (Expected Integer, got Tuple)
-  #Some 42          // VALID: Scalar integer matches { #unsigned #size 32 } :Int
+  #Some 42          // VALID: Scalar integer matches { #unsigned } :Int
 
-  // Given schema: :Option( :Tuple( { #unsigned #size 32 } :Int ) )
-  #Some ( 42 )      // VALID: 1-element tuple matches :Tuple( { #unsigned #size 32 } :Int )
+  // Given schema: :Option( :Tuple( { #unsigned } :Int ) )
+  #Some ( 42 )      // VALID: 1-element tuple matches :Tuple( { #unsigned } :Int )
   ```
 
 ### 2.2 Sum Types (`:Option`, `:Either`, `:Union`, `:Enum`)
@@ -191,7 +191,7 @@ STVN decoders support implicit tagging for sum types when payload values are una
 ```stvn
 // -----------------------------------------------------------------------------
 // RULE A: Implied Option #Some
-// Schema: :Option( { #unsigned #size 32 } :Int )
+// Schema: :Option( { #unsigned } :Int )
 42                     // Inferred as: #Some 42
 
 // -----------------------------------------------------------------------------

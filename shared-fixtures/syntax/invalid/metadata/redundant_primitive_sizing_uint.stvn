@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "redundant_primitive_sizing_uint"
+    #kind #BODY
+  }
+  :defs {
+    :BadUInt { #unsigned #size 32 } :Int
+  }
+  :type :BadUInt
+  :body 42
+}

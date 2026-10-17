@@ -7,7 +7,7 @@
   }
   :defs {
     :Pair          :Tuple( { #size 16 } :Int :Int )
-    :DisjointSum   :Either( :Float { #unsigned #size 32 } :Int )
+    :DisjointSum   :Either( :Float { #unsigned } :Int )
     :NullableText  :Option( { #minSize 1 #maxSize 50 } :String )
     :VariantUnion  :Union( { #size 8 } :Int :Boolean :Float )
     :IntegerBuffer :Seq( { #unsigned #size 16 } :Int )

@@ -5236,9 +5236,12 @@ public class StvnTypeResolver {
             }
           }
           if (val != null) {
-            if (StvnVocabulary.TYPE_INT.equals(targetBaseType) && !effectiveConsolidated.unsigned() && val == 32) {
+            if (StvnVocabulary.TYPE_INT.equals(targetBaseType) && val == 32) {
+              String desc = effectiveConsolidated.unsigned()
+                  ? "unsigned integer '{ #unsigned } :Int'"
+                  : "signed integer ':Int'";
               diagnosticBag.addError(
-                  "Constraint violation (" + name + "): facet '#size 32' is redundant; signed integer ':Int' intrinsically defaults to 32-bit storage",
+                  "Constraint violation (" + name + "): facet '#size 32' is redundant; " + desc + " intrinsically defaults to 32-bit storage",
                   entry.getStart().getStartIndex(),
                   entry.getStop().getStopIndex() + 1,
                   entry.getStart().getLine(),

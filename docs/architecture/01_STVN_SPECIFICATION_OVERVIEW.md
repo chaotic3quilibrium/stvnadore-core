@@ -120,7 +120,7 @@ public sealed interface StvnValue {
 * **Sets (`:Set( :T )`)**: Homogeneous unique element collection enclosed in brackets: `[ v1 v2 v3 ]`.
 
 ### Strict Product Demarcation
-Parentheses `( ... )` in STVN are strictly and exclusively product constructors (`:Tuple`). Parenthesizing a scalar variant (e.g., `#Some ( 42 )` for `:Option( { #unsigned #size 32 } :Int )`) is a fatal syntax error (`MalformedPayloadException`).
+Parentheses `( ... )` in STVN are strictly and exclusively product constructors (`:Tuple`). Parenthesizing a scalar variant (e.g., `#Some ( 42 )` for `:Option( { #unsigned } :Int )`) is a fatal syntax error (`MalformedPayloadException`).
 
 ---
 

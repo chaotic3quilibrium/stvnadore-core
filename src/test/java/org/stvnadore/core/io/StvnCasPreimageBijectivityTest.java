@@ -81,7 +81,7 @@ public class StvnCasPreimageBijectivityTest {
     String docUnsigned = """
         {
           :defs {
-            :NumType { #unsigned #size 32 } :Int
+            :NumType { #unsigned } :Int
           }
           :type :NumType
           :body 42

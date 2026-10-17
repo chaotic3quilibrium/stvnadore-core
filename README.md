@@ -244,7 +244,7 @@ STVN strictly segregates the lexical and semantic namespaces of types and values
 * **Value Tokens & Constants (`#`)**: The hash prefix sigil is reserved for literal values, sum type algebraic tags, enum constants, and value constants in `:defs` (e.g., `#TRUE`, `#Some`, `#Left`, `#HTTP`, `#MAX_RETRY`).
 * **Path-Delimited Identifiers**: Identifiers support forward-slash namespaces in both type space (`:net/http/Status`) and value space (`#net/http/OK`).
 * **Typed Constants in `:defs`**: Immutably binds compile-time constants: `#PORT { #unsigned #size 16 } :Int 8080`.
-* **Bare Variant Syntax vs. Strict Product Demarcation**: Sum variants apply directly to trailing values without function parentheses (`#Some 42`). Parentheses `( ... )` in STVN are strictly and exclusively product constructors (`:Tuple`). Parenthesizing a scalar variant (e.g., `#Some ( 42 )` for `:Option( { #unsigned #size 32 } :Int )`) triggers a fatal `MalformedPayloadException`.
+* **Bare Variant Syntax vs. Strict Product Demarcation**: Sum variants apply directly to trailing values without function parentheses (`#Some 42`). Parentheses `( ... )` in STVN are strictly and exclusively product constructors (`:Tuple`). Parenthesizing a scalar variant (e.g., `#Some ( 42 )` for `:Option( { #unsigned } :Int )`) triggers a fatal `MalformedPayloadException`.
 
 ### 2. Value-Oriented Immutability & CAS Fingerprinting
 

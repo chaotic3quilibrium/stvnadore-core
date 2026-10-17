@@ -1,0 +1,11 @@
+{
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body (
+    #ERR_REDUNDANT_METADATA_FACET
+    "Constraint violation (:BadUInt): facet '#size 32' is redundant; unsigned integer '{ #unsigned } :Int' intrinsically defaults to 32-bit storage"
+    #None
+  )
+}

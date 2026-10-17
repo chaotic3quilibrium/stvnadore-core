@@ -53,15 +53,15 @@ public class StvnSchemaFlattenerV2Test {
     String source = """
         {
           :defs {
-            :ComplexInt { #audited #unsigned #size 32 #minIncl 10 } :Int
+            :ComplexInt { #audited #unsigned #size 64 #minIncl 10 } :Int
           }
           :type :ComplexInt
           :body 42
         }
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    // 5-tier Semantic Category Order: Tier 1 (#unsigned #audited #size 32) < Tier 3 (#minIncl 10)
-    String expected = "{:meta{#kind #DEFS}:defs{:ComplexInt{#unsigned #audited #size 32 #minIncl 10}:Int}}";
+    // 5-tier Semantic Category Order: Tier 1 (#unsigned #audited) < Tier 3 (#size 64) < Tier 4 (#minIncl 10)
+    String expected = "{:meta{#kind #DEFS}:defs{:ComplexInt{#unsigned #audited #size 64 #minIncl 10}:Int}}";
     assertEquals(expected, flattened);
   }
 
