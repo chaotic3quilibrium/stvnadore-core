@@ -7,7 +7,7 @@
 // TARGET-TYPE:        :Float (32)
 // FACET-NAME:         #size
 // COVERAGE-KIND:      ISOLATED_VALID
-// DESCRIPTION:        Default when none of the tags, exact, size 32, or size 64, appear in the metadata
+// DESCRIPTION:        Specifies IEEE-754 single-precision 32-bit floating point storage; explicit narrowing from 64-bit default
 // ==============================================================================
 {
   :defs {

@@ -7,7 +7,7 @@
 // TARGET-TYPE:        :Seq
 // FACET-NAME:         #maxSize
 // COVERAGE-KIND:      ISOLATED_VALID
-// DESCRIPTION:        Maximum element count capacity cap (n >= minSize)
+// DESCRIPTION:        Maximum element count capacity cap (n >= minSize); explicit declaration of default 16777216 is a redundant tautology rejected under Rule E036
 // ==============================================================================
 {
   :defs {

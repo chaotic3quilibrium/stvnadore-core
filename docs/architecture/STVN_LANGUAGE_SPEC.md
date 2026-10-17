@@ -1087,38 +1087,109 @@ Metadata constraint blocks `{ ... }` configure nominal type definitions and comp
 | **Trait Overrides** | `#equatable`, `#comparable` | Nominal type definitions | Constant definitions, collection instances | `ERR_INVALID_METADATA_FACET` |
 | **5-Tier Facet Sequence** | All canonical facets | Metadata blocks `{ ... }` | Facets declared out of 5-tier decimal hierarchy order | `ERR_FACET_ORDER_VIOLATION` |
 
-#### Canonical Semantic Category Order Specification Table
+#### Canonical Metadata Facet Matrix (Authoritative 10-Column Specification)
 
-All canonical schema printers, intermediate representations, and the schema flattener (`StvnSchemaFlattener.appendConstraints`) must emit metadata facets strictly adhering to the 5-tier Decimal Hierarchy Order:
+All compliant STVN compilers, schema analyzers, IDE plugins, and serializers must adhere to the authoritative 10-column Canonical Metadata Facet Matrix.
+
+Overridability across nominal type derivations (`:Child { ... } :Parent`) is strictly determined by Category:
+* **Tier 1 `Definition` facets are strictly NOT overridable (`Overridable: No`):** Immutable once established on a nominal brand. Downstream derivations cannot override, widen, narrow, or re-specify these facets. Attempted re-declaration emits `ERR_NON_OVERRIDABLE_FACET`.
+* **Tier 2 `Trait` facets ARE overridable (`Overridable: Yes`):** Nominal types may override inductively derived or default capability traits.
+* **Tier 3 `Bounds` facets ARE overridable (`Overridable: Yes`):** Nominal types may narrow or replace value boundaries.
+* **Tier 4 `Constraint` facets ARE overridable (`Overridable: Yes`):** Nominal types may apply regex, indentation, or enum subset filters.
+* **Tier 5 `Directive` facets are NOT overridable (`Overridable: No`):** Module ingestion options are strictly non-overridable.
 
 $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow \text{Tier 3: Bounds} \longrightarrow \text{Tier 4: Constraint} \longrightarrow \text{Tier 5: Directive}$$
 
-| Position | Tier Category | Facet Identifier | Target Constraint & Semantics |
-|:---:|:---|:---|:---|
-| **`1.1.1`** | **Tier 1: Definition** | `#unsigned` | Storage signedness flag on `:Int`. Indicates negative sign prohibited. |
-| **`1.1.2`** | **Tier 1: Definition** | `#exact` | Decimal precision flag on `:Float`. Converts domain to discrete decimal. Mutually exclusive to `#size`. |
-| **`1.1.3`** | **Tier 1: Definition** | `#invertible` | Bijection flag on `:Map`. Enforces unique keys and unique values. |
-| **`1.2.1`** | **Tier 1: Definition** | `#ns` | 128-bit nanosecond duration scale on `:TimeEpoch`. |
-| **`1.2.2`** | **Tier 1: Definition** | `#us` | 64-bit microsecond duration scale on `:TimeEpoch`. |
-| **`1.2.3`** | **Tier 1: Definition** | `#ms` | 64-bit millisecond duration scale on `:TimeEpoch`. |
-| **`1.2.4`** | **Tier 1: Definition** | `#s` | 64-bit second duration scale on `:TimeEpoch`. |
-| **`1.2.5`** | **Tier 1: Definition** | `#offset` | Physical instant mode on `:DateTime`. Requires explicit UTC offset ($\pm\text{HH:MM}$ or `Z`). |
-| **`1.2.6`** | **Tier 1: Definition** | `#zoned` | Civil schedule mode on `:DateTime`. Requires IANA jurisdiction name in brackets (`[...]`). |
-| **`1.2.7`** | **Tier 1: Definition** | `#audited` | Compliance audit mode on `:DateTime`. Requires dual offset and IANA jurisdiction name. |
-| **`1.3.1`** | **Tier 1: Definition** | `#size <N>` | Physical storage width in bits on numeric primitives (`:Int`, continuous `:Float`). |
-| **`1.5.1`** | **Tier 1: Definition** | `#minSize <N>` | Minimum character length (`:String`) or element/entry count (`:Seq`, `:Set`, `:Map`). |
-| **`1.5.2`** | **Tier 1: Definition** | `#maxSize <N>` | Maximum character length (`:String`), element/entry count (`:Seq`, `:Set`, `:Map`), or mantissa precision digits (`{ #exact } :Float`). |
-| **`2.1`** | **Tier 2: Trait** | `#equatable <B>`  | Equivalence trait override. Parameter `B \in \{ #T, #F, #TRUE, #FALSE \}`. |
-| **`2.2`** | **Tier 2: Trait** | `#comparable <B>` | Total order trait override. Parameter `B \in \{ #T, #F, #TRUE, #FALSE \}`.  |
-| **`3.1`**   | **Tier 3: Bounds**     | `#minIncl <V>` | Inclusive lower boundary. Closed endpoint for numeric, temporal, or ordinal string intervals. |
-| **`3.2`**   | **Tier 3: Bounds**     | `#minExcl <V>` | Exclusive lower boundary. Continuous domains only (`:Float`, `:String`). |
-| **`3.3`**   | **Tier 3: Bounds**     | `#maxIncl <V>` | Inclusive upper boundary. Continuous domains only (`:Float`, `:String`). |
-| **`3.4`**   | **Tier 3: Bounds**     | `#maxExcl <V>` | Exclusive upper boundary. Open endpoint for discrete intervals and continuous upper limits. |
-| **`4.1`**   | **Tier 4: Constraint** | `#filterIncl [...]` | Whitelist variant filter on nominal enum aliases. Mutually exclusive to `#filterExcl`. |
-| **`4.2`**   | **Tier 4: Constraint** | `#filterExcl [...]` | Blacklist variant filter on nominal enum aliases. Mutually exclusive to `#filterIncl`. |
-| **`4.3`** | **Tier 4: Constraint** | `#preserveIndent <B>` | Preserves leading indentation formatting on block and multiline fenced strings. Parameter `B \in \{ #T, #F, #TRUE, #FALSE \}`. |
-| **`4.4`**   | **Tier 4: Constraint** | `#regex "<P>"` | Regular expression validation pattern constraint on `:String`. |
-| **`5`**     | **Tier 5: Directive**  | `#strip` | Terminal segment slicing directive in `:use` and `:include` directive blocks. |
+| Position | Category | Modifying | Tag Name | Parameter Kind | Parameter Range | Default | Overridable | Mutually Exclusive to | Description |
+|:---:|:---|:---|:---|:---|:---|:---:|:---:|:---|:---|
+| `2.1` | Trait | `:Boolean` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
+| `2.2` | Trait | `:Boolean` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
+| `1.1.1` | Definition | `:Int` | `unsigned` | Standalone | N/A | Absent | No | N/A | When present, indicates sign prefix prohibited |
+| `1.3.1` | Definition | `:Int` | `size` | `:Int` | $s \ge 1$, open upper bound | `32` | No | N/A | Storage width in bits ($s \ge 1$); determines integer capacity range; explicit declaration of default 32 on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology rejected under Rule E036 |
+| `2.1` | Trait | `:Int` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
+| `2.2` | Trait | `:Int` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
+| `3.1` | Bounds | `:Int` | `minIncl` | `:Int` | $\ge -2^{s-1}, < maxExcl$ | $-2^{s-1}$ | Yes | N/A | Half-open interval; start |
+| `3.4` | Bounds | `:Int` | `maxExcl` | `:Int` | $\le 2^{s-1}, > minIncl$ | $2^{s-1}$ | Yes | N/A | Half-open interval; end |
+| `3.1` | Bounds | `:Int (unsigned)` | `minIncl` | `:Int` | $\ge 0, < maxExcl$ | `0` | Yes | N/A | Half-open interval; start; explicit declaration of default 0 is a redundant tautology rejected under Rule E036 |
+| `3.4` | Bounds | `:Int (unsigned)` | `maxExcl` | `:Int` | $\le 2^s, > minIncl$ | $2^s$ | Yes | N/A | Half-open interval; end |
+| `1.1.2` | Definition | `:Float (exact)` | `exact` | Standalone | N/A | `<None>` | No | `size 32`, `size 64` | BigDecimal Equivalent |
+| `1.5.2` | Definition | `:Float (exact)` | `maxSize` | `:Int` | $n \ge 1$, open upper bound | `16777216` | No | N/A | Defines maximum allowable significant decimal digits (precision) of the unscaled mantissa. Explicit `{ #exact #maxSize 16777216 }` is a redundant tautology rejected under Rule E036. |
+| `2.1` | Trait | `:Float (exact)` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
+| `2.2` | Trait | `:Float (exact)` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
+| `3.1` | Bounds | `:Float (exact)` | `minIncl` | `:Float (exact)` | $< maxExcl$ | `<None>` | Yes | N/A | Half-open interval; start |
+| `3.4` | Bounds | `:Float (exact)` | `maxExcl` | `:Float (exact)` | $> minIncl$ | `<None>` | Yes | N/A | Half-open interval; end |
+| `1.3.1` | Definition | `:Float (32)` | `size` | `:Int` | $n = 32$ | `<None>` | No | `exact`, `size 64` | Specifies IEEE-754 single-precision 32-bit floating point storage; explicit narrowing from 64-bit default |
+| `2.1` | Trait | `:Float (32)` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:FALSE` | Yes | N/A | Opt-in bitwise IEEE-754 pattern equality override (disabled by default due to NaN hazards) |
+| `2.2` | Trait | `:Float (32)` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total ordering over floating-point values |
+| `3.1` | Bounds | `:Float (32)` | `minIncl` | `:Float (exact)` | $\ge -3.4028235\times 10^{38}, < \text{upper}$ | `-3.4028235e+38` | Yes | `minExcl` | Continuous interval; inclusive lower bound |
+| `3.2` | Bounds | `:Float (32)` | `minExcl` | `:Float (exact)` | $> -3.4028235\times 10^{38}, < \text{upper}$ | `<None>` | Yes | `minIncl` | Continuous interval; exclusive lower bound |
+| `3.3` | Bounds | `:Float (32)` | `maxIncl` | `:Float (exact)` | $\le 3.4028235\times 10^{38}, > \text{lower}$ | `3.4028235e+38` | Yes | `maxExcl` | Continuous interval; inclusive upper bound |
+| `3.4` | Bounds | `:Float (32)` | `maxExcl` | `:Float (exact)` | $< 3.4028235\times 10^{38}, > \text{lower}$ | `<None>` | Yes | `maxIncl` | Continuous interval; exclusive upper bound |
+| `1.3.1` | Definition | `:Float (64)` | `size` | `:Int` | $n = 64$ | `64` | No | `exact`, `size 32` | Specifies IEEE-754 double-precision 64-bit floating point storage; intrinsic concrete default for unadorned `:Float`; explicit declaration is a redundant tautology rejected under Rule E036 |
+| `2.1` | Trait | `:Float (64)` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:FALSE` | Yes | N/A | Opt-in bitwise IEEE-754 pattern equality override (disabled by default due to NaN hazards) |
+| `2.2` | Trait | `:Float (64)` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total ordering over floating-point values |
+| `3.1` | Bounds | `:Float (64)` | `minIncl` | `:Float (exact)` | $\ge -1.7976931348623157\times 10^{308}, < \text{upper}$ | `-1.7976931348623157e+308` | Yes | `minExcl` | Continuous interval; inclusive lower bound |
+| `3.2` | Bounds | `:Float (64)` | `minExcl` | `:Float (exact)` | $> -1.7976931348623157\times 10^{308}, < \text{upper}$ | `<None>` | Yes | `minIncl` | Continuous interval; exclusive lower bound |
+| `3.3` | Bounds | `:Float (64)` | `maxIncl` | `:Float (exact)` | $\le 1.7976931348623157\times 10^{308}, > \text{lower}$ | `1.7976931348623157e+308` | Yes | `maxExcl` | Continuous interval; inclusive upper bound |
+| `3.4` | Bounds | `:Float (64)` | `maxExcl` | `:Float (exact)` | $< 1.7976931348623157\times 10^{308}, > \text{lower}$ | `<None>` | Yes | `maxIncl` | Continuous interval; exclusive upper bound |
+| `1.2.1` | Definition | `:TimeEpoch` | `ns` | Standalone | N/A | `<None>` | No | `s`, `ms`, `us` | Specifies 128-bit nanosecond resolution duration ticks since Unix Epoch |
+| `1.2.2` | Definition | `:TimeEpoch` | `us` | Standalone | N/A | `<None>` | No | `s`, `ms`, `ns` | Specifies 64-bit microsecond resolution duration ticks since Unix Epoch |
+| `1.2.3` | Definition | `:TimeEpoch` | `ms` | Standalone | N/A | `<None>` | No | `s`, `us`, `ns` | Specifies 64-bit millisecond resolution duration ticks since Unix Epoch |
+| `1.2.4` | Definition | `:TimeEpoch` | `s` | Standalone | N/A | `<None>` | No | `ms`, `us`, `ns` | Specifies 64-bit second resolution duration ticks since Unix Epoch |
+| `2.1` | Trait | `:TimeEpoch` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
+| `2.2` | Trait | `:TimeEpoch` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
+| `3.1` | Bounds | `:TimeEpoch (ns)` | `minIncl` | `:TimeEpoch` | $\ge -2^{127}, < maxExcl$ | `<None>` | Yes | N/A | Half-open interval; start |
+| `3.4` | Bounds | `:TimeEpoch (ns)` | `maxExcl` | `:TimeEpoch` | $\le 2^{127}, > minIncl$ | `<None>` | Yes | N/A | Half-open interval; end |
+| `3.1` | Bounds | `:TimeEpoch (us)` | `minIncl` | `:TimeEpoch` | $\ge -2^{63}, < maxExcl$ | `<None>` | Yes | N/A | Half-open interval; start |
+| `3.4` | Bounds | `:TimeEpoch (us)` | `maxExcl` | `:TimeEpoch` | $\le 2^{63}, > minIncl$ | `<None>` | Yes | N/A | Half-open interval; end |
+| `3.1` | Bounds | `:TimeEpoch (ms)` | `minIncl` | `:TimeEpoch` | $\ge -2^{63}, < maxExcl$ | `<None>` | Yes | N/A | Half-open interval; start |
+| `3.4` | Bounds | `:TimeEpoch (ms)` | `maxExcl` | `:TimeEpoch` | $\le 2^{63}, > minIncl$ | `<None>` | Yes | N/A | Half-open interval; end |
+| `3.1` | Bounds | `:TimeEpoch (s)` | `minIncl` | `:TimeEpoch` | $\ge -2^{63}, < maxExcl$ | `<None>` | Yes | N/A | Half-open interval; start |
+| `3.4` | Bounds | `:TimeEpoch (s)` | `maxExcl` | `:TimeEpoch` | $\le 2^{63}, > minIncl$ | `<None>` | Yes | N/A | Half-open interval; end |
+| `1.2.5` | Definition | `:DateTime` | `offset` | Standalone | N/A | `<None>` | No | `zoned`, `audited` | Physical instant with explicit numerical UTC offset; rejects zone brackets |
+| `1.2.6` | Definition | `:DateTime` | `zoned` | Standalone | N/A | `<None>` | No | `offset`, `audited` | Civil schedule instant with IANA jurisdiction name; rejects numerical offset |
+| `1.2.7` | Definition | `:DateTime` | `audited` | Standalone | N/A | `<None>` | No | `offset`, `zoned` | Dual-verified audit record preserving both explicit offset and IANA jurisdiction name |
+| `2.1` | Trait | `:DateTime` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
+| `2.2` | Trait | `:DateTime` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
+| `3.1` | Bounds | `:DateTime (offset)` | `minIncl` | `:DateTime` | Valid ISO-8601 string, $< maxExcl$ | `<None>` | Yes | N/A | Half-open interval; start |
+| `3.4` | Bounds | `:DateTime (offset)` | `maxExcl` | `:DateTime` | Valid ISO-8601 string, $> minIncl$ | `<None>` | Yes | N/A | Half-open interval; end |
+| `3.1` | Bounds | `:DateTime (zoned)` | `minIncl` | `:DateTime` | Valid ISO-8601 string, $< maxExcl$ | `<None>` | Yes | N/A | Half-open interval; start |
+| `3.4` | Bounds | `:DateTime (zoned)` | `maxExcl` | `:DateTime` | Valid ISO-8601 string, $> minIncl$ | `<None>` | Yes | N/A | Half-open interval; end |
+| `3.1` | Bounds | `:DateTime (audited)` | `minIncl` | `:DateTime` | Valid ISO-8601 string, $< maxExcl$ | `<None>` | Yes | N/A | Half-open interval; start |
+| `3.4` | Bounds | `:DateTime (audited)` | `maxExcl` | `:DateTime` | Valid ISO-8601 string, $> minIncl$ | `<None>` | Yes | N/A | Half-open interval; end |
+| `1.5.1` | Definition | `:String` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum character length constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology rejected under Rule E036 |
+| `1.5.2` | Definition | `:String` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum character length allocation cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology rejected under Rule E036 |
+| `2.1` | Trait | `:String` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
+| `2.2` | Trait | `:String` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
+| `3.1` | Bounds | `:String` | `minIncl` | `:String` | UTF-8 string literal, $< \text{upper}$ (ordinal UTF-8) | `<None>` | Yes | `minExcl` | Lexicographical interval; inclusive lower bound |
+| `3.2` | Bounds | `:String` | `minExcl` | `:String` | UTF-8 string literal, $< \text{upper}$ (ordinal UTF-8) | `<None>` | Yes | `minIncl` | Lexicographical interval; exclusive lower bound |
+| `3.3` | Bounds | `:String` | `maxIncl` | `:String` | UTF-8 string literal, $> \text{lower}$ (ordinal UTF-8) | `<None>` | Yes | `maxExcl` | Lexicographical interval; inclusive upper bound |
+| `3.4` | Bounds | `:String` | `maxExcl` | `:String` | UTF-8 string literal, $> \text{lower}$ (ordinal UTF-8) | `<None>` | Yes | `maxIncl` | Lexicographical interval; exclusive upper bound |
+| `4.3` | Constraint | `:String` | `preserveIndent` | `:Boolean` | $b \in \{ \text{:F}, \text{:T}, \text{:FALSE}, \text{:TRUE} \}$ | `:FALSE` | Yes | N/A | Essentially only applicable to only Block and Fenced string literals |
+| `4.4` | Constraint | `:String` | `regex` | `:String` | Valid regular expression | `<None>` | Yes | N/A | Validates string value against compiled regular expression pattern |
+| `2.1` | Trait | `:Enum` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
+| `2.2` | Trait | `:Enum` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
+| `4.1` | Constraint | `:Enum` | `filterIncl` | `:EnumValues` | Must appear within parent `:Enum` | `<None>` | Yes | `filterExcl` | Whitelist filter; restricts enum variants strictly to the listed tags |
+| `4.2` | Constraint | `:Enum` | `filterExcl` | `:EnumValues` | Must appear within parent `:Enum` | `<None>` | Yes | `filterIncl` | Blacklist filter; excludes listed tags from the allowed enum variants |
+| `2.1` | Trait | `:Tuple` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables structural field-by-field equality comparison (derived inductively from all constituent fields) |
+| `2.2` | Trait | `:Tuple` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables lexicographical total ordering comparison across fields (derived inductively from all constituent fields) |
+| `1.5.1` | Definition | `:Seq` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum element count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology rejected under Rule E036 |
+| `1.5.2` | Definition | `:Seq` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum element count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology rejected under Rule E036 |
+| `2.1` | Trait | `:Seq` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables element-by-element sequential equality comparison |
+| `2.2` | Trait | `:Seq` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables lexicographical ordering comparison across sequence elements |
+| `1.5.1` | Definition | `:Set` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum unique element count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology rejected under Rule E036 |
+| `1.5.2` | Definition | `:Set` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum unique element count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology rejected under Rule E036 |
+| `2.1` | Trait | `:Set` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables content-based unique set equality comparison |
+| `2.2` | Trait | `:Set` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:FALSE` | Yes | N/A | Opt-in comparison (disabled by default; unordered sets lack natural total ordering) |
+| `1.1.3` | Definition | `:Map` | `invertible` | Standalone | N/A | `<None>` | No | N/A | Ensures uniqueness within each of the set of keys and separately, the set of values |
+| `1.5.1` | Definition | `:Map` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum entry count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology rejected under Rule E036 |
+| `1.5.2` | Definition | `:Map` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum entry count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology rejected under Rule E036 |
+| `2.1` | Trait | `:Map` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables key equality comparison (for keys only; values are unconstrained) |
+| `2.2` | Trait | `:Map` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:FALSE` | Yes | N/A | Opt-in comparison (disabled by default; unordered maps lack natural total ordering) |
+| `2.1` | Trait | `:Map (invertible)` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables dual-set bijection equality comparison (both keys and values must resolve to #equatable #TRUE) |
+| `2.2` | Trait | `:Map (invertible)` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:FALSE` | Yes | N/A | Opt-in comparison (disabled by default; unordered invertible maps lack natural total ordering) |
+| `5` | Directive | `:include` | `strip` | Standalone | N/A | `<None>` | No | N/A | Terminal segment slicing; strips package prefixes from imported identifiers upon ingestion |
+| `5` | Directive | `:use` | `strip` | Standalone | N/A | `<None>` | No | N/A | Terminal segment slicing; strips package prefix for local unqualified access within scope |
 
 #### Structural Invariants & Ordering Rules
 
@@ -1287,7 +1358,7 @@ When comparing schemas or evaluating structural equality (`isSameSchemaNodeRecur
 In STVN, structural subtyping, refinement subtyping lattices, and Liskov substitutability do not exist. Nominal type definitions in `:defs` blocks create opaque nominal brands, not subtyping relationships:
 
 1. **No Subtyping Lattice:** A nominal definition `:Child :Parent` does not establish an "is-a" subtyping relationship. A value of type `:Child` cannot be supplied where type `:Parent` is expected, and vice versa. Each nominal type forms an isolated, opaque type domain.
-2. **Explicit Attribute Override Principle:** Attaching a metadata block to a base type (`:NewType { ... } :BaseType`) constitutes an explicit facet attribute override, not a monotonic narrowing. The new type copies the base type as a template and overrides specified metadata facets according to target facet governance rules (§ 6.1). Overrides may narrow, widen, or replace overridable attributes (such as `#minSize`, `#maxSize`, `#regex`), provided the overridden attributes are valid for the underlying primitive.
+2. **Explicit Attribute Override Principle:** Attaching a metadata block to a base type (`:NewType { ... } :BaseType`) constitutes an explicit facet attribute override, not a monotonic narrowing. Overridability is strictly determined by Category (§ 6.1). Tier 1 Definition facets (`#unsigned`, `#exact`, `#invertible`, temporal scales/modes, `#size`, `#minSize`, `#maxSize`) establish the foundational physical structure and capacity allocation of a nominal brand; they are strictly immutable once declared (`Overridable: No`) and cannot be overridden, widened, narrowed, or re-specified. Overrides are permitted exclusively for Tier 2 Trait (`#equatable`, `#comparable`), Tier 3 Bounds (`#minIncl`, `#minExcl`, `#maxIncl`, `#maxExcl`), and Tier 4 Constraint (`#regex`, `#preserveIndent`, `#filterIncl`, `#filterExcl`) facets.
 3. **Scope Distinction for Monotonic Narrowing:** Monotonic narrowing applies strictly and exclusively to closed variant projections in Enum Subset Filtering (§ 4.8.3). It does not govern general nominal type definitions.
 
 ### 9.2 The Nominal Bijectivity Invariant ($1:1$ Law)
@@ -1577,7 +1648,7 @@ The runtime environment pre-registers the canonical prelude under `:org/stvnador
     :package :org/stvnadore/prelude/meta {
       :use [ :org/stvnadore/prelude { #strip } ]
 
-      :StvnPosixId64 { #maxSize 64 } :PosixId
+      :StvnPosixId64 { #minSize 1 #maxSize 64 #regex "^[a-zA-Z0-9_-]+$" } :String
       :StvnDocumentKind :Enum [ #BODY #DEFS #BODY_INCLUDE #DEFS_INCLUDE ]
       :StvnDocumentMeta :Tuple( :Option(:StvnPosixId64) :Option(:StvnPosixId64) :StvnDocumentKind )
       :StvnCatalogMeta :Tuple( :StvnPosixId64 :StvnPosixId64 :StvnDocumentKind )
@@ -2023,7 +2094,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
     :NegativeOffset   { #size 32 #minExcl -100.0 #maxExcl 0.0 } :Float
 
     // String constraints
-    :RegexIdentifier  { #regex "^[a-z0-9_]{8,32}$" #minSize 8 #maxSize 32 } :String
+    :RegexIdentifier  { #minSize 8 #maxSize 32 #regex "^[a-z0-9_]{8,32}$" } :String
     :RawScriptBlock   { #preserveIndent #TRUE } :String
 
     // Trait overrides

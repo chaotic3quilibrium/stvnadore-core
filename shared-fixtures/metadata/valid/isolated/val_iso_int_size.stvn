@@ -7,7 +7,7 @@
 // TARGET-TYPE:        :Int
 // FACET-NAME:         #size
 // COVERAGE-KIND:      ISOLATED_VALID
-// DESCRIPTION:        Storage width in bits (s >= 1); determines integer capacity range
+// DESCRIPTION:        Storage width in bits (s >= 1); determines integer capacity range; explicit declaration of default 32 on signed :Int or unsigned { #unsigned } :Int is a redundant tautology rejected under Rule E036
 // ==============================================================================
 {
   :defs {

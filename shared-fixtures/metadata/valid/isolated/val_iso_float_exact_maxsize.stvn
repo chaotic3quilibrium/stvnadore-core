@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_float_exact_maxsize
+// MATRIX-POSITION:    1.5.2
+// MATRIX-CATEGORY:    Definition
+// TARGET-TYPE:        :Float (exact)
+// FACET-NAME:         #maxSize
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Defines maximum allowable significant decimal digits (precision) of the unscaled mantissa. Explicit { #exact #maxSize 16777216 } is a redundant tautology rejected under Rule E036.
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #exact #maxSize 10 } :Float
+  }
+  :type :TestedType
+  :body 3.14
+}
