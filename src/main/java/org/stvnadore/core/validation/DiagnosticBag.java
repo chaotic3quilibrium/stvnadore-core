@@ -41,6 +41,7 @@ public final class DiagnosticBag {
   /** Error code emitted when a declared module include file cannot be located or read. */
   public static final String ERR_MODULE_IMPORT = "MODULE_IMPORT_FAILED";
   /** Error code emitted when cyclic module include dependencies are detected. */
+  @Deprecated(forRemoval = true, since = "2.0.0-SNAPSHOT")
   public static final String ERR_CYCLIC_MODULE = "CYCLIC_MODULE_INCLUDE";
   /** Error code emitted when namespace prefix collisions occur across included modules. */
   public static final String ERR_NAMESPACE_COLLISION = "NAMESPACE_COLLISION";
@@ -59,6 +60,7 @@ public final class DiagnosticBag {
   /** Error code emitted when a :use target specification contains trailing slash characters. */
   public static final String ERR_TRAILING_SLASH_PROHIBITED = "ERR_TRAILING_SLASH_PROHIBITED";
   /** Error code emitted when algebraic sum type branches share duplicate tag identifiers. */
+  @Deprecated(forRemoval = true, since = "2.0.0-SNAPSHOT")
   public static final String ERR_SUM_TYPE_COLLISION = "SUM_TYPE_TAG_COLLISION";
   /** Error code emitted when implicit sum type payload inference is ambiguous due to duplicate nominal types or intersecting domains. */
   public static final String ERR_AMBIGUOUS_SUM_INFERENCE = "ERR_AMBIGUOUS_SUM_INFERENCE";
@@ -125,6 +127,7 @@ public final class DiagnosticBag {
   /** Error code emitted when a :TimeEpoch type declaration lacks a mandatory scale facet (SPEC-02). */
   public static final String ERR_TEMPORAL_SCALE_MISSING = "ERR_TEMPORAL_SCALE_MISSING";
   /** Error code emitted when the legacy #unit facet is used instead of bare scale flags (SPEC-02). */
+  @Deprecated(forRemoval = true, since = "2.0.0-SNAPSHOT")
   public static final String ERR_LEGACY_UNIT_FACET_PURGED = "ERR_LEGACY_UNIT_FACET_PURGED";
   /** Error code emitted when a :DateTime type declaration lacks or specifies invalid mode facets (SPEC-03). */
   public static final String ERR_DATETIME_MODE_INVALID = "ERR_DATETIME_MODE_INVALID";
@@ -137,6 +140,7 @@ public final class DiagnosticBag {
   /** Error code emitted when storage sizing #size is declared on :String (SPEC-06). */
   public static final String ERR_STRING_CARDINALITY_PROHIBITED = "ERR_STRING_CARDINALITY_PROHIBITED";
   /** Error code emitted when nominal types collide or CAS preimage bijectivity is violated (SPEC-07). */
+  @Deprecated(forRemoval = true, since = "2.0.0-SNAPSHOT")
   public static final String ERR_CAS_PREIMAGE_AMBIGUITY = "ERR_CAS_PREIMAGE_AMBIGUITY";
   /** Error code emitted when discrete intervals define an empty domain [k, k) with zero habitable values (SPEC-04). */
   public static final String ERR_EMPTY_INTERVAL_DOMAIN = "ERR_EMPTY_INTERVAL_DOMAIN";

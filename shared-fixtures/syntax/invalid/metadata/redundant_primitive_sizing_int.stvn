@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "redundant_primitive_sizing_int"
+    #kind #BODY
+  }
+  :defs {
+    :BadInt { #size 32 } :Int
+  }
+  :type :BadInt
+  :body 42
+}

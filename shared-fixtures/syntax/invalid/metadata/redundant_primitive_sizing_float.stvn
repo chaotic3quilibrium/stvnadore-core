@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "redundant_primitive_sizing_float"
+    #kind #BODY
+  }
+  :defs {
+    :BadFloat { #size 64 } :Float
+  }
+  :type :BadFloat
+  :body 3.14
+}

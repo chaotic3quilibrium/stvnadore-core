@@ -1,0 +1,11 @@
+{
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body (
+    #ERR_RESERVED_DOMAIN_PROHIBITED
+    "Reserved system domain prohibited: 'stvn_core' is reserved for internal compiler substrates and CAS envelopes"
+    #None
+  )
+}

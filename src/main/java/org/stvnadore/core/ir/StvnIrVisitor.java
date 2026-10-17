@@ -818,7 +818,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
     }
 
-    // 4. Max-Bounded Constraint Check (len <= N for :StringN and :StringNonEmptyN)
+    // 4. Max-Bounded Constraint Check (len <= N for #maxSize N)
     if (isBounded && textLength > maxLength) {
       throw new MalformedPayloadException(
           "Constraint violation (" + aliasOrBase + "): String length exceeds maximum length of " + maxLength + " characters, got " + textLength + " (Size " + textLength + " outside allowable range [" + (schema != null && schema.constraints() != null ? schema.constraints().minSize().orElse(0) : 0) + ", " + maxLength + "])",

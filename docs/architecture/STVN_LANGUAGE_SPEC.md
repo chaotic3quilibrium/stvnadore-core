@@ -62,7 +62,7 @@
       * [5.1.1 Integer Storage & Signedness Architecture (`:Int`)](#511-integer-storage--signedness-architecture-int)
       * [5.1.2 Discrete Half-Open Interval Governance](#512-discrete-half-open-interval-governance)
       * [5.1.3 Floating-Point & Precision Architecture (`:Float`)](#513-floating-point--precision-architecture-float)
-      * [5.1.4 String Cardinality Governance (MCT Â§ 3.1.3)](#514-string-cardinality-governance-mct--313)
+      * [5.1.4 String Cardinality Governance (MCT § 3.1.3)](#514-string-cardinality-governance-mct--313)
       * [5.1.5 Boolean Domain (`:Boolean`)](#515-boolean-domain-boolean)
     * [5.2 Algebraic Sum Types](#52-algebraic-sum-types)
       * [5.2.1 Variant Syntax & Strict Product Demarcation](#521-variant-syntax--strict-product-demarcation)
@@ -75,7 +75,7 @@
       * [5.5.2 Elimination of Compound Collection Constructors](#552-elimination-of-compound-collection-constructors)
       * [5.5.3 Container Cardinality Bounding (`#minSize`, `#maxSize`)](#553-container-cardinality-bounding-minsize-maxsize)
       * [5.5.4 Bijective Invertible Maps (`#invertible`)](#554-bijective-invertible-maps-invertible)
-    * [5.6 Temporal Domain Types (Tripartite Architecture & MCT Â§ 3.3 Simplification)](#56-temporal-domain-types-tripartite-architecture--mct--33-simplification)
+    * [5.6 Temporal Domain Types (Tripartite Architecture & MCT § 3.3 Simplification)](#56-temporal-domain-types-tripartite-architecture--mct--33-simplification)
       * [5.6.1 Physical Epoch Timestamps: `:org/stvnadore/prelude/TimeEpoch`](#561-physical-epoch-timestamps-orgstvnadorepreludetimeepoch)
       * [5.6.2 Calendar Date-Time: `:org/stvnadore/prelude/DateTime`](#562-calendar-date-time-orgstvnadorepreludedatetime)
       * [5.6.3 Mutually Exclusive Mode Enforcement](#563-mutually-exclusive-mode-enforcement)
@@ -125,7 +125,7 @@
     * [B.6 Metadata Constraints and Trait Overrides](#b6-metadata-constraints-and-trait-overrides)
     * [B.7 STVN containing STVN Using `FENCED_STRING`](#b7-stvn-containing-stvn-using-fenced_string)
   * [Appendix C: Negative Syntax Catalogue (Anti-Hallucination Traps)](#appendix-c-negative-syntax-catalogue-anti-hallucination-traps)
-    * [C.1 Anti-Hallucination Traps 1â€“14](#c1-anti-hallucination-traps-1-14)
+    * [C.1 Anti-Hallucination Traps 1–14](#c1-anti-hallucination-traps-1-14)
     * [C.2 Standard Compiler Diagnostic Codes](#c2-standard-compiler-diagnostic-codes)
   * [Appendix D: Reference Java-Target ANTLR4 Grammars](#appendix-d-reference-java-target-antlr4-grammars)
     * [D.1 Implementation & Portability Notice](#d1-implementation--portability-notice)
@@ -274,26 +274,26 @@ When a lexer encounters a tab character, the lexer produces a `TAB_CHARACTER` to
 ## 3. Lexical and Syntactic Enclosure Rules
 
 ```
-                      â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-                      â”‚             STVN ENCLOSURE MATRIX            â”‚
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚ Delimiter           â”‚ Definition-Space Context     â”‚ Value / Payload Context      â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ Curly Braces { }    â”‚ â€¢ File root { ... }          â”‚ â€¢ Metadata blocks            â”‚
-â”‚                     â”‚ â€¢ Definition block :defs { } â”‚   { #minIncl 1 #unsigned }   â”‚
-â”‚                     â”‚ â€¢ Include alias maps { :A :B}â”‚ â€¢ Map literal values:        â”‚
-â”‚                     â”‚                              â”‚   :Map -> { [ "k1" "v1" ] }  â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ Parentheses ( )     â”‚ â€¢ Type constructors:         â”‚ â€¢ Product / Tuple values:    â”‚
-â”‚                     â”‚   :Tuple( ... ), :Seq( ... ) â”‚   ( "host" 8080 #DEV )       â”‚
-â”‚                     â”‚   :Union( ... ), :Option( ...â”‚ â€¢ Top-level tuple payload:   â”‚
-â”‚                     â”‚                              â”‚   :body ( ... )              â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ Brackets [ ]        â”‚ â€¢ :Enum domain constants:    â”‚ â€¢ Collection values:         â”‚
-â”‚                     â”‚   :Enum [ #A #B #C ]         â”‚   :Seq -> [ 1 2 3 ]          â”‚
-â”‚                     â”‚ â€¢ Include directives:        â”‚   :Set -> [ 1 2 3 ]          â”‚
-â”‚                     â”‚   :include [ "path" { } ]    â”‚ â€¢ Map entries: [ "k" "v" ]   â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                      ┌──────────────────────────────────────────────┐
+                      │             STVN ENCLOSURE MATRIX            │
+┌─────────────────────┼──────────────────────────────┬───────────────┴──────────────┐
+│ Delimiter           │ Definition-Space Context     │ Value / Payload Context      │
+├─────────────────────┼──────────────────────────────┼──────────────────────────────┤
+│ Curly Braces { }    │ • File root { ... }          │ • Metadata blocks            │
+│                     │ • Definition block :defs { } │   { #minIncl 1 #unsigned }   │
+│                     │ • Include alias maps { :A :B}│ • Map literal values:        │
+│                     │                              │   :Map -> { [ "k1" "v1" ] }  │
+├─────────────────────┼──────────────────────────────┼──────────────────────────────┤
+│ Parentheses ( )     │ • Type constructors:         │ • Product / Tuple values:    │
+│                     │   :Tuple( ... ), :Seq( ... ) │   ( "host" 8080 #DEV )       │
+│                     │   :Union( ... ), :Option( ...│ • Top-level tuple payload:   │
+│                     │                              │   :body ( ... )              │
+├─────────────────────┼──────────────────────────────┼──────────────────────────────┤
+│ Brackets [ ]        │ • :Enum domain constants:    │ • Collection values:         │
+│                     │   :Enum [ #A #B #C ]         │   :Seq -> [ 1 2 3 ]          │
+│                     │ • Include directives:        │   :Set -> [ 1 2 3 ]          │
+│                     │   :include [ "path" { } ]    │ • Map entries: [ "k" "v" ]   │
+└─────────────────────┴──────────────────────────────┴──────────────────────────────┘
 ```
 
 ---
@@ -312,7 +312,7 @@ The lexer categorizes `#` tokens into five mutually exclusive semantic roles bas
 | **Sum Variant Constructors** | `#Some`, `#None`, `#Left`, `#Right`, `#S`, `#N`, `#L`, `#R` | `#Some v`, `#None`, `#Left v`, `#Right v` | `#S v`, `#N`, `#L v`, `#R v` | Tagged sum type values (`:Option`, `:Either`) |
 | **Union Branch Index Selectors** | `#` `[1-9][0-9]*` | `#1`, `#2`, `#12` | N/A | 1-based index selecting target branch in `:Union( ... )` |
 | **Enum Domain Constants** | `#` `[A-Z0-9_]+` | `#DEV`, `#PROD`, `#HTTP` | N/A | Nominal constant values declared in `:Enum [ ... ]` |
-| **Metadata Constraint Keys & Flags** | `#` `[a-zA-Z0-9_]+` | `#size`, `#unsigned`, `#exact`, `#minSize`, `#maxSize`, `#minIncl`, `#maxExcl`, `#regex`, `#invertible`, `#unit`, `#offset`, `#zoned`, `#audited`, `#preserveIndent`, `#strip`, `#equatable`, `#comparable`, `#filterIncl`, `#filterExcl` | N/A | Keys and flags inside metadata blocks `{ ... }` and directives |
+| **Metadata Constraint Keys & Flags** | `#` `[a-zA-Z0-9_]+` | `#size`, `#unsigned`, `#exact`, `#minSize`, `#maxSize`, `#minIncl`, `#maxExcl`, `#regex`, `#invertible`, `#offset`, `#zoned`, `#audited`, `#preserveIndent`, `#strip`, `#equatable`, `#comparable`, `#filterIncl`, `#filterExcl` | N/A | Keys and flags inside metadata blocks `{ ... }` and directives |
 
 ---
 
@@ -693,24 +693,24 @@ Enum subset derivation enforces monotonic narrowing across arbitrary chain depth
 $$\text{AllowedVariants}(\text{Child}) \subseteq \text{AllowedVariants}(\text{Parent}) \subset \text{Variants}(\text{Root})$$
 
 ```
-        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-        â”‚               :Status (Root Enumeration)                â”‚
-        â”‚         [ #Pending #Active #Suspended #Deleted ]        â”‚
-        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                                     â”‚
+        ┌─────────────────────────────────────────────────────────┐
+        │               :Status (Root Enumeration)                │
+        │         [ #Pending #Active #Suspended #Deleted ]        │
+        └────────────────────────────┬────────────────────────────┘
+                                     │
                   #filterExcl [ #Deleted ] (Narrowing)
-                                     â–¼
-        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-        â”‚           :WorkingStatus (Parent Enum Subset)           â”‚
-        â”‚              [ #Pending #Active #Suspended ]            â”‚
-        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                                     â”‚
+                                     ▼
+        ┌─────────────────────────────────────────────────────────┐
+        │           :WorkingStatus (Parent Enum Subset)           │
+        │              [ #Pending #Active #Suspended ]            │
+        └────────────────────────────┬────────────────────────────┘
+                                     │
                   #filterIncl [ #Pending #Active ] (Narrowing)
-                                     â–¼
-        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-        â”‚           :ImmediateStatus (Child Enum Subset)          â”‚
-        â”‚                    [ #Pending #Active ]                 â”‚
-        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                                     ▼
+        ┌─────────────────────────────────────────────────────────┐
+        │           :ImmediateStatus (Child Enum Subset)          │
+        │                    [ #Pending #Active ]                 │
+        └─────────────────────────────────────────────────────────┘
 ```
 
 **Monotonic Narrowing Rules:**
@@ -954,7 +954,7 @@ WHERE active = TRUE;
   "payload.stvn"
   """[SHA256-26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f]
 {
-  :type { #size 32 } :Int
+  :type :Int
   :body 42
 }
 [SHA256-26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f]"""
@@ -1259,7 +1259,7 @@ STVN decoders support implicit tagging for sum types when the payload value is u
 ```
 * **Rule G (Union Branch Indexing):** Union variants use 1-based indexing prefixes matching lexer pattern `#` `[1-9][0-9]*` (e.g., `#1 42`, `#2 "text"`). Tag `#0` and negative tags are illegal. Indices exceeding the union branch count throw `StvnMalformedLiteralException`.
 * **Rule H (Right-First Precedence & Either vs. Union):** A 2-branch `:Union( A B )` has no structural bias and allows implicit bidirectional matching across distinct token domains via Rule C. In contrast, `:Either( L R )` is fundamentally right-biased ($R$ precedes $L$). Across all compiler validation passes, diagnostic message enumerations, candidate resolutions, and interactive IDE intention actions/quick-fixes, branch $R$ is evaluated and presented prior to branch $L$. In IDE quick-fixes for ambiguous `:Either` payloads, `Wrap with #Right (-> R)` must always be registered as the primary (top) intention action, followed by `Wrap with #Left (-> L)`.
-* **Rule I (Intersection Clusters & Duplicate Branches):** If an untagged value matches multiple candidate branches in a sum type (due to intersecting structural domains or duplicate nominal types such as `:Union( { #size 32 } :Int { #size 32 } :Int )`), implicit resolution is disabled. The payload must provide an explicit branch tag (`#Left`, `#Right`, `#1`, `#2`, etc.), or the parser emits `ERR_AMBIGUOUS_SUM_INFERENCE`.
+* **Rule I (Intersection Clusters & Duplicate Branches):** If an untagged value matches multiple candidate branches in a sum type (due to intersecting structural domains or duplicate nominal types such as `:Union( :Int :Int )`), implicit resolution is disabled. The payload must provide an explicit branch tag (`#Left`, `#Right`, `#1`, `#2`, etc.), or the parser emits `ERR_AMBIGUOUS_SUM_INFERENCE`.
 * **Rule J (Semantic Guard Tracking):** If an explicit branch tag is syntactically valid but the value violates a localized constraint (e.g., a `#regex` mismatch), the AST node is lowered into a monadic diagnostic framework (`StvnAnalysisResult`). The error is tracked in a `StvnDiagnostic` frame with text coordinates for IDE highlighting without crashing the AST pipeline.
 
 ---
@@ -1325,7 +1325,7 @@ When `StvnSchemaHasher` calculates the SHA-256 CAS fingerprint of a schema:
 ## 10. Binary Format (`.stvn_b`) Wire Framing & Schema Governance
 
 The STVN binary stream (`.stvn_b`, `.stvn_bd`) begins with a mandatory header frame:
-* **Bytes 0â€“3 (4 Bytes):** Magic identifier (`MAGIC_BYTES = 0x5354564E`, ASCII `"STVN"`).
+* **Bytes 0–3 (4 Bytes):** Magic identifier (`MAGIC_BYTES = 0x5354564E`, ASCII `"STVN"`).
 * **Byte 4 (1 Byte):** Codec Control Byte partitioned into a 1:3:4 bitwise layout.
 * **Byte 5+ (1 to 131 Bytes):** Document Metadata Frame (`:meta` encoding).
 
@@ -1397,7 +1397,7 @@ Byte 4 separates CRC-32C trailer presence (`HAS_TRAILER_CRC32C`), wire layout fr
 | Code | Strategy Constant | Description & Framing Invariant | Verification & Exception |
 |:---|:---|:---|:---|
 | **`0x0`** | `ZERO_COPY_POST_ORDER` | Canonical indexed post-order DAG binary layout. | Supported default. |
-| **`0x1`â€“`0x6`** | *Reserved* | Reserved for future framing, dictionary compression, or block codecs. | Decoder immediately throws `UnsupportedEncodingStrategyException`. |
+| **`0x1`–`0x6`** | *Reserved* | Reserved for future framing, dictionary compression, or block codecs. | Decoder immediately throws `UnsupportedEncodingStrategyException`. |
 | **`0x7`** | *Extension Sentinel* | Reserved sentinel indicating multi-byte header extension. | Decoder throws `UnsupportedEncodingStrategyException("Strategy 0x7 is reserved for multi-byte header extension")`. |
 
 ### 10.3 Lower Nibble: `SchemaIdentityStrategy` Taxonomy (Bits 3..0)
@@ -1413,7 +1413,7 @@ Byte 4 separates CRC-32C trailer presence (`HAS_TRAILER_CRC32C`), wire layout fr
 | **`0x6`** | `ExplicitUuid` | 16B UUID value | Zero-Trust: Decoded UUID must match `hashSchema(schema)`. |
 | **`0x7`** | `ExplicitSha256` | 32B SHA-256 digest | Zero-Trust: Decoded digest must match `computeSha256(schema)`. Tampering throws `PoisonedRegistryPayloadException`. |
 | **`0x8`** | `SelfDescribingSchema` | 4B int len + UTF-8 string | Ephemeral Sandbox: Compiles inline `.stvn_d` schema in JVM memory. |
-| **`0x9`â€“`0xF`** | *Unmapped* | Undefined | Decoder immediately throws `StvnSerializationException`. |
+| **`0x9`–`0xF`** | *Unmapped* | Undefined | Decoder immediately throws `StvnSerializationException`. |
 
 ### 10.4 Header Decoding & Strategy Dispatch Pipeline
 
@@ -1509,23 +1509,23 @@ STVN binary encoding (`.stvn_b`) utilizes deterministic, fixed-width, zero-copy,
    +---------------------------------------+---------------------------------------+
    |   epoch_utc_nanos: i64 (8 Bytes)      |     offset_seconds: i32 (4 Bytes)     |
    +---------------------------------------+---------------------------------------+
-   â€¢ epoch_utc_nanos: Signed 64-bit int representing nanoseconds since 1970-01-01T00:00:00Z.
-   â€¢ offset_seconds: Signed 32-bit int representing UTC offset in seconds (e.g., -18000 for -05:00).
+   • epoch_utc_nanos: Signed 64-bit int representing nanoseconds since 1970-01-01T00:00:00Z.
+   • offset_seconds: Signed 32-bit int representing UTC offset in seconds (e.g., -18000 for -05:00).
 
 2. :DateTime { #zoned } (10 Bytes Total)
    +---------------------------------------+---------------------------------------+
    |     local_nanos: i64 (8 Bytes)        |     zone_dict_id: u16 (2 Bytes)       |
    +---------------------------------------+---------------------------------------+
-   â€¢ local_nanos: Signed 64-bit int representing local wall-clock time in nanoseconds since epoch.
-   â€¢ zone_dict_id: Unsigned 16-bit index referencing the Header IANA Zone Dictionary Pool.
+   • local_nanos: Signed 64-bit int representing local wall-clock time in nanoseconds since epoch.
+   • zone_dict_id: Unsigned 16-bit index referencing the Header IANA Zone Dictionary Pool.
 
 3. :DateTime { #audited } (14 Bytes Total)
    +-----------------------------------+-------------------+-------------------+
    |    local_nanos: i64 (8 Bytes)     | offset_s: i32 (4B)| zone_dict_id: u16 |
    +-----------------------------------+-------------------+-------------------+
-   â€¢ local_nanos: Signed 64-bit int representing local wall-clock time in nanoseconds.
-   â€¢ offset_seconds: Signed 32-bit int representing recorded historical UTC offset.
-   â€¢ zone_dict_id: Unsigned 16-bit index referencing the Header IANA Zone Dictionary Pool.
+   • local_nanos: Signed 64-bit int representing local wall-clock time in nanoseconds.
+   • offset_seconds: Signed 32-bit int representing recorded historical UTC offset.
+   • zone_dict_id: Unsigned 16-bit index referencing the Header IANA Zone Dictionary Pool.
 
 4. :TimeEpoch { #s|#ms|#us } (8 Bytes Total) / { #ns } (16 Bytes Total)
    +-------------------------------------------------------------------------------+
@@ -1561,11 +1561,11 @@ The runtime environment pre-registers the canonical prelude under `:org/stvnador
       :IPv4  { #minSize 7 #maxSize 15 #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" } :String
       :Port  { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
 
-      :Percentage  { #size 64 #minIncl 0.0 #maxIncl 100.0 } :Float
-      :Probability { #size 64 #minIncl 0.0 #maxIncl 1.0 }   :Float
+      :Percentage  { #minIncl 0.0 #maxIncl 100.0 } :Float
+      :Probability { #minIncl 0.0 #maxIncl 1.0 }   :Float
       :Currency    { #exact } :Float
-      :Latitude    { #size 64 #minIncl -90.0 #maxIncl 90.0 }   :Float
-      :Longitude   { #size 64 #minIncl -180.0 #maxIncl 180.0 } :Float
+      :Latitude    { #minIncl -90.0 #maxIncl 90.0 }   :Float
+      :Longitude   { #minIncl -180.0 #maxIncl 180.0 } :Float
 
       :PosixId { #minSize 1 #maxSize 255 #regex "^[a-zA-Z0-9_-]+$" } :String
       :PolyglotCodeId { #minSize 1 #maxSize 128 #regex "^[a-zA-Z_][a-zA-Z0-9_]*$" } :String
@@ -1764,7 +1764,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
   :defs {
     :BoolFlag   :Boolean
     :OptVal     :Option( :String )
-    :ChoiceVal  :Either( { #size 32 } :Int :String )
+    :ChoiceVal  :Either( :Int :String )
   }
 
   :type :Tuple(
@@ -1796,9 +1796,9 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
   // algebraic_full.stvn
   :defs {
     :OptText       :Option( :String )
-    :EitherResult  :Either( { #size 32 } :Int :String )
-    :DisjointUnion :Union( { #size 32 } :Int :Boolean { #size 64 } :Float :String )
-    :ProductData   :Tuple( { #size 32 } :Int :String :Boolean )
+    :EitherResult  :Either( :Int :String )
+    :DisjointUnion :Union( :Int :Boolean :Float :String )
+    :ProductData   :Tuple( :Int :String :Boolean )
   }
 
   :type :Tuple(
@@ -1871,14 +1871,14 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
   :defs {
     // Sequences
     :StandardSeq    :Seq( :String )
-    :NonEmptySeq    { #minSize 1 } :Seq( { #size 32 } :Int )
+    :NonEmptySeq    { #minSize 1 } :Seq( :Int )
 
     // Sets
     :StandardSet    :Set( { #unsigned #size 32 } :Int )
     :NonEmptySet    { #minSize 1 } :Set( :String )
 
     // Standard Maps
-    :StandardMap    :Map( :String { #size 32 } :Int )
+    :StandardMap    :Map( :String :Int )
     :NonEmptyMap    { #minSize 1 } :Map( :String :String )
 
     // Invertible Maps (Dual-Set Invariant: Keys unique AND values unique)
@@ -1964,9 +1964,9 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
     :GeoLon     :org/stvnadore/prelude/Longitude
 
     // Consolidated temporal domain types
-    :EpochSec   { #unit #s } :org/stvnadore/prelude/TimeEpoch
-    :EpochMs    { #unit #ms } :org/stvnadore/prelude/TimeEpoch
-    :EpochNs    { #unit #ns } :org/stvnadore/prelude/TimeEpoch
+    :EpochSec   { #s } :org/stvnadore/prelude/TimeEpoch
+    :EpochMs    { #ms } :org/stvnadore/prelude/TimeEpoch
+    :EpochNs    { #ns } :org/stvnadore/prelude/TimeEpoch
     :InstOffset { #offset } :org/stvnadore/prelude/DateTime
     :CivilZone  { #zoned } :org/stvnadore/prelude/DateTime
     :AuditTime  { #audited } :org/stvnadore/prelude/DateTime
@@ -2016,7 +2016,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
     :RestrictedPort   { #unsigned #size 16 #minIncl 1024 #maxExcl 65536 } :Int
 
     // Continuous float bounds
-    :ScoreRange       { #size 64 #minIncl 0.0 #maxIncl 10.0 } :Float
+    :ScoreRange       { #minIncl 0.0 #maxIncl 10.0 } :Float
     :NegativeOffset   { #size 32 #minExcl -100.0 #maxExcl 0.0 } :Float
 
     // String constraints
@@ -2025,7 +2025,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
 
     // Trait overrides
     :BitwiseFloat     { #equatable #TRUE } :Float
-    :NonEquatableInt  { #equatable #FALSE } { #size 32 } :Int
+    :NonEquatableInt  { #equatable #FALSE } :Int
   }
 
   :type :Tuple(
@@ -2087,7 +2087,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
 
 This appendix documents invalid syntax constructs from other data formats and historical revisions that STVN compilers reject. STVN compilers MUST emit the specified standard diagnostic code when encountering these anti-patterns.
 
-### C.1 Anti-Hallucination Traps 1â€“14
+### C.1 Anti-Hallucination Traps 1–14
 
 ```stvn
 // ----------------------------------------------------------------------------
@@ -2164,8 +2164,8 @@ This appendix documents invalid syntax constructs from other data formats and hi
 // ----------------------------------------------------------------------------
 // INVALID: Parenthesizing scalar sum payloads as if invoking a constructor.
 :defs {
-  :ScalarOpt :Option( :Int { #size 32 } )
-  :TupleOpt  :Option( :Tuple( :Int { #size 32 } ) )
+  :ScalarOpt :Option( :Int )
+  :TupleOpt  :Option( :Tuple( :Int ) )
 }
 :type :Tuple( :ScalarOpt :TupleOpt )
 :body (
@@ -2174,8 +2174,8 @@ This appendix documents invalid syntax constructs from other data formats and hi
 )
 // CORRECT: Bare values for scalar variants; parentheses ONLY for tuples:
 :body (
-  #Some 42       // Valid: matches :Option( :Int { #size 32 } )
-  #Some ( 42 )   // Valid: matches :Option( :Tuple( :Int { #size 32 } ) )
+  #Some 42       // Valid: matches :Option( :Int )
+  #Some ( 42 )   // Valid: matches :Option( :Tuple( :Int ) )
 )
 
 // ----------------------------------------------------------------------------
@@ -2241,8 +2241,8 @@ This appendix documents invalid syntax constructs from other data formats and hi
 // ----------------------------------------------------------------------------
 // INVALID: Passing Either left branch or ambiguous union branch without tags.
 :defs {
-  :Result :Either( :Int { #size 32 } :String )
-  :AmbiguousUnion :Union( :Int { #size 32 } :Int { #size 64 } )
+  :Result :Either( :Int :String )
+  :AmbiguousUnion :Union( :Int :Int { #size 64 } )
 }
 :type :Tuple( :Result :AmbiguousUnion )
 :body (
@@ -2755,14 +2755,14 @@ STVN eliminates temporal ambiguity at compile time by strictly partitioning temp
 $$\mathcal{D}_{\text{temporal}} = \mathcal{D}_{\text{epoch}} \uplus \mathcal{D}_{\text{offset}} \uplus \mathcal{D}_{\text{zoned}} \uplus \mathcal{D}_{\text{audited}}$$
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚ Temporal Type   â”‚ Permitted Components        â”‚ Prohibited Components      â”‚ Example Literal Payload                      â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚ :TimeEpoch      â”‚ Unix epoch nanoseconds      â”‚ Zone brackets, ISO strings â”‚ 1773561600000000000                          â”‚
-â”‚ :DateTime (Off) â”‚ ISO DateTime + Offset (Â±/Z) â”‚ Zone Brackets [...]        â”‚ "2026-03-15T08:00:00-05:00"                  â”‚
-â”‚ :DateTime (Zon) â”‚ ISO DateTime + Zone [...]   â”‚ Numerical Offset (Â±/Z)     â”‚ "2026-03-15T08:00:00[America/Chicago]"       â”‚
-â”‚ :DateTime (Aud) â”‚ ISO DateTime + Offset +Zone â”‚ None (Consistency Checked) â”‚ "2026-03-15T08:00:00-05:00[America/Chicago]" â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌─────────────────┬─────────────────────────────┬────────────────────────────┬──────────────────────────────────────────────┐
+│ Temporal Type   │ Permitted Components        │ Prohibited Components      │ Example Literal Payload                      │
+├─────────────────┼─────────────────────────────┼────────────────────────────┼──────────────────────────────────────────────┤
+│ :TimeEpoch      │ Unix epoch nanoseconds      │ Zone brackets, ISO strings │ 1773561600000000000                          │
+│ :DateTime (Off) │ ISO DateTime + Offset (±/Z) │ Zone Brackets [...]        │ "2026-03-15T08:00:00-05:00"                  │
+│ :DateTime (Zon) │ ISO DateTime + Zone [...]   │ Numerical Offset (±/Z)     │ "2026-03-15T08:00:00[America/Chicago]"       │
+│ :DateTime (Aud) │ ISO DateTime + Offset +Zone │ None (Consistency Checked) │ "2026-03-15T08:00:00-05:00[America/Chicago]" │
+└─────────────────┴─────────────────────────────┴────────────────────────────┴──────────────────────────────────────────────┘
 ```
 
 1. **Eliminating Redundant Degrees of Freedom in Zoned DateTime:**
@@ -2804,7 +2804,7 @@ where $\text{Parse}: \mathcal{T} \to \mathcal{A}$, $\mathcal{E}: \mathcal{A} \to
    - Thus, $\mathcal{D} \circ \mathcal{E} = \text{id}_{\mathcal{A}}$.
 
 3. **Canonical Printing $\mathcal{P}$ ($\mathcal{P}: \mathcal{A} \to \mathcal{T}$):**
-   - For every AST node $a \in \mathcal{A}_T$, $\mathcal{P}(a)$ emits the normalized ISO-8601 string or numeric literal according to the canonical STVN formatting invariants (Â§ 10.5).
+   - For every AST node $a \in \mathcal{A}_T$, $\mathcal{P}(a)$ emits the normalized ISO-8601 string or numeric literal according to the canonical STVN formatting invariants (§ 10.5).
    - Because $t \in \mathcal{T}$ is already canonical, $\mathcal{P}(a) \equiv t$.
 
 Combining (1), (2), and (3):
@@ -3088,11 +3088,11 @@ Retained definitions MUST be ordered topologically using depth-first search post
 // Source Document (with local aliases, packages, and dead code):
 {
   :defs {
-    :package :org/stvnadore/finance {
-      :Transaction :Tuple( :Int { #size 64 } :Float { #size 64 } )
+    :package :com/example/finance {
+      :Transaction :Tuple( :Int { #size 64 } :Float )
       :CreationTime :Int { #size 64 }
     }
-    :use [ :org/stvnadore/finance { :Transaction :LocalTx } ]
+    :use [ :com/example/finance { :Transaction :LocalTx } ]
     :A :String
     :T :Tuple( :LocalTx :A )
   }
@@ -3106,9 +3106,9 @@ Retained definitions MUST be ordered topologically using depth-first search post
 // Canonical Output (desugared, pruned, topologically ordered):
 {
   :defs {
-    :org/stvnadore/finance/Transaction :Tuple( :Int { #size 64 } :Float { #size 64 } )
+    :com/example/finance/Transaction :Tuple( :Int { #size 64 } :Float )
     :A :String
-    :T :Tuple( :org/stvnadore/finance/Transaction :A )
+    :T :Tuple( :com/example/finance/Transaction :A )
   }
   :type :T
   :body (

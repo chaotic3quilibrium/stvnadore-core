@@ -34,7 +34,7 @@ This document serves as an in-depth technical onboarding guide for software engi
   * [4. Arbitrary Bit-Width Numeric Systems](#4-arbitrary-bit-width-numeric-systems)
     * [4.1 Non-Power-of-Two Integer Semantics (`{ #size n } :Int`, `{ #unsigned #size n } :Int`)](#41-non-power-of-two-integer-semantics--size-n--int--unsigned-size-n--int)
     * [4.2 Mathematical Bounds and High-Bit Mask Validation](#42-mathematical-bounds-and-high-bit-mask-validation)
-    * [4.3 Exact Financial Decimals (`{ #exact } :Float`) vs. IEEE 754 (`{ #size 32 } :Float`, `{ #size 64 } :Float`)](#43-exact-financial-decimals--exact--float-vs-ieee-754--size-32--float--size-64--float)
+    * [4.3 Exact Financial Decimals (`{ #exact } :Float`) vs. IEEE 754 (`{ #size 32 } :Float`, `:Float`)](#43-exact-financial-decimals--exact--float-vs-ieee-754--size-32--float--float)
   * [5. Immutability, Collections & Invertible Maps](#5-immutability-collections--invertible-maps)
     * [5.1 Sequenced Collection Semantics (`SequencedSet`, `SequencedMap`)](#51-sequenced-collection-semantics-sequencedset-sequencedmap)
     * [5.2 The Base Collection Types & Boundary Modifiers](#52-the-base-collection-types--boundary-modifiers)
@@ -120,7 +120,7 @@ STVN supports modular namespace organization inside single documents via `:packa
 
 * **LHS FQNI Expansion:** Definitions inside `:package :Prefix { ... }` automatically expand on the LHS to `:Prefix/Name` and `#Prefix/NAME`.
 * **Scope Isolation:** Directives in `:use` inside a package enclosure are isolated to that enclosure. Root `:defs` `:use` directives apply document-globally.
-* **Hermetic Standalone Document Tier (`.stvn_f`):** Flat payload documents (`.stvn_f`) prohibit `:include` statements to preserve hermetic runtime integrity.
+* **Hermetic Standalone Document Tier (`.stvn`):** Flat payload documents (`.stvn`) prohibit `:include` statements to preserve hermetic runtime integrity.
 
 ### 1.5 Single-Pass Lexing and Zero-Lookahead Disambiguation
 
@@ -196,12 +196,12 @@ STVN decoders support implicit tagging for sum types when payload values are una
 
 // -----------------------------------------------------------------------------
 // RULE B: Implied Either #Right
-// Schema: :Either( :String { #size 32 } :Int )
+// Schema: :Either( :String :Int )
 100                    // Inferred as: #Right 100
 
 // -----------------------------------------------------------------------------
 // RULE C: Implied Union Branch
-// Schema: :Union( { #size 32 } :Int :String :Boolean )
+// Schema: :Union( :Int :String :Boolean )
 "text"                 // Inferred as: #2 "text"
 
 // -----------------------------------------------------------------------------
@@ -213,26 +213,26 @@ STVN decoders support implicit tagging for sum types when payload values are una
 
 // -----------------------------------------------------------------------------
 // RULE E: Asymmetric Non-Inferability (#Left and #None NEVER inferred)
-// Schema: :Either( :String { #size 32 } :Int )
+// Schema: :Either( :String :Int )
 "error"                // FATAL: String matches :Left, but #Left is never inferred.
 #Left "error"          // VALID: Explicit tag provided.
 
 // -----------------------------------------------------------------------------
 // RULE F: Compositional Inference Traversal
-// Schema: :Seq( :Option( :Either( :String { #size 64 } :Float ) ) )
+// Schema: :Seq( :Option( :Either( :String :Float ) ) )
 [ 42.5 ]               // Inferred as: [ #Some #Right 42.5 ]
 
 // -----------------------------------------------------------------------------
 // RULE G: Union 1-Based Indexing
-// Schema: :Union( { #size 32 } :Int :String )
-#1 42                  // VALID: Selects branch 1 ({ #size 32 } :Int)
+// Schema: :Union( :Int :String )
+#1 42                  // VALID: Selects branch 1 (:Int)
 #0 42                  // FATAL: #0 is illegal
 #3 42                  // FATAL: Index exceeds branch count
 
 // -----------------------------------------------------------------------------
 // RULE H: Two-Branch Union vs. Either
-// :Union( :String { #size 32 } :Int ) allows implicit bidirectional matching (Rule C).
-// :Either( :String { #size 32 } :Int ) is right-biased and requires explicit #Left for string.
+// :Union( :String :Int ) allows implicit bidirectional matching (Rule C).
+// :Either( :String :Int ) is right-biased and requires explicit #Left for string.
 
 // -----------------------------------------------------------------------------
 // RULE I: Intersection Cluster Disabling
@@ -324,9 +324,9 @@ $$\text{Valid Mask} = (1 \ll (n \bmod 8)) - 1 \quad (\text{for } n \bmod 8 \ne 0
 
 If any unused upper bit in the most significant byte is non-zero, decoders reject the payload with `StvnCorruptedBitPatternException`.
 
-### 4.3 Exact Financial Decimals (`{ #exact } :Float`) vs. IEEE 754 (`{ #size 32 } :Float`, `{ #size 64 } :Float`)
+### 4.3 Exact Financial Decimals (`{ #exact } :Float`) vs. IEEE 754 (`{ #size 32 } :Float`, `:Float`)
 
-* `{ #size 32 } :Float` / `{ #size 64 } :Float`: Standard IEEE 754 floating-point numbers. By default, floating-point types do not carry the `#equatable` trait due to NaN and rounding hazards.
+* `{ #size 32 } :Float` / `:Float`: Standard IEEE 754 floating-point numbers. Continuous `:Float` intrinsically defaults to 64-bit double precision. By default, floating-point types do not carry the `#equatable` trait due to NaN and rounding hazards.
 * `{ #exact } :Float`: Arbitrary-precision decimal arithmetic (mapped to Java `BigDecimal`), guaranteeing exact representations for currency and ledger systems.
 
 ---
@@ -379,7 +379,7 @@ STVN supports three string presentation formats:
 
 ### 6.2 Fenced Multi-Line Strings for STVN Containing STVN
 
-When storing an STVN document or schema inside another STVN document (such as in a Content-Addressable Storage `.stvn_cas` repository), standard escape characters cause severe syntax corruption. Fenced strings solve this with matching boundary tags:
+When storing an STVN document or schema inside another STVN document (such as in a Content-Addressable Storage `.stvn_cas.stvn` repository envelope), standard escape characters cause severe syntax corruption. Fenced strings solve this with matching boundary tags:
 
 ```stvn
 {
@@ -389,7 +389,7 @@ When storing an STVN document or schema inside another STVN document (such as in
   }
   :type :Tuple( :SchemaName :Payload )
   :body (
-    "network_config.stvn_inclf"
+    "network_config.stvn_d"
     """[STVN_DOC]
 {
   :defs {
@@ -481,11 +481,11 @@ The standard library prelude ([StvnPrelude.java](https://github.com/chaotic3quil
 | **`:org/stvnadore/prelude/Email`**           | `:String`        | RFC 5322 email address validation                                                                                                                                                       |
 | **`:org/stvnadore/prelude/IPv4`**            | `:String`        | Dotted-decimal IPv4 address (`0.0.0.0` to `255.255.255.255`)                                                                                                                            |
 | **`:org/stvnadore/prelude/Port`**            | `:Int`           | `{ #unsigned #size 16 #minIncl 1 #maxExcl 65536 }`                                                                                                                                      |
-| **`:org/stvnadore/prelude/Percentage`**      | `:Float`         | `{ #size 64 #minIncl 0.0 #maxIncl 100.0 }`                                                                                                                                              |
-| **`:org/stvnadore/prelude/Probability`**     | `:Float`         | `{ #size 64 #minIncl 0.0 #maxIncl 1.0 }`                                                                                                                                                |
+| **`:org/stvnadore/prelude/Percentage`**      | `:Float`         | `{ #minIncl 0.0 #maxIncl 100.0 }`                                                                                                                                                        |
+| **`:org/stvnadore/prelude/Probability`**     | `:Float`         | `{ #minIncl 0.0 #maxIncl 1.0 }`                                                                                                                                                          |
 | **`:org/stvnadore/prelude/Currency`**        | `:Float`         | `{ #exact }` (Monetary value with exact arbitrary decimal precision)                                                                                                                    |
-| **`:org/stvnadore/prelude/Latitude`**        | `:Float`         | `{ #size 64 #minIncl -90.0 #maxIncl 90.0 }`                                                                                                                                             |
-| **`:org/stvnadore/prelude/Longitude`**       | `:Float`         | `{ #size 64 #minIncl -180.0 #maxIncl 180.0 }`                                                                                                                                           |
+| **`:org/stvnadore/prelude/Latitude`**        | `:Float`         | `{ #minIncl -90.0 #maxIncl 90.0 }`                                                                                                                                                       |
+| **`:org/stvnadore/prelude/Longitude`**       | `:Float`         | `{ #minIncl -180.0 #maxIncl 180.0 }`                                                                                                                                                     |
 
 Bare unqualified references (such as `:Port`) trigger `ERR_UNKNOWN_TYPE`. Documents that prefer short unqualified names declare local aliases (for example, `:Port :org/stvnadore/prelude/Port`).
 

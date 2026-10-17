@@ -1,0 +1,13 @@
+{
+  :meta {
+    #name "reserved_package_prohibited"
+    #kind #BODY
+  }
+  :defs {
+    :package :org/stvnadore/user {
+      :User :String
+    }
+  }
+  :type :String
+  :body "payload"
+}

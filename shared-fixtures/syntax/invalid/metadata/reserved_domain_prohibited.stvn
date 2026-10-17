@@ -1,0 +1,9 @@
+{
+  :meta {
+    #name "reserved_domain_prohibited"
+    #domain "stvn_core"
+    #kind #BODY
+  }
+  :type :String
+  :body "payload"
+}

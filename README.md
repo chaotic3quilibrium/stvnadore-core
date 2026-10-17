@@ -130,7 +130,7 @@ public class Demonstration {
     // 1. Compile schema context (Map from String keys to variant values)
     var schemaDoc = StvnCompiler.compile("""
         {
-          :type :Map( :String :Union( :String { #size 32 } :Int { #unsigned #size 49 } :Int :Option( :String ) ) )
+          :type :Map( :String :Union( :String :Int { #unsigned #size 49 } :Int :Option( :String ) ) )
           :body {}
         }
         """).orElseThrow();
@@ -229,7 +229,7 @@ The compiler enforces monotonic narrowing ($Child \subset Parent \subset Root$),
 ### Expected STVN String Output Format
 
 ```stvn
-{:type :Map(:String :Union(:String { #size 32 } :Int { #unsigned #size 49 } :Int :Option(:String))) :body {["username" "stvn_engineer"] ["age" 28] ["accountId" 500000000000] ["bio" "Zero-copy zero-null VOP specialist"]}}
+{:type :Map(:String :Union(:String :Int { #unsigned #size 49 } :Int :Option(:String))) :body {["username" "stvn_engineer"] ["age" 28] ["accountId" 500000000000] ["bio" "Zero-copy zero-null VOP specialist"]}}
 ```
 
 ---
@@ -308,7 +308,7 @@ The low-level binary codec negotiating [SchemaIdentityStrategy](https://github.c
 | **`0x05`**   | `UniversalVersion`     | 4-byte int (1-based version prefix)                | Matches schema using sequential 64-bit version integer.                                    |
 | **`0x06`**   | `ExplicitUuid`         | 16-byte UUID value                                 | Zero-trust verification: Decoded UUID must match `StvnSchemaHasher.hashSchema(schema)`.    |
 | **`0x07`**   | `ExplicitSha256`       | 32-byte SHA-256 hash                               | Zero-trust verification: Decoded hash must match `StvnSchemaHasher.computeSha256(schema)`. |
-| **`0x08`**   | `SelfDescribingSchema` | 4-byte int (1-based length prefix) + UTF-8 string  | Ephemeral Sandbox: Compiles inline `.stvn_inclf` schema in-memory.                         |
+| **`0x08`**   | `SelfDescribingSchema` | 4-byte int (1-based length prefix) + UTF-8 string  | Ephemeral Sandbox: Compiles inline `.stvn_d` schema in-memory.                             |
 
 ### Tripartite Temporal Binary Memory Layouts
 
@@ -427,7 +427,7 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 - Atomic temporal primitives pruned to nominal prelude schemas
 - Package enclosures (`:package`) with automatic LHS FQNI expansion
 - Scoped `:use` with atomic unary `#strip` terminal slicing
-- Hermetic flat payload tier (newly introduced `.stvn_f`) and flat schema tier (existing `.stvn_inclf`)
+- Hermetic flat payload tier (`.stvn`) and flat schema tier (`.stvn_d`)
 - Arbitrary bit-width integer overflow enforcement (BigInteger)
 - Updated shared-fixtures conformance suite
 
@@ -435,7 +435,7 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 
 - 2026.09.07
 - Formalized **Rule STR-04 (Fenced String Language Discriminator Invariant)** in ANTLR4 lexer and parser
-- Deprecated `"""->[TAG]` in favor of canonical `"""[TAG]` (scheduled for removal in 2.0.0)
+- Prohibited `"""->[TAG]` in favor of canonical `"""[TAG]` (enforced under Rule STR-04 / E026)
 - Enforced strict tag character class `^[a-zA-Z0-9_-]{1,256}$` with length bounding from 1 to 256 characters
 - Remediated all missing Javadoc parameter tags in `StvnTypeResolver.java` and enforced `<failOnWarnings>true</failOnWarnings>`
 - Updated Section 5.3 in `STVN_LANGUAGE_SPEC.md` to define Rule STR-04 invariants
