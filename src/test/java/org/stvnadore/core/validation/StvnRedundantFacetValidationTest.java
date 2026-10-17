@@ -838,4 +838,94 @@ public class StvnRedundantFacetValidationTest {
     assertEquals(expectedEnd, diag.endOffset());
     assertTrue(diag.message().contains("facet '#size 32' is redundant; signed integer ':Int' intrinsically defaults to 32-bit storage"));
   }
+
+  @Test
+  @DisplayName("TC-EXACT-RED-01: Prohibits #maxSize 16777216 on { #exact } :Float (Exact Float Sizing Tautology)")
+  void testRejectExactFloatMaxSize16M() {
+    String source = """
+        {
+          :defs {
+            :BadExact { #exact #maxSize 16777216 } :Float
+          }
+          :type :BadExact
+          :body 123.45
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Expected compilation failure for #maxSize 16777216 on { #exact } :Float");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("Expected ERR_REDUNDANT_METADATA_FACET diagnostic"));
+
+    String targetToken = "#maxSize 16777216";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset(), "Start offset must pinpoint '#maxSize 16777216'");
+    assertEquals(expectedEnd, diag.endOffset(), "End offset must cover '#maxSize 16777216'");
+    assertTrue(diag.message().contains("facet '#maxSize 16777216' is redundant"));
+  }
+
+  @Test
+  @DisplayName("TC-EXACT-RED-02: Permits #maxSize 18 and #maxSize 38 on { #exact } :Float (Valid domain narrowings)")
+  void testAcceptExactFloatMaxSizeNarrowings() {
+    String source = """
+        {
+          :defs {
+            :CurrencyAmount { #exact #maxSize 18 } :Float
+            :DecimalPrecise { #exact #maxSize 38 } :Float
+          }
+          :type :Tuple( :CurrencyAmount :DecimalPrecise )
+          :body ( 123.45 678.9012 )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertFalse(result.hasErrors(), "Exact float narrowings must compile cleanly");
+    assertTrue(result.document().isPresent());
+  }
+
+  @Test
+  @DisplayName("TC-EXACT-RED-03: Permits #maxSize 100000000 on { #exact } :Float (Valid domain widening)")
+  void testAcceptExactFloatMaxSizeWidening() {
+    String source = """
+        {
+          :defs {
+            :SuperPrecise { #exact #maxSize 100000000 } :Float
+          }
+          :type :SuperPrecise
+          :body 3.141592653589793238462643383279
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertFalse(result.hasErrors(), "Exact float widening must compile cleanly");
+    assertTrue(result.document().isPresent());
+  }
+
+  @Test
+  @DisplayName("TC-EXACT-RED-04: Prohibits #maxSize on continuous :Float without #exact (E008)")
+  void testRejectMaxSizeOnContinuousFloat() {
+    String source = """
+        {
+          :defs {
+            :BadFloat { #maxSize 18 } :Float
+          }
+          :type :BadFloat
+          :body 1.5
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Expected compilation failure for #maxSize on continuous :Float");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_INVALID_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("Expected ERR_INVALID_METADATA_FACET diagnostic"));
+
+    String targetToken = "#maxSize 18";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset(), "Start offset must pinpoint '#maxSize 18'");
+    assertEquals(expectedEnd, diag.endOffset(), "End offset must cover '#maxSize 18'");
+  }
 }

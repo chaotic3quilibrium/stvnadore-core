@@ -850,6 +850,7 @@ The `:Float` keyword represents numeric values with fractional components:
 |:---|:---|:---|:---|
 | `#size` | `32` or `64` | `64` | Configures IEEE-754 single-precision (32-bit) or double-precision (64-bit) floating-point storage. Continuous `:Float` intrinsically defaults to 64-bit double precision; explicit `{ #size 64 }` is a redundant tautology rejected under `E036`. |
 | `#exact` | Bare Flag or Boolean | IEEE-754 binary | Enforces exact arbitrary-precision decimal arithmetic mirroring Java `BigDecimal` (unscaled integer + 32-bit scale, variable-length wire encoding). Facet `#size` is strictly prohibited on `{ #exact } :Float`. |
+| `#maxSize` | `<N>` ($N \in \mathbb{N}^+$) | `16777216` | Defines maximum allowable significant decimal digits (precision) of the unscaled mantissa on `{ #exact } :Float`. Unadorned `{ #exact } :Float` carries an intrinsic concrete default ceiling of `16,777,216` significant decimal digits. Explicit `{ #exact #maxSize 16777216 }` is a redundant tautology rejected under `E036`. `#maxSize` is prohibited on continuous `:Float` without `#exact` (`E008`). |
 
 Continuous domains (standard `:Float` without `#exact`) represent continuous real numbers and accept all four boundary facets: `#minIncl`, `#maxIncl`, `#minExcl`, and `#maxExcl`.
 
@@ -1073,7 +1074,7 @@ Metadata constraint blocks `{ ... }` configure nominal type definitions and comp
 | **Storage Sizing** | `#size` | Strictly Numeric (`:Int`, continuous `:Float`) | `:String` (cardinality), `{ #exact } :Float`, `:Boolean`, `:Enum`, `:Tuple`, collections, temporal | `ERR_STRING_CARDINALITY_PROHIBITED` (for `:String`), `ERR_INVALID_METADATA_FACET` |
 | **Numeric Signedness** | `#unsigned` | `:Int` | `:Float`, `:String`, `:Boolean`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Numeric Precision** | `#exact` | `:Float` | `:Int`, `:String`, `:Boolean`, collections, temporal | `ERR_INVALID_METADATA_FACET` |
-| **Character & Container Size** | `#minSize`, `#maxSize` | `:String`, `:Seq`, `:Set`, `:Map` | Numeric types, `:Boolean`, `:Enum`, `:Tuple`, temporal | `ERR_INVALID_METADATA_FACET` |
+| **Character & Container Size** | `#minSize`, `#maxSize` | `:String`, `:Seq`, `:Set`, `:Map`, `{ #exact } :Float` (`#maxSize` only) | Continuous `:Float`, `:Int`, `:Boolean`, `:Enum`, `:Tuple`, temporal | `ERR_INVALID_METADATA_FACET` |
 | **Universal Discrete Bounds** | `#minIncl`, `#maxExcl` | `:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime` | Prohibits `#maxIncl` and `#minExcl` on discrete domains | `ERR_DISCRETE_BOUND_KIND_PROHIBITED` |
 | **Empty Domain Bounds** | `#minIncl`, `#maxExcl` | Discrete types where `minIncl == maxExcl` | Discrete types defining empty domain $[k, k)$ | `ERR_EMPTY_INTERVAL_DOMAIN` |
 | **Continuous Numeric & Lexical Bounds** | `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl` | Continuous `:Float`, `:String` (Ordinal UTF-8) | Discrete types (`:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime`), collections | `ERR_DISCRETE_BOUND_KIND_PROHIBITED`, `ERR_INVALID_METADATA_FACET` |
@@ -1106,7 +1107,7 @@ $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow
 | **`1.2.7`** | **Tier 1: Definition** | `#audited` | Compliance audit mode on `:DateTime`. Requires dual offset and IANA jurisdiction name. |
 | **`1.3.1`** | **Tier 1: Definition** | `#size <N>` | Physical storage width in bits on numeric primitives (`:Int`, continuous `:Float`). |
 | **`1.5.1`** | **Tier 1: Definition** | `#minSize <N>` | Minimum character length (`:String`) or element/entry count (`:Seq`, `:Set`, `:Map`). |
-| **`1.5.2`** | **Tier 1: Definition** | `#maxSize <N>` | Maximum character length (`:String`) or element/entry count (`:Seq`, `:Set`, `:Map`). |
+| **`1.5.2`** | **Tier 1: Definition** | `#maxSize <N>` | Maximum character length (`:String`), element/entry count (`:Seq`, `:Set`, `:Map`), or mantissa precision digits (`{ #exact } :Float`). |
 | **`2.1`** | **Tier 2: Trait** | `#equatable <B>`  | Equivalence trait override. Parameter `B \in \{ #T, #F, #TRUE, #FALSE \}`. |
 | **`2.2`** | **Tier 2: Trait** | `#comparable <B>` | Total order trait override. Parameter `B \in \{ #T, #F, #TRUE, #FALSE \}`.  |
 | **`3.1`**   | **Tier 3: Bounds**     | `#minIncl <V>` | Inclusive lower boundary. Closed endpoint for numeric, temporal, or ordinal string intervals. |
@@ -1203,6 +1204,7 @@ Nominal type definitions in a `:defs` block may explicitly declare capability tr
 5. **Nominal Type Isolation:** Types with identical structural layouts remain incompatible if their names differ. Compatibility requires matching nominal type identifiers.
 6. **Nominal Bounding:** Recursive or cyclical type structures must not be defined anonymously at the raw payload tier. Recursive types must be anchored through a named definition in a `:defs` block.
 7. **Sum Type Variant Soundness (Coproduct Invariant):** Sum types (`:Either`, `:Union`) are mathematically valid coproducts even when candidate branches share identical nominal types or intersecting value domains. When candidate branches share identical nominal types or intersecting domains, implicit payload inference (Rules B, C) is disabled for those branches. Payloads matching intersecting or duplicate branches must provide explicit variant tags (`#Left`, `#Right`, `#1`, `#2`, etc.).
+8. **Bounded Scalar Precision (Allocation Ceiling Invariant):** Under Value-Oriented Programming (VOP), no primitive scalar type is unbounded. `{ #exact } :Float` represents arbitrary-precision decimal arithmetic, but carries an intrinsic concrete allocation ceiling of `16,777,216` significant decimal digits. Mantissa precision exceeding declared or default `#maxSize` triggers compile-time rejection under `ERR_CAPACITY_OVERFLOW`.
 
 ### 7.2 Container Cardinality Fault Isolation ($M == N$)
 
@@ -1312,6 +1314,7 @@ the Pass 2 architectural changes permanently lock the hashing inputs prior to th
 1. **Decoy Alias Purge:** Eliminating `:org/stvnadore/prelude/TimeEpoch` and `:org/stvnadore/prelude/DateTime` ensures these types hash as fundamental kernel constructors rather than nominal prelude aliases pointing to `:Int` or `:String`.
 2. **Scale Flag Canonicalization:** Replacing `{ #unit #ms }` with bare `{ #ms }` ensures a compact, permanent canonical syntax for epoch hashes.
 3. **Semantic Category Order Freezing:** Freezing the 5-tier Semantic Category Order ensures that all compliant implementations (Java, Rust, Scala, TypeScript, Go) emit the identical facet string representation, guaranteeing bitwise-identical SHA-256 digests across all platforms.
+4. **Exact Float Default Sizing Canonicalization:** Unadorned `{ #exact } :Float` intrinsically includes the `16,777,216` digit mantissa ceiling without emitting `#maxSize` in the canonical flattened text or CAS preimage. Explicit `{ #exact #maxSize 16777216 } :Float` is rejected as an `E036` tautology.
 
 ### 9.3 CAS Digesting & Schema Hashing Integration
 
@@ -2299,7 +2302,7 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E033` | `META_POSITION_INVALID` | Syntactic | Fatal | :meta root block placed after :defs, :type, or :body. |
 | `E034` | `LEGACY_FILE_EXTENSION_PURGED` | Syntactic | Fatal | Excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas) used. |
 | `E035` | `UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | Semantic | Fatal | Module :use in a flat hermetic document (.stvn / .stvn_d) targets an external package not declared in local :defs or prelude. |
-| `E036` | `ERR_REDUNDANT_METADATA_FACET` | Semantic | Fatal | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #minSize 0 on container, or bare primitive trait defaults). |
+| `E036` | `ERR_REDUNDANT_METADATA_FACET` | Semantic | Fatal | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #minSize 0 on container, #size 32 on signed :Int, #size 64 on continuous :Float, #maxSize 16777216 on { #exact } :Float, or bare primitive trait defaults). |
 | `E037` | `ERR_RESERVED_PACKAGE_PROHIBITED` | Semantic | Fatal | User document declares a :package enclosure, qualified type, or qualified constant targeting reserved runtime namespace :org/stvnadore/* (§ 3.9 Invariant 8). |
 | `E038` | `ERR_RESERVED_DOMAIN_PROHIBITED` | Semantic | Fatal | User document declares a reserved system domain (stvn_core, stvn_ir, stvn_cas) in root :meta (§ 3.10.1 Rule 6). |
 | `W001` | `DOCUMENT_NAME_MISMATCH` | Semantic | Warning | Declared #name does not match filename stem slot 0. |
@@ -2331,7 +2334,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_MALFORMED_SCHEMA` | `"MALFORMED_SCHEMA"` | Fatal | Schema definition contains malformed syntax or illegal nesting. |
 | `ERR_INVALID_REGEX` | `"INVALID_REGEX_PATTERN"` | Fatal | Regular expression pattern syntax is invalid. |
 | `ERR_INVERTED_RANGE` | `"INVALID_NUMERIC_RANGE"` | Fatal | Range lower bound is strictly greater than upper bound. |
-| `ERR_CAPACITY_OVERFLOW` | `"CAPACITY_OVERFLOW"` | Fatal | Collection element count exceeds declared capacity bounds. |
+| `ERR_CAPACITY_OVERFLOW` | `"CAPACITY_OVERFLOW"` | Fatal | Collection element count, string character length, or exact float mantissa significant decimal digits exceeds declared or default capacity bounds. |
 | `ERR_INCOMPATIBLE_TYPE` | `"INCOMPATIBLE_METADATA_TYPE"` | Fatal | Metadata trait values are incompatible with target type. |
 | `ERR_MUTUALLY_EXCLUSIVE` | `"MUTUALLY_EXCLUSIVE_BOUNDS"` | Fatal | Mutually exclusive boundary constraints or modes simultaneously declared. |
 | `ERR_CIRCULAR_TYPE` | `"CIRCULAR_TYPE_DEFINITION"` | Fatal | Recursive type aliases form non-disjunctive circular self-reference. |

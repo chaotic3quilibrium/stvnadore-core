@@ -699,6 +699,20 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       }
     }
     var rawVal = StvnLiteralParser.parseFloat(ctx.getText());
+    if (precision == FloatPrecision.EXACT) {
+      int mantissaPrecision = rawVal.precision();
+      int maxAllowed = (schema != null && schema.constraints() != null && schema.constraints().maxSize().isPresent())
+          ? schema.constraints().maxSize().get()
+          : StvnVocabulary.DEFAULT_EXACT_FLOAT_MAX_SIZE;
+      if (mantissaPrecision > maxAllowed) {
+        throw new MalformedPayloadException(
+            "Constraint violation (" + aliasOrBase + "): Mantissa precision " + mantissaPrecision +
+            " exceeds maximum allowable significant digits (" + maxAllowed + ")",
+            ctx.getStart().getStartIndex(),
+            ctx.getStop().getStopIndex() + 1
+        );
+      }
+    }
     // Basic bounds checking for Float64 overflow/underflow if requested
     if (precision == FloatPrecision.FLOAT64) {
       if (rawVal.compareTo(java.math.BigDecimal.valueOf(Double.MAX_VALUE)) > 0 ||

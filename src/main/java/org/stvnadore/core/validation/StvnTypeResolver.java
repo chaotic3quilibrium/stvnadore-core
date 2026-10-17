@@ -4598,6 +4598,20 @@ public class StvnTypeResolver {
       }
     } else if (valueCtx.floatLiteral() != null) {
       var valBD = new BigDecimal(valueCtx.floatLiteral().getText());
+      if (c.exact()) {
+        int precision = valBD.precision();
+        int maxAllowed = c.maxSize().orElse(StvnVocabulary.DEFAULT_EXACT_FLOAT_MAX_SIZE);
+        if (precision > maxAllowed) {
+          diagnosticBag.addError(
+              "Constraint violation (" + constName + "): Mantissa precision " + precision +
+                  " exceeds maximum allowable significant digits (" + maxAllowed + ")",
+              valueCtx.floatLiteral().getStart().getStartIndex(),
+              valueCtx.floatLiteral().getStop().getStopIndex() + 1,
+              line, col, null,
+              DiagnosticBag.ERR_CAPACITY_OVERFLOW
+          );
+        }
+      }
       if (c.minIncl().isPresent() && valBD.compareTo(c.minIncl().get()) < 0) {
         diagnosticBag.addError("Constraint violation (" + constName + "): Value must be greater than or equal to " + c.minIncl().get(), start, end, line, col, null, DiagnosticBag.ERR_INVERTED_RANGE);
       }
@@ -4658,7 +4672,8 @@ public class StvnTypeResolver {
       Map.entry(StvnVocabulary.TYPE_FLOAT, Set.of(
           StvnVocabulary.FACET_NAME_EXACT, StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE,
           StvnVocabulary.FACET_NAME_SIZE, StvnVocabulary.FACET_NAME_MIN_INCL, StvnVocabulary.FACET_NAME_MIN_EXCL,
-          StvnVocabulary.FACET_NAME_MAX_EXCL, StvnVocabulary.FACET_NAME_MAX_INCL)),
+          StvnVocabulary.FACET_NAME_MAX_EXCL, StvnVocabulary.FACET_NAME_MAX_INCL,
+          StvnVocabulary.FACET_NAME_MAX_SIZE)),
       Map.entry(StvnVocabulary.TYPE_STRING, Set.of(
           StvnVocabulary.FACET_NAME_PRESERVE_INDENT, StvnVocabulary.FACET_NAME_EQUATABLE, StvnVocabulary.FACET_NAME_COMPARABLE,
           StvnVocabulary.FACET_NAME_MIN_SIZE, StvnVocabulary.FACET_NAME_MAX_SIZE, StvnVocabulary.FACET_NAME_REGEX,
@@ -5001,6 +5016,22 @@ public class StvnTypeResolver {
             null,
             DiagnosticBag.ERR_INVALID_METADATA_FACET
         );
+      } else if (StvnVocabulary.TYPE_FLOAT.equals(normalizedBase != null ? normalizedBase : (name != null ? normalizeBaseType(name) : null))
+          && StvnVocabulary.FACET_NAME_MAX_SIZE.equals(facetName)) {
+        var localMetaConstraints = extractConstraints(metadataMap);
+        var effectiveConsolidated = resolved != null ? localMetaConstraints.merge(resolved.constraints()) : localMetaConstraints;
+        boolean isExactActive = (effectiveConsolidated != null && effectiveConsolidated.exact()) || localMetaConstraints.exact();
+        if (!isExactActive) {
+          diagnosticBag.addError(
+              "Constraint violation (" + name + "): facet '#maxSize' is prohibited on continuous ':Float'; '#maxSize' on float is permitted strictly with '#exact'",
+              entry.getStart().getStartIndex(),
+              entry.getStop().getStopIndex() + 1,
+              entry.getStart().getLine(),
+              entry.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_INVALID_METADATA_FACET
+          );
+        }
       } else if (permitted != null && !permitted.contains(facetName)) {
         if ((StvnVocabulary.TYPE_INT.equals(normalizedBase) || StvnVocabulary.TYPE_TIME_EPOCH.equals(normalizedBase) || StvnVocabulary.TYPE_DATE_TIME.equals(normalizedBase))
             && ("minExcl".equals(facetName) || "maxIncl".equals(facetName))) {
@@ -5226,6 +5257,32 @@ public class StvnTypeResolver {
                   DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
               );
             }
+          }
+        }
+      } else if (entry.metadataSize() != null && entry.metadataSize().KW_MAX_SIZE() != null) {
+        var sizeCtx = entry.metadataSize();
+        var mv = sizeCtx.metadataValue();
+        if (mv != null && StvnVocabulary.TYPE_FLOAT.equals(targetBaseType) && effectiveConsolidated.exact()) {
+          java.math.BigInteger val = null;
+          if (mv.integerLiteral() != null) {
+            val = StvnLiteralParser.parseBigInteger(mv.integerLiteral().getText());
+          } else if (mv.valueKeyword() != null) {
+            var doc = findEnclosingDocument(metadataMap);
+            var cOpt = findConstantDefinition(doc, mv.valueKeyword().getText(), mv.valueKeyword());
+            if (cOpt.isPresent()) {
+              val = resolveConstantIntegerValue(doc, cOpt.get());
+            }
+          }
+          if (val != null && val.compareTo(java.math.BigInteger.valueOf(StvnVocabulary.DEFAULT_EXACT_FLOAT_MAX_SIZE)) == 0) {
+            diagnosticBag.addError(
+                "Constraint violation (" + name + "): facet '#maxSize 16777216' is redundant; exact decimal float '{ #exact } :Float' intrinsically defaults to a ceiling of 16,777,216 significant decimal digits",
+                entry.getStart().getStartIndex(),
+                entry.getStop().getStopIndex() + 1,
+                entry.getStart().getLine(),
+                entry.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+            );
           }
         }
       } else if (entry.metadataSize() != null && entry.metadataSize().KW_MIN_SIZE() != null) {

@@ -711,6 +711,8 @@ public final class StvnCompiler {
           || e.getMessage().contains("exceeds maximum length of")
           || e.getMessage().contains("Fixed string must be"))) {
         errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_CONSTRAINT_VIOLATION;
+      } else if (e.getMessage() != null && (e.getMessage().contains("Mantissa precision") || e.getMessage().contains("exceeds maximum allowable significant digits"))) {
+        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_CAPACITY_OVERFLOW;
       }
     }
     int line = -1;
