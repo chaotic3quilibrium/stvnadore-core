@@ -4128,6 +4128,27 @@ public class StvnTypeResolver {
     getDocumentDefinitions(doc, diagnosticBag);
     var defsEntry = doc.documentBody().defsEntry();
     if (defsEntry != null && defsEntry.defsElement() != null) {
+      if (defsEntry.defsElement().isEmpty()) {
+        boolean isSchemaDoc = (currentDocPath != null && (currentDocPath.endsWith(".stvn_d") || currentDocPath.endsWith(".stvn_di")))
+            || (doc.documentBody().typeEntry() == null && doc.documentBody().bodyEntry() == null);
+        int start = defsEntry.LBRACE() != null ? defsEntry.LBRACE().getSymbol().getStartIndex() : defsEntry.getStart().getStartIndex();
+        int stop = defsEntry.RBRACE() != null ? defsEntry.RBRACE().getSymbol().getStopIndex() + 1 : defsEntry.getStop().getStopIndex() + 1;
+        int line = defsEntry.LBRACE() != null ? defsEntry.LBRACE().getSymbol().getLine() : defsEntry.getStart().getLine();
+        int col = defsEntry.LBRACE() != null ? defsEntry.LBRACE().getSymbol().getCharPositionInLine() : defsEntry.getStart().getCharPositionInLine();
+        String ext = currentDocPath != null && currentDocPath.contains(".") ? currentDocPath.substring(currentDocPath.lastIndexOf('.')) : ".stvn_d";
+        String msg = isSchemaDoc
+            ? "Definitions schema (" + ext + ") requires at least one type definition inside ':defs { ... }'"
+            : "Empty definition block ':defs {}' is redundant; omit ':defs' or add definitions";
+        diagnosticBag.addError(
+            msg,
+            start,
+            stop,
+            line,
+            col,
+            null,
+            DiagnosticBag.ERR_EMPTY_DEFS_BLOCK
+        );
+      }
       for (var de : defsEntry.defsElement()) {
         if (de.typeDefinition() != null) {
           validateTypeDefinition(doc, de.typeDefinition(), diagnosticBag);

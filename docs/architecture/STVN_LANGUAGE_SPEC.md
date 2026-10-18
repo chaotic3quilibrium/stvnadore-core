@@ -490,6 +490,9 @@ typeDefinition     : typeDefTarget metadataMap? schemaType ;
 constantDefinition : valueKeyword metadataMap? schemaType value ;
 ```
 
+#### 3.8.0 Empty Definition Block Invariant
+Empty definition blocks (`:defs {}`) are prohibited in definitions schemas (`.stvn_d`, `.stvn_di`). A definitions schema document must contain at least one type definition or constant definition. Violations emit diagnostic `ERR_EMPTY_DEFS_BLOCK`. In payload documents (`.stvn`, `.stvn_i`), `:defs` is optional; empty `:defs {}` is redundant and rejected. Diagnostics pin strictly to the `{}` tokens with a non-zero text span.
+
 #### 3.8.2 Semantics & Substitution Rules
 1. **Declaration:** A constant definition **MUST** declare a value keyword (`#`), an optional metadata constraint block, a target schema type, and a trailing literal payload:
    ```stvn
@@ -1299,6 +1302,9 @@ All compiler and PSI diagnostics must pin their text spans strictly to the exact
 - Prohibited string `#size` pins strictly to `#size <val>`.
 - Missing temporal facet pins strictly to the type keyword token.
 - Valid sibling elements and parent delimiters maintain zero error diagnostics.
+
+#### 7.3.1 Document Bootstrap Clause Blame Pinning
+During document scaffolding, incomplete top-level clauses (`:defs`, `:type`, `:body`, `:meta`) must attribute diagnostic blame strictly to the clause keyword that broke the structural contract. Compilers must not shift blame to subsequent clause tokens. Secondary cascade diagnostics at enclosing boundary tokens (`}`, `<EOF>`) caused by unclosed interior clauses must be suppressed.
 
 ### 7.4 Interactive DX Guards & Caret Resolution Boundaries
 

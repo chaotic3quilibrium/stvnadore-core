@@ -1,0 +1,7 @@
+// @spec: SPEC-07-PINNING
+// @case: Negative - Incomplete :type clause followed immediately by :body
+// @error: SYNTAX_ERROR
+{
+  :type
+  :body 42
+}

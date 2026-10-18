@@ -15,7 +15,9 @@ import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.StvnSyntaxCancellationException;
 import org.stvnadore.core.validation.StvnTypeResolver;
 
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * High-precision, sanitizing ANTLR error listener for STVN grammar recognition.
@@ -28,6 +30,8 @@ public final class StvnErrorListener extends BaseErrorListener {
 
   private final @Nullable DiagnosticBag diagnosticBag;
   private final boolean strict;
+  private final Set<String> recordedCoordinates = new HashSet<>();
+  private boolean hasClauseStructureError = false;
 
   /**
    * Constructs an instance with the specified diagnostic bag and strictness mode.
@@ -96,7 +100,43 @@ public final class StvnErrorListener extends BaseErrorListener {
             endOffset = prev.getStopIndex() + 1;
             line = prev.getLine();
             charPositionInLine = prev.getCharPositionInLine();
+          } else if (idx > 0) {
+            Token prev = stream.get(idx - 1);
+            int prevType = prev.getType();
+            if (prevType == StvnLexer.KW_DEFS || prevType == StvnLexer.KW_TYPE
+                || prevType == StvnLexer.KW_BODY || prevType == StvnLexer.KW_META) {
+              int curType = token.getType();
+              if (curType == StvnLexer.KW_META || curType == StvnLexer.KW_DEFS
+                  || curType == StvnLexer.KW_TYPE || curType == StvnLexer.KW_BODY
+                  || curType == StvnLexer.RBRACE || curType == Token.EOF) {
+                offendingToken = prev;
+                startOffset = prev.getStartIndex();
+                endOffset = prev.getStopIndex() + 1;
+                line = prev.getLine();
+                charPositionInLine = prev.getCharPositionInLine();
+                if (prevType == StvnLexer.KW_DEFS) {
+                  rawMsg = "clause ':defs' requires definition block '{ ... }'";
+                } else if (prevType == StvnLexer.KW_TYPE) {
+                  rawMsg = "clause ':type' requires a schema type";
+                } else if (prevType == StvnLexer.KW_BODY) {
+                  rawMsg = "clause ':body' requires a value payload";
+                } else if (prevType == StvnLexer.KW_META) {
+                  rawMsg = "clause ':meta' requires a metadata block '{ ... }'";
+                }
+              }
+            }
           }
+        }
+      }
+
+      // Boundary Cascade Suppression: When a clause structure error has already been recorded,
+      // suppress trailing secondary mismatched '}' and '<EOF>' errors that reflect unclosed state
+      if (this.hasClauseStructureError && offendingToken != null) {
+        if (offendingToken.getType() == Token.EOF && rawMsg != null && rawMsg.contains("expecting '}'")) {
+          return;
+        }
+        if (offendingToken.getType() == StvnLexer.RBRACE && rawMsg != null && (rawMsg.contains("expecting <value>") || rawMsg.contains("expecting <schema type>"))) {
+          return;
         }
       }
     } else if (recognizer instanceof org.antlr.v4.runtime.Lexer lexerRec) {
@@ -152,6 +192,20 @@ public final class StvnErrorListener extends BaseErrorListener {
     }
 
     String sanitizedMessage = formatSanitizedMessage(recognizer, offendingToken, rawMsg, e);
+
+    // Deduplicate diagnostics sharing identical startOffset coordinates
+    String coordKey = line + ":" + charPositionInLine + ":" + startOffset;
+    if (this.recordedCoordinates.contains(coordKey)) {
+      return;
+    }
+    this.recordedCoordinates.add(coordKey);
+
+    if (sanitizedMessage.contains("clause ':defs' requires")
+        || sanitizedMessage.contains("clause ':type' requires")
+        || sanitizedMessage.contains("clause ':body' requires")
+        || sanitizedMessage.contains("clause ':meta' requires")) {
+      this.hasClauseStructureError = true;
+    }
 
     Optional<String> errorCode = Optional.of("STVN_SYNTAX_ERROR");
     if (offendingToken != null && offendingToken.getType() == StvnLexer.TAB_CHARACTER) {
@@ -240,6 +294,11 @@ public final class StvnErrorListener extends BaseErrorListener {
         }
       }
 
+      // Fast-path: already formatted clause requirement message from StvnErrorStrategy
+      if (rawMsg != null && rawMsg.startsWith("clause '")) {
+        return rawMsg;
+      }
+
       // 1. Check if we are inside a collection literal where unexpected tokens should be flagged as extraneous
       boolean inCollectionLiteral = isInCollectionLiteral(ctx);
 
@@ -248,8 +307,23 @@ public final class StvnErrorListener extends BaseErrorListener {
         var stream = parser.getTokenStream();
         int idx = offendingToken.getTokenIndex();
 
+        // Intercept incomplete clauses
+        Token prevToken = (idx > 0 && stream != null) ? stream.get(idx - 1) : null;
+        if (prevToken != null && prevToken.getType() == StvnLexer.KW_DEFS && isClauseOrBoundary(offendingToken)) {
+          return "clause ':defs' requires definition block '{ ... }'";
+        }
+        if (prevToken != null && prevToken.getType() == StvnLexer.KW_TYPE && isClauseOrBoundary(offendingToken)) {
+          return "clause ':type' requires a schema type";
+        }
+        if (prevToken != null && prevToken.getType() == StvnLexer.KW_BODY && isClauseOrBoundary(offendingToken)) {
+          return "clause ':body' requires a value payload";
+        }
+        if (prevToken != null && prevToken.getType() == StvnLexer.KW_META && isClauseOrBoundary(offendingToken)) {
+          return "clause ':meta' requires a metadata block '{ ... }'";
+        }
+
         // Intercept bare #preserveIndent or non-boolean argument following KW_PRESERVE_INDENT
-        if (idx > 0 && stream.get(idx - 1).getType() == StvnLexer.KW_PRESERVE_INDENT) {
+        if (idx > 0 && stream != null && stream.get(idx - 1).getType() == StvnLexer.KW_PRESERVE_INDENT) {
           return "Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)";
         }
 
@@ -604,4 +678,16 @@ public final class StvnErrorListener extends BaseErrorListener {
     s = s.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
     return "'" + s + "'";
   }
+
+  private static boolean isClauseOrBoundary(@Nullable Token token) {
+    if (token == null) return false;
+    int type = token.getType();
+    return type == StvnLexer.KW_META
+        || type == StvnLexer.KW_DEFS
+        || type == StvnLexer.KW_TYPE
+        || type == StvnLexer.KW_BODY
+        || type == StvnLexer.RBRACE
+        || type == Token.EOF;
+  }
 }
+

@@ -100,6 +100,7 @@ public final class StvnCompiler {
       var listener = StvnErrorListener.accumulating(diagnosticBag);
       lexer.addErrorListener(listener);
       parser.addErrorListener(listener);
+      parser.setErrorHandler(new org.stvnadore.core.parser.StvnErrorStrategy());
     }
 
     try {
@@ -176,6 +177,32 @@ public final class StvnCompiler {
       if (cause instanceof RecognitionException re) {
         msg = "STVN Syntax Error: " + getErrorMessage(parser, re);
         var token = re.getOffendingToken();
+        var stream = parser.getTokenStream();
+        if (stream != null && token != null) {
+          int idx = token.getTokenIndex();
+          if (idx > 0) {
+            Token prev = stream.get(idx - 1);
+            int prevType = prev.getType();
+            if (prevType == StvnLexer.KW_DEFS || prevType == StvnLexer.KW_TYPE
+                || prevType == StvnLexer.KW_BODY || prevType == StvnLexer.KW_META) {
+              int curType = token.getType();
+              if (curType == StvnLexer.KW_META || curType == StvnLexer.KW_DEFS
+                  || curType == StvnLexer.KW_TYPE || curType == StvnLexer.KW_BODY
+                  || curType == StvnLexer.RBRACE || curType == Token.EOF) {
+                token = prev;
+                if (prevType == StvnLexer.KW_DEFS) {
+                  msg = "STVN Syntax Error: clause ':defs' requires definition block '{ ... }'";
+                } else if (prevType == StvnLexer.KW_TYPE) {
+                  msg = "STVN Syntax Error: clause ':type' requires a schema type";
+                } else if (prevType == StvnLexer.KW_BODY) {
+                  msg = "STVN Syntax Error: clause ':body' requires a value payload";
+                } else if (prevType == StvnLexer.KW_META) {
+                  msg = "STVN Syntax Error: clause ':meta' requires a metadata block '{ ... }'";
+                }
+              }
+            }
+          }
+        }
         if (token != null) {
           line = token.getLine();
           column = token.getCharPositionInLine();
@@ -371,7 +398,10 @@ public final class StvnCompiler {
   ) {
     var result = compile(input, docPath, config);
     if (result.hasErrors()) {
-      var first = result.diagnostics().getFirst();
+      var first = result.diagnostics().stream()
+          .filter(d -> d.severity() == StvnDiagnostic.DiagnosticSeverity.ERROR)
+          .findFirst()
+          .orElseGet(() -> result.diagnostics().getFirst());
       if (first.cause() instanceof org.stvnadore.core.validation.StvnSyntaxCancellationException sce) {
         throw new RuntimeException(sce.getMessage(), sce);
       }

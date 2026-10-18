@@ -1,0 +1,11 @@
+{
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body (
+    #SYNTAX_ERROR
+    "clause ':body' requires a value payload"
+    "java.lang.RuntimeException"
+  )
+}

@@ -1,0 +1,10 @@
+// @spec: SPEC-03-EMPTY-BLOCK
+// @case: Negative - Hermetic definitions schema with empty :defs block
+// @error: ERR_EMPTY_DEFS_BLOCK
+{
+  :meta {
+    #name "empty_defs_invalid"
+    #kind #DEFS
+  }
+  :defs {}
+}

@@ -826,4 +826,142 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals(3, diag.line());
     Assertions.assertEquals(8, diag.column());
   }
+
+  @Test
+  @DisplayName("TC-PIN-01: Incomplete :defs clause followed by :type pins blame strictly to :defs token")
+  void testIncompleteDefsPinsToDefsKeyword() {
+    String input = """
+        {
+          :defs
+          :type :Int
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Expected single diagnostic on :defs keyword with zero cascade errors");
+    var diag = result.diagnostics().getFirst();
+    int expectedStart = input.indexOf(":defs");
+    int expectedEnd = expectedStart + ":defs".length();
+    Assertions.assertEquals(expectedStart, diag.startOffset());
+    Assertions.assertEquals(expectedEnd, diag.endOffset());
+    Assertions.assertEquals(2, diag.line());
+    Assertions.assertEquals(2, diag.column());
+    Assertions.assertTrue(diag.message().contains("clause ':defs' requires definition block '{ ... }'"));
+  }
+
+  @Test
+  @DisplayName("TC-PIN-02: Incomplete :type clause followed by :body pins blame strictly to :type token")
+  void testIncompleteTypePinsToTypeKeyword() {
+    String input = """
+        {
+          :defs {
+            :Port :Int
+          }
+          :type
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Expected single diagnostic on :type keyword with zero secondary errors");
+    var diag = result.diagnostics().getFirst();
+    int expectedStart = input.indexOf(":type");
+    int expectedEnd = expectedStart + ":type".length();
+    Assertions.assertEquals(expectedStart, diag.startOffset());
+    Assertions.assertEquals(expectedEnd, diag.endOffset());
+    Assertions.assertEquals(5, diag.line());
+    Assertions.assertEquals(2, diag.column());
+    Assertions.assertTrue(diag.message().contains("clause ':type' requires a schema type"));
+  }
+
+  @Test
+  @DisplayName("TC-PIN-03: Incomplete :body clause followed by closing brace pins blame strictly to :body token")
+  void testIncompleteBodyPinsToBodyKeyword() {
+    String input = """
+        {
+          :type :Int
+          :body
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Expected single diagnostic on :body keyword with zero cascade on closing brace");
+    var diag = result.diagnostics().getFirst();
+    int expectedStart = input.indexOf(":body");
+    int expectedEnd = expectedStart + ":body".length();
+    Assertions.assertEquals(expectedStart, diag.startOffset());
+    Assertions.assertEquals(expectedEnd, diag.endOffset());
+    Assertions.assertEquals(3, diag.line());
+    Assertions.assertEquals(2, diag.column());
+    Assertions.assertTrue(diag.message().contains("clause ':body' requires a value payload"));
+  }
+
+  @Test
+  @DisplayName("TC-PIN-04: Incomplete :defs clause followed by closing brace attributes blame to :defs without boundary cascade")
+  void testIncompleteDefsAtClosingBrace() {
+    String input = """
+        {
+          :defs
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Expected single diagnostic on :defs with clean boundary recovery");
+    var diag = result.diagnostics().getFirst();
+    int expectedStart = input.indexOf(":defs");
+    int expectedEnd = expectedStart + ":defs".length();
+    Assertions.assertEquals(expectedStart, diag.startOffset());
+    Assertions.assertEquals(expectedEnd, diag.endOffset());
+    Assertions.assertEquals(2, diag.line());
+    Assertions.assertEquals(2, diag.column());
+    Assertions.assertTrue(diag.message().contains("clause ':defs' requires definition block '{ ... }'"));
+  }
+
+  @Test
+  @DisplayName("TC-PIN-05: Empty :defs {} in definitions schema (.stvn_d) emits ERR_EMPTY_DEFS_BLOCK pinned to {} tokens")
+  void testEmptyDefsInStvnDRejected() {
+    String input = """
+        {
+          :meta {
+            #name "test_empty_defs"
+            #kind #DEFS
+          }
+          :defs {}
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, "test_empty_defs.stvn_d");
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(1, result.diagnostics().size());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_EMPTY_DEFS_BLOCK, diag.errorCode().orElse(""));
+    int expectedStart = input.indexOf("{}");
+    int expectedEnd = expectedStart + 2;
+    Assertions.assertEquals(expectedStart, diag.startOffset());
+    Assertions.assertEquals(expectedEnd, diag.endOffset());
+    Assertions.assertTrue(diag.message().contains("requires at least one type definition inside ':defs { ... }'"));
+  }
+
+  @Test
+  @DisplayName("TC-PIN-06: Missing :meta in definitions schema (.stvn_d) pins ERR_DOCUMENT_KIND_MISMATCH to root brace [0, 1)")
+  void testMissingMetaInStvnDPinsToRootBrace() {
+    String input = """
+        {
+          :defs {
+            :Port :Int
+          }
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, "test_missing_meta.stvn_d");
+    Assertions.assertFalse(result.isSuccess());
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+    Assertions.assertEquals(0, diag.startOffset());
+    Assertions.assertEquals(1, diag.endOffset());
+    Assertions.assertEquals(1, diag.line());
+    Assertions.assertEquals(0, diag.column());
+    Assertions.assertTrue(diag.message().contains("Mandatory :meta block missing"));
+  }
 }

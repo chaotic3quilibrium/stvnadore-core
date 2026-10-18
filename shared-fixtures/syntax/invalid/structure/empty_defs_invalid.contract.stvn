@@ -1,0 +1,11 @@
+{
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body (
+    #SYNTAX_ERROR
+    "Definitions schema (.stvn_d) requires at least one type definition inside ':defs { ... }'"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

@@ -1,0 +1,8 @@
+// @spec: SPEC-07-PINNING
+// @case: Negative - Incomplete :defs clause followed immediately by :type
+// @error: SYNTAX_ERROR
+{
+  :defs
+  :type :Int
+  :body 42
+}

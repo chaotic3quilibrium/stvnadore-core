@@ -1,0 +1,6 @@
+// @spec: SPEC-07-PINNING
+// @case: Negative - Incomplete :defs clause followed immediately by closing brace
+// @error: SYNTAX_ERROR
+{
+  :defs
+}

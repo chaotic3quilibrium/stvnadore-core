@@ -1,0 +1,7 @@
+// @spec: SPEC-07-PINNING
+// @case: Negative - Incomplete :body clause followed immediately by closing brace
+// @error: SYNTAX_ERROR
+{
+  :type :Int
+  :body
+}
