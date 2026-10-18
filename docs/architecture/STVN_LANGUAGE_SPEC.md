@@ -914,6 +914,12 @@ Sum variant tags (`#Some`, `#None`, `#Left`, `#Right`, `#S`, `#N`, `#L`, `#R`, a
 
 ### 5.3 Polyglot Multi-Language Fenced Strings (Rule STR-04)
 
+STVN Version 2.0.0 enforces a strict, orthogonal 2-tier string literal architecture:
+1. **Simple Escaped Strings (`"..."`):** Single-line, backslash-escaped UTF-8 string literals (`LITERAL_STRING_SIMPLE`).
+2. **Fenced Verbatim Strings (`"""[TAG]\n...[TAG]"""`):** Multi-line verbatim UTF-8 string literals governed strictly by Rule STR-04 (`fencedString`).
+
+Legacy unfenced multi-line block strings (`"""..."""` / `LITERAL_STRING_BLOCK`) are permanently excised from the language specification and grammar. All multi-line string content must declare explicit opening and closing discriminator tags (`"""[TAG] ... [TAG]"""`). Bare triple-quotes without an opening bracket `[` are rejected at compile time.
+
 Fenced multi-line strings encapsulate embedded host language source code, structured documentation, and nested data formats without requiring character escaping.
 
 #### Delimiter Invariant
@@ -1165,7 +1171,7 @@ $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow
 | `3.2` | Bounds | `:String` | `minExcl` | `:String` | UTF-8 string literal, $< \text{upper}$ (ordinal UTF-8) | `<None>` | Yes | `minIncl` | Lexicographical interval; exclusive lower bound |
 | `3.3` | Bounds | `:String` | `maxIncl` | `:String` | UTF-8 string literal, $> \text{lower}$ (ordinal UTF-8) | `<None>` | Yes | `maxExcl` | Lexicographical interval; inclusive upper bound |
 | `3.4` | Bounds | `:String` | `maxExcl` | `:String` | UTF-8 string literal, $> \text{lower}$ (ordinal UTF-8) | `<None>` | Yes | `maxIncl` | Lexicographical interval; exclusive upper bound |
-| `4.3` | Constraint | `:String` | `preserveIndent` | `:Boolean` | $b \in \{ \text{:F}, \text{:T}, \text{:FALSE}, \text{:TRUE} \}$ | `:FALSE` | Yes | N/A | Essentially only applicable to only Block and Fenced string literals |
+| `4.3` | Constraint | `:String` | `preserveIndent` | `:Boolean` | $b \in \{ \text{:F}, \text{:T}, \text{:FALSE}, \text{:TRUE} \}$ | `:FALSE` | Yes | N/A | Essentially only applicable to Fenced string literals |
 | `4.4` | Constraint | `:String` | `regex` | `:String` | Valid regular expression | `<None>` | Yes | N/A | Validates string value against compiled regular expression pattern |
 | `2.1` | Trait | `:Enum` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
 | `2.2` | Trait | `:Enum` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
@@ -2139,10 +2145,10 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
     9.5
     -50.0
     "server_node_01"
-    """
+    """[SCRIPT]
       Line 1 indented
         Line 2 further indented
-    """
+    [SCRIPT]"""
     3.141592653589793
     42
   )
@@ -2620,13 +2626,11 @@ FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     }
 } ;
 
-MALFORMED_FENCE_OPEN : '"""[' ~[\r\n]* '\n' {
+MALFORMED_FENCE_OPEN : '"""' ~[\r\n]* ('\n' | '"""' | EOF) {
     pushMode(MALFORMED_FENCED_STRING);
 } ;
 
 MALFORMED_FENCE_CLOSE : '[' ~[\r\n\]]* ']"""' ;
-
-BLOCK_STRING_TRIGGER : '"""' -> more, pushMode(STANDARD_BLOCK);
 
 // ============================================================================
 // 2. ISOLATED LEXER MODES
@@ -2641,13 +2645,9 @@ FENCE_CONTENT : . ;
 
 mode MALFORMED_FENCED_STRING;
 
-MALFORMED_FENCE_END : '[' ~[\r\n\]]* ']"""' -> skip, popMode ;
+MALFORMED_FENCE_END : ('[' ~[\r\n\]]* ']"""' | '"""[' ~[\r\n\]]* ']') -> skip, popMode ;
+MALFORMED_BLOCK_END : '"""' -> skip, popMode ;
 MALFORMED_FENCE_CONTENT : . -> skip ;
-
-mode STANDARD_BLOCK;
-
-LITERAL_STRING_BLOCK : '"""' -> popMode ;
-BLOCK_CONTENT        : . -> more ;
 ```
 
 ---
@@ -2811,7 +2811,6 @@ explicitEitherValue : (KW_RIGHT | KW_RIGHT_SHORT) value | (KW_LEFT | KW_LEFT_SHO
 explicitUnionValue  : UNION_TAG_PREFIX value ;
 
 stringLiteral : LITERAL_STRING_SIMPLE
-              | LITERAL_STRING_BLOCK
               | fencedString
               ;
 

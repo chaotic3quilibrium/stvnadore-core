@@ -669,8 +669,8 @@ public class StvnBinaryDecoder {
     int payloadOffset = dataStartOffset + 1;
     int payloadLength = totalLength - 1;
 
-    // 3. If it's FENCED (ordinal 2), we must skip over the Tag metadata
-    if (styleByte == 2) {
+    // 3. If it's FENCED (ordinal 1), we must skip over the Tag metadata
+    if (styleByte == StvnValue.StringStyle.FENCED.ordinal()) {
       int tagLen = Byte.toUnsignedInt(ctx.buffer().get(payloadOffset)) + 1;
       validateAllocationBounds(tagLen, ctx.buffer(), payloadOffset + 1);
 
@@ -940,7 +940,7 @@ public class StvnBinaryDecoder {
       int dataStartOffset = offset + lr.bytesConsumed();
       validateAllocationBounds(totalLength, ctx.buffer(), dataStartOffset);
 
-      // Read Style (0=SIMPLE, 1=BLOCK, 2=FENCED)
+      // Read Style (0=SIMPLE, 1=FENCED)
       byte styleByte = ctx.buffer().get(dataStartOffset);
       StvnValue.StringStyle style = StvnValue.StringStyle.values()[styleByte];
 

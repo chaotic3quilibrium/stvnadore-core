@@ -33,10 +33,10 @@
     9.5
     -50
     "server_node_01"
-    """
+    """[SCRIPT]
       Line 1 indented
         Line 2 further indented
-    """
+    [SCRIPT]"""
     3.141592653589793
     42
   )

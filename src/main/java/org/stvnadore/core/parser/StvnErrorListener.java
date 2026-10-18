@@ -368,6 +368,9 @@ public final class StvnErrorListener extends BaseErrorListener {
     if (tokenText.startsWith("\"\"\"->[")) {
       return "Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited";
     }
+    if (!tokenText.contains("[")) {
+      return "Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax \"\"\"[TAG]";
+    }
     int start = tokenText.indexOf('[');
     int end = tokenText.indexOf(']', start >= 0 ? start : 0);
     String tag = (start >= 0 && end > start) ? tokenText.substring(start + 1, end) : "";

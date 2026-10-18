@@ -483,33 +483,6 @@ class StvnTextPrinterTest {
         PrinterOptions.SumTypePolicy.HAPPY_PATH_INFERRED
     );
 
-    var matrixBlockStr = new VisualMatrix(
-        """
-            {
-              :type :String
-              :body ""\"
-                  Hello
-                  World
-                  ""\"
-            }
-            """,
-        optDefault,
-        """
-            {:type :String:body ""\"
-            Hello
-            World
-            ""\"}""",
-        """
-            {
-                :type :String
-                :body ""\"
-            Hello
-            World
-            ""\"
-            }"""
-    );
-    assertVisualLayout(matrixBlockStr);
-
     var matrixFencedStr = new VisualMatrix(
         """
             {
@@ -605,30 +578,30 @@ class StvnTextPrinterTest {
                 :preservedBlock { #preserveIndent #TRUE } :String
               }
               :type :preservedBlock
-              :body ""\"
+              :body ""\"[PRESERVED]
                   Line 1
                     Nested Indent
                   Line 3
-            ""\"
+            [PRESERVED]""\"
             }""",
         optDefault,
         """
-            {:defs{:preservedBlock{#preserveIndent #TRUE}:String}:type :preservedBlock:body ""\"
+            {:defs{:preservedBlock{#preserveIndent #TRUE}:String}:type :preservedBlock:body ""\"[PRESERVED]
                   Line 1
                     Nested Indent
                   Line 3
-            ""\"}""",
+            [PRESERVED]""\"}""",
         """
             {
                 :defs {
                     :preservedBlock {#preserveIndent #TRUE} :String
                 }
                 :type :preservedBlock
-                :body ""\"
+                :body ""\"[PRESERVED]
                   Line 1
                     Nested Indent
                   Line 3
-            ""\"
+            [PRESERVED]""\"
             }"""
     );
     assertVisualLayout(matrixPreserved);

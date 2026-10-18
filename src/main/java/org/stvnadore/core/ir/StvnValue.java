@@ -360,13 +360,11 @@ public sealed interface StvnValue {
   }
 
   /**
-   * Defines the layout style of string literals.
+   * Defines the layout style of string literals under the pure 2-tier string architecture.
    */
   enum StringStyle {
     /** Single-line double-quoted string. */
     SIMPLE,
-    /** Multi-line triple-quoted block string. */
-    BLOCK,
     /** Custom tagged multi-line fenced block string. */
     FENCED
   }
@@ -375,11 +373,11 @@ public sealed interface StvnValue {
    * Represents a character sequence literal payload.
    * <p>
    * Maps to STVN string typologies ({@code :String}, {@code { #minSize N #maxSize N } :String}, etc.), supporting
-   * multiple presentation styles (simple, block, fenced).
+   * 2-tier presentation styles (simple, fenced).
    *
    * @param schema   the resolved schema mapping this node
    * @param value    the non-null string content
-   * @param style    the formatting layout style (SIMPLE, BLOCK, FENCED)
+   * @param style    the formatting layout style (SIMPLE, FENCED)
    * @param fenceTag optional tag for fenced block styling (e.g. `markdown`)
    * @param trait    structural constraints (fixed length boundaries, non-emptiness checks)
    */

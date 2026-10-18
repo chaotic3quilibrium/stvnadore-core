@@ -115,6 +115,14 @@ class StvnLiteralParserTest {
   }
 
   @Test
+  void testUnfencedBlockStringProhibited() {
+    String untaggedBlock = "\"\"\"\nLine 1\nLine 2\n\"\"\"";
+    var ex = Assertions.assertThrows(IllegalArgumentException.class,
+        () -> StvnLiteralParser.parseStringNew(untaggedBlock, true));
+    Assertions.assertEquals("Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax \"\"\"[TAG]", ex.getMessage());
+  }
+
+  @Test
   void testFencedStringTagLengthBoundaries() {
     String tag256 = "A".repeat(256);
     String input256 = "\"\"\"[" + tag256 + "]\ncontent\n[" + tag256 + "]\"\"\"";

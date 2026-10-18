@@ -94,10 +94,6 @@ public final class CompactLayoutWriter implements LayoutWriter {
     writeToken("\"" + escapeString(s) + "\"");
   }
 
-  @Override
-  public void writeBlockString(String s) throws IOException {
-    writeToken("\"\"\"\n" + s + "\"\"\"");
-  }
 
   @Override
   public void openGroup(String delimiter) throws IOException {

@@ -28,10 +28,10 @@
   )
 
   :body (
-    """
+    """[TEXT]
       Indented block line 1
         Indented block line 2
-    """
+    [TEXT]"""
     8080
     199.99
     {

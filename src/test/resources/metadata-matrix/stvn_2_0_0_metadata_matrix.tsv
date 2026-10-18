@@ -62,7 +62,7 @@ Position	Category	Modifying	Tag Name	Parameter Kind	Parameter Range	Default	Over
 3.2	Bounds	:String	minExcl	:String	UTF-8 string literal, < maxIncl|maxExcl (ordinal UTF-8)	<None>	Yes	minIncl	Lexicographical interval; exclusive lower bound
 3.3	Bounds	:String	maxIncl	:String	UTF-8 string literal, > minIncl|minExcl (ordinal UTF-8)	<None>	Yes	maxExcl	Lexicographical interval; inclusive upper bound
 3.4	Bounds	:String	maxExcl	:String	UTF-8 string literal, > minIncl|minExcl (ordinal UTF-8)	<None>	Yes	maxIncl	Lexicographical interval; exclusive upper bound
-4.3	Constraint	:String	preserveIndent	:Boolean	b = :F|:T|:FALSE|:TRUE	:FALSE	Yes	N/A	Essentially only applicable to only Block and Fenced string literals
+4.3	Constraint	:String	preserveIndent	:Boolean	b = :F|:T|:FALSE|:TRUE	:FALSE	Yes	N/A	Essentially only applicable to Fenced string literals
 4.4	Constraint	:String	regex	:String	valid regular expression	<None>	Yes	N/A	Validates string value against compiled regular expression pattern
 2.1	Trait	:Enum	equatable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables structural value equality comparison
 2.2	Trait	:Enum	comparable	:Boolean	:F|:T|:FALSE|:TRUE	:TRUE	Yes	N/A	Enables total order comparison

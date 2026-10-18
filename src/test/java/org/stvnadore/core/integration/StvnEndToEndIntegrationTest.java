@@ -1006,8 +1006,8 @@ public class StvnEndToEndIntegrationTest {
                 """,
             "Constraint violation (:BoundedText): String length exceeds maximum length of 64 characters, got 65"),
 
-        TestProfile.create(
-            "String Literal Variations - Block for end on same line (#preserveIndent implicitly #FALSE)",
+        TestProfile.createError(
+            "String Literal Variations - Block for end on same line (#preserveIndent implicitly #FALSE) [PROHIBITED]",
             """
                 {
                   :defs {
@@ -1019,10 +1019,11 @@ public class StvnEndToEndIntegrationTest {
                     \"\"\"
                     hi1234\"\"\"
                   ]
-                }"""),
+                }""",
+            "STVN Syntax Error: Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax \"\"\"[TAG]"),
 
-        TestProfile.create(
-            "String Literal Variations - Block for end on next line (#preserveIndent implicitly #FALSE)",
+        TestProfile.createError(
+            "String Literal Variations - Block for end on next line (#preserveIndent implicitly #FALSE) [PROHIBITED]",
             """
                 {
                   :defs {
@@ -1035,10 +1036,11 @@ public class StvnEndToEndIntegrationTest {
                     hi1234
                     \"\"\"
                   ]
-                }"""),
+                }""",
+            "STVN Syntax Error: Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax \"\"\"[TAG]"),
 
-        TestProfile.create(
-            "String Literal Variations - Block for end on same line (#preserveIndent explicitly #TRUE)",
+        TestProfile.createError(
+            "String Literal Variations - Block for end on same line (#preserveIndent explicitly #TRUE) [PROHIBITED]",
             """
                 {
                   :defs {
@@ -1050,10 +1052,11 @@ public class StvnEndToEndIntegrationTest {
                     \"\"\"
                     hi1234\"\"\"
                   ]
-                }"""),
+                }""",
+            "STVN Syntax Error: Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax \"\"\"[TAG]"),
 
-        TestProfile.create(
-            "String Literal Variations - Block for end on next line (#preserveIndent explicitly #TRUE)",
+        TestProfile.createError(
+            "String Literal Variations - Block for end on next line (#preserveIndent explicitly #TRUE) [PROHIBITED]",
             """
                 {
                   :defs {
@@ -1066,7 +1069,8 @@ public class StvnEndToEndIntegrationTest {
                     hi1234
                     \"\"\"
                   ]
-                }"""),
+                }""",
+            "STVN Syntax Error: Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax \"\"\"[TAG]"),
 
         TestProfile.create(
             "String Literal Variations - Fenced for end on same line (#preserveIndent implicitly #FALSE)",
@@ -2217,7 +2221,7 @@ public class StvnEndToEndIntegrationTest {
 
   @org.junit.jupiter.api.Test
   public void testBlockStringCollapsingAndRetention() {
-      var ir1 = org.stvnadore.core.StvnCompiler.compilePayload("""
+      var res1 = org.stvnadore.core.StvnCompiler.compile("""
           {
             :type :String
             :body \"\"\"
@@ -2225,9 +2229,11 @@ public class StvnEndToEndIntegrationTest {
               world
             \"\"\"
           }
-          """).orElseThrow();
-      var canon1 = org.stvnadore.core.StvnCompiler.toCanonicalString(ir1);
-      org.junit.jupiter.api.Assertions.assertTrue(canon1.contains("\"hello\\nworld\\n\""));
+          """, "test.stvn", org.stvnadore.core.StvnParserConfig.DEFAULT);
+      org.junit.jupiter.api.Assertions.assertTrue(
+          res1.diagnostics().stream().anyMatch(d -> d.message().contains("Rule STR-04 violation")),
+          "Expected Rule STR-04 violation for unfenced block string"
+      );
 
       var ir2 = org.stvnadore.core.StvnCompiler.compilePayload("""
           {
@@ -2235,15 +2241,15 @@ public class StvnEndToEndIntegrationTest {
               :preserved { #preserveIndent #TRUE } :String
             }
             :type :preserved
-            :body \"\"\"
+            :body \"\"\"[TAG]
               helloPreserved
               worldPreserved
-            \"\"\"
+            [TAG]\"\"\"
           }
           """).orElseThrow();
       org.junit.jupiter.api.Assertions.assertNotNull(ir2);
       var canon2 = org.stvnadore.core.StvnCompiler.toCanonicalString(ir2);
-      org.junit.jupiter.api.Assertions.assertTrue(canon2.contains("\"\"\"\n"));
+      org.junit.jupiter.api.Assertions.assertTrue(canon2.contains("\"\"\"[TAG]\n"));
       org.junit.jupiter.api.Assertions.assertTrue(canon2.contains("helloPreserved"));
       org.junit.jupiter.api.Assertions.assertTrue(canon2.contains("worldPreserved"));
   }

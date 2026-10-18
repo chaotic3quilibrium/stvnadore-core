@@ -53,7 +53,6 @@ public final class PatternPrinterDispatcher {
         var text = (preserveIndent || style == StringStyle.SIMPLE) ? value : value.stripIndent();
         switch (style) {
           case SIMPLE -> layout.writeSimpleString(text);
-          case BLOCK -> layout.writeBlockString(text);
           case FENCED -> {
             var tag = fenceTag.orElse("FENCE");
             layout.writeLiteral("\"\"\"[" + tag + "]\n");

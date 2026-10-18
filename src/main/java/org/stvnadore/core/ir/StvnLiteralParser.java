@@ -195,7 +195,9 @@ public final class StvnLiteralParser {
       if (rawText.startsWith("\"\"\"->[")) {
         throw new IllegalArgumentException("Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited");
       }
-      boolean isFenced = rawText.startsWith("\"\"\"[");
+      if (!rawText.startsWith("\"\"\"[")) {
+        throw new IllegalArgumentException("Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax \"\"\"[TAG]");
+      }
       int newlineIndex = rawText.indexOf('\n');
 
       // Failsafe: if somehow a single-line block string snuck past the validator
@@ -208,28 +210,22 @@ public final class StvnLiteralParser {
       String payload;
 
       Optional<String> optionalOpeningTag = Optional.empty();
-      if (isFenced) {
-        int tagStart = rawText.indexOf('[');
-        int tagEnd = rawText.indexOf(']', tagStart);
-        if (tagStart == -1 || tagEnd == -1 || tagEnd <= tagStart) {
-          throw new IllegalArgumentException("Rule STR-04 violation: Malformed opening fence delimiter");
-        }
-        String openingTag = rawText.substring(tagStart + 1, tagEnd);
-        validateFenceTag(openingTag);
-        optionalOpeningTag = Optional.of(openingTag);
-        String expectedClosing = "[" + openingTag + "]\"\"\"";
-        payload = rawText.substring(newlineIndex + 1, rawText.length() - expectedClosing.length());
-      } else {
-        payload = rawText.substring(newlineIndex + 1, rawText.length() - 3);
+      int tagStart = rawText.indexOf('[');
+      int tagEnd = rawText.indexOf(']', tagStart);
+      if (tagStart == -1 || tagEnd == -1 || tagEnd <= tagStart) {
+        throw new IllegalArgumentException("Rule STR-04 violation: Malformed opening fence delimiter");
       }
+      String openingTag = rawText.substring(tagStart + 1, tagEnd);
+      validateFenceTag(openingTag);
+      optionalOpeningTag = Optional.of(openingTag);
+      String expectedClosing = "[" + openingTag + "]\"\"\"";
+      payload = rawText.substring(newlineIndex + 1, rawText.length() - expectedClosing.length());
+
       var resolvedPayload = preserveIndent
           ? payload
           : trimIndent(payload);
-      var resolvedStyle = isFenced
-          ? StvnValue.StringStyle.FENCED
-          : StvnValue.StringStyle.BLOCK;
 
-      return new ParsedString(resolvedPayload, resolvedStyle, optionalOpeningTag);
+      return new ParsedString(resolvedPayload, StvnValue.StringStyle.FENCED, optionalOpeningTag);
     } else if (rawText.startsWith("\"") && rawText.length() >= 2) {
       return new ParsedString(
           rawText.substring(1, rawText.length() - 1),

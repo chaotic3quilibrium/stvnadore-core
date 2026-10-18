@@ -413,9 +413,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
       case StvnString(var schema, var value, var style, var fenceTag, var trait) -> {
         var preserveIndent = (schema != null && schema.constraints().preserveIndent());
         if (preserveIndent) {
-          if (style == StringStyle.BLOCK) {
-            layout.writeBlockString(value);
-          } else if (style == StringStyle.FENCED) {
+          if (style == StringStyle.FENCED) {
             var tag = fenceTag.orElse("FENCE");
             layout.writeLiteral("\"\"\"[" + tag + "]\n");
             layout.writeLiteral(value);

@@ -64,13 +64,6 @@ public interface LayoutWriter {
    */
   void writeSimpleString(String s) throws IOException;
 
-  /**
-   * Writes a multi-line block string literal.
-   *
-   * @param s the string to write
-   * @throws IOException if a writing exception occurs
-   */
-  void writeBlockString(String s) throws IOException;
 
   /**
    * Writes an Option Some variant tag prefix.

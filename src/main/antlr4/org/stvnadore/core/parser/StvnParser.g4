@@ -167,7 +167,6 @@ explicitUnionValue  : UNION_TAG_PREFIX value ;
 
 stringLiteral
     : LITERAL_STRING_SIMPLE  # StringSimple
-    | LITERAL_STRING_BLOCK   # StringBlock
     | fencedString           # StringFenced
     ;
 

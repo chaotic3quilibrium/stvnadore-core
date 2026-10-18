@@ -52,9 +52,9 @@ class StvnTypeResolverRegressionTest {
     var input = """
         {
           :defs {
-            :MyString { #regex \"\"\"->hello
+            :MyString { #regex \"\"\"[TAG]
         my [content]
-        \"\"\" } :String
+        [TAG]\"\"\" } :String
           }
           :type :MyString
           :body "value"

@@ -1,0 +1,14 @@
+{
+  // unfenced_block_string_prohibited.contract.stvn
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #SYNTAX_ERROR
+    "Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax"
+    "java.lang.RuntimeException"
+  )
+}

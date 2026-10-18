@@ -7,7 +7,7 @@
 // TARGET-TYPE:        :String
 // FACET-NAME:         #preserveIndent
 // COVERAGE-KIND:      ISOLATED_VALID
-// DESCRIPTION:        Essentially only applicable to only Block and Fenced string literals
+// DESCRIPTION:        Essentially only applicable to Fenced string literals
 // ==============================================================================
 {
   :defs {

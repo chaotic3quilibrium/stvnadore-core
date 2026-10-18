@@ -133,13 +133,11 @@ PROHIBITED_FENCE_START : '"""->[' ~[\r\n]* '\n' {
     pushMode(MALFORMED_FENCED_STRING);
 } ;
 
-MALFORMED_FENCE_OPEN : '"""[' ~[\r\n]* '\n' {
+MALFORMED_FENCE_OPEN : '"""' ~[\r\n]* ('\n' | '"""' | EOF) {
     pushMode(MALFORMED_FENCED_STRING);
 } ;
 
 MALFORMED_FENCE_CLOSE : '[' ~[\r\n\]]* ']"""' ;
-
-BLOCK_STRING_TRIGGER : '"""' -> more, pushMode(STANDARD_BLOCK);
 
 // ============================================================================
 // 2. ISOLATED LEXER MODES
@@ -155,15 +153,8 @@ FENCE_CONTENT : . ;
 mode MALFORMED_FENCED_STRING;
 
 // Consume and skip the closing delimiter to return cleanly to DEFAULT_MODE
-MALFORMED_FENCE_END : '[' ~[\r\n\]]* ']"""' -> skip, popMode ;
+MALFORMED_FENCE_END : ('[' ~[\r\n\]]* ']"""' | '"""[' ~[\r\n\]]* ']') -> skip, popMode ;
+MALFORMED_BLOCK_END : '"""' -> skip, popMode ;
 
 // Silently skip body characters to prevent cascading syntax errors in DEFAULT_MODE
 MALFORMED_FENCE_CONTENT : . -> skip ;
-
-mode STANDARD_BLOCK;
-
-// Pops the mode and emits the accumulated text buffer as a single clean token
-LITERAL_STRING_BLOCK : '"""' -> popMode ;
-
-// Greedily collect multi-line characters into the current token buffer
-BLOCK_CONTENT : . -> more ;

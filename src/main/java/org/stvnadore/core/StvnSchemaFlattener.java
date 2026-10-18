@@ -1236,8 +1236,6 @@ public final class StvnSchemaFlattener {
       String escaped = escapeString(parsed.text());
       if (parsed.style() == org.stvnadore.core.ir.StvnValue.StringStyle.SIMPLE) {
         tokens.add("\"" + escaped + "\"");
-      } else if (parsed.style() == org.stvnadore.core.ir.StvnValue.StringStyle.BLOCK) {
-        tokens.add("\"\"\"\n" + parsed.text() + "\"\"\"");
       } else if (parsed.style() == org.stvnadore.core.ir.StvnValue.StringStyle.FENCED) {
         String tag = parsed.optionalFenceTag().orElse("FENCE");
         tokens.add("\"\"\"[" + tag + "]\n" + parsed.text() + "[" + tag + "]\"\"\"");

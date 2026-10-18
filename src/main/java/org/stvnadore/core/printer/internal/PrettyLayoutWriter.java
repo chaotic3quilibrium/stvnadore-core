@@ -91,13 +91,6 @@ public final class PrettyLayoutWriter implements LayoutWriter {
     writer.write("\"");
   }
 
-  @Override
-  public void writeBlockString(String s) throws IOException {
-    writeIndentIfNeeded();
-    writer.write("\"\"\"\n");
-    writer.write(s);
-    writer.write("\"\"\"");
-  }
 
   @Override
   public void openGroup(String delimiter) throws IOException {
