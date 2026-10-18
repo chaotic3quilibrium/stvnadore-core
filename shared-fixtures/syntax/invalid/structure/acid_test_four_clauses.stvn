@@ -1,0 +1,9 @@
+// @spec: SPEC-07-PINNING
+// @case: Negative - Acid test with all 4 incomplete clauses in minimal skeleton
+// @error: SYNTAX_ERROR
+{
+  :meta
+  :defs
+  :type
+  :body
+}

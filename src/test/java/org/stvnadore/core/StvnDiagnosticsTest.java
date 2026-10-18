@@ -964,4 +964,75 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals(0, diag.column());
     Assertions.assertTrue(diag.message().contains("Mandatory :meta block missing"));
   }
+
+  @Test
+  @DisplayName("Vector 2 Acid Test: { :meta :defs :type :body } produces exactly 4 pinned errors and 0 boundary errors")
+  void testAcidTestFourClauseErrorsPinned() {
+    String input = """
+        {
+          :meta
+          :defs
+          :type
+          :body
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(4, result.diagnostics().size(), "Must produce exactly 4 distinct clause errors");
+
+    var diags = result.diagnostics();
+    Assertions.assertEquals(input.indexOf(":meta"), diags.get(0).startOffset());
+    Assertions.assertEquals(input.indexOf(":meta") + ":meta".length(), diags.get(0).endOffset());
+    Assertions.assertTrue(diags.get(0).message().contains("clause ':meta' requires a metadata block '{ ... }'"));
+
+    Assertions.assertEquals(input.indexOf(":defs"), diags.get(1).startOffset());
+    Assertions.assertEquals(input.indexOf(":defs") + ":defs".length(), diags.get(1).endOffset());
+    Assertions.assertTrue(diags.get(1).message().contains("clause ':defs' requires definition block '{ ... }'"));
+
+    Assertions.assertEquals(input.indexOf(":type"), diags.get(2).startOffset());
+    Assertions.assertEquals(input.indexOf(":type") + ":type".length(), diags.get(2).endOffset());
+    Assertions.assertTrue(diags.get(2).message().contains("clause ':type' requires a schema type"));
+
+    Assertions.assertEquals(input.indexOf(":body"), diags.get(3).startOffset());
+    Assertions.assertEquals(input.indexOf(":body") + ":body".length(), diags.get(3).endOffset());
+    Assertions.assertTrue(diags.get(3).message().contains("clause ':body' requires a value payload"));
+  }
+
+  @Test
+  @DisplayName("Vector 1: Typo lookahead after clause pins blame strictly to preceding clause keyword")
+  void testTypoLookaheadPinsToPrecedingClause() {
+    String input = """
+        {
+          :meta
+          :def
+          :type
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    var firstDiag = result.diagnostics().getFirst();
+    Assertions.assertEquals(input.indexOf(":meta"), firstDiag.startOffset(), "Blame must pin strictly to :meta");
+    Assertions.assertEquals(input.indexOf(":meta") + ":meta".length(), firstDiag.endOffset());
+    Assertions.assertTrue(firstDiag.message().contains("clause ':meta' requires a metadata block '{ ... }'"));
+  }
+
+  @Test
+  @DisplayName("Vector 3: Empty blocks reported alongside downstream syntax errors")
+  void testEmptyBlocksReportedAlongsideDownstreamSyntaxErrors() {
+    String input = """
+        {
+          :meta {}
+          :defs {}
+          :type
+          :body
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(4, result.diagnostics().size(), "Must report 2 empty block errors and 2 syntax errors simultaneously");
+    var codes = result.diagnostics().stream().map(d -> d.errorCode().orElse("")).toList();
+    Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_EMPTY_METADATA_BLOCK));
+    Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_EMPTY_DEFS_BLOCK));
+    Assertions.assertTrue(codes.contains("STVN_SYNTAX_ERROR"));
+  }
 }

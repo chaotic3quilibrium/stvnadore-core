@@ -1,0 +1,8 @@
+// @spec: SPEC-07-PINNING
+// @case: Negative - Typo keyword following :meta must pin blame to :meta
+// @error: SYNTAX_ERROR
+{
+  :meta
+  :def
+  :type
+}

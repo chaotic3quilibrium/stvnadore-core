@@ -25,50 +25,50 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
     if (inErrorRecoveryMode(recognizer)) {
       return;
     }
-    beginErrorCondition(recognizer);
 
-    if (e instanceof InputMismatchException ime) {
-      reportInputMismatchCustom(recognizer, ime);
-    } else {
-      super.reportError(recognizer, e);
+    if (reportClauseErrorCustom(recognizer, e)) {
+      beginErrorCondition(recognizer);
+      return;
     }
+
+    super.reportError(recognizer, e);
   }
 
-  private void reportInputMismatchCustom(Parser recognizer, InputMismatchException e) {
+  private boolean reportClauseErrorCustom(Parser recognizer, RecognitionException e) {
     Token offendingToken = e.getOffendingToken();
     RuleContext ctx = recognizer.getContext();
     TokenStream stream = recognizer.getTokenStream();
     Token prevToken = stream.LT(-1);
 
-    // Pinning Vector 1: In defsEntry, expecting LBRACE, but encountered KW_TYPE, KW_BODY, or RBRACE
-    if (isDefsContext(ctx, prevToken) && isClauseOrBoundaryToken(offendingToken)) {
+    // Pinning Vector 1: In defsEntry, expecting LBRACE; attribute blame unconditionally to KW_DEFS
+    if (isDefsContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE)) {
       String msg = "clause ':defs' requires definition block '{ ... }'";
       recognizer.notifyErrorListeners(prevToken != null ? prevToken : offendingToken, msg, e);
-      return;
+      return true;
     }
 
-    // Pinning Vector 2: In typeEntry, expecting schemaType, but encountered KW_BODY or RBRACE
-    if (isTypeContext(ctx, prevToken) && (isBodyToken(offendingToken) || isBoundaryToken(offendingToken))) {
-      String msg = "clause ':type' requires a schema type";
-      recognizer.notifyErrorListeners(prevToken != null ? prevToken : offendingToken, msg, e);
-      return;
-    }
-
-    // Pinning Vector 3: In bodyEntry, expecting value, but encountered RBRACE
-    if (isBodyContext(ctx, prevToken) && isBoundaryToken(offendingToken)) {
-      String msg = "clause ':body' requires a value payload";
-      recognizer.notifyErrorListeners(prevToken != null ? prevToken : offendingToken, msg, e);
-      return;
-    }
-
-    // Pinning Vector 4: In metaEntry, expecting metaBlock, but encountered KW_DEFS, KW_TYPE, or RBRACE
-    if (isMetaContext(ctx, prevToken) && isClauseOrBoundaryToken(offendingToken)) {
+    // Pinning Vector 2: In metaEntry, expecting LBRACE; attribute blame unconditionally to KW_META
+    if (isMetaContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE)) {
       String msg = "clause ':meta' requires a metadata block '{ ... }'";
       recognizer.notifyErrorListeners(prevToken != null ? prevToken : offendingToken, msg, e);
-      return;
+      return true;
     }
 
-    super.reportInputMismatch(recognizer, e);
+    // Pinning Vector 3: In typeEntry, expecting schemaType; attribute blame unconditionally to KW_TYPE
+    if (isTypeContext(ctx, prevToken) && (offendingToken == null || !isValidSchemaTypeStarter(offendingToken))) {
+      String msg = "clause ':type' requires a schema type";
+      recognizer.notifyErrorListeners(prevToken != null ? prevToken : offendingToken, msg, e);
+      return true;
+    }
+
+    // Pinning Vector 4: In bodyEntry, expecting value; attribute blame unconditionally to KW_BODY
+    if (isBodyContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() == StvnParser.RBRACE || offendingToken.getType() == Token.EOF || isTopLevelKeyword(offendingToken))) {
+      String msg = "clause ':body' requires a value payload";
+      recognizer.notifyErrorListeners(prevToken != null ? prevToken : offendingToken, msg, e);
+      return true;
+    }
+
+    return false;
   }
 
   @Override
@@ -78,17 +78,17 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
     TokenStream stream = recognizer.getTokenStream();
     Token prevToken = stream.LT(-1);
 
-    // Non-destructive recovery: Do NOT consume following clause keywords or boundary braces!
-    if (isDefsContext(ctx, prevToken) && isClauseOrBoundaryToken(offendingToken)) {
+    // Non-destructive recovery: Do NOT consume following tokens; pop rule cleanly
+    if (isDefsContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE)) {
       return;
     }
-    if (isTypeContext(ctx, prevToken) && (isBodyToken(offendingToken) || isBoundaryToken(offendingToken))) {
+    if (isMetaContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE)) {
       return;
     }
-    if (isBodyContext(ctx, prevToken) && isBoundaryToken(offendingToken)) {
+    if (isTypeContext(ctx, prevToken) && (offendingToken == null || !isValidSchemaTypeStarter(offendingToken))) {
       return;
     }
-    if (isMetaContext(ctx, prevToken) && isClauseOrBoundaryToken(offendingToken)) {
+    if (isBodyContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() == StvnParser.RBRACE || offendingToken.getType() == Token.EOF || isTopLevelKeyword(offendingToken))) {
       return;
     }
 
@@ -102,9 +102,11 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
     Token prevToken = stream.LT(-1);
     RuleContext ctx = recognizer.getContext();
 
-    // Prevent single-token deletion from swallowing subsequent clause keywords
-    if ((isDefsContext(ctx, prevToken) || isTypeContext(ctx, prevToken) || isBodyContext(ctx, prevToken) || isMetaContext(ctx, prevToken))
-        && (isClauseOrBoundaryToken(offendingToken) || isBodyToken(offendingToken))) {
+    // Prevent single-token deletion from swallowing subsequent clause tokens or typos
+    if ((isDefsContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE))
+        || (isMetaContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE))
+        || (isTypeContext(ctx, prevToken) && (offendingToken == null || !isValidSchemaTypeStarter(offendingToken)))
+        || (isBodyContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() == StvnParser.RBRACE || offendingToken.getType() == Token.EOF || isTopLevelKeyword(offendingToken)))) {
       InputMismatchException e = new InputMismatchException(recognizer);
       reportError(recognizer, e);
       throw e;
@@ -114,43 +116,48 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
   }
 
   private static boolean isDefsContext(RuleContext ctx, @Nullable Token prevToken) {
-    return ctx instanceof StvnParser.DefsEntryContext
-        || (prevToken != null && prevToken.getType() == StvnParser.KW_DEFS);
+    return prevToken != null && prevToken.getType() == StvnParser.KW_DEFS;
   }
 
   private static boolean isTypeContext(RuleContext ctx, @Nullable Token prevToken) {
-    return ctx instanceof StvnParser.TypeEntryContext
-        || (prevToken != null && prevToken.getType() == StvnParser.KW_TYPE);
+    return prevToken != null && prevToken.getType() == StvnParser.KW_TYPE;
   }
 
   private static boolean isBodyContext(RuleContext ctx, @Nullable Token prevToken) {
-    return ctx instanceof StvnParser.BodyEntryContext
-        || (prevToken != null && prevToken.getType() == StvnParser.KW_BODY);
+    return prevToken != null && prevToken.getType() == StvnParser.KW_BODY;
   }
 
   private static boolean isMetaContext(RuleContext ctx, @Nullable Token prevToken) {
-    return ctx instanceof StvnParser.MetaEntryContext
-        || (prevToken != null && prevToken.getType() == StvnParser.KW_META);
+    return prevToken != null && prevToken.getType() == StvnParser.KW_META;
   }
 
-  private static boolean isClauseOrBoundaryToken(@Nullable Token token) {
+  public static boolean isValidSchemaTypeStarter(@Nullable Token token) {
+    if (token == null) return false;
+    int type = token.getType();
+    return type == StvnParser.LBRACE
+        || type == StvnParser.KW_TUPLE
+        || type == StvnParser.KW_ENUM
+        || type == StvnParser.KW_OPTION
+        || type == StvnParser.KW_EITHER
+        || type == StvnParser.KW_UNION
+        || type == StvnParser.ATOM_BOOLEAN
+        || type == StvnParser.ATOM_INT
+        || type == StvnParser.ATOM_FLOAT
+        || type == StvnParser.ATOM_STRING
+        || type == StvnParser.ATOM_TIME_EPOCH
+        || type == StvnParser.ATOM_DATE_TIME
+        || type == StvnParser.COLL_SEQ
+        || type == StvnParser.COLL_SET
+        || type == StvnParser.COLL_MAP
+        || type == StvnParser.TYPE_KEYWORD_BASE;
+  }
+
+  public static boolean isTopLevelKeyword(@Nullable Token token) {
     if (token == null) return false;
     int type = token.getType();
     return type == StvnParser.KW_META
         || type == StvnParser.KW_DEFS
         || type == StvnParser.KW_TYPE
-        || type == StvnParser.KW_BODY
-        || type == StvnParser.RBRACE
-        || type == Token.EOF;
-  }
-
-  private static boolean isBodyToken(@Nullable Token token) {
-    return token != null && token.getType() == StvnParser.KW_BODY;
-  }
-
-  private static boolean isBoundaryToken(@Nullable Token token) {
-    if (token == null) return false;
-    int type = token.getType();
-    return type == StvnParser.RBRACE || type == Token.EOF;
+        || type == StvnParser.KW_BODY;
   }
 }

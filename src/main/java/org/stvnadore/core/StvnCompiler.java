@@ -106,10 +106,6 @@ public final class StvnCompiler {
     try {
       var docCtx = parser.stvnDocument();
 
-      if (diagnosticBag.hasErrors()) {
-        return StvnCompilationResult.failure(diagnosticBag.toList());
-      }
-
       if (docPath != null) {
         org.stvnadore.core.validation.StvnTypeResolver.documentPaths.put(docCtx, docPath);
       }
@@ -119,6 +115,10 @@ public final class StvnCompiler {
         org.stvnadore.core.validation.StvnTypeResolver.validateDocumentConstraints(docCtx, diagnosticBag);
       } catch (Throwable t) {
         mapSemanticException(t, input, diagnosticBag);
+      }
+
+      if (diagnosticBag.hasErrors()) {
+        return StvnCompilationResult.failure(diagnosticBag.toList());
       }
 
       if (docCtx.documentBody() == null || (docCtx.documentBody().metaEntry() == null && docCtx.documentBody().defsEntry() == null && docCtx.documentBody().bodyEntry() == null)) {
@@ -180,26 +180,24 @@ public final class StvnCompiler {
         var stream = parser.getTokenStream();
         if (stream != null && token != null) {
           int idx = token.getTokenIndex();
-          if (idx > 0) {
+          if (idx > 0 && token.getType() != StvnLexer.KW_DEFS
+                      && token.getType() != StvnLexer.KW_TYPE
+                      && token.getType() != StvnLexer.KW_BODY
+                      && token.getType() != StvnLexer.KW_META) {
             Token prev = stream.get(idx - 1);
             int prevType = prev.getType();
-            if (prevType == StvnLexer.KW_DEFS || prevType == StvnLexer.KW_TYPE
-                || prevType == StvnLexer.KW_BODY || prevType == StvnLexer.KW_META) {
-              int curType = token.getType();
-              if (curType == StvnLexer.KW_META || curType == StvnLexer.KW_DEFS
-                  || curType == StvnLexer.KW_TYPE || curType == StvnLexer.KW_BODY
-                  || curType == StvnLexer.RBRACE || curType == Token.EOF) {
-                token = prev;
-                if (prevType == StvnLexer.KW_DEFS) {
-                  msg = "STVN Syntax Error: clause ':defs' requires definition block '{ ... }'";
-                } else if (prevType == StvnLexer.KW_TYPE) {
-                  msg = "STVN Syntax Error: clause ':type' requires a schema type";
-                } else if (prevType == StvnLexer.KW_BODY) {
-                  msg = "STVN Syntax Error: clause ':body' requires a value payload";
-                } else if (prevType == StvnLexer.KW_META) {
-                  msg = "STVN Syntax Error: clause ':meta' requires a metadata block '{ ... }'";
-                }
-              }
+            if (prevType == StvnLexer.KW_DEFS && token.getType() != StvnLexer.LBRACE) {
+              token = prev;
+              msg = "STVN Syntax Error: clause ':defs' requires definition block '{ ... }'";
+            } else if (prevType == StvnLexer.KW_META && token.getType() != StvnLexer.LBRACE) {
+              token = prev;
+              msg = "STVN Syntax Error: clause ':meta' requires a metadata block '{ ... }'";
+            } else if (prevType == StvnLexer.KW_TYPE && !org.stvnadore.core.parser.StvnErrorStrategy.isValidSchemaTypeStarter(token)) {
+              token = prev;
+              msg = "STVN Syntax Error: clause ':type' requires a schema type";
+            } else if (prevType == StvnLexer.KW_BODY && (token.getType() == StvnLexer.RBRACE || token.getType() == Token.EOF || org.stvnadore.core.parser.StvnErrorStrategy.isTopLevelKeyword(token))) {
+              token = prev;
+              msg = "STVN Syntax Error: clause ':body' requires a value payload";
             }
           }
         }

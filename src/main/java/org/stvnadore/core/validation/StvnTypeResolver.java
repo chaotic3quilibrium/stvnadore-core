@@ -3774,11 +3774,11 @@ public class StvnTypeResolver {
     }
 
     var metaBlock = metaEntry.metaBlock();
-    if (metaBlock == null || metaBlock.metaElement() == null || metaBlock.metaElement().isEmpty()) {
-      int start = metaBlock != null && metaBlock.getStart() != null ? metaBlock.getStart().getStartIndex() : metaEntry.getStart().getStartIndex();
-      int stop = metaBlock != null && metaBlock.getStop() != null ? metaBlock.getStop().getStopIndex() + 1 : metaEntry.getStop().getStopIndex() + 1;
-      int line = metaBlock != null && metaBlock.getStart() != null ? metaBlock.getStart().getLine() : metaEntry.getStart().getLine();
-      int col = metaBlock != null && metaBlock.getStart() != null ? metaBlock.getStart().getCharPositionInLine() : metaEntry.getStart().getCharPositionInLine();
+    if (metaBlock != null && metaBlock.LBRACE() != null && metaBlock.RBRACE() != null && (metaBlock.metaElement() == null || metaBlock.metaElement().isEmpty())) {
+      int start = metaBlock.LBRACE().getSymbol().getStartIndex();
+      int stop = metaBlock.RBRACE().getSymbol().getStopIndex() + 1;
+      int line = metaBlock.LBRACE().getSymbol().getLine();
+      int col = metaBlock.LBRACE().getSymbol().getCharPositionInLine();
       diagnosticBag.addError(
           "Metadata block ':meta {}' must not be empty",
           start,
@@ -3788,6 +3788,9 @@ public class StvnTypeResolver {
           null,
           DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
       );
+      return;
+    }
+    if (metaBlock == null || metaBlock.LBRACE() == null) {
       return;
     }
 
@@ -4127,7 +4130,7 @@ public class StvnTypeResolver {
     validateDocumentIdentity(doc, currentDocPath, diagnosticBag);
     getDocumentDefinitions(doc, diagnosticBag);
     var defsEntry = doc.documentBody().defsEntry();
-    if (defsEntry != null && defsEntry.defsElement() != null) {
+    if (defsEntry != null && defsEntry.LBRACE() != null && defsEntry.RBRACE() != null && defsEntry.defsElement() != null) {
       if (defsEntry.defsElement().isEmpty()) {
         boolean isSchemaDoc = (currentDocPath != null && (currentDocPath.endsWith(".stvn_d") || currentDocPath.endsWith(".stvn_di")))
             || (doc.documentBody().typeEntry() == null && doc.documentBody().bodyEntry() == null);
@@ -4169,57 +4172,59 @@ public class StvnTypeResolver {
     }
     if (doc.documentBody().typeEntry() != null) {
       var rootSchema = doc.documentBody().typeEntry().schemaType();
-      if (doc != StvnPrelude.getPreludeDocument()) {
-        validateTemporalTypeConstraints(rootSchema, rootSchema.metadataMap(), null, diagnosticBag);
-      }
-      Optional<ResolvedSchema> resolvedOpt = Optional.empty();
-      try {
-        resolvedOpt = resolvePrimitiveSchema(doc, rootSchema, new java.util.HashSet<>(), diagnosticBag);
-      } catch (MalformedSchemaException e) {
-        int start = e.startOffset() >= 0 ? e.startOffset() : rootSchema.getStart().getStartIndex();
-        int end = e.endOffset() >= 0 ? e.endOffset() : rootSchema.getStop().getStopIndex() + 1;
-        int line = rootSchema.getStart().getLine();
-        int col = rootSchema.getStart().getCharPositionInLine();
-        String msg = e.getMessage() != null ? e.getMessage() : "";
-        String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
-        if (msg.contains("requires a scale facet")) {
-          code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
-        } else if (msg.contains("requires exactly one mode facet")) {
-          code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
-        } else if (msg.contains("prelude") && msg.contains("purged")) {
-          code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
-        } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
-          code = DiagnosticBag.ERR_UNDEFINED_TYPE;
-        } else if (msg.contains("filter facets")) {
-          code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
-        } else if (msg.contains("require types to be #equatable #TRUE")) {
-          code = DiagnosticBag.ERR_TRAIT_VIOLATION;
+      if (rootSchema != null) {
+        if (doc != StvnPrelude.getPreludeDocument()) {
+          validateTemporalTypeConstraints(rootSchema, rootSchema.metadataMap(), null, diagnosticBag);
         }
-        diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
-      } catch (CircularReferenceException e) {
-        int start = rootSchema.getStart().getStartIndex();
-        int end = rootSchema.getStop().getStopIndex() + 1;
-        int line = rootSchema.getStart().getLine();
-        int col = rootSchema.getStart().getCharPositionInLine();
-        diagnosticBag.addError(e.getMessage(), start, end, line, col, e, DiagnosticBag.ERR_CIRCULAR_TYPE);
-      }
-      if (rootSchema.metadataMap() != null) {
-        if (rootSchema.metadataMap().metadataEntry().isEmpty() && !hasUnknownMetadataEntries(rootSchema.metadataMap())) {
-          diagnosticBag.addError(
-              "Empty metadata block is invalid; remove '{}' or specify valid facets",
-              rootSchema.metadataMap().getStart().getStartIndex(),
-              rootSchema.metadataMap().getStop().getStopIndex() + 1,
-              rootSchema.metadataMap().getStart().getLine(),
-              rootSchema.metadataMap().getStart().getCharPositionInLine(),
-              null,
-              DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
-          );
+        Optional<ResolvedSchema> resolvedOpt = Optional.empty();
+        try {
+          resolvedOpt = resolvePrimitiveSchema(doc, rootSchema, new java.util.HashSet<>(), diagnosticBag);
+        } catch (MalformedSchemaException e) {
+          int start = e.startOffset() >= 0 ? e.startOffset() : rootSchema.getStart().getStartIndex();
+          int end = e.endOffset() >= 0 ? e.endOffset() : rootSchema.getStop().getStopIndex() + 1;
+          int line = rootSchema.getStart().getLine();
+          int col = rootSchema.getStart().getCharPositionInLine();
+          String msg = e.getMessage() != null ? e.getMessage() : "";
+          String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
+          if (msg.contains("requires a scale facet")) {
+            code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
+          } else if (msg.contains("requires exactly one mode facet")) {
+            code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
+          } else if (msg.contains("prelude") && msg.contains("purged")) {
+            code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
+          } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
+            code = DiagnosticBag.ERR_UNDEFINED_TYPE;
+          } else if (msg.contains("filter facets")) {
+            code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
+          } else if (msg.contains("require types to be #equatable #TRUE")) {
+            code = DiagnosticBag.ERR_TRAIT_VIOLATION;
+          }
+          diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
+        } catch (CircularReferenceException e) {
+          int start = rootSchema.getStart().getStartIndex();
+          int end = rootSchema.getStop().getStopIndex() + 1;
+          int line = rootSchema.getStart().getLine();
+          int col = rootSchema.getStart().getCharPositionInLine();
+          diagnosticBag.addError(e.getMessage(), start, end, line, col, e, DiagnosticBag.ERR_CIRCULAR_TYPE);
         }
-        var base = getPrimitiveBaseType(rootSchema);
-        validateMetadataMapConstraints(base != null ? base : rootSchema.getText(), rootSchema.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
-      }
-      if (resolvedOpt.isPresent()) {
-        validateSchemaCapabilities(doc, rootSchema, new java.util.HashSet<>(), diagnosticBag);
+        if (rootSchema.metadataMap() != null) {
+          if (rootSchema.metadataMap().metadataEntry().isEmpty() && !hasUnknownMetadataEntries(rootSchema.metadataMap())) {
+            diagnosticBag.addError(
+                "Empty metadata block is invalid; remove '{}' or specify valid facets",
+                rootSchema.metadataMap().getStart().getStartIndex(),
+                rootSchema.metadataMap().getStop().getStopIndex() + 1,
+                rootSchema.metadataMap().getStart().getLine(),
+                rootSchema.metadataMap().getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
+            );
+          }
+          var base = getPrimitiveBaseType(rootSchema);
+          validateMetadataMapConstraints(base != null ? base : rootSchema.getText(), rootSchema.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
+        }
+        if (resolvedOpt.isPresent()) {
+          validateSchemaCapabilities(doc, rootSchema, new java.util.HashSet<>(), diagnosticBag);
+        }
       }
     }
   }

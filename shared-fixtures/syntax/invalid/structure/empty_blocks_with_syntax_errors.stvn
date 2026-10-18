@@ -1,0 +1,9 @@
+// @spec: SPEC-03-EMPTY-BLOCKS
+// @case: Negative - Empty metadata and defs blocks alongside downstream syntax errors
+// @error: SYNTAX_ERROR
+{
+  :meta {}
+  :defs {}
+  :type
+  :body
+}

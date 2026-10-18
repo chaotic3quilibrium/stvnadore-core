@@ -145,7 +145,7 @@ class AstPrinterTest {
         {
           :meta {
             #name "test-doc"
-            #domain "org.stvnadore"
+            #domain "org_stvnadore"
             #kind #BODY
           }
           :type :Int

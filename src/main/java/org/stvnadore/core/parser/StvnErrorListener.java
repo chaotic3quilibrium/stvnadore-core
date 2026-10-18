@@ -100,30 +100,40 @@ public final class StvnErrorListener extends BaseErrorListener {
             endOffset = prev.getStopIndex() + 1;
             line = prev.getLine();
             charPositionInLine = prev.getCharPositionInLine();
-          } else if (idx > 0) {
+          } else if (idx > 0 && token.getType() != StvnLexer.KW_DEFS
+                             && token.getType() != StvnLexer.KW_TYPE
+                             && token.getType() != StvnLexer.KW_BODY
+                             && token.getType() != StvnLexer.KW_META) {
             Token prev = stream.get(idx - 1);
             int prevType = prev.getType();
-            if (prevType == StvnLexer.KW_DEFS || prevType == StvnLexer.KW_TYPE
-                || prevType == StvnLexer.KW_BODY || prevType == StvnLexer.KW_META) {
-              int curType = token.getType();
-              if (curType == StvnLexer.KW_META || curType == StvnLexer.KW_DEFS
-                  || curType == StvnLexer.KW_TYPE || curType == StvnLexer.KW_BODY
-                  || curType == StvnLexer.RBRACE || curType == Token.EOF) {
-                offendingToken = prev;
-                startOffset = prev.getStartIndex();
-                endOffset = prev.getStopIndex() + 1;
-                line = prev.getLine();
-                charPositionInLine = prev.getCharPositionInLine();
-                if (prevType == StvnLexer.KW_DEFS) {
-                  rawMsg = "clause ':defs' requires definition block '{ ... }'";
-                } else if (prevType == StvnLexer.KW_TYPE) {
-                  rawMsg = "clause ':type' requires a schema type";
-                } else if (prevType == StvnLexer.KW_BODY) {
-                  rawMsg = "clause ':body' requires a value payload";
-                } else if (prevType == StvnLexer.KW_META) {
-                  rawMsg = "clause ':meta' requires a metadata block '{ ... }'";
-                }
-              }
+            if (prevType == StvnLexer.KW_DEFS && token.getType() != StvnLexer.LBRACE) {
+              offendingToken = prev;
+              startOffset = prev.getStartIndex();
+              endOffset = prev.getStopIndex() + 1;
+              line = prev.getLine();
+              charPositionInLine = prev.getCharPositionInLine();
+              rawMsg = "clause ':defs' requires definition block '{ ... }'";
+            } else if (prevType == StvnLexer.KW_META && token.getType() != StvnLexer.LBRACE) {
+              offendingToken = prev;
+              startOffset = prev.getStartIndex();
+              endOffset = prev.getStopIndex() + 1;
+              line = prev.getLine();
+              charPositionInLine = prev.getCharPositionInLine();
+              rawMsg = "clause ':meta' requires a metadata block '{ ... }'";
+            } else if (prevType == StvnLexer.KW_TYPE && !StvnErrorStrategy.isValidSchemaTypeStarter(token)) {
+              offendingToken = prev;
+              startOffset = prev.getStartIndex();
+              endOffset = prev.getStopIndex() + 1;
+              line = prev.getLine();
+              charPositionInLine = prev.getCharPositionInLine();
+              rawMsg = "clause ':type' requires a schema type";
+            } else if (prevType == StvnLexer.KW_BODY && (token.getType() == StvnLexer.RBRACE || token.getType() == Token.EOF || StvnErrorStrategy.isTopLevelKeyword(token))) {
+              offendingToken = prev;
+              startOffset = prev.getStartIndex();
+              endOffset = prev.getStopIndex() + 1;
+              line = prev.getLine();
+              charPositionInLine = prev.getCharPositionInLine();
+              rawMsg = "clause ':body' requires a value payload";
             }
           }
         }
