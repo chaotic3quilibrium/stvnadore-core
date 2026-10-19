@@ -704,4 +704,163 @@ class StvnTypeResolverRegressionTest {
     Assertions.assertTrue(result.isSuccess(), "Compilation must succeed");
     Assertions.assertInstanceOf(StvnValue.StvnInteger.class, result.document().orElseThrow().requirePayload());
   }
+
+  @Test
+  @DisplayName("TC-PRELUDE-USE-01: Scoped :use import of :IPv4 compiles cleanly and enforces regex")
+  void testScopedPreludeUseIPv4RegexConstraint() {
+    // Happy path: valid IPv4 string passes cleanly
+    String validSource = """
+        {
+          :defs {
+            :use [ :org/stvnadore/prelude { :IPv4 :IPv4 } ]
+            :A :IPv4
+          }
+          :type :A
+          :body "127.0.0.1"
+        }
+        """;
+    var validResult = StvnCompiler.compileToResult(validSource, null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(validResult.isSuccess(), "Scoped :use import of :IPv4 must compile cleanly: " + validResult.diagnostics());
+
+    // Negative path: empty string violates #minSize 7
+    String emptySource = """
+        {
+          :defs {
+            :use [ :org/stvnadore/prelude { :IPv4 :IPv4 } ]
+            :A :IPv4
+          }
+          :type :A
+          :body ""
+        }
+        """;
+    var emptyResult = StvnCompiler.compileToResult(emptySource, null, StvnParserConfig.DEFAULT);
+    Assertions.assertFalse(emptyResult.isSuccess(), "Empty string must violate #minSize constraint for :IPv4");
+    Assertions.assertTrue(emptyResult.diagnostics().stream().anyMatch(d ->
+        d.message().contains("String cannot be empty") || d.message().contains("minSize")),
+        "Must record constraint violation for empty string: " + emptyResult.diagnostics());
+
+    // Negative path: invalid IPv4 pattern violates #regex
+    String invalidPatternSource = """
+        {
+          :defs {
+            :use [ :org/stvnadore/prelude { :IPv4 :IPv4 } ]
+            :A :IPv4
+          }
+          :type :A
+          :body "999.999.999.999"
+        }
+        """;
+    var patternResult = StvnCompiler.compileToResult(invalidPatternSource, null, StvnParserConfig.DEFAULT);
+    Assertions.assertFalse(patternResult.isSuccess(), "Malformed IP address must violate regex pattern for :IPv4");
+    Assertions.assertTrue(patternResult.diagnostics().stream().anyMatch(d ->
+        d.message().contains("pattern") || d.message().contains("regex")),
+        "Must record regex violation: " + patternResult.diagnostics());
+  }
+
+  @Test
+  @DisplayName("TC-PRELUDE-USE-02: Scoped :use import of :Port compiles cleanly and enforces numeric bounds")
+  void testScopedPreludeUsePortBoundsConstraint() {
+    // Happy path: valid port integer passes cleanly
+    String validSource = """
+        {
+          :defs {
+            :use [ :org/stvnadore/prelude { :Port :Port } ]
+            :A :Port
+          }
+          :type :A
+          :body 8080
+        }
+        """;
+    var validResult = StvnCompiler.compileToResult(validSource, null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(validResult.isSuccess(), "Scoped :use import of :Port must compile cleanly: " + validResult.diagnostics());
+
+    // Negative path: 70000 exceeds 16-bit unsigned integer capacity (0 to 65535)
+    String overflowSource = """
+        {
+          :defs {
+            :use [ :org/stvnadore/prelude { :Port :Port } ]
+            :A :Port
+          }
+          :type :A
+          :body 70000
+        }
+        """;
+    var overflowResult = StvnCompiler.compileToResult(overflowSource, null, StvnParserConfig.DEFAULT);
+    Assertions.assertFalse(overflowResult.isSuccess(), "Port 70000 must violate bounds for 16-bit Port");
+    Assertions.assertTrue(overflowResult.diagnostics().stream().anyMatch(d ->
+        DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) || d.message().contains("out of bounds")),
+        "Must record integer overflow diagnostic: " + overflowResult.diagnostics());
+  }
+
+  @Test
+  @DisplayName("TC-PRELUDE-USE-03: Scoped :use with #strip option resolves prelude symbols")
+  void testScopedPreludeUseStripOption() {
+    String source = """
+        {
+          :defs {
+            :use [ :org/stvnadore/prelude { #strip } ]
+            :MyAddress :IPv4
+            :MyPort :Port
+          }
+          :type :Tuple( :MyAddress :MyPort )
+          :body ( "10.0.0.1" 443 )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.isSuccess(), "Scoped :use with #strip must resolve :IPv4 and :Port: " + result.diagnostics());
+  }
+
+  @Test
+  @DisplayName("TC-PRELUDE-USE-04: Explicit alias mapping renames prelude type cleanly")
+  void testScopedPreludeUseRenamedAlias() {
+    String source = """
+        {
+          :defs {
+            :use [ :org/stvnadore/prelude { :IPv4 :LocalIPv4 } ]
+            :A :LocalIPv4
+          }
+          :type :A
+          :body "172.16.0.1"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.isSuccess(), "Renamed alias :LocalIPv4 must compile cleanly: " + result.diagnostics());
+  }
+
+  @Test
+  @DisplayName("TC-PRELUDE-USE-05: Subpackage import :org/stvnadore/prelude/meta resolves substrate types")
+  void testScopedPreludeUseSubpackageMeta() {
+    String source = """
+        {
+          :defs {
+            :use [ :org/stvnadore/prelude/meta { #strip } ]
+            :Kind :StvnDocumentKind
+          }
+          :type :Kind
+          :body #BODY
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.isSuccess(), "Subpackage import must resolve :StvnDocumentKind: " + result.diagnostics());
+  }
+
+  @Test
+  @DisplayName("TC-PRELUDE-USE-06: Scoped :use in hermetic document cannot target external package")
+  void testHermeticDocumentExternalPackageUseRejected() {
+    String source = """
+        {
+          :defs {
+            :use [ :org/example/external { :Widget :Widget } ]
+            :A :Widget
+          }
+          :type :A
+          :body "demo"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "document.stvn", StvnParserConfig.DEFAULT);
+    Assertions.assertFalse(result.isSuccess(), "Hermetic document targeting external package must be rejected");
+    Assertions.assertTrue(result.diagnostics().stream().anyMatch(d ->
+        DiagnosticBag.ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT.equals(d.errorCode().orElse(null))),
+        "Must record ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT: " + result.diagnostics());
+  }
 }

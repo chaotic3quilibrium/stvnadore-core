@@ -922,6 +922,27 @@ public class StvnTypeResolver {
   }
 
   private static void validateUseStmt(StvnParser.UseStmtContext useStmt, DiagnosticBag diagnosticBag) {
+    var doc = findEnclosingDocument(useStmt);
+    if (doc != null && useStmt.useTarget() != null && useStmt.useTarget().useTargetIllegal() == null) {
+      var target = useStmt.useTarget().getText();
+      var currentDocPath = documentPaths.get(doc);
+      if (currentDocPath != null && (currentDocPath.endsWith(".stvn") || currentDocPath.endsWith(".stvn_d")
+          || currentDocPath.endsWith(".stvn_b") || currentDocPath.endsWith(".stvn_bd"))) {
+        boolean isPrelude = target.equals(":org/stvnadore/prelude") || target.startsWith(":org/stvnadore/prelude/");
+        boolean isLocal = isPackageDeclaredInDocument(doc, target);
+        if (!isPrelude && !isLocal) {
+          diagnosticBag.addError(
+              "Scoped :use in hermetic document (.stvn / .stvn_d) cannot target external package: " + target,
+              useStmt.useTarget().getStart().getStartIndex(),
+              useStmt.useTarget().getStop().getStopIndex() + 1,
+              useStmt.useTarget().getStart().getLine(),
+              useStmt.useTarget().getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT
+          );
+        }
+      }
+    }
     if (useStmt.useTarget() != null && useStmt.useTarget().useTargetIllegal() != null) {
       var illegalTarget = useStmt.useTarget().useTargetIllegal();
       diagnosticBag.addError(
@@ -958,6 +979,22 @@ public class StvnTypeResolver {
     }
   }
 
+  private static boolean isPackageDeclaredInDocument(@Nullable StvnDocumentContext doc, String targetPackage) {
+    if (doc == null || doc.documentBody() == null || doc.documentBody().defsEntry() == null) {
+      return false;
+    }
+    if (doc.documentBody().defsEntry().defsElement() != null) {
+      for (var de : doc.documentBody().defsEntry().defsElement()) {
+        if (de.packageEnclosure() != null && de.packageEnclosure().packagePath() != null) {
+          if (targetPackage.equals(de.packageEnclosure().packagePath().getText())) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   private static ScopedUseEnvironment buildScopeEnvironment(
       @Nullable StvnDocumentContext doc,
       List<StvnParser.UseStmtContext> useStmts,
@@ -988,6 +1025,72 @@ public class StvnTypeResolver {
           }
           if (alias.valueKeyword(0) != null && alias.valueKeyword(1) != null) {
             constAliasMap.put(alias.valueKeyword(0).getText(), alias.valueKeyword(1).getText());
+          }
+        }
+      }
+
+      // Direct Prelude Inspection for :use targets under :org/stvnadore/prelude
+      if (target.startsWith(":org/stvnadore/prelude")) {
+        boolean hasPreludeInTypes = allTypes.keySet().stream().anyMatch(k -> k.startsWith(":org/stvnadore/prelude"));
+        boolean hasPreludeInConsts = allConstants.keySet().stream().anyMatch(k -> k.startsWith(StvnVocabulary.SIGIL_VALUE + "org/stvnadore/prelude"));
+        if (!hasPreludeInTypes || !hasPreludeInConsts) {
+          var preludeDoc = StvnPrelude.getPreludeDocument();
+          if (preludeDoc != null && preludeDoc.documentBody() != null && preludeDoc.documentBody().defsEntry() != null) {
+            if (preludeDoc.documentBody().defsEntry().defsElement() != null) {
+              for (var de : preludeDoc.documentBody().defsEntry().defsElement()) {
+                if (de.packageEnclosure() != null) {
+                  var pkgEnc = de.packageEnclosure();
+                  var pkgPath = pkgEnc.packagePath().getText();
+                  if (pkgPath.equals(target) || pkgPath.startsWith(target + "/")) {
+                    if (pkgEnc.packageElement() != null) {
+                      for (var pe : pkgEnc.packageElement()) {
+                        if (!hasPreludeInTypes && pe.typeDefinition() != null) {
+                          var typeDef = pe.typeDefinition();
+                          var localName = typeDef.typeDefTarget().getText();
+                          var fqni = pkgPath + "/" + localName.substring(1);
+                          String stripped = sliceTerminal(fqni);
+                          if (typeAliasMap.containsKey(fqni)) {
+                            String alias = typeAliasMap.get(fqni);
+                            typeClaims.computeIfAbsent(alias, k -> new ArrayList<>())
+                                .add(new NamespaceClaim<>(alias, typeDef, target, ClaimType.RENAMED_IMPORT_RHS));
+                            typeTargetMap.put(alias, fqni);
+                          } else if (typeAliasMap.containsKey(stripped)) {
+                            String alias = typeAliasMap.get(stripped);
+                            typeClaims.computeIfAbsent(alias, k -> new ArrayList<>())
+                                .add(new NamespaceClaim<>(alias, typeDef, target, ClaimType.RENAMED_IMPORT_RHS));
+                            typeTargetMap.put(alias, fqni);
+                          } else if (hasStrip) {
+                            typeClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
+                                .add(new NamespaceClaim<>(stripped, typeDef, target, ClaimType.RAW_IMPORT));
+                            typeTargetMap.put(stripped, fqni);
+                          }
+                        } else if (!hasPreludeInConsts && pe.constantDefinition() != null) {
+                          var constDef = pe.constantDefinition();
+                          var localName = constDef.valueKeyword().getText();
+                          var fqni = StvnVocabulary.SIGIL_VALUE + pkgPath.substring(1) + "/" + localName.substring(1);
+                          String stripped = sliceTerminal(fqni);
+                          if (constAliasMap.containsKey(fqni)) {
+                            String alias = constAliasMap.get(fqni);
+                            constClaims.computeIfAbsent(alias, k -> new ArrayList<>())
+                                .add(new NamespaceClaim<>(alias, constDef, target, ClaimType.RENAMED_IMPORT_RHS));
+                            constTargetMap.put(alias, fqni);
+                          } else if (constAliasMap.containsKey(stripped)) {
+                            String alias = constAliasMap.get(stripped);
+                            constClaims.computeIfAbsent(alias, k -> new ArrayList<>())
+                                .add(new NamespaceClaim<>(alias, constDef, target, ClaimType.RENAMED_IMPORT_RHS));
+                            constTargetMap.put(alias, fqni);
+                          } else if (hasStrip) {
+                            constClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
+                                .add(new NamespaceClaim<>(stripped, constDef, target, ClaimType.RAW_IMPORT));
+                            constTargetMap.put(stripped, fqni);
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

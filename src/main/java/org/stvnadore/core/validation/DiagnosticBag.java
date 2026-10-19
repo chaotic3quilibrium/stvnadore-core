@@ -57,6 +57,8 @@ public final class DiagnosticBag {
   public static final String ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT = "ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT";
   /** Error code emitted when a package enclosure is illegally nested inside another package enclosure. */
   public static final String ERR_NESTED_PACKAGE_PROHIBITED = "ERR_NESTED_PACKAGE_PROHIBITED";
+  /** Error code emitted when a scoped import :use in a hermetic document targets an external non-prelude package (SPEC § 3.9 Invariant 7, E035). */
+  public static final String ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT = "ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT";
   /** Error code emitted when a :use target specification contains trailing slash characters. */
   public static final String ERR_TRAILING_SLASH_PROHIBITED = "ERR_TRAILING_SLASH_PROHIBITED";
   /** Error code emitted when algebraic sum type branches share duplicate tag identifiers. */
