@@ -2,8 +2,8 @@
 // @case: Negative - Reject invalid flat payload with include
 // @error: MALFORMED_SCHEMA
 {
-  // invalid_flat_payload_with_include.stvn_f
-  // Specification: STVN v1.2.0 (ECD-2026-04-A1)
+  // invalid_flat_payload_with_include.stvn
+  // Specification: STVN v2.0.0 (Canonical Hermetic Payload Tier)
   :meta {
     #name "invalid_flat_payload_with_include"
     #kind #BODY

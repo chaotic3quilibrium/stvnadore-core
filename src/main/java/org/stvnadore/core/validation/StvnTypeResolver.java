@@ -88,6 +88,14 @@ public class StvnTypeResolver {
   );
 
   /**
+   * The complete inventory of permanently excised legacy STVN 1.x file extensions.
+   */
+  private static final Set<String> PERMANENTLY_EXCISED_EXTENSIONS = Set.of(
+      ".stvn_incl", ".stvn_inclf", ".stvn_cas", ".stvn_bin",
+      ".stvn_f", ".stvn_df", ".stvn_bf", ".stvn_bdf"
+  );
+
+  /**
    * Registers the active parser configuration for a document context.
    *
    * @param doc the document context
@@ -3709,21 +3717,13 @@ public class StvnTypeResolver {
       String fileName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
 
       // 1. Fail-closed legacy extension rejection
-      if (fileName.endsWith(".stvn_incl") || fileName.endsWith(".stvn_inclf")
-          || fileName.endsWith(".stvn_cas") || fileName.endsWith(".stvn_bin")
-          || fileName.endsWith(".stvn_f") || fileName.endsWith(".stvn_df")
-          || fileName.endsWith(".stvn_bf") || fileName.endsWith(".stvn_bdf")) {
-        int dotIdx = fileName.indexOf('.');
-        String legacyExt = dotIdx >= 0 ? fileName.substring(dotIdx) : fileName;
-        diagnosticBag.addError(
-            "Excised legacy file extension '" + legacyExt + "' is permanently prohibited",
-            doc.getStart() != null ? doc.getStart().getStartIndex() : 0,
-            doc.getStart() != null ? doc.getStart().getStopIndex() + 1 : 1,
-            doc.getStart() != null ? doc.getStart().getLine() : 1,
-            doc.getStart() != null ? doc.getStart().getCharPositionInLine() : 0,
-            null,
-            DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED
-        );
+      int startIdx = doc.getStart() != null ? doc.getStart().getStartIndex() : 0;
+      int stopIdx = doc.getStart() != null ? doc.getStart().getStopIndex() + 1 : 1;
+      int lineNum = doc.getStart() != null ? doc.getStart().getLine() : 1;
+      int colNum = doc.getStart() != null ? doc.getStart().getCharPositionInLine() : 0;
+
+      if (rejectLegacyExtension(
+          fileName, diagnosticBag, startIdx, stopIdx, lineNum, colNum)) {
         return;
       }
 
@@ -4021,17 +4021,7 @@ public class StvnTypeResolver {
     String fileName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
 
     // 1. Fail-closed legacy extension rejection
-    if (fileName.endsWith(".stvn_incl") || fileName.endsWith(".stvn_inclf")
-        || fileName.endsWith(".stvn_cas") || fileName.endsWith(".stvn_bin")
-        || fileName.endsWith(".stvn_f") || fileName.endsWith(".stvn_df")
-        || fileName.endsWith(".stvn_bf") || fileName.endsWith(".stvn_bdf")) {
-      int dotIdx = fileName.indexOf('.');
-      String legacyExt = dotIdx >= 0 ? fileName.substring(dotIdx) : fileName;
-      diagnosticBag.addError(
-          "Excised legacy file extension '" + legacyExt + "' is permanently prohibited",
-          0, 1, 1, 0, null,
-          DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED
-      );
+    if (rejectLegacyExtension(fileName, diagnosticBag, 0, 1, 1, 0)) {
       return;
     }
 
@@ -4113,6 +4103,40 @@ public class StvnTypeResolver {
         }
       }
     }
+  }
+
+  /**
+   * Validates that the filename does not terminate in any permanently excised legacy extension.
+   *
+   * @param fileName      the extracted basename of the document
+   * @param diagnosticBag the accumulator bag for recording semantic diagnostics
+   * @param startIndex    the starting character offset for diagnostic reporting
+   * @param stopIndex     the stopping character offset for diagnostic reporting
+   * @param line          the 1-indexed source line number
+   * @param column        the 0-indexed column offset
+   * @return {@code true} if a legacy extension was detected and rejected, {@code false} otherwise
+   */
+  private static boolean rejectLegacyExtension(
+      String fileName,
+      DiagnosticBag diagnosticBag,
+      int startIndex,
+      int stopIndex,
+      int line,
+      int column
+  ) {
+    for (String legacyExt : PERMANENTLY_EXCISED_EXTENSIONS) {
+      if (fileName.endsWith(legacyExt)) {
+        int dotIdx = fileName.indexOf('.');
+        String matchedExt = dotIdx >= 0 ? fileName.substring(dotIdx) : fileName;
+        diagnosticBag.addError(
+            "Excised legacy file extension '" + matchedExt + "' is permanently prohibited",
+            startIndex, stopIndex, line, column, null,
+            DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED
+        );
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

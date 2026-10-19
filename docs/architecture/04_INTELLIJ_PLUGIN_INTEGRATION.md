@@ -25,9 +25,12 @@
 
 The STVN IntelliJ plugin implements language parsing via Grammar-Kit (`stvn.bnf`) and JFlex (`stvn.flex`), generating a strongly typed Program Structure Interface (PSI) tree rooted at `StvnFile`:
 
-* `StvnPayloadFile` (`.stvn`): Complete compilation units containing `:type` and `:body` blocks (with optional `:defs`).
-* `StvnInclFile` (`.stvn_incl`): Modular schema files containing shared `:defs` blocks and `:include` directives.
-* `StvnInclfFile` (`.stvn_inclf`): Flat, self-contained schema files containing only standalone `:defs`.
+* `StvnPayloadFile` (`.stvn`): Canonical hermetic payload document containing `:type` and `:body` blocks (with optional `:defs`, zero `:include` statements).
+* `StvnDefinitionsFile` (`.stvn_d`): Hermetic definitions schema (canonical CAS unit) containing `:defs` (zero `:include` statements).
+* `StvnPayloadIncludeFile` (`.stvn_i`): Modular payload document requiring external module loader, containing `:type`, `:body`, optional `:defs`, and `:include` directives.
+* `StvnDefsIncludeFile` (`.stvn_di`): Modular definitions schema module containing `:defs` and `:include` directives.
+* `StvnBinaryFileType` (`.stvn_b`): Binary hermetic payload document.
+* `StvnBinaryDefsFileType` (`.stvn_bd`): Binary hermetic definitions schema.
 
 ---
 
@@ -42,11 +45,11 @@ The plugin leverages `StvnPsiUtils` to bridge IntelliJ PSI elements with core `o
 ## 3. In-Memory Workspace Flattener (`StvnFlattenWorkspaceAction`)
 
 The workspace flattener enables zero-IO schema bundling:
-1. Ingests the selected entry-point `.stvn` or `.stvn_incl` file.
+1. Ingests the selected entry-point modular schema (`.stvn_di`) or modular payload (`.stvn_i`) file.
 2. Traverses all relative `:include` paths into an in-memory dependency DAG.
 3. Validates that no circular import cycles or duplicate alias collisions exist.
 4. Unrolls nominal type definitions into a single standalone `:defs` block.
-5. Strips single-line comments and normalizes indentation into a canonical `.stvn_inclf` archive.
+5. Normalizes definitions and emits a canonical hermetic definitions schema (`.stvn_d`) with a `:meta { ... #kind #DEFS }` enclosure.
 
 ---
 

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.ast.StvnDocumentKind;
 import org.stvnadore.core.ast.StvnDocumentMeta;
 import org.stvnadore.core.binary.BinaryEncodingStrategy;
@@ -711,6 +712,54 @@ public class StvnDocumentIdentityValidationTest {
   void testLegacyExtensionStvnBdfRejected() {
     String source = "{ :meta { #kind #DEFS } :defs { :T :Int } }";
     var result = StvnCompiler.compileToResult(source, "schema.stvn_bdf");
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-BIN-01: Excised legacy extension .stvn_bin fails closed in binary ingress")
+  void testBinaryLegacyExtensionStvnBinRejected() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("payload"), Optional.empty(), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+    byte[] bytes = new byte[buf.remaining()];
+    buf.get(bytes);
+
+    var result = StvnCompiler.compile(bytes, "payload.stvn_bin", StvnParserConfig.DEFAULT);
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-BIN-02: Excised legacy extension .stvn_bf fails closed in binary ingress")
+  void testBinaryLegacyExtensionStvnBfRejected() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("payload"), Optional.empty(), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+    byte[] bytes = new byte[buf.remaining()];
+    buf.get(bytes);
+
+    var result = StvnCompiler.compile(bytes, "payload.stvn_bf", StvnParserConfig.DEFAULT);
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    assertEquals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED, result.diagnostics().getFirst().errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ID-BIN-03: Excised legacy extension .stvn_bdf fails closed in binary ingress")
+  void testBinaryLegacyExtensionStvnBdfRejected() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("schema"), Optional.empty(), Optional.of(StvnDocumentKind.DEFS));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
+    var buf = encoder.encode(ir, meta);
+    byte[] bytes = new byte[buf.remaining()];
+    buf.get(bytes);
+
+    var result = StvnCompiler.compile(bytes, "schema.stvn_bdf", StvnParserConfig.DEFAULT);
     assertFalse(result.isSuccess());
     assertTrue(result.hasErrors());
     assertEquals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED, result.diagnostics().getFirst().errorCode().orElse(null));

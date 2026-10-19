@@ -53,7 +53,7 @@ public final class DiagnosticBag {
   public static final String ERR_RESERVED_KEYWORD_ON_LHS = "ERR_RESERVED_KEYWORD_ON_LHS";
   /** Error code emitted when an integer literal exceeds the capacity bounds of its declared bit-width type. */
   public static final String ERR_INTEGER_OVERFLOW = "ERR_INTEGER_OVERFLOW";
-  /** Error code emitted when an include statement is declared inside a flat hermetic document (.stvn_f) or leaf module (.stvn_inclf). */
+  /** Error code emitted when an include statement is declared inside a hermetic payload document (.stvn, .stvn_b) or hermetic definitions schema (.stvn_d, .stvn_bd). */
   public static final String ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT = "ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT";
   /** Error code emitted when a package enclosure is illegally nested inside another package enclosure. */
   public static final String ERR_NESTED_PACKAGE_PROHIBITED = "ERR_NESTED_PACKAGE_PROHIBITED";
@@ -122,7 +122,7 @@ public final class DiagnosticBag {
   public static final String WARN_DOCUMENT_NAME_MISMATCH = "WARN_DOCUMENT_NAME_MISMATCH";
   /** Warning code emitted when a declared #domain facet is omitted from filename stem slot 1. */
   public static final String WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME = "WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME";
-  /** Error code emitted when a legacy excised file extension (.stvn_incl, .stvn_inclf, .stvn_cas) is encountered. */
+  /** Error code emitted when an excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas, .stvn_bin, .stvn_f, .stvn_df, .stvn_bf, .stvn_bdf) is encountered. */
   public static final String ERR_LEGACY_FILE_EXTENSION_PURGED = "ERR_LEGACY_FILE_EXTENSION_PURGED";
 
   // Normative STVN 2.0.0 Standard Diagnostic Codes

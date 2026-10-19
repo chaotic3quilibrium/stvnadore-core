@@ -1,9 +1,9 @@
 // @spec: SPEC-09-MODULES-INCLUDES
 // @case: Positive - Hermetic flat payload file without includes
 {
-  // hermetic_payload.stvn_f
-  // Flat Hermetic Payload Document Tier (Zero :include Statements)
-  // Specification: STVN v1.2.0 (ECD-2026-04-A1)
+  // hermetic_payload.stvn
+  // Canonical Hermetic Payload Document Tier (Zero :include Statements)
+  // Specification: STVN v2.0.0 (Canonical Hermetic Payload Tier)
   :meta {
     #name "hermetic_payload"
     #kind #BODY
