@@ -241,7 +241,7 @@ public class StvnSchemaValidationTest {
         {
           :defs {
             :UnusedType { #regex "^[0-9]+$" } :String
-            :UnusedPort { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
+            :UnusedPort { #unsigned #size 16 #minIncl 1 } :Int
           }
           :type :String
           :body "active"

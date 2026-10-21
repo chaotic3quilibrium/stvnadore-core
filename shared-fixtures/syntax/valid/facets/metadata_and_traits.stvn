@@ -6,7 +6,7 @@
     #kind #BODY
   }
   :defs {
-    :RestrictedPort   { #unsigned #size 16 #minIncl 1024 #maxExcl 65536 } :Int
+    :RestrictedPort   { #unsigned #size 16 #minIncl 1024 } :Int
     :ScoreRange       { #minExcl 0.0 #maxIncl 10.0 } :Float
     :NegativeOffset   { #minIncl -100 #maxExcl 0 } :Int
 

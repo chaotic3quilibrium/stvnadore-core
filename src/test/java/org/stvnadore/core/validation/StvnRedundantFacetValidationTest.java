@@ -1005,4 +1005,302 @@ public class StvnRedundantFacetValidationTest {
     assertEquals(expectedStart, diag.startOffset(), "Start offset must pinpoint '#maxSize 18'");
     assertEquals(expectedEnd, diag.endOffset(), "End offset must cover '#maxSize 18'");
   }
+
+  // ==============================================================================
+  // DYNAMIC BIT-WIDTH BOUNDARY TAUTOLOGY TESTS (RULE E036)
+  // ==============================================================================
+
+  @Test
+  @DisplayName("TC-DYN-RED-01: Prohibits #maxExcl 64 on #unsigned #size 6 :Int (6-bit Unsigned Upper Bound Tautology)")
+  void testRejectUnsignedSize6MaxExcl64() {
+    String source = """
+        {
+          :defs {
+            :SquareIndex { #unsigned #size 6 #maxExcl 64 } :Int
+          }
+          :type :SquareIndex
+          :body 10
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Explicit #maxExcl 64 on #unsigned #size 6 must be rejected as redundant");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    String targetToken = "#maxExcl 64";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset(), "Start offset must pinpoint '#maxExcl 64'");
+    assertEquals(expectedEnd, diag.endOffset(), "End offset must cover '#maxExcl 64'");
+    assertEquals("Constraint violation (:SquareIndex): facet '#maxExcl 64' is redundant; '#unsigned #size 6' already bounds the domain to [0, 64)", diag.message());
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-02: Permits #maxExcl 63 on #unsigned #size 6 :Int (Valid domain narrowing)")
+  void testAcceptUnsignedSize6MaxExcl63() {
+    String source = """
+        {
+          :defs {
+            :SquareIndex { #unsigned #size 6 #maxExcl 63 } :Int
+          }
+          :type :SquareIndex
+          :body 10
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertFalse(result.hasErrors(), "Narrowing bound #maxExcl 63 on 6-bit unsigned integer must compile cleanly");
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-03: Prohibits #maxExcl 4294967296 on default { #unsigned } :Int (32-bit Unsigned Default Tautology)")
+  void testRejectDefaultUnsignedMaxExcl2Pow32() {
+    String source = """
+        {
+          :defs {
+            :MyUInt { #unsigned #maxExcl 4294967296 } :Int
+          }
+          :type :MyUInt
+          :body 10
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Explicit #maxExcl 4294967296 on default unsigned integer must be rejected as redundant");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("Constraint violation (:MyUInt): facet '#maxExcl 4294967296' is redundant; '#unsigned #size 32' already bounds the domain to [0, 4294967296)", diag.message());
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-04: Prohibits #minIncl -32768 on { #size 16 } :Int (16-bit Signed Lower Bound Tautology)")
+  void testRejectSignedSize16MinInclMinus32768() {
+    String source = """
+        {
+          :defs {
+            :ShortInt { #size 16 #minIncl -32768 } :Int
+          }
+          :type :ShortInt
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Explicit #minIncl -32768 on 16-bit signed integer must be rejected as redundant");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    String targetToken = "#minIncl -32768";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset());
+    assertEquals(expectedEnd, diag.endOffset());
+    assertEquals("Constraint violation (:ShortInt): facet '#minIncl -32768' is redundant; '#size 16' already bounds the minimum value to -32768", diag.message());
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-05: Prohibits #maxExcl 32768 on { #size 16 } :Int (16-bit Signed Upper Bound Tautology)")
+  void testRejectSignedSize16MaxExcl32768() {
+    String source = """
+        {
+          :defs {
+            :ShortInt { #size 16 #maxExcl 32768 } :Int
+          }
+          :type :ShortInt
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Explicit #maxExcl 32768 on 16-bit signed integer must be rejected as redundant");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("Constraint violation (:ShortInt): facet '#maxExcl 32768' is redundant; '#size 16' already bounds the maximum exclusive bound to 32768", diag.message());
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-06: Prohibits #minIncl -2147483648 on default signed :Int (32-bit Signed Default Lower Tautology)")
+  void testRejectDefaultSignedMinInclMinus2Pow31() {
+    String source = """
+        {
+          :defs {
+            :MyInt { #minIncl -2147483648 } :Int
+          }
+          :type :MyInt
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Explicit #minIncl -2147483648 on default signed integer must be rejected as redundant");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("Constraint violation (:MyInt): facet '#minIncl -2147483648' is redundant; '#size 32' already bounds the minimum value to -2147483648", diag.message());
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-07: Prohibits #maxExcl 2147483648 on default signed :Int (32-bit Signed Default Upper Tautology)")
+  void testRejectDefaultSignedMaxExcl2Pow31() {
+    String source = """
+        {
+          :defs {
+            :MyInt { #maxExcl 2147483648 } :Int
+          }
+          :type :MyInt
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Explicit #maxExcl 2147483648 on default signed integer must be rejected as redundant");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("Constraint violation (:MyInt): facet '#maxExcl 2147483648' is redundant; '#size 32' already bounds the maximum exclusive bound to 2147483648", diag.message());
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-08: Prohibits #maxExcl 18446744073709551616 on { #unsigned #size 64 } :Int (64-bit Unsigned Upper Bound Tautology exceeding Long.MAX_VALUE)")
+  void testRejectUnsignedSize64MaxExcl2Pow64() {
+    String source = """
+        {
+          :defs {
+            :U64 { #unsigned #size 64 #maxExcl 18446744073709551616 } :Int
+          }
+          :type :U64
+          :body 100
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "2^64 upper bound exceeding Long.MAX_VALUE must be rejected as redundant via BigInteger");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("Constraint violation (:U64): facet '#maxExcl 18446744073709551616' is redundant; '#unsigned #size 64' already bounds the domain to [0, 18446744073709551616)", diag.message());
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-09: Prohibits #maxExcl 2 and #minIncl -1 on 1-bit signed integer (Edge case N = 1)")
+  void testRejectOneBitIntegerTautologies() {
+    String signedSource = """
+        {
+          :defs {
+            :SignedBitMin { #size 1 #minIncl -1 } :Int
+            :SignedBitMax { #size 1 #maxExcl 1 } :Int
+            :UnsignedBitMax { #unsigned #size 1 #maxExcl 2 } :Int
+          }
+          :type :Tuple( :SignedBitMin :SignedBitMax :UnsignedBitMax )
+          :body ( 0 0 0 )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(signedSource, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "1-bit boundary tautologies must be rejected");
+    assertEquals(3, result.diagnostics().stream().filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))).count());
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-10: Prohibits constant-referenced upper bound matching 2^N")
+  void testRejectConstantReferencedMaxExclTautology() {
+    String source = """
+        {
+          :defs {
+            #LIMIT :Int 256
+            :ByteType { #unsigned #size 8 #maxExcl #LIMIT } :Int
+          }
+          :type :ByteType
+          :body 42
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Constant-referenced upper bound 256 on 8-bit unsigned integer must be rejected as redundant");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    String targetToken = "#maxExcl #LIMIT";
+    int expectedStart = source.indexOf(targetToken);
+    int expectedEnd = expectedStart + targetToken.length();
+    assertEquals(expectedStart, diag.startOffset());
+    assertEquals(expectedEnd, diag.endOffset());
+    assertEquals("Constraint violation (:ByteType): facet '#maxExcl 256' is redundant; '#unsigned #size 8' already bounds the domain to [0, 256)", diag.message());
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-11: Prohibits transitive inheritance upper bound matching parent bit-width 2^N")
+  void testRejectTransitiveInheritedMaxExclTautology() {
+    String source = """
+        {
+          :defs {
+            :ParentPort { #unsigned #size 16 } :Int
+            :ChildPort  { #maxExcl 65536 } :ParentPort
+          }
+          :type :ChildPort
+          :body 80
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Subtype restating parent's 16-bit storage upper bound must be rejected as redundant");
+
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("Constraint violation (:ChildPort): facet '#maxExcl 65536' is redundant; '#unsigned #size 16' already bounds the domain to [0, 65536)", diag.message());
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-12: Capacity overflow on bounds exceeding physical limit is not misclassified as redundant")
+  void testCapacityOverflowNotMisclassifiedAsRedundant() {
+    String source = """
+        {
+          :defs {
+            :BadUInt { #unsigned #size 8 #maxExcl 257 } :Int
+          }
+          :type :BadUInt
+          :body 10
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors());
+    assertTrue(result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_CAPACITY_OVERFLOW.equals(d.errorCode().orElse(null))),
+        "Out of bounds value must emit ERR_CAPACITY_OVERFLOW, not ERR_REDUNDANT_METADATA_FACET");
+    assertFalse(result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))));
+  }
+
+  @Test
+  @DisplayName("TC-DYN-RED-13: Valid narrowings on 16-bit signed integer compile cleanly")
+  void testAcceptSignedSize16ValidNarrowings() {
+    String source = """
+        {
+          :defs {
+            :NarrowSigned { #size 16 #minIncl -32767 #maxExcl 32767 } :Int
+          }
+          :type :NarrowSigned
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertFalse(result.hasErrors(), "Valid narrowings must compile cleanly with zero diagnostics");
+  }
 }

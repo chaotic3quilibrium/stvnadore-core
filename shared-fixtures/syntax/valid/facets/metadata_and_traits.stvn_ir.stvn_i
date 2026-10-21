@@ -10,7 +10,7 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":RestrictedPort" ( "{#unsigned#size16#minIncl1024#maxExcl65536}:Int" ":RestrictedPort" ( #TRUE #TRUE ) ) ]
+      [ ":RestrictedPort" ( "{#unsigned#size16#minIncl1024}:Int" ":RestrictedPort" ( #TRUE #TRUE ) ) ]
       [ ":ScoreRange" ( "{#minExcl0.0#maxIncl10.0}:Float" ":ScoreRange" ( #FALSE #TRUE ) ) ]
       [ ":NegativeOffset" ( "{#minIncl-100#maxExcl0}:Int" ":NegativeOffset" ( #TRUE #TRUE ) ) ]
       [ ":RegexIdentifier" ( "{#minSize1#maxSize32#regex\"^[a-z][a-z0-9_-]{2,31}$\"}:String" ":RegexIdentifier" ( #TRUE #TRUE ) ) ]

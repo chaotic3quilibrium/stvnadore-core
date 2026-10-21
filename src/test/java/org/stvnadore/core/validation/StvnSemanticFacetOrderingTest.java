@@ -115,7 +115,7 @@ public class StvnSemanticFacetOrderingTest {
               #unsigned
               #size 16
               #minIncl 1024
-              #maxExcl 65536
+              #maxExcl 60000
             } :Int
           }
           :type :Port
@@ -126,7 +126,7 @@ public class StvnSemanticFacetOrderingTest {
     var ast = StvnCompiler.compilePayload(source).orElseThrow();
     var compactPrinter = new CompactTextPrinter(new PrinterOptions());
     String compactOutput = compactPrinter.printToString(ast);
-    String expectedCompact = "{:defs{:Port{#unsigned #size 16 #minIncl 1024 #maxExcl 65536}:Int}:type :Port:body 8080}";
+    String expectedCompact = "{:defs{:Port{#unsigned #size 16 #minIncl 1024 #maxExcl 60000}:Int}:type :Port:body 8080}";
     Assertions.assertEquals(expectedCompact, compactOutput);
 
     var prettyPrinter = new PrettyTextPrinter(new PrinterOptions(
@@ -139,7 +139,7 @@ public class StvnSemanticFacetOrderingTest {
     Assertions.assertTrue(prettyOutput.contains("#unsigned"));
     Assertions.assertTrue(prettyOutput.contains("#size 16"));
     Assertions.assertTrue(prettyOutput.contains("#minIncl 1024"));
-    Assertions.assertTrue(prettyOutput.contains("#maxExcl 65536"));
+    Assertions.assertTrue(prettyOutput.contains("#maxExcl 60000"));
 
     // Verify relative ordering inside pretty output
     int posUnsigned = prettyOutput.indexOf("#unsigned");
@@ -158,7 +158,7 @@ public class StvnSemanticFacetOrderingTest {
     String sourceA = """
         {
           :defs {
-            :Port { #unsigned #size 16 #minIncl 1024 #maxExcl 65536 } :Int
+            :Port { #unsigned #size 16 #minIncl 1024 #maxExcl 60000 } :Int
           }
           :type :Port
           :body 8080
@@ -168,7 +168,7 @@ public class StvnSemanticFacetOrderingTest {
     String sourceB = """
         {
           :defs {
-            :Port { #maxExcl 65536 #minIncl 1024 #size 16 #unsigned } :Int
+            :Port { #maxExcl 60000 #minIncl 1024 #size 16 #unsigned } :Int
           }
           :type :Port
           :body 8080

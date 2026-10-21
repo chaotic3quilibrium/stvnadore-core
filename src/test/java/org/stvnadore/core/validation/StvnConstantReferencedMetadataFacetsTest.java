@@ -118,7 +118,7 @@ public class StvnConstantReferencedMetadataFacetsTest {
         {
           :defs {
             #PORT_MIN :Int 1024
-            #PORT_MAX :Int 65536
+            #PORT_MAX :Int 60000
             :CustomPort { #unsigned #size 16 #minIncl #PORT_MIN #maxExcl #PORT_MAX } :Int
           }
           :type :CustomPort
@@ -126,13 +126,13 @@ public class StvnConstantReferencedMetadataFacetsTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.isSuccess(), "Port 8080 within [1024, 65536) must compile cleanly: " + result.diagnostics());
+    assertTrue(result.isSuccess(), "Port 8080 within [1024, 60000) must compile cleanly: " + result.diagnostics());
 
     String minViolationSource = """
         {
           :defs {
             #PORT_MIN :Int 1024
-            #PORT_MAX :Int 65536
+            #PORT_MAX :Int 60000
             :CustomPort { #unsigned #size 16 #minIncl #PORT_MIN #maxExcl #PORT_MAX } :Int
           }
           :type :CustomPort
@@ -146,15 +146,15 @@ public class StvnConstantReferencedMetadataFacetsTest {
         {
           :defs {
             #PORT_MIN :Int 1024
-            #PORT_MAX :Int 65536
+            #PORT_MAX :Int 60000
             :CustomPort { #unsigned #size 16 #minIncl #PORT_MIN #maxExcl #PORT_MAX } :Int
           }
           :type :CustomPort
-          :body 65536
+          :body 60000
         }
         """;
     var maxResult = StvnCompiler.compileToResult(maxViolationSource, null, StvnParserConfig.DEFAULT);
-    assertFalse(maxResult.isSuccess(), "Port 65536 must violate constant-referenced #maxExcl 65536");
+    assertFalse(maxResult.isSuccess(), "Port 60000 must violate constant-referenced #maxExcl 60000");
 
     // Float numeric range constants
     String floatSource = """

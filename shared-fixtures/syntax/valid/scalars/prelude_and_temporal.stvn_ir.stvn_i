@@ -22,7 +22,7 @@
       [ ":VersionSemVer" ( "{#minSize5#maxSize128#regex\"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$\"}:String" ":VersionSemVer" ( #TRUE #TRUE ) ) ]
       [ ":ContactEmail" ( "{#minSize3#maxSize254#regex#EMAIL_LOWER_CASE_REGEX}:String" ":ContactEmail" ( #TRUE #TRUE ) ) ]
       [ ":NetworkIPv4" ( "{#minSize7#maxSize15#regex\"^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$\"}:String" ":NetworkIPv4" ( #TRUE #TRUE ) ) ]
-      [ ":NetworkPort" ( "{#unsigned#size16#minIncl1#maxExcl65536}:Int" ":NetworkPort" ( #TRUE #TRUE ) ) ]
+      [ ":NetworkPort" ( "{#unsigned#size16#minIncl1}:Int" ":NetworkPort" ( #TRUE #TRUE ) ) ]
       [ ":RatioPercent" ( "{#minIncl0.0#maxIncl100.0}:Float" ":RatioPercent" ( #FALSE #TRUE ) ) ]
       [ ":RatioProb" ( "{#minIncl0.0#maxIncl1.0}:Float" ":RatioProb" ( #FALSE #TRUE ) ) ]
       [ ":MoneyAmount" ( "{#exact}:Float" ":MoneyAmount" ( #TRUE #TRUE ) ) ]

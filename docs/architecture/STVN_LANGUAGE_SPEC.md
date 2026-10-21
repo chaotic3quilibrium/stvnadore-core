@@ -203,7 +203,7 @@ When a lexer encounters a tab character, the lexer produces a `TAB_CHARACTER` to
   :defs {
     :BitFlag        { #unsigned #size 1 } :Int
     :UnixPermission { #unsigned #size 3 } :Int
-    :Port           { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
+    :Port           { #unsigned #size 16 #minIncl 1 } :Int
     :HostName       { #regex "^[a-zA-Z0-9.-]+$" #minSize 1 #maxSize 64 } :String
     :IpAddress      :Union( :IPv4 { #minSize 15 #maxSize 15 } :String )
     :Protocol       :Enum [ #HTTP #HTTPS #TCP #UDP ]
@@ -403,7 +403,7 @@ Metadata constraint blocks `{ ... }` **must immediately precede** the target typ
 
 ```stvn
 // VALID: Metadata block prefixes the target type
-:Port     { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
+:Port     { #unsigned #size 16 #minIncl 1 } :Int
 :Username { #regex "^[a-z0-9_]{3,16}$" #minSize 3 #maxSize 16 } :String
 :Flag     { #equatable #TRUE } :Float
 
@@ -828,8 +828,8 @@ The discrete domain rule governs four distinct type families:
 4. **Diagnostic Enforcement:** When a schema declares `#maxIncl` or `#minExcl` on any discrete type, the compiler halts and emits `ERR_DISCRETE_BOUND_KIND_PROHIBITED` pinned to the offending bound token.
 
 ```stvn
-// VALID: Half-open interval [1, 65536) on :Int
-:Port { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
+// VALID: Half-open interval [1, 65536) on :Int via storage bit-width
+:Port { #unsigned #size 16 #minIncl 1 } :Int
 
 // VALID: Half-open interval [1704067200, 1735689600) on :TimeEpoch
 :Year2024Epoch { #s #minIncl 1704067200 #maxExcl 1735689600 } :TimeEpoch
@@ -1667,7 +1667,7 @@ The runtime environment pre-registers the canonical prelude under `:org/stvnador
       :EmailMixedCase { #minSize 3 #maxSize 254 #regex #EMAIL_MIXED_CASE_REGEX } :String
 
       :IPv4  { #minSize 7 #maxSize 15 #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" } :String
-      :Port  { #unsigned #size 16 #minIncl 1 #maxExcl 65536 } :Int
+      :Port  { #unsigned #size 16 #minIncl 1 } :Int
 
       :Percentage  { #minIncl 0.0 #maxIncl 100.0 } :Float
       :Probability { #minIncl 0.0 #maxIncl 1.0 }   :Float
@@ -2121,7 +2121,7 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
   // constraints_and_traits.stvn
   :defs {
     // Discrete half-open interval [minIncl, maxExcl)
-    :RestrictedPort   { #unsigned #size 16 #minIncl 1024 #maxExcl 65536 } :Int
+    :RestrictedPort   { #unsigned #size 16 #minIncl 1024 } :Int
 
     // Continuous float bounds
     :ScoreRange       { #minIncl 0.0 #maxIncl 10.0 } :Float
@@ -2407,7 +2407,7 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E033` | `META_POSITION_INVALID` | Syntactic | Fatal | :meta root block placed after :defs, :type, or :body. |
 | `E034` | `LEGACY_FILE_EXTENSION_PURGED` | Syntactic | Fatal | Excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas, .stvn_bin, .stvn_f, .stvn_df, .stvn_bf, .stvn_bdf) used. |
 | `E035` | `UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | Semantic | Fatal | Module :use in a flat hermetic document (.stvn / .stvn_d) targets an external package not declared in local :defs or prelude. |
-| `E036` | `ERR_REDUNDANT_METADATA_FACET` | Semantic | Fatal | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #minSize 0 on container, #size 32 on signed :Int or unsigned { #unsigned } :Int, #size 64 on continuous :Float, #maxSize 16777216 on { #exact } :Float, or bare primitive trait defaults). |
+| `E036` | `ERR_REDUNDANT_METADATA_FACET` | Semantic | Fatal | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #maxExcl 2^N on unsigned integer, #minIncl -2^{N-1} or #maxExcl 2^{N-1} on signed integer, #minSize 0 on container, #size 32 on signed :Int or unsigned { #unsigned } :Int, #size 64 on continuous :Float, #maxSize 16777216 on { #exact } :Float, or bare primitive trait defaults). |
 | `E037` | `ERR_RESERVED_PACKAGE_PROHIBITED` | Semantic | Fatal | User document declares a :package enclosure, qualified type, or qualified constant targeting reserved runtime namespace :org/stvnadore/* (§ 3.9 Invariant 8). |
 | `E038` | `ERR_RESERVED_DOMAIN_PROHIBITED` | Semantic | Fatal | User document declares a reserved system domain (stvn_core, stvn_ir, stvn_cas) in root :meta (§ 3.10.1 Rule 6). |
 | `W001` | `DOCUMENT_NAME_MISMATCH` | Semantic | Warning | Declared #name does not match filename stem slot 0. |

@@ -5329,12 +5329,14 @@ public class StvnTypeResolver {
         || StvnVocabulary.TYPE_SEQ.equals(targetBaseType)
         || StvnVocabulary.TYPE_SET.equals(targetBaseType)
         || StvnVocabulary.TYPE_MAP.equals(targetBaseType);
+    boolean isTargetInt = StvnVocabulary.TYPE_INT.equals(targetBaseType);
+    int integerBitWidth = effectiveConsolidated.size().orElse(32);
 
     for (var entry : metadataMap.metadataEntry()) {
-      if (entry.metadataRange() != null && entry.metadataRange().KW_MIN_INCL() != null) {
+      if (entry.metadataRange() != null) {
         var rangeCtx = entry.metadataRange();
         var mv = rangeCtx.metadataValue();
-        if (mv != null && isUnsignedInt) {
+        if (mv != null && isTargetInt && integerBitWidth >= 1) {
           java.math.BigInteger val = null;
           if (mv.integerLiteral() != null) {
             val = StvnLiteralParser.parseBigInteger(mv.integerLiteral().getText());
@@ -5345,26 +5347,71 @@ public class StvnTypeResolver {
               val = resolveConstantIntegerValue(doc, cOpt.get());
             }
           }
-          if (val != null && java.math.BigInteger.ZERO.equals(val)) {
-            boolean ancestorEstablishesUnsigned = resolved != null
-                && resolved.constraints().unsigned()
-                && !localMetaConstraints.unsigned();
-            String message;
-            if (ancestorEstablishesUnsigned) {
-              String ancestorName = resolved.aliasName().orElse(resolved.underlyingSchema().flatMap(ResolvedSchema::aliasName).orElse("ancestor"));
-              message = "Constraint violation (" + name + "): facet '#minIncl 0' is redundant; ancestor '" + ancestorName + "' already establishes '#unsigned'";
-            } else {
-              message = "Constraint violation (" + name + "): facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, \\infty)";
+          if (val != null) {
+            if (rangeCtx.KW_MIN_INCL() != null) {
+              if (isUnsignedInt && java.math.BigInteger.ZERO.equals(val)) {
+                boolean ancestorEstablishesUnsigned = resolved != null
+                    && resolved.constraints().unsigned()
+                    && !localMetaConstraints.unsigned();
+                String message;
+                if (ancestorEstablishesUnsigned) {
+                  String ancestorName = resolved.aliasName().orElse(resolved.underlyingSchema().flatMap(ResolvedSchema::aliasName).orElse("ancestor"));
+                  message = "Constraint violation (" + name + "): facet '#minIncl 0' is redundant; ancestor '" + ancestorName + "' already establishes '#unsigned'";
+                } else {
+                  message = "Constraint violation (" + name + "): facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, \\infty)";
+                }
+                diagnosticBag.addError(
+                    message,
+                    entry.getStart().getStartIndex(),
+                    entry.getStop().getStopIndex() + 1,
+                    entry.getStart().getLine(),
+                    entry.getStart().getCharPositionInLine(),
+                    null,
+                    DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                );
+              } else if (!isUnsignedInt) {
+                var naturalMinIncl = java.math.BigInteger.ONE.shiftLeft(integerBitWidth - 1).negate();
+                if (naturalMinIncl.equals(val)) {
+                  diagnosticBag.addError(
+                      "Constraint violation (" + name + "): facet '#minIncl " + val + "' is redundant; '#size " + integerBitWidth + "' already bounds the minimum value to " + val,
+                      entry.getStart().getStartIndex(),
+                      entry.getStop().getStopIndex() + 1,
+                      entry.getStart().getLine(),
+                      entry.getStart().getCharPositionInLine(),
+                      null,
+                      DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                  );
+                }
+              }
+            } else if (rangeCtx.KW_MAX_EXCL() != null) {
+              if (isUnsignedInt) {
+                var naturalMaxExcl = java.math.BigInteger.ONE.shiftLeft(integerBitWidth);
+                if (naturalMaxExcl.equals(val)) {
+                  diagnosticBag.addError(
+                      "Constraint violation (" + name + "): facet '#maxExcl " + val + "' is redundant; '#unsigned #size " + integerBitWidth + "' already bounds the domain to [0, " + val + ")",
+                      entry.getStart().getStartIndex(),
+                      entry.getStop().getStopIndex() + 1,
+                      entry.getStart().getLine(),
+                      entry.getStart().getCharPositionInLine(),
+                      null,
+                      DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                  );
+                }
+              } else {
+                var naturalMaxExcl = java.math.BigInteger.ONE.shiftLeft(integerBitWidth - 1);
+                if (naturalMaxExcl.equals(val)) {
+                  diagnosticBag.addError(
+                      "Constraint violation (" + name + "): facet '#maxExcl " + val + "' is redundant; '#size " + integerBitWidth + "' already bounds the maximum exclusive bound to " + val,
+                      entry.getStart().getStartIndex(),
+                      entry.getStop().getStopIndex() + 1,
+                      entry.getStart().getLine(),
+                      entry.getStart().getCharPositionInLine(),
+                      null,
+                      DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                  );
+                }
+              }
             }
-            diagnosticBag.addError(
-                message,
-                entry.getStart().getStartIndex(),
-                entry.getStop().getStopIndex() + 1,
-                entry.getStart().getLine(),
-                entry.getStart().getCharPositionInLine(),
-                null,
-                DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
-            );
           }
         }
       } else if (entry.metadataSize() != null && entry.metadataSize().KW_SIZE() != null) {
