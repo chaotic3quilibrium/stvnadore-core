@@ -1,0 +1,14 @@
+// @spec: SPEC-01-ROOT-ENCLOSURE
+// @case: Negative - Hermetic definitions schema illegally declaring :type and :body sections
+// @error: ERR_DOCUMENT_KIND_MISMATCH
+{
+  :meta {
+    #name "defs_with_type_and_body"
+    #kind #DEFS
+  }
+  :defs {
+    :Port :Int
+  }
+  :type :Port
+  :body 8080
+}

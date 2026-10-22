@@ -4103,6 +4103,115 @@ public class StvnTypeResolver {
   }
 
   /**
+   * Validates top-level structural section eligibility under STVN Specification § 1.2.
+   *
+   * @param doc           the document parse tree context
+   * @param docPath       the optional physical file path identifier
+   * @param diagnosticBag the accumulator bag for recording semantic diagnostics
+   * @return true if structural sections are valid, false if prohibited sections are declared
+   */
+  public static boolean validateDocumentSectionEligibility(
+      @Nullable StvnDocumentContext doc,
+      @Nullable String docPath,
+      DiagnosticBag diagnosticBag
+  ) {
+    if (doc == null || doc == StvnPrelude.getPreludeDocument() || doc.documentBody() == null) {
+      return true;
+    }
+
+    var body = doc.documentBody();
+    var metaEntry = body.metaEntry();
+
+    String ext = null;
+    String fileName = null;
+    if (docPath != null && !docPath.isEmpty()) {
+      String normalized = docPath.replace('\\', '/');
+      int lastSlash = normalized.lastIndexOf('/');
+      fileName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
+      int lastDot = fileName.lastIndexOf('.');
+      if (lastDot >= 0) {
+        ext = fileName.substring(lastDot);
+      }
+    }
+
+    // Resolve declared kind from :meta if present
+    StvnDocumentKind declaredKind = null;
+    if (metaEntry != null && metaEntry.metaBlock() != null && metaEntry.metaBlock().metaElement() != null) {
+      for (var el : metaEntry.metaBlock().metaElement()) {
+        if (el.metaKindFacet() != null && el.metaKindFacet().metaKindValue() != null) {
+          declaredKind = StvnDocumentKind.fromKeyword(el.metaKindFacet().metaKindValue().getText()).orElse(null);
+          break;
+        }
+      }
+    }
+
+    Optional<StvnDocumentKind> expectedKindOpt = ext != null ? StvnDocumentKind.fromExtension(ext) : Optional.empty();
+    StvnDocumentKind effectiveKind = declaredKind != null ? declaredKind : expectedKindOpt.orElse(null);
+
+    String targetDesc = fileName != null ? "'" + fileName + "'" : (ext != null ? ext : "<in-memory>");
+
+    boolean isDefsSchema = effectiveKind == StvnDocumentKind.DEFS
+        || effectiveKind == StvnDocumentKind.DEFS_INCLUDE
+        || (ext != null && (ext.equals(".stvn_d") || ext.equals(".stvn_di") || ext.equals(".stvn_bd")));
+
+    if (isDefsSchema) {
+      boolean hasViolations = false;
+      String kindLabel = effectiveKind != null ? effectiveKind.keyword() : "#DEFS";
+      if (body.typeEntry() != null) {
+        var typeCtx = body.typeEntry();
+        diagnosticBag.addError(
+            "Structural violation: Definitions schema (" + targetDesc + ") declaring #kind " + kindLabel + " cannot declare ':type' section [stvn-core:ERR_DOCUMENT_KIND_MISMATCH]",
+            typeCtx.getStart().getStartIndex(),
+            typeCtx.getStop().getStopIndex() + 1,
+            typeCtx.getStart().getLine(),
+            typeCtx.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+        );
+        hasViolations = true;
+      }
+      if (body.bodyEntry() != null) {
+        var bodyCtx = body.bodyEntry();
+        diagnosticBag.addError(
+            "Structural violation: Definitions schema (" + targetDesc + ") declaring #kind " + kindLabel + " cannot declare ':body' section [stvn-core:ERR_DOCUMENT_KIND_MISMATCH]",
+            bodyCtx.getStart().getStartIndex(),
+            bodyCtx.getStop().getStopIndex() + 1,
+            bodyCtx.getStart().getLine(),
+            bodyCtx.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+        );
+        hasViolations = true;
+      }
+      return !hasViolations;
+    }
+
+    boolean isHermeticBody = (effectiveKind == StvnDocumentKind.BODY || (ext != null && (ext.equals(".stvn") || ext.equals(".stvn_b"))))
+        && (ext == null || !ext.equals(".stvn_i"));
+
+    if (isHermeticBody && docPath != null) {
+      if (body.typeEntry() == null || body.bodyEntry() == null) {
+        int start = doc.getStart() != null ? doc.getStart().getStartIndex() : 0;
+        int stop = doc.getStart() != null ? doc.getStart().getStopIndex() + 1 : 1;
+        int line = doc.getStart() != null ? doc.getStart().getLine() : 1;
+        int col = doc.getStart() != null ? doc.getStart().getCharPositionInLine() : 0;
+        diagnosticBag.addError(
+            "Mandatory ':type' and ':body' sections missing; hermetic payload document (" + targetDesc + ") requires payload schema and body value",
+            start,
+            stop,
+            line,
+            col,
+            null,
+            DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+        );
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
    * Validates document identity metadata decoded from an STVN binary payload (.stvn_b, .stvn_bd)
    * against the file path or URI contract.
    *
@@ -4255,6 +4364,10 @@ public class StvnTypeResolver {
     }
     String currentDocPath = documentPaths.get(doc);
     validateDocumentIdentity(doc, currentDocPath, diagnosticBag);
+    boolean sectionsEligible = validateDocumentSectionEligibility(doc, currentDocPath, diagnosticBag);
+    if (!sectionsEligible) {
+      return;
+    }
     getDocumentDefinitions(doc, diagnosticBag);
     var defsEntry = doc.documentBody().defsEntry();
     if (defsEntry != null && defsEntry.LBRACE() != null && defsEntry.RBRACE() != null && defsEntry.defsElement() != null) {

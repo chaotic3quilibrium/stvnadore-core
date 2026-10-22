@@ -10,7 +10,7 @@ options {
 
 stvnDocument : LBRACE documentBody RBRACE EOF ;
 
-documentBody : metaEntry? defsEntry? (typeEntry bodyEntry)? ;
+documentBody : metaEntry? defsEntry? typeEntry? bodyEntry? ;
 
 metaEntry : KW_META metaBlock ;
 metaBlock : LBRACE metaElement* RBRACE ;

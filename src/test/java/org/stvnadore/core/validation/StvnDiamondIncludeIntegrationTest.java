@@ -71,7 +71,7 @@ public class StvnDiamondIncludeIntegrationTest {
     // The flattened schema should be valid and compile cleanly
     String wrappedDocument = """
         {
-        """ + flattened.substring(1, flattened.length() - 1) + """
+        """ + flattened.substring(1, flattened.length() - 1).replace("#kind #DEFS", "#kind #BODY") + """
           :type :TypeA
           :body ( ( 42 10 ) ( 42 "hello" ) )
         }

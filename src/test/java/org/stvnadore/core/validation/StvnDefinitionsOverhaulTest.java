@@ -525,7 +525,7 @@ public class StvnDefinitionsOverhaulTest {
         "main.stvn_i", mainContent
     );
     String flattenedDefs = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
-    String flattenedDocument = flattenedDefs.replaceFirst("\\}\\s*$", ":type :Port :body 8080 }");
+    String flattenedDocument = flattenedDefs.replace("#kind #DEFS", "#kind #BODY").replaceFirst("\\}\\s*$", ":type :Port :body 8080 }");
 
     var flattenedResult = StvnCompiler.compileToResult(flattenedDocument);
     Assertions.assertTrue(flattenedResult.isSuccess(), "Flattened document should compile cleanly");

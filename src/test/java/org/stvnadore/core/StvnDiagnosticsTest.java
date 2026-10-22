@@ -966,6 +966,117 @@ public class StvnDiagnosticsTest {
   }
 
   @Test
+  @DisplayName("TC-PIN-07: Declaring prohibited :type on #kind #DEFS pins ERR_DOCUMENT_KIND_MISMATCH strictly to :type clause")
+  void testProhibitedTypeSectionInDefinitionsSchemaPinsSpan() {
+    String input = """
+        {
+          :meta {
+            #name "defs_with_type"
+            #kind #DEFS
+          }
+          :defs {
+            :Port :Int
+          }
+          :type :Port
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, "defs_with_type.stvn_d");
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Expected single diagnostic on illegal :type section");
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.errorCode().orElse(null));
+    int expectedStart = input.indexOf(":type :Port");
+    int expectedEnd = expectedStart + ":type :Port".length();
+    Assertions.assertEquals(expectedStart, diag.startOffset());
+    Assertions.assertEquals(expectedEnd, diag.endOffset());
+    Assertions.assertTrue(diag.message().contains("cannot declare ':type' section"));
+  }
+
+  @Test
+  @DisplayName("TC-PIN-08: Declaring prohibited :body on #kind #DEFS pins ERR_DOCUMENT_KIND_MISMATCH strictly to :body clause")
+  void testProhibitedBodySectionInDefinitionsSchemaPinsSpan() {
+    String input = """
+        {
+          :meta {
+            #name "defs_with_body"
+            #kind #DEFS
+          }
+          :defs {
+            :Port :Int
+          }
+          :body 8080
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, "defs_with_body.stvn_d");
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Expected single diagnostic on illegal :body section");
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.errorCode().orElse(null));
+    int expectedStart = input.indexOf(":body 8080");
+    int expectedEnd = expectedStart + ":body 8080".length();
+    Assertions.assertEquals(expectedStart, diag.startOffset());
+    Assertions.assertEquals(expectedEnd, diag.endOffset());
+    Assertions.assertTrue(diag.message().contains("cannot declare ':body' section"));
+  }
+
+  @Test
+  @DisplayName("TC-PIN-09: Declaring both :type and :body on #kind #DEFS emits exactly two independent E031 diagnostics")
+  void testProhibitedTypeAndBodySectionsEmitTwoIndependentDiagnostics() {
+    String input = """
+        {
+          :meta {
+            #name "defs_with_type_and_body"
+            #kind #DEFS
+          }
+          :defs {
+            :Port :Int
+          }
+          :type :Port
+          :body 8080
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, "defs_with_type_and_body.stvn_d");
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(2, result.diagnostics().size(), "Must produce exactly 2 independent E031 diagnostics");
+    var diags = result.diagnostics();
+    Assertions.assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diags.get(0).errorCode().orElse(null));
+    Assertions.assertEquals(input.indexOf(":type :Port"), diags.get(0).startOffset());
+    Assertions.assertEquals(input.indexOf(":type :Port") + ":type :Port".length(), diags.get(0).endOffset());
+    Assertions.assertTrue(diags.get(0).message().contains("cannot declare ':type' section"));
+
+    Assertions.assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diags.get(1).errorCode().orElse(null));
+    Assertions.assertEquals(input.indexOf(":body 8080"), diags.get(1).startOffset());
+    Assertions.assertEquals(input.indexOf(":body 8080") + ":body 8080".length(), diags.get(1).endOffset());
+    Assertions.assertTrue(diags.get(1).message().contains("cannot declare ':body' section"));
+  }
+
+  @Test
+  @DisplayName("TC-PIN-10: Kind mismatch on definitions schema (#kind #BODY on .stvn_d) pins ERR_DOCUMENT_KIND_MISMATCH strictly to #kind facet")
+  void testKindMismatchOnDefinitionsSchemaPinsKindFacet() {
+    String input = """
+        {
+          :meta {
+            #name "defs_mismatch"
+            #kind #BODY
+          }
+          :defs {
+            :Port :Int
+          }
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, "defs_mismatch.stvn_d");
+    Assertions.assertFalse(result.isSuccess());
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+    int expectedStart = input.indexOf("#kind #BODY");
+    int expectedEnd = expectedStart + "#kind #BODY".length();
+    Assertions.assertEquals(expectedStart, diag.startOffset());
+    Assertions.assertEquals(expectedEnd, diag.endOffset());
+  }
+
+  @Test
   @DisplayName("Vector 2 Acid Test: { :meta :defs :type :body } produces exactly 4 pinned errors and 0 boundary errors")
   void testAcidTestFourClauseErrorsPinned() {
     String input = """

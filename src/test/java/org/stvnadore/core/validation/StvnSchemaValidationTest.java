@@ -431,4 +431,96 @@ public class StvnSchemaValidationTest {
     Assertions.assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, diag.errorCode().orElse(""));
     Assertions.assertTrue(diag.message().contains("directive facet '#strip' is not permitted on type declarations"));
   }
+
+  @Test
+  @DisplayName("Structural governance: Definitions schema rejecting prohibited :type section")
+  void testDefinitionsSchemaRejectsTypeSection() {
+    String input = """
+        {
+          :meta {
+            #name "defs_schema_with_type"
+            #kind #DEFS
+          }
+          :defs {
+            :Port :Int
+          }
+          :type :Port
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, "defs_schema_with_type.stvn_d");
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.errorCode().orElse(null));
+    Assertions.assertTrue(diag.message().contains("cannot declare ':type' section"));
+  }
+
+  @Test
+  @DisplayName("Structural governance: Definitions schema rejecting prohibited :body section")
+  void testDefinitionsSchemaRejectsBodySection() {
+    String input = """
+        {
+          :meta {
+            #name "defs_schema_with_body"
+            #kind #DEFS
+          }
+          :defs {
+            :Port :Int
+          }
+          :body 8080
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, "defs_schema_with_body.stvn_d");
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.errorCode().orElse(null));
+    Assertions.assertTrue(diag.message().contains("cannot declare ':body' section"));
+  }
+
+  @Test
+  @DisplayName("Structural governance: Definitions schema rejecting both prohibited :type and :body sections")
+  void testDefinitionsSchemaRejectsTypeAndBodySections() {
+    String input = """
+        {
+          :meta {
+            #name "defs_schema_with_both"
+            #kind #DEFS
+          }
+          :defs {
+            :Port :Int
+          }
+          :type :Port
+          :body 8080
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, "defs_schema_with_both.stvn_d");
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertEquals(2, result.diagnostics().size());
+    Assertions.assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, result.diagnostics().get(0).errorCode().orElse(null));
+    Assertions.assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, result.diagnostics().get(1).errorCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("Structural governance: Definitions schema rejecting conflicting #kind #BODY facet")
+  void testDefinitionsSchemaRejectsBodyKindFacet() {
+    String input = """
+        {
+          :meta {
+            #name "defs_schema_with_body_kind"
+            #kind #BODY
+          }
+          :defs {
+            :Port :Int
+          }
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input, "defs_schema_with_body_kind.stvn_d");
+    Assertions.assertFalse(result.isSuccess());
+    var diag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+    Assertions.assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.errorCode().orElse(null));
+  }
 }
