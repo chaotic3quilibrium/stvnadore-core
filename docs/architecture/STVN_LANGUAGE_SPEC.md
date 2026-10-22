@@ -375,7 +375,7 @@ STVN enforces strict lexical whitespace discipline to eliminate formatting ambig
    - **Dead-Code Elimination:** Definitions unreferenced by the root `:type` or `:body` payload are strictly pruned.
    - **Topological Ordering:** Retained definitions in `:defs` emit in topological dependency order (dependencies precede dependents).
 6. **String Capacity Governance (MCT § 3.1.3):**
-   - **Concrete Default Allocation Limit:** Unadorned `:String` instances default to character bounds `{ #minSize 0 #maxSize 16777216 }` (16 MiB allocation ceiling). Explicit `{ #minSize 0 }` is a redundant tautology rejected under `E036`.
+   - **Concrete Default Allocation Limit:** Unadorned `:String` instances default to character bounds `{ #minSize 0 #maxSize 16777216 }` (16 MiB allocation ceiling). Explicit `{ #minSize 0 }` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization.
    - **Default Inspection Threshold:** 4,096 characters.
    - **Logical Character Cardinality:** Bounded strings declare `{ #maxSize N } :String` or `{ #minSize 1 #maxSize N } :String`. The `#maxSize` facet itself accepts unbounded integer values ($N \in \mathbb{N}^+$, e.g. `#maxSize 16777216000000`). Machine bit-width facet `#size` is prohibited on `:String`.
 
@@ -795,7 +795,7 @@ The `:Int` keyword represents the universal integer type. All integer constraint
 
 | Facet | Argument | Default | Invariant |
 |:---|:---|:---|:---|
-| `#size` | Integer Literal ($\ge 1$) | 32 (Signed & Unsigned) / Unbounded | Declares exact physical storage width in bits ($n \in \mathbb{N}^+$). Range is $[-2^{n-1}, 2^{n-1}-1]$ when signed, or $[0, 2^n - 1]$ when unsigned. Explicit `{ #size 32 }` on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology rejected under `E036`. |
+| `#size` | Integer Literal ($\ge 1$) | 32 (Signed & Unsigned) / Unbounded | Declares exact physical storage width in bits ($n \in \mathbb{N}^+$). Range is $[-2^{n-1}, 2^{n-1}-1]$ when signed, or $[0, 2^n - 1]$ when unsigned. Explicit `{ #size 32 }` on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization. |
 | `#unsigned` | Bare Flag or Boolean | Signed (`false`) | Enforces non-negative physical unsigned boundaries. Replaces legacy `:Uint*`. |
 
 Canonical integer formulations:
@@ -851,9 +851,9 @@ The `:Float` keyword represents numeric values with fractional components:
 
 | Facet | Argument | Default | Invariant |
 |:---|:---|:---|:---|
-| `#size` | `32` or `64` | `64` | Configures IEEE-754 single-precision (32-bit) or double-precision (64-bit) floating-point storage. Continuous `:Float` intrinsically defaults to 64-bit double precision; explicit `{ #size 64 }` is a redundant tautology rejected under `E036`. |
+| `#size` | `32` or `64` | `64` | Configures IEEE-754 single-precision (32-bit) or double-precision (64-bit) floating-point storage. Continuous `:Float` intrinsically defaults to 64-bit double precision; explicit `{ #size 64 }` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization. |
 | `#exact` | Bare Flag or Boolean | IEEE-754 binary | Enforces exact arbitrary-precision decimal arithmetic mirroring Java `BigDecimal` (unscaled integer + 32-bit scale, variable-length wire encoding). Facet `#size` is strictly prohibited on `{ #exact } :Float`. |
-| `#maxSize` | `<N>` ($N \in \mathbb{N}^+$) | `16777216` | Defines maximum allowable significant decimal digits (precision) of the unscaled mantissa on `{ #exact } :Float`. Unadorned `{ #exact } :Float` carries an intrinsic concrete default ceiling of `16,777,216` significant decimal digits. Explicit `{ #exact #maxSize 16777216 }` is a redundant tautology rejected under `E036`. `#maxSize` is prohibited on continuous `:Float` without `#exact` (`E008`). |
+| `#maxSize` | `<N>` ($N \in \mathbb{N}^+$) | `16777216` | Defines maximum allowable significant decimal digits (precision) of the unscaled mantissa on `{ #exact } :Float`. Unadorned `{ #exact } :Float` carries an intrinsic concrete default ceiling of `16,777,216` significant decimal digits. Explicit `{ #exact #maxSize 16777216 }` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization. `#maxSize` is prohibited on continuous `:Float` without `#exact` (`E008`). |
 
 Continuous domains (standard `:Float` without `#exact`) represent continuous real numbers and accept all four boundary facets: `#minIncl`, `#maxIncl`, `#minExcl`, and `#maxExcl`.
 
@@ -1114,15 +1114,15 @@ $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow
 | `2.1` | Trait | `:Boolean` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
 | `2.2` | Trait | `:Boolean` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
 | `1.1.1` | Definition | `:Int` | `unsigned` | Standalone | N/A | Absent | No | N/A | When present, indicates sign prefix prohibited |
-| `1.3.1` | Definition | `:Int` | `size` | `:Int` | $s \ge 1$, open upper bound | `32` | No | N/A | Storage width in bits ($s \ge 1$); determines integer capacity range; explicit declaration of default 32 on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology rejected under Rule E036 |
+| `1.3.1` | Definition | `:Int` | `size` | `:Int` | $s \ge 1$, open upper bound | `32` | No | N/A | Storage width in bits ($s \ge 1$); determines integer capacity range; explicit declaration of default 32 on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology triggering warning W003 and purged during IR normalization |
 | `2.1` | Trait | `:Int` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
 | `2.2` | Trait | `:Int` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
 | `3.1` | Bounds | `:Int` | `minIncl` | `:Int` | $\ge -2^{s-1}, < maxExcl$ | $-2^{s-1}$ | Yes | N/A | Half-open interval; start |
 | `3.4` | Bounds | `:Int` | `maxExcl` | `:Int` | $\le 2^{s-1}, > minIncl$ | $2^{s-1}$ | Yes | N/A | Half-open interval; end |
-| `3.1` | Bounds | `:Int (unsigned)` | `minIncl` | `:Int` | $\ge 0, < maxExcl$ | `0` | Yes | N/A | Half-open interval; start; explicit declaration of default 0 is a redundant tautology rejected under Rule E036 |
+| `3.1` | Bounds | `:Int (unsigned)` | `minIncl` | `:Int` | $\ge 0, < maxExcl$ | `0` | Yes | N/A | Half-open interval; start; explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization |
 | `3.4` | Bounds | `:Int (unsigned)` | `maxExcl` | `:Int` | $\le 2^s, > minIncl$ | $2^s$ | Yes | N/A | Half-open interval; end |
 | `1.1.2` | Definition | `:Float (exact)` | `exact` | Standalone | N/A | `<None>` | No | `size 32`, `size 64` | BigDecimal Equivalent |
-| `1.5.2` | Definition | `:Float (exact)` | `maxSize` | `:Int` | $n \ge 1$, open upper bound | `16777216` | No | N/A | Defines maximum allowable significant decimal digits (precision) of the unscaled mantissa. Explicit `{ #exact #maxSize 16777216 }` is a redundant tautology rejected under Rule E036. |
+| `1.5.2` | Definition | `:Float (exact)` | `maxSize` | `:Int` | $n \ge 1$, open upper bound | `16777216` | No | N/A | Defines maximum allowable significant decimal digits (precision) of the unscaled mantissa. Explicit `{ #exact #maxSize 16777216 }` is a redundant tautology triggering warning W003 and purged during IR normalization. |
 | `2.1` | Trait | `:Float (exact)` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
 | `2.2` | Trait | `:Float (exact)` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
 | `3.1` | Bounds | `:Float (exact)` | `minIncl` | `:Float (exact)` | $< maxExcl$ | `<None>` | Yes | N/A | Half-open interval; start |
@@ -1134,7 +1134,7 @@ $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow
 | `3.2` | Bounds | `:Float (32)` | `minExcl` | `:Float (exact)` | $> -3.4028235\times 10^{38}, < \text{upper}$ | `<None>` | Yes | `minIncl` | Continuous interval; exclusive lower bound |
 | `3.3` | Bounds | `:Float (32)` | `maxIncl` | `:Float (exact)` | $\le 3.4028235\times 10^{38}, > \text{lower}$ | `3.4028235e+38` | Yes | `maxExcl` | Continuous interval; inclusive upper bound |
 | `3.4` | Bounds | `:Float (32)` | `maxExcl` | `:Float (exact)` | $< 3.4028235\times 10^{38}, > \text{lower}$ | `<None>` | Yes | `maxIncl` | Continuous interval; exclusive upper bound |
-| `1.3.1` | Definition | `:Float (64)` | `size` | `:Int` | $n = 64$ | `64` | No | `exact`, `size 32` | Specifies IEEE-754 double-precision 64-bit floating point storage; intrinsic concrete default for unadorned `:Float`; explicit declaration is a redundant tautology rejected under Rule E036 |
+| `1.3.1` | Definition | `:Float (64)` | `size` | `:Int` | $n = 64$ | `64` | No | `exact`, `size 32` | Specifies IEEE-754 double-precision 64-bit floating point storage; intrinsic concrete default for unadorned `:Float`; explicit declaration is a redundant tautology triggering warning W003 and purged during IR normalization |
 | `2.1` | Trait | `:Float (64)` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:FALSE` | Yes | N/A | Opt-in bitwise IEEE-754 pattern equality override (disabled by default due to NaN hazards) |
 | `2.2` | Trait | `:Float (64)` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total ordering over floating-point values |
 | `3.1` | Bounds | `:Float (64)` | `minIncl` | `:Float (exact)` | $\ge -1.7976931348623157\times 10^{308}, < \text{upper}$ | `-1.7976931348623157e+308` | Yes | `minExcl` | Continuous interval; inclusive lower bound |
@@ -1166,8 +1166,8 @@ $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow
 | `3.4` | Bounds | `:DateTime (zoned)` | `maxExcl` | `:DateTime` | Valid ISO-8601 string, $> minIncl$ | `<None>` | Yes | N/A | Half-open interval; end |
 | `3.1` | Bounds | `:DateTime (audited)` | `minIncl` | `:DateTime` | Valid ISO-8601 string, $< maxExcl$ | `<None>` | Yes | N/A | Half-open interval; start |
 | `3.4` | Bounds | `:DateTime (audited)` | `maxExcl` | `:DateTime` | Valid ISO-8601 string, $> minIncl$ | `<None>` | Yes | N/A | Half-open interval; end |
-| `1.5.1` | Definition | `:String` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum character length constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology rejected under Rule E036 |
-| `1.5.2` | Definition | `:String` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum character length allocation cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology rejected under Rule E036 |
+| `1.5.1` | Definition | `:String` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum character length constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization |
+| `1.5.2` | Definition | `:String` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum character length allocation cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization |
 | `2.1` | Trait | `:String` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables structural value equality comparison |
 | `2.2` | Trait | `:String` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:TRUE` | Yes | N/A | Enables total order comparison |
 | `3.1` | Bounds | `:String` | `minIncl` | `:String` | UTF-8 string literal, $< \text{upper}$ (ordinal UTF-8) | `<None>` | Yes | `minExcl` | Lexicographical interval; inclusive lower bound |
@@ -1182,17 +1182,17 @@ $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow
 | `4.2` | Constraint | `:Enum` | `filterExcl` | `:EnumValues` | Must appear within parent `:Enum` | `<None>` | Yes | `filterIncl` | Blacklist filter; excludes listed tags from the allowed enum variants |
 | `2.1` | Trait | `:Tuple` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables structural field-by-field equality comparison (derived inductively from all constituent fields) |
 | `2.2` | Trait | `:Tuple` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables lexicographical total ordering comparison across fields (derived inductively from all constituent fields) |
-| `1.5.1` | Definition | `:Seq` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum element count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology rejected under Rule E036 |
-| `1.5.2` | Definition | `:Seq` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum element count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology rejected under Rule E036 |
+| `1.5.1` | Definition | `:Seq` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum element count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization |
+| `1.5.2` | Definition | `:Seq` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum element count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization |
 | `2.1` | Trait | `:Seq` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables element-by-element sequential equality comparison |
 | `2.2` | Trait | `:Seq` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables lexicographical ordering comparison across sequence elements |
-| `1.5.1` | Definition | `:Set` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum unique element count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology rejected under Rule E036 |
-| `1.5.2` | Definition | `:Set` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum unique element count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology rejected under Rule E036 |
+| `1.5.1` | Definition | `:Set` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum unique element count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization |
+| `1.5.2` | Definition | `:Set` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum unique element count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization |
 | `2.1` | Trait | `:Set` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables content-based unique set equality comparison |
 | `2.2` | Trait | `:Set` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:FALSE` | Yes | N/A | Opt-in comparison (disabled by default; unordered sets lack natural total ordering) |
 | `1.1.3` | Definition | `:Map` | `invertible` | Standalone | N/A | `<None>` | No | N/A | Ensures uniqueness within each of the set of keys and separately, the set of values |
-| `1.5.1` | Definition | `:Map` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum entry count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology rejected under Rule E036 |
-| `1.5.2` | Definition | `:Map` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum entry count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology rejected under Rule E036 |
+| `1.5.1` | Definition | `:Map` | `minSize` | `:Int` | $n \ge 0 \land n \le maxSize$ | `0` | No | N/A | Minimum entry count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization |
+| `1.5.2` | Definition | `:Map` | `maxSize` | `:Int` | $n \ge 1 \land n \ge minSize$, open upper bound | `16777216` | No | N/A | Maximum entry count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization |
 | `2.1` | Trait | `:Map` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables key equality comparison (for keys only; values are unconstrained) |
 | `2.2` | Trait | `:Map` | `comparable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | `:FALSE` | Yes | N/A | Opt-in comparison (disabled by default; unordered maps lack natural total ordering) |
 | `2.1` | Trait | `:Map (invertible)` | `equatable` | `:Boolean` | `:F\|:T\|:FALSE\|:TRUE` | Derived | Yes | N/A | Enables dual-set bijection equality comparison (both keys and values must resolve to #equatable #TRUE) |
@@ -1397,7 +1397,8 @@ the Pass 2 architectural changes permanently lock the hashing inputs prior to th
 1. **Decoy Alias Purge:** Eliminating `:org/stvnadore/prelude/TimeEpoch` and `:org/stvnadore/prelude/DateTime` ensures these types hash as fundamental kernel constructors rather than nominal prelude aliases pointing to `:Int` or `:String`.
 2. **Scale Flag Canonicalization:** Replacing `{ #unit #ms }` with bare `{ #ms }` ensures a compact, permanent canonical syntax for epoch hashes.
 3. **Semantic Category Order Freezing:** Freezing the 5-tier Semantic Category Order ensures that all compliant implementations (Java, Rust, Scala, TypeScript, Go) emit the identical facet string representation, guaranteeing bitwise-identical SHA-256 digests across all platforms.
-4. **Exact Float Default Sizing Canonicalization:** Unadorned `{ #exact } :Float` intrinsically includes the `16,777,216` digit mantissa ceiling without emitting `#maxSize` in the canonical flattened text or CAS preimage. Explicit `{ #exact #maxSize 16777216 } :Float` is rejected as an `E036` tautology.
+4. **Exact Float Default Sizing Canonicalization:** Unadorned `{ #exact } :Float` intrinsically includes the `16,777,216` digit mantissa ceiling without emitting `#maxSize` in the canonical flattened text or CAS preimage. Explicit `{ #exact #maxSize 16777216 } :Float` triggers warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and normalizes to the canonical IR.
+5. **IR Semantic Normalization & CAS Purity:** Preimage generation derives strictly from normalized semantic IR. Tautological surface facets (such as implicit integer bounds, default 32-bit integer or 64-bit continuous float sizing, collection capacity defaults, or primitive trait defaults) emit non-blocking warning `W003` and are purged during IR lowering. Nominal schemas with surface tautologies produce bitwise-identical SHA-256 CAS addresses to their clean canonical counterparts.
 
 ### 9.3 CAS Digesting & Schema Hashing Integration
 
@@ -1725,7 +1726,7 @@ In STVN Version 2.0.0, arbitrary bit-width integers declare the pure atomic base
   * Suffix values of zero (`#size 0`) are **prohibited**.
 
 * **Default Resolution:**
-  * Base unadorned token `:Int` concretizes directly to a signed 32-bit integer ($[-2^{31}, 2^{31} - 1]$). Declaring explicit `{ #size 32 }` on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology rejected under `E036`.
+  * Base unadorned token `:Int` concretizes directly to a signed 32-bit integer ($[-2^{31}, 2^{31} - 1]$). Declaring explicit `{ #size 32 }` on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization.
 
 ### A.2 Mathematical Range & Value Invariants
 
@@ -2407,11 +2408,11 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E033` | `META_POSITION_INVALID` | Syntactic | Fatal | :meta root block placed after :defs, :type, or :body. |
 | `E034` | `LEGACY_FILE_EXTENSION_PURGED` | Syntactic | Fatal | Excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas, .stvn_bin, .stvn_f, .stvn_df, .stvn_bf, .stvn_bdf) used. |
 | `E035` | `UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | Semantic | Fatal | Module :use in a flat hermetic document (.stvn / .stvn_d) targets an external package not declared in local :defs or prelude. |
-| `E036` | `ERR_REDUNDANT_METADATA_FACET` | Semantic | Fatal | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #maxExcl 2^N on unsigned integer, #minIncl -2^{N-1} or #maxExcl 2^{N-1} on signed integer, #minSize 0 on container, #size 32 on signed :Int or unsigned { #unsigned } :Int, #size 64 on continuous :Float, #maxSize 16777216 on { #exact } :Float, or bare primitive trait defaults). |
 | `E037` | `ERR_RESERVED_PACKAGE_PROHIBITED` | Semantic | Fatal | User document declares a :package enclosure, qualified type, or qualified constant targeting reserved runtime namespace :org/stvnadore/* (§ 3.9 Invariant 8). |
 | `E038` | `ERR_RESERVED_DOMAIN_PROHIBITED` | Semantic | Fatal | User document declares a reserved system domain (stvn_core, stvn_ir, stvn_cas) in root :meta (§ 3.10.1 Rule 6). |
 | `W001` | `DOCUMENT_NAME_MISMATCH` | Semantic | Warning | Declared #name does not match filename stem slot 0. |
 | `W002` | `DOCUMENT_DOMAIN_OMITTED_IN_FILENAME` | Semantic | Warning | Declared #domain is omitted from filename stem slot 1. |
+| `W003` | `WARN_REDUNDANT_METADATA_FACET` | Semantic | Warning | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #maxExcl 2^N on unsigned integer, #minIncl -2^{N-1} or #maxExcl 2^{N-1} on signed integer, #minSize 0 on container, #size 32 on signed :Int or unsigned { #unsigned } :Int, #size 64 on continuous :Float, #maxSize 16777216 on { #exact } :Float, or bare primitive trait defaults). Purged during semantic IR lowering without halting compilation (§ 9.2). |
 
 ### C.3 Normative STVN 2.0.0 Diagnostic Codes
 
@@ -2464,7 +2465,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `WARN_DOCUMENT_NAME_MISMATCH` | `"WARN_DOCUMENT_NAME_MISMATCH"` | Warning | #name declared in :meta does not match filename stem slot 0. |
 | `WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME` | `"WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME"` | Warning | #domain declared in :meta is omitted from filename stem slot 1. |
 | `ERR_LEGACY_FILE_EXTENSION_PURGED` | `"ERR_LEGACY_FILE_EXTENSION_PURGED"` | Fatal | Legacy excised file extension passed to compiler or include. |
-| `ERR_REDUNDANT_METADATA_FACET` | `"ERR_REDUNDANT_METADATA_FACET"` | Fatal | Metadata facet is tautological or redundant, altering canonical preimage and causing CAS hash bifurcation (§ 9.2). |
+| `WARN_REDUNDANT_METADATA_FACET` | `"WARN_REDUNDANT_METADATA_FACET"` | Warning | Metadata facet declaration is tautological or redundant. Purged during semantic IR lowering; non-blocking warning emitted without halting compilation (§ 9.2). |
 | `ERR_RESERVED_PACKAGE_PROHIBITED` | `"ERR_RESERVED_PACKAGE_PROHIBITED"` | Fatal | User document declares :package enclosure, qualified type, or qualified constant targeting reserved runtime namespace :org/stvnadore/* (§ 3.9 Invariant 8). |
 | `ERR_RESERVED_DOMAIN_PROHIBITED` | `"ERR_RESERVED_DOMAIN_PROHIBITED"` | Fatal | User document declares reserved system domain in :meta (stvn_core, stvn_ir, stvn_cas) (§ 3.10.1 Rule 6). |
 

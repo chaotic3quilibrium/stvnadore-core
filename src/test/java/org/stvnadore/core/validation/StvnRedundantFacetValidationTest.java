@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Verification test suite for Redundant Metadata Facet Validation and Tautology Elimination
- * (SPEC § 5.1.1, § 5.5.3, § 6.1, § 9.2, Diagnostic Code E036 / ERR_REDUNDANT_METADATA_FACET).
+ * (SPEC § 5.1.1, § 5.5.3, § 6.1, § 9.2, Diagnostic Code W003 / WARN_REDUNDANT_METADATA_FACET).
  * <p>
  * Enforces compile-time rejection of tautological and redundant facet declarations to eliminate
  * preimage divergence and prevent CAS hash bifurcation under Value-Oriented Programming (VOP).
@@ -29,12 +29,14 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #minIncl 0 on unsigned :Int");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #minIncl 0 on unsigned :Int");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
-        .orElseThrow(() -> new AssertionError("Expected ERR_REDUNDANT_METADATA_FACET diagnostic"));
+        .orElseThrow(() -> new AssertionError("Expected WARN_REDUNDANT_METADATA_FACET diagnostic"));
 
     String targetToken = "#minIncl 0";
     int expectedStart = source.indexOf(targetToken);
@@ -91,10 +93,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #minSize 0 on :String");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #minSize 0 on :String");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -136,10 +140,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #minSize 0 on :Seq");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #minSize 0 on :Seq");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -164,10 +170,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #minSize 0 on :Set");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #minSize 0 on :Set");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -194,10 +202,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #minSize 0 on :Map");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #minSize 0 on :Map");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -239,10 +249,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #equatable #TRUE on scalar primitive :Int");
+    assertFalse(result.hasErrors(), "Expected failure for #equatable #TRUE on scalar primitive :Int");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -284,10 +296,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #comparable #TRUE on scalar primitive :Int");
+    assertFalse(result.hasErrors(), "Expected failure for #comparable #TRUE on scalar primitive :Int");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -312,10 +326,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #equatable #TRUE on scalar primitive :Boolean");
+    assertFalse(result.hasErrors(), "Expected failure for #equatable #TRUE on scalar primitive :Boolean");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -340,10 +356,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #comparable #TRUE on scalar primitive :Boolean");
+    assertFalse(result.hasErrors(), "Expected failure for #comparable #TRUE on scalar primitive :Boolean");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -368,10 +386,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #equatable #TRUE on scalar primitive :String");
+    assertFalse(result.hasErrors(), "Expected failure for #equatable #TRUE on scalar primitive :String");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -396,10 +416,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #comparable #TRUE on scalar primitive :String");
+    assertFalse(result.hasErrors(), "Expected failure for #comparable #TRUE on scalar primitive :String");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -441,10 +463,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #equatable #FALSE on continuous :Float");
+    assertFalse(result.hasErrors(), "Expected failure for #equatable #FALSE on continuous :Float");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -469,10 +493,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #comparable #TRUE on continuous :Float");
+    assertFalse(result.hasErrors(), "Expected failure for #comparable #TRUE on continuous :Float");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -497,10 +523,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #equatable #TRUE on exact decimal :Float");
+    assertFalse(result.hasErrors(), "Expected failure for #equatable #TRUE on exact decimal :Float");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -526,10 +554,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #minIncl 0 on child of #unsigned parent");
+    assertFalse(result.hasErrors(), "Expected failure for #minIncl 0 on child of #unsigned parent");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -555,10 +585,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected failure for #equatable #TRUE on child of equatable parent");
+    assertFalse(result.hasErrors(), "Expected failure for #equatable #TRUE on child of equatable parent");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -583,10 +615,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Anonymous inner schema in tuple constructor must be validated for redundant facets");
+    assertFalse(result.hasErrors(), "Anonymous inner schema in tuple constructor must be validated for redundant facets");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -612,10 +646,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Constant reference resolving to 0 on unsigned :Int must be rejected as redundant");
+    assertFalse(result.hasErrors(), "Constant reference resolving to 0 on unsigned :Int must be rejected as redundant");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -639,10 +675,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #size 32 on signed :Int");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #size 32 on signed :Int");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -686,10 +724,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #size 32 on unsigned :Int");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #size 32 on unsigned :Int");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -752,10 +792,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #size 32 on child of unsigned parent");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #size 32 on child of unsigned parent");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -780,10 +822,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #size 64 on continuous :Float");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #size 64 on continuous :Float");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -843,10 +887,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #size 32 on child of bare :Int");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #size 32 on child of bare :Int");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -872,10 +918,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #size 64 on child of bare :Float");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #size 64 on child of bare :Float");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -901,10 +949,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Constant reference resolving to 32 on signed :Int must be rejected as redundant");
+    assertFalse(result.hasErrors(), "Constant reference resolving to 32 on signed :Int must be rejected as redundant");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -929,12 +979,14 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Expected compilation failure for #maxSize 16777216 on { #exact } :Float");
+    assertFalse(result.hasErrors(), "Expected compilation failure for #maxSize 16777216 on { #exact } :Float");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
-        .orElseThrow(() -> new AssertionError("Expected ERR_REDUNDANT_METADATA_FACET diagnostic"));
+        .orElseThrow(() -> new AssertionError("Expected WARN_REDUNDANT_METADATA_FACET diagnostic"));
 
     String targetToken = "#maxSize 16777216";
     int expectedStart = source.indexOf(targetToken);
@@ -1007,7 +1059,7 @@ public class StvnRedundantFacetValidationTest {
   }
 
   // ==============================================================================
-  // DYNAMIC BIT-WIDTH BOUNDARY TAUTOLOGY TESTS (RULE E036)
+  // DYNAMIC BIT-WIDTH BOUNDARY TAUTOLOGY TESTS (RULE W003)
   // ==============================================================================
 
   @Test
@@ -1023,10 +1075,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Explicit #maxExcl 64 on #unsigned #size 6 must be rejected as redundant");
+    assertFalse(result.hasErrors(), "Explicit #maxExcl 64 on #unsigned #size 6 must be rejected as redundant");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -1067,10 +1121,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Explicit #maxExcl 4294967296 on default unsigned integer must be rejected as redundant");
+    assertFalse(result.hasErrors(), "Explicit #maxExcl 4294967296 on default unsigned integer must be rejected as redundant");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -1090,10 +1146,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Explicit #minIncl -32768 on 16-bit signed integer must be rejected as redundant");
+    assertFalse(result.hasErrors(), "Explicit #minIncl -32768 on 16-bit signed integer must be rejected as redundant");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -1118,10 +1176,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Explicit #maxExcl 32768 on 16-bit signed integer must be rejected as redundant");
+    assertFalse(result.hasErrors(), "Explicit #maxExcl 32768 on 16-bit signed integer must be rejected as redundant");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -1141,10 +1201,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Explicit #minIncl -2147483648 on default signed integer must be rejected as redundant");
+    assertFalse(result.hasErrors(), "Explicit #minIncl -2147483648 on default signed integer must be rejected as redundant");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -1164,10 +1226,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Explicit #maxExcl 2147483648 on default signed integer must be rejected as redundant");
+    assertFalse(result.hasErrors(), "Explicit #maxExcl 2147483648 on default signed integer must be rejected as redundant");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -1187,10 +1251,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "2^64 upper bound exceeding Long.MAX_VALUE must be rejected as redundant via BigInteger");
+    assertFalse(result.hasErrors(), "2^64 upper bound exceeding Long.MAX_VALUE must be rejected as redundant via BigInteger");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -1212,8 +1278,10 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(signedSource, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "1-bit boundary tautologies must be rejected");
-    assertEquals(3, result.diagnostics().stream().filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))).count());
+    assertFalse(result.hasErrors(), "1-bit boundary tautologies must be rejected");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
+    assertEquals(3, result.diagnostics().stream().filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))).count());
   }
 
   @Test
@@ -1230,10 +1298,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Constant-referenced upper bound 256 on 8-bit unsigned integer must be rejected as redundant");
+    assertFalse(result.hasErrors(), "Constant-referenced upper bound 256 on 8-bit unsigned integer must be rejected as redundant");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -1259,10 +1329,12 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Subtype restating parent's 16-bit storage upper bound must be rejected as redundant");
+    assertFalse(result.hasErrors(), "Subtype restating parent's 16-bit storage upper bound must be rejected as redundant");
+    assertTrue(result.hasWarnings());
+    assertTrue(result.isSuccess());
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -1284,8 +1356,8 @@ public class StvnRedundantFacetValidationTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertTrue(result.hasErrors());
     assertTrue(result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_CAPACITY_OVERFLOW.equals(d.errorCode().orElse(null))),
-        "Out of bounds value must emit ERR_CAPACITY_OVERFLOW, not ERR_REDUNDANT_METADATA_FACET");
-    assertFalse(result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))));
+        "Out of bounds value must emit ERR_CAPACITY_OVERFLOW, not WARN_REDUNDANT_METADATA_FACET");
+    assertFalse(result.diagnostics().stream().anyMatch(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))));
   }
 
   @Test
@@ -1302,5 +1374,67 @@ public class StvnRedundantFacetValidationTest {
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertFalse(result.hasErrors(), "Valid narrowings must compile cleanly with zero diagnostics");
+  }
+  @Test
+  @DisplayName("TC-BIJECT-01: Proves :SquareIndexA and :SquareIndexB produce bitwise-identical CAS hashes")
+  void testSquareIndexBijectivityCasEquivalence() throws Exception {
+    String schemaA = """
+        {
+          :meta {
+            #name "square_index"
+            #domain "gaming"
+            #kind #DEFS
+          }
+          :defs {
+            :SquareIndex { #unsigned #size 6 } :Int
+          }
+        }
+        """;
+
+    String schemaB = """
+        {
+          :meta {
+            #name "square_index"
+            #domain "gaming"
+            #kind #DEFS
+          }
+          :defs {
+            :SquareIndex { #unsigned #size 6 #maxExcl 64 } :Int
+          }
+        }
+        """;
+
+    // 1. Compile schema A (clean)
+    var resA = StvnCompiler.compileToResult(schemaA, "square_index.gaming.stvn_d", StvnParserConfig.DEFAULT);
+    assertFalse(resA.hasErrors(), "Schema A must compile without errors");
+    assertFalse(resA.hasWarnings(), "Schema A has no warnings");
+    assertTrue(resA.isSuccess());
+
+    // 2. Compile schema B (with redundant #maxExcl 64)
+    var resB = StvnCompiler.compileToResult(schemaB, "square_index.gaming.stvn_d", StvnParserConfig.DEFAULT);
+    assertFalse(resB.hasErrors(), "Schema B must compile without errors under W003");
+    assertTrue(resB.hasWarnings(), "Schema B must report W003 warning");
+    assertTrue(resB.isSuccess());
+
+    var warnB = resB.diagnostics().stream()
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst()
+        .orElseThrow();
+    assertEquals(org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity.WARNING, warnB.severity());
+
+    // 3. Flatten both schemas
+    String flatA = org.stvnadore.core.StvnSchemaFlattener.flatten(java.util.Map.of("square_index.gaming.stvn_d", schemaA), "square_index.gaming.stvn_d");
+    String flatB = org.stvnadore.core.StvnSchemaFlattener.flatten(java.util.Map.of("square_index.gaming.stvn_d", schemaB), "square_index.gaming.stvn_d");
+
+    // 4. Assert bitwise-identical canonical preimages
+    assertEquals(flatA, flatB, "Preimages must be bitwise identical after IR normalization");
+
+    // 5. Compute SHA-256 CAS addresses
+    var digest = java.security.MessageDigest.getInstance("SHA-256");
+    String hashA = java.util.HexFormat.of().formatHex(digest.digest(flatA.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    digest.reset();
+    String hashB = java.util.HexFormat.of().formatHex(digest.digest(flatB.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+    assertEquals(hashA, hashB, "CAS hashes must be bitwise identical under Invariant 6");
   }
 }

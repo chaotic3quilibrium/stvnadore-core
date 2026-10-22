@@ -1133,7 +1133,8 @@ public final class StvnSchemaFlattener {
 
   private static void collectSchemaTypeTokens(SchemaTypeContext ctx, List<String> tokens) {
     if (ctx.metadataMap() != null) {
-      var constraints = StvnTypeResolver.extractConstraints(ctx.metadataMap());
+      String baseType = StvnTypeResolver.getPrimitiveBaseType(ctx);
+      var constraints = StvnTypeResolver.normalizeConstraints(StvnTypeResolver.extractConstraints(ctx.metadataMap()), baseType);
       if (hasConstraints(constraints)) {
         StringBuilder sb = new StringBuilder();
         appendConstraints(sb, constraints);

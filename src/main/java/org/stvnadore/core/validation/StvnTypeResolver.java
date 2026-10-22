@@ -2256,6 +2256,136 @@ public class StvnTypeResolver {
     );
   }
 
+  private static boolean bdEquals(@Nullable BigDecimal bd, @Nullable BigInteger bi) {
+    if (bd == null || bi == null) return false;
+    return new BigDecimal(bi).compareTo(bd) == 0;
+  }
+
+  private static boolean bdEquals(@Nullable BigDecimal bd, long val) {
+    if (bd == null) return false;
+    return BigDecimal.valueOf(val).compareTo(bd) == 0;
+  }
+
+  /**
+   * Normalizes schema constraints by purging redundant defaults and tautological boundaries.
+   *
+   * @param constraints the un-normalized constraints
+   * @param baseType    the primitive base type name
+   * @return normalized constraints stripped of tautological entries
+   */
+  public static StvnConstraints normalizeConstraints(StvnConstraints constraints, @Nullable String baseType) {
+    if (constraints == null) return StvnConstraints.empty();
+    if (baseType == null) return constraints;
+
+    var minIncl = constraints.minIncl();
+    var maxExcl = constraints.maxExcl();
+    var size = constraints.size();
+    var minSize = constraints.minSize();
+    var maxSize = constraints.maxSize();
+    var equatable = constraints.equatable();
+    var comparable = constraints.comparable();
+    var overrides = new java.util.ArrayList<>(constraints.explicitOverrides());
+
+    // 1. Integer Normalization
+    if (StvnVocabulary.TYPE_INT.equals(baseType)) {
+      int bitWidth = size.orElse(32);
+      if (size.isPresent() && size.get() == 32) {
+        size = Optional.empty();
+        overrides.remove("size");
+      }
+      if (constraints.unsigned()) {
+        if (minIncl.isPresent() && bdEquals(minIncl.get(), 0)) {
+          minIncl = Optional.empty();
+          overrides.remove("minIncl");
+        }
+        var naturalMaxExcl = BigInteger.ONE.shiftLeft(bitWidth);
+        if (maxExcl.isPresent() && bdEquals(maxExcl.get(), naturalMaxExcl)) {
+          maxExcl = Optional.empty();
+          overrides.remove("maxExcl");
+        }
+      } else {
+        var naturalMinIncl = BigInteger.ONE.shiftLeft(bitWidth - 1).negate();
+        if (minIncl.isPresent() && bdEquals(minIncl.get(), naturalMinIncl)) {
+          minIncl = Optional.empty();
+          overrides.remove("minIncl");
+        }
+        var naturalMaxExcl = BigInteger.ONE.shiftLeft(bitWidth - 1);
+        if (maxExcl.isPresent() && bdEquals(maxExcl.get(), naturalMaxExcl)) {
+          maxExcl = Optional.empty();
+          overrides.remove("maxExcl");
+        }
+      }
+    }
+
+    // 2. Float Normalization
+    if (StvnVocabulary.TYPE_FLOAT.equals(baseType)) {
+      if (!constraints.exact() && size.isPresent() && size.get() == 64) {
+        size = Optional.empty();
+        overrides.remove("size");
+      }
+      if (constraints.exact() && maxSize.isPresent() && maxSize.get() == StvnVocabulary.DEFAULT_EXACT_FLOAT_MAX_SIZE) {
+        maxSize = Optional.empty();
+        overrides.remove("maxSize");
+      }
+    }
+
+    // 3. Collection & String Normalization
+    if (StvnVocabulary.TYPE_STRING.equals(baseType) || StvnVocabulary.TYPE_SEQ.equals(baseType)
+        || StvnVocabulary.TYPE_SET.equals(baseType) || StvnVocabulary.TYPE_MAP.equals(baseType)) {
+      if (minSize.isPresent() && minSize.get() == 0) {
+        minSize = Optional.empty();
+        overrides.remove("minSize");
+      }
+      if (maxSize.isPresent() && maxSize.get() == StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY) {
+        maxSize = Optional.empty();
+        overrides.remove("maxSize");
+      }
+    }
+
+    // 4. Primitive Trait Defaults Normalization
+    if (StvnVocabulary.TYPE_BOOLEAN.equals(baseType) || StvnVocabulary.TYPE_INT.equals(baseType)
+        || StvnVocabulary.TYPE_STRING.equals(baseType) || StvnVocabulary.TYPE_TIME_EPOCH.equals(baseType)
+        || StvnVocabulary.TYPE_DATE_TIME.equals(baseType) || StvnVocabulary.TYPE_ENUM.equals(baseType)) {
+      if (equatable.isPresent() && equatable.get()) {
+        overrides.remove(StvnVocabulary.FACET_NAME_EQUATABLE);
+        overrides.remove("equatable");
+      }
+      if (comparable.isPresent() && comparable.get()) {
+        overrides.remove(StvnVocabulary.FACET_NAME_COMPARABLE);
+        overrides.remove("comparable");
+      }
+    } else if (StvnVocabulary.TYPE_FLOAT.equals(baseType)) {
+      if (!constraints.exact()) {
+        if (equatable.isPresent() && !equatable.get()) {
+          overrides.remove(StvnVocabulary.FACET_NAME_EQUATABLE);
+          overrides.remove("equatable");
+        }
+        if (comparable.isPresent() && comparable.get()) {
+          overrides.remove(StvnVocabulary.FACET_NAME_COMPARABLE);
+          overrides.remove("comparable");
+        }
+      } else {
+        if (equatable.isPresent() && equatable.get()) {
+          overrides.remove(StvnVocabulary.FACET_NAME_EQUATABLE);
+          overrides.remove("equatable");
+        }
+        if (comparable.isPresent() && comparable.get()) {
+          overrides.remove(StvnVocabulary.FACET_NAME_COMPARABLE);
+          overrides.remove("comparable");
+        }
+      }
+    }
+
+    return new StvnConstraints(
+        minIncl, constraints.minExcl(), constraints.maxIncl(), maxExcl,
+        constraints.regex(), constraints.preserveIndent(), equatable, comparable,
+        java.util.List.copyOf(overrides), constraints.filterIncl(), constraints.filterExcl(), size,
+        constraints.unsigned(), constraints.exact(), minSize, maxSize,
+        constraints.invertible(), constraints.scale(), constraints.offset(),
+        constraints.zoned(), constraints.audited(), constraints.dateMinIncl(), constraints.dateMaxExcl()
+    );
+  }
+
   private static String extractRawStringValue(String raw) {
     return org.stvnadore.core.ir.StvnLiteralParser.parseString(raw, true);
   }
@@ -5473,26 +5603,24 @@ public class StvnTypeResolver {
                 } else {
                   message = "Constraint violation (" + name + "): facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, \\infty)";
                 }
-                diagnosticBag.addError(
+                diagnosticBag.addWarning(
                     message,
                     entry.getStart().getStartIndex(),
                     entry.getStop().getStopIndex() + 1,
                     entry.getStart().getLine(),
                     entry.getStart().getCharPositionInLine(),
-                    null,
-                    DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                    DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
                 );
               } else if (!isUnsignedInt) {
                 var naturalMinIncl = java.math.BigInteger.ONE.shiftLeft(integerBitWidth - 1).negate();
                 if (naturalMinIncl.equals(val)) {
-                  diagnosticBag.addError(
+                  diagnosticBag.addWarning(
                       "Constraint violation (" + name + "): facet '#minIncl " + val + "' is redundant; '#size " + integerBitWidth + "' already bounds the minimum value to " + val,
                       entry.getStart().getStartIndex(),
                       entry.getStop().getStopIndex() + 1,
                       entry.getStart().getLine(),
                       entry.getStart().getCharPositionInLine(),
-                      null,
-                      DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                      DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
                   );
                 }
               }
@@ -5500,27 +5628,25 @@ public class StvnTypeResolver {
               if (isUnsignedInt) {
                 var naturalMaxExcl = java.math.BigInteger.ONE.shiftLeft(integerBitWidth);
                 if (naturalMaxExcl.equals(val)) {
-                  diagnosticBag.addError(
+                  diagnosticBag.addWarning(
                       "Constraint violation (" + name + "): facet '#maxExcl " + val + "' is redundant; '#unsigned #size " + integerBitWidth + "' already bounds the domain to [0, " + val + ")",
                       entry.getStart().getStartIndex(),
                       entry.getStop().getStopIndex() + 1,
                       entry.getStart().getLine(),
                       entry.getStart().getCharPositionInLine(),
-                      null,
-                      DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                      DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
                   );
                 }
               } else {
                 var naturalMaxExcl = java.math.BigInteger.ONE.shiftLeft(integerBitWidth - 1);
                 if (naturalMaxExcl.equals(val)) {
-                  diagnosticBag.addError(
+                  diagnosticBag.addWarning(
                       "Constraint violation (" + name + "): facet '#maxExcl " + val + "' is redundant; '#size " + integerBitWidth + "' already bounds the maximum exclusive bound to " + val,
                       entry.getStart().getStartIndex(),
                       entry.getStop().getStopIndex() + 1,
                       entry.getStart().getLine(),
                       entry.getStart().getCharPositionInLine(),
-                      null,
-                      DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                      DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
                   );
                 }
               }
@@ -5553,24 +5679,22 @@ public class StvnTypeResolver {
               String desc = effectiveConsolidated.unsigned()
                   ? "unsigned integer '{ #unsigned } :Int'"
                   : "signed integer ':Int'";
-              diagnosticBag.addError(
+              diagnosticBag.addWarning(
                   "Constraint violation (" + name + "): facet '#size 32' is redundant; " + desc + " intrinsically defaults to 32-bit storage",
                   entry.getStart().getStartIndex(),
                   entry.getStop().getStopIndex() + 1,
                   entry.getStart().getLine(),
                   entry.getStart().getCharPositionInLine(),
-                  null,
-                  DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                  DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
               );
             } else if (StvnVocabulary.TYPE_FLOAT.equals(targetBaseType) && !effectiveConsolidated.exact() && val == 64) {
-              diagnosticBag.addError(
+              diagnosticBag.addWarning(
                   "Constraint violation (" + name + "): facet '#size 64' is redundant; continuous ':Float' intrinsically defaults to 64-bit IEEE-754 double precision",
                   entry.getStart().getStartIndex(),
                   entry.getStop().getStopIndex() + 1,
                   entry.getStart().getLine(),
                   entry.getStart().getCharPositionInLine(),
-                  null,
-                  DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                  DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
               );
             }
           }
@@ -5590,14 +5714,13 @@ public class StvnTypeResolver {
             }
           }
           if (val != null && val.compareTo(java.math.BigInteger.valueOf(StvnVocabulary.DEFAULT_EXACT_FLOAT_MAX_SIZE)) == 0) {
-            diagnosticBag.addError(
+            diagnosticBag.addWarning(
                 "Constraint violation (" + name + "): facet '#maxSize 16777216' is redundant; exact decimal float '{ #exact } :Float' intrinsically defaults to a ceiling of 16,777,216 significant decimal digits",
                 entry.getStart().getStartIndex(),
                 entry.getStop().getStopIndex() + 1,
                 entry.getStart().getLine(),
                 entry.getStart().getCharPositionInLine(),
-                null,
-                DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
           }
         }
@@ -5622,14 +5745,13 @@ public class StvnTypeResolver {
             String targetDesc = StvnVocabulary.TYPE_STRING.equals(targetBaseType)
                 ? "string cardinality is inherently non-negative"
                 : "container cardinality is inherently non-negative";
-            diagnosticBag.addError(
+            diagnosticBag.addWarning(
                 "Constraint violation (" + name + "): facet '#minSize 0' is redundant; " + targetDesc,
                 entry.getStart().getStartIndex(),
                 entry.getStop().getStopIndex() + 1,
                 entry.getStart().getLine(),
                 entry.getStart().getCharPositionInLine(),
-                null,
-                DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
           }
         }
@@ -5692,14 +5814,13 @@ public class StvnTypeResolver {
                   } else {
                     message = "Constraint violation (" + name + "): facet '#" + traitName + " " + (declaredVal ? "#TRUE" : "#FALSE") + "' is redundant; scalar primitive '" + targetBaseType + "' is intrinsically " + (isEquatable ? "equatable" : "comparable");
                   }
-                  diagnosticBag.addError(
+                  diagnosticBag.addWarning(
                       message,
                       entry.getStart().getStartIndex(),
                       entry.getStop().getStopIndex() + 1,
                       entry.getStart().getLine(),
                       entry.getStart().getCharPositionInLine(),
-                      null,
-                      DiagnosticBag.ERR_REDUNDANT_METADATA_FACET
+                      DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
                   );
                 }
               }

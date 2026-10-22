@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "redundant_primitive_sizing_uint"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":BadUInt" ( "{#unsigned#size32}:Int" ":BadUInt" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#unsigned#size32}:Int" ":BadUInt" ( #TRUE #TRUE ) ) ]
+    }
+    #2 ( 42 32 #TRUE )
+  )
+}

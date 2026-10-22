@@ -555,16 +555,34 @@ public final class StvnVocabulary {
   public static final String TYPE_EMAIL_MIXED_CASE = ":org/stvnadore/prelude/EmailMixedCase";
 
   // AST compiler constants starting with '#'
+  /** Canonical FQNI for UUID lowercase regex constant ({@code #org/stvnadore/prelude/UUID_LOWER_CASE_REGEX}). */
   public static final String PRELUDE_CONST_UUID_LOWER_CASE_REGEX = "#org/stvnadore/prelude/UUID_LOWER_CASE_REGEX";
+
+  /** Canonical FQNI for UUID mixed-case regex constant ({@code #org/stvnadore/prelude/UUID_MIXED_CASE_REGEX}). */
   public static final String PRELUDE_CONST_UUID_MIXED_CASE_REGEX = "#org/stvnadore/prelude/UUID_MIXED_CASE_REGEX";
+
+  /** Canonical FQNI for SHA-256 lowercase regex constant ({@code #org/stvnadore/prelude/SHA256_LOWER_CASE_REGEX}). */
   public static final String PRELUDE_CONST_SHA256_LOWER_CASE_REGEX = "#org/stvnadore/prelude/SHA256_LOWER_CASE_REGEX";
+
+  /** Canonical FQNI for SHA-256 mixed-case regex constant ({@code #org/stvnadore/prelude/SHA256_MIXED_CASE_REGEX}). */
   public static final String PRELUDE_CONST_SHA256_MIXED_CASE_REGEX = "#org/stvnadore/prelude/SHA256_MIXED_CASE_REGEX";
+
+  /** Canonical FQNI for Email lowercase regex constant ({@code #org/stvnadore/prelude/EMAIL_LOWER_CASE_REGEX}). */
   public static final String PRELUDE_CONST_EMAIL_LOWER_CASE_REGEX = "#org/stvnadore/prelude/EMAIL_LOWER_CASE_REGEX";
+
+  /** Canonical FQNI for Email mixed-case regex constant ({@code #org/stvnadore/prelude/EMAIL_MIXED_CASE_REGEX}). */
   public static final String PRELUDE_CONST_EMAIL_MIXED_CASE_REGEX = "#org/stvnadore/prelude/EMAIL_MIXED_CASE_REGEX";
 
+  /** Prelude alias for {@link #TYPE_UUID_LOWER_CASE}. */
   public static final String PRELUDE_TYPE_UUID_LOWER_CASE = TYPE_UUID_LOWER_CASE;
+
+  /** Prelude alias for {@link #TYPE_UUID_MIXED_CASE}. */
   public static final String PRELUDE_TYPE_UUID_MIXED_CASE = TYPE_UUID_MIXED_CASE;
+
+  /** Prelude alias for {@link #TYPE_SHA256_LOWER_CASE}. */
   public static final String PRELUDE_TYPE_SHA256_LOWER_CASE = TYPE_SHA256_LOWER_CASE;
+
+  /** Prelude alias for {@link #TYPE_SHA256_MIXED_CASE}. */
   public static final String PRELUDE_TYPE_SHA256_MIXED_CASE = TYPE_SHA256_MIXED_CASE;
 
   /**

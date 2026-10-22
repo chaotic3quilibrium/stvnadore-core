@@ -50,16 +50,26 @@ public class StvnFixtureDocumentIdentityConformanceTest {
       var result = StvnCompiler.compile(content, file.toString(), config);
       List<StvnDiagnostic> diagnostics = result.diagnostics();
 
-      if (!diagnostics.isEmpty()) {
+      boolean isWarningFixture = file.toString().contains("metadata_warnings");
+      List<StvnDiagnostic> unexpectedDiagnostics = isWarningFixture
+          ? diagnostics.stream().filter(d -> d.severity() == StvnDiagnostic.DiagnosticSeverity.ERROR).toList()
+          : diagnostics;
+
+      if (!unexpectedDiagnostics.isEmpty()) {
         StringBuilder sb = new StringBuilder();
-        sb.append(file).append(" emitted ").append(diagnostics.size()).append(" diagnostic(s):\n");
-        for (StvnDiagnostic d : diagnostics) {
+        sb.append(file).append(" emitted ").append(unexpectedDiagnostics.size()).append(" unexpected diagnostic(s):\n");
+        for (StvnDiagnostic d : unexpectedDiagnostics) {
           sb.append("  [").append(d.severity()).append("] ")
               .append(d.errorCode().orElse("NO_CODE")).append(": ")
               .append(d.message()).append(" (line ").append(d.line())
               .append(", col ").append(d.column()).append(")\n");
         }
         failures.add(sb.toString());
+      }
+
+      boolean isSourceWarningFixture = isWarningFixture && file.getFileName().toString().endsWith(".stvn");
+      if (isSourceWarningFixture && diagnostics.stream().noneMatch(d -> d.severity() == StvnDiagnostic.DiagnosticSeverity.WARNING)) {
+        failures.add(file + " expected warning diagnostics but found none\n");
       }
     }
 

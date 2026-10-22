@@ -102,8 +102,8 @@ public final class DiagnosticBag {
   public static final String ERR_TYPE_MISMATCH = "ERR_TYPE_MISMATCH";
   /** Error code emitted when a nominal type alias attempts to override or re-specify a non-overridable definition facet. */
   public static final String ERR_NON_OVERRIDABLE_FACET = "ERR_NON_OVERRIDABLE_FACET";
-  /** Error code emitted when a metadata facet declaration is tautological or redundant (SPEC § 5.1.1, § 5.5.3, § 9.2, E036). */
-  public static final String ERR_REDUNDANT_METADATA_FACET = "ERR_REDUNDANT_METADATA_FACET";
+
+
   /** Error code emitted when a package enclosure targets a reserved runtime namespace (SPEC § 3.9 Invariant 8, E037). */
   public static final String ERR_RESERVED_PACKAGE_PROHIBITED = "ERR_RESERVED_PACKAGE_PROHIBITED";
   /** Error code emitted when a document declares a reserved system domain in :meta (SPEC § 3.10.1 Rule 6, E038). */
@@ -124,6 +124,8 @@ public final class DiagnosticBag {
   public static final String WARN_DOCUMENT_NAME_MISMATCH = "WARN_DOCUMENT_NAME_MISMATCH";
   /** Warning code emitted when a declared #domain facet is omitted from filename stem slot 1. */
   public static final String WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME = "WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME";
+  /** Warning code emitted when a metadata facet declaration is tautological or redundant (SPEC § 5.1.1, § 5.5.3, § 9.2, W003). */
+  public static final String WARN_REDUNDANT_METADATA_FACET = "WARN_REDUNDANT_METADATA_FACET";
   /** Error code emitted when an excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas, .stvn_bin, .stvn_f, .stvn_df, .stvn_bf, .stvn_bdf) is encountered. */
   public static final String ERR_LEGACY_FILE_EXTENSION_PURGED = "ERR_LEGACY_FILE_EXTENSION_PURGED";
 

@@ -357,8 +357,9 @@ public class StvnIntervalAlgebraSoundnessTest {
         }
         """;
     var f64Result = StvnCompiler.compileToResult(redundantFloat64Source, null, StvnParserConfig.DEFAULT);
-    assertTrue(f64Result.hasErrors(), "#size 64 on continuous :Float is redundant under E036");
-    assertTrue(f64Result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))));
+    assertFalse(f64Result.hasErrors(), "#size 64 on continuous :Float is non-blocking under W003");
+    assertTrue(f64Result.hasWarnings(), "#size 64 on continuous :Float emits warning under W003");
+    assertTrue(f64Result.diagnostics().stream().anyMatch(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))));
   }
 
   // --------------------------------------------------------------------------

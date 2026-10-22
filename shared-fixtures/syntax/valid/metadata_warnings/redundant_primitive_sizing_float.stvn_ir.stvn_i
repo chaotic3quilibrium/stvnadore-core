@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "redundant_primitive_sizing_float"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":BadFloat" ( "{#size64}:Float" ":BadFloat" ( #FALSE #TRUE ) ) ]
+      [ "<:type>" ( "{#size64}:Float" ":BadFloat" ( #FALSE #TRUE ) ) ]
+    }
+    #3 3.14
+  )
+}

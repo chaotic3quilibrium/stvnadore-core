@@ -35,8 +35,8 @@ public class StvnSemanticFacetOrderingTest {
               #minSize 4
               #maxSize 16
               #preserveIndent #TRUE
-              #equatable #TRUE
-              #comparable #TRUE
+              #equatable #FALSE
+              #comparable #FALSE
             } :String
           }
           :type :TargetType
@@ -46,10 +46,10 @@ public class StvnSemanticFacetOrderingTest {
 
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
     // Expected:
-    // Tier 1: #preserveIndent #TRUE #equatable #TRUE #comparable #TRUE
+    // Tier 1: #preserveIndent #TRUE #equatable #FALSE #comparable #FALSE
     // Tier 3: #minSize 4 #maxSize 16
     // Tier 5: #regex "^[A-Z0-9]+$"
-    String expected = "{:meta{#kind #DEFS}:defs{:TargetType{#preserveIndent #T #equatable #T #comparable #T #minSize 4 #maxSize 16 #regex \"^[A-Z0-9]+$\"}:String}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:TargetType{#preserveIndent #T #equatable #F #comparable #F #minSize 4 #maxSize 16 #regex \"^[A-Z0-9]+$\"}:String}}";
     Assertions.assertEquals(expected, flattened);
   }
 
@@ -61,7 +61,7 @@ public class StvnSemanticFacetOrderingTest {
           :defs {
             :BoundedInt {
               #maxExcl 100
-              #minIncl 0
+              #minIncl 1
               #unsigned
               #size 16
             } :Int
@@ -75,8 +75,8 @@ public class StvnSemanticFacetOrderingTest {
     // Expected:
     // Tier 1: #unsigned
     // Tier 3: #size 16
-    // Tier 4: #minIncl 0 #maxExcl 100
-    String expected = "{:meta{#kind #DEFS}:defs{:BoundedInt{#unsigned #size 16 #minIncl 0 #maxExcl 100}:Int}}";
+    // Tier 4: #minIncl 1 #maxExcl 100
+    String expected = "{:meta{#kind #DEFS}:defs{:BoundedInt{#unsigned #size 16 #minIncl 1 #maxExcl 100}:Int}}";
     Assertions.assertEquals(expected, flattened);
   }
 
