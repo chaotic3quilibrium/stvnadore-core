@@ -1,0 +1,17 @@
+// @spec: SPEC-05-FENCED-STRINGS
+// @case: Positive - Fenced string containing tab-separated values (TSV) table
+{
+  :meta {
+    #name "fenced_string_tsv_table"
+    #kind #BODY
+  }
+  :defs {
+    :TsvReport { #preserveIndent #TRUE } :String
+  }
+  :type :TsvReport
+  :body """[TSV]
+id	name	status
+101	alpha	ACTIVE
+102	beta	PENDING
+[TSV]"""
+}

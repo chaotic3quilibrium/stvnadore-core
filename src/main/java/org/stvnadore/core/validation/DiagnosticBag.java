@@ -70,7 +70,7 @@ public final class DiagnosticBag {
   public static final String ERR_TRAIT_VIOLATION = "TRAIT_VIOLATION";
   /** Error code emitted when a schema definition syntax or structure is malformed. */
   public static final String ERR_MALFORMED_SCHEMA = "MALFORMED_SCHEMA";
-  /** Error code emitted when a forbidden tab character ('\t', U+0009) is encountered in STVN syntax. */
+  /** Error code emitted when a forbidden tab character ('\t', U+0009) is encountered in STVN syntax outside the verbatim body of a fenced multi-line string (E001). */
   public static final String ERR_TAB_CHARACTER_FORBIDDEN = "ERR_TAB_CHARACTER_FORBIDDEN";
   /** Error code emitted when an empty metadata block '{}' is encountered on a type or constant definition. */
   public static final String ERR_EMPTY_METADATA_BLOCK = "ERR_EMPTY_METADATA_BLOCK";

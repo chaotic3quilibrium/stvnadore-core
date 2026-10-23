@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "fenced_string_makefile_recipe"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":MakefileScript" ( "{#preserveIndent#TRUE}:String" ":MakefileScript" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#preserveIndent#TRUE}:String" ":MakefileScript" ( #TRUE #TRUE ) ) ]
+    }
+    #4 "all: build test\n\nbuild:\n    gcc -O2 main.c -o app\n\ntest:\n    ./app --test\n"
+  )
+}

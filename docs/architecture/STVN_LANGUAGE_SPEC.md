@@ -196,13 +196,13 @@ Legacy extensions (`.stvn_incl`, `.stvn_inclf`, `.stvn_cas`, `.stvn_bin`, `.stvn
 
 ### 1.3 Strict Zero-Tab Invariant
 
-STVN strictly prohibits horizontal tab characters (`0x09`, `\t`) everywhere in text documents, including string literals, comments, and whitespace indentation.
+STVN strictly prohibits horizontal tab characters (`0x09`, `\t`) in structural whitespace, indentation whitespace, comments, and unescaped in single-line string literals. Raw, unescaped tab characters are permitted exclusively within the verbatim body content of fenced multi-line strings (`fencedString`, Rule STR-04, § 5.3).
 
 ```
-Invariant: Every horizontal indentation character must be a standard ASCII space (0x20).
+Invariant: Every horizontal indentation character outside fenced string bodies must be a standard ASCII space (0x20).
 ```
 
-When a lexer encounters a tab character, the lexer produces a `TAB_CHARACTER` token. The compiler immediately halts compilation and emits `ERR_TAB_CHARACTER_FORBIDDEN` with exact source line and column offsets.
+When a lexer encounters a tab character outside the verbatim body of a fenced string, the lexer produces a `TAB_CHARACTER` token. The compiler immediately halts compilation and emits `ERR_TAB_CHARACTER_FORBIDDEN` with exact source line and column offsets.
 
 ---
 
@@ -369,7 +369,7 @@ The colon character (`:`) is the canonical prefix sigil for the Typic Track in S
 STVN enforces strict lexical whitespace discipline to eliminate formatting ambiguity and layout drift across platforms and editors:
 
 1. **Permissible Whitespace:** The only valid structural and indentation whitespace characters are standard ASCII spaces (`U+0020`), carriage returns (`\r`, `U+000D`), and line feeds (`\n`, `U+000A`).
-2. **Strict Zero-Tab Invariant:** Tab characters (`\t`, `U+0009`) are **completely prohibited** as structural or indentation whitespace throughout STVN documents. The presence of a raw tab character in document structure is a fatal syntax violation (`ERR_TAB_CHARACTER_FORBIDDEN`). Tab characters inside single-line strings must be escaped (`\t`).
+2. **Strict Zero-Tab Invariant:** Tab characters (`\t`, `U+0009`) are **completely prohibited** as structural or indentation whitespace throughout STVN documents, in comments, and unescaped in single-line strings. The presence of a raw tab character outside the verbatim body of a fenced string is a fatal syntax violation (`ERR_TAB_CHARACTER_FORBIDDEN`). Tab characters inside single-line strings must be escaped (`\t`). Raw, unescaped tab characters are permitted exclusively within the verbatim body content of fenced multi-line strings governed by Rule STR-04 (§ 5.3).
 3. **Canonical Indentation Standard:** Canonical STVN formatting dictates a strict 2-space indentation standard (`indentWidth = 2`). All nested blocks (inside `{ ... }`, `( ... )`, `[ ... ]`) indent by 2 spaces per hierarchy level.
 4. **Zero Bracket Padding:** Both compact serialization and canonical CAS normalizers strip all optional whitespace adjacent to structural delimiters (`(`, `)`, `[`, `]`, `{`, `}`). Sibling tokens inside collections and compounds separate by a single ASCII space only when neither adjacent token is a structural delimiter (e.g., `[1 2 3]`, `("host" 8080)`, `{["k" "v"]}`).
 5. **Decoupled AST Printers & Normalization Profiles:**
@@ -973,6 +973,12 @@ STVN Version 2.0.0 enforces a strict, orthogonal 2-tier string literal architect
 Legacy unfenced multi-line block strings (`"""..."""` / `LITERAL_STRING_BLOCK`) are permanently excised from the language specification and grammar. All multi-line string content must declare explicit opening and closing discriminator tags (`"""[TAG] ... [TAG]"""`). Bare triple-quotes without an opening bracket `[` are rejected at compile time.
 
 Fenced multi-line strings encapsulate embedded host language source code, structured documentation, and nested data formats without requiring character escaping.
+
+#### Verbatim Tab Character Exemption
+
+Fenced multi-line strings encapsulate embedded foreign source code, build scripts (such as Makefiles with tab-delimited recipes), tabular data (such as Tab-Separated Values / TSV), and structured documentation without requiring character escaping.
+
+Raw horizontal tab characters (`0x09`, `\t`) are permitted exclusively within the verbatim body payload between opening delimiter `"""[TAG]\n` and closing delimiter `[TAG]"""`. The opening delimiter line and closing delimiter line themselves remain strictly governed by the Zero-Tab Invariant: leading or trailing tab characters on delimiter boundaries are prohibited.
 
 #### Delimiter Invariant
 
@@ -2450,7 +2456,7 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 
 | Diagnostic Code | Canonical Identifier                      | Category       | Severity | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 |:----------------|:------------------------------------------|:---------------|:---------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `E001`          | `TAB_DISCIPLINE_VIOLATION`                | Lexical        | Fatal    | A literal tab character `\t` was encountered in the source text.                                                                                                                                                                                                                                                                                                                                                                                            |
+| `E001`          | `TAB_DISCIPLINE_VIOLATION`                | Lexical        | Fatal    | A literal tab character `\t` was encountered in the source text outside the verbatim body of a fenced multi-line string.                                                                                                                                                                                                                                                                                                    |
 | `E002`          | `ROOT_ENCLOSURE_MISSING`                  | Syntactic      | Fatal    | The document root is not enclosed within matching curly braces `{ ... }`.                                                                                                                                                                                                                                                                                                                                                                                   |
 | `E003`          | `EMPTY_METADATA_BLOCK`                    | Syntactic      | Fatal    | An empty metadata annotation block `{}` was encountered.                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `E004`          | `EMPTY_DIRECTIVE_BLOCK`                   | Syntactic      | Fatal    | An empty `:include []` or `:use []` directive was encountered.                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -2497,7 +2503,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 
 | Diagnostic Constant                           | String Literal Value                            | Severity | Governing Invariant & Error Condition                                                                                                                          |
 |:----------------------------------------------|:------------------------------------------------|:---------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ERR_TAB_CHARACTER_FORBIDDEN`                 | `"ERR_TAB_CHARACTER_FORBIDDEN"`                 | Fatal    | Tab character (`\t`, U+0009) encountered in source text.                                                                                                       |
+| `ERR_TAB_CHARACTER_FORBIDDEN`                 | `"ERR_TAB_CHARACTER_FORBIDDEN"`                 | Fatal    | Tab character (`\t`, U+0009) encountered in source text outside the verbatim body of a fenced multi-line string.                                               |
 | `ERR_EMPTY_METADATA_BLOCK`                    | `"ERR_EMPTY_METADATA_BLOCK"`                    | Fatal    | Empty metadata block `{}` declared on type or constant definition.                                                                                             |
 | `ERR_EMPTY_DIRECTIVE_BLOCK`                   | `"ERR_EMPTY_DIRECTIVE_BLOCK"`                   | Fatal    | Empty directive block `{}` declared in `:use` or `:include`.                                                                                                   |
 | `ERR_MODULE_IMPORT`                           | `"MODULE_IMPORT_FAILED"`                        | Fatal    | Declared module include file cannot be located or read.                                                                                                        |
@@ -2595,10 +2601,10 @@ lexer grammar StvnLexer;
 // ============================================================================
 
 SPACE   : [ \r\n]+ -> skip ;
-COMMENT : '//' ~[\r\n]* -> skip ;
+COMMENT : '//' ~[\r\n\t]* -> skip ;
 
-// Strict Zero-Tab Enforcement: Tab characters are prohibited everywhere
-TAB_ERROR : '\t' ;
+// Strict Zero-Tab Enforcement: Tab characters are prohibited outside fenced string bodies
+TAB_CHARACTER : '\t'+ ;
 
 LBRACK : '[' ;
 RBRACK : ']' ;
@@ -2691,7 +2697,7 @@ IDENTIFIER         : [a-zA-Z_][a-zA-Z0-9_]* ;
 // Numeric Literals: Base-10, Hex (0x), Binary (0b), and Octal (0o)
 LITERAL_INTEGER : '-'? ('0' [xX] [0-9a-fA-F]+ | '0' [bB] [01]+ | '0' [oO] [0-7]+ | [1-9][0-9]* | '0') ;
 LITERAL_FLOAT   : '-'? [0-9]+ '.' [0-9]+ ([eE] [-+]? [0-9]+)? ;
-LITERAL_STRING_SIMPLE : '"' (~["\\\r\n] | '\\' .)* '"' ;
+LITERAL_STRING_SIMPLE : '"' (~["\\\r\n\t] | '\\' .)* '"' ;
 
 fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
 

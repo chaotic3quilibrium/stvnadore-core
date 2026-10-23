@@ -217,7 +217,9 @@ public final class StvnErrorListener extends BaseErrorListener {
       this.hasClauseStructureError = true;
     }
 
-    Optional<String> errorCode = Optional.of("STVN_SYNTAX_ERROR");
+    Optional<String> errorCode = sanitizedMessage.contains("ERR_TAB_CHARACTER_FORBIDDEN")
+        ? Optional.of(DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN)
+        : Optional.of("STVN_SYNTAX_ERROR");
     if (offendingToken != null && offendingToken.getType() == StvnLexer.TAB_CHARACTER) {
       errorCode = Optional.of(DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN);
     } else if (isBareColon || sanitizedMessage.contains("': '")) {
@@ -276,6 +278,11 @@ public final class StvnErrorListener extends BaseErrorListener {
       String rawMsg,
       @Nullable RecognitionException e
   ) {
+    if (recognizer instanceof org.antlr.v4.runtime.Lexer) {
+      if (rawMsg != null && (rawMsg.contains("\t") || rawMsg.contains("\\t"))) {
+        return "Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead (ERR_TAB_CHARACTER_FORBIDDEN)";
+      }
+    }
     if (recognizer instanceof Parser parser) {
       RuleContext ctx = e != null && e.getCtx() != null ? e.getCtx() : parser.getContext();
       String tokenText = offendingToken != null ? offendingToken.getText() : "";
@@ -283,7 +290,7 @@ public final class StvnErrorListener extends BaseErrorListener {
 
       // Intercept forbidden TAB_CHARACTER tokens citing Zero-Tab Invariant
       if (offendingToken != null && offendingToken.getType() == StvnLexer.TAB_CHARACTER) {
-        return "Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax; use standard spaces instead (ERR_TAB_CHARACTER_FORBIDDEN)";
+        return "Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead (ERR_TAB_CHARACTER_FORBIDDEN)";
       }
 
       // 0a. Intercept MALFORMED_FENCE_OPEN token citing Rule STR-04

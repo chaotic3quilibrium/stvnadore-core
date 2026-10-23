@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "fenced_string_tsv_table"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":TsvReport" ( "{#preserveIndent#TRUE}:String" ":TsvReport" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#preserveIndent#TRUE}:String" ":TsvReport" ( #TRUE #TRUE ) ) ]
+    }
+    #4 "id    name    status\n101    alpha    ACTIVE\n102    beta    PENDING\n"
+  )
+}

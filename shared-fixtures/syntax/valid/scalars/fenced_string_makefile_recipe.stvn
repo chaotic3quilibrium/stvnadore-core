@@ -1,0 +1,21 @@
+// @spec: SPEC-05-FENCED-STRINGS
+// @case: Positive - Fenced string containing Makefile recipe with tabs
+{
+  :meta {
+    #name "fenced_string_makefile_recipe"
+    #kind #BODY
+  }
+  :defs {
+    :MakefileScript { #preserveIndent #TRUE } :String
+  }
+  :type :MakefileScript
+  :body """[MAKEFILE]
+all: build test
+
+build:
+	gcc -O2 main.c -o app
+
+test:
+	./app --test
+[MAKEFILE]"""
+}
