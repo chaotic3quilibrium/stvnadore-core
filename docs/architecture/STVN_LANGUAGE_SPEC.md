@@ -179,14 +179,14 @@ $$\text{documentRoot} \longrightarrow \texttt{:meta}^{?} \longrightarrow \texttt
 
 The `:meta` block is a first-class root enclosure entry that strictly precedes `:defs`, `:type`, and `:body`. Placing `:meta` after `:defs`, after `:type`, or after `:body` is an unrecoverable syntax error at the parser gate (`ERR_META_POSITION_INVALID`).
 
-The `:meta` block is optional on payload documents (`.stvn`, `.stvn_i`), but mandatory across all definitions schemas (`.stvn_d`, `.stvn_di`) and binary formats (`.stvn_b`, `.stvn_bd`).
+The `:meta` block is optional strictly on canonical hermetic payload documents (`.stvn`), but mandatory across all other file types (`.stvn_i`, `.stvn_d`, `.stvn_di`, `.stvn_b`, `.stvn_bd`).
 
 ### 1.2 File Extension Matrix
 
 | Physical Extension | Semantic Kind (`#kind`) | Encoding | `:meta` Block | `:defs` Block | `:include` Directive |         `:use` Scope Domain          | `:type` & `:body` | Primary Purpose                                               |
 |:------------------:|:-----------------------:|:--------:|:-------------:|:-------------:|:--------------------:|:------------------------------------:|:-----------------:|:--------------------------------------------------------------|
 |    **`.stvn`**     |         `#BODY`         | Textual  |   Optional    |   Optional    |    **Prohibited**    |   **Restricted (Prelude & Local)**   |   **Required**    | Canonical hermetic payload document.                          |
-|   **`.stvn_i`**    |     `#BODY_INCLUDE`     | Textual  |   Optional    |   Optional    |     **Optional**     | **Full (Prelude, Local & Included)** |   **Required**    | Modular payload document requiring external module loader.    |
+|   **`.stvn_i`**    |     `#BODY_INCLUDE`     | Textual  | **Required**  |   Optional    |     **Optional**     | **Full (Prelude, Local & Included)** |   **Required**    | Modular payload document requiring external module loader.    |
 |   **`.stvn_d`**    |         `#DEFS`         | Textual  | **Required**  | **Required**  |    **Prohibited**    |   **Restricted (Prelude & Local)**   |  **Prohibited**   | Hermetic definitions schema (canonical CAS unit).             |
 |   **`.stvn_di`**   |     `#DEFS_INCLUDE`     | Textual  | **Required**  | **Required**  |     **Optional**     | **Full (Prelude, Local & Included)** |  **Prohibited**   | Modular definitions schema module with `:include` directives. |
 |   **`.stvn_b`**    |         `#BODY`         |  Binary  | **Required**  |   Optional    |    **Prohibited**    |   **Restricted (Prelude & Local)**   |   **Required**    | Binary hermetic payload document.                             |
@@ -270,7 +270,7 @@ When a lexer encounters a tab character outside the verbatim body of a fenced st
     #kind #DEFS_INCLUDE
   }
   :defs {
-    :include ["network_primitives.stvn_d" { :HostName :RemoteHost }]
+    :include ["network_primitives.network.stvn_d" { :HostName :RemoteHost }]
 
     :NodeStatus :Enum [ #HEALTHY #DEGRADED #UNREACHABLE ]
     :AudioSample24 { #size 24 } :Int
@@ -296,7 +296,7 @@ When a lexer encounters a tab character outside the verbatim body of a fenced st
     #kind #BODY_INCLUDE
   }
   :defs {
-    :include ["telemetry_models.stvn_di"]
+    :include ["telemetry_models.telemetry.stvn_di"]
 
     :NodeReport :Tuple(
     :Endpoint
@@ -504,13 +504,13 @@ All `:include` directives inside a `:defs` block **must** be enclosed within squ
 ```stvn
 :defs {
 // Direct import
-:include [ "network_primitives.stvn_d" ]
+:include [ "network_primitives.network.stvn_d" ]
 
 // Import with atomic unary prefix strip (terminal segment slicing)
-:include [ "types/network.stvn_di" { #strip } ]
+:include [ "types/network.types.stvn_di" { #strip } ]
 
 // Import with explicit namespace alias mapping block
-:include [ "shared_models.stvn_di" { :HostName :RemoteHost :Port :RemotePort } ]
+:include [ "shared_models.shared.stvn_di" { :HostName :RemoteHost :Port :RemotePort } ]
 }
 ```
 
@@ -542,7 +542,7 @@ A path-delimited identifier consists of a base keyword start token followed by o
 3. **Module Alias Compatibility:** Namespaced identifiers can be targeted by include alias blocks inside `:defs`:
    ```stvn
    :defs {
-     :include [ "networking.stvn_di" { :net/http/Status :HttpStatus } ]
+     :include [ "networking.net.stvn_di" { :net/http/Status :HttpStatus } ]
    }
    ```
 
@@ -3110,7 +3110,12 @@ A local definition in `:defs` takes precedence over an imported raw identifier. 
 
 ```stvn
 {
-  // Main Document: local_override.stvn_i
+  // Main Document: local_override.network.stvn_i
+  :meta {
+    #name "local_override"
+    #domain "network"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     :include [ "network_base.network.stvn_d" ]
 
@@ -3162,7 +3167,12 @@ Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` with
 
 ```stvn
 {
-  // Main Document: asymmetric_mapping.stvn_i
+  // Main Document: asymmetric_mapping.network.stvn_i
+  :meta {
+    #name "asymmetric_mapping"
+    #domain "network"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     // Aliases dns_types.:HostName -> :RemoteHost
     :include [ "dns_types.network.stvn_d" { :HostName :RemoteHost } ]
@@ -3218,6 +3228,11 @@ Module A and Module B both export `:Status`. The importing document aliases both
 ```stvn
 {
   // Main Document: dual_alias.database.stvn_i
+  :meta {
+    #name "dual_alias"
+    #domain "database"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     // Both modules alias :Status to explicit local identifiers
     :include [ "network_status.network.stvn_d"  { :Status :NetworkStatus } ]
@@ -3273,7 +3288,12 @@ Two modules export the identical raw identifier `:Config` without alias mapping.
 
 ```stvn
 {
-  // Main Document: unmitigated_collision.stvn_i (FATAL REJECTION)
+  // Main Document: unmitigated_collision.config.stvn_i (FATAL REJECTION)
+  :meta {
+    #name "unmitigated_collision"
+    #domain "config"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     :include [ "app_config.config.stvn_d" ]
     :include [ "db_config.config.stvn_d" ]
@@ -3296,7 +3316,12 @@ A file path string literal may appear in `:include` only once per `:defs` block.
 
 ```stvn
 {
-  // Main Document: duplicate_import.stvn_i (FATAL REJECTION)
+  // Main Document: duplicate_import.network.stvn_i (FATAL REJECTION)
+  :meta {
+    #name "duplicate_import"
+    #domain "network"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     :include [ "network_base.network.stvn_d" ]
     // FATAL: "network_base.network.stvn_d" is already imported in this :defs block.
@@ -3333,7 +3358,12 @@ Hierarchical, slash-delimited type identifiers (for example, `:aws/s3/BucketName
 
 ```stvn
 {
-  // Main Document: path_aliasing.stvn_i
+  // Main Document: path_aliasing.cloud.stvn_i
+  :meta {
+    #name "path_aliasing"
+    #domain "cloud"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     // Consume AWS path identifier raw, alias Azure path identifier to flat local alias
     :include [ "cloud_services.cloud.stvn_d" { :azure/blob/Container :AzureContainer } ]

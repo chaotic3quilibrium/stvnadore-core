@@ -2,6 +2,11 @@
 // @case: Negative - Reject include unmitigated raw collision
 // @error: NAMESPACE_COLLISION
 {
+  :meta {
+    #name "include_unmitigated_raw_collision"
+    #kind #BODY_INCLUDE
+  }
+
   :defs {
     :include [
       "./module_raw_a.stvn_di"

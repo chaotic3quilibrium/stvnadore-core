@@ -2,6 +2,11 @@
 // @case: Negative - Reject include cyclic direct
 // @error: CYCLIC_DEPENDENCY
 {
+  :meta {
+    #name "include_cyclic_direct"
+    #kind #BODY_INCLUDE
+  }
+
   :defs {
     :include [
       "include_cyclic_direct.stvn_i"

@@ -2,6 +2,11 @@
 // @case: Negative - Reject include duplicate path
 // @error: DUPLICATE_IMPORT
 {
+  :meta {
+    #name "include_duplicate_path"
+    #kind #BODY_INCLUDE
+  }
+
   :defs {
     :include [
       "./module_raw_a.stvn_di"

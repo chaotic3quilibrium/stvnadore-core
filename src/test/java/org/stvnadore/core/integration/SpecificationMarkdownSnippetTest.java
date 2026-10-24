@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 import org.stvnadore.core.StvnParserConfig;
 
 import java.io.IOException;
@@ -58,11 +59,11 @@ public class SpecificationMarkdownSnippetTest {
     // Stage mock modules for illustrative include snippets
     Path typesDir = sharedTempDir.resolve("types");
     Files.createDirectories(typesDir);
-    Files.writeString(typesDir.resolve("network.stvn_di"),
+    Files.writeString(typesDir.resolve("network.types.stvn_di"),
         "{\n  :meta { #name \"network\" #domain \"types\" #kind #DEFS_INCLUDE }\n  :defs {\n    :org/example/Endpoint :String\n    #org/example/TIMEOUT { #unsigned #size 8 } :Int 30\n  }\n}");
-    Files.writeString(sharedTempDir.resolve("shared_models.stvn_di"),
+    Files.writeString(sharedTempDir.resolve("shared_models.shared.stvn_di"),
         "{\n  :meta { #name \"shared_models\" #domain \"shared\" #kind #DEFS_INCLUDE }\n  :defs {\n    :HostName :String\n    :Port { #unsigned #size 16 } :Int\n  }\n}");
-    Files.writeString(sharedTempDir.resolve("networking.stvn_di"),
+    Files.writeString(sharedTempDir.resolve("networking.net.stvn_di"),
         "{\n  :meta { #name \"networking\" #domain \"net\" #kind #DEFS_INCLUDE }\n  :defs {\n    :net/http/Status :Int\n  }\n}");
 
     int idx = 0;
@@ -80,17 +81,17 @@ public class SpecificationMarkdownSnippetTest {
       if (fnMatcher.find()) {
         virtualFilename = fnMatcher.group(1);
       } else if (trimmed.contains("#kind #DEFS_INCLUDE")) {
-        virtualFilename = "snippet_" + idx + ".stvn_di";
+        virtualFilename = "snippet_" + idx + ".spec.stvn_di";
       } else if (trimmed.contains("#kind #DEFS")) {
-        virtualFilename = "snippet_" + idx + ".stvn_d";
+        virtualFilename = "snippet_" + idx + ".spec.stvn_d";
       } else if (trimmed.contains("#kind #BODY_INCLUDE")) {
-        virtualFilename = "snippet_" + idx + ".stvn_i";
+        virtualFilename = "snippet_" + idx + ".spec.stvn_i";
       } else if (trimmed.contains("#kind #BODY")) {
         virtualFilename = "snippet_" + idx + ".stvn";
       } else if (trimmed.startsWith(":defs") || (trimmed.contains(":defs") && !trimmed.contains(":body"))) {
-        virtualFilename = "snippet_" + idx + ".stvn_di";
+        virtualFilename = "snippet_" + idx + ".spec.stvn_di";
       } else if (!isRoot && (trimmed.startsWith(":") || trimmed.startsWith("#") || trimmed.startsWith("//"))) {
-        virtualFilename = "snippet_" + idx + ".stvn_d";
+        virtualFilename = "snippet_" + idx + ".spec.stvn_d";
       } else {
         virtualFilename = "snippet_" + idx + ".stvn";
       }
@@ -128,10 +129,10 @@ public class SpecificationMarkdownSnippetTest {
           effectiveFilename = "snippet_" + rec.index() + ".stvn";
         } else if (toCompile.startsWith(":defs")) {
           toCompile = "{\n  :meta {\n    #name \"snippet_" + rec.index() + "\"\n    #domain \"spec\"\n    #kind #DEFS_INCLUDE\n  }\n" + toCompile + "\n}";
-          effectiveFilename = "snippet_" + rec.index() + ".stvn_di";
+          effectiveFilename = "snippet_" + rec.index() + ".spec.stvn_di";
         } else if (toCompile.startsWith(":") || toCompile.startsWith("#") || toCompile.startsWith("//")) {
           toCompile = "{\n  :meta {\n    #name \"snippet_" + rec.index() + "\"\n    #domain \"spec\"\n    #kind #DEFS\n  }\n  :defs {\n    " + toCompile + "\n  }\n}";
-          effectiveFilename = "snippet_" + rec.index() + ".stvn_d";
+          effectiveFilename = "snippet_" + rec.index() + ".spec.stvn_d";
         }
       }
 
@@ -142,7 +143,10 @@ public class SpecificationMarkdownSnippetTest {
       var config = isSystem ? StvnParserConfig.SYSTEM_STRICT : StvnParserConfig.STRICT;
 
       var result = StvnCompiler.compileToResult(toCompile, docPath.toString(), config);
-      if (!result.isSuccess() || result.hasErrors()) {
+      boolean hasUnexpectedWarnings = result.diagnostics().stream()
+          .anyMatch(d -> d.severity() == DiagnosticSeverity.WARNING
+              && !d.errorCode().orElse("").equals("WARN_REDUNDANT_METADATA_FACET"));
+      if (!result.isSuccess() || result.hasErrors() || hasUnexpectedWarnings) {
         failures.add(String.format("Snippet #%d at line %d (%s) failed compilation:%n%s",
             rec.index(), rec.line(), effectiveFilename, result.diagnostics()));
       }

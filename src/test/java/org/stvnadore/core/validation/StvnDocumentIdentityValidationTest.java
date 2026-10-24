@@ -98,8 +98,8 @@ public class StvnDocumentIdentityValidationTest {
   }
 
   @Test
-  @DisplayName("TC-ID-05: Physical .stvn_i modular body document omitting :meta defaults cleanly to BODY_INCLUDE")
-  void testModularBodyDocumentAllowsOmittedMeta() {
+  @DisplayName("TC-ID-05: Physical .stvn_i modular body document requires mandatory :meta header")
+  void testModularBodyDocumentRequiresMetaWhenExtensionIsStvnI() {
     String source = """
         {
           :type :Int
@@ -107,8 +107,12 @@ public class StvnDocumentIdentityValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, "payload.stvn_i");
-    assertTrue(result.isSuccess());
-    assertFalse(result.hasErrors());
+    assertFalse(result.isSuccess());
+    assertTrue(result.hasErrors());
+    var diag = result.diagnostics().getFirst();
+    assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.errorCode().orElse(null));
+    assertTrue(diag.message().contains("Mandatory :meta block missing"));
+    assertTrue(diag.message().contains("#BODY_INCLUDE"));
   }
 
   @Test

@@ -361,6 +361,10 @@ public class StvnDefinitionsOverhaulTest {
     Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "sub/module.stvn_d" { #strip } ]
           }
@@ -392,6 +396,10 @@ public class StvnDefinitionsOverhaulTest {
     Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "module.stvn_d" { #strip } ]
           }
@@ -422,6 +430,10 @@ public class StvnDefinitionsOverhaulTest {
     Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "module.stvn_d" { #strip "unmatched/path/" } ]
           }
@@ -451,6 +463,10 @@ public class StvnDefinitionsOverhaulTest {
     Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "module.stvn_d" { #strip } { :Type :LocalType } ]
           }
@@ -508,6 +524,10 @@ public class StvnDefinitionsOverhaulTest {
     Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "net.stvn_d" { #strip } ]
           }

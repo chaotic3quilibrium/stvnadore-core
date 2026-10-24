@@ -30,6 +30,10 @@ class StvnConstantStripTest {
     Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "module.stvn_d" { #strip } ]
           }
@@ -61,6 +65,10 @@ class StvnConstantStripTest {
     Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "module.stvn_d" { #strip } ]
           }
@@ -90,6 +98,10 @@ class StvnConstantStripTest {
     Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "module.stvn_d" { #strip "config/db/" } ]
           }
@@ -131,6 +143,10 @@ class StvnConstantStripTest {
     Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "module_a.stvn_d" "module_b.stvn_d" ]
           }
@@ -162,6 +178,10 @@ class StvnConstantStripTest {
     Path mainFile = tempDir.resolve("main.stvn_i");
     String mainContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "module_a.stvn_d" ]
             #PORT :Int 3000

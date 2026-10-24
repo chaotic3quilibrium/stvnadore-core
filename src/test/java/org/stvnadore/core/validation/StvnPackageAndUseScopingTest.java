@@ -234,6 +234,10 @@ public class StvnPackageAndUseScopingTest {
 
     String docContent = """
         {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
           :defs {
             :include [ "network.stvn_d" ]
           }

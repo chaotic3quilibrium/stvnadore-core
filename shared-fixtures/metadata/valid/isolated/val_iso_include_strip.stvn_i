@@ -10,6 +10,10 @@
 // DESCRIPTION:        Terminal segment slicing; strips package prefixes from imported identifiers upon ingestion
 // ==============================================================================
 {
+  :meta {
+    #name "val_iso_include_strip"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     :include [ "empty_module.stvn_di" { #strip } ]
   }

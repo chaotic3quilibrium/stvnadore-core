@@ -471,6 +471,13 @@ public final class MetadataFixtureGenerator {
         : "    :package :PkgA { :TestedType :Int }\n    :use [ :PkgA { #strip } ]";
     String testedType = isInclude ? ":IncludeType" : ":TestedType";
     String bodyVal = "42";
+    String fixtureId = fileName.replace(".stvn_i", "").replace(".stvn", "");
+    String metaBlock = isInclude ? """
+          :meta {
+            #name "%s"
+            #kind #BODY_INCLUDE
+          }
+        """.formatted(fixtureId) : "";
 
     String content = """
         // ==============================================================================
@@ -485,18 +492,19 @@ public final class MetadataFixtureGenerator {
         // DESCRIPTION:        %s
         // ==============================================================================
         {
-          :defs {
+        %s  :defs {
         %s
           }
           :type %s
           :body %s
         }
         """.formatted(
-        fileName.replace(".stvn_i", "").replace(".stvn", ""),
+        fixtureId,
         row.position(),
         row.modifying(),
         row.tagName(),
         row.description(),
+        metaBlock,
         defsContent,
         testedType,
         bodyVal
