@@ -22,9 +22,10 @@
     * [1.2 File Extension Matrix](#12-file-extension-matrix)
     * [1.3 Strict Zero-Tab Invariant](#13-strict-zero-tab-invariant)
   * [2. Concrete Syntax Examples](#2-concrete-syntax-examples)
-    * [2.1 Hermetic Definitions Schema (`.stvn_d`)](#21-hermetic-definitions-schema-stvn_d)
-    * [2.2 Modular Definitions Module (`.stvn_di`)](#22-modular-definitions-module-stvn_di)
-    * [2.3 Standard Payload Document (`.stvn_i`)](#23-standard-payload-document-stvn_i)
+    * [2.1 Canonical Hermetic Payload Document (`.stvn`)](#21-canonical-hermetic-payload-document-stvn)
+    * [2.2 Hermetic Definitions Schema (`.stvn_d`)](#22-hermetic-definitions-schema-stvn_d)
+    * [2.3 Modular Definitions Module (`.stvn_di`)](#23-modular-definitions-module-stvn_di)
+    * [2.4 Standard Modular Payload Document (`.stvn_i`)](#24-standard-modular-payload-document-stvn_i)
   * [3. Lexical and Syntactic Enclosure Rules](#3-lexical-and-syntactic-enclosure-rules)
     * [3.1 Dual-Track Sigils: Hash Symbol (`#`) Bound Value Sigil](#31-dual-track-sigils-hash-symbol--bound-value-sigil)
     * [3.2 Dual-Track Sigils: Colon Symbol (`:`) Bound Typic Sigil](#32-dual-track-sigils-colon-symbol--bound-typic-sigil)
@@ -70,6 +71,7 @@
     * [5.2 Algebraic Sum Types](#52-algebraic-sum-types)
       * [5.2.1 Variant Syntax & Strict Product Demarcation](#521-variant-syntax--strict-product-demarcation)
     * [5.3 Polyglot Multi-Language Fenced Strings (Rule STR-04)](#53-polyglot-multi-language-fenced-strings-rule-str-04)
+      * [Verbatim Tab Character Exemption](#verbatim-tab-character-exemption)
       * [Delimiter Invariant](#delimiter-invariant)
       * [Examples](#examples)
     * [5.4 Algebraic Product Types](#54-algebraic-product-types)
@@ -177,7 +179,7 @@ $$\text{documentRoot} \longrightarrow \texttt{:meta}^{?} \longrightarrow \texttt
 
 The `:meta` block is a first-class root enclosure entry that strictly precedes `:defs`, `:type`, and `:body`. Placing `:meta` after `:defs`, after `:type`, or after `:body` is an unrecoverable syntax error at the parser gate (`ERR_META_POSITION_INVALID`).
 
-The `:meta` block is optional on primary modular documents (`.stvn`), but mandatory across all other file types.
+The `:meta` block is optional on payload documents (`.stvn`, `.stvn_i`), but mandatory across all definitions schemas (`.stvn_d`, `.stvn_di`) and binary formats (`.stvn_b`, `.stvn_bd`).
 
 ### 1.2 File Extension Matrix
 
@@ -189,6 +191,8 @@ The `:meta` block is optional on primary modular documents (`.stvn`), but mandat
 |   **`.stvn_di`**   |     `#DEFS_INCLUDE`     | Textual  | **Required**  | **Required**  |     **Optional**     | **Full (Prelude, Local & Included)** |  **Prohibited**   | Modular definitions schema module with `:include` directives. |
 |   **`.stvn_b`**    |         `#BODY`         |  Binary  | **Required**  |   Optional    |    **Prohibited**    |   **Restricted (Prelude & Local)**   |   **Required**    | Binary hermetic payload document.                             |
 |   **`.stvn_bd`**   |         `#DEFS`         |  Binary  | **Required**  | **Required**  |    **Prohibited**    |   **Restricted (Prelude & Local)**   |  **Prohibited**   | Binary hermetic definitions schema.                           |
+
+While local `.stvn` payload documents may omit the `:meta` block for local processing, any document submitted to the schema repository or published to a registry must declare an explicit `:meta` header conforming to `STVN_REPOSITORY_SPEC.md` (§ 2.1 Ingress Gate Invariants). Ingress validation rejects schemas and payloads lacking explicit document identity with fatal error `ERR_SCHEMA_IDENTITY_MISMATCH`.
 
 CAS envelopes are formalized as dot-separated `<name>.stvn_cas.stvn` (`#domain "stvn_cas"`, `#kind #BODY`). Compiler IR snapshots are formalized as dot-separated `<name>.stvn_ir.stvn_i` (`#domain "stvn_ir"`, `#kind #BODY_INCLUDE`).
 
@@ -208,27 +212,63 @@ When a lexer encounters a tab character outside the verbatim body of a fenced st
 
 ## 2. Concrete Syntax Examples
 
-### 2.1 Hermetic Definitions Schema (`.stvn_d`)
+### 2.1 Canonical Hermetic Payload Document (`.stvn`)
 
 ```stvn
 {
-  // network_primitives.stvn_d
+  // canonical_telemetry.telemetry.stvn
+  :meta {
+    #name "canonical_telemetry"
+    #domain "telemetry"
+    #kind #BODY
+  }
+  :defs {
+    :Port { #unsigned #size 16 #minIncl 1 } :Int
+    :NodeStatus :Enum [ #HEALTHY #DEGRADED #UNREACHABLE ]
+    :Endpoint :Tuple(:String :Port)
+    :NodeReport :Tuple(:Endpoint :NodeStatus)
+  }
+  :type :NodeReport
+  :body (
+    ("gateway.internal" 8443)
+    #HEALTHY
+  )
+}
+```
+
+### 2.2 Hermetic Definitions Schema (`.stvn_d`)
+
+```stvn
+{
+  // network_primitives.network.stvn_d
+  :meta {
+    #name "network_primitives"
+    #domain "network"
+    #kind #DEFS
+  }
   :defs {
     :BitFlag { #unsigned #size 1 } :Int
     :UnixPermission { #unsigned #size 3 } :Int
     :Port { #unsigned #size 16 #minIncl 1 } :Int
     :HostName { #minSize 1 #maxSize 64 #regex "^[a-zA-Z0-9.-]+$" } :String
-    :IpAddress :Union(:IPv4 { #minSize 15 #maxSize 15 } :String)
+    :IPv4 { #minSize 7 #maxSize 15 } :String
+    :IPv6 { #minSize 15 #maxSize 39 } :String
+    :IpAddress { #minSize 7 #maxSize 39 #regex "^[0-9a-fA-F.:]+$" } :String
     :Protocol :Enum [ #HTTP #HTTPS #TCP #UDP ]
   }
 }
 ```
 
-### 2.2 Modular Definitions Module (`.stvn_di`)
+### 2.3 Modular Definitions Module (`.stvn_di`)
 
 ```stvn
 {
-  // telemetry_models.stvn_di
+  // telemetry_models.telemetry.stvn_di
+  :meta {
+    #name "telemetry_models"
+    #domain "telemetry"
+    #kind #DEFS_INCLUDE
+  }
   :defs {
     :include ["network_primitives.stvn_d" { :HostName :RemoteHost }]
 
@@ -245,11 +285,16 @@ When a lexer encounters a tab character outside the verbatim body of a fenced st
 }
 ```
 
-### 2.3 Standard Payload Document (`.stvn_i`)
+### 2.4 Standard Modular Payload Document (`.stvn_i`)
 
 ```stvn
 {
-  // telemetry_report.stvn_i
+  // telemetry_report.telemetry.stvn_i
+  :meta {
+    #name "telemetry_report"
+    #domain "telemetry"
+    #kind #BODY_INCLUDE
+  }
   :defs {
     :include ["telemetry_models.stvn_di"]
 
@@ -292,6 +337,7 @@ When a lexer encounters a tab character outside the verbatim body of a fenced st
 │ Delimiter           │ Definition-Space Context     │ Value / Payload Context      │
 ├─────────────────────┼──────────────────────────────┼──────────────────────────────┤
 │ Curly Braces { }    │ • File root { ... }          │ • Metadata blocks            │
+│                     │ • Document identity :meta {} │   { #minIncl 1 #unsigned }   │
 │                     │ • Definition block :defs { } │   { #minIncl 1 #unsigned }   │
 │                     │ • Include alias maps { :A :B}│ • Map literal values:        │
 │                     │                              │   :Map -> { [ "k1" "v1" ] }  │
@@ -337,7 +383,7 @@ The colon character (`:`) is the canonical prefix sigil for the Typic Track in S
 
 | Category                                     | Token Pattern                                                             | Examples                                                                                                                           | Context / Purpose                                                                                                                                                             |
 |:---------------------------------------------|:--------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Root Block Keywords**                      | `:defs`, `:type`, `:body`                                                 | `:defs { ... }`<br>`:type :AppPayload`<br>`:body ( ... )`                                                                          | Declares mandatory and optional top-level document sections                                                                                                                   |
+| **Root Block Keywords**                      | `:meta`, `:defs`, `:type`, `:body`                                        | `:meta { ... }`<br>`:defs { ... }`<br>`:type :AppPayload`<br>`:body ( ... )`                                                       | Declares mandatory and optional top-level document sections                                                                                                                   |
 | **Module Include Directive**                 | `:include`                                                                | `:include [ "lib.stvn_d" ]`                                                                                                        | File-system ingestion directive. Physically loads external definition files (`.stvn_d`, `.stvn_di`) into the compilation unit. Prohibited in flat hermetic files.             |
 | **Package Enclosure Directive**              | `:package`                                                                | `:package :org/example { ... }`                                                                                                    | Lexical namespace boundary. Scopes contained definitions under a common path prefix within the document AST.                                                                  |
 | **Scoped Import Directive**                  | `:use`                                                                    | `:use [ :org/example { #strip } ]`                                                                                                 | In-memory namespace projection and symbol alias directive. Projects or aliases symbols from already-ingested packages into lexical scope. Never executes file or network I/O. |
@@ -531,6 +577,10 @@ Empty definition blocks (`:defs {}`) are prohibited in definitions schemas (`.st
    ```
 2. **Payload Substitution:** Referencing the value keyword (e.g., `#MAX_RETRY`) within the document `:body` or within another constant expression in `:defs` instructs the compiler to perform deterministic compile-time value substitution:
    ```stvn
+   :defs {
+     #MAX_RETRY  { #unsigned #size 8 } :Int 3
+     #API_HOST   { #regex "^[a-z.]+$" } :String "api.internal.net"
+   }
    :type :Tuple( { #unsigned #size 8 } :Int :String )
    :body ( #MAX_RETRY #API_HOST )
    // Lowers to: ( 3 "api.internal.net" )
@@ -547,14 +597,14 @@ Authors can organize definitions into explicit namespace packages and import sym
 
 ```stvn
 :defs {
-:package :org/example/network {
-:Port { #unsigned #size 16 } :Int
-#DEFAULT_PORT { #unsigned #size 16 } :Int 8080
-}
-:package :org/example/service {
-:use [ :org/example/network { #strip } ]
-:ServiceConfig { :port :Port }
-}
+  :package :org/example/network {
+    :Port { #unsigned #size 16 } :Int
+    #DEFAULT_PORT { #unsigned #size 16 } :Int 8080
+  }
+  :package :org/example/service {
+    :use [ :org/example/network { #strip } ]
+    :ServiceConfig :Tuple(:Port)
+  }
 }
 ```
 
@@ -585,6 +635,7 @@ Every STVN document may declare an identity block using the `:meta` root enclosu
 
 ```stvn
 {
+  // telemetry_schema.telemetry.stvn_d
   :meta {
     #name "telemetry_schema"
     #domain "telemetry"
@@ -600,7 +651,7 @@ Every STVN document may declare an identity block using the `:meta` root enclosu
 
 1. **Closed Enclosure:** `:meta { ... }` accepts strictly three facet keys: `#name`, `#domain`, and `#kind`. Unknown facets emit `ERR_INVALID_METADATA_FACET`.
 2. **3-Tier Monotonic Order:** Facets must appear in monotonic sequence: `#name` $\longrightarrow$ `#domain` $\longrightarrow$ `#kind`. Reversals emit `ERR_FACET_ORDER_VIOLATION`.
-3. **Empty Block Prohibition:** Empty `:meta {}` blocks are prohibited and emit `ERR_EMPTY_METADATA_BLOCK`.
+3. **Empty Block Prohibition:** Empty `:meta {}` blocks are prohibited and emit `ERR_EMPTY_META_BLOCK` (diagnostic code `E039`).
 4. **POSIX Identifier Validation:** Values for `#name` and `#domain` must be string literals matching `^[a-zA-Z0-9_-]{1,64}$`. Path slashes and dots are prohibited.
 5. **Kind Enumeration:** The `#kind` facet must be one of `#BODY`, `#DEFS`, `#BODY_INCLUDE`, or `#DEFS_INCLUDE`.
 6. **Reserved System Domains:** User-authored documents MUST NOT declare system domains reserved for compiler internals, Intermediate Representation snapshots, and Content-Addressable Storage envelopes. The domain identifier strings `"stvn_core"`, `"stvn_ir"`, and `"stvn_cas"` are strictly reserved for system artifacts (§ 1.2). Declaring a reserved system domain in a user document is an unrecoverable semantic error (`ERR_RESERVED_DOMAIN_PROHIBITED`, diagnostic code `E038`).
@@ -611,7 +662,7 @@ Every STVN document may declare an identity block using the `:meta` root enclosu
 2. Single stem segments before the extension (e.g., `billing.stvn_d`) bind strictly to `name` (slot 0).
 3. Every file must have a non-empty stem (`stem.length >= 1`). Bare dotfiles emit `ERR_INVALID_FILENAME_STEM`.
 4. Core compiler emits fatal `ERR_DOCUMENT_KIND_MISMATCH` on kind/extension discrepancies, and warnings (`WARN_DOCUMENT_NAME_MISMATCH`, `WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME`) on stem discrepancies.
-5. Repository ingress gates enforce fatal rejection (`ERR_SCHEMA_IDENTITY_MISMATCH`) on any identity divergence.
+5. **Repository Ingress Invariant:** While local `.stvn` payloads may omit the `:meta` header for local processing, any document submitted to the schema repository or published to a registry must declare an explicit `:meta` block conforming to `STVN_REPOSITORY_SPEC.md` (§ 2.1 Ingress Gate Invariants). Repository ingress gates enforce fatal rejection (`ERR_SCHEMA_IDENTITY_MISMATCH` or `ERR_DOCUMENT_KIND_MISMATCH`) on documents lacking an explicit `:meta` header or exhibiting identity divergence.
 
 ---
 
@@ -1004,28 +1055,32 @@ Every fenced string literal must adhere to **Rule STR-04**:
 #### Examples
 
 ```stvn
-// Canonical SQL query (modern standard)
+{
+  // Canonical SQL query (modern standard)
   :defs { :Query :String }
-:type :Query
-:body """[SQL]
+  :type :Query
+  :body """[SQL]
 SELECT id, username, email
 FROM users
 WHERE active = TRUE;
 [SQL]"""
+}
 ```
 
 ```stvn
-// CAS Content-Addressable Storage envelope with canonical SHA-256 digest tag (.stvn_cas.stvn)
+{
+  // CAS Content-Addressable Storage envelope with canonical SHA-256 digest tag (.stvn_cas.stvn)
   :type :Tuple(:String :String)
   :body (
-  "payload.stvn"
-  """[SHA256-26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f]
+    "payload.stvn"
+    """[SHA256-26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f]
 {
   :type :Int
   :body 42
 }
 [SHA256-26734e3fc7c04d784b38ea699f8ad8aec5baa86c724a4bf46e015ad46b030b4f]"""
   )
+}
 ```
 
 ---
@@ -1065,6 +1120,7 @@ STVN 2.0.0 permanently eliminates all compound collection keywords:
 Metadata facets `#minSize` and `#maxSize` apply to all collection types:
 
 ```stvn
+:Task :String
 :BoundedQueue { #minSize 1 #maxSize 256 } :Seq(:Task)
 ```
 
@@ -2254,10 +2310,15 @@ This appendix provides fully parseable STVN documents demonstrating every keywor
   }
   :type :Tuple(:SchemaName :StvnDef)
   :body (
-    "example-schema.stvn_d"
+    "example-schema.schema.stvn_d"
     """[SHA256-ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad]
 {
-  // example-schema.stvn_d
+  // example-schema.schema.stvn_d
+  :meta {
+    #name "example-schema"
+    #domain "schema"
+    #kind #DEFS
+  }
   :defs {
     :CustomAlias :String
   }
@@ -2456,9 +2517,9 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 
 | Diagnostic Code | Canonical Identifier                      | Category       | Severity | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 |:----------------|:------------------------------------------|:---------------|:---------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `E001`          | `TAB_DISCIPLINE_VIOLATION`                | Lexical        | Fatal    | A literal tab character `\t` was encountered in the source text outside the verbatim body of a fenced multi-line string.                                                                                                                                                                                                                                                                                                    |
+| `E001`          | `TAB_DISCIPLINE_VIOLATION`                | Lexical        | Fatal    | A literal tab character `\t` was encountered in the source text outside the verbatim body of a fenced multi-line string.                                                                                                                                                                                                                                                                                                                                    |
 | `E002`          | `ROOT_ENCLOSURE_MISSING`                  | Syntactic      | Fatal    | The document root is not enclosed within matching curly braces `{ ... }`.                                                                                                                                                                                                                                                                                                                                                                                   |
-| `E003`          | `EMPTY_METADATA_BLOCK`                    | Syntactic      | Fatal    | An empty metadata annotation block `{}` was encountered.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `E003`          | `EMPTY_METADATA_BLOCK`                    | Syntactic      | Fatal    | An empty type or constant metadata annotation block `{}` was encountered (§ 3.5.1).                                                                                                                                                                                                                                                                                                                                                                         |
 | `E004`          | `EMPTY_DIRECTIVE_BLOCK`                   | Syntactic      | Fatal    | An empty `:include []` or `:use []` directive was encountered.                                                                                                                                                                                                                                                                                                                                                                                              |
 | `E005`          | `DUPLICATE_MODULE_IMPORT`                 | Semantic       | Fatal    | A module file path or package URI was imported more than once in `:defs`.                                                                                                                                                                                                                                                                                                                                                                                   |
 | `E006`          | `NAMESPACE_COLLISION`                     | Semantic       | Fatal    | Unmitigated nominal identifier collision between imported modules.                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -2493,6 +2554,7 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E035`          | `UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | Semantic       | Fatal    | Module :use in a flat hermetic document (.stvn / .stvn_d) targets an external package not declared in local :defs or prelude.                                                                                                                                                                                                                                                                                                                               |
 | `E037`          | `ERR_RESERVED_PACKAGE_PROHIBITED`         | Semantic       | Fatal    | User document declares a :package enclosure, qualified type, or qualified constant targeting reserved runtime namespace :org/stvnadore/* (§ 3.9 Invariant 8).                                                                                                                                                                                                                                                                                               |
 | `E038`          | `ERR_RESERVED_DOMAIN_PROHIBITED`          | Semantic       | Fatal    | User document declares a reserved system domain (stvn_core, stvn_ir, stvn_cas) in root :meta (§ 3.10.1 Rule 6).                                                                                                                                                                                                                                                                                                                                             |
+| `E039`          | `EMPTY_META_BLOCK`                        | Syntactic      | Fatal    | An empty root document metadata block ':meta {}' was encountered (§ 3.10.1).                                                                                                                                                                                                                                                                                                                                                                                |
 | `W001`          | `DOCUMENT_NAME_MISMATCH`                  | Semantic       | Warning  | Declared #name does not match filename stem slot 0.                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `W002`          | `DOCUMENT_DOMAIN_OMITTED_IN_FILENAME`     | Semantic       | Warning  | Declared #domain is omitted from filename stem slot 1.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `W003`          | `WARN_REDUNDANT_METADATA_FACET`           | Semantic       | Warning  | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #maxExcl 2^N on unsigned integer, #minIncl -2^{N-1} or #maxExcl 2^{N-1} on signed integer, #minSize 0 on container, #size 32 on signed :Int or unsigned { #unsigned } :Int, #size 64 on continuous :Float, #maxSize 16777216 on { #exact } :Float, or bare primitive trait defaults). Purged during semantic IR lowering without halting compilation (§ 9.2). |
@@ -2504,7 +2566,8 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | Diagnostic Constant                           | String Literal Value                            | Severity | Governing Invariant & Error Condition                                                                                                                          |
 |:----------------------------------------------|:------------------------------------------------|:---------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `ERR_TAB_CHARACTER_FORBIDDEN`                 | `"ERR_TAB_CHARACTER_FORBIDDEN"`                 | Fatal    | Tab character (`\t`, U+0009) encountered in source text outside the verbatim body of a fenced multi-line string.                                               |
-| `ERR_EMPTY_METADATA_BLOCK`                    | `"ERR_EMPTY_METADATA_BLOCK"`                    | Fatal    | Empty metadata block `{}` declared on type or constant definition.                                                                                             |
+| `ERR_EMPTY_METADATA_BLOCK`                    | `"ERR_EMPTY_METADATA_BLOCK"`                    | Fatal    | Empty metadata block `{}` declared on type or constant definition (§ 3.5.1).                                                                                   |
+| `ERR_EMPTY_META_BLOCK`                        | `"ERR_EMPTY_META_BLOCK"`                        | Fatal    | Empty root document metadata block ':meta {}' declared (§ 3.10.1).                                                                                             |
 | `ERR_EMPTY_DIRECTIVE_BLOCK`                   | `"ERR_EMPTY_DIRECTIVE_BLOCK"`                   | Fatal    | Empty directive block `{}` declared in `:use` or `:include`.                                                                                                   |
 | `ERR_MODULE_IMPORT`                           | `"MODULE_IMPORT_FAILED"`                        | Fatal    | Declared module include file cannot be located or read.                                                                                                        |
 | `ERR_CYCLIC_MODULE`                           | `"CYCLIC_MODULE_INCLUDE"`                       | Fatal    | Cyclic module include dependencies detected.                                                                                                                   |
@@ -3033,21 +3096,26 @@ A local definition in `:defs` takes precedence over an imported raw identifier. 
 
 ```stvn
 {
-  // Module A: network_base.stvn_d
+  // Module A: network_base.network.stvn_d
+  :meta {
+    #name "network_base"
+    #domain "network"
+    #kind #DEFS
+  }
   :defs {
-    :Port { #unsigned #T #size 16 #minIncl 1 #maxIncl 1024 } :Int
+    :Port { #unsigned #size 16 #minIncl 1 #maxExcl 1025 } :Int
   }
 }
 ```
 
 ```stvn
 {
-  // Main Document: local_override.stvn
+  // Main Document: local_override.stvn_i
   :defs {
-    :include [ "network_base.stvn_d" ]
+    :include [ "network_base.network.stvn_d" ]
 
     // LOCAL DEFINITION: Evicts imported :Port from network_base.stvn_d
-    :Port { #unsigned #T #size 16 #minIncl 1025 #maxIncl 65535 } :Int
+    :Port { #unsigned #size 16 #minIncl 1025 #maxExcl 65536 } :Int
 
     :ServerConfig :Tuple(:Port)
   }
@@ -3066,7 +3134,12 @@ Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` with
 
 ```stvn
 {
-  // Module A: dns_types.stvn_d
+  // Module A: dns_types.network.stvn_d
+  :meta {
+    #name "dns_types"
+    #domain "network"
+    #kind #DEFS
+  }
   :defs {
     :HostName { #maxSize 64 #regex "^[a-z.]+$" } :String
   }
@@ -3075,7 +3148,12 @@ Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` with
 
 ```stvn
 {
-  // Module B: system_types.stvn_d
+  // Module B: system_types.system.stvn_d
+  :meta {
+    #name "system_types"
+    #domain "system"
+    #kind #DEFS
+  }
   :defs {
     :HostName { #minSize 16 #maxSize 16 #regex "^[A-Z0-9_-]+$" } :String
   }
@@ -3084,13 +3162,13 @@ Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` with
 
 ```stvn
 {
-  // Main Document: asymmetric_mapping.stvn
+  // Main Document: asymmetric_mapping.stvn_i
   :defs {
     // Aliases dns_types.:HostName -> :RemoteHost
-    :include [ "dns_types.stvn_d" { :HostName :RemoteHost } ]
+    :include [ "dns_types.network.stvn_d" { :HostName :RemoteHost } ]
 
     // Imports system_types.:HostName raw into the active scope
-    :include [ "system_types.stvn_d" ]
+    :include [ "system_types.system.stvn_d" ]
 
     :NetworkRoute :Tuple(:RemoteHost :HostName)
   }
@@ -3111,7 +3189,12 @@ Module A and Module B both export `:Status`. The importing document aliases both
 
 ```stvn
 {
-  // Module A: network_status.stvn_d
+  // Module A: network_status.network.stvn_d
+  :meta {
+    #name "network_status"
+    #domain "network"
+    #kind #DEFS
+  }
   :defs {
     :Status :Enum [ #CONNECTED #DISCONNECTED #CONNECTING ]
   }
@@ -3120,7 +3203,12 @@ Module A and Module B both export `:Status`. The importing document aliases both
 
 ```stvn
 {
-  // Module B: database_status.stvn_d
+  // Module B: database_status.database.stvn_d
+  :meta {
+    #name "database_status"
+    #domain "database"
+    #kind #DEFS
+  }
   :defs {
     :Status :Enum [ #ONLINE #OFFLINE #READ_ONLY #FAILOVER ]
   }
@@ -3129,11 +3217,11 @@ Module A and Module B both export `:Status`. The importing document aliases both
 
 ```stvn
 {
-  // Main Document: dual_alias.stvn
+  // Main Document: dual_alias.database.stvn_i
   :defs {
     // Both modules alias :Status to explicit local identifiers
-    :include [ "network_status.stvn_d"  { :Status :NetworkStatus } ]
-    :include [ "database_status.stvn_d" { :Status :DbStatus } ]
+    :include [ "network_status.network.stvn_d"  { :Status :NetworkStatus } ]
+    :include [ "database_status.database.stvn_d" { :Status :DbStatus } ]
 
     :SystemState :Tuple(:NetworkStatus :DbStatus)
   }
@@ -3157,30 +3245,38 @@ Two modules export the identical raw identifier `:Config` without alias mapping.
 
 ```stvn
 {
-  // Module A: app_config.stvn_d
+  // Module A: app_config.config.stvn_d
+  :meta {
+    #name "app_config"
+    #domain "config"
+    #kind #DEFS
+  }
   :defs {
-    :Config :Tuple(:String { #maxSize 128 } :Int { #unsigned #T #size 16 }
-    )
+    :Config :Tuple({ #maxSize 128 } :String { #unsigned #size 16 } :Int)
   }
 }
 ```
 
 ```stvn
 {
-  // Module B: db_config.stvn_d
+  // Module B: db_config.config.stvn_d
+  :meta {
+    #name "db_config"
+    #domain "config"
+    #kind #DEFS
+  }
   :defs {
-    :Config :Tuple(:String { #maxSize 256 } :String { #maxSize 64 } :Int { #unsigned }
-    )
+    :Config :Tuple({ #maxSize 256 } :String { #maxSize 64 } :String { #unsigned } :Int)
   }
 }
 ```
 
 ```stvn
 {
-  // Main Document: unmitigated_collision.stvn (FATAL REJECTION)
+  // Main Document: unmitigated_collision.stvn_i (FATAL REJECTION)
   :defs {
-    :include [ "app_config.stvn_d" ]
-    :include [ "db_config.stvn_d" ]
+    :include [ "app_config.config.stvn_d" ]
+    :include [ "db_config.config.stvn_d" ]
     // FATAL: Raw ':Config' collides with app_config ':Config'
 
     :App :Tuple(:Config)
@@ -3200,16 +3296,16 @@ A file path string literal may appear in `:include` only once per `:defs` block.
 
 ```stvn
 {
-  // Main Document: duplicate_import.stvn (FATAL REJECTION)
+  // Main Document: duplicate_import.stvn_i (FATAL REJECTION)
   :defs {
-    :include [ "network_base.stvn_d" ]
-    // FATAL: "network_base.stvn_d" is already imported in this :defs block.
+    :include [ "network_base.network.stvn_d" ]
+    // FATAL: "network_base.network.stvn_d" is already imported in this :defs block.
     // Combining imports into a single include directive or alias map is mandatory.
-    :include [ "network_base.stvn_d" { :Port :AltPort } ]
+    :include [ "network_base.network.stvn_d" { :Port :AltPort } ]
   }
   // <-- Gate Execution fails: Throws E005 (DUPLICATE_MODULE_IMPORT)
 
-  :type :Int { #unsigned #T #size 16 }
+  :type { #unsigned #size 16 } :Int
   :body 8080
 }
 ```
@@ -3222,7 +3318,12 @@ Hierarchical, slash-delimited type identifiers (for example, `:aws/s3/BucketName
 
 ```stvn
 {
-  // Module: cloud_services.stvn_d
+  // Module: cloud_services.cloud.stvn_d
+  :meta {
+    #name "cloud_services"
+    #domain "cloud"
+    #kind #DEFS
+  }
   :defs {
     :aws/s3/BucketName { #minSize 3 #maxSize 63 #regex "^[a-z0-9.-]{3,63}$" } :String
     :azure/blob/Container { #minSize 3 #maxSize 63 #regex "^[a-z0-9-]{3,63}$" }  :String
@@ -3232,10 +3333,10 @@ Hierarchical, slash-delimited type identifiers (for example, `:aws/s3/BucketName
 
 ```stvn
 {
-  // Main Document: path_aliasing.stvn
+  // Main Document: path_aliasing.stvn_i
   :defs {
     // Consume AWS path identifier raw, alias Azure path identifier to flat local alias
-    :include [ "cloud_services.stvn_d" { :azure/blob/Container :AzureContainer } ]
+    :include [ "cloud_services.cloud.stvn_d" { :azure/blob/Container :AzureContainer } ]
 
     :StorageTargets :Tuple(:aws/s3/BucketName :AzureContainer)
   }
@@ -3276,37 +3377,37 @@ Definitions not present in the transitive reachability set are dead code. Serial
 Retained definitions MUST be ordered topologically using depth-first search post-order traversal. Each dependency MUST precede its dependents in the output `:defs` block.
 
 ```stvn
-// Source Document (with local aliases, packages, and dead code):
 {
+  // Source Document (with local aliases, packages, and dead code):
   :defs {
     :package :com/example/finance {
-      :Transaction :Tuple(:Int { #size 64 } :Float)
-      :CreationTime :Int {
-      #size 64
+      :Transaction :Tuple({ #size 64 } :Int :Float)
+      :CreationTime { #size 64 } :Int
     }
+    :use [ :com/example/finance { :Transaction :LocalTx } ]
+    :A :String
+    :T :Tuple(:LocalTx :A)
   }
-  :use [ :com/example/finance { :Transaction :LocalTx } ]
-  :A :String
-  :T :Tuple(:LocalTx :A)
+  :type :T
+  :body (
+    (1001 49.99)
+    "a"
+  )
 }
-  :type :T
-  :body (
-  (1001 49.99)
-  "a"
-  )
-  }
+```
 
+```stvn
+{
   // Canonical Output (desugared, pruned, topologically ordered):
-  {
   :defs {
-  :com/example/finance/Transaction :Tuple(:Int { #size 64 } :Float)
-  :A :String
-  :T :Tuple(:com/example/finance/Transaction :A)
+    :com/example/finance/Transaction :Tuple({ #size 64 } :Int :Float)
+    :A :String
+    :T :Tuple(:com/example/finance/Transaction :A)
   }
   :type :T
   :body (
-  (1001 49.99)
-  "a"
+    (1001 49.99)
+    "a"
   )
-  }
+}
 ```

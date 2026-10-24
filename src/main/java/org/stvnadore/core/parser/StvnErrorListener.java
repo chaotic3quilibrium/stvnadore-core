@@ -235,6 +235,8 @@ public final class StvnErrorListener extends BaseErrorListener {
     } else if (sanitizedMessage.contains("delimiter arrow '->' is prohibited")
         || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().startsWith("\"\"\"->["))) {
       errorCode = Optional.of(DiagnosticBag.ERR_PROHIBITED_FENCE_ARROW);
+    } else if (sanitizedMessage.contains("clause ':meta' requires a metadata block") || sanitizedMessage.contains("ERR_EMPTY_META_BLOCK")) {
+      errorCode = Optional.of(DiagnosticBag.ERR_EMPTY_META_BLOCK);
     } else if (sanitizedMessage.contains("':meta'")
         || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().equals(StvnVocabulary.KEYWORD_META))) {
       errorCode = Optional.of(DiagnosticBag.ERR_META_POSITION_INVALID);

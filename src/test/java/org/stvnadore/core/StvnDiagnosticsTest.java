@@ -1142,7 +1142,7 @@ public class StvnDiagnosticsTest {
     Assertions.assertFalse(result.isSuccess());
     Assertions.assertEquals(4, result.diagnostics().size(), "Must report 2 empty block errors and 2 syntax errors simultaneously");
     var codes = result.diagnostics().stream().map(d -> d.errorCode().orElse("")).toList();
-    Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_EMPTY_METADATA_BLOCK));
+    Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_EMPTY_META_BLOCK));
     Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_EMPTY_DEFS_BLOCK));
     Assertions.assertTrue(codes.contains("STVN_SYNTAX_ERROR"));
   }

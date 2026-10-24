@@ -4019,7 +4019,7 @@ public class StvnTypeResolver {
           line,
           col,
           null,
-          DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
+          DiagnosticBag.ERR_EMPTY_META_BLOCK
       );
       return;
     }

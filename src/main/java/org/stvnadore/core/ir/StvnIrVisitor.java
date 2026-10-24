@@ -1614,6 +1614,33 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
           return new StvnUnion(schema, branchVal, matchedIndex);
         }
       }
+      if (item instanceof BooleanLiteralItem b) {
+        int matchCount = 0;
+        int matchedIndex = -1;
+        ResolvedSchema matchedCand = null;
+        for (int i = 0; i < candidates.size(); i++) {
+          ResolvedSchema cand = candidates.get(i);
+          if (StvnTypeResolver.canMatch(documentContext, cand.node(), StvnTypeResolver.LiteralType.BOOLEAN_LITERAL, b.tokenText())) {
+            matchCount++;
+            matchedIndex = i;
+            matchedCand = cand;
+          }
+        }
+        if (matchCount > 1) {
+          int start = b.sourceCtx() != null && b.sourceCtx().getStart() != null
+              ? b.sourceCtx().getStart().getStartIndex()
+              : -1;
+          int end = b.sourceCtx() != null && b.sourceCtx().getStop() != null
+              ? b.sourceCtx().getStop().getStopIndex() + 1
+              : -1;
+          throw new org.stvnadore.core.validation.StvnCollectionCollisionException("Ambiguous implicit resolution: Value matches multiple branches", start, end);
+        }
+        if (matchCount == 1 && matchedCand != null) {
+          boolean val = b.tokenText().equals(StvnVocabulary.VAL_TRUE) || b.tokenText().equals(StvnVocabulary.VAL_TRUE_SHORT);
+          StvnValue branchVal = new StvnBoolean(ensureSchema(matchedCand), val);
+          return new StvnUnion(schema, branchVal, matchedIndex);
+        }
+      }
       if (item instanceof AtomicValueItem atom) {
         ResolvedSchema matched = resolveImplicitSumCandidate(atom.ctx(), schema);
         return visitChildValue(atom.ctx(), matched);

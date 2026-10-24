@@ -74,6 +74,8 @@ public final class DiagnosticBag {
   public static final String ERR_TAB_CHARACTER_FORBIDDEN = "ERR_TAB_CHARACTER_FORBIDDEN";
   /** Error code emitted when an empty metadata block '{}' is encountered on a type or constant definition. */
   public static final String ERR_EMPTY_METADATA_BLOCK = "ERR_EMPTY_METADATA_BLOCK";
+  /** Error code emitted when an empty root document metadata block ':meta {}' is encountered (SPEC § 3.10.1, E039). */
+  public static final String ERR_EMPTY_META_BLOCK = "ERR_EMPTY_META_BLOCK";
   /** Error code emitted when an empty definition block ':defs {}' is encountered. */
   public static final String ERR_EMPTY_DEFS_BLOCK = "ERR_EMPTY_DEFS_BLOCK";
   /** Error code emitted when an empty directive block '{}' is encountered in :use or :include. */

@@ -393,7 +393,7 @@ public class StvnDocumentIdentityValidationTest {
   }
 
   @Test
-  @DisplayName("TC-ID-20: Empty metadata block :meta {} emits ERR_EMPTY_METADATA_BLOCK")
+  @DisplayName("TC-ID-20: Empty metadata block :meta {} emits ERR_EMPTY_META_BLOCK")
   void testEmptyMetadataBlockRejected() {
     String source = """
         {
@@ -407,7 +407,7 @@ public class StvnDocumentIdentityValidationTest {
     assertFalse(result.isSuccess());
     assertTrue(result.hasErrors());
     var diag = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_EMPTY_METADATA_BLOCK, diag.errorCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_EMPTY_META_BLOCK, diag.errorCode().orElse(null));
     assertTrue(diag.message().contains("must not be empty"));
   }
 
