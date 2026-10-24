@@ -800,7 +800,7 @@ public class StvnDocumentIdentityValidationTest {
   }
 
   @Test
-  @DisplayName("TC-ID-39: Tag subset variation (#domain, #kind) with slot 1 matching compiles cleanly")
+  @DisplayName("TC-ID-38a: Tag subset variation (#domain, #kind) with slot 1 matching compiles cleanly")
   void testTagSubsetDomainAndKindCompilesCleanly() {
     String source = """
         {
@@ -820,6 +820,106 @@ public class StvnDocumentIdentityValidationTest {
     var doc = result.document().orElseThrow();
     assertTrue(doc.requireMeta().name().isEmpty());
     assertEquals("auth", doc.requireMeta().domain().orElse(null));
+  }
+  @Test
+  @DisplayName("TC-ID-39: User document declaring #domain stvn_custom emits fatal ERR_RESERVED_DOMAIN_PROHIBITED")
+  void testUserDocumentDeclaringStvnCustomDomainEmitsReservedError() {
+    String source = """
+        {
+          :meta {
+            #name "custom"
+            #domain "stvn_custom"
+            #kind #BODY
+          }
+          :type :Int
+          :body 10
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "custom.stvn_custom.stvn");
+    assertTrue(result.hasErrors(), "User compilation must reject domain with stvn_ prefix");
+    var diag = result.diagnostics().getFirst();
+    assertEquals(DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED, diag.errorCode().orElse(null));
+    assertTrue(diag.message().contains("domains with prefix 'stvn_' are strictly reserved for system artifacts"));
+  }
+
+  @Test
+  @DisplayName("TC-ID-40: System document (SYSTEM_STRICT) declaring #domain stvn_custom compiles cleanly")
+  void testSystemDocumentDeclaringStvnCustomDomainCompilesCleanly() {
+    String source = """
+        {
+          :meta {
+            #name "custom"
+            #domain "stvn_custom"
+            #kind #BODY
+          }
+          :type :Int
+          :body 10
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "custom.stvn_custom.stvn", StvnParserConfig.SYSTEM_STRICT);
+    assertTrue(result.isSuccess(), "System document under SYSTEM_STRICT must compile cleanly: " + result.diagnostics());
+    assertFalse(result.hasErrors());
+  }
+
+  @Test
+  @DisplayName("TC-ID-41: Filename this.is.a.file.domain.stvn with 5 stem segments emits fatal ERR_INVALID_FILENAME_STEM")
+  void testMultiStemFragmentationEmitsFatalStemError() {
+    String source = """
+        {
+          :meta {
+            #name "this"
+            #domain "is"
+            #kind #BODY
+          }
+          :type :Int
+          :body 10
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "this.is.a.file.domain.stvn");
+    assertTrue(result.hasErrors(), "Filename with 5 stems must fail closed");
+    var diag = result.diagnostics().getFirst();
+    assertEquals(DiagnosticBag.ERR_INVALID_FILENAME_STEM, diag.errorCode().orElse(null));
+    assertEquals("Invalid filename stem 'this.is.a.file.domain.stvn'; filename must contain exactly one or two dot-separated stem segments (<name>.<ext> or <name>.<domain>.<ext>)", diag.message());
+  }
+
+  @Test
+  @DisplayName("TC-ID-42: Facet #name foo.bar with dot character emits fatal ERR_INVALID_METADATA_FACET")
+  void testFacetNameWithDotEmitsInvalidMetadataFacet() {
+    String source = """
+        {
+          :meta {
+            #name "foo.bar"
+            #kind #BODY
+          }
+          :type :Int
+          :body 10
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "valid_file.stvn");
+    assertTrue(result.hasErrors(), "Facet #name with dot must fail POSIX validation");
+    var diag = result.diagnostics().getFirst();
+    assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, diag.errorCode().orElse(null));
+    assertTrue(diag.message().contains("does not match required atomic POSIX pattern"));
+  }
+
+  @Test
+  @DisplayName("TC-ID-43: Filename this_is-a-file_01.telemetry.stvn compiles warning-free")
+  void testPosixCompliantMultiWordTwoStemCompilesCleanly() {
+    String source = """
+        {
+          :meta {
+            #name "this_is-a-file_01"
+            #domain "telemetry"
+            #kind #BODY
+          }
+          :type :Int
+          :body 100
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "this_is-a-file_01.telemetry.stvn");
+    assertTrue(result.isSuccess(), "Compliant two-stem document must compile cleanly: " + result.diagnostics());
+    assertFalse(result.hasErrors());
+    assertFalse(result.hasWarnings());
   }
 
   // =========================================================================

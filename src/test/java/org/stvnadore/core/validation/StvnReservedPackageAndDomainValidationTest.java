@@ -291,8 +291,8 @@ public class StvnReservedPackageAndDomainValidationTest {
   }
 
   @Test
-  @DisplayName("TC-RES-13: Acceptance of prefix-sharing user domain stvn_core_ext")
-  void testPrefixSharingUserDomainAcceptance() {
+  @DisplayName("TC-RES-13: Rejection of prefix-sharing user domain stvn_core_ext under reified prefix rule")
+  void testPrefixSharingUserDomainRejection() {
     String source = """
         {
           :meta {
@@ -305,11 +305,11 @@ public class StvnReservedPackageAndDomainValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source);
-    assertTrue(result.isSuccess(), "Must permit domain extending reserved prefix stvn_core_ext: " + result.diagnostics());
+    assertTrue(result.hasErrors(), "Must reject domain extending reserved prefix stvn_core_ext");
     assertTrue(
-        result.diagnostics().stream().noneMatch(d ->
+        result.diagnostics().stream().anyMatch(d ->
             DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED.equals(d.errorCode().orElse(null))),
-        "Must not emit ERR_RESERVED_DOMAIN_PROHIBITED for extended domain name"
+        "Must emit ERR_RESERVED_DOMAIN_PROHIBITED for extended domain name"
     );
   }
 

@@ -5,7 +5,7 @@
   :type :ErrorContract
   :body (
     #ERR_RESERVED_DOMAIN_PROHIBITED
-    "Reserved system domain prohibited: 'stvn_core' is reserved for internal compiler substrates and CAS envelopes"
+    "Reserved system domain prohibited: User document cannot declare reserved system domain 'stvn_core'; domains with prefix 'stvn_' are strictly reserved for system artifacts"
     #None
   )
 }

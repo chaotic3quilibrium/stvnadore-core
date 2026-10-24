@@ -81,6 +81,11 @@ public class StvnTypeResolver {
   private static final Map<StvnDocumentContext, Map<String, ConstantDefSource>> documentConstantDefinitionsCache = Collections.synchronizedMap(new WeakHashMap<>());
   private static final Map<StvnDocumentContext, Set<String>> documentPoisonedTypes = Collections.synchronizedMap(new WeakHashMap<>());
   private static final Map<StvnDocumentContext, org.stvnadore.core.StvnParserConfig> documentConfigs = Collections.synchronizedMap(new WeakHashMap<>());
+  /**
+   * The normative prefix strictly reserved for system artifacts and substrates (SPEC § 3.10.1 Item 6).
+   */
+  public static final String RESERVED_DOMAIN_PREFIX = "stvn_";
+
   private static final Set<String> RESERVED_SYSTEM_DOMAINS = Set.of(
       "stvn_core",
       "stvn_ir",
@@ -123,6 +128,16 @@ public class StvnTypeResolver {
     if (pkgPath == null) return false;
     String normalized = pkgPath.startsWith(":") ? pkgPath : ":" + pkgPath;
     return normalized.equals(":org/stvnadore") || normalized.startsWith(":org/stvnadore/");
+  }
+
+  /**
+   * Evaluates whether a domain identifier begins with the reserved system prefix ("stvn_").
+   *
+   * @param domain the domain string to evaluate
+   * @return true if the domain begins with "stvn_", false otherwise
+   */
+  public static boolean isReservedDomain(@Nullable String domain) {
+    return domain != null && domain.startsWith(RESERVED_DOMAIN_PREFIX);
   }
 
   /**
@@ -3978,7 +3993,19 @@ public class StvnTypeResolver {
       if (lastDot >= 0) {
         ext = fileName.substring(lastDot);
         String stemPart = fileName.substring(0, lastDot);
-        dotParts = stemPart.split("\\.");
+        dotParts = stemPart.split("\\.", -1);
+        if (dotParts.length >= 3) {
+          diagnosticBag.addError(
+              "Invalid filename stem '" + fileName + "'; filename must contain exactly one or two dot-separated stem segments (<name>.<ext> or <name>.<domain>.<ext>)",
+              doc.getStart() != null ? doc.getStart().getStartIndex() : 0,
+              doc.getStart() != null ? doc.getStart().getStopIndex() + 1 : 1,
+              doc.getStart() != null ? doc.getStart().getLine() : 1,
+              doc.getStart() != null ? doc.getStart().getCharPositionInLine() : 0,
+              null,
+              DiagnosticBag.ERR_INVALID_FILENAME_STEM
+          );
+          return;
+        }
       }
     }
 
@@ -4133,9 +4160,9 @@ public class StvnTypeResolver {
                 null,
                 DiagnosticBag.ERR_INVALID_METADATA_FACET
             );
-          } else if (!isSystemAuthority(doc) && RESERVED_SYSTEM_DOMAINS.contains(declaredDomain)) {
+          } else if (!isSystemAuthority(doc) && declaredDomain.startsWith(RESERVED_DOMAIN_PREFIX)) {
             diagnosticBag.addError(
-                "Reserved system domain prohibited: '" + declaredDomain + "' is reserved for internal compiler substrates and CAS envelopes",
+                "Reserved system domain prohibited: User document cannot declare reserved system domain '" + declaredDomain + "'; domains with prefix 'stvn_' are strictly reserved for system artifacts",
                 df.stringLiteral().getStart().getStartIndex(),
                 df.stringLiteral().getStop().getStopIndex() + 1,
                 df.stringLiteral().getStart().getLine(),
@@ -4384,7 +4411,15 @@ public class StvnTypeResolver {
     if (lastDot >= 0) {
       ext = fileName.substring(lastDot);
       String stemPart = fileName.substring(0, lastDot);
-      dotParts = stemPart.split("\\.");
+      dotParts = stemPart.split("\\.", -1);
+      if (dotParts.length >= 3) {
+        diagnosticBag.addError(
+            "Invalid filename stem '" + fileName + "'; filename must contain exactly one or two dot-separated stem segments (<name>.<ext> or <name>.<domain>.<ext>)",
+            0, 1, 1, 0, null,
+            DiagnosticBag.ERR_INVALID_FILENAME_STEM
+        );
+        return;
+      }
     }
 
     Optional<StvnDocumentKind> expectedKindOpt =
