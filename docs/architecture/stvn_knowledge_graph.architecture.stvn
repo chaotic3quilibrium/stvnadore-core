@@ -1,0 +1,2269 @@
+{
+  // docs/architecture/stvn_knowledge_graph.architecture.stvn
+  // Canonical Single Source of Truth (SSoT) for the STVN 2.0.0 Exploratory Knowledge Graph
+  :meta {
+    #name "stvn_knowledge_graph"
+    #domain "architecture"
+    #kind #BODY
+  }
+  :defs {
+    // 1. Node Archetype & Perspective Lens Taxonomies
+    :NodeArchetype :Enum [
+      #DISSONANCE
+      #SPEC
+      #GOAL
+      #HAZARD
+    ]
+
+    :PerspectiveLens :Enum [
+      #LENS_SKEPTIC
+      #LENS_DATA_ENGINEER
+      #LENS_ZERO_TRUST
+      #LENS_VOP_PURIST
+      #LENS_PRACTITIONER
+    ]
+
+    // 2. Causal Edge Verb Taxonomy
+    :CausalVerb :Enum [
+      #CLASHES_WITH
+      #JUSTIFIED_BY
+      #ELIMINATES_HAZARD
+      #ENABLES_OPTIMIZATION
+      #DERIVES_FROM
+      #ENFORCES_BOUNDARY
+    ]
+
+    // 3. Constrained Domain Identifiers (Tier 1.5 Cardinality -> Tier 4.4 Regex)
+    :NodeId { #minSize 6 #maxSize 96 #regex "^(DISSONANCE|SPEC|GOAL|HAZARD)_[A-Z0-9_]+$" } :String
+    :EdgeId { #minSize 6 #maxSize 96 #regex "^EDGE_[A-Z0-9_]+$" } :String
+    :DiagnosticCode { #minSize 4 #maxSize 64 #regex "^(E[0-9]{3}|W[0-9]{3}|ERR_[A-Z0-9_]+|WARN_[A-Z0-9_]+|[A-Za-z0-9]+Exception)$" } :String
+    :SpecSectionRef { #minSize 1 #maxSize 64 } :String
+    :NonEmptyProse { #minSize 1 #maxSize 2048 } :String
+    :LensSet { #minSize 1 #maxSize 5 } :Set(:PerspectiveLens)
+
+    // 4. Graph Node & Causal Edge Product Definitions (IDs are Map Keys, 3NF Normalized)
+    :KgNode :Tuple(
+      :NodeArchetype
+      :NonEmptyProse
+      :NonEmptyProse
+      :Seq(:SpecSectionRef)
+      :Seq(:DiagnosticCode)
+      :LensSet
+    )
+
+    :KgEdge :Tuple(
+      :NodeId
+      :CausalVerb
+      :NodeId
+      :NonEmptyProse
+      :LensSet
+    )
+
+    // 5. Root Knowledge Graph Container
+    :NodeRegistry { #minSize 1 } :Map(:NodeId :KgNode)
+    :EdgeCatalog { #minSize 1 } :Map(:EdgeId :KgEdge)
+    :StvnKnowledgeGraph :Tuple(:NodeRegistry :EdgeCatalog)
+  }
+
+  :type :StvnKnowledgeGraph
+
+  :body (
+    // ========================================================================
+    // PART 1: NODE REGISTRY (102 NODES: CLUSTERS 1-19 + SUBSYSTEMS A-G)
+    // ========================================================================
+    {
+      // --- CLUSTER 1: Infix Colons and Comma Separators ---
+      [
+        "DISSONANCE_NO_INFIX_COLON_OR_COMMAS"
+        (
+          #DISSONANCE
+          "Why can't I write 'host: localhost' or separate list items with commas like in JSON?"
+          "Developers accustomed to JSON, YAML, and TypeScript expect infix colons for key-value pairs and commas between array/tuple elements."
+          [ "Lang 3.1" "Lang 3.2" "Lang Appendix C.1 Trap 7" ]
+          [ "E030" "ERR_BARE_COLON_PROHIBITED" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_DUAL_TRACK_SIGILS_AND_WHITESPACE_DELIMITATION"
+        (
+          #SPEC
+          "Dual-Track Prefix Sigils (':' and '#') and Whitespace-Only Sibling Delimitation"
+          "The colon ':' is strictly a bound prefix sigil for the Typic Track and '#' is strictly a bound prefix sigil for the Value Track. Sibling values are delimited exclusively by whitespace, and grouping uses only {}, [], and ()."
+          [ "Lang 3.1" "Lang 3.2" "Lang Appendix C.1 Trap 7" ]
+          [ "E030" "ERR_BARE_COLON_PROHIBITED" "ERR_BARE_HASH_PROHIBITED" ]
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "GOAL_SINGLE_PASS_LL1_LEXICAL_ISOLATION"
+        (
+          #GOAL
+          "Single-Pass LL(1) Lexical Isolation Between Type and Value Spaces"
+          "Guarantee context-free lexical disambiguation between type-space identifiers (':') and value-space tokens ('#') at the first character without lookahead or punctuation noise."
+          [ "Lang 3.1" "Lang 3.2" "Lang 3.8.2" ]
+          []
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_SYNTACTIC_ROLE_AMBIGUITY"
+        (
+          #HAZARD
+          "Trailing-Comma Parse Failures and Key-vs-Type Lookahead Ambiguity"
+          "Eliminates trailing-comma syntax bugs, key-vs-type identifier ambiguity during AST construction, and multi-token parser backtracking."
+          [ "Lang 3.1" "Lang 3.2" ]
+          [ "E030" ]
+          [ #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- CLUSTER 2: Hash Comments & Block Comments Prohibition ---
+      [
+        "DISSONANCE_HASH_AND_BLOCK_COMMENTS_FORBIDDEN"
+        (
+          #DISSONANCE
+          "Why does '# comment' crash the lexer and why are '/* ... */' block comments illegal?"
+          "Engineers coming from Python, Bash, YAML, or C/Java expect '#' line comments or '/* ... */' multi-line block comments."
+          [ "Lang 3.1" "Lang 3.4" "Lang Appendix C.1 Trap 6" ]
+          [ "E001" "E030" "ERR_BARE_HASH_PROHIBITED" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_C_STYLE_SINGLE_LINE_COMMENTS_ONLY"
+        (
+          #SPEC
+          "Exclusive C-Style Single-Line ('//') Comment Discipline"
+          "Comments are restricted exclusively to contiguous single-line '//' tokens discarded prior to AST construction. Standalone '#' and block '/* ... */' comments are rejected."
+          [ "Lang 3.1" "Lang 3.4" "Lang Appendix C.1 Trap 6" ]
+          [ "E001" "E030" "ERR_BARE_HASH_PROHIBITED" ]
+          [ #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_SIGIL_UNIFORMITY_AND_LINE_LOCAL_LEXING"
+        (
+          #GOAL
+          "Value Sigil Uniformity and Line-Local Comment Lexing"
+          "Reserve '#' exclusively for the Value/Variable sigil track (booleans, sum tags, union indices, enum constants, metadata facets) and keep comment lexing strictly line-local."
+          [ "Lang 3.1" "Lang 3.4" ]
+          []
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "HAZARD_UNCLOSED_BLOCK_COMMENT_CODE_SWALLOWING"
+        (
+          #HAZARD
+          "Accidental Schema/Payload Swallowing via Unclosed Block Comments or Hash Ambiguity"
+          "Prevents accidental commenting-out of active schema constraints via unclosed '/*' markers and prevents '#' value tags from being silently ignored as comments."
+          [ "Lang 3.1" "Lang 3.4" ]
+          [ "ERR_BARE_HASH_PROHIBITED" ]
+          [ #LENS_ZERO_TRUST #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- CLUSTER 3: Strict Zero-Tab Invariant ---
+      [
+        "DISSONANCE_STRICT_ZERO_TAB_INVARIANT"
+        (
+          #DISSONANCE
+          "Why does a single tab character in indentation or a comment halt compilation with E001?"
+          "Developers accustomed to Makefiles, Go, or configurable IDE tab indentation find fatal compilation on '\\t' overly strict."
+          [ "Lang 1.3" "Lang 3.3" "Lang Appendix C.2" ]
+          [ "E001" "ERR_TAB_CHARACTER_FORBIDDEN" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_ZERO_TAB_LEXICAL_INVARIANT"
+        (
+          #SPEC
+          "Strict Zero-Tab Invariant Outside Fenced String Verbatim Bodies"
+          "Raw horizontal tabs (0x09) are prohibited in structural whitespace, indentation, comments, and single-line strings, and permitted exclusively inside verbatim bodies of Rule STR-04 fenced strings."
+          [ "Lang 1.3" "Lang 3.3" "Lang 5.3" ]
+          [ "E001" "ERR_TAB_CHARACTER_FORBIDDEN" ]
+          [ #LENS_PRACTITIONER #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "GOAL_DETERMINISTIC_DIAGNOSTIC_COORDINATE_PINNING"
+        (
+          #GOAL
+          "Deterministic 1:1 Byte-Offset to Visual Column Coordinate Pinning"
+          "Guarantee that exact character intervals [startOffset, endOffset) map 1:1 to visual columns across all IDEs, CLI compilers, and forensic quarantine auditors."
+          [ "Lang 1.3" "Lang 3.3" "Lang 7.3" ]
+          []
+          [ #LENS_PRACTITIONER #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "HAZARD_EDITOR_COLUMN_DRIFT_AND_WHITESPACE_SPOOFING"
+        (
+          #HAZARD
+          "Tab-Width Visual Column Drift and Quarantine AST Verification Failure"
+          "Eliminates tab-width rendering divergence (2 vs 4 vs 8 spaces) that misaligns diagnostic carets and causes INVALID_INNER_AST rejections in CAS repository sweeps."
+          [ "Lang 1.3" "Lang 7.3" "Repo 6.2" ]
+          [ "E001" "ERR_TAB_CHARACTER_FORBIDDEN" ]
+          [ #LENS_PRACTITIONER #LENS_ZERO_TRUST ]
+        )
+      ]
+
+      // --- CLUSTER 4: Mandatory Discriminator Tags on Multi-Line Strings ---
+      [
+        "DISSONANCE_MANDATORY_FENCED_STRING_TAGS"
+        (
+          #DISSONANCE
+          "Why are bare triple-quoted strings and '->' arrow fences rejected at compile time?"
+          "Developers coming from Python, Kotlin, Scala, or STVN 1.x expect bare triple quotes or arrow-prefixed multi-line string literals."
+          [ "Lang 5.3" "Lang Appendix C.2" ]
+          [ "E025" "E026" "ERR_PROHIBITED_FENCE_ARROW" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_RULE_STR_04_POLYGLOT_FENCED_STRINGS"
+        (
+          #SPEC
+          "Rule STR-04 Polyglot Fenced Strings with Matching [TAG] Discriminators"
+          "Multi-line strings must declare matching opening and closing tags (^[a-zA-Z0-9_-]{1,256}$) enforced via lexer mode semantic predicate. Unfenced block strings and '->' arrows are excised."
+          [ "Lang 5.3" "Lang Appendix B.7" "Lang Appendix D.2" ]
+          [ "E025" "E026" "ERR_PROHIBITED_FENCE_ARROW" ]
+          [ #LENS_PRACTITIONER #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "GOAL_HERMETIC_POLYGLOT_AND_CAS_ENVELOPE_ENCAPSULATION"
+        (
+          #GOAL
+          "Zero-Escape Polyglot Embedding and Recursive STVN-in-STVN CAS Envelopes"
+          "Enable verbatim embedding of foreign code (SQL, Makefiles with tabs) and recursive STVN-inside-STVN CAS envelopes using [SHA256-<hash>] discriminator tags."
+          [ "Lang 5.3" "Lang Appendix B.7" "Repo 3.1.2" ]
+          []
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "HAZARD_NESTED_QUOTE_COLLISION_AND_INJECTION"
+        (
+          #HAZARD
+          "Premature Multi-Line String Termination and Nested Payload Injection"
+          "Prevents embedded triple-quotes inside inner STVN documents or SQL payloads from prematurely closing the outer literal and injecting rogue AST tokens."
+          [ "Lang 5.3" "Lang Appendix D.2" ]
+          [ "E025" ]
+          [ #LENS_ZERO_TRUST #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- CLUSTER 5: Positional Product Tuples Instead of Named-Field Objects ---
+      [
+        "DISSONANCE_POSITIONAL_TUPLES_NO_NAMED_RECORDS"
+        (
+          #DISSONANCE
+          "Why do composite records use positional ':Tuple' instead of named JSON object keys?"
+          "Developers accustomed to JSON objects and OOP classes expect named field keys repeated inside every serialized record payload."
+          [ "Lang 5.4" "Lang Appendix C.1 Trap 1" "Lang Appendix C.1 Trap 5" ]
+          [ "E008" "E024" "E030" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_ALGEBRAIC_PRODUCT_TUPLE_CONSTRUCTOR"
+        (
+          #SPEC
+          "Positional Algebraic Product Constructor ':Tuple(T1 ... Tn)'"
+          "Composite records are modeled strictly as positional heterogeneous ':Tuple' types encoded with parentheses '(v1 ... vn)'. Field semantics are carried by distinct nominal types in ':defs'."
+          [ "Lang 2.3" "Lang 5.4" "Lang Appendix C.1 Trap 1" "Lang Appendix C.1 Trap 5" ]
+          [ "E008" "E024" ]
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_ZERO_COPY_POST_ORDER_WIRE_SYMPATHY"
+        (
+          #GOAL
+          "Zero-Copy Post-Order DAG Binary Layout and Mechanical Sympathy"
+          "Achieve VOP Manifesto Pillar 2 (Mechanical Sympathy Without the Wrapper Tax) by eliminating repeated field-name strings on the wire and enabling Strategy 0x0 ZERO_COPY_POST_ORDER."
+          [ "Lang 10.2" "Manifesto 4.2" ]
+          []
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_FIELD_KEY_WIRE_BLOAT_AND_KEY_TYPOS"
+        (
+          #HAZARD
+          "Repetitive Field-Key Wire Bloat and Silent Missing-Property Typos"
+          "Eliminates bandwidth inflation from repeating string keys in every record and prevents silent runtime bugs from misspelled JSON field names."
+          [ "Lang 5.4" "Manifesto 4.1" ]
+          [ "E008" ]
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- CLUSTER 6: Mandatory Insertion Order on :Set and :Map ---
+      [
+        "DISSONANCE_ORDERED_SETS_AND_MAPS"
+        (
+          #DISSONANCE
+          "Why are ':Set' and ':Map' order-dependent and why do maps use '{ [k v] }' syntax?"
+          "In standard mathematics, Java, and Python, sets and maps are unordered. In STVN, reordering entries changes value equality."
+          [ "Lang 5.5" "Lang 5.5.1" "Lang Appendix C.1 Trap 2" ]
+          [ "E008" "E018" "E024" ]
+          [ #LENS_SKEPTIC #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "SPEC_INSERTION_ORDERED_COLLECTIONS_AND_SOA_MAPS"
+        (
+          #SPEC
+          "Insertion-Ordered ':Seq', ':Set', ':Map' and Structure-of-Arrays (SoA) Binary Maps"
+          "All collections preserve insertion order and order-dependent equality. Maps encode as '{ [k1 v1] ... [kn vn] }' in text and Structure-of-Arrays (SoA) in binary, with '#invertible' enforcing dual-set bijection."
+          [ "Lang 5.5.1" "Lang 5.5.4" "Lang Appendix C.1 Trap 2" ]
+          [ "E008" "E018" ]
+          [ #LENS_DATA_ENGINEER #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "GOAL_CANONICAL_VALUE_EQUIVALENCE_AND_SOA_LOCALITY"
+        (
+          #GOAL
+          "Deterministic Cross-Runtime Value Equivalence and SoA Cache Locality"
+          "Guarantee that an identical logical collection produces an identical byte stream across all languages (VOP Pillar 3) while enabling vectorized SoA binary scanning."
+          [ "Lang 5.5.1" "Manifesto 4.2" ]
+          []
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_CROSS_RUNTIME_HASH_ITERATION_DRIFT"
+        (
+          #HAZARD
+          "Cross-Runtime Hash-Seed Iteration Drift Corrupting Digests"
+          "Eliminates non-deterministic hash iteration order across JVM, Rust, and Go runtimes that would corrupt cryptographic digests and reproducible builds."
+          [ "Lang 5.5" "Manifesto 4.2" ]
+          [ "E018" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- CLUSTER 7: Parentheses Strictly Forbidden as Variant Constructor Calls ---
+      [
+        "DISSONANCE_PARENTHESES_NEVER_FUNCTION_CALLS"
+        (
+          #DISSONANCE
+          "Why does writing '#Some(42)' for ':Option(:Int)' fail with a fatal type mismatch?"
+          "Developers from Scala, Rust, and Haskell instinctively wrap variant arguments in function-call parentheses like '#Some(42)'."
+          [ "Lang 5.2.1" "Lang Appendix C.1 Trap 8" ]
+          [ "E008" "MalformedPayloadException" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_STRICT_PRODUCT_DEMARCATION"
+        (
+          #SPEC
+          "Bare Sum Variant Syntax and Strict Product Demarcation of Parentheses"
+          "Sum tags ('#Some', '#Left', '#Right', '#1') precede bare values without parentheses ('#Some 42'). Parentheses '()' are exclusively ':Tuple' constructors."
+          [ "Lang 5.2.1" "Lang 5.4" "Lang Appendix C.1 Trap 8" ]
+          [ "E008" "MalformedPayloadException" ]
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "GOAL_ISOMORPHIC_DELIMITER_TO_AST_MAPPING"
+        (
+          #GOAL
+          "Isomorphic 1:1 Correspondence Between Delimiters and AST Node Kinds"
+          "Maintain a strict 1:1 mapping between delimiter tokens and AST constructs: '()' = Product Tuple, '[]' = Sequence/Set/MapEntry, '{}' = Map/Meta/Defs."
+          [ "Lang 3" "Lang 5.2.1" ]
+          []
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "HAZARD_ONE_TUPLE_VS_SCALAR_UNBOXING_AMBIGUITY"
+        (
+          #HAZARD
+          "Ambiguity Between Parenthesized Scalar Expressions and 1-Element Tuples"
+          "Prevents parser and codec ambiguity between a parenthesized scalar value and a 1-element ':Tuple' inside nested sum types."
+          [ "Lang 5.2.1" "Lang Appendix C.1 Trap 8" ]
+          [ "E008" "MalformedPayloadException" ]
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- CLUSTER 8: Elimination of Compound Scalar & Collection Keywords ---
+      [
+        "DISSONANCE_NO_COMPOUND_TYPE_KEYWORDS"
+        (
+          #DISSONANCE
+          "Why were ':Uint16', ':Int64', ':SeqNonEmpty', and ':MapInv' removed in STVN 2.0.0?"
+          "Developers familiar with Rust, C, or STVN 1.x expect compact compound keywords like ':Uint16' instead of '{ #unsigned #size 16 } :Int'."
+          [ "Lang 5.1" "Lang 5.5.2" "Lang Appendix A.1" ]
+          [ "E009" "ERR_INTEGER_OVERFLOW" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_ORTHOGONAL_KERNEL_AND_ARBITRARY_BIT_WIDTHS"
+        (
+          #SPEC
+          "Orthogonal 6-Scalar / 3-Collection Kernel and Arbitrary Bit-Width Integers"
+          "Reduces scalars to ':Boolean', ':Int', ':Float', ':String', ':TimeEpoch', ':DateTime' and collections to ':Seq', ':Set', ':Map'. ':Int' supports any bit-width n >= 1 stored in ceil(n/8) bytes with high-bit zero masking."
+          [ "Lang 5.1" "Lang 5.5.2" "Lang Appendix A.1" "Lang Appendix A.3" "Lang Appendix A.4" ]
+          [ "E009" "ERR_INTEGER_OVERFLOW" "StvnCorruptedBitPatternException" ]
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_ORTHOGONAL_TYPE_ALGEBRA_AND_BIT_EXACT_CODECS"
+        (
+          #GOAL
+          "Orthogonal Type Algebra and Bit-Exact Hardware Codec Containment"
+          "Decouple base algebraic semantics from physical bit-width, signedness, and cardinality constraints while enforcing sub-byte hardware bit-masking."
+          [ "Lang 5.1" "Lang Appendix A.3" "Lang Appendix A.4" ]
+          []
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "HAZARD_COMBINATORIAL_KEYWORD_BLOAT_AND_HIGH_BIT_SMUGGLING"
+        (
+          #HAZARD
+          "Combinatorial Keyword Explosion and Unused High-Bit Wire Smuggling"
+          "Eliminates grammar token explosion across arbitrary bit widths (e.g. 7-bit or 49-bit ints) and blocks covert data smuggling or bit-rot in unused upper bits."
+          [ "Lang Appendix A.2" "Lang Appendix A.4" ]
+          [ "E009" "ERR_INTEGER_OVERFLOW" "StvnCorruptedBitPatternException" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- CLUSTER 9: Prohibition of #maxIncl and #minExcl on Discrete Types ---
+      [
+        "DISSONANCE_PROHIBITED_MAX_INCL_ON_DISCRETE_TYPES"
+        (
+          #DISSONANCE
+          "Why is '#maxIncl' forbidden on ':Int', '{ #exact } :Float', ':TimeEpoch', and ':DateTime'?"
+          "Engineers accustomed to SQL BETWEEN or JSON Schema maximum inclusive bounds expect to write '#maxIncl 65535' or '#maxIncl 2026-12-31T23:59:59Z'."
+          [ "Lang 5.1.2" "Lang Appendix C.4" ]
+          [ "E011" "ERR_DISCRETE_BOUND_KIND_PROHIBITED" "ERR_EMPTY_INTERVAL_DOMAIN" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "SPEC_DISCRETE_HALF_OPEN_INTERVAL_GOVERNANCE"
+        (
+          #SPEC
+          "Mandatory Half-Open Interval [minIncl, maxExcl) on All Discrete Domains"
+          "All discrete domains (':Int', '{ #exact } :Float', ':TimeEpoch', ':DateTime') enforce half-open intervals [minIncl, maxExcl) with Delta = maxExcl - minIncl > 0. '#maxIncl' and '#minExcl' are prohibited."
+          [ "Lang 5.1.2" "Lang 6.1" "Lang Appendix C.1 Trap 12" "Lang Appendix C.4" ]
+          [ "E011" "ERR_DISCRETE_BOUND_KIND_PROHIBITED" "ERR_EMPTY_INTERVAL_DOMAIN" ]
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_SEAMLESS_PARTITION_COMPOSITION_AND_UNIQUE_IR"
+        (
+          #GOAL
+          "Gapless Partition Composition and Single Canonical Interval IR"
+          "Ensure adjacent discrete intervals [a, b) and [b, c) compose without boundary overlap or gaps, and guarantee a unique canonical representation in the CAS preimage."
+          [ "Lang 5.1.2" "Lang 9.2" "Lang Appendix C.4" ]
+          []
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_OFF_BY_ONE_SHARDING_GAPS_AND_CAS_DUPLICATES"
+        (
+          #HAZARD
+          "Fencepost Partitioning Bugs and Divergent CAS Hashes for Equal Ranges"
+          "Eliminates off-by-one sharding gaps (missing sub-second ticks between 23:59:59 and 00:00:00) and prevents '#maxIncl 9' vs '#maxExcl 10' from hashing to different CAS addresses."
+          [ "Lang 5.1.2" "Lang 9.2" "Lang Appendix C.4" ]
+          [ "ERR_DISCRETE_BOUND_KIND_PROHIBITED" ]
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST ]
+        )
+      ]
+
+      // --- CLUSTER 10: Prohibition of #size on :String & Mandatory Allocation Ceilings ---
+      [
+        "DISSONANCE_SIZE_PROHIBITED_ON_STRING"
+        (
+          #DISSONANCE
+          "Why does '{ #size 64 } :String' fail and why do strings/exact floats cap at 16,777,216?"
+          "Developers often conflate byte/bit width ('#size') with character length ('#minSize'/'#maxSize') and assume unadorned ':String' or '{ #exact } :Float' is infinitely unbounded."
+          [ "Lang 3.3" "Lang 5.1.3" "Lang 5.1.5" "Lang 7.1" "Lang Appendix C.1 Trap 10" ]
+          [ "E008" "E012" "ERR_STRING_CARDINALITY_PROHIBITED" "ERR_CAPACITY_OVERFLOW" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "SPEC_LOGICAL_CARDINALITY_VS_PHYSICAL_BIT_WIDTH"
+        (
+          #SPEC
+          "Strict Separation of '#size' Bit-Width from '#minSize'/'#maxSize' Cardinality and 16 MiB Ceiling"
+          "'#size' applies strictly to binary numeric bit-width (':Int', continuous ':Float'). Logical character/element/digit counts use '#minSize' and '#maxSize' with a concrete default allocation ceiling of 16,777,216."
+          [ "Lang 3.3" "Lang 5.1.3" "Lang 5.1.5" "Lang 6.1" "Lang 7.1" "Repo 5.1" ]
+          [ "E008" "E012" "ERR_STRING_CARDINALITY_PROHIBITED" "ERR_CAPACITY_OVERFLOW" ]
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_BOUNDED_INGRESS_ALLOCATION_SAFETY"
+        (
+          #GOAL
+          "Distinguish Hardware Bit-Width from Logical Cardinality with Fail-Closed Allocation Bounds"
+          "Separate physical bit allocation from UTF-8 character/collection counts while enforcing a 16 MiB perimeter allocation cap across compilers and repository ingress."
+          [ "Lang 3.3" "Lang 7.1" "Repo 5.1" ]
+          []
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "HAZARD_UTF8_BYTE_CHAR_CONFUSION_AND_OOM_DOS"
+        (
+          #HAZARD
+          "Multi-Byte UTF-8 Truncation Bugs and Unbounded Allocation OOM Denial-of-Service"
+          "Prevents buffer truncation from confusing UTF-8 code points with bit/byte widths and prevents OOM denial-of-service attacks via massive strings or BigDecimal mantissas."
+          [ "Lang 5.1.5" "Lang 7.1" "Repo 5.1" ]
+          [ "ERR_STRING_CARDINALITY_PROHIBITED" "ERR_CAPACITY_OVERFLOW" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- CLUSTER 11: Prefix Metadata Placement & Frozen 5-Tier Facet Ordering ---
+      [
+        "DISSONANCE_STRICT_5_TIER_METADATA_ORDERING"
+        (
+          #DISSONANCE
+          "Why must metadata prefix the type and why does '{ #size 16 #unsigned } :Int' fail?"
+          "Authors expect to write metadata facets in any order (or after the type) without memorizing that '#unsigned' (Tier 1.1.1) must precede '#size' (Tier 1.3.1)."
+          [ "Lang 3.5" "Lang 5.1.4" "Lang 6.1" "Lang Appendix C.1 Trap 3" "Lang Appendix C.1 Trap 11" ]
+          [ "E003" "ERR_EMPTY_METADATA_BLOCK" "ERR_FACET_ORDER_VIOLATION" "ERR_DUPLICATE_METADATA_FACET" "W003" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_5_TIER_MONOTONIC_FACET_AND_TAUTOLOGY_GOVERNANCE"
+        (
+          #SPEC
+          "Prefix Metadata Placement, 5-Tier Monotonic Sequence, and W003 Tautology Normalization"
+          "Non-empty metadata blocks must prefix their target type and emit unique facets in strictly ascending 5-tier decimal rank (1.1.1 -> 5). Redundant default facets emit warning W003 and are purged during IR normalization."
+          [ "Lang 3.5" "Lang 5.1.4" "Lang 6.1" "Lang 9.2" "Repo 2.4" ]
+          [ "E003" "ERR_EMPTY_METADATA_BLOCK" "ERR_FACET_ORDER_VIOLATION" "ERR_DUPLICATE_METADATA_FACET" "W003" "WARN_REDUNDANT_METADATA_FACET" ]
+          [ #LENS_PRACTITIONER #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "GOAL_CROSS_LANGUAGE_CAS_PREIMAGE_CONVERGENCE"
+        (
+          #GOAL
+          "Bitwise-Identical Cross-Language SHA-256 CAS Preimage Convergence"
+          "Ensure StvnSchemaFlattener across Java, Rust, Scala, Go, and TypeScript emits the exact same canonical UTF-8 string preimage for SHA-256 hashing."
+          [ "Lang 3.3" "Lang 6.1" "Lang 9.2" "Repo 2.4" ]
+          []
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "HAZARD_FACET_PERMUTATION_CAS_HASH_DRIFT"
+        (
+          #HAZARD
+          "Cosmetic Facet Reordering or Redundant Defaults Producing Divergent CAS Hashes"
+          "Prevents cosmetic facet permutations or redundant default annotations (like '#size 32' on ':Int') from generating different SHA-256 CAS addresses for identical schemas."
+          [ "Lang 6.1" "Lang 9.2" "Repo 2.4" ]
+          [ "ERR_FACET_ORDER_VIOLATION" "W003" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- CLUSTER 12: Continuous :Float Excluded from #equatable by Default ---
+      [
+        "DISSONANCE_FLOAT_NOT_EQUATABLE_BY_DEFAULT"
+        (
+          #DISSONANCE
+          "Why does ':Set(:Float)' or a ':Tuple' with a ':Float' in a ':Map' key fail with ERR_TRAIT_VIOLATION?"
+          "Most languages allow floats as set elements or map keys out of the box, hiding IEEE-754 NaN equality bugs until runtime."
+          [ "Lang 6.1" "Lang 6.2" "Lang 6.3" ]
+          [ "ERR_TRAIT_VIOLATION" ]
+          [ #LENS_SKEPTIC #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_INDUCTIVE_TRAIT_CAPABILITY_CALCULUS"
+        (
+          #SPEC
+          "Inductive Trait Capability Calculus and Opt-In Bitwise '#equatable' Override on ':Float'"
+          "Continuous IEEE-754 ':Float (32/64)' defaults to '#equatable #FALSE', while '{ #exact } :Float' is '#equatable #TRUE'. Composite types derive '#equatable' inductively via conjunction unless overridden at Tier 2."
+          [ "Lang 6.1" "Lang 6.2" "Lang 6.3.1" "Lang 6.3.2" ]
+          [ "ERR_TRAIT_VIOLATION" ]
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_SOUND_EQUIVALENCE_RELATIONS_IN_COLLECTIONS"
+        (
+          #GOAL
+          "Sound Reflexive, Symmetric, and Transitive Equivalence Relations in Sets and Maps"
+          "Enforce mathematical equivalence relations across all ':Set' elements, ':Map' keys, and '#invertible' map values."
+          [ "Lang 5.5.4" "Lang 6.3.1" ]
+          []
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "HAZARD_IEEE754_NAN_COLLECTION_POISONING"
+        (
+          #HAZARD
+          "IEEE-754 NaN != NaN and Signed-Zero Hash Map/Set Corruption"
+          "Prevents IEEE-754 NaN and -0.0/+0.0 anomalies from breaking set uniqueness invariants and orphaning entries in associative maps."
+          [ "Lang 6.1" "Lang 6.2" ]
+          [ "ERR_TRAIT_VIOLATION" ]
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- CLUSTER 13: Total Absence of null and Uninitialized States ---
+      [
+        "DISSONANCE_TOTAL_ABSENCE_OF_NULL"
+        (
+          #DISSONANCE
+          "Why is there no 'null' or 'nil' keyword in STVN and why can't I omit missing fields?"
+          "Developers coming from JSON, SQL, and Java routinely use 'null' or omit keys to represent missing or optional data."
+          [ "Lang 7.1" "Manifesto 1.3" ]
+          [ "E008" "MalformedPayloadException" ]
+          [ #LENS_SKEPTIC #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_EXPLICIT_OPTION_COPRODUCT_AND_NULL_MARKED_CODEGEN"
+        (
+          #SPEC
+          "Zero-Null Grammar, Explicit ':Option(T)' Coproducts, and '@NullMarked' Codegen"
+          "Null and uninitialized states are unrepresentable in STVN. Optionality requires ':Option(T)' with '#Some v' ('#S v'), '#None' ('#N'), or Rule A inference, backed by '@NullMarked' Java codegen."
+          [ "Lang 5.2" "Lang 7.1" "Lang 8.1" "Lang 12" ]
+          [ "E008" "MalformedPayloadException" ]
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_MAKE_ILLEGAL_STATES_UNREPRESENTABLE_AND_TOTAL_FUNCTIONS"
+        (
+          #GOAL
+          "VOP North Star: Make Illegal States Unrepresentable and Enable Total Functions"
+          "Fulfill VOP Manifesto Tenet A (Axioms 1-3) and Tenet B (Axiom 4) so every parsed value is deeply immutable, complete, and safe for total domain functions."
+          [ "Lang 7.1" "Manifesto 1.1" "Manifesto 1.3" "Manifesto 1.4" ]
+          []
+          [ #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_NULL_POINTER_EXCEPTION_AND_BILLION_DOLLAR_MISTAKE"
+        (
+          #HAZARD
+          "Runtime NullPointerExceptions and Three-State Null/Missing/Empty Ambiguity"
+          "Permanently eliminates runtime NullPointerException crashes and ambiguous three-state confusion between missing keys, explicit null, and empty values."
+          [ "Lang 7.1" "Manifesto 1.4" ]
+          [ "MalformedPayloadException" ]
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- CLUSTER 14: Asymmetric Sum Type Inference (#Left and #None Never Inferred) ---
+      [
+        "DISSONANCE_ASYMMETRIC_SUM_INFERENCE"
+        (
+          #DISSONANCE
+          "In ':Either(:Int :String)', why does bare 'Success' infer '#Right' while bare '404' fails?"
+          "Developers expect symmetric type-directed inference across both branches of ':Either' or expect missing tokens to default to '#None'."
+          [ "Lang 7.1" "Lang 8.1" "Lang Appendix C.1 Trap 14" ]
+          [ "E023" "E024" "ERR_AMBIGUOUS_SUM_INFERENCE" "MalformedPayloadException" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "SPEC_INFERENCE_RULES_A_TO_J_ASYMMETRIC_GUARD"
+        (
+          #SPEC
+          "Payload Inference Rules A-J: Right-Biased Happy Path and Mandatory '#Left'/'#None' Tags"
+          "Decoders infer '#Some' (Rule A), right-biased '#Right' on disjoint domains (Rule B/H), and unique ':Union' branches (Rule C). Rule E forbids inferring '#Left' or '#None' (E023), and Rule I disables inference on intersecting branches (E024)."
+          [ "Lang 7.1" "Lang 8.1" "Lang Appendix C.1 Trap 14" ]
+          [ "E023" "E024" "ERR_AMBIGUOUS_SUM_INFERENCE" "MalformedPayloadException" ]
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "GOAL_HAPPY_PATH_ERGONOMICS_WITH_EXPLICIT_FAILURE_VISIBILITY"
+        (
+          #GOAL
+          "Zero-Tag Happy-Path Authoring Combined with Explicit Failure and Absence Visibility"
+          "Allow concise untagged authoring for normal happy-path values ('#Some', '#Right') while forcing error paths ('#Left'), absence ('#None'), and overlapping coproducts to be explicitly tagged."
+          [ "Lang 7.1" "Lang 8.1" "Manifesto 4.2" ]
+          []
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_SILENT_ERROR_MASKING_AND_POSITIONAL_SHIFT_CORRUPTION"
+        (
+          #HAZARD
+          "Silent Error-Branch Masking and Missing-Token Positional Shift Corruption"
+          "Prevents error payloads from being silently misparsed as happy-path data and prevents a missing token in a whitespace-delimited tuple/sequence from synthesizing '#None' and shifting subsequent fields."
+          [ "Lang 8.1" ]
+          [ "E023" "E024" "ERR_AMBIGUOUS_SUM_INFERENCE" ]
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- CLUSTER 15: Opaque Nominal Branding & Anti-Subtyping ---
+      [
+        "DISSONANCE_OPAQUE_NOMINAL_BRANDS_NO_SUBTYPING"
+        (
+          #DISSONANCE
+          "If ':UserId' and ':AccountId' are both 64-bit unsigned ints, why can't I assign one to the other?"
+          "Developers from TypeScript, Go, or structural type systems expect type aliases with identical physical layouts (or ':Child :Parent' definitions) to be structurally interchangeable."
+          [ "Lang 9.1" "Lang 9.1.1" "Lang 9.2" "Repo 2.1" "Repo 2.2" ]
+          [ "E027" "ERR_INCOMPATIBLE_NOMINAL_TYPE" "ERR_CAS_PREIMAGE_AMBIGUITY" ]
+          [ #LENS_SKEPTIC #LENS_VOP_PURIST #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "SPEC_OPAQUE_NOMINAL_BRANDING_AND_TIER1_LOCK"
+        (
+          #SPEC
+          "Opaque Nominal Type Branding, Anti-Subtyping Lattice, and Tier 1 Definition Facet Lock"
+          "Every nominal type creates an isolated opaque brand compared strictly by FQNI without recursive unwrapping or Liskov subtyping (E027). Tier 1 Definition facets are non-overridable across derivations."
+          [ "Lang 6.1" "Lang 9.1" "Lang 9.1.1" "Lang 9.3" ]
+          [ "E027" "ERR_INCOMPATIBLE_NOMINAL_TYPE" ]
+          [ #LENS_VOP_PURIST #LENS_ZERO_TRUST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_1_TO_1_CAS_BIJECTIVITY_LAW"
+        (
+          #GOAL
+          "The Nominal Bijectivity Invariant (1:1 Law: NominalSchema <-> SHA-256 CAS Hash)"
+          "Enforce a mathematical bijection between nominal schemas and 32-byte SHA-256 CAS hashes so every nominal schema has a unique hash and Strategy 0x7 wire frames resolve deterministically."
+          [ "Lang 9.2" "Lang 9.3" "Repo 2.1" "Repo 2.2" "Repo 2.3" "Repo 3.2.2" ]
+          []
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_CROSS_DOMAIN_ID_SWAPPING_AND_ALIAS_HIJACKING"
+        (
+          #HAZARD
+          "Cross-Domain Identifier Confusion (Primitive Obsession) and Registry Alias Hijacking"
+          "Eliminates passing an ':AccountId' where a ':UserId' is required and prevents namespace spoofing or alias hijacking in the CAS schema repository (HTTP 409 AliasConflict)."
+          [ "Lang 9.1" "Lang 9.2" "Manifesto 3.2" "Repo 3.2.2" "Repo 4.1" ]
+          [ "E027" "ERR_INCOMPATIBLE_NOMINAL_TYPE" "ERR_CAS_PREIMAGE_AMBIGUITY" ]
+          [ #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- CLUSTER 16: Strict Partitioning of :TimeEpoch vs. :DateTime (#offset, #zoned, #audited) ---
+      [
+        "DISSONANCE_TRIPARTITE_TEMPORAL_SEGREGATION"
+        (
+          #DISSONANCE
+          "Why can't I put a UTC offset on a '#zoned' ':DateTime' (E019) or a zone on ':TimeEpoch' (E020)?"
+          "Developers accustomed to ISO-8601 strings or Unix timestamps often mix offsets, IANA zones, and epoch ticks interchangeably without distinguishing physical instants from civil schedules."
+          [ "Lang 5.6" "Lang Appendix E.1" "Lang Appendix E.2" ]
+          [ "E019" "E020" "E021" "E022" "ERR_MISSING_TEMPORAL_FACET" ]
+          [ #LENS_SKEPTIC #LENS_DATA_ENGINEER #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "SPEC_TRIPARTITE_TEMPORAL_KERNEL_AND_WIRE_LAYOUT"
+        (
+          #SPEC
+          "Consolidated Temporal Kernel (':TimeEpoch' & ':DateTime') and Fixed-Width Wire Layouts"
+          "Partitions time into ':TimeEpoch' ('#s', '#ms', '#us', '#ns') and ':DateTime' ('#offset' 12B, '#zoned' 10B with u16 header IANA dictionary ID, '#audited' 14B verifying offset == ZoneRules(Z).getOffset(L)), rejecting DST spring-forward gaps (E022)."
+          [ "Lang 5.6" "Lang 10.5" "Lang Appendix E.2" "Lang Appendix E.5" ]
+          [ "E019" "E020" "E021" "E022" "ERR_MISSING_TEMPORAL_FACET" "ERR_TEMPORAL_SCALE_MISSING" "ERR_DATETIME_MODE_INVALID" ]
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_100_PERCENT_ISOMORPHIC_TEMPORAL_ROUND_TRIP_AND_AUDITABILITY"
+        (
+          #GOAL
+          "100% Isomorphic Temporal Round-Trip Fidelity and Statutory Audit Non-Repudiation"
+          "Prove P(D(E(Parse(t)))) == t with O(1) binary zone dictionary lookup and preserve both historical offset and legal jurisdiction for SEC Rule 613 / MiFID II / FDA 21 CFR Part 11 audits."
+          [ "Lang 10.5" "Lang Appendix E.3" "Lang Appendix E.4" ]
+          []
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_TEMPORAL_CONFLATION_AND_DST_CORRUPTION"
+        (
+          #HAZARD
+          "Silent Civil Schedule DST Desynchronization, Retroactive tzdb Mutation, and Ambient Timezone Guessing"
+          "Eliminates future DST law changes shifting scheduled meetings, prevents retroactive tzdb updates from altering physical telemetry logs, and blocks nonexistent spring-forward wall-clock times."
+          [ "Lang Appendix E.1" "Lang Appendix E.2" "Lang Appendix E.5" ]
+          [ "E019" "E020" "E021" "E022" ]
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- CLUSTER 17: Hermetic vs. Modular File Split, Zero-I/O :use, & Dead-Code Pruning ---
+      [
+        "DISSONANCE_HERMETIC_MODULAR_SPLIT_AND_ZERO_IO_USE"
+        (
+          #DISSONANCE
+          "Why are ':include' directives prohibited in '.stvn'/'.stvn_d' and why doesn't ':use' load files?"
+          "Developers from Java, Python, or Rust expect a single import keyword to perform both filesystem loading and lexical aliasing in any source file, and expect unused helper types to be ignored."
+          [ "Lang 1.2" "Lang 3.9" "Lang Appendix G" "Repo 1.3" ]
+          [ "E029" "E034" "E035" "ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT" ]
+          [ #LENS_SKEPTIC #LENS_ZERO_TRUST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_HERMETIC_EXTENSION_MATRIX_AND_TRANSITIVE_FLATTENING"
+        (
+          #SPEC
+          "Hermetic vs. Modular File Extension Matrix, Zero-I/O ':use', and Canonical Dead-Code Pruning"
+          "Segregates modular I/O files ('.stvn_i', '.stvn_di') from hermetic files ('.stvn', '.stvn_d', '.stvn_b', '.stvn_bd'). ':use' is strictly an in-memory projection (E035). Canonical flattening desugars aliases to FQNIs, prunes dead code (E029), and sorts topologically."
+          [ "Lang 1.2" "Lang 3.3" "Lang 3.9" "Lang Appendix G.1" "Lang Appendix G.2" "Lang Appendix G.3" "Repo 1.3" ]
+          [ "E029" "E034" "E035" "ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT" "ERR_LEGACY_FILE_EXTENSION_PURGED" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_AIR_GAPPED_HERMETIC_CAS_IMMUTABILITY"
+        (
+          #GOAL
+          "Air-Gapped Zero-I/O Hermetic Self-Containment for Published Schemas and Canonical Payloads"
+          "Ensure every published '.stvn_d' schema and canonical '.stvn' payload is 100% self-contained, verifiable without disk or network I/O, and free of dead-code noise."
+          [ "Lang 1.2" "Lang 9.2" "Lang Appendix G" "Repo 1.3" "Repo 5.5" ]
+          []
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "HAZARD_SUPPLY_CHAIN_INCLUDE_DRIFT_AND_DEAD_CODE_HASH_POLLUTION"
+        (
+          #HAZARD
+          "Upstream Include Supply-Chain Drift, Hidden I/O Side Effects, and Dead-Code CAS Hash Pollution"
+          "Prevents external included file mutations from silently altering a registered schema, prevents I/O during hermetic parsing, and prevents unused types from changing a schema's SHA-256 hash."
+          [ "Lang 3.9" "Lang Appendix G.3" "Repo 1.3" "Repo 6.2" ]
+          [ "E029" "E035" "ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- CLUSTER 18: Namespace Eviction Cascade, Single-Import Gate, & Zero-Trust Binary Dispatch ---
+      [
+        "DISSONANCE_EVICTION_CASCADE_AND_BINARY_ZERO_TRUST_GATES"
+        (
+          #DISSONANCE
+          "Why can't I ':include' a file twice, why does dual-aliasing evict the raw name, and why do binary strategies 0x3-0x5 fail by default?"
+          "Developers expect to import a module multiple times with different aliases or resolve schemas by string name over the network without explicit security opt-in."
+          [ "Lang 4.1" "Lang 4.2" "Lang 10.3" "Lang 10.4" "Lang Appendix F" ]
+          [ "E005" "E006" "DuplicateModuleImportException" "NamespaceCollisionException" "PoisonedRegistryPayloadException" ]
+          [ #LENS_SKEPTIC #LENS_ZERO_TRUST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_EVICTION_CASCADE_AND_BYTE4_ZERO_TRUST_DISPATCH"
+        (
+          #SPEC
+          "5-Step Namespace Eviction Cascade, Single-Import Constraint, and Byte 4 Zero-Trust Dispatch"
+          "Enforces single-import per path (E005) and resolves collisions at the closing '}' of ':defs' (Local Priority -> Asymmetric Alias/Raw -> Dual Alias Eviction -> E006 Gate). Binary Byte 4 gates 0x3-0x5 behind opt-in, verifies SHA-256 on 0x7, and sandboxes 0x8 in memory."
+          [ "Lang 4.1" "Lang 4.2" "Lang 10.3" "Lang 10.4" "Lang Appendix F.1" "Lang Appendix F.4" ]
+          [ "E005" "E006" "DuplicateModuleImportException" "NamespaceCollisionException" "PoisonedRegistryPayloadException" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "GOAL_ORDER_INDEPENDENT_SCOPE_AND_ZERO_TRUST_WIRE_SECURITY"
+        (
+          #GOAL
+          "Order-Independent Lexical Scope Resolution and Cryptographic Zero-Trust Wire Verification"
+          "Guarantee deterministic symbol resolution regardless of ':include' statement order and enforce cryptographic schema authentication at the binary wire boundary."
+          [ "Lang 4.2" "Lang 7.1" "Lang 10.3" "Lang 10.4" ]
+          []
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_IMPORT_ORDER_SHADOWING_AND_MITM_SCHEMA_POISONING"
+        (
+          #HAZARD
+          "Fragile Import-Order Type Shadowing, MITM Schema Poisoning, and Malicious Disk Writes"
+          "Eliminates silent type replacement when reordering ':include' lines and blocks Man-in-the-Middle schema spoofing or arbitrary disk writes from untrusted binary streams."
+          [ "Lang 4.2" "Lang 10.3" "Lang 10.4" "Lang Appendix F.4" ]
+          [ "E005" "E006" "PoisonedRegistryPayloadException" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- CLUSTER 19: Asymmetric :meta Mandate, 3-Tier Identity Order, & Filename Stem Binding ---
+      [
+        "DISSONANCE_ASYMMETRIC_META_MANDATE_AND_STEM_BINDING"
+        (
+          #DISSONANCE
+          "Why is ':meta' optional in '.stvn' but mandatory everywhere else, and why are 3-dot filenames rejected?"
+          "Authors wonder why '.stvn' can omit ':meta' while '.stvn_b', '.stvn_i', '.stvn_d', and '.stvn_di' require it, and why '#domain' before '#name' or 'a.b.c.stvn' fails."
+          [ "Lang 1.1" "Lang 1.2" "Lang 3.10.1" "Lang 3.10.2" "Repo 5.2" "Repo 5.3" ]
+          [ "E031" "E032" "E033" "E038" "E039" "W001" "W002" ]
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "SPEC_DOCUMENT_IDENTITY_AND_EXTENSION_KIND_BINDING"
+        (
+          #SPEC
+          "Root ':meta' Enclosure Rules, 1-to-2 Filename Stem Binding, and Reserved 'stvn_*' Domains"
+          "Local '.stvn' payloads may omit ':meta', whereas modular files, schemas, binary streams (Byte 5+), and repository submissions require ':meta' first (E033) with '#name' -> '#domain' -> '#kind', 1-2 filename stems (E032), matching '#kind' (E031), and non-'stvn_*' user domains (E038)."
+          [ "Lang 1.1" "Lang 1.2" "Lang 3.10.1" "Lang 3.10.2" "Lang 10.1a" "Repo 5.2" "Repo 5.3" ]
+          [ "E031" "E032" "E033" "E038" "E039" "W001" "W002" "ERR_DOCUMENT_KIND_MISMATCH" "ERR_INVALID_FILENAME_STEM" "ERR_META_POSITION_INVALID" "ERR_RESERVED_DOMAIN_PROHIBITED" "ERR_EMPTY_META_BLOCK" ]
+          [ #LENS_PRACTITIONER #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "GOAL_LOW_CEREMONY_LOCAL_PAYLOADS_WITH_HERMETIC_REGISTRY_IDENTITY"
+        (
+          #GOAL
+          "Zero-Ceremony Local Ad-Hoc Payloads Paired with Cryptographic Identity for Schemas and Streams"
+          "Balance the VOP Ergonomic Tax Filter for quick local '.stvn' payloads against strict cryptographic identity binding for schemas, module graphs, and filename-less binary streams."
+          [ "Lang 1.2" "Lang 3.10" "Lang 9.2" "Lang 10.1a" "Manifesto 3.3" "Repo 2.2" ]
+          []
+          [ #LENS_PRACTITIONER #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_ANONYMOUS_SCHEMA_COLLISION_AND_SYSTEM_ENVELOPE_SPOOFING"
+        (
+          #HAZARD
+          "Anonymous Schema Hash Collisions, Payload-vs-Schema Confusion, and 'stvn_cas'/'stvn_ir' Spoofing"
+          "Prevents structurally identical schemas in different domains from colliding in CAS, prevents '.stvn' payloads from being ingested as '.stvn_d' schemas, and blocks user spoofing of 'stvn_cas' or 'stvn_ir' envelopes."
+          [ "Lang 1.2" "Lang 3.10.1" "Lang 9.2" "Repo 2.2" "Repo 3.1.2" "Repo 5.3" ]
+          [ "E031" "E032" "E038" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- SUBSYSTEM A: VOP Philosophical Foundation & Enforcement Spectrum ---
+      [
+        "DISSONANCE_5NF_TYPE_PURITY_VS_WRAPPER_TAX"
+        (
+          #DISSONANCE
+          "If VOP demands making illegal states unrepresentable, why not wrap every transient integer in a micro-type?"
+          "Purists often push type-level theorem proving (5NF ceiling) onto every internal loop counter, creating severe wrapper boilerplate and GC churn."
+          [ "Manifesto 2.1" "Manifesto 2.2" "Manifesto 2.3" ]
+          []
+          [ #LENS_SKEPTIC #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_VOP_DUAL_INTEGRITY_POSTURES_AND_AXIOMS"
+        (
+          #SPEC
+          "VOP Dual Integrity Postures (Integrity by Default vs. Integrity by Design) and Core Axioms 1-4"
+          "Defines Tenet A Integrity by Default (Axiom 1 Total Immutability, Axiom 2 Parse at System Boundaries, Axiom 3 Total Functions) and Tenet B Integrity by Design (Axiom 4 Compile-Time Invariant Enforcement)."
+          [ "Manifesto 1.1" "Manifesto 1.3" "Manifesto 4.2" ]
+          []
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "SPEC_VOP_3NF_PRAGMATIC_EQUILIBRIUM_AND_SPECTRUM"
+        (
+          #SPEC
+          "The RDBMS 3NF Normalization Equilibrium, 4-Level Enforcement Spectrum, and 3 Evaluative Filters"
+          "Maps invariant enforcement across Level 0 (Primitive), Level 1 (Boundary Validation), Level 2 (Smart Constructor 3NF sweet spot), and Level 3 (Type-State 5NF ceiling) using Blast Radius, Ergonomic Tax, and Mechanical Sympathy filters."
+          [ "Manifesto 2.2" "Manifesto 2.3" "Manifesto 3.1" "Manifesto 3.2" "Manifesto 3.3" ]
+          []
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "GOAL_PRAGMATIC_MAXIM_WITHOUT_WRAPPER_TAX"
+        (
+          #GOAL
+          "The VOP Pragmatic Maxim: Make Illegal States Unrepresentable or Substantially Difficult to Instantiate"
+          "Deliver boundary defense and canonical value equivalence at native CPU/cache speed without hyper-fragmented wrapper hierarchies."
+          [ "Manifesto 2.3" "Manifesto 4.2" "Manifesto 4.3" ]
+          []
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "HAZARD_DEVELOPER_CIRCUMVENTION_AND_GC_WRAPPER_CHURN"
+        (
+          #HAZARD
+          "Cognitive Fatigue Escape Hatches, Raw Cast Circumvention, and Hot-Loop GC Allocation Churn"
+          "Prevents over-engineered micro-type hierarchies that degrade streaming throughput and drive fatigued engineers to bypass type safety with raw casts."
+          [ "Manifesto 2.1" "Manifesto 3.3" ]
+          []
+          [ #LENS_PRACTITIONER #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- SUBSYSTEM B: Document Enclosure, Namespaces, Constants & Prelude Governance ---
+      [
+        "SPEC_ROOT_ENCLOSURE_AND_SECTION_SEQUENCE"
+        (
+          #SPEC
+          "Root Curly Brace Enclosure '{ ... }' and Non-Empty Section Invariants"
+          "Every text STVN document must be enclosed in root '{ ... }' (E002) following :meta? -> :defs? -> (:type :body)? (E033), forbidding empty ':defs {}' and empty ':include []'/':use []' blocks (E004)."
+          [ "Lang 1.1" "Lang 3.6.1" "Lang 3.8.0" ]
+          [ "E002" "E004" "E033" "ERR_EMPTY_DIRECTIVE_BLOCK" ]
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "SPEC_ATOMIC_PATH_IDENTIFIERS_AND_PACKAGE_SCOPING"
+        (
+          #SPEC
+          "Slash-Delimited Atomic Identifiers, ':package' LHS Expansion, and Unary '#strip' Slicing"
+          "Slash-delimited tokens (':net/http/Status') are atomic nominal identifiers. ':package' expands relative LHS names, forbids nesting and trailing slashes, isolates local ':use', and supports unary '{ #strip }' terminal segment slicing."
+          [ "Lang 3.6" "Lang 3.7" "Lang 3.9" "Lang Appendix F.6" ]
+          [ "ERR_NESTED_PACKAGE_PROHIBITED" "ERR_TRAILING_SLASH_PROHIBITED" ]
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "SPEC_TYPED_CONSTANT_DEFINITIONS_AND_SUBSTITUTION"
+        (
+          #SPEC
+          "Compile-Time Typed Constant Definitions ('#CONST') and Deterministic AST Substitution"
+          "Binds immutable compile-time constants in the '#' value namespace inside ':defs', validating bit-width ranges (E009) and schema types (E028) before substituting values into ':body' and downstream constants."
+          [ "Lang 3.8.1" "Lang 3.8.2" ]
+          [ "E009" "E028" "ERR_INTEGER_OVERFLOW" ]
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "SPEC_PRELUDE_ISOLATION_AND_RESERVED_NAMESPACES"
+        (
+          #SPEC
+          "Standard Library Prelude (':org/stvnadore/prelude/*') Qualification and Reserved Namespace Lock"
+          "Pre-registers canonical domain types (UUID, ULID, SHA-256, SemVer, Email, IPv4, Port, Currency), requires explicit qualification or ':use' aliasing (ERR_UNKNOWN_TYPE), and forbids user declarations in ':org/stvnadore/*' (E037)."
+          [ "Lang 3.9" "Lang 11.1" "Lang 11.2" ]
+          [ "E037" "ERR_UNKNOWN_TYPE" "ERR_PRELUDE_ALIAS_PURGED" "ERR_RESERVED_PACKAGE_PROHIBITED" ]
+          [ #LENS_ZERO_TRUST #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "SPEC_HOST_CODEGEN_NULL_MARKED_AND_VAR_DIRECTIVES"
+        (
+          #SPEC
+          "Host Code Generation Directives: '@NullMarked', Deep Immutability, and RHS-Typed 'var'"
+          "Mandates '@org.jspecify.annotations.NullMarked' on generated Java packages/types, deep structural immutability across all AST/runtime values, and 'var' with explicit RHS type specifications in tests and codecs."
+          [ "Lang 12" ]
+          []
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_PRELUDE_SPOOFING_AND_UNVALIDATED_CONSTANTS"
+        (
+          #HAZARD
+          "Runtime Prelude Type Spoofing, Unqualified Name Collisions, and Out-of-Bounds Constant Leakage"
+          "Prevents user schemas from shadowing intrinsic ':org/stvnadore/prelude/*' types and prevents unvalidated constant literals from bypassing bit-width and regex checks."
+          [ "Lang 3.8.2" "Lang 3.9" "Lang 11.2" ]
+          [ "E009" "E028" "E037" "ERR_UNKNOWN_TYPE" ]
+          [ #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- SUBSYSTEM C: Enum Subset Filtering & Recursive Type Bounding ---
+      [
+        "SPEC_ENUM_SUBSET_MONOTONIC_NARROWING_AND_ROOT_ORDER"
+        (
+          #SPEC
+          "Enum Subset Filtering ('#filterIncl', '#filterExcl'), Transitive Narrowing, and Root Order Invariant"
+          "Creates nominal enum subtypes preserving root binary wire indices while enforcing monotonic narrowing (Child <= Parent < Root, E014), root declaration order (E015), and non-empty variant domains (E016)."
+          [ "Lang 4.8.1" "Lang 4.8.2" "Lang 4.8.3" "Lang 4.8.4" "Lang 4.8.5" "Lang 4.8.6" "Lang Appendix C.1 Trap 13" ]
+          [ "E014" "E015" "E016" "ERR_MALFORMED_SCHEMA" ]
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_NOMINAL_BOUNDING_OF_RECURSIVE_TYPES_AND_MODULES"
+        (
+          #SPEC
+          "Nominal Bounding of Recursive Types and Acyclic Module Include Graphs"
+          "Recursive types must be anchored via a named definition in ':defs' with a disjunctive base case (rejecting non-disjunctive ERR_CIRCULAR_TYPE), and ':include' graphs must be strictly acyclic (E007)."
+          [ "Lang 7.1" "Lang Appendix C.2" "Lang Appendix C.3" "Lang Appendix G.1" ]
+          [ "E007" "ERR_CYCLIC_MODULE" "ERR_CIRCULAR_TYPE" ]
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "GOAL_TYPE_STATE_SUBSET_SAFETY_WITH_ROOT_WIRE_COMPATIBILITY"
+        (
+          #GOAL
+          "Compile-Time Type-State Variant Narrowing with Zero-Cost Root Enum Wire Compatibility"
+          "Enable Level 3 Type-State workflow narrowing (e.g. ':Status' -> ':WorkingStatus' -> ':ImmediateStatus') while preserving the root enum's 0-based binary ordinal layout."
+          [ "Lang 4.8" "Manifesto 3.1" ]
+          []
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "HAZARD_ENUM_ORDINAL_WIRE_DRIFT_AND_INFINITE_TYPE_LOOPS"
+        (
+          #HAZARD
+          "Enum Subset Ordinal Wire Desynchronization, Empty Domains, and Infinite Type/Import Recursion"
+          "Prevents subset enums from shifting binary ordinal indices relative to the root enum, blocks uninhabited enum subsets, and prevents stack overflows on circular schemas or imports."
+          [ "Lang 4.8.4" "Lang 4.8.5" "Lang 7.1" ]
+          [ "E007" "E014" "E015" "E016" "ERR_CIRCULAR_TYPE" ]
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- SUBSYSTEM D: Decoupled AST Printers, Normalization Profiles & Smart Schema Sourcing ---
+      [
+        "SPEC_DECOUPLED_CAS_WRITER_VS_PRESENTATION_PRINTERS"
+        (
+          #SPEC
+          "Decoupled Frozen 'CanonicalStvnWriter' vs. Configurable 'AstCompactPrinter' and 'AstPrettyPrinter'"
+          "Freezes 'CanonicalStvnWriter'/'StvnSchemaFlattener' (ALL_SECTIONS, SHORT_FORM, FORCE_EXPLICIT, zero bracket padding, reachability pruning, topological sort) while allowing 'AstCompactPrinter' Option C Smart Schema Sourcing."
+          [ "Lang 3.3" "Lang 9.2" "Lang Appendix G.1" "Lang Appendix G.2" "Lang Appendix G.3" ]
+          [ "E029" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "HAZARD_PRINTER_CONFIG_MUTATING_CRYPTOGRAPHIC_CAS_DIGEST"
+        (
+          #HAZARD
+          "Presentation Printer Formatting Options Contaminating Cryptographic CAS Preimages"
+          "Prevents runtime pretty-printer flags or IDE formatting settings from mutating SHA-256 schema digests and prevents HAPPY_PATH_INFERRED serialization without verified schema context."
+          [ "Lang 3.3" "Lang 9.2" ]
+          [ "E029" "IllegalStateException" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- SUBSYSTEM E: Compiler Fault Isolation, Blame Pinning & Interactive IDE DX Guards ---
+      [
+        "SPEC_POISONED_SENTINELS_AND_M_EQUALS_N_FAULT_ISOLATION"
+        (
+          #SPEC
+          "Unrecognized Facet Poisoned Sentinels, Container M == N Fault Isolation, and Monadic Rule J"
+          "Isolates unknown facets to poisoned declaration sentinels (3.5.3), inserts StvnError placeholders to preserve container arity M == N without outer bracket errors (7.2), and tracks local constraint failures in StvnAnalysisResult (Rule J)."
+          [ "Lang 3.5.3" "Lang 7.2" "Lang 8.1" ]
+          [ "E013" ]
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "SPEC_BOOTSTRAP_BLAME_PINNING_AND_IDE_CARET_GUARDS"
+        (
+          #SPEC
+          "Document Bootstrap Clause Blame Pinning and Interactive IDE Caret/Hover Boundaries"
+          "Pins incomplete clause blame strictly to the offending keyword while suppressing EOF cascades (7.3.1), prevents incomplete tokens or interior whitespace from climbing the AST on hover, and renders degraded schema warning banners without NPEs (7.4)."
+          [ "Lang 7.3" "Lang 7.3.1" "Lang 7.4" ]
+          []
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "GOAL_RESILIENT_MONADIC_IDE_FEEDBACK_WITHOUT_CASCADES"
+        (
+          #GOAL
+          "Surgical, Non-Cascading Compiler Diagnostics and Total-Function IDE Responsiveness"
+          "Apply VOP Axiom 3 (Total Functions) and Pillar 4 (Explicit Error Semantics) to the compiler and IDE plugin so live editing produces localized diagnostics without parser panic cascades."
+          [ "Lang 7.2" "Lang 7.3" "Lang 7.4" "Manifesto 1.3" "Manifesto 4.2" ]
+          []
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "HAZARD_PARSER_PANIC_CASCADES_AND_IDE_HOVER_NPE"
+        (
+          #HAZARD
+          "Whole-File Red-Squiggly Parser Panic Cascades and IDE Hover NullPointerExceptions"
+          "Eliminates cascading false-positive errors across sibling declarations/containers when a single token is malformed and prevents IDE plugin crashes during live typing."
+          [ "Lang 3.5.3" "Lang 7.2" "Lang 7.3.1" "Lang 7.4" ]
+          []
+          [ #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- SUBSYSTEM F: Binary Wire Framing, Bitwise Control Architecture & Zero-Copy Layouts ---
+      [
+        "SPEC_BINARY_HEADER_MAGIC_AND_BYTE4_BYTE5_FRAMING"
+        (
+          #SPEC
+          "Binary '.stvn_b' Header Framing: Magic Bytes (0x5354564E), Byte 4 (1:3:4), and Byte 5+ ':meta'"
+          "Frames binary streams with 4-byte ASCII 'STVN' magic, Byte 4 (Bit 7 CRC-32C trailer flag, Bits 6..4 BinaryEncodingStrategy, Bits 3..0 SchemaIdentityStrategy), and Byte 5+ (reserved 0b0000 upper nibble, HAS_DOMAIN, HAS_NAME, KIND)."
+          [ "Lang 10.1" "Lang 10.1a" "Lang 10.2" "Lang 10.3" "Lang 10.4" ]
+          [ "StvnCorruptedBitPatternException" "UnsupportedEncodingStrategyException" "StvnSerializationException" ]
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "HAZARD_SILENT_WIRE_BIT_ROT_AND_UNFRAMED_STREAM_DECODING"
+        (
+          #HAZARD
+          "Silent Binary Wire Bit-Rot, Reserved-Bit Tampering, and Unframed Stream Misinterpretation"
+          "Prevents corrupted network frames, non-STVN payloads, or non-zero reserved header bits from being decoded into invalid domain state."
+          [ "Lang 10.1" "Lang 10.1a" "Lang 10.4" ]
+          [ "StvnCorruptedBitPatternException" "UnsupportedEncodingStrategyException" "StvnSerializationException" ]
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST ]
+        )
+      ]
+
+      // --- SUBSYSTEM G: Dual-Tier CAS Repository, Ingress Conflict Calculus & Forensic Quarantine ---
+      [
+        "SPEC_DUAL_TIER_2_64_CAS_STORAGE_AND_RELATIONAL_CATALOG"
+        (
+          #SPEC
+          "Dual-Tier Repository: 2/64 Sharded '.stvn_cas.stvn' Envelopes and Relational 'version_catalog'"
+          "Persists immutable '#domain stvn_cas' envelopes in 'data/cas/<prefix_2>/<hash_64>.stvn_cas.stvn' paired with relational 'version_catalog' (PK schema_name, UNIQUE cas_hash) and append-only 'schema_source_audit' (ON DELETE RESTRICT)."
+          [ "Repo 3.1.1" "Repo 3.1.2" "Repo 3.2.1" "Repo 3.2.2" "Repo 3.2.3" ]
+          []
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "SPEC_REPOSITORY_INGRESS_CONFLICT_CALCULUS_STATE_MACHINE"
+        (
+          #SPEC
+          "Repository Ingress Gates 1-3 and 5-Outcome Conflict Calculus State Machine"
+          "Enforces 16 MiB cap, Gate 1 ('.stvn_d'/'.stvn_bd' only), Gate 2 (':meta' & stem slots), and Gate 3 (canonical hash) to classify requests into 201 Success, 200 IdempotentCollision (with W003 normalization), 409 SchemaConflict, 409 AliasConflict, or 422 ValidationError."
+          [ "Repo 2.4" "Repo 4.1" "Repo 5.1" "Repo 5.2" "Repo 5.3" "Repo 5.4" "Repo 5.5" ]
+          [ "E031" "E032" "E034" "W003" "ERR_CAPACITY_OVERFLOW" "ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT" ]
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "SPEC_FORENSIC_PROJECTION_SWEEPER_AND_QUARANTINE_ISOLATION"
+        (
+          #SPEC
+          "Virtual-Thread 'RelationalProjectionSweeper' and Atomic '.quarantine' Isolation"
+          "Scans CAS shards on a virtual thread, recompiles inner schemas under STRICT mode, verifies AST & SHA-256 digests, restores missing catalog projections, and atomically moves corrupt/tampered files to '.quarantine/' with a diagnostic reason tag."
+          [ "Repo 6.1" "Repo 6.2" "Repo 7" ]
+          []
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "GOAL_SELF_HEALING_TAMPER_EVIDENT_SCHEMA_REGISTRY"
+        (
+          #GOAL
+          "Self-Healing Catalog Projection and Tamper-Evident Forensic Quarantine"
+          "Enable full relational catalog reconstruction from on-disk CAS envelopes while automatically isolating bit-rot or disk tampering without operator intervention."
+          [ "Repo 3" "Repo 6.1" "Repo 6.2" ]
+          []
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "HAZARD_ON_DISK_CAS_BIT_ROT_AND_CATALOG_DESYNC"
+        (
+          #HAZARD
+          "Relational Catalog Desynchronization, In-Place Schema Mutation, and Tampered CAS Blob Serving"
+          "Prevents divergence between PostgreSQL/H2 indexes and disk storage, blocks in-place mutation of existing schema names (409 SchemaConflict), and quarantines tampered CAS files before they can be served."
+          [ "Repo 4.1" "Repo 6.1" "Repo 6.2" ]
+          []
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+    }
+
+    // ========================================================================
+    // PART 2: CAUSAL EDGE CATALOG (82 DIRECTED EDGES)
+    // ========================================================================
+    {
+      // --- Cluster 1 Edges ---
+      [
+        "EDGE_C01_CLASH"
+        (
+          "DISSONANCE_NO_INFIX_COLON_OR_COMMAS"
+          #CLASHES_WITH
+          "SPEC_DUAL_TRACK_SIGILS_AND_WHITESPACE_DELIMITATION"
+          "JSON/YAML infix colon and comma habits clash with STVN's bound prefix sigils and whitespace delimitation."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C01_JUSTIFIED"
+        (
+          "SPEC_DUAL_TRACK_SIGILS_AND_WHITESPACE_DELIMITATION"
+          #JUSTIFIED_BY
+          "GOAL_SINGLE_PASS_LL1_LEXICAL_ISOLATION"
+          "Binding ':' to types and '#' to values with whitespace separation enables single-pass LL(1) lexical dispatch."
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C01_HAZARD"
+        (
+          "SPEC_DUAL_TRACK_SIGILS_AND_WHITESPACE_DELIMITATION"
+          #ELIMINATES_HAZARD
+          "HAZARD_SYNTACTIC_ROLE_AMBIGUITY"
+          "Eliminates trailing-comma parse errors and key-vs-type lookahead ambiguity."
+          [ #LENS_PRACTITIONER #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Cluster 2 Edges ---
+      [
+        "EDGE_C02_CLASH"
+        (
+          "DISSONANCE_HASH_AND_BLOCK_COMMENTS_FORBIDDEN"
+          #CLASHES_WITH
+          "SPEC_C_STYLE_SINGLE_LINE_COMMENTS_ONLY"
+          "Shell/Python '#' comments and C-style '/* */' block comments are rejected in favor of '//'."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C02_JUSTIFIED"
+        (
+          "SPEC_C_STYLE_SINGLE_LINE_COMMENTS_ONLY"
+          #JUSTIFIED_BY
+          "GOAL_SIGIL_UNIFORMITY_AND_LINE_LOCAL_LEXING"
+          "Restricting comments to '//' reserves '#' exclusively for value-track tokens and keeps lexing line-local."
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C02_HAZARD"
+        (
+          "SPEC_C_STYLE_SINGLE_LINE_COMMENTS_ONLY"
+          #ELIMINATES_HAZARD
+          "HAZARD_UNCLOSED_BLOCK_COMMENT_CODE_SWALLOWING"
+          "Prevents unclosed block comments from swallowing active schema definitions and prevents '#' value tags from being misread as comments."
+          [ #LENS_ZERO_TRUST #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- Cluster 3 Edges ---
+      [
+        "EDGE_C03_CLASH"
+        (
+          "DISSONANCE_STRICT_ZERO_TAB_INVARIANT"
+          #CLASHES_WITH
+          "SPEC_ZERO_TAB_LEXICAL_INVARIANT"
+          "Editor tab indentation habits clash with STVN's fatal rejection of '\\t' outside fenced strings."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C03_JUSTIFIED"
+        (
+          "SPEC_ZERO_TAB_LEXICAL_INVARIANT"
+          #JUSTIFIED_BY
+          "GOAL_DETERMINISTIC_DIAGNOSTIC_COORDINATE_PINNING"
+          "ASCII space-only indentation guarantees 1:1 byte-offset to visual column alignment across all tooling."
+          [ #LENS_PRACTITIONER #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "EDGE_C03_HAZARD"
+        (
+          "SPEC_ZERO_TAB_LEXICAL_INVARIANT"
+          #ELIMINATES_HAZARD
+          "HAZARD_EDITOR_COLUMN_DRIFT_AND_WHITESPACE_SPOOFING"
+          "Eliminates visual caret drift across editors and prevents tab-contaminated ASTs in CAS storage."
+          [ #LENS_PRACTITIONER #LENS_ZERO_TRUST ]
+        )
+      ]
+
+      // --- Cluster 4 Edges ---
+      [
+        "EDGE_C04_CLASH"
+        (
+          "DISSONANCE_MANDATORY_FENCED_STRING_TAGS"
+          #CLASHES_WITH
+          "SPEC_RULE_STR_04_POLYGLOT_FENCED_STRINGS"
+          "Bare triple-quoted strings and legacy '->' fences clash with mandatory matching '[TAG]' delimiters."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C04_JUSTIFIED"
+        (
+          "SPEC_RULE_STR_04_POLYGLOT_FENCED_STRINGS"
+          #JUSTIFIED_BY
+          "GOAL_HERMETIC_POLYGLOT_AND_CAS_ENVELOPE_ENCAPSULATION"
+          "Matching '[TAG]' fences enable zero-escape embedding of foreign code (with tabs) and recursive STVN-in-STVN CAS envelopes."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C04_HAZARD"
+        (
+          "SPEC_RULE_STR_04_POLYGLOT_FENCED_STRINGS"
+          #ELIMINATES_HAZARD
+          "HAZARD_NESTED_QUOTE_COLLISION_AND_INJECTION"
+          "Prevents inner triple-quotes from prematurely terminating outer string literals and injecting AST tokens."
+          [ #LENS_ZERO_TRUST #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- Cluster 5 Edges ---
+      [
+        "EDGE_C05_CLASH"
+        (
+          "DISSONANCE_POSITIONAL_TUPLES_NO_NAMED_RECORDS"
+          #CLASHES_WITH
+          "SPEC_ALGEBRAIC_PRODUCT_TUPLE_CONSTRUCTOR"
+          "JSON named-field object habits clash with STVN's positional ':Tuple' product records."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C05_OPTIMIZATION"
+        (
+          "SPEC_ALGEBRAIC_PRODUCT_TUPLE_CONSTRUCTOR"
+          #ENABLES_OPTIMIZATION
+          "GOAL_ZERO_COPY_POST_ORDER_WIRE_SYMPATHY"
+          "Positional tuples eliminate repeated field-name strings and enable zero-copy post-order binary framing."
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_C05_HAZARD"
+        (
+          "SPEC_ALGEBRAIC_PRODUCT_TUPLE_CONSTRUCTOR"
+          #ELIMINATES_HAZARD
+          "HAZARD_FIELD_KEY_WIRE_BLOAT_AND_KEY_TYPOS"
+          "Eliminates repetitive key string wire bloat and runtime missing-key typos."
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- Cluster 6 Edges ---
+      [
+        "EDGE_C06_CLASH"
+        (
+          "DISSONANCE_ORDERED_SETS_AND_MAPS"
+          #CLASHES_WITH
+          "SPEC_INSERTION_ORDERED_COLLECTIONS_AND_SOA_MAPS"
+          "Unordered mathematical set/map assumptions clash with STVN's mandatory insertion order and '{ [k v] }' syntax."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C06_JUSTIFIED"
+        (
+          "SPEC_INSERTION_ORDERED_COLLECTIONS_AND_SOA_MAPS"
+          #JUSTIFIED_BY
+          "GOAL_CANONICAL_VALUE_EQUIVALENCE_AND_SOA_LOCALITY"
+          "Mandatory insertion order guarantees deterministic byte representations across all runtimes."
+          [ #LENS_VOP_PURIST #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "EDGE_C06_OPTIMIZATION"
+        (
+          "SPEC_INSERTION_ORDERED_COLLECTIONS_AND_SOA_MAPS"
+          #ENABLES_OPTIMIZATION
+          "GOAL_CANONICAL_VALUE_EQUIVALENCE_AND_SOA_LOCALITY"
+          "Ordered Structure-of-Arrays (SoA) map layout enables contiguous cache-local key scanning."
+          [ #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C06_HAZARD"
+        (
+          "SPEC_INSERTION_ORDERED_COLLECTIONS_AND_SOA_MAPS"
+          #ELIMINATES_HAZARD
+          "HAZARD_CROSS_RUNTIME_HASH_ITERATION_DRIFT"
+          "Eliminates non-deterministic hash-table iteration order drift across JVM, Rust, and Go."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Cluster 7 Edges ---
+      [
+        "EDGE_C07_CLASH"
+        (
+          "DISSONANCE_PARENTHESES_NEVER_FUNCTION_CALLS"
+          #CLASHES_WITH
+          "SPEC_STRICT_PRODUCT_DEMARCATION"
+          "Writing '#Some(42)' clashes with STVN's rule that parentheses exclusively construct ':Tuple' products."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C07_JUSTIFIED"
+        (
+          "SPEC_STRICT_PRODUCT_DEMARCATION"
+          #JUSTIFIED_BY
+          "GOAL_ISOMORPHIC_DELIMITER_TO_AST_MAPPING"
+          "Reserving '()' strictly for ':Tuple' preserves a 1:1 mapping between delimiters and AST node kinds."
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C07_HAZARD"
+        (
+          "SPEC_STRICT_PRODUCT_DEMARCATION"
+          #ELIMINATES_HAZARD
+          "HAZARD_ONE_TUPLE_VS_SCALAR_UNBOXING_AMBIGUITY"
+          "Prevents ambiguity between a parenthesized scalar and a 1-element tuple inside sum variants."
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Cluster 8 Edges ---
+      [
+        "EDGE_C08_CLASH"
+        (
+          "DISSONANCE_NO_COMPOUND_TYPE_KEYWORDS"
+          #CLASHES_WITH
+          "SPEC_ORTHOGONAL_KERNEL_AND_ARBITRARY_BIT_WIDTHS"
+          "Expectations of compound keywords like ':Uint16' clash with STVN 2.0.0's orthogonal scalar kernel and facet model."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C08_JUSTIFIED"
+        (
+          "SPEC_ORTHOGONAL_KERNEL_AND_ARBITRARY_BIT_WIDTHS"
+          #JUSTIFIED_BY
+          "GOAL_ORTHOGONAL_TYPE_ALGEBRA_AND_BIT_EXACT_CODECS"
+          "Orthogonal facets support arbitrary bit-widths (n >= 1) with exact ceil(n/8) byte containment and high-bit masking."
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C08_HAZARD"
+        (
+          "SPEC_ORTHOGONAL_KERNEL_AND_ARBITRARY_BIT_WIDTHS"
+          #ELIMINATES_HAZARD
+          "HAZARD_COMBINATORIAL_KEYWORD_BLOAT_AND_HIGH_BIT_SMUGGLING"
+          "Eliminates keyword bloat and rejects non-zero unused upper bits via StvnCorruptedBitPatternException."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Cluster 9 Edges ---
+      [
+        "EDGE_C09_CLASH"
+        (
+          "DISSONANCE_PROHIBITED_MAX_INCL_ON_DISCRETE_TYPES"
+          #CLASHES_WITH
+          "SPEC_DISCRETE_HALF_OPEN_INTERVAL_GOVERNANCE"
+          "Closed upper bound habits ('#maxIncl') clash with mandatory half-open intervals [minIncl, maxExcl) on discrete domains."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C09_JUSTIFIED"
+        (
+          "SPEC_DISCRETE_HALF_OPEN_INTERVAL_GOVERNANCE"
+          #JUSTIFIED_BY
+          "GOAL_SEAMLESS_PARTITION_COMPOSITION_AND_UNIQUE_IR"
+          "Half-open intervals [a, b) and [b, c) partition discrete streams without gaps/overlaps and normalize to a unique IR."
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "EDGE_C09_HAZARD"
+        (
+          "SPEC_DISCRETE_HALF_OPEN_INTERVAL_GOVERNANCE"
+          #ELIMINATES_HAZARD
+          "HAZARD_OFF_BY_ONE_SHARDING_GAPS_AND_CAS_DUPLICATES"
+          "Eliminates fencepost sharding bugs and prevents '#maxIncl 9' vs '#maxExcl 10' CAS hash divergence."
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST ]
+        )
+      ]
+
+      // --- Cluster 10 Edges ---
+      [
+        "EDGE_C10_CLASH"
+        (
+          "DISSONANCE_SIZE_PROHIBITED_ON_STRING"
+          #CLASHES_WITH
+          "SPEC_LOGICAL_CARDINALITY_VS_PHYSICAL_BIT_WIDTH"
+          "Using '#size' on strings clashes with the strict separation between bit-width ('#size') and logical cardinality ('#minSize'/'#maxSize')."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C10_JUSTIFIED"
+        (
+          "SPEC_LOGICAL_CARDINALITY_VS_PHYSICAL_BIT_WIDTH"
+          #JUSTIFIED_BY
+          "GOAL_BOUNDED_INGRESS_ALLOCATION_SAFETY"
+          "Separating bit-width from logical count and enforcing a 16 MiB default cap protects memory allocation at ingress boundaries."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C10_HAZARD"
+        (
+          "SPEC_LOGICAL_CARDINALITY_VS_PHYSICAL_BIT_WIDTH"
+          #ELIMINATES_HAZARD
+          "HAZARD_UTF8_BYTE_CHAR_CONFUSION_AND_OOM_DOS"
+          "Prevents UTF-8 byte-vs-character truncation errors and blocks unbounded allocation OOM denial-of-service attacks."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Cluster 11 Edges ---
+      [
+        "EDGE_C11_CLASH"
+        (
+          "DISSONANCE_STRICT_5_TIER_METADATA_ORDERING"
+          #CLASHES_WITH
+          "SPEC_5_TIER_MONOTONIC_FACET_AND_TAUTOLOGY_GOVERNANCE"
+          "Free-form annotation ordering clashes with STVN's strict 5-tier monotonic facet sequence and non-empty block rules."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C11_JUSTIFIED"
+        (
+          "SPEC_5_TIER_MONOTONIC_FACET_AND_TAUTOLOGY_GOVERNANCE"
+          #JUSTIFIED_BY
+          "GOAL_CROSS_LANGUAGE_CAS_PREIMAGE_CONVERGENCE"
+          "Freezing the 5-tier facet order and purging W003 tautologies guarantees identical CAS preimages across all languages."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C11_HAZARD"
+        (
+          "SPEC_5_TIER_MONOTONIC_FACET_AND_TAUTOLOGY_GOVERNANCE"
+          #ELIMINATES_HAZARD
+          "HAZARD_FACET_PERMUTATION_CAS_HASH_DRIFT"
+          "Prevents facet reordering or redundant default facets from altering SHA-256 schema digests."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Cluster 12 Edges ---
+      [
+        "EDGE_C12_CLASH"
+        (
+          "DISSONANCE_FLOAT_NOT_EQUATABLE_BY_DEFAULT"
+          #CLASHES_WITH
+          "SPEC_INDUCTIVE_TRAIT_CAPABILITY_CALCULUS"
+          "Using continuous ':Float' in sets or map keys clashes with its default '#equatable #FALSE' trait."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C12_DERIVES"
+        (
+          "SPEC_INDUCTIVE_TRAIT_CAPABILITY_CALCULUS"
+          #DERIVES_FROM
+          "GOAL_SOUND_EQUIVALENCE_RELATIONS_IN_COLLECTIONS"
+          "Inductive trait conjunction derives composite equatability strictly from sound member equivalence relations."
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C12_HAZARD"
+        (
+          "SPEC_INDUCTIVE_TRAIT_CAPABILITY_CALCULUS"
+          #ELIMINATES_HAZARD
+          "HAZARD_IEEE754_NAN_COLLECTION_POISONING"
+          "Prevents IEEE-754 NaN != NaN and signed-zero anomalies from corrupting ':Set' and ':Map' lookups."
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- Cluster 13 Edges ---
+      [
+        "EDGE_C13_CLASH"
+        (
+          "DISSONANCE_TOTAL_ABSENCE_OF_NULL"
+          #CLASHES_WITH
+          "SPEC_EXPLICIT_OPTION_COPRODUCT_AND_NULL_MARKED_CODEGEN"
+          "Expectations of 'null' literals or omitted optional fields clash with STVN's zero-null grammar and mandatory ':Option(T)'."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C13_JUSTIFIED"
+        (
+          "SPEC_EXPLICIT_OPTION_COPRODUCT_AND_NULL_MARKED_CODEGEN"
+          #JUSTIFIED_BY
+          "GOAL_MAKE_ILLEGAL_STATES_UNREPRESENTABLE_AND_TOTAL_FUNCTIONS"
+          "Replacing 'null' with explicit ':Option(T)' and '@NullMarked' codegen fulfills VOP Axioms 1-4."
+          [ #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_C13_HAZARD"
+        (
+          "SPEC_EXPLICIT_OPTION_COPRODUCT_AND_NULL_MARKED_CODEGEN"
+          #ELIMINATES_HAZARD
+          "HAZARD_NULL_POINTER_EXCEPTION_AND_BILLION_DOLLAR_MISTAKE"
+          "Permanently eliminates runtime NullPointerExceptions and three-state null/missing/empty ambiguity."
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- Cluster 14 Edges ---
+      [
+        "EDGE_C14_CLASH"
+        (
+          "DISSONANCE_ASYMMETRIC_SUM_INFERENCE"
+          #CLASHES_WITH
+          "SPEC_INFERENCE_RULES_A_TO_J_ASYMMETRIC_GUARD"
+          "Expecting untagged '#Left' or '#None' inference clashes with Rule E's asymmetric non-inferability guard."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C14_JUSTIFIED"
+        (
+          "SPEC_INFERENCE_RULES_A_TO_J_ASYMMETRIC_GUARD"
+          #JUSTIFIED_BY
+          "GOAL_HAPPY_PATH_ERGONOMICS_WITH_EXPLICIT_FAILURE_VISIBILITY"
+          "Inferring only '#Some', '#Right', and unique union branches balances happy-path brevity with explicit error/absence tags."
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_C14_HAZARD"
+        (
+          "SPEC_INFERENCE_RULES_A_TO_J_ASYMMETRIC_GUARD"
+          #ELIMINATES_HAZARD
+          "HAZARD_SILENT_ERROR_MASKING_AND_POSITIONAL_SHIFT_CORRUPTION"
+          "Prevents silent error masking and stops omitted tokens from synthesizing '#None' and shifting positional elements."
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- Cluster 15 Edges ---
+      [
+        "EDGE_C15_CLASH"
+        (
+          "DISSONANCE_OPAQUE_NOMINAL_BRANDS_NO_SUBTYPING"
+          #CLASHES_WITH
+          "SPEC_OPAQUE_NOMINAL_BRANDING_AND_TIER1_LOCK"
+          "Structural typing and Liskov subtyping assumptions clash with opaque nominal branding and Tier 1 facet immutability."
+          [ #LENS_SKEPTIC #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_C15_BOUNDARY"
+        (
+          "SPEC_OPAQUE_NOMINAL_BRANDING_AND_TIER1_LOCK"
+          #ENFORCES_BOUNDARY
+          "GOAL_1_TO_1_CAS_BIJECTIVITY_LAW"
+          "Incorporating opaque nominal FQNIs into the schema hash establishes the 1:1 NominalSchema <-> CAS Hash bijection."
+          [ #LENS_ZERO_TRUST #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C15_HAZARD"
+        (
+          "GOAL_1_TO_1_CAS_BIJECTIVITY_LAW"
+          #ELIMINATES_HAZARD
+          "HAZARD_CROSS_DOMAIN_ID_SWAPPING_AND_ALIAS_HIJACKING"
+          "Prevents cross-domain ID swapping (':UserId' vs ':AccountId') and blocks repository alias hijacking (HTTP 409)."
+          [ #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- Cluster 16 Edges ---
+      [
+        "EDGE_C16_CLASH"
+        (
+          "DISSONANCE_TRIPARTITE_TEMPORAL_SEGREGATION"
+          #CLASHES_WITH
+          "SPEC_TRIPARTITE_TEMPORAL_KERNEL_AND_WIRE_LAYOUT"
+          "Conflating epoch ticks, UTC offsets, and IANA zones clashes with STVN's mutually exclusive temporal modes."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C16_JUSTIFIED"
+        (
+          "SPEC_TRIPARTITE_TEMPORAL_KERNEL_AND_WIRE_LAYOUT"
+          #JUSTIFIED_BY
+          "GOAL_100_PERCENT_ISOMORPHIC_TEMPORAL_ROUND_TRIP_AND_AUDITABILITY"
+          "Partitioning Epoch, Offset, Zoned, and Audited modes guarantees 100% isomorphic round-trips and regulatory non-repudiation."
+          [ #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_C16_OPTIMIZATION"
+        (
+          "SPEC_TRIPARTITE_TEMPORAL_KERNEL_AND_WIRE_LAYOUT"
+          #ENABLES_OPTIMIZATION
+          "GOAL_100_PERCENT_ISOMORPHIC_TEMPORAL_ROUND_TRIP_AND_AUDITABILITY"
+          "Fixed 8B/10B/12B/14B wire frames with u16 header IANA zone dictionary IDs enable O(1) zero-copy decoding."
+          [ #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C16_HAZARD"
+        (
+          "SPEC_TRIPARTITE_TEMPORAL_KERNEL_AND_WIRE_LAYOUT"
+          #ELIMINATES_HAZARD
+          "HAZARD_TEMPORAL_CONFLATION_AND_DST_CORRUPTION"
+          "Eliminates DST schedule shifts, retroactive tzdb telemetry corruption, and spring-forward gap timestamps (E022)."
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+
+      // --- Cluster 17 Edges ---
+      [
+        "EDGE_C17_CLASH"
+        (
+          "DISSONANCE_HERMETIC_MODULAR_SPLIT_AND_ZERO_IO_USE"
+          #CLASHES_WITH
+          "SPEC_HERMETIC_EXTENSION_MATRIX_AND_TRANSITIVE_FLATTENING"
+          "Expecting ':include' in '.stvn_d' or file I/O in ':use' clashes with the hermetic file matrix and dead-code pruning."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C17_BOUNDARY"
+        (
+          "SPEC_HERMETIC_EXTENSION_MATRIX_AND_TRANSITIVE_FLATTENING"
+          #ENFORCES_BOUNDARY
+          "GOAL_AIR_GAPPED_HERMETIC_CAS_IMMUTABILITY"
+          "Prohibiting ':include' in hermetic files and pruning unreachable types guarantees self-contained, zero-I/O CAS schemas."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C17_HAZARD"
+        (
+          "SPEC_HERMETIC_EXTENSION_MATRIX_AND_TRANSITIVE_FLATTENING"
+          #ELIMINATES_HAZARD
+          "HAZARD_SUPPLY_CHAIN_INCLUDE_DRIFT_AND_DEAD_CODE_HASH_POLLUTION"
+          "Prevents external file changes or unreferenced dead code from altering a schema's SHA-256 CAS digest."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Cluster 18 Edges ---
+      [
+        "EDGE_C18_CLASH"
+        (
+          "DISSONANCE_EVICTION_CASCADE_AND_BINARY_ZERO_TRUST_GATES"
+          #CLASHES_WITH
+          "SPEC_EVICTION_CASCADE_AND_BYTE4_ZERO_TRUST_DISPATCH"
+          "Duplicate module imports, raw dual-alias access, and unverified string schema lookups clash with the eviction cascade and Byte 4 gates."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C18_BOUNDARY"
+        (
+          "SPEC_EVICTION_CASCADE_AND_BYTE4_ZERO_TRUST_DISPATCH"
+          #ENFORCES_BOUNDARY
+          "GOAL_ORDER_INDEPENDENT_SCOPE_AND_ZERO_TRUST_WIRE_SECURITY"
+          "The 5-step eviction cascade and Byte 4 Strategy 0x7/0x8 guards enforce deterministic scoping and zero-trust wire decoding."
+          [ #LENS_ZERO_TRUST #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C18_HAZARD"
+        (
+          "SPEC_EVICTION_CASCADE_AND_BYTE4_ZERO_TRUST_DISPATCH"
+          #ELIMINATES_HAZARD
+          "HAZARD_IMPORT_ORDER_SHADOWING_AND_MITM_SCHEMA_POISONING"
+          "Eliminates import-order shadowing bugs and blocks MITM registry poisoning or disk-write exploits on binary streams."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Cluster 19 Edges ---
+      [
+        "EDGE_C19_CLASH"
+        (
+          "DISSONANCE_ASYMMETRIC_META_MANDATE_AND_STEM_BINDING"
+          #CLASHES_WITH
+          "SPEC_DOCUMENT_IDENTITY_AND_EXTENSION_KIND_BINDING"
+          "Confusion over optional ':meta' in '.stvn' vs mandatory ':meta' everywhere else clashes with STVN's identity and stem rules."
+          [ #LENS_SKEPTIC #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_C19_JUSTIFIED"
+        (
+          "SPEC_DOCUMENT_IDENTITY_AND_EXTENSION_KIND_BINDING"
+          #JUSTIFIED_BY
+          "GOAL_LOW_CEREMONY_LOCAL_PAYLOADS_WITH_HERMETIC_REGISTRY_IDENTITY"
+          "Making ':meta' optional only in local '.stvn' files balances ad-hoc authoring ergonomics with strict registry/stream identity."
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_C19_BOUNDARY"
+        (
+          "SPEC_DOCUMENT_IDENTITY_AND_EXTENSION_KIND_BINDING"
+          #ENFORCES_BOUNDARY
+          "GOAL_1_TO_1_CAS_BIJECTIVITY_LAW"
+          "Embedding collapsed ':meta' (#name, #domain, #kind) at the head of the CAS preimage anchors the 1:1 Bijectivity Law."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_C19_HAZARD"
+        (
+          "SPEC_DOCUMENT_IDENTITY_AND_EXTENSION_KIND_BINDING"
+          #ELIMINATES_HAZARD
+          "HAZARD_ANONYMOUS_SCHEMA_COLLISION_AND_SYSTEM_ENVELOPE_SPOOFING"
+          "Prevents anonymous schema hash collisions, kind/extension mismatches (E031), and 'stvn_*' system domain spoofing (E038)."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Subsystem A Edges (VOP Manifesto) ---
+      [
+        "EDGE_SUB_A_CLASH"
+        (
+          "DISSONANCE_5NF_TYPE_PURITY_VS_WRAPPER_TAX"
+          #CLASHES_WITH
+          "SPEC_VOP_3NF_PRAGMATIC_EQUILIBRIUM_AND_SPECTRUM"
+          "Indiscriminate 5NF micro-typing clashes with the VOP 3NF Pragmatic Equilibrium and three evaluative filters."
+          [ #LENS_SKEPTIC #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_SUB_A_AXIOMS"
+        (
+          "SPEC_VOP_DUAL_INTEGRITY_POSTURES_AND_AXIOMS"
+          #JUSTIFIED_BY
+          "GOAL_MAKE_ILLEGAL_STATES_UNREPRESENTABLE_AND_TOTAL_FUNCTIONS"
+          "Tenet A (Integrity by Default) and Tenet B (Integrity by Design) operationalize the VOP North Star."
+          [ #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_SUB_A_PRAGMATIC"
+        (
+          "SPEC_VOP_3NF_PRAGMATIC_EQUILIBRIUM_AND_SPECTRUM"
+          #JUSTIFIED_BY
+          "GOAL_PRAGMATIC_MAXIM_WITHOUT_WRAPPER_TAX"
+          "The 4-level enforcement spectrum and 3 evaluative filters align type safety with developer ergonomics."
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_SUB_A_SYMPATHY"
+        (
+          "SPEC_VOP_3NF_PRAGMATIC_EQUILIBRIUM_AND_SPECTRUM"
+          #ENABLES_OPTIMIZATION
+          "GOAL_ZERO_COPY_POST_ORDER_WIRE_SYMPATHY"
+          "Level 1 boundary validation and the Mechanical Sympathy filter enable zero-copy wire decoding without wrapper allocation."
+          [ #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_A_HAZARD"
+        (
+          "SPEC_VOP_3NF_PRAGMATIC_EQUILIBRIUM_AND_SPECTRUM"
+          #ELIMINATES_HAZARD
+          "HAZARD_DEVELOPER_CIRCUMVENTION_AND_GC_WRAPPER_CHURN"
+          "Prevents wrapper-tax GC churn and stops fatigued developers from bypassing the type system."
+          [ #LENS_PRACTITIONER #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Subsystem B Edges (Enclosure, Namespaces, Constants, Prelude, Codegen) ---
+      [
+        "EDGE_SUB_B_ROOT"
+        (
+          "SPEC_ROOT_ENCLOSURE_AND_SECTION_SEQUENCE"
+          #ENFORCES_BOUNDARY
+          "GOAL_SINGLE_PASS_LL1_LEXICAL_ISOLATION"
+          "Mandatory root '{ ... }' and strict :meta -> :defs -> :type -> :body ordering enforce deterministic top-level parsing."
+          [ #LENS_DATA_ENGINEER #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_SUB_B_PACKAGE"
+        (
+          "SPEC_ATOMIC_PATH_IDENTIFIERS_AND_PACKAGE_SCOPING"
+          #ENFORCES_BOUNDARY
+          "GOAL_ORDER_INDEPENDENT_SCOPE_AND_ZERO_TRUST_WIRE_SECURITY"
+          "Atomic slash-delimited FQNIs and isolated ':package' enclosures prevent cross-package scope leakage."
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_SUB_B_CONST"
+        (
+          "SPEC_TYPED_CONSTANT_DEFINITIONS_AND_SUBSTITUTION"
+          #DERIVES_FROM
+          "GOAL_MAKE_ILLEGAL_STATES_UNREPRESENTABLE_AND_TOTAL_FUNCTIONS"
+          "Compile-time constant validation ensures substituted '#CONST' values satisfy all bit-width and regex invariants before lowering."
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_B_PRELUDE_CAS"
+        (
+          "SPEC_PRELUDE_ISOLATION_AND_RESERVED_NAMESPACES"
+          #ENFORCES_BOUNDARY
+          "GOAL_1_TO_1_CAS_BIJECTIVITY_LAW"
+          "Locking ':org/stvnadore/*' and purging legacy temporal decoy aliases preserves canonical CAS preimage stability."
+          [ #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_SUB_B_PRELUDE_HAZARD"
+        (
+          "SPEC_PRELUDE_ISOLATION_AND_RESERVED_NAMESPACES"
+          #ELIMINATES_HAZARD
+          "HAZARD_PRELUDE_SPOOFING_AND_UNVALIDATED_CONSTANTS"
+          "Prevents user schemas from spoofing intrinsic prelude types (E037) and blocks invalid constant literals (E028)."
+          [ #LENS_ZERO_TRUST #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_SUB_B_CONST_HAZARD"
+        (
+          "SPEC_TYPED_CONSTANT_DEFINITIONS_AND_SUBSTITUTION"
+          #ELIMINATES_HAZARD
+          "HAZARD_PRELUDE_SPOOFING_AND_UNVALIDATED_CONSTANTS"
+          "Validates constant capacity bounds (E009) and target types (E028) at compile time prior to payload substitution."
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_SUB_B_CODEGEN"
+        (
+          "SPEC_HOST_CODEGEN_NULL_MARKED_AND_VAR_DIRECTIVES"
+          #ENFORCES_BOUNDARY
+          "GOAL_MAKE_ILLEGAL_STATES_UNREPRESENTABLE_AND_TOTAL_FUNCTIONS"
+          "Enforcing '@NullMarked' and deep immutability on generated Java records extends VOP guarantees into host application code."
+          [ #LENS_VOP_PURIST #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- Subsystem C Edges (Enum Subsets & Recursive Bounding) ---
+      [
+        "EDGE_SUB_C_SUBSET_GOAL"
+        (
+          "SPEC_ENUM_SUBSET_MONOTONIC_NARROWING_AND_ROOT_ORDER"
+          #JUSTIFIED_BY
+          "GOAL_TYPE_STATE_SUBSET_SAFETY_WITH_ROOT_WIRE_COMPATIBILITY"
+          "Monotonic enum subsets allow compile-time state narrowing while retaining the root enum's binary wire indices."
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_C_SUBSET_HAZARD"
+        (
+          "SPEC_ENUM_SUBSET_MONOTONIC_NARROWING_AND_ROOT_ORDER"
+          #ELIMINATES_HAZARD
+          "HAZARD_ENUM_ORDINAL_WIRE_DRIFT_AND_INFINITE_TYPE_LOOPS"
+          "Enforcing root declaration order (E015) and non-empty subsets (E016) prevents ordinal wire drift and uninhabited types."
+          [ #LENS_DATA_ENGINEER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_SUB_C_RECURSIVE_GOAL"
+        (
+          "SPEC_NOMINAL_BOUNDING_OF_RECURSIVE_TYPES_AND_MODULES"
+          #ENFORCES_BOUNDARY
+          "GOAL_MAKE_ILLEGAL_STATES_UNREPRESENTABLE_AND_TOTAL_FUNCTIONS"
+          "Requiring named ':defs' anchors with disjunctive base cases guarantees well-founded, finite data structures."
+          [ #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_SUB_C_RECURSIVE_HAZARD"
+        (
+          "SPEC_NOMINAL_BOUNDING_OF_RECURSIVE_TYPES_AND_MODULES"
+          #ELIMINATES_HAZARD
+          "HAZARD_ENUM_ORDINAL_WIRE_DRIFT_AND_INFINITE_TYPE_LOOPS"
+          "Rejecting circular self-references (ERR_CIRCULAR_TYPE) and cyclic includes (E007) prevents infinite compiler loops."
+          [ #LENS_VOP_PURIST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Subsystem D Edges (Decoupled Printers & Normalization) ---
+      [
+        "EDGE_SUB_D_PREIMAGE"
+        (
+          "SPEC_DECOUPLED_CAS_WRITER_VS_PRESENTATION_PRINTERS"
+          #ENFORCES_BOUNDARY
+          "GOAL_CROSS_LANGUAGE_CAS_PREIMAGE_CONVERGENCE"
+          "Architectural decoupling of CanonicalStvnWriter from presentation printers locks the SHA-256 preimage format."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_D_HERMETIC"
+        (
+          "SPEC_DECOUPLED_CAS_WRITER_VS_PRESENTATION_PRINTERS"
+          #ENFORCES_BOUNDARY
+          "GOAL_AIR_GAPPED_HERMETIC_CAS_IMMUTABILITY"
+          "Transitive reachability closure, FQNI alias desugaring, and topological sorting produce self-contained canonical output."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_D_HAZARD"
+        (
+          "SPEC_DECOUPLED_CAS_WRITER_VS_PRESENTATION_PRINTERS"
+          #ELIMINATES_HAZARD
+          "HAZARD_PRINTER_CONFIG_MUTATING_CRYPTOGRAPHIC_CAS_DIGEST"
+          "Prevents user printer options from altering CAS hashes and fails closed when schema context is missing in HAPPY_PATH_INFERRED mode."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+
+      // --- Subsystem E Edges (Fault Isolation, Blame Pinning, IDE DX Guards) ---
+      [
+        "EDGE_SUB_E_ISOLATION_GOAL"
+        (
+          "SPEC_POISONED_SENTINELS_AND_M_EQUALS_N_FAULT_ISOLATION"
+          #JUSTIFIED_BY
+          "GOAL_RESILIENT_MONADIC_IDE_FEEDBACK_WITHOUT_CASCADES"
+          "Poisoned sentinels, StvnError container placeholders (M == N), and StvnAnalysisResult keep AST lowering total."
+          [ #LENS_PRACTITIONER #LENS_VOP_PURIST ]
+        )
+      ]
+      [
+        "EDGE_SUB_E_BLAME_GOAL"
+        (
+          "SPEC_BOOTSTRAP_BLAME_PINNING_AND_IDE_CARET_GUARDS"
+          #JUSTIFIED_BY
+          "GOAL_RESILIENT_MONADIC_IDE_FEEDBACK_WITHOUT_CASCADES"
+          "Clause blame pinning and upward caret traversal guards ensure responsive, non-crashing IDE hover and quick-fix actions."
+          [ #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_SUB_E_PINNING_DERIVES"
+        (
+          "SPEC_BOOTSTRAP_BLAME_PINNING_AND_IDE_CARET_GUARDS"
+          #DERIVES_FROM
+          "GOAL_DETERMINISTIC_DIAGNOSTIC_COORDINATE_PINNING"
+          "Exact token span blame attribution relies directly on deterministic zero-tab coordinate pinning."
+          [ #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_SUB_E_ISOLATION_HAZARD"
+        (
+          "SPEC_POISONED_SENTINELS_AND_M_EQUALS_N_FAULT_ISOLATION"
+          #ELIMINATES_HAZARD
+          "HAZARD_PARSER_PANIC_CASCADES_AND_IDE_HOVER_NPE"
+          "Prevents a single invalid facet or element from cascading errors across sibling declarations or parent brackets."
+          [ #LENS_PRACTITIONER ]
+        )
+      ]
+      [
+        "EDGE_SUB_E_BLAME_HAZARD"
+        (
+          "SPEC_BOOTSTRAP_BLAME_PINNING_AND_IDE_CARET_GUARDS"
+          #ELIMINATES_HAZARD
+          "HAZARD_PARSER_PANIC_CASCADES_AND_IDE_HOVER_NPE"
+          "Eliminates EOF cascade noise, parent container hover popups on whitespace, and NPEs on degraded schemas."
+          [ #LENS_PRACTITIONER ]
+        )
+      ]
+
+      // --- Subsystem F Edges (Binary Header Framing) ---
+      [
+        "EDGE_SUB_F_OPTIMIZATION"
+        (
+          "SPEC_BINARY_HEADER_MAGIC_AND_BYTE4_BYTE5_FRAMING"
+          #ENABLES_OPTIMIZATION
+          "GOAL_ZERO_COPY_POST_ORDER_WIRE_SYMPATHY"
+          "Compact Byte 4 (1:3:4) and Byte 5+ headers enable immediate zero-copy post-order payload dispatch."
+          [ #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_F_SECURITY"
+        (
+          "SPEC_BINARY_HEADER_MAGIC_AND_BYTE4_BYTE5_FRAMING"
+          #ENFORCES_BOUNDARY
+          "GOAL_ORDER_INDEPENDENT_SCOPE_AND_ZERO_TRUST_WIRE_SECURITY"
+          "Mandatory magic bytes, reserved-bit zero checks, and optional CRC-32C trailer framing harden the binary perimeter."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_F_HAZARD"
+        (
+          "SPEC_BINARY_HEADER_MAGIC_AND_BYTE4_BYTE5_FRAMING"
+          #ELIMINATES_HAZARD
+          "HAZARD_SILENT_WIRE_BIT_ROT_AND_UNFRAMED_STREAM_DECODING"
+          "Rejects corrupted headers and unmapped strategy codes before payload deserialization begins."
+          [ #LENS_DATA_ENGINEER #LENS_ZERO_TRUST ]
+        )
+      ]
+
+      // --- Subsystem G Edges (Dual-Tier CAS Repository, Ingress Calculus & Quarantine) ---
+      [
+        "EDGE_SUB_G_STORAGE_BIJECTIVITY"
+        (
+          "SPEC_DUAL_TIER_2_64_CAS_STORAGE_AND_RELATIONAL_CATALOG"
+          #ENFORCES_BOUNDARY
+          "GOAL_1_TO_1_CAS_BIJECTIVITY_LAW"
+          "Database constraint uq_version_catalog_cas_hash UNIQUE (cas_hash) and PK (schema_name) enforce the 1:1 Law."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_G_STORAGE_ENVELOPE"
+        (
+          "SPEC_DUAL_TIER_2_64_CAS_STORAGE_AND_RELATIONAL_CATALOG"
+          #DERIVES_FROM
+          "GOAL_HERMETIC_POLYGLOT_AND_CAS_ENVELOPE_ENCAPSULATION"
+          "On-disk '.stvn_cas.stvn' files encapsulate inner '.stvn_d' schemas using Rule STR-04 '[SHA256-<hash>]' fenced strings."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_G_INGRESS_BIJECTIVITY"
+        (
+          "SPEC_REPOSITORY_INGRESS_CONFLICT_CALCULUS_STATE_MACHINE"
+          #ENFORCES_BOUNDARY
+          "GOAL_1_TO_1_CAS_BIJECTIVITY_LAW"
+          "Ingress pre-checks reject schema mutations (409 SchemaConflict) and duplicate hash claims (409 AliasConflict)."
+          [ #LENS_ZERO_TRUST ]
+        )
+      ]
+      [
+        "EDGE_SUB_G_INGRESS_CONVERGENCE"
+        (
+          "SPEC_REPOSITORY_INGRESS_CONFLICT_CALCULUS_STATE_MACHINE"
+          #DERIVES_FROM
+          "GOAL_CROSS_LANGUAGE_CAS_PREIMAGE_CONVERGENCE"
+          "W003 tautology purging during Gate 3 flattening ensures schemas with redundant defaults resolve idempotently (200 OK)."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_G_SWEEPER_GOAL"
+        (
+          "SPEC_FORENSIC_PROJECTION_SWEEPER_AND_QUARANTINE_ISOLATION"
+          #JUSTIFIED_BY
+          "GOAL_SELF_HEALING_TAMPER_EVIDENT_SCHEMA_REGISTRY"
+          "Virtual-thread reconciliation rebuilds missing relational rows and quarantines corrupt CAS envelopes automatically."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_G_SWEEPER_HAZARD"
+        (
+          "SPEC_FORENSIC_PROJECTION_SWEEPER_AND_QUARANTINE_ISOLATION"
+          #ELIMINATES_HAZARD
+          "HAZARD_ON_DISK_CAS_BIT_ROT_AND_CATALOG_DESYNC"
+          "Atomically isolates tampered or bit-rotted '.stvn_cas.stvn' files into '.quarantine/' with diagnostic reason suffixes."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+      [
+        "EDGE_SUB_G_INGRESS_HAZARD"
+        (
+          "SPEC_REPOSITORY_INGRESS_CONFLICT_CALCULUS_STATE_MACHINE"
+          #ELIMINATES_HAZARD
+          "HAZARD_ON_DISK_CAS_BIT_ROT_AND_CATALOG_DESYNC"
+          "Fail-closed Gates 1-3 reject '.stvn_di', instance payloads, and malformed identities (422) before touching disk or DB."
+          [ #LENS_ZERO_TRUST #LENS_DATA_ENGINEER ]
+        )
+      ]
+    }
+  )
+}
