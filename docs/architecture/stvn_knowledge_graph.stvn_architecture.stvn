@@ -1,9 +1,9 @@
 {
-  // docs/architecture/stvn_knowledge_graph.architecture.stvn
+  // docs/architecture/stvn_knowledge_graph.stvn_architecture.stvn
   // Canonical Single Source of Truth (SSoT) for the STVN 2.0.0 Exploratory Knowledge Graph
   :meta {
     #name "stvn_knowledge_graph"
-    #domain "architecture"
+    #domain "stvn_architecture"
     #kind #BODY
   }
   :defs {
