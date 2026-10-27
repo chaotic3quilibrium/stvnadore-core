@@ -1,0 +1,9 @@
+{
+  :defs {
+    :FloatMap :Map( :Float :String )
+  }
+  :type :FloatMap
+  :body {
+    [ 1.0 "one" ]
+  }
+}

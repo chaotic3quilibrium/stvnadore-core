@@ -263,6 +263,18 @@ public class StvnIrValidationTest {
       if (msg.contains("Discrete type") || msg.contains("prohibits bound") || msg.contains("Discrete exact float") || msg.contains("Discrete temporal type")) {
         return "ERR_DISCRETE_BOUND_KIND_PROHIBITED";
       }
+      if (msg.contains("mutually exclusive")) {
+        return "MUTUALLY_EXCLUSIVE_BOUNDS";
+      }
+      if (msg.contains("require types to be #equatable #TRUE")) {
+        return "TRAIT_VIOLATION";
+      }
+      if (msg.contains("mutually exclusive")) {
+        return "MUTUALLY_EXCLUSIVE_BOUNDS";
+      }
+      if (msg.contains("require types to be #equatable #TRUE")) {
+        return "TRAIT_VIOLATION";
+      }
       if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
         return "ERR_STRING_CARDINALITY_PROHIBITED";
       }
@@ -337,6 +349,18 @@ public class StvnIrValidationTest {
       }
       if (msg.contains("Discrete type") || msg.contains("prohibits bound") || msg.contains("Discrete exact float") || msg.contains("Discrete temporal type")) {
         return "ERR_DISCRETE_BOUND_KIND_PROHIBITED";
+      }
+      if (msg.contains("mutually exclusive")) {
+        return "MUTUALLY_EXCLUSIVE_BOUNDS";
+      }
+      if (msg.contains("require types to be #equatable #TRUE")) {
+        return "TRAIT_VIOLATION";
+      }
+      if (msg.contains("mutually exclusive")) {
+        return "MUTUALLY_EXCLUSIVE_BOUNDS";
+      }
+      if (msg.contains("require types to be #equatable #TRUE")) {
+        return "TRAIT_VIOLATION";
       }
       if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
         return "ERR_STRING_CARDINALITY_PROHIBITED";

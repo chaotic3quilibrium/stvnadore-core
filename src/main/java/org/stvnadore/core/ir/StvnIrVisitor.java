@@ -698,7 +698,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
         precision = FloatPrecision.FLOAT32;
       }
     }
-    var rawVal = StvnLiteralParser.parseFloat(ctx.getText());
+    var rawVal = StvnLiteralParser.parseBigDecimal(ctx.getText());
     if (precision == FloatPrecision.EXACT) {
       int mantissaPrecision = rawVal.precision();
       int maxAllowed = (schema != null && schema.constraints() != null && schema.constraints().maxSize().isPresent())
@@ -712,13 +712,20 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
             ctx.getStop().getStopIndex() + 1
         );
       }
-    }
-    // Basic bounds checking for Float64 overflow/underflow if requested
-    if (precision == FloatPrecision.FLOAT64) {
-      if (rawVal.compareTo(java.math.BigDecimal.valueOf(Double.MAX_VALUE)) > 0 ||
-          rawVal.compareTo(java.math.BigDecimal.valueOf(-Double.MAX_VALUE)) < 0) {
+    } else if (precision == FloatPrecision.FLOAT32) {
+      if (rawVal.compareTo(StvnVocabulary.FLOAT32_MAX) > 0 ||
+          rawVal.compareTo(StvnVocabulary.FLOAT32_MIN) < 0) {
         throw new MalformedPayloadException(
-            "Value [" + rawVal + "] is out of bounds for " + aliasOrBase + " (-1.7976931348623157E+308 to 1.7976931348623157E+308)",
+            "Value [" + rawVal + "] is out of bounds for " + aliasOrBase + " (" + StvnVocabulary.FLOAT32_MIN + " to " + StvnVocabulary.FLOAT32_MAX + ")",
+            ctx.getStart().getStartIndex(),
+            ctx.getStop().getStopIndex() + 1
+        );
+      }
+    } else if (precision == FloatPrecision.FLOAT64) {
+      if (rawVal.compareTo(StvnVocabulary.FLOAT64_MAX) > 0 ||
+          rawVal.compareTo(StvnVocabulary.FLOAT64_MIN) < 0) {
+        throw new MalformedPayloadException(
+            "Value [" + rawVal + "] is out of bounds for " + aliasOrBase + " (" + StvnVocabulary.FLOAT64_MIN + " to " + StvnVocabulary.FLOAT64_MAX + ")",
             ctx.getStart().getStartIndex(),
             ctx.getStop().getStopIndex() + 1
         );

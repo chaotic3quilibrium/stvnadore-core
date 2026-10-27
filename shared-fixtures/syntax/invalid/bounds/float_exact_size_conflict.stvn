@@ -1,0 +1,7 @@
+{
+  :defs {
+    :ConflictedFloat { #exact #size 64 } :Float
+  }
+  :type :ConflictedFloat
+  :body 1.0
+}

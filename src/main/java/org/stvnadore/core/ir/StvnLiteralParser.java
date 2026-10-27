@@ -145,13 +145,25 @@ public final class StvnLiteralParser {
   }
 
   /**
-   * Parses an STVN float literal into a {@link BigDecimal}.
+   * Parses an STVN float or scientific literal into a {@link BigDecimal}.
    *
    * @param rawText the raw string representation of the float literal
    * @return the resolved {@link BigDecimal} value
    */
-  public static BigDecimal parseFloat(String rawText) {
+  public static BigDecimal parseBigDecimal(String rawText) {
     return new BigDecimal(rawText);
+  }
+
+  /**
+   * Parses an STVN float or scientific literal into a {@link BigDecimal}.
+   *
+   * @param rawText the raw string representation of the float literal
+   * @return the resolved {@link BigDecimal} value
+   * @deprecated Replaced by {@link #parseBigDecimal(String)} for arbitrary-precision numeric fidelity.
+   */
+  @Deprecated(since = "2.0.0", forRemoval = false)
+  public static BigDecimal parseFloat(String rawText) {
+    return parseBigDecimal(rawText);
   }
 
   /**

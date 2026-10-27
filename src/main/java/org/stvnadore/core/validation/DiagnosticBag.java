@@ -26,6 +26,8 @@ public final class DiagnosticBag {
   public static final String ERR_INVERTED_RANGE = "INVALID_NUMERIC_RANGE";
   /** Error code emitted when collection element count exceeds declared capacity bounds. */
   public static final String ERR_CAPACITY_OVERFLOW = "CAPACITY_OVERFLOW";
+  /** Error code emitted when a floating-point literal exceeds IEEE-754 capacity boundaries (code E010). */
+  public static final String ERR_FLOAT_OVERFLOW = ERR_CAPACITY_OVERFLOW;
   /** Error code emitted when metadata trait values are incompatible with the target type. */
   public static final String ERR_INCOMPATIBLE_TYPE = "INCOMPATIBLE_METADATA_TYPE";
   /** Error code emitted when a referenced metadata facet constant identifier has not been defined. */

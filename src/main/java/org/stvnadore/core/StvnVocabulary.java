@@ -1,5 +1,6 @@
 package org.stvnadore.core;
 
+import java.math.BigDecimal;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.jspecify.annotations.NullMarked;
@@ -499,6 +500,18 @@ public final class StvnVocabulary {
 
   /** Default precision ceiling in significant decimal digits for unadorned {@code { #exact } :Float} instances (16,777,216 digits). */
   public static final int DEFAULT_EXACT_FLOAT_MAX_SIZE = 16_777_216;
+
+  /** Pre-instantiated lower capacity bound for IEEE-754 single-precision float (32-bit). */
+  public static final BigDecimal FLOAT32_MIN = new BigDecimal("-3.4028235e+38");
+
+  /** Pre-instantiated upper capacity bound for IEEE-754 single-precision float (32-bit). */
+  public static final BigDecimal FLOAT32_MAX = new BigDecimal("3.4028235e+38");
+
+  /** Pre-instantiated lower capacity bound for IEEE-754 double-precision float (64-bit). */
+  public static final BigDecimal FLOAT64_MIN = new BigDecimal("-1.7976931348623157e+308");
+
+  /** Pre-instantiated upper capacity bound for IEEE-754 double-precision float (64-bit). */
+  public static final BigDecimal FLOAT64_MAX = new BigDecimal("1.7976931348623157e+308");
 
   /** Default inspection threshold in characters for schema and diagnostic analyzers (4,096 characters). */
   public static final int DEFAULT_INSPECTION_THRESHOLD = 4096;

@@ -1,5 +1,6 @@
 package org.stvnadore.core.binary.readers;
 
+import java.math.BigDecimal;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryDecoder.DecodeContext;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
@@ -93,6 +94,19 @@ public interface StvnMemoryAccessor {
    */
   default double getFloat64(int index) {
     return context().buffer().getDouble(getAbsoluteOffset(index));
+  }
+
+  /**
+   * Extracts an exact arbitrary-precision decimal float value by dereferencing
+   * its outlined textual string representation at the specified element index.
+   *
+   * @param index the element index
+   * @return the decoded arbitrary-precision {@link BigDecimal} value
+   * @since 2.0.0
+   */
+  default BigDecimal getFloatExact(int index) {
+    int stringPayloadOffset = getPointerDereference(index);
+    return org.stvnadore.core.ir.StvnLiteralParser.parseBigDecimal(StvnBinaryDecoder.readStringOutlined(context(), stringPayloadOffset));
   }
 
   /**

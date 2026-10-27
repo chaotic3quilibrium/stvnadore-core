@@ -1,0 +1,7 @@
+{
+  :defs {
+    :TaxRate { #exact #minIncl 0.00 #maxIncl 100.00 } :Float
+  }
+  :type :TaxRate
+  :body 15.50
+}

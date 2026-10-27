@@ -1230,7 +1230,7 @@ public final class StvnSchemaFlattener {
       BigInteger val = StvnLiteralParser.parseBigInteger(ctx.integerLiteral().getText());
       tokens.add(val.toString());
     } else if (ctx.floatLiteral() != null) {
-      BigDecimal val = StvnLiteralParser.parseFloat(ctx.floatLiteral().getText());
+      BigDecimal val = StvnLiteralParser.parseBigDecimal(ctx.floatLiteral().getText());
       tokens.add(formatFloat(val, org.stvnadore.core.ir.StvnValue.FloatPrecision.EXACT));
     } else if (ctx.stringLiteral() != null) {
       var parsed = StvnLiteralParser.parseStringNew(ctx.stringLiteral().getText(), preserveIndent);

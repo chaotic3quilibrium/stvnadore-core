@@ -2091,7 +2091,7 @@ public class StvnTypeResolver {
           if (numCtx.metadataValue().integerLiteral() != null)
             val = new BigDecimal(StvnLiteralParser.parseBigInteger(numCtx.metadataValue().integerLiteral().getText()));
           else if (numCtx.metadataValue().floatLiteral() != null)
-            val = new BigDecimal(numCtx.metadataValue().floatLiteral().getText());
+            val = StvnLiteralParser.parseBigDecimal(numCtx.metadataValue().floatLiteral().getText());
           else if (numCtx.metadataValue().stringLiteral() != null)
             dateVal = extractRawStringValue(numCtx.metadataValue().stringLiteral().getText());
           else if (numCtx.metadataValue().valueKeyword() != null) {
@@ -2621,7 +2621,7 @@ public class StvnTypeResolver {
       }
     } else if (val.floatLiteral() != null) {
       try {
-        return new BigDecimal(val.floatLiteral().getText());
+        return StvnLiteralParser.parseBigDecimal(val.floatLiteral().getText());
       } catch (Exception e) {
         return null;
       }
@@ -2996,6 +2996,29 @@ public class StvnTypeResolver {
       }
     }
 
+    // Sanitize degraded float bounds violating physical storage capacity or discrete interval rules
+    if (baseType != null && isFloatType(baseType)) {
+      var c = rs.constraints();
+      if (c.exact()) {
+        if (c.maxIncl().isPresent() || c.minExcl().isPresent() || c.size().isPresent()) {
+          return new ResolvedSchema(rs.node(), StvnConstraints.empty(), rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), Optional.of(StvnConstraints.empty()), true, rs.enumSubset());
+        }
+      } else {
+        var size = c.size().orElse(64);
+        var minPhys = (size == 32) ? StvnVocabulary.FLOAT32_MIN : StvnVocabulary.FLOAT64_MIN;
+        var maxPhys = (size == 32) ? StvnVocabulary.FLOAT32_MAX : StvnVocabulary.FLOAT64_MAX;
+
+        boolean outOfBounds = false;
+        if (c.minIncl().isPresent() && (c.minIncl().get().compareTo(minPhys) < 0 || c.minIncl().get().compareTo(maxPhys) > 0)) outOfBounds = true;
+        if (c.minExcl().isPresent() && (c.minExcl().get().compareTo(minPhys) < 0 || c.minExcl().get().compareTo(maxPhys) > 0)) outOfBounds = true;
+        if (c.maxIncl().isPresent() && (c.maxIncl().get().compareTo(minPhys) < 0 || c.maxIncl().get().compareTo(maxPhys) > 0)) outOfBounds = true;
+        if (c.maxExcl().isPresent() && (c.maxExcl().get().compareTo(minPhys) < 0 || c.maxExcl().get().compareTo(maxPhys) > 0)) outOfBounds = true;
+
+        if (outOfBounds) {
+          return new ResolvedSchema(rs.node(), StvnConstraints.empty(), rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), Optional.of(StvnConstraints.empty()), true, rs.enumSubset());
+        }
+      }
+    }
 
     var constraints = rs.constraints();
     if (constraints.regex().isPresent()) {
@@ -4811,9 +4834,21 @@ public class StvnTypeResolver {
       validateMetadataMapConstraints(typeName, metaMap, resolvedOpt.orElse(null), diagnosticBag);
       if (diagnosticBag.size() > errorCountBefore) {
         boolean hasOverflow = diagnosticBag.toList().subList(errorCountBefore, diagnosticBag.size()).stream()
-            .anyMatch(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)));
+            .anyMatch(d -> {
+              String ec = d.errorCode().orElse(null);
+              return DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(ec)
+                  || DiagnosticBag.ERR_CAPACITY_OVERFLOW.equals(ec)
+                  || DiagnosticBag.ERR_DISCRETE_BOUND_KIND_PROHIBITED.equals(ec)
+                  || DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE.equals(ec);
+            });
         if (hasOverflow) {
           markTypePoisoned(doc, typeName);
+          if (typeDef.getParent() instanceof StvnParser.PackageElementContext peCtx
+              && peCtx.getParent() instanceof StvnParser.PackageEnclosureContext pkgEncCtx) {
+            var pkgPath = pkgEncCtx.packagePath().getText();
+            var fqni = pkgPath + "/" + typeName.substring(1);
+            markTypePoisoned(doc, fqni);
+          }
         }
       }
       if (resolvedOpt.isPresent()) {
@@ -5499,7 +5534,7 @@ public class StvnTypeResolver {
           );
         }
       } else if (permitted != null && !permitted.contains(facetName)) {
-        if ((StvnVocabulary.TYPE_INT.equals(normalizedBase) || StvnVocabulary.TYPE_TIME_EPOCH.equals(normalizedBase) || StvnVocabulary.TYPE_DATE_TIME.equals(normalizedBase))
+        if ((StvnVocabulary.TYPE_INT.equals(normalizedBase) || StvnVocabulary.TYPE_TIME_EPOCH.equals(normalizedBase) || StvnVocabulary.TYPE_DATE_TIME.equals(normalizedBase) || StvnVocabulary.TYPE_FLOAT.equals(normalizedBase))
             && ("minExcl".equals(facetName) || "maxIncl".equals(facetName))) {
           // Discrete bound kind violations on discrete types are handled specifically by discrete interval validator
           continue;
@@ -5949,6 +5984,29 @@ public class StvnTypeResolver {
           metadataMap.getStop().getStopIndex() + 1,
           metadataMap.getStart().getLine(),
           metadataMap.getStart().getCharPositionInLine(),
+          null,
+          DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+      );
+    }
+
+    // Local mutual exclusivity check: #exact and #size in the same metadata block on :Float (Trap 12)
+    boolean hasLocalExact = false;
+    StvnParser.MetadataEntryContext sizeEntryCtx = null;
+    for (var entry : metadataMap.metadataEntry()) {
+      if (entry.metadataFlag() != null && entry.metadataFlag().KW_EXACT() != null) {
+        hasLocalExact = true;
+      }
+      if (entry.metadataSize() != null && entry.metadataSize().KW_SIZE() != null) {
+        sizeEntryCtx = entry;
+      }
+    }
+    if (hasLocalExact && sizeEntryCtx != null) {
+      diagnosticBag.addError(
+          "Constraint violation (" + name + "): facet '#size' is mutually exclusive with '#exact'",
+          sizeEntryCtx.getStart().getStartIndex(),
+          sizeEntryCtx.getStop().getStopIndex() + 1,
+          sizeEntryCtx.getStart().getLine(),
+          sizeEntryCtx.getStart().getCharPositionInLine(),
           null,
           DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
       );
@@ -6528,16 +6586,9 @@ public class StvnTypeResolver {
     if (isFloatType) {
       var isExact = consolidated.exact();
       if (!isExact) {
-        var minPhys = BigDecimal.ZERO;
-        var maxPhys = BigDecimal.ZERO;
         var bitWidth = consolidated.size().orElse(64);
-        if (bitWidth == 32) {
-          minPhys = BigDecimal.valueOf(-Float.MAX_VALUE);
-          maxPhys = BigDecimal.valueOf(Float.MAX_VALUE);
-        } else {
-          minPhys = BigDecimal.valueOf(-Double.MAX_VALUE);
-          maxPhys = BigDecimal.valueOf(Double.MAX_VALUE);
-        }
+        var minPhys = (bitWidth == 32) ? StvnVocabulary.FLOAT32_MIN : StvnVocabulary.FLOAT64_MIN;
+        var maxPhys = (bitWidth == 32) ? StvnVocabulary.FLOAT32_MAX : StvnVocabulary.FLOAT64_MAX;
 
         for (var entry : metadataMap.metadataEntry()) {
           if (entry.metadataRange() != null) {
@@ -6551,25 +6602,22 @@ public class StvnTypeResolver {
             var mv = numCtx.metadataValue();
             if (mv != null) {
               java.math.BigDecimal valBD = null;
-              ParserRuleContext pinNode = null;
               if (mv.floatLiteral() != null) {
-                valBD = new java.math.BigDecimal(mv.floatLiteral().getText());
-                pinNode = mv.floatLiteral();
+                valBD = StvnLiteralParser.parseBigDecimal(mv.floatLiteral().getText());
               } else if (mv.valueKeyword() != null) {
                 var doc = findEnclosingDocument(metadataMap);
                 var constDefOpt = findConstantDefinition(doc, mv.valueKeyword().getText(), mv.valueKeyword());
                 if (constDefOpt.isPresent()) {
                   valBD = resolveConstantNumericValue(doc, constDefOpt.get());
-                  pinNode = mv.valueKeyword();
                 }
               }
-              if (valBD != null && pinNode != null && (valBD.compareTo(minPhys) < 0 || valBD.compareTo(maxPhys) > 0)) {
+              if (valBD != null && (valBD.compareTo(minPhys) < 0 || valBD.compareTo(maxPhys) > 0)) {
                 diagnosticBag.addError(
                     "Constraint violation (" + name + "): #" + constraintName + " value " + valBD + " is out of bounds for physical capacity of " + baseType + " (" + minPhys + " to " + maxPhys + ")",
-                    pinNode.getStart().getStartIndex(),
-                    pinNode.getStop().getStopIndex() + 1,
-                    pinNode.getStart().getLine(),
-                    pinNode.getStart().getCharPositionInLine(),
+                    numCtx.getStart().getStartIndex(),
+                    numCtx.getStop().getStopIndex() + 1,
+                    numCtx.getStart().getLine(),
+                    numCtx.getStart().getCharPositionInLine(),
                     null,
                     DiagnosticBag.ERR_CAPACITY_OVERFLOW
                 );
