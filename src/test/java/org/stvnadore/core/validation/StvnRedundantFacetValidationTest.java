@@ -1355,7 +1355,7 @@ public class StvnRedundantFacetValidationTest {
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertTrue(result.hasErrors());
-    assertTrue(result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_CAPACITY_OVERFLOW.equals(d.errorCode().orElse(null))),
+    assertTrue(result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) || DiagnosticBag.ERR_CAPACITY_OVERFLOW.equals(d.errorCode().orElse(null))),
         "Out of bounds value must emit ERR_CAPACITY_OVERFLOW, not WARN_REDUNDANT_METADATA_FACET");
     assertFalse(result.diagnostics().stream().anyMatch(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))));
   }

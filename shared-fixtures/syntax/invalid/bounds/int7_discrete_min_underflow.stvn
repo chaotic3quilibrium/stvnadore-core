@@ -1,0 +1,10 @@
+// @spec: SPEC-05-SCALAR-KERNEL
+// @case: Negative - Signed 7-bit arbitrary bit-width integer underflow
+// @error: ERR_INTEGER_OVERFLOW
+{
+  :defs {
+    :Int7 { #size 7 #minIncl -65 } :Int
+  }
+  :type :Int7
+  :body 0
+}

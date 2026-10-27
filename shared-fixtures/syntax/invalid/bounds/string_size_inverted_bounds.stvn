@@ -1,0 +1,10 @@
+// @spec: SPEC-05-SCALAR-KERNEL
+// @case: Negative - String cardinality bounds inversion (#minSize greater than #maxSize)
+// @error: INVALID_NUMERIC_RANGE
+{
+  :defs {
+    :InvertedString { #minSize 100 #maxSize 50 } :String
+  }
+  :type :InvertedString
+  :body ""
+}

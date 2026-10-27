@@ -1,0 +1,10 @@
+// @spec: SPEC-05-TEMPORAL-KERNEL
+// @case: Negative - 128-bit nanosecond epoch timestamp overflow
+// @error: ERR_INTEGER_OVERFLOW
+{
+  :defs {
+    :NanoEpoch { #ns #maxExcl 170141183460469231731687303715884105728 } :TimeEpoch
+  }
+  :type :NanoEpoch
+  :body 0
+}

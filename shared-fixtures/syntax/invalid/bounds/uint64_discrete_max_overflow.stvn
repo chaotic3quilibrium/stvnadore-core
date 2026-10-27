@@ -1,0 +1,10 @@
+// @spec: SPEC-05-SCALAR-KERNEL
+// @case: Negative - Unsigned 64-bit integer bound overflow beyond maxExcl ceiling
+// @error: ERR_INTEGER_OVERFLOW
+{
+  :defs {
+    :UInt64 { #unsigned #size 64 #maxExcl 18446744073709551617 } :Int
+  }
+  :type :UInt64
+  :body 0
+}

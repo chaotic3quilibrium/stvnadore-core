@@ -1,0 +1,11 @@
+{
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body (
+    #INVALID_NUMERIC_RANGE
+    "Constraint violation (:InvertedString): cardinality range is invalid (#minSize 100 is greater than #maxSize 50)"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

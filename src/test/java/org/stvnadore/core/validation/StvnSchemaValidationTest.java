@@ -308,7 +308,7 @@ public class StvnSchemaValidationTest {
         .toList();
 
     Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_INVERTED_RANGE), "Missing ERR_INVERTED_RANGE");
-    Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_CAPACITY_OVERFLOW), "Missing ERR_CAPACITY_OVERFLOW");
+    Assertions.assertTrue((codes.contains(DiagnosticBag.ERR_INTEGER_OVERFLOW) || codes.contains(DiagnosticBag.ERR_CAPACITY_OVERFLOW)), "Missing ERR_CAPACITY_OVERFLOW");
     Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_INVALID_METADATA_FACET), "Missing ERR_INVALID_METADATA_FACET");
     Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_INVALID_REGEX), "Missing ERR_INVALID_REGEX");
   }

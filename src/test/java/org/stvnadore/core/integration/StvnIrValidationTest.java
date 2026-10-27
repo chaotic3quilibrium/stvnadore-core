@@ -290,6 +290,9 @@ public class StvnIrValidationTest {
       if (msg.contains("Integer bit-width #size must be")) {
         return "CAPACITY_OVERFLOW";
       }
+      if (msg.contains("is out of bounds for physical capacity") || msg.contains("ERR_INTEGER_OVERFLOW")) {
+        return "ERR_INTEGER_OVERFLOW";
+      }
       if (msg.contains("requires an explicit boolean value")) {
         return "ERR_INVALID_METADATA_FACET";
       }

@@ -93,10 +93,8 @@ public final class StvnLiteralParser {
     }
 
     public long toLong() {
-      var val = Long.parseLong(absoluteValueAsText, radix);
-      return isNegative
-          ? -val
-          : val;
+      var big = toBigInteger();
+      return big.longValue();
     }
   }
 

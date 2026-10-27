@@ -17,6 +17,7 @@ import org.stvnadore.core.ast.StvnDocumentMeta;
 import org.stvnadore.core.stdlib.StvnPrelude;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 import org.stvnadore.core.ir.StvnLiteralParser;
 
 import java.io.IOException;
@@ -2970,6 +2971,31 @@ public class StvnTypeResolver {
     }
     var baseType = getPrimitiveBaseType(rs.node());
 
+    // Sanitize degraded integer or temporal epoch bounds violating physical storage capacity
+    if (baseType != null && (isIntegerType(baseType) || isTimeEpochType(baseType))) {
+      var c = rs.constraints();
+      var bitWidth = c.size().orElse(32);
+      if (c.size().isEmpty() && isTimeEpochType(baseType)) {
+        bitWidth = (c.scale().isPresent() && "ns".equals(c.scale().get())) ? 128 : 64;
+      }
+      var isUnsigned = c.unsigned();
+      var minPhys = isUnsigned ? java.math.BigInteger.ZERO : java.math.BigInteger.ONE.shiftLeft(bitWidth - 1).negate();
+      var maxPhys = isUnsigned
+          ? java.math.BigInteger.ONE.shiftLeft(bitWidth).subtract(java.math.BigInteger.ONE)
+          : java.math.BigInteger.ONE.shiftLeft(bitWidth - 1).subtract(java.math.BigInteger.ONE);
+      var maxExclBound = isTimeEpochType(baseType) ? maxPhys : maxPhys.add(java.math.BigInteger.ONE);
+
+      boolean outOfBounds = false;
+      if (c.minIncl().isPresent() && (c.minIncl().get().toBigInteger().compareTo(minPhys) < 0 || c.minIncl().get().toBigInteger().compareTo(maxPhys) > 0)) outOfBounds = true;
+      if (c.minExcl().isPresent() && (c.minExcl().get().toBigInteger().compareTo(minPhys.subtract(java.math.BigInteger.ONE)) < 0 || c.minExcl().get().toBigInteger().compareTo(maxPhys) > 0)) outOfBounds = true;
+      if (c.maxIncl().isPresent() && (c.maxIncl().get().toBigInteger().compareTo(minPhys) < 0 || c.maxIncl().get().toBigInteger().compareTo(maxPhys) > 0)) outOfBounds = true;
+      if (c.maxExcl().isPresent() && (c.maxExcl().get().toBigInteger().compareTo(minPhys) < 0 || c.maxExcl().get().toBigInteger().compareTo(maxExclBound) > 0)) outOfBounds = true;
+
+      if (outOfBounds) {
+        return new ResolvedSchema(rs.node(), StvnConstraints.empty(), rs.aliasName(), rs.implicitUnionTag(), rs.sumTypeNode(), rs.underlyingSchema(), Optional.of(StvnConstraints.empty()), true, rs.enumSubset());
+      }
+    }
+
 
     var constraints = rs.constraints();
     if (constraints.regex().isPresent()) {
@@ -4781,7 +4807,15 @@ public class StvnTypeResolver {
           markTypePoisoned(doc, fqni);
         }
       }
+      int errorCountBefore = diagnosticBag.size();
       validateMetadataMapConstraints(typeName, metaMap, resolvedOpt.orElse(null), diagnosticBag);
+      if (diagnosticBag.size() > errorCountBefore) {
+        boolean hasOverflow = diagnosticBag.toList().subList(errorCountBefore, diagnosticBag.size()).stream()
+            .anyMatch(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)));
+        if (hasOverflow) {
+          markTypePoisoned(doc, typeName);
+        }
+      }
       if (resolvedOpt.isPresent()) {
         var metaConstraints = extractConstraints(metaMap);
         if (metaConstraints.invertible()) {
@@ -5764,20 +5798,19 @@ public class StvnTypeResolver {
         var sizeCtx = entry.metadataSize();
         var mv = sizeCtx.metadataValue();
         if (mv != null && isContainerOrString) {
-          Integer val = null;
+          java.math.BigInteger val = null;
           if (mv.integerLiteral() != null) {
             try {
-              val = Integer.parseInt(mv.integerLiteral().getText());
-            } catch (NumberFormatException ignored) {}
+              val = StvnLiteralParser.parseBigInteger(mv.integerLiteral().getText());
+            } catch (Exception ignored) {}
           } else if (mv.valueKeyword() != null) {
             var doc = findEnclosingDocument(metadataMap);
             var cOpt = findConstantDefinition(doc, mv.valueKeyword().getText(), mv.valueKeyword());
             if (cOpt.isPresent()) {
-              var bi = resolveConstantIntegerValue(doc, cOpt.get());
-              if (bi != null) val = bi.intValue();
+              val = resolveConstantIntegerValue(doc, cOpt.get());
             }
           }
-          if (val != null && val == 0) {
+          if (val != null && val.signum() == 0) {
             String targetDesc = StvnVocabulary.TYPE_STRING.equals(targetBaseType)
                 ? "string cardinality is inherently non-negative"
                 : "container cardinality is inherently non-negative";
@@ -6447,17 +6480,17 @@ public class StvnTypeResolver {
               }
             }
             if (valBI != null && pinNode != null) {
-              var maxBound = constraintName.equals("maxExcl") ? maxPhys.add(java.math.BigInteger.ONE) : maxPhys;
+              var maxBound = (constraintName.equals("maxExcl") && !isTimeEpochType(baseType)) ? maxPhys.add(java.math.BigInteger.ONE) : maxPhys;
               var minBound = constraintName.equals("minExcl") ? minPhys.subtract(java.math.BigInteger.ONE) : minPhys;
               if (valBI.compareTo(minBound) < 0 || valBI.compareTo(maxBound) > 0) {
                 diagnosticBag.addError(
                     "Constraint violation (" + name + "): #" + constraintName + " value " + valBI + " is out of bounds for physical capacity of " + baseType + " (" + minPhys + " to " + maxPhys + ")",
-                    pinNode.getStart().getStartIndex(),
-                    pinNode.getStop().getStopIndex() + 1,
-                    pinNode.getStart().getLine(),
-                    pinNode.getStart().getCharPositionInLine(),
+                    numCtx.getStart().getStartIndex(),
+                    numCtx.getStop().getStopIndex() + 1,
+                    numCtx.getStart().getLine(),
+                    numCtx.getStart().getCharPositionInLine(),
                     null,
-                    DiagnosticBag.ERR_CAPACITY_OVERFLOW
+                    DiagnosticBag.ERR_INTEGER_OVERFLOW
                 );
               }
             }

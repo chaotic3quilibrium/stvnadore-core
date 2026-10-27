@@ -1,0 +1,10 @@
+// @spec: SPEC-05-SCALAR-KERNEL
+// @case: Negative - Unsigned 49-bit arbitrary bit-width integer overflow
+// @error: ERR_INTEGER_OVERFLOW
+{
+  :defs {
+    :UInt49 { #unsigned #size 49 #maxExcl 562949953421313 } :Int
+  }
+  :type :UInt49
+  :body 0
+}

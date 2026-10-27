@@ -1,0 +1,11 @@
+{
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body (
+    #ERR_INTEGER_OVERFLOW
+    "Constraint violation (:UInt64): #maxExcl value 18446744073709551617 is out of bounds for physical capacity of :Int (0 to 18446744073709551615)"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

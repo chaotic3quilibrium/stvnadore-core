@@ -1146,4 +1146,228 @@ public class StvnDiagnosticsTest {
     Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_EMPTY_DEFS_BLOCK));
     Assertions.assertTrue(codes.contains("STVN_SYNTAX_ERROR"));
   }
+
+  @Test
+  @DisplayName("Discrete bound underflow on :Int emits ERR_INTEGER_OVERFLOW pinned to #minIncl <val> with clean degraded sentinel")
+  void testInt32DiscreteBoundUnderflowPinsCorrectly() {
+    String input = """
+        {
+          :defs {
+            :Int32 { #minIncl -2147483649 } :Int
+          }
+          :type :Int32
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertTrue(result.diagnostics().stream().anyMatch(d ->
+        DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(""))));
+
+    var overflowDiag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse("")))
+        .findFirst()
+        .orElseThrow();
+
+    String expectedFacet = "#minIncl -2147483649";
+    int expectedStart = input.indexOf(expectedFacet);
+    int expectedEnd = expectedStart + expectedFacet.length();
+
+    Assertions.assertEquals(expectedStart, overflowDiag.startOffset(), "Diagnostic must pin strictly to #minIncl <val> start");
+    Assertions.assertEquals(expectedEnd, overflowDiag.endOffset(), "Diagnostic must pin strictly to #minIncl <val> end");
+    Assertions.assertTrue(overflowDiag.message().contains("out of bounds for physical capacity of :Int"));
+  }
+
+  @Test
+  @DisplayName("Discrete bound overflow on :Int emits ERR_INTEGER_OVERFLOW pinned to #maxExcl <val>")
+  void testInt32DiscreteBoundOverflowPinsCorrectly() {
+    String input = """
+        {
+          :defs {
+            :Int32 { #maxExcl 2147483649 } :Int
+          }
+          :type :Int32
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+
+    var overflowDiag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse("")))
+        .findFirst()
+        .orElseThrow();
+
+    String expectedFacet = "#maxExcl 2147483649";
+    int expectedStart = input.indexOf(expectedFacet);
+    int expectedEnd = expectedStart + expectedFacet.length();
+
+    Assertions.assertEquals(expectedStart, overflowDiag.startOffset());
+    Assertions.assertEquals(expectedEnd, overflowDiag.endOffset());
+  }
+
+  @Test
+  @DisplayName("Discrete bound overflow on 64-bit unsigned integer emits ERR_INTEGER_OVERFLOW")
+  void testUInt64DiscreteBoundOverflowPinsCorrectly() {
+    String input = """
+        {
+          :defs {
+            :UInt64 { #unsigned #size 64 #maxExcl 18446744073709551617 } :Int
+          }
+          :type :UInt64
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+
+    var overflowDiag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse("")))
+        .findFirst()
+        .orElseThrow();
+
+    String expectedFacet = "#maxExcl 18446744073709551617";
+    int expectedStart = input.indexOf(expectedFacet);
+    int expectedEnd = expectedStart + expectedFacet.length();
+
+    Assertions.assertEquals(expectedStart, overflowDiag.startOffset());
+    Assertions.assertEquals(expectedEnd, overflowDiag.endOffset());
+  }
+
+  @Test
+  @DisplayName("Discrete bound underflow on 7-bit signed integer emits ERR_INTEGER_OVERFLOW")
+  void testInt7DiscreteBoundUnderflowPinsCorrectly() {
+    String input = """
+        {
+          :defs {
+            :Int7 { #size 7 #minIncl -65 } :Int
+          }
+          :type :Int7
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+
+    var overflowDiag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse("")))
+        .findFirst()
+        .orElseThrow();
+
+    String expectedFacet = "#minIncl -65";
+    int expectedStart = input.indexOf(expectedFacet);
+    int expectedEnd = expectedStart + expectedFacet.length();
+
+    Assertions.assertEquals(expectedStart, overflowDiag.startOffset());
+    Assertions.assertEquals(expectedEnd, overflowDiag.endOffset());
+  }
+
+  @Test
+  @DisplayName("Discrete bound overflow on 49-bit unsigned integer emits ERR_INTEGER_OVERFLOW")
+  void testUInt49DiscreteBoundOverflowPinsCorrectly() {
+    String input = """
+        {
+          :defs {
+            :UInt49 { #unsigned #size 49 #maxExcl 562949953421313 } :Int
+          }
+          :type :UInt49
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+
+    var overflowDiag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse("")))
+        .findFirst()
+        .orElseThrow();
+
+    String expectedFacet = "#maxExcl 562949953421313";
+    int expectedStart = input.indexOf(expectedFacet);
+    int expectedEnd = expectedStart + expectedFacet.length();
+
+    Assertions.assertEquals(expectedStart, overflowDiag.startOffset());
+    Assertions.assertEquals(expectedEnd, overflowDiag.endOffset());
+  }
+
+  @Test
+  @DisplayName("Discrete bound overflow on 128-bit nanosecond epoch timestamp emits ERR_INTEGER_OVERFLOW")
+  void testTimeEpochNs128BitOverflowPinsCorrectly() {
+    String input = """
+        {
+          :defs {
+            :NanoEpoch { #ns #maxExcl 170141183460469231731687303715884105728 } :TimeEpoch
+          }
+          :type :NanoEpoch
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+
+    var overflowDiag = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse("")))
+        .findFirst()
+        .orElseThrow();
+
+    String expectedFacet = "#maxExcl 170141183460469231731687303715884105728";
+    int expectedStart = input.indexOf(expectedFacet);
+    int expectedEnd = expectedStart + expectedFacet.length();
+
+    Assertions.assertEquals(expectedStart, overflowDiag.startOffset());
+    Assertions.assertEquals(expectedEnd, overflowDiag.endOffset());
+  }
+
+  @Test
+  @DisplayName("String cardinality bounds inversion emits ERR_INVERTED_RANGE")
+  void testStringSizeInvertedBoundsPinsCorrectly() {
+    String input = """
+        {
+          :defs {
+            :InvertedString { #minSize 100 #maxSize 50 } :String
+          }
+          :type :InvertedString
+          :body ""
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertTrue(result.diagnostics().stream().anyMatch(d ->
+        DiagnosticBag.ERR_INVERTED_RANGE.equals(d.errorCode().orElse(""))));
+  }
+
+  @Test
+  @DisplayName("Degraded schema clean fallback ensures invalid bounds do not leak into AST visitors")
+  void testDegradedSchemaCleanFallback() {
+    String input = """
+        {
+          :defs {
+            :Int32 { #minIncl -2147483649 } :Int
+          }
+          :type :Int32
+          :body 0
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertTrue(result.diagnostics().stream().anyMatch(d ->
+        DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(""))));
+    Assertions.assertEquals(1, result.diagnostics().size(), "Only the boundary overflow error must be reported");
+  }
+
+  @Test
+  @DisplayName("Large cardinality size cap exceeds 32-bit integer capacity without overflow")
+  void testLargeCardinalitySizeParsing() {
+    String input = """
+        {
+          :defs {
+            :LargeBlob { #maxSize 10995116277760 } :String
+          }
+          :type :LargeBlob
+          :body "test"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.isSuccess(), "Large cardinality size must parse successfully without overflow: " + result.diagnostics());
+  }
 }

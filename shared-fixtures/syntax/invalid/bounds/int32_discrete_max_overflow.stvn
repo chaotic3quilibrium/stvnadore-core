@@ -1,0 +1,10 @@
+// @spec: SPEC-05-SCALAR-KERNEL
+// @case: Negative - Signed 32-bit integer bound overflow beyond maxExcl ceiling
+// @error: ERR_INTEGER_OVERFLOW
+{
+  :defs {
+    :Int32 { #maxExcl 2147483649 } :Int
+  }
+  :type :Int32
+  :body 0
+}
