@@ -311,4 +311,39 @@ public class StvnEnumSubsetTest {
 
     assertNotEquals(ByteBuffer.wrap(hashA), ByteBuffer.wrap(hashB));
   }
+
+  @Test
+  @DisplayName("TC-ENUM-04: Out-of-order variant in enum subset pins coordinates strictly to offending variant token")
+  void testOutOfOrderVariantTokenCoordinatePinning() {
+    String stvn = """
+        {
+          :defs {
+            :TerminalStatus :Enum [ #REJECTED #FILLED #CANCELLED ]
+            :FilterSubset { #filterIncl [ #FILLED #REJECTED ] } :TerminalStatus
+          }
+          :type :FilterSubset
+          :body #FILLED
+        }
+        """;
+    var result = StvnCompiler.compileToResult(stvn);
+    assertFalse(result.isSuccess());
+    var diagOpt = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_ENUM_SUBSET_ORDER_VIOLATION.equals(d.errorCode().orElse(null)))
+        .findFirst();
+    assertTrue(diagOpt.isPresent(), "Expected ERR_ENUM_SUBSET_ORDER_VIOLATION diagnostic");
+    var diag = diagOpt.get();
+    assertTrue(diag.message().contains("Root ordering violation"));
+    assertTrue(diag.message().contains("#REJECTED"));
+
+    int filterInclIndex = stvn.indexOf("#filterIncl");
+    int rejectedStart = stvn.indexOf("#REJECTED", filterInclIndex);
+    int rejectedEnd = rejectedStart + "#REJECTED".length();
+
+    assertEquals(rejectedStart, diag.startOffset(), "startOffset must pin strictly to #REJECTED");
+    assertEquals(rejectedEnd, diag.endOffset(), "endOffset must pin strictly to #REJECTED");
+    assertEquals(4, diag.line(), "Line must pin strictly to line 4 of offending variant token");
+    int lineStart = stvn.lastIndexOf('\n', rejectedStart) + 1;
+    int expectedCol = rejectedStart - lineStart;
+    assertEquals(expectedCol, diag.column(), "column must pin strictly to column of #REJECTED");
+  }
 }

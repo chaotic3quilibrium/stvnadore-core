@@ -1,0 +1,15 @@
+// @spec: SPEC-06-TRAIT-CAPABILITY
+// @case: Negative - Tuple with multiple non-equatable set siblings accumulates diagnostics
+// @error: TRAIT_VIOLATION
+{
+  :meta {
+    #name "tuple_sibling_sets_non_equatable"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :NonEq1 :Tuple( :Float )
+    :NonEq2 :Tuple( :Float :Float )
+  }
+  :type :Tuple( :Set( :NonEq1 ) :Set( :NonEq2 ) )
+  :body ( [ ( 1.0 ) ] [ ( 1.0 2.0 ) ] )
+}

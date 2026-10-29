@@ -24,6 +24,10 @@ public class MalformedSchemaException extends RuntimeException {
   private final int startOffset;
   /** The end character offset of the error (exclusive). */
   private final int endOffset;
+  /** The 1-based line number of the error locus, or -1 if unknown. */
+  private final int line;
+  /** The 0-based character column offset in line of the error locus, or -1 if unknown. */
+  private final int charPositionInLine;
 
   /**
    * Constructs a new MalformedSchemaException with the specified detail message.
@@ -31,7 +35,7 @@ public class MalformedSchemaException extends RuntimeException {
    * @param message the detail message describing the schema validation failure
    */
   public MalformedSchemaException(String message) {
-    this(message, -1, -1, null);
+    this(message, -1, -1, -1, -1, null);
   }
 
   /**
@@ -41,7 +45,7 @@ public class MalformedSchemaException extends RuntimeException {
    * @param cause   the underlying cause of the schema validation failure
    */
   public MalformedSchemaException(String message, @Nullable Throwable cause) {
-    this(message, -1, -1, cause);
+    this(message, -1, -1, -1, -1, cause);
   }
 
   /**
@@ -52,7 +56,7 @@ public class MalformedSchemaException extends RuntimeException {
    * @param endOffset   the end character offset (exclusive)
    */
   public MalformedSchemaException(String message, int startOffset, int endOffset) {
-    this(message, startOffset, endOffset, null);
+    this(message, startOffset, endOffset, -1, -1, null);
   }
 
   /**
@@ -64,9 +68,40 @@ public class MalformedSchemaException extends RuntimeException {
    * @param cause       the underlying cause of the validation failure
    */
   public MalformedSchemaException(String message, int startOffset, int endOffset, @Nullable Throwable cause) {
+    this(message, startOffset, endOffset, -1, -1, cause);
+  }
+
+  /**
+   * Constructs a new MalformedSchemaException with full coordinate localization.
+   *
+   * @param message            the detail message describing the validation failure
+   * @param startOffset        the start character offset (inclusive)
+   * @param endOffset          the end character offset (exclusive)
+   * @param line               the 1-based line number of the error locus
+   * @param charPositionInLine the 0-based character column offset in line
+   */
+  public MalformedSchemaException(
+      String message, int startOffset, int endOffset, int line, int charPositionInLine) {
+    this(message, startOffset, endOffset, line, charPositionInLine, null);
+  }
+
+  /**
+   * Constructs a new MalformedSchemaException with full coordinate localization and cause.
+   *
+   * @param message            the detail message describing the validation failure
+   * @param startOffset        the start character offset (inclusive)
+   * @param endOffset          the end character offset (exclusive)
+   * @param line               the 1-based line number of the error locus
+   * @param charPositionInLine the 0-based character column offset in line
+   * @param cause              the underlying cause of the validation failure
+   */
+  public MalformedSchemaException(
+      String message, int startOffset, int endOffset, int line, int charPositionInLine, @Nullable Throwable cause) {
     super(message, cause);
     this.startOffset = startOffset;
     this.endOffset = endOffset;
+    this.line = line;
+    this.charPositionInLine = charPositionInLine;
   }
 
   /**
@@ -86,5 +121,22 @@ public class MalformedSchemaException extends RuntimeException {
   public int endOffset() {
     return endOffset;
   }
-}
 
+  /**
+   * Returns the 1-based line number of the error locus.
+   *
+   * @return the line number, or -1 if unassigned
+   */
+  public int line() {
+    return line;
+  }
+
+  /**
+   * Returns the 0-based character column offset in line of the error locus.
+   *
+   * @return the column offset, or -1 if unassigned
+   */
+  public int charPositionInLine() {
+    return charPositionInLine;
+  }
+}

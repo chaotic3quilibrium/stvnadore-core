@@ -2821,6 +2821,8 @@ public class StvnTypeResolver {
             if (idx <= prevRootIdx) {
               int start = -1;
               int end = -1;
+              int line = -1;
+              int col = -1;
               if (schemaNode.metadataMap() != null) {
                 for (var entry : schemaNode.metadataMap().metadataEntry()) {
                   if (entry.metadataFilter() != null && entry.metadataFilter().variantList() != null) {
@@ -2828,11 +2830,15 @@ public class StvnTypeResolver {
                     if (i < vks.size()) {
                       start = vks.get(i).getStart().getStartIndex();
                       end = vks.get(i).getStop().getStopIndex() + 1;
+                      line = vks.get(i).getStart().getLine();
+                      col = vks.get(i).getStart().getCharPositionInLine();
                     }
                   }
                 }
               }
-              throw new MalformedSchemaException("Constraint violation (" + subsetName + "): Root ordering violation: variant " + v + " does not match relative declaration order of root :Enum " + rootEnumName, start, end);
+              throw new MalformedSchemaException(
+                  "Constraint violation (" + subsetName + "): Root ordering violation: variant " + v + " does not match relative declaration order of root :Enum " + rootEnumName,
+                  start, end, line, col, null);
             }
             prevRootIdx = idx;
           }
@@ -4854,8 +4860,8 @@ public class StvnTypeResolver {
       markTypePoisoned(doc, typeName);
       return;
     } catch (MalformedSchemaException e) {
-      int line = typeDef.getStart().getLine();
-      int col = typeDef.getStart().getCharPositionInLine();
+      int line = e.line() >= 0 ? e.line() : typeDef.getStart().getLine();
+      int col = e.charPositionInLine() >= 0 ? e.charPositionInLine() : typeDef.getStart().getCharPositionInLine();
       int start = e.startOffset() >= 0 ? e.startOffset() : typeDef.getStart().getStartIndex();
       int end = e.endOffset() >= 0 ? e.endOffset() : typeDef.getStop().getStopIndex() + 1;
       String msg = e.getMessage() != null ? e.getMessage() : "";
@@ -5500,7 +5506,16 @@ public class StvnTypeResolver {
     if (metadataMap == null) return;
 
     // 1. Strict 7-Tier Canonical Facet Ordering & Universal Allowlist Check
-    String baseCandidate = resolved != null ? getPrimitiveBaseType(resolved.node()) : null;
+    String baseCandidate = null;
+    if (resolved != null) {
+      baseCandidate = getUltimateBaseType(resolved);
+    }
+    if (baseCandidate == null && resolved != null && resolved.node() != null) {
+      baseCandidate = getPrimitiveBaseType(resolved.node());
+    }
+    if (baseCandidate == null && metadataMap.getParent() instanceof SchemaTypeContext stCtx) {
+      baseCandidate = getPrimitiveBaseType(stCtx);
+    }
     if (baseCandidate == null && name != null) {
       baseCandidate = normalizeBaseType(name);
     }

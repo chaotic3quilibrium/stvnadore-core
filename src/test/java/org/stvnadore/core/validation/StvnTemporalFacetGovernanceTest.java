@@ -135,4 +135,35 @@ public class StvnTemporalFacetGovernanceTest {
     assertEquals(expectedStart, diag.startOffset(), "startOffset must pin strictly to :DateTime");
     assertEquals(expectedEnd, diag.endOffset(), "endOffset must pin strictly to :DateTime");
   }
+
+  @Test
+  @DisplayName("TC-TEMP-06: Scale facet #us preceding mode facet #audited on :DateTime emits ERR_INVALID_METADATA_FACET")
+  void testScaleFacetPrecedingModeFacetOnDateTimeRejected() {
+    String stvn = """
+        {
+          :defs {
+            :TradeTimestamp { #us #audited } :DateTime
+          }
+          :type :TradeTimestamp
+          :body "2026-10-29T12:00:00.000000Z"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(stvn);
+    assertFalse(result.isSuccess());
+    var diagOpt = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_INVALID_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .findFirst();
+    assertTrue(diagOpt.isPresent(), "Expected ERR_INVALID_METADATA_FACET diagnostic");
+    var diag = diagOpt.get();
+    assertTrue(diag.message().contains("facet '#us' is not permitted on :DateTime"));
+    int expectedStart = stvn.indexOf("#us");
+    int expectedEnd = expectedStart + "#us".length();
+    assertEquals(expectedStart, diag.startOffset(), "startOffset must pin strictly to #us");
+    assertEquals(expectedEnd, diag.endOffset(), "endOffset must pin strictly to #us");
+    // Assert conforming sibling #audited emits zero false order violation errors
+    long orderViolations = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_FACET_ORDER_VIOLATION.equals(d.errorCode().orElse(null)))
+        .count();
+    assertEquals(0, orderViolations, "Conforming sibling #audited must not produce secondary ERR_FACET_ORDER_VIOLATION");
+  }
 }
