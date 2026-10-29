@@ -164,4 +164,29 @@ public class StvnMapTraitCalculusTest {
     );
   }
 
+
+  @Test
+  @DisplayName("TC-MAP-07: Dual key and value violation in invertible map accumulates with exact pinning")
+  void testInvertibleMapDualViolationPinning() {
+    String source = """
+        {
+          :type { #invertible } :Map( :Float :Float )
+          :body { [ 3.14 2.71 ] }
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Invertible map with continuous float key and value must fail");
+    var diags = result.diagnostics();
+    assertEquals(2, diags.size(), "Must accumulate both key and value trait violations");
+
+    var keyDiag = diags.get(0);
+    assertEquals(DiagnosticBag.ERR_TRAIT_VIOLATION, keyDiag.errorCode().orElse(null));
+    assertEquals("Map keys require types to be #equatable #TRUE", keyDiag.message());
+    assertEquals(":Float", source.substring(keyDiag.startOffset(), keyDiag.endOffset()));
+
+    var valDiag = diags.get(1);
+    assertEquals(DiagnosticBag.ERR_TRAIT_VIOLATION, valDiag.errorCode().orElse(null));
+    assertEquals("Inverted map values require types to be #equatable #TRUE", valDiag.message());
+    assertEquals(":Float", source.substring(valDiag.startOffset(), valDiag.endOffset()));
+  }
 }

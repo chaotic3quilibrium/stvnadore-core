@@ -863,4 +863,28 @@ class StvnTypeResolverRegressionTest {
         DiagnosticBag.ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT.equals(d.errorCode().orElse(null))),
         "Must record ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT: " + result.diagnostics());
   }
+
+  @Test
+  @DisplayName("TC-REG-OFFSETS-01: Throwing validateDocumentConstraints preserves legacy exception and offsets")
+  void testThrowingValidateDocumentConstraintsPreservesLegacyExceptionAndOffsets() {
+    String source = """
+        {
+          :defs {
+            :BadNode { #equatable #FALSE } :Tuple( :Int )
+          }
+          :type :Set( :BadNode )
+          :body [ ( 1 ) ]
+        }
+        """;
+    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
+    var ex = Assertions.assertThrows(
+        MalformedSchemaException.class,
+        () -> StvnTypeResolver.validateDocumentConstraints(doc),
+        "validateDocumentConstraints(doc) throwing entrypoint must throw MalformedSchemaException"
+    );
+    Assertions.assertEquals("Set elements require types to be #equatable #TRUE", ex.getMessage());
+    Assertions.assertTrue(ex.startOffset() >= 0, "startOffset must be non-negative");
+    Assertions.assertTrue(ex.endOffset() > ex.startOffset(), "endOffset must be greater than startOffset");
+    Assertions.assertEquals(":BadNode", source.substring(ex.startOffset(), ex.endOffset()));
+  }
 }

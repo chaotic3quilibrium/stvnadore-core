@@ -83,7 +83,7 @@ public class StvnTypeResolver {
   private static final Map<StvnDocumentContext, Set<String>> documentPoisonedTypes = Collections.synchronizedMap(new WeakHashMap<>());
   private static final Map<StvnDocumentContext, org.stvnadore.core.StvnParserConfig> documentConfigs = Collections.synchronizedMap(new WeakHashMap<>());
   /**
-   * The normative prefix strictly reserved for system artifacts and substrates (SPEC § 3.10.1 Item 6).
+   * The normative prefix strictly reserved for system artifacts and substrates (SPEC Â§ 3.10.1 Item 6).
    */
   public static final String RESERVED_DOMAIN_PREFIX = "stvn_";
 
@@ -2849,9 +2849,19 @@ public class StvnTypeResolver {
               var inner = getInnerSchemas(resolvedSchema.node());
               if (inner.size() >= 2) {
                 var valOpt = resolvePrimitiveSchema(doc, inner.get(1), visited, true, diagnosticBag);
-                if (valOpt.isPresent() && valOpt.get().constraints().equatable().equals(Optional.of(false))) {
-                  throw new MalformedSchemaException("Inverted map values require types to be #equatable #TRUE",
-                      schemaNode.getStart().getStartIndex(), schemaNode.getStop().getStopIndex() + 1);
+                if (valOpt.isPresent() && !valOpt.get().isPoisonedSentinel() && valOpt.get().constraints().equatable().equals(Optional.of(false))) {
+                  int start = schemaNode.getStart().getStartIndex();
+                  int end = schemaNode.getStop().getStopIndex() + 1;
+                  int line = schemaNode.getStart().getLine();
+                  int col = schemaNode.getStart().getCharPositionInLine();
+                  if (diagnosticBag != null) {
+                    diagnosticBag.addError(
+                        "Inverted map values require types to be #equatable #TRUE",
+                        start, end, line, col, null, DiagnosticBag.ERR_TRAIT_VIOLATION
+                    );
+                    return Optional.of(ResolvedSchema.error(kw, schemaNode));
+                  }
+                  throw new MalformedSchemaException("Inverted map values require types to be #equatable #TRUE", start, end);
                 }
               }
             }
@@ -2892,7 +2902,22 @@ public class StvnTypeResolver {
     boolean hasPoisonedChild = false;
     if (baseText != null) {
       for (var child : getInnerSchemas(schemaNode)) {
-        var childOpt = resolvePrimitiveSchema(doc, child, visited, true, diagnosticBag);
+        Optional<ResolvedSchema> childOpt;
+        try {
+          childOpt = resolvePrimitiveSchema(doc, child, visited, true, diagnosticBag);
+        } catch (MalformedSchemaException e) {
+          if (diagnosticBag != null) {
+            int start = e.startOffset() >= 0 ? e.startOffset() : child.getStart().getStartIndex();
+            int end = e.endOffset() >= 0 ? e.endOffset() : child.getStop().getStopIndex() + 1;
+            int line = child.getStart().getLine();
+            int col = child.getStart().getCharPositionInLine();
+            String code = mapMalformedSchemaErrorCode(e.getMessage());
+            diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
+            childOpt = Optional.of(ResolvedSchema.error(child.getText(), child));
+          } else {
+            throw e;
+          }
+        }
         if (childOpt.isPresent()) {
           var childRs = childOpt.get();
           children.add(childRs);
@@ -2905,11 +2930,25 @@ public class StvnTypeResolver {
 
 
 
+    var innerSchemas = getInnerSchemas(schemaNode);
     if (baseText != null && isSetType(baseText)) {
       if (!children.isEmpty() && !children.getFirst().isPoisonedSentinel()) {
         var c = children.getFirst().constraints();
         if (c != null && c.equatable().equals(Optional.of(false))) {
-          throw new MalformedSchemaException("Set elements require types to be #equatable #TRUE");
+          var elemNode = !innerSchemas.isEmpty() ? innerSchemas.getFirst() : schemaNode;
+          int start = elemNode.getStart().getStartIndex();
+          int end = elemNode.getStop().getStopIndex() + 1;
+          int line = elemNode.getStart().getLine();
+          int col = elemNode.getStart().getCharPositionInLine();
+          if (diagnosticBag != null) {
+            diagnosticBag.addError(
+                "Set elements require types to be #equatable #TRUE",
+                start, end, line, col, null, DiagnosticBag.ERR_TRAIT_VIOLATION
+            );
+            hasPoisonedChild = true;
+          } else {
+            throw new MalformedSchemaException("Set elements require types to be #equatable #TRUE", start, end);
+          }
         }
       }
     }
@@ -2919,8 +2958,20 @@ public class StvnTypeResolver {
         var keySchema = children.get(0);
         var keyConstraints = keySchema.constraints();
         if (keyConstraints != null && keyConstraints.equatable().equals(Optional.of(false))) {
-          throw new MalformedSchemaException("Map keys require types to be #equatable #TRUE",
-              schemaNode.getStart().getStartIndex(), schemaNode.getStop().getStopIndex() + 1);
+          var keyNode = !innerSchemas.isEmpty() ? innerSchemas.get(0) : schemaNode;
+          int start = keyNode.getStart().getStartIndex();
+          int end = keyNode.getStop().getStopIndex() + 1;
+          int line = keyNode.getStart().getLine();
+          int col = keyNode.getStart().getCharPositionInLine();
+          if (diagnosticBag != null) {
+            diagnosticBag.addError(
+                "Map keys require types to be #equatable #TRUE",
+                start, end, line, col, null, DiagnosticBag.ERR_TRAIT_VIOLATION
+            );
+            hasPoisonedChild = true;
+          } else {
+            throw new MalformedSchemaException("Map keys require types to be #equatable #TRUE", start, end);
+          }
         }
       }
       var localMeta = extractConstraints(schemaNode.metadataMap());
@@ -2928,8 +2979,20 @@ public class StvnTypeResolver {
         var valSchema = children.get(1);
         var valConstraints = valSchema.constraints();
         if (valConstraints != null && valConstraints.equatable().equals(Optional.of(false))) {
-          throw new MalformedSchemaException("Inverted map values require types to be #equatable #TRUE",
-              schemaNode.getStart().getStartIndex(), schemaNode.getStop().getStopIndex() + 1);
+          var valNode = innerSchemas.size() >= 2 ? innerSchemas.get(1) : schemaNode;
+          int start = valNode.getStart().getStartIndex();
+          int end = valNode.getStop().getStopIndex() + 1;
+          int line = valNode.getStart().getLine();
+          int col = valNode.getStart().getCharPositionInLine();
+          if (diagnosticBag != null) {
+            diagnosticBag.addError(
+                "Inverted map values require types to be #equatable #TRUE",
+                start, end, line, col, null, DiagnosticBag.ERR_TRAIT_VIOLATION
+            );
+            hasPoisonedChild = true;
+          } else {
+            throw new MalformedSchemaException("Inverted map values require types to be #equatable #TRUE", start, end);
+          }
         }
       }
     }
@@ -2937,14 +3000,30 @@ public class StvnTypeResolver {
     var localMeta = extractConstraints(schemaNode.metadataMap());
     if (localMeta.filterIncl().isPresent() || localMeta.filterExcl().isPresent()) {
       if (!StvnVocabulary.TYPE_ENUM.equals(baseText)) {
-        throw new MalformedSchemaException("Constraint violation (" + (baseText != null ? baseText : schemaNode.getText()) + "): filter facets are not allowed on " + baseText,
-            schemaNode.getStart().getStartIndex(), schemaNode.getStop().getStopIndex() + 1);
+        int start = schemaNode.getStart().getStartIndex();
+        int end = schemaNode.getStop().getStopIndex() + 1;
+        int line = schemaNode.getStart().getLine();
+        int col = schemaNode.getStart().getCharPositionInLine();
+        String msg = "Constraint violation (" + (baseText != null ? baseText : schemaNode.getText()) + "): filter facets are not allowed on " + baseText;
+        if (diagnosticBag != null) {
+          diagnosticBag.addError(msg, start, end, line, col, null, DiagnosticBag.ERR_INVALID_METADATA_FACET);
+          return Optional.of(ResolvedSchema.error(baseText != null ? baseText : schemaNode.getText(), schemaNode));
+        }
+        throw new MalformedSchemaException(msg, start, end);
       }
       if (schemaNode.schemaConstructor() != null
           && schemaNode.schemaConstructor().sumType() != null
           && schemaNode.schemaConstructor().sumType().enumDef() != null) {
-        throw new MalformedSchemaException("Constraint violation (" + (baseText != null ? baseText : StvnVocabulary.TYPE_ENUM) + "): filter facets cannot be applied to inline enum constructors; filter facets are only allowed on nominal aliases of :Enum or existing enum subsets",
-            schemaNode.getStart().getStartIndex(), schemaNode.getStop().getStopIndex() + 1);
+        int start = schemaNode.getStart().getStartIndex();
+        int end = schemaNode.getStop().getStopIndex() + 1;
+        int line = schemaNode.getStart().getLine();
+        int col = schemaNode.getStart().getCharPositionInLine();
+        String msg = "Constraint violation (" + (baseText != null ? baseText : StvnVocabulary.TYPE_ENUM) + "): filter facets cannot be applied to inline enum constructors; filter facets are only allowed on nominal aliases of :Enum or existing enum subsets";
+        if (diagnosticBag != null) {
+          diagnosticBag.addError(msg, start, end, line, col, null, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+          return Optional.of(ResolvedSchema.error(baseText != null ? baseText : schemaNode.getText(), schemaNode));
+        }
+        throw new MalformedSchemaException(msg, start, end);
       }
     }
     var baseRs = applyDefaults(new ResolvedSchema(schemaNode, localMeta, Optional.empty()));
@@ -3876,15 +3955,15 @@ public class StvnTypeResolver {
         var inner = getInnerSchemas(schemaNode);
         if (!inner.isEmpty()) {
           var elemNode = inner.getFirst();
-          var resolvedOpt = resolvePrimitiveSchema(doc, elemNode, new java.util.HashSet<>(visited));
+          var resolvedOpt = resolvePrimitiveSchema(doc, elemNode, new java.util.HashSet<>(visited), diagnosticBag);
           if (resolvedOpt.isPresent() && !resolvedOpt.get().isPoisonedSentinel()) {
             var resolved = resolvedOpt.get();
             var equatable = resolved.constraints().equatable().orElse(false);
             if (!equatable) {
-              int line = schemaNode.getStart().getLine();
-              int col = schemaNode.getStart().getCharPositionInLine();
-              int start = schemaNode.getStart().getStartIndex();
-              int end = schemaNode.getStop().getStopIndex() + 1;
+              int line = elemNode.getStart().getLine();
+              int col = elemNode.getStart().getCharPositionInLine();
+              int start = elemNode.getStart().getStartIndex();
+              int end = elemNode.getStop().getStopIndex() + 1;
               diagnosticBag.addError(
                   "Set elements require types to be #equatable #TRUE",
                   start, end, line, col, null, DiagnosticBag.ERR_TRAIT_VIOLATION
@@ -3896,15 +3975,15 @@ public class StvnTypeResolver {
         var inner = getInnerSchemas(schemaNode);
         if (!inner.isEmpty()) {
           var keyNode = inner.getFirst();
-          var resolvedOpt = resolvePrimitiveSchema(doc, keyNode, new java.util.HashSet<>(visited));
+          var resolvedOpt = resolvePrimitiveSchema(doc, keyNode, new java.util.HashSet<>(visited), diagnosticBag);
           if (resolvedOpt.isPresent() && !resolvedOpt.get().isPoisonedSentinel()) {
             var resolved = resolvedOpt.get();
             var equatable = resolved.constraints().equatable().orElse(false);
             if (!equatable) {
-              int line = schemaNode.getStart().getLine();
-              int col = schemaNode.getStart().getCharPositionInLine();
-              int start = schemaNode.getStart().getStartIndex();
-              int end = schemaNode.getStop().getStopIndex() + 1;
+              int line = keyNode.getStart().getLine();
+              int col = keyNode.getStart().getCharPositionInLine();
+              int start = keyNode.getStart().getStartIndex();
+              int end = keyNode.getStop().getStopIndex() + 1;
               diagnosticBag.addError(
                   "Map keys require types to be #equatable #TRUE",
                   start, end, line, col, null, DiagnosticBag.ERR_TRAIT_VIOLATION
@@ -3915,15 +3994,15 @@ public class StvnTypeResolver {
         var metaConstraints = extractConstraints(schemaNode.metadataMap());
         if (metaConstraints.invertible() && inner.size() >= 2) {
           var valNode = inner.get(1);
-          var resolvedValOpt = resolvePrimitiveSchema(doc, valNode, new java.util.HashSet<>(visited));
+          var resolvedValOpt = resolvePrimitiveSchema(doc, valNode, new java.util.HashSet<>(visited), diagnosticBag);
           if (resolvedValOpt.isPresent() && !resolvedValOpt.get().isPoisonedSentinel()) {
             var resolvedVal = resolvedValOpt.get();
             var equatable = resolvedVal.constraints().equatable().orElse(false);
             if (!equatable) {
-              int line = schemaNode.getStart().getLine();
-              int col = schemaNode.getStart().getCharPositionInLine();
-              int start = schemaNode.getStart().getStartIndex();
-              int end = schemaNode.getStop().getStopIndex() + 1;
+              int line = valNode.getStart().getLine();
+              int col = valNode.getStart().getCharPositionInLine();
+              int start = valNode.getStart().getStartIndex();
+              int end = valNode.getStop().getStopIndex() + 1;
               diagnosticBag.addError(
                   "Inverted map values require types to be #equatable #TRUE",
                   start, end, line, col, null, DiagnosticBag.ERR_TRAIT_VIOLATION
@@ -4310,7 +4389,7 @@ public class StvnTypeResolver {
   }
 
   /**
-   * Validates top-level structural section eligibility under STVN Specification § 1.2.
+   * Validates top-level structural section eligibility under STVN Specification Â§ 1.2.
    *
    * @param doc           the document parse tree context
    * @param docPath       the optional physical file path identifier
@@ -4640,20 +4719,7 @@ public class StvnTypeResolver {
           int line = rootSchema.getStart().getLine();
           int col = rootSchema.getStart().getCharPositionInLine();
           String msg = e.getMessage() != null ? e.getMessage() : "";
-          String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
-          if (msg.contains("requires a scale facet")) {
-            code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
-          } else if (msg.contains("requires exactly one mode facet")) {
-            code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
-          } else if (msg.contains("prelude") && msg.contains("purged")) {
-            code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
-          } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
-            code = DiagnosticBag.ERR_UNDEFINED_TYPE;
-          } else if (msg.contains("filter facets")) {
-            code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
-          } else if (msg.contains("require types to be #equatable #TRUE")) {
-            code = DiagnosticBag.ERR_TRAIT_VIOLATION;
-          }
+          String code = mapMalformedSchemaErrorCode(msg);
           diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
         } catch (CircularReferenceException e) {
           int start = rootSchema.getStart().getStartIndex();
@@ -4677,7 +4743,7 @@ public class StvnTypeResolver {
           var base = getPrimitiveBaseType(rootSchema);
           validateMetadataMapConstraints(base != null ? base : rootSchema.getText(), rootSchema.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
         }
-        if (resolvedOpt.isPresent()) {
+        if (resolvedOpt.isPresent() && !resolvedOpt.get().isPoisonedSentinel()) {
           validateSchemaCapabilities(doc, rootSchema, new java.util.HashSet<>(), diagnosticBag);
         }
       }
@@ -4779,26 +4845,7 @@ public class StvnTypeResolver {
       int start = e.startOffset() >= 0 ? e.startOffset() : typeDef.getStart().getStartIndex();
       int end = e.endOffset() >= 0 ? e.endOffset() : typeDef.getStop().getStopIndex() + 1;
       String msg = e.getMessage() != null ? e.getMessage() : "";
-      String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
-      if (msg.contains("requires a scale facet")) {
-        code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
-      } else if (msg.contains("requires exactly one mode facet")) {
-        code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
-      } else if (msg.contains("prelude") && msg.contains("purged")) {
-        code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
-      } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
-        code = DiagnosticBag.ERR_UNDEFINED_TYPE;
-      } else if (msg.contains("filter facets") || msg.contains("is not permitted on")) {
-        code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
-      } else if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
-        code = DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED;
-      } else if (msg.contains("violates canonical 7-tier order")) {
-        code = DiagnosticBag.ERR_FACET_ORDER_VIOLATION;
-      } else if (msg.contains("defines an empty domain")) {
-        code = DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;
-      } else if (msg.contains("require types to be #equatable #TRUE")) {
-        code = DiagnosticBag.ERR_TRAIT_VIOLATION;
-      }
+      String code = mapMalformedSchemaErrorCode(msg);
       diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       markTypePoisoned(doc, typeName);
       return;
@@ -4807,7 +4854,9 @@ public class StvnTypeResolver {
       markTypePoisoned(doc, typeName);
     }
 
-    validateSchemaCapabilities(doc, typeDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
+    if (resolvedOpt.isPresent() && !resolvedOpt.get().isPoisonedSentinel()) {
+      validateSchemaCapabilities(doc, typeDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
+    }
     var metaMap = typeDef.schemaType() != null ? typeDef.schemaType().metadataMap() : null;
     if (metaMap != null) {
       if (metaMap.metadataEntry().isEmpty() && !hasUnknownMetadataEntries(metaMap)) {
@@ -4942,23 +4991,14 @@ public class StvnTypeResolver {
       int start = e.startOffset() >= 0 ? e.startOffset() : constDef.getStart().getStartIndex();
       int end = e.endOffset() >= 0 ? e.endOffset() : constDef.getStop().getStopIndex() + 1;
       String msg = e.getMessage() != null ? e.getMessage() : "";
-      String code = DiagnosticBag.ERR_MALFORMED_SCHEMA;
-      if (msg.contains("requires a scale facet")) {
-        code = DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
-      } else if (msg.contains("requires exactly one mode facet")) {
-        code = DiagnosticBag.ERR_DATETIME_MODE_INVALID;
-      } else if (msg.contains("prelude") && msg.contains("purged")) {
-        code = DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
-      } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
-        code = DiagnosticBag.ERR_UNDEFINED_TYPE;
-      } else if (msg.contains("filter facets")) {
-        code = DiagnosticBag.ERR_INVALID_METADATA_FACET;
-      }
+      String code = mapMalformedSchemaErrorCode(msg);
       diagnosticBag.addError(e.getMessage(), start, end, line, col, e, code);
       return;
     }
 
-    validateSchemaCapabilities(doc, constDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
+    if (resolvedOpt.isPresent() && !resolvedOpt.get().isPoisonedSentinel()) {
+      validateSchemaCapabilities(doc, constDef.schemaType(), new java.util.HashSet<>(), diagnosticBag);
+    }
     var constMetaMap = constDef.schemaType() != null ? constDef.schemaType().metadataMap() : null;
     if (constMetaMap != null) {
       if (constMetaMap.metadataEntry().isEmpty() && !hasUnknownMetadataEntries(constMetaMap)) {
@@ -5472,7 +5512,7 @@ public class StvnTypeResolver {
       String facetName = extractFacetName(entry);
       if (facetName == null) continue;
 
-      // Enforce Metadata Facet Uniqueness Invariant (§ 5.1.4)
+      // Enforce Metadata Facet Uniqueness Invariant (Â§ 5.1.4)
       if (!seenFacets.add(facetName)) {
         diagnosticBag.addError(
             "Metadata violation (" + name + "): Duplicate facet '#" + facetName + "' is prohibited; each facet may appear at most once per metadata block",
@@ -5666,7 +5706,7 @@ public class StvnTypeResolver {
       }
     }
 
-    // 1C. Redundant Metadata Facet & Tautology Elimination (SPEC § 5.1.1, § 5.5.3, § 9.2, E036)
+    // 1C. Redundant Metadata Facet & Tautology Elimination (SPEC Â§ 5.1.1, Â§ 5.5.3, Â§ 9.2, E036)
     var localMetaConstraints = extractConstraints(metadataMap);
     var effectiveConsolidated = resolved != null
         ? localMetaConstraints.merge(resolved.constraints())
@@ -6937,5 +6977,29 @@ public class StvnTypeResolver {
     }
   }
 
+
+  private static String mapMalformedSchemaErrorCode(@Nullable String msg) {
+    if (msg == null) return DiagnosticBag.ERR_MALFORMED_SCHEMA;
+    if (msg.contains("requires a scale facet")) {
+      return DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
+    } else if (msg.contains("requires exactly one mode facet")) {
+      return DiagnosticBag.ERR_DATETIME_MODE_INVALID;
+    } else if (msg.contains("prelude") && msg.contains("purged")) {
+      return DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
+    } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
+      return DiagnosticBag.ERR_UNDEFINED_TYPE;
+    } else if (msg.contains("filter facets") || msg.contains("is not permitted on")) {
+      return DiagnosticBag.ERR_INVALID_METADATA_FACET;
+    } else if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
+      return DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED;
+    } else if (msg.contains("violates canonical 7-tier order")) {
+      return DiagnosticBag.ERR_FACET_ORDER_VIOLATION;
+    } else if (msg.contains("defines an empty domain")) {
+      return DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;
+    } else if (msg.contains("require types to be #equatable #TRUE")) {
+      return DiagnosticBag.ERR_TRAIT_VIOLATION;
+    }
+    return DiagnosticBag.ERR_MALFORMED_SCHEMA;
+  }
 }
 

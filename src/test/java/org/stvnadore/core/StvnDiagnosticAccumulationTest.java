@@ -445,4 +445,106 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertEquals("UNDEFINED_TYPE", diags.getFirst().errorCode().orElse(""));
     Assertions.assertFalse(diags.stream().anyMatch(d -> "TRAIT_VIOLATION".equals(d.errorCode().orElse(""))));
   }
+
+  @Test
+  @DisplayName("TC-DIAG-ACCUM-01: Sibling Set trait violations in Tuple accumulate all diagnostics")
+  void testSiblingSetTraitViolationsInTupleAccumulateAllDiagnostics() {
+    String input = """
+        {
+          :defs {
+            :RemoteNode { #equatable #FALSE } :Tuple( :String :Int )
+            :SensorSample :Tuple( :String :Float )
+          }
+          :type :Tuple(
+            :Set(:RemoteNode)
+            :Set(:SensorSample)
+          )
+          :body ( [ ( \"node1\" 10 ) ] [ ( \"sensor1\" 3.14 ) ] )
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(input);
+
+    Assertions.assertFalse(result.isSuccess(), "Compilation should fail due to non-equatable set elements");
+    Assertions.assertTrue(result.hasErrors(), "Result must have error diagnostics");
+
+    List<StvnDiagnostic> diags = result.diagnostics();
+    Assertions.assertEquals(2, diags.size(), "Expected exactly 2 diagnostics for sibling :Set violations");
+
+    var diag1 = diags.get(0);
+    Assertions.assertEquals("TRAIT_VIOLATION", diag1.errorCode().orElse(""));
+    Assertions.assertEquals("Set elements require types to be #equatable #TRUE", diag1.message());
+    String span1 = input.substring(diag1.startOffset(), diag1.endOffset());
+    Assertions.assertEquals(":RemoteNode", span1, "Diagnostic 1 must pin strictly to :RemoteNode");
+
+    var diag2 = diags.get(1);
+    Assertions.assertEquals("TRAIT_VIOLATION", diag2.errorCode().orElse(""));
+    Assertions.assertEquals("Set elements require types to be #equatable #TRUE", diag2.message());
+    String span2 = input.substring(diag2.startOffset(), diag2.endOffset());
+    Assertions.assertEquals(":SensorSample", span2, "Diagnostic 2 must pin strictly to :SensorSample");
+  }
+
+  @Test
+  @DisplayName("TC-DIAG-ACCUM-02: Invertible map key and value trait violations accumulate")
+  void testInvertibleMapKeyAndValueTraitViolationsAccumulate() {
+    String input = """
+        {
+          :type { #invertible } :Map( :Float :Float )
+          :body { [ 1.0 2.0 ] }
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(input);
+
+    Assertions.assertFalse(result.isSuccess(), "Compilation should fail for non-equatable key and value");
+    Assertions.assertTrue(result.hasErrors(), "Result must have error diagnostics");
+
+    List<StvnDiagnostic> diags = result.diagnostics();
+    Assertions.assertEquals(2, diags.size(), "Expected 2 diagnostics for invertible map key and value violations");
+
+    var diagKey = diags.get(0);
+    Assertions.assertEquals("TRAIT_VIOLATION", diagKey.errorCode().orElse(""));
+    Assertions.assertEquals("Map keys require types to be #equatable #TRUE", diagKey.message());
+    Assertions.assertEquals(":Float", input.substring(diagKey.startOffset(), diagKey.endOffset()));
+
+    var diagVal = diags.get(1);
+    Assertions.assertEquals("TRAIT_VIOLATION", diagVal.errorCode().orElse(""));
+    Assertions.assertEquals("Inverted map values require types to be #equatable #TRUE", diagVal.message());
+    Assertions.assertEquals(":Float", input.substring(diagVal.startOffset(), diagVal.endOffset()));
+  }
+
+  @Test
+  @DisplayName("TC-DIAG-ACCUM-03: Composite TypeDefinition in :defs accumulates sibling errors")
+  void testCompositeTypeDefinitionInDefsAccumulatesSiblingErrors() {
+    String input = """
+        {
+          :defs {
+            :RemoteNode { #equatable #FALSE } :Tuple( :String :Int )
+            :SensorSample :Tuple( :String :Float )
+            :MyTuple :Tuple(
+              :Set(:RemoteNode)
+              :Set(:SensorSample)
+            )
+          }
+          :type :MyTuple
+          :body ( [ ( \"node1\" 10 ) ] [ ( \"sensor1\" 3.14 ) ] )
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(input);
+
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertTrue(result.hasErrors());
+
+    List<StvnDiagnostic> diags = result.diagnostics();
+    Assertions.assertEquals(2, diags.size(), "Expected 2 diagnostics for sibling set errors in composite type definition");
+
+    var diag1 = diags.get(0);
+    Assertions.assertEquals("TRAIT_VIOLATION", diag1.errorCode().orElse(""));
+    Assertions.assertEquals(":RemoteNode", input.substring(diag1.startOffset(), diag1.endOffset()));
+
+    var diag2 = diags.get(1);
+    Assertions.assertEquals("TRAIT_VIOLATION", diag2.errorCode().orElse(""));
+    Assertions.assertEquals(":SensorSample", input.substring(diag2.startOffset(), diag2.endOffset()));
+  }
 }

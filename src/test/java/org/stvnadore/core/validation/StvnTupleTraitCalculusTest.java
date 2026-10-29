@@ -194,4 +194,35 @@ public class StvnTupleTraitCalculusTest {
     assertEquals(java.util.Optional.of(true), rs.constraints().equatable(), "Tuple with set is equatable");
     assertEquals(java.util.Optional.of(false), rs.constraints().comparable(), "Tuple with set must derive comparable == false");
   }
+
+  @Test
+  @DisplayName("TC-TUP-08: :Tuple with multiple offending :Set children accumulates all diagnostics")
+  void testTupleWithMultipleOffendingSetsAccumulatesDiagnostics() {
+    String source = """
+        {
+          :defs {
+            :Bad1 { #equatable #FALSE } :Tuple( :Int )
+            :Bad2 :Tuple( :Float )
+            :Bad3 :Tuple( :Float :Float )
+          }
+          :type :Tuple(
+            :Set( :Bad1 )
+            :Set( :Bad2 )
+            :Set( :Bad3 )
+          )
+          :body ( [ ( 1 ) ] [ ( 1.0 ) ] [ ( 1.0 2.0 ) ] )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Tuple with multiple non-equatable sets must fail");
+    var diags = result.diagnostics();
+    assertEquals(3, diags.size(), "Must accumulate all 3 sibling set trait violation diagnostics");
+    for (var d : diags) {
+      assertEquals(DiagnosticBag.ERR_TRAIT_VIOLATION, d.errorCode().orElse(null));
+      assertEquals("Set elements require types to be #equatable #TRUE", d.message());
+    }
+    assertEquals(":Bad1", source.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
+    assertEquals(":Bad2", source.substring(diags.get(1).startOffset(), diags.get(1).endOffset()));
+    assertEquals(":Bad3", source.substring(diags.get(2).startOffset(), diags.get(2).endOffset()));
+  }
 }
