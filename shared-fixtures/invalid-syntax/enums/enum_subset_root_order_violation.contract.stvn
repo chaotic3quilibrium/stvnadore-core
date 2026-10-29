@@ -1,0 +1,14 @@
+{
+  // enum_subset_root_order_violation.contract.stvn
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #ENUM_SUBSET_ORDER_VIOLATION
+    "Root ordering violation: variant #Pending does not match relative declaration order of root :Enum"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

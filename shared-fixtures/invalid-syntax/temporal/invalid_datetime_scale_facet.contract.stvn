@@ -1,0 +1,14 @@
+{
+  // invalid_datetime_scale_facet.contract.stvn
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+
+  :type :ErrorContract
+
+  :body (
+    #ERR_INVALID_METADATA_FACET
+    "facet '#us' is not permitted on :DateTime"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

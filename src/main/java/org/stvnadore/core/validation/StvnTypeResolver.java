@@ -2815,10 +2815,24 @@ public class StvnTypeResolver {
             }
           }
           int prevRootIdx = -1;
-          for (String v : facetList) {
+          for (int i = 0; i < facetList.size(); i++) {
+            String v = facetList.get(i);
             int idx = rootVariants.indexOf(v);
             if (idx <= prevRootIdx) {
-              throw new MalformedSchemaException("Constraint violation (" + subsetName + "): Root ordering violation: variant " + v + " does not match relative declaration order of root :Enum " + rootEnumName);
+              int start = -1;
+              int end = -1;
+              if (schemaNode.metadataMap() != null) {
+                for (var entry : schemaNode.metadataMap().metadataEntry()) {
+                  if (entry.metadataFilter() != null && entry.metadataFilter().variantList() != null) {
+                    var vks = entry.metadataFilter().variantList().valueKeyword();
+                    if (i < vks.size()) {
+                      start = vks.get(i).getStart().getStartIndex();
+                      end = vks.get(i).getStop().getStopIndex() + 1;
+                    }
+                  }
+                }
+              }
+              throw new MalformedSchemaException("Constraint violation (" + subsetName + "): Root ordering violation: variant " + v + " does not match relative declaration order of root :Enum " + rootEnumName, start, end);
             }
             prevRootIdx = idx;
           }
@@ -5029,6 +5043,9 @@ public class StvnTypeResolver {
       }
       validateMetadataMapConstraints(constName, constMetaMap, resolvedOpt.orElse(null), diagnosticBag);
     }
+    if (doc != StvnPrelude.getPreludeDocument()) {
+      validateTemporalTypeConstraints(constDef.schemaType(), constMetaMap, resolvedOpt.orElse(null), diagnosticBag);
+    }
 
     // Detect constant circular reference loops
     detectConstantCycles(doc, constDef, new java.util.LinkedHashSet<>(List.of(constName)), diagnosticBag);
@@ -5483,7 +5500,11 @@ public class StvnTypeResolver {
     if (metadataMap == null) return;
 
     // 1. Strict 7-Tier Canonical Facet Ordering & Universal Allowlist Check
-    String normalizedBase = resolved != null ? normalizeBaseType(getPrimitiveBaseType(resolved.node())) : null;
+    String baseCandidate = resolved != null ? getPrimitiveBaseType(resolved.node()) : null;
+    if (baseCandidate == null && name != null) {
+      baseCandidate = normalizeBaseType(name);
+    }
+    String normalizedBase = normalizeBaseType(baseCandidate);
     Set<String> permitted = normalizedBase != null ? PERMITTED_FACETS.get(normalizedBase) : null;
 
     int lastTier = -1;
@@ -5526,26 +5547,6 @@ public class StvnTypeResolver {
         continue;
       }
 
-      int tier = getFacetTier(facetName);
-      int subTier = getFacetSubTier(facetName);
-
-      // Enforce Strict 7-Tier Ordering
-      if (tier < lastTier || (tier == lastTier && subTier < lastSubTier)) {
-        diagnosticBag.addError(
-            "Facet order violation (" + name + "): facet '#" + facetName + "' (Tier " + tier +
-            ") violates canonical 7-tier order after '#" + lastFacetName + "'",
-            entry.getStart().getStartIndex(),
-            entry.getStop().getStopIndex() + 1,
-            entry.getStart().getLine(),
-            entry.getStart().getCharPositionInLine(),
-            null,
-            DiagnosticBag.ERR_FACET_ORDER_VIOLATION
-        );
-      }
-      lastTier = tier;
-      lastSubTier = subTier;
-      lastFacetName = facetName;
-
       // Universal Allowlist Gating (Early Fail-Closed)
       if ("strip".equals(facetName)) {
         diagnosticBag.addError(
@@ -5557,6 +5558,7 @@ public class StvnTypeResolver {
             null,
             DiagnosticBag.ERR_INVALID_METADATA_FACET
         );
+        continue;
       } else if (StvnVocabulary.TYPE_FLOAT.equals(normalizedBase != null ? normalizedBase : (name != null ? normalizeBaseType(name) : null))
           && StvnVocabulary.FACET_NAME_MAX_SIZE.equals(facetName)) {
         var localMetaConstraints = extractConstraints(metadataMap);
@@ -5572,6 +5574,7 @@ public class StvnTypeResolver {
               null,
               DiagnosticBag.ERR_INVALID_METADATA_FACET
           );
+          continue;
         }
       } else if (permitted != null && !permitted.contains(facetName)) {
         if ((StvnVocabulary.TYPE_INT.equals(normalizedBase) || StvnVocabulary.TYPE_TIME_EPOCH.equals(normalizedBase) || StvnVocabulary.TYPE_DATE_TIME.equals(normalizedBase) || StvnVocabulary.TYPE_FLOAT.equals(normalizedBase))
@@ -5606,7 +5609,28 @@ public class StvnTypeResolver {
             null,
             errCode
         );
+        continue;
       }
+
+      int tier = getFacetTier(facetName);
+      int subTier = getFacetSubTier(facetName);
+
+      // Enforce Strict 7-Tier Ordering
+      if (tier < lastTier || (tier == lastTier && subTier < lastSubTier)) {
+        diagnosticBag.addError(
+            "Facet order violation (" + name + "): facet '#" + facetName + "' (Tier " + tier +
+            ") violates canonical 7-tier order after '#" + lastFacetName + "'",
+            entry.getStart().getStartIndex(),
+            entry.getStop().getStopIndex() + 1,
+            entry.getStart().getLine(),
+            entry.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_FACET_ORDER_VIOLATION
+        );
+      }
+      lastTier = tier;
+      lastSubTier = subTier;
+      lastFacetName = facetName;
     }
 
     // 1B. Transitive Ancestor Constraint & Non-Overridable Facet Invariant Enforcement
@@ -6740,8 +6764,15 @@ public class StvnTypeResolver {
     var localConstraints = extractConstraints(metadataMap);
     var consolidated = resolved != null ? localConstraints.merge(resolved.constraints()) : localConstraints;
 
-    int start = schemaType.getStart().getStartIndex();
-    int end = schemaType.getStop().getStopIndex() + 1;
+    int start;
+    int end;
+    if (schemaType.schemaConstructor() != null && schemaType.schemaConstructor().atomicType() != null) {
+      start = schemaType.schemaConstructor().atomicType().getStart().getStartIndex();
+      end = schemaType.schemaConstructor().atomicType().getStop().getStopIndex() + 1;
+    } else {
+      start = schemaType.getStart().getStartIndex();
+      end = schemaType.getStop().getStopIndex() + 1;
+    }
     int line = schemaType.getStart().getLine();
     int col = schemaType.getStart().getCharPositionInLine();
 
@@ -6762,6 +6793,27 @@ public class StvnTypeResolver {
           );
         }
       }
+      if (metadataMap != null) {
+        for (var entry : metadataMap.metadataEntry()) {
+          String facetName = extractFacetName(entry);
+          if ("offset".equals(facetName) || "zoned".equals(facetName) || "audited".equals(facetName)) {
+            int startOffset = entry.getStart().getStartIndex();
+            boolean alreadyReported = diagnosticBag.toList().stream()
+                .anyMatch(d -> d.startOffset() == startOffset && DiagnosticBag.ERR_INVALID_METADATA_FACET.equals(d.errorCode().orElse(null)));
+            if (!alreadyReported) {
+              diagnosticBag.addError(
+                  "Constraint violation: facet '#" + facetName + "' is not permitted on :TimeEpoch; mode facets are valid strictly on :DateTime",
+                  startOffset,
+                  entry.getStop().getStopIndex() + 1,
+                  entry.getStart().getLine(),
+                  entry.getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_INVALID_METADATA_FACET
+              );
+            }
+          }
+        }
+      }
     } else if (isDateTime) {
       int modes = (consolidated.offset() ? 1 : 0) + (consolidated.zoned() ? 1 : 0) + (consolidated.audited() ? 1 : 0);
       if (modes == 0) {
@@ -6778,6 +6830,27 @@ public class StvnTypeResolver {
             line, col, null,
             DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
         );
+      }
+      if (metadataMap != null) {
+        for (var entry : metadataMap.metadataEntry()) {
+          String facetName = extractFacetName(entry);
+          if (isTemporalScaleFacet(facetName)) {
+            int startOffset = entry.getStart().getStartIndex();
+            boolean alreadyReported = diagnosticBag.toList().stream()
+                .anyMatch(d -> d.startOffset() == startOffset && DiagnosticBag.ERR_INVALID_METADATA_FACET.equals(d.errorCode().orElse(null)));
+            if (!alreadyReported) {
+              diagnosticBag.addError(
+                  "Constraint violation: facet '#" + facetName + "' is not permitted on :DateTime; scale facets are valid strictly on :TimeEpoch",
+                  startOffset,
+                  entry.getStop().getStopIndex() + 1,
+                  entry.getStart().getLine(),
+                  entry.getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_INVALID_METADATA_FACET
+              );
+            }
+          }
+        }
       }
     }
   }
@@ -6996,6 +7069,8 @@ public class StvnTypeResolver {
       return DiagnosticBag.ERR_FACET_ORDER_VIOLATION;
     } else if (msg.contains("defines an empty domain")) {
       return DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;
+    } else if (msg.contains("Root ordering violation")) {
+      return DiagnosticBag.ERR_ENUM_SUBSET_ORDER_VIOLATION;
     } else if (msg.contains("require types to be #equatable #TRUE")) {
       return DiagnosticBag.ERR_TRAIT_VIOLATION;
     }

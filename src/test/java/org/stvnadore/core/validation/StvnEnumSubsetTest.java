@@ -202,7 +202,17 @@ public class StvnEnumSubsetTest {
         """;
     var result = StvnCompiler.compileToResult(stvn);
     assertFalse(result.isSuccess());
-    assertTrue(result.diagnostics().stream().anyMatch(d -> d.message().contains("Root ordering violation")));
+    var diagOpt = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_ENUM_SUBSET_ORDER_VIOLATION.equals(d.errorCode().orElse(null)))
+        .findFirst();
+    assertTrue(diagOpt.isPresent(), "Expected ERR_ENUM_SUBSET_ORDER_VIOLATION diagnostic");
+    var diag = diagOpt.get();
+    assertTrue(diag.message().contains("Root ordering violation"));
+    int filterIndex = stvn.indexOf("#filterIncl");
+    int pendingStart = stvn.indexOf("#Pending", filterIndex);
+    int pendingEnd = pendingStart + "#Pending".length();
+    assertEquals(pendingStart, diag.startOffset(), "startOffset must pin strictly to #Pending");
+    assertEquals(pendingEnd, diag.endOffset(), "endOffset must pin strictly to #Pending");
   }
 
   @Test

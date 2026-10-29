@@ -260,6 +260,12 @@ public class StvnIrValidationTest {
         return "ERR_DOCUMENT_KIND_MISMATCH";
       }
       String msg = mse.getMessage() != null ? mse.getMessage() : "";
+      if (msg.contains("Root ordering violation")) {
+        return "ENUM_SUBSET_ORDER_VIOLATION";
+      }
+      if (msg.contains("is not permitted on")) {
+        return "ERR_INVALID_METADATA_FACET";
+      }
       if (msg.contains("Discrete type") || msg.contains("prohibits bound") || msg.contains("Discrete exact float") || msg.contains("Discrete temporal type")) {
         return "ERR_DISCRETE_BOUND_KIND_PROHIBITED";
       }
@@ -336,6 +342,12 @@ public class StvnIrValidationTest {
         return "ERR_DOCUMENT_KIND_MISMATCH";
       }
       String msg = re.getMessage() != null ? re.getMessage() : "";
+      if (msg.contains("Root ordering violation")) {
+        return "ENUM_SUBSET_ORDER_VIOLATION";
+      }
+      if (msg.contains("is not permitted on")) {
+        return "ERR_INVALID_METADATA_FACET";
+      }
       if (msg.startsWith("Type mismatch")) {
         return "ERR_TYPE_MISMATCH";
       }

@@ -709,6 +709,8 @@ public final class StvnCompiler {
         errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;
       } else if (msg.contains("require types to be #equatable #TRUE")) {
         errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_TRAIT_VIOLATION;
+      } else if (msg.contains("Root ordering violation")) {
+        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_ENUM_SUBSET_ORDER_VIOLATION;
       }
     } else if (t instanceof org.stvnadore.core.validation.StvnMalformedLiteralException e) {
       startOffset = e.startOffset();

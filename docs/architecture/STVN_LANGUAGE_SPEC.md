@@ -819,7 +819,7 @@ Variants specified inside `#filterIncl` or `#filterExcl` bracketed lists must fo
 * Let the root enum declare variants in order $\langle v_1, v_2, \dots, v_n \rangle$.
 * For any filter facet listing $\langle u_1, u_2, \dots, u_k \rangle$, the root index of $u_i$ must be strictly less than the root index of $u_{i+1}$:
   $$\text{Index}_{\text{Root}} (u_i) < \text{Index}_{\text{Root}} (u_{i+1}) \quad \forall \; 1 \le i < k$$
-* If variants appear out of root declaration order, the compiler rejects the definition with diagnostic `ERR_MALFORMED_SCHEMA`.
+* If variants appear out of root declaration order, the compiler rejects the definition with diagnostic `ERR_ENUM_SUBSET_ORDER_VIOLATION` (diagnostic code `E015` / `ERR_ORDER_MISMATCH`).
 
 ```stvn
 :defs {

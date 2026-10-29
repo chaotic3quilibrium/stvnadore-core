@@ -1,0 +1,12 @@
+// @spec: SPEC-03-TEMPORAL-DATETIME
+// @case: Negative - Reject temporal scale facet on :DateTime
+// @error: ERR_INVALID_METADATA_FACET
+{
+  :meta {
+    #name "invalid_datetime_scale_facet"
+    #kind #DEFS
+  }
+  :defs {
+    :TradeTimestamp { #audited #us } :DateTime
+  }
+}

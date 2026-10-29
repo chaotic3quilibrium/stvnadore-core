@@ -106,6 +106,10 @@ public final class DiagnosticBag {
   public static final String ERR_TYPE_MISMATCH = "ERR_TYPE_MISMATCH";
   /** Error code emitted when a nominal type alias attempts to override or re-specify a non-overridable definition facet. */
   public static final String ERR_NON_OVERRIDABLE_FACET = "ERR_NON_OVERRIDABLE_FACET";
+  /** Error code emitted when child enum subset reorders variants relative to root enum order (SPEC § 4.8.4, Appendix C.2 E015). */
+  public static final String ERR_ENUM_SUBSET_ORDER_VIOLATION = "ENUM_SUBSET_ORDER_VIOLATION";
+  /** Canonical alias for enum subset root declaration order mismatch (SPEC § 4.8.4, Appendix C.2 E015). */
+  public static final String ERR_ORDER_MISMATCH = ERR_ENUM_SUBSET_ORDER_VIOLATION;
 
 
   /** Error code emitted when a package enclosure targets a reserved runtime namespace (SPEC § 3.9 Invariant 8, E037). */
