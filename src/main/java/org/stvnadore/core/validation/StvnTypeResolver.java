@@ -665,7 +665,14 @@ public class StvnTypeResolver {
                 lexer.removeErrorListeners();
                 var parser = new org.stvnadore.core.parser.StvnParser(new CommonTokenStream(lexer));
                 parser.removeErrorListeners();
+                var childBag = diagnosticBag != null ? new DiagnosticBag(diagnosticBag.getMaxDiagnostics()) : new DiagnosticBag();
+                parser.addErrorListener(org.stvnadore.core.parser.StvnErrorListener.accumulating(childBag));
                 importedDoc = parser.stvnDocument();
+                if (diagnosticBag != null) {
+                  for (var cd : childBag.toList()) {
+                    diagnosticBag.add(cd);
+                  }
+                }
               } catch (IOException e) {
                 diagnosticBag.addError(
                     "Failed to read include file: " + pathVal,
@@ -701,9 +708,14 @@ public class StvnTypeResolver {
               var nextActiveRaw = new ArrayList<>(activeRawPaths);
               nextActiveRaw.add(pathVal);
 
-              var importedDefs = resolveDefinitionsAndValidate(importedDoc, nextActive, nextActiveRaw, diagnosticBag);
+              Map<String, DefSource> importedDefs = Collections.emptyMap();
+              try {
+                importedDefs = resolveDefinitionsAndValidate(importedDoc, nextActive, nextActiveRaw, diagnosticBag);
+                validateDocumentConstraints(importedDoc, diagnosticBag);
+              } catch (Throwable t) {
+                mapSemanticException(t, "", diagnosticBag);
+              }
               var importedConstDefs = documentConstantDefinitionsCache.getOrDefault(importedDoc, Collections.emptyMap());
-              validateDocumentConstraints(importedDoc, diagnosticBag);
 
               boolean hasStrip = false;
               if (element.includeOptionsBlock() != null) {
@@ -745,8 +757,11 @@ public class StvnTypeResolver {
                   accumulator.computeIfAbsent(originalName, k -> new ArrayList<>())
                       .add(new NamespaceClaim<>(originalName, defSource.defNode(), resolvedPath.getFileName().toString(), ClaimType.RENAMED_IMPORT_LHS));
                 } else {
+                  var sourceOrigin = (defSource.sourceName() != null && !defSource.sourceName().equals("Inline Document"))
+                      ? defSource.sourceName()
+                      : resolvedPath.getFileName().toString();
                   accumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
-                      .add(new NamespaceClaim<>(candidateName, defSource.defNode(), resolvedPath.getFileName().toString(), ClaimType.RAW_IMPORT));
+                      .add(new NamespaceClaim<>(candidateName, defSource.defNode(), sourceOrigin, ClaimType.RAW_IMPORT));
                 }
               }
 
@@ -762,8 +777,11 @@ public class StvnTypeResolver {
                   candidateName = sliceTerminal(originalName);
                 }
 
+                var constOrigin = (constSource.sourceName() != null && !constSource.sourceName().equals("Inline Document"))
+                    ? constSource.sourceName()
+                    : resolvedPath.getFileName().toString();
                 constAccumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
-                    .add(new NamespaceClaim<>(candidateName, constSource.defNode(), resolvedPath.getFileName().toString(), ClaimType.RAW_IMPORT));
+                    .add(new NamespaceClaim<>(candidateName, constSource.defNode(), constOrigin, ClaimType.RAW_IMPORT));
               }
             }
           }
@@ -1274,11 +1292,14 @@ public class StvnTypeResolver {
         var lhsClaims = new ArrayList<NamespaceClaim<N>>();
         var rhsClaims = new ArrayList<NamespaceClaim<N>>();
         var seenRawModuleOrigins = new HashSet<String>();
+        var seenDefNodes = new HashSet<N>();
 
         for (var c : claims) {
           if (c.type() == ClaimType.RAW_IMPORT) {
-            // Deduplicate identical claims imported from the exact same source module via diamond paths
-            if (seenRawModuleOrigins.add(c.sourceModule())) {
+            // Deduplicate identical claims imported from the exact same source module via diamond paths or identical AST nodes
+            boolean isDuplicateNode = !seenDefNodes.add(c.defNode());
+            boolean isDuplicateOrigin = !seenRawModuleOrigins.add(c.sourceModule());
+            if (!isDuplicateNode && !isDuplicateOrigin) {
               rawClaims.add(c);
             }
           } else if (c.type() == ClaimType.RENAMED_IMPORT_LHS) {
@@ -5262,36 +5283,52 @@ public class StvnTypeResolver {
 
   private static int getFacetTier(String facetName) {
     return switch (facetName) {
-      case "unsigned", "exact", "invertible", "preserveIndent", "offset", "zoned", "audited", "equatable", "comparable" -> 1;
-      case "s", "ms", "us", "ns" -> 2;
-      case "size", "minSize", "maxSize" -> 3;
-      case "minIncl", "minExcl", "maxExcl", "maxIncl" -> 4;
-      case "regex" -> 5;
-      case "filterIncl", "filterExcl" -> 6;
-      case "strip" -> 7;
+      // Tier 1: Definition (§ 6.1 1.1.1 - 1.5.2)
+      case "unsigned", "exact", "invertible", "ns", "us", "ms", "s", "offset", "zoned", "audited", "size", "minSize", "maxSize" -> 1;
+      // Tier 2: Trait (§ 6.1 2.1 - 2.2)
+      case "equatable", "comparable" -> 2;
+      // Tier 3: Bounds (§ 6.1 3.1 - 3.4)
+      case "minIncl", "minExcl", "maxIncl", "maxExcl" -> 3;
+      // Tier 4: Constraint (§ 6.1 4.1 - 4.4)
+      case "filterIncl", "filterExcl", "preserveIndent", "regex" -> 4;
+      // Tier 5: Directive (§ 6.1 5.0)
+      case "strip" -> 5;
       default -> 99;
     };
   }
 
   private static int getFacetSubTier(String facetName) {
     return switch (facetName) {
-      // Tier 1 sub-order
-      case "unsigned" -> 101; case "exact" -> 102; case "invertible" -> 103;
-      case "preserveIndent" -> 104; case "offset" -> 105; case "zoned" -> 106;
-      case "audited" -> 107; case "equatable" -> 108; case "comparable" -> 109;
-      // Tier 2 sub-order
-      case "s" -> 201; case "ms" -> 202; case "us" -> 203; case "ns" -> 204;
-      // Tier 3 sub-order
-      case "size" -> 301; case "minSize" -> 302; case "maxSize" -> 303;
-      // Tier 4 sub-order: Lower bounds strictly precede Upper bounds
-      case "minIncl" -> 401; case "minExcl" -> 402; case "maxExcl" -> 403; case "maxIncl" -> 404;
-      // Tier 5 sub-order
-      case "regex" -> 501;
-      // Tier 6 sub-order
-      case "filterIncl" -> 601; case "filterExcl" -> 602;
-      // Tier 7 sub-order
-      case "strip" -> 701;
-      default -> 999;
+      // Tier 1: Definition (1.1.1 - 1.5.2)
+      case "unsigned" -> 1110;       // 1.1.1
+      case "exact" -> 1120;          // 1.1.2
+      case "invertible" -> 1130;     // 1.1.3
+      case "ns" -> 1210;             // 1.2.1
+      case "us" -> 1220;             // 1.2.2
+      case "ms" -> 1230;             // 1.2.3
+      case "s" -> 1240;              // 1.2.4
+      case "offset" -> 1250;         // 1.2.5
+      case "zoned" -> 1260;          // 1.2.6
+      case "audited" -> 1270;        // 1.2.7
+      case "size" -> 1310;           // 1.3.1
+      case "minSize" -> 1510;        // 1.5.1
+      case "maxSize" -> 1520;        // 1.5.2
+      // Tier 2: Trait (2.1 - 2.2)
+      case "equatable" -> 2100;      // 2.1
+      case "comparable" -> 2200;     // 2.2
+      // Tier 3: Bounds (3.1 - 3.4)
+      case "minIncl" -> 3100;        // 3.1
+      case "minExcl" -> 3200;        // 3.2
+      case "maxIncl" -> 3300;        // 3.3
+      case "maxExcl" -> 3400;        // 3.4
+      // Tier 4: Constraint (4.1 - 4.4)
+      case "filterIncl" -> 4100;     // 4.1
+      case "filterExcl" -> 4200;     // 4.2
+      case "preserveIndent" -> 4300; // 4.3
+      case "regex" -> 4400;          // 4.4
+      // Tier 5: Directive (5.0)
+      case "strip" -> 5000;          // 5.0
+      default -> 99999;
     };
   }
 
@@ -5505,7 +5542,7 @@ public class StvnTypeResolver {
   private static void validateMetadataMapConstraints(String name, MetadataMapContext metadataMap, @Nullable ResolvedSchema resolved, DiagnosticBag diagnosticBag) {
     if (metadataMap == null) return;
 
-    // 1. Strict 7-Tier Canonical Facet Ordering & Universal Allowlist Check
+    // 1. Strict 5-Tier Canonical Facet Ordering & Universal Allowlist Check
     String baseCandidate = null;
     if (resolved != null) {
       baseCandidate = getUltimateBaseType(resolved);
@@ -5630,11 +5667,11 @@ public class StvnTypeResolver {
       int tier = getFacetTier(facetName);
       int subTier = getFacetSubTier(facetName);
 
-      // Enforce Strict 7-Tier Ordering
+      // Enforce Strict 5-Tier Ordering
       if (tier < lastTier || (tier == lastTier && subTier < lastSubTier)) {
         diagnosticBag.addError(
             "Facet order violation (" + name + "): facet '#" + facetName + "' (Tier " + tier +
-            ") violates canonical 7-tier order after '#" + lastFacetName + "'",
+            ") violates canonical 5-tier order after '#" + lastFacetName + "'",
             entry.getStart().getStartIndex(),
             entry.getStop().getStopIndex() + 1,
             entry.getStart().getLine(),
@@ -6091,44 +6128,6 @@ public class StvnTypeResolver {
       );
     }
 
-    StvnParser.MetadataFlagContext firstModeCtx = null;
-    StvnParser.MetadataFlagContext firstScaleCtx = null;
-    for (var entry : metadataMap.metadataEntry()) {
-      if (entry.metadataFlag() != null) {
-        var flag = entry.metadataFlag();
-        if (flag.KW_OFFSET() != null || flag.KW_ZONED() != null || flag.KW_AUDITED() != null) {
-          if (firstModeCtx == null) {
-            firstModeCtx = flag;
-          } else {
-            diagnosticBag.addError(
-                "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive",
-                flag.getStart().getStartIndex(),
-                flag.getStop().getStopIndex() + 1,
-                flag.getStart().getLine(),
-                flag.getStart().getCharPositionInLine(),
-                null,
-                DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
-            );
-          }
-        }
-        if (flag.KW_SCALE_S() != null || flag.KW_SCALE_MS() != null || flag.KW_SCALE_US() != null || flag.KW_SCALE_NS() != null) {
-          if (firstScaleCtx == null) {
-            firstScaleCtx = flag;
-          } else {
-            diagnosticBag.addError(
-                "Temporal scale facets (#s, #ms, #us, #ns) are mutually exclusive",
-                flag.getStart().getStartIndex(),
-                flag.getStop().getStopIndex() + 1,
-                flag.getStart().getLine(),
-                flag.getStart().getCharPositionInLine(),
-                null,
-                DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
-            );
-          }
-        }
-      }
-    }
-
     if (resolved == null) {
       return;
     }
@@ -6143,6 +6142,54 @@ public class StvnTypeResolver {
     var isTimeEpoch = isTimeEpochType(baseType);
     var isDateTime = isDateTimeType(baseType);
     var isNumeric = isIntegerType || isFloatType || isTimeEpoch;
+
+    if (isDateTime) {
+      StvnParser.MetadataFlagContext firstModeCtx = null;
+      for (var entry : metadataMap.metadataEntry()) {
+        if (entry.metadataFlag() != null) {
+          var flag = entry.metadataFlag();
+          if (flag.KW_OFFSET() != null || flag.KW_ZONED() != null || flag.KW_AUDITED() != null) {
+            if (firstModeCtx == null) {
+              firstModeCtx = flag;
+            } else {
+              diagnosticBag.addError(
+                  "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive",
+                  flag.getStart().getStartIndex(),
+                  flag.getStop().getStopIndex() + 1,
+                  flag.getStart().getLine(),
+                  flag.getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+              );
+            }
+          }
+        }
+      }
+    }
+
+    if (isTimeEpoch) {
+      StvnParser.MetadataFlagContext firstScaleCtx = null;
+      for (var entry : metadataMap.metadataEntry()) {
+        if (entry.metadataFlag() != null) {
+          var flag = entry.metadataFlag();
+          if (flag.KW_SCALE_S() != null || flag.KW_SCALE_MS() != null || flag.KW_SCALE_US() != null || flag.KW_SCALE_NS() != null) {
+            if (firstScaleCtx == null) {
+              firstScaleCtx = flag;
+            } else {
+              diagnosticBag.addError(
+                  "Temporal scale facets (#s, #ms, #us, #ns) are mutually exclusive",
+                  flag.getStart().getStartIndex(),
+                  flag.getStop().getStopIndex() + 1,
+                  flag.getStart().getLine(),
+                  flag.getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+              );
+            }
+          }
+        }
+      }
+    }
 
     for (var entry : metadataMap.metadataEntry()) {
       if (entry.metadataRange() != null) {
@@ -6647,7 +6694,20 @@ public class StvnTypeResolver {
               ? consolidated.maxExcl().get().toBigIntegerExact().subtract(java.math.BigInteger.ONE)
               : null);
 
-      if (minEff != null && maxEff != null) {
+      var rawMinIncl = consolidated.minIncl().orElse(null);
+      var rawMaxExcl = consolidated.maxExcl().orElse(null);
+      if (rawMinIncl != null && rawMaxExcl != null && rawMinIncl.equals(rawMaxExcl)) {
+        diagnosticBag.addError(
+            "Constraint violation (" + name + "): discrete integer interval [" + rawMinIncl.toBigIntegerExact() +
+            ", " + rawMaxExcl.toBigIntegerExact() + ") defines an empty domain (zero habitable values)",
+            metadataMap.getStart().getStartIndex(),
+            metadataMap.getStop().getStopIndex() + 1,
+            metadataMap.getStart().getLine(),
+            metadataMap.getStart().getCharPositionInLine(),
+            null,
+            DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN
+        );
+      } else if (minEff != null && maxEff != null) {
         if (minEff.compareTo(maxEff) > 0) {
           diagnosticBag.addError(
               "Constraint violation (" + name + "): effective range is invalid (minimum " + minEff + " is greater than maximum " + maxEff + ")",
@@ -6715,30 +6775,43 @@ public class StvnTypeResolver {
           : (consolidated.maxExcl().isPresent() ? consolidated.maxExcl().get() : null);
 
       if (minVal != null && maxVal != null) {
-        var strictComparison = consolidated.minExcl().isPresent() || consolidated.maxExcl().isPresent();
-        if (strictComparison) {
-          if (minVal.compareTo(maxVal) >= 0) {
-            diagnosticBag.addError(
-                "Constraint violation (" + name + "): effective range is invalid (minimum " + minVal + " must be strictly less than maximum " + maxVal + ")",
-                metadataMap.getStart().getStartIndex(),
-                metadataMap.getStop().getStopIndex() + 1,
-                metadataMap.getStart().getLine(),
-                metadataMap.getStart().getCharPositionInLine(),
-                null,
-                DiagnosticBag.ERR_INVERTED_RANGE
-            );
-          }
+        if (isExact && consolidated.minIncl().isPresent() && consolidated.maxExcl().isPresent() && minVal.compareTo(maxVal) == 0) {
+          diagnosticBag.addError(
+              "Constraint violation (" + name + "): discrete exact float interval [" + minVal +
+              ", " + maxVal + ") defines an empty domain (zero habitable values)",
+              metadataMap.getStart().getStartIndex(),
+              metadataMap.getStop().getStopIndex() + 1,
+              metadataMap.getStart().getLine(),
+              metadataMap.getStart().getCharPositionInLine(),
+              null,
+              DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN
+          );
         } else {
-          if (minVal.compareTo(maxVal) > 0) {
-            diagnosticBag.addError(
-                "Constraint violation (" + name + "): effective range is invalid (minimum " + minVal + " is greater than maximum " + maxVal + ")",
-                metadataMap.getStart().getStartIndex(),
-                metadataMap.getStop().getStopIndex() + 1,
-                metadataMap.getStart().getLine(),
-                metadataMap.getStart().getCharPositionInLine(),
-                null,
-                DiagnosticBag.ERR_INVERTED_RANGE
-            );
+          var strictComparison = consolidated.minExcl().isPresent() || consolidated.maxExcl().isPresent();
+          if (strictComparison) {
+            if (minVal.compareTo(maxVal) >= 0) {
+              diagnosticBag.addError(
+                  "Constraint violation (" + name + "): effective range is invalid (minimum " + minVal + " must be strictly less than maximum " + maxVal + ")",
+                  metadataMap.getStart().getStartIndex(),
+                  metadataMap.getStop().getStopIndex() + 1,
+                  metadataMap.getStart().getLine(),
+                  metadataMap.getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_INVERTED_RANGE
+              );
+            }
+          } else {
+            if (minVal.compareTo(maxVal) > 0) {
+              diagnosticBag.addError(
+                  "Constraint violation (" + name + "): effective range is invalid (minimum " + minVal + " is greater than maximum " + maxVal + ")",
+                  metadataMap.getStart().getStartIndex(),
+                  metadataMap.getStop().getStopIndex() + 1,
+                  metadataMap.getStart().getLine(),
+                  metadataMap.getStart().getCharPositionInLine(),
+                  null,
+                  DiagnosticBag.ERR_INVERTED_RANGE
+              );
+            }
           }
         }
       }
@@ -6836,14 +6909,6 @@ public class StvnTypeResolver {
             "Temporal type ':DateTime' requires exactly one mode facet: '#offset', '#zoned', or '#audited'",
             start, end, line, col, null,
             DiagnosticBag.ERR_MISSING_TEMPORAL_FACET
-        );
-      } else if (modes > 1) {
-        diagnosticBag.addError(
-            "Constraint violation: '#offset', '#zoned', and '#audited' are mutually exclusive",
-            metadataMap != null ? metadataMap.getStart().getStartIndex() : start,
-            metadataMap != null ? metadataMap.getStop().getStopIndex() + 1 : end,
-            line, col, null,
-            DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
         );
       }
       if (metadataMap != null) {
@@ -7066,6 +7131,40 @@ public class StvnTypeResolver {
   }
 
 
+  private static void mapSemanticException(Throwable t, String source, DiagnosticBag diagnosticBag) {
+    if (diagnosticBag == null) {
+      return;
+    }
+    int startOffset = -1;
+    int endOffset = -1;
+    String errorCode = null;
+    if (t instanceof MalformedSchemaException e) {
+      startOffset = e.startOffset();
+      endOffset = e.endOffset();
+      errorCode = mapMalformedSchemaErrorCode(e.getMessage());
+    } else if (t instanceof StvnMalformedLiteralException e) {
+      startOffset = e.startOffset();
+      endOffset = e.endOffset();
+    } else if (t instanceof StvnCollectionCollisionException e) {
+      startOffset = e.startOffset();
+      endOffset = e.endOffset();
+      if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
+        errorCode = DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
+      } else if (e.getMessage() != null && e.getMessage().contains("Duplicate inverted map value detected")) {
+        errorCode = DiagnosticBag.ERR_DUPLICATE_INVERTED_MAP_VALUE;
+      } else if (e.getMessage() != null && e.getMessage().contains("Duplicate map key detected")) {
+        errorCode = DiagnosticBag.ERR_DUPLICATE_MAP_KEY;
+      }
+    } else if (t instanceof StvnIntegerOverflowException e) {
+      startOffset = e.startOffset();
+      endOffset = e.endOffset();
+      errorCode = DiagnosticBag.ERR_INTEGER_OVERFLOW;
+    }
+    int line = 1;
+    int col = 0;
+    diagnosticBag.addError(t.getMessage() != null ? t.getMessage() : t.toString(), startOffset, endOffset, line, col, t, errorCode);
+  }
+
   private static String mapMalformedSchemaErrorCode(@Nullable String msg) {
     if (msg == null) return DiagnosticBag.ERR_MALFORMED_SCHEMA;
     if (msg.contains("requires a scale facet")) {
@@ -7080,7 +7179,7 @@ public class StvnTypeResolver {
       return DiagnosticBag.ERR_INVALID_METADATA_FACET;
     } else if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
       return DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED;
-    } else if (msg.contains("violates canonical 7-tier order")) {
+    } else if (msg.contains("violates canonical 5-tier order") || msg.contains("violates canonical 7-tier order")) {
       return DiagnosticBag.ERR_FACET_ORDER_VIOLATION;
     } else if (msg.contains("defines an empty domain")) {
       return DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;

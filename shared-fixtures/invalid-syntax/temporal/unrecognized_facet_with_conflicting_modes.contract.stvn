@@ -1,0 +1,11 @@
+{
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body (
+    #ERR_UNRECOGNIZED_METADATA_FACET
+    "Unrecognized constraint facet '#milli'"
+    "org.stvnadore.core.validation.MalformedSchemaException"
+  )
+}

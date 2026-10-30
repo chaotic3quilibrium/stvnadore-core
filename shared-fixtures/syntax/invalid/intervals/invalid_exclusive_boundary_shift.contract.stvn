@@ -7,8 +7,8 @@
   :type :ErrorContract
 
   :body (
-    #INVALID_NUMERIC_RANGE
-    "Constraint violation (:ShiftedType): effective range is invalid (minimum 6 is greater than maximum 5)"
+    #ERR_EMPTY_INTERVAL_DOMAIN
+    "Constraint violation (:ShiftedType): discrete integer interval [6, 6) defines an empty domain (zero habitable values)"
     "org.stvnadore.core.validation.MalformedSchemaException"
   )
 }

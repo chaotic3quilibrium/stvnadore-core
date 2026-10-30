@@ -296,7 +296,7 @@ public class StvnIrValidationTest {
       if (msg.contains("defines an empty domain")) {
         return "ERR_EMPTY_INTERVAL_DOMAIN";
       }
-      if (msg.contains("violates canonical 7-tier order") || msg.contains("Facet order violation")) {
+      if (msg.contains("violates canonical 5-tier order") || msg.contains("violates canonical 7-tier order") || msg.contains("Facet order violation")) {
         return "ERR_FACET_ORDER_VIOLATION";
       }
       if (msg.contains("prelude") && msg.contains("purged")) {
@@ -323,6 +323,9 @@ public class StvnIrValidationTest {
       String msg = e.getMessage() != null ? e.getMessage() : "";
       if (msg.startsWith("Type mismatch")) {
         return "ERR_TYPE_MISMATCH";
+      }
+      if (msg.contains("Tuple arity mismatch")) {
+        return "TUPLE_ARITY_MISMATCH";
       }
       if (msg.contains("outside allowable range") || msg.contains("violates #minSize constraint")
           || msg.contains("exceeds maximum length of") || msg.contains("Fixed string must be")
@@ -351,12 +354,15 @@ public class StvnIrValidationTest {
       if (msg.startsWith("Type mismatch")) {
         return "ERR_TYPE_MISMATCH";
       }
+      if (msg.contains("Tuple arity mismatch")) {
+        return "TUPLE_ARITY_MISMATCH";
+      }
       if (msg.contains("outside allowable range") || msg.contains("violates #minSize constraint")
           || msg.contains("exceeds maximum length of") || msg.contains("Fixed string must be")
           || (msg.contains("Constraint violation") && (msg.contains("Size") || msg.contains("violates") || msg.contains("length")))) {
         return "ERR_CONSTRAINT_VIOLATION";
       }
-      if (msg.contains("violates canonical 7-tier order") || msg.contains("Facet order violation")) {
+      if (msg.contains("violates canonical 5-tier order") || msg.contains("violates canonical 7-tier order") || msg.contains("Facet order violation")) {
         return "ERR_FACET_ORDER_VIOLATION";
       }
       if (msg.contains("Discrete type") || msg.contains("prohibits bound") || msg.contains("Discrete exact float") || msg.contains("Discrete temporal type")) {

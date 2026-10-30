@@ -9,9 +9,9 @@
 {
   :defs {
     :SaturatedEpochUs {
+      #us
       #equatable #TRUE
       #comparable #TRUE
-      #us
       #minIncl 1000
       #maxExcl 2000000000
     } :TimeEpoch

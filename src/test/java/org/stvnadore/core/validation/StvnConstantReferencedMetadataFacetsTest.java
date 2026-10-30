@@ -180,7 +180,7 @@ public class StvnConstantReferencedMetadataFacetsTest {
           :defs {
             #PRESERVE :Boolean #TRUE
             #CAN_COMPARE :Boolean #FALSE
-            :CustomStr { #preserveIndent #PRESERVE #comparable #CAN_COMPARE } :String
+            :CustomStr { #comparable #CAN_COMPARE #preserveIndent #PRESERVE } :String
           }
           :type :CustomStr
           :body "indented string"

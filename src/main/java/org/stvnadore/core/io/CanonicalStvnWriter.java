@@ -193,7 +193,7 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
     }
     layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
 
-    // Tier 1: Flags & Intrinsic Modes (Bare flags without #TRUE)
+    // Tier 1: Definition (§ 6.1 1.1.1 - 1.5.2)
     if (constraints.unsigned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_UNSIGNED)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_UNSIGNED);
     }
@@ -203,9 +203,9 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
     if (constraints.invertible() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_INVERTIBLE)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_INVERTIBLE);
     }
-    if (constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
-      layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
-      layout.writeBoolean(constraints.preserveIndent(), PrinterOptions.SymbolStyle.SHORT_FORM);
+    var scale = constraints.scale().orElse(null);
+    if (scale != null) {
+      layout.writeLiteral(scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale : (StvnVocabulary.SIGIL_VALUE + scale));
     }
     if (constraints.offset() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_OFFSET);
@@ -216,24 +216,6 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
     if (constraints.audited() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_AUDITED)) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_AUDITED);
     }
-    var equatable = constraints.equatable().orElse(null);
-    if (equatable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) {
-      layout.writeLiteral(StvnVocabulary.FACET_KW_EQUATABLE);
-      layout.writeBoolean(equatable, PrinterOptions.SymbolStyle.SHORT_FORM);
-    }
-    var comparable = constraints.comparable().orElse(null);
-    if (comparable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) {
-      layout.writeLiteral(StvnVocabulary.FACET_KW_COMPARABLE);
-      layout.writeBoolean(comparable, PrinterOptions.SymbolStyle.SHORT_FORM);
-    }
-
-    // Tier 2: Temporal Scale
-    var scale = constraints.scale().orElse(null);
-    if (scale != null) {
-      layout.writeLiteral(scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale : (StvnVocabulary.SIGIL_VALUE + scale));
-    }
-
-    // Tier 3: Dimensions & Capacity
     var size = constraints.size().orElse(null);
     if (size != null) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_SIZE);
@@ -250,7 +232,19 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
       layout.writeLiteral(maxSize.toString());
     }
 
-    // Tier 4: Value Intervals (Lower bounds strictly precede Upper bounds)
+    // Tier 2: Trait (§ 6.1 2.1 - 2.2)
+    var equatable = constraints.equatable().orElse(null);
+    if (equatable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_EQUATABLE);
+      layout.writeBoolean(equatable, PrinterOptions.SymbolStyle.SHORT_FORM);
+    }
+    var comparable = constraints.comparable().orElse(null);
+    if (comparable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_COMPARABLE);
+      layout.writeBoolean(comparable, PrinterOptions.SymbolStyle.SHORT_FORM);
+    }
+
+    // Tier 3: Bounds (§ 6.1 3.1 - 3.4, Lower before Upper)
     if (constraints.minIncl().isPresent()) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
       layout.writeLiteral(constraints.minIncl().get().toString());
@@ -262,6 +256,10 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
       layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_EXCL);
       layout.writeLiteral(constraints.minExcl().get().toString());
     }
+    if (constraints.maxIncl().isPresent()) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_INCL);
+      layout.writeLiteral(constraints.maxIncl().get().toString());
+    }
     if (constraints.maxExcl().isPresent()) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
       layout.writeLiteral(constraints.maxExcl().get().toString());
@@ -269,19 +267,8 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
       layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
       layout.writeSimpleString(constraints.dateMaxExcl().get());
     }
-    if (constraints.maxIncl().isPresent()) {
-      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_INCL);
-      layout.writeLiteral(constraints.maxIncl().get().toString());
-    }
 
-    // Tier 5: Validation Patterns
-    var regex = constraints.regex().orElse(null);
-    if (regex != null) {
-      layout.writeLiteral(StvnVocabulary.FACET_KW_REGEX);
-      layout.writeSimpleString(regex);
-    }
-
-    // Tier 6: Domain Subsets
+    // Tier 4: Constraint (§ 6.1 4.1 - 4.4)
     var filterIncl = constraints.filterIncl().orElse(null);
     if (filterIncl != null) {
       layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_INCL);
@@ -299,6 +286,15 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
         layout.writeLiteral(v);
       }
       layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
+    }
+    if (constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
+      layout.writeBoolean(constraints.preserveIndent(), PrinterOptions.SymbolStyle.SHORT_FORM);
+    }
+    var regex = constraints.regex().orElse(null);
+    if (regex != null) {
+      layout.writeLiteral(StvnVocabulary.FACET_KW_REGEX);
+      layout.writeSimpleString(regex);
     }
 
     layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);

@@ -1044,7 +1044,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :strTrue { #preserveIndent #TRUE #minSize 10 #maxSize 10 } :String
+                    :strTrue { #minSize 10 #maxSize 10 #preserveIndent #TRUE } :String
                   }
                   :type :Seq( :strTrue )
                   :body [
@@ -1060,7 +1060,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :strTrue { #preserveIndent #TRUE #minSize 15 #maxSize 15 } :String
+                    :strTrue { #minSize 15 #maxSize 15 #preserveIndent #TRUE } :String
                   }
                   :type :Seq( :strTrue )
                   :body [
@@ -1108,7 +1108,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :strTrue { #preserveIndent #TRUE #minSize 10 #maxSize 10 } :String
+                    :strTrue { #minSize 10 #maxSize 10 #preserveIndent #TRUE } :String
                   }
                   :type :Seq( :strTrue )
                   :body [
@@ -1123,7 +1123,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :strTrue { #preserveIndent #TRUE #minSize 15 #maxSize 15 } :String
+                    :strTrue { #minSize 15 #maxSize 15 #preserveIndent #TRUE } :String
                   }
                   :type :Seq( :strTrue )
                   :body [
@@ -1576,7 +1576,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :speed { #maxExcl 99.0 #maxIncl 100.0 } :Float
+                    :speed { #maxIncl 100.0 #maxExcl 99.0 } :Float
                   }
                   :type :Seq( :speed )
                   :body [ 100.0 ]

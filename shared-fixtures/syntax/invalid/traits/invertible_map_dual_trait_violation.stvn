@@ -1,0 +1,10 @@
+// @spec: SPEC-06-TRAIT-CAPABILITY
+// @case: Negative - Invertible map with continuous float violates equatable trait
+// @error: TRAIT_VIOLATION
+{
+  :meta {
+    #name "invertible_map_dual_trait_violation"
+  }
+  :type { #invertible } :Map( :Float :Float )
+  :body { [ 3.14 2.71 ] }
+}

@@ -42,6 +42,7 @@
       #MUTUALLY_EXCLUSIVE_BOUNDS
       #ENUM_SUBSET_ORDER_VIOLATION
       #ERR_ORDER_MISMATCH
+      #TUPLE_ARITY_MISMATCH
     ]
 
     :ErrorContract :Tuple(

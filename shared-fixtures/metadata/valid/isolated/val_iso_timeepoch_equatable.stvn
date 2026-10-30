@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #equatable #FALSE #s } :TimeEpoch
+  :TestedType { #s #equatable #FALSE } :TimeEpoch
   }
   :type :TestedType
   :body 1600000000

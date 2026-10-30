@@ -9,9 +9,9 @@
 {
   :defs {
     :SaturatedSet {
-      #equatable #TRUE
       #minSize 1
       #maxSize 10
+      #equatable #TRUE
     } :Set( :Int )
   }
   :type :SaturatedSet

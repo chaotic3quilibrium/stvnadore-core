@@ -45,11 +45,11 @@ public class StvnSemanticFacetOrderingTest {
         """;
 
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    // Expected:
-    // Tier 1: #preserveIndent #TRUE #equatable #FALSE #comparable #FALSE
-    // Tier 3: #minSize 4 #maxSize 16
-    // Tier 5: #regex "^[A-Z0-9]+$"
-    String expected = "{:meta{#kind #DEFS}:defs{:TargetType{#preserveIndent #T #equatable #F #comparable #F #minSize 4 #maxSize 16 #regex \"^[A-Z0-9]+$\"}:String}}";
+    // Expected (5-tier decimal hierarchy § 6.1):
+    // Tier 1: #minSize 4 #maxSize 16
+    // Tier 2: #equatable #FALSE #comparable #FALSE
+    // Tier 4: #preserveIndent #TRUE #regex "^[A-Z0-9]+$"
+    String expected = "{:meta{#kind #DEFS}:defs{:TargetType{#minSize 4 #maxSize 16 #equatable #F #comparable #F #preserveIndent #T #regex \"^[A-Z0-9]+$\"}:String}}";
     Assertions.assertEquals(expected, flattened);
   }
 

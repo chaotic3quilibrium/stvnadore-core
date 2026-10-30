@@ -10,9 +10,9 @@
   :defs {
     :BijectiveMap {
       #invertible
-      #equatable #TRUE
       #minSize 1
       #maxSize 10
+      #equatable #TRUE
     } :Map( :String :Int )
   }
   :type :BijectiveMap

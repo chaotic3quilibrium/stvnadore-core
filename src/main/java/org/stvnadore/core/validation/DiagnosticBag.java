@@ -147,7 +147,7 @@ public final class DiagnosticBag {
   public static final String ERR_DATETIME_MODE_INVALID = "ERR_DATETIME_MODE_INVALID";
   /** Error code emitted when purged prelude nominal aliases are referenced (SPEC-03). */
   public static final String ERR_PRELUDE_ALIAS_PURGED = "ERR_PRELUDE_ALIAS_PURGED";
-  /** Error code emitted when metadata facets violate the 7-tier canonical sequence (SPEC-05). */
+  /** Error code emitted when metadata facets violate the 5-tier canonical sequence (SPEC-05). */
   public static final String ERR_FACET_ORDER_VIOLATION = "ERR_FACET_ORDER_VIOLATION";
   /** Error code emitted when duplicate metadata facet tags appear in a metadata block (SPEC § 5.1.4). */
   public static final String ERR_DUPLICATE_METADATA_FACET = "ERR_DUPLICATE_METADATA_FACET";
@@ -377,5 +377,14 @@ public final class DiagnosticBag {
    */
   public boolean isThresholdExceeded() {
     return thresholdExceeded;
+  }
+
+  /**
+   * Returns the maximum diagnostic threshold capacity of this bag.
+   *
+   * @return the maximum diagnostics threshold
+   */
+  public int getMaxDiagnostics() {
+    return maxDiagnostics;
   }
 }

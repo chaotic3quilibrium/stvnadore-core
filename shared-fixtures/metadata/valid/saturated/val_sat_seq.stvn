@@ -9,10 +9,10 @@
 {
   :defs {
     :SaturatedSeq {
-      #equatable #TRUE
-      #comparable #TRUE
       #minSize 1
       #maxSize 10
+      #equatable #TRUE
+      #comparable #TRUE
     } :Seq( :Int )
   }
   :type :SaturatedSeq

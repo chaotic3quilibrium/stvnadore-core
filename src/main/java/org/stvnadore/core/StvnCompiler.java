@@ -117,10 +117,6 @@ public final class StvnCompiler {
         mapSemanticException(t, input, diagnosticBag);
       }
 
-      if (diagnosticBag.hasErrors()) {
-        return StvnCompilationResult.failure(diagnosticBag.toList());
-      }
-
       if (docCtx.documentBody() == null || (docCtx.documentBody().metaEntry() == null && docCtx.documentBody().defsEntry() == null && docCtx.documentBody().bodyEntry() == null)) {
         return diagnosticBag.hasErrors()
             ? StvnCompilationResult.failure(diagnosticBag.toList())
@@ -130,8 +126,51 @@ public final class StvnCompiler {
       // Build StvnDocument AST
       Optional<StvnDocumentMeta> meta = StvnIrVisitor.extractMeta(docCtx.documentBody().metaEntry());
 
+      // If document constraints encountered errors, only allow deferred body validation if errors
+      // are strictly confined to :defs / includes and the document has valid syntax, valid structure,
+      // and a valid root :type.
+      boolean canValidateBody = docCtx.documentBody() != null
+          && docCtx.documentBody().bodyEntry() != null
+          && parser.getNumberOfSyntaxErrors() == 0;
+
+      if (canValidateBody && diagnosticBag.hasErrors()) {
+        int docStart = docCtx.getStart() != null ? docCtx.getStart().getStartIndex() : 0;
+        int docStop = docCtx.getStop() != null ? docCtx.getStop().getStopIndex() + 1 : Integer.MAX_VALUE;
+
+        var defsCtx = docCtx.documentBody().defsEntry();
+        int defsStart = defsCtx != null ? defsCtx.getStart().getStartIndex() : -1;
+        int defsStop = defsCtx != null ? defsCtx.getStop().getStopIndex() + 1 : -1;
+
+        for (var diag : diagnosticBag.toList()) {
+          if (diag.severity() != StvnDiagnostic.DiagnosticSeverity.ERROR) {
+            continue;
+          }
+          var code = diag.errorCode().orElse("");
+          if (code.startsWith("ERR_DOCUMENT_") || code.startsWith("ERR_SECTION_") || code.equals("ERR_EMPTY_DEFS_BLOCK")) {
+            canValidateBody = false;
+            break;
+          }
+          if (diag.message().contains("Rule STR-04") || code.equals("STVN_SYNTAX_CANCELLATION") || code.startsWith("SYNTAX_")) {
+            canValidateBody = false;
+            break;
+          }
+          int offset = diag.startOffset();
+          if (offset >= docStart && offset < docStop) {
+            boolean inDefs = defsStart >= 0 && offset >= defsStart && offset < defsStop;
+            if (!inDefs) {
+              canValidateBody = false;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!canValidateBody && diagnosticBag.hasErrors()) {
+        return StvnCompilationResult.failure(diagnosticBag.toList());
+      }
+
       Optional<StvnValue> payload = Optional.empty();
-      if (docCtx.documentBody().bodyEntry() != null) {
+      if (canValidateBody) {
         try {
           var visitor = new StvnIrVisitor(docCtx, diagnosticBag);
           StvnValue astValue = visitor.visit(docCtx.documentBody().bodyEntry().value());
@@ -703,7 +742,7 @@ public final class StvnCompiler {
         errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_INVALID_METADATA_FACET;
       } else if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
         errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED;
-      } else if (msg.contains("violates canonical 7-tier order")) {
+      } else if (msg.contains("violates canonical 5-tier order") || msg.contains("violates canonical 7-tier order")) {
         errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_FACET_ORDER_VIOLATION;
       } else if (msg.contains("defines an empty domain")) {
         errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;

@@ -518,7 +518,7 @@ public final class MetadataFixtureGenerator {
     String q = row.domainQualifier();
     if (":TimeEpoch".equals(clean)) {
       if (q != null) return "#" + q + " ";
-      if (!row.isStandalone() && !"equatable".equals(row.tagName()) && !"comparable".equals(row.tagName())) {
+      if (!row.isStandalone()) {
         return "#s ";
       }
     } else if (":DateTime".equals(clean)) {
@@ -526,7 +526,7 @@ public final class MetadataFixtureGenerator {
       if (!row.isStandalone()) return "#offset ";
     } else if (":Float".equals(clean)) {
       if ("exact".equals(q) && !"exact".equals(row.tagName())) return "#exact ";
-      if ("32".equals(q) && !"size".equals(row.tagName()) && !"equatable".equals(row.tagName()) && !"comparable".equals(row.tagName())) {
+      if ("32".equals(q) && !"size".equals(row.tagName())) {
         return "#size 32 ";
       }
     } else if (":Int".equals(clean)) {
@@ -538,17 +538,6 @@ public final class MetadataFixtureGenerator {
   }
 
   private static String computeDefSuffix(MetadataMatrixRow row) {
-    String clean = row.cleanBaseType();
-    String q = row.domainQualifier();
-    if (":TimeEpoch".equals(clean) && q == null && !row.isStandalone()) {
-      if ("equatable".equals(row.tagName()) || "comparable".equals(row.tagName())) {
-        return " #s";
-      }
-    } else if (":Float".equals(clean)) {
-      if ("32".equals(q) && ("equatable".equals(row.tagName()) || "comparable".equals(row.tagName()))) {
-        return " #size 32";
-      }
-    }
     return "";
   }
 
@@ -740,8 +729,8 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedFloat32 {
-              #equatable #TRUE
               #size 32
+              #equatable #TRUE
               #minIncl -1000.0
               #maxExcl 1000.0
             } :Float
@@ -819,9 +808,9 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedString {
-              #preserveIndent #TRUE
               #minSize 2
               #maxSize 16
+              #preserveIndent #TRUE
               #regex "^[a-z]+$"
             } :String
           }
@@ -852,9 +841,9 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedEpochNs {
+              #ns
               #equatable #TRUE
               #comparable #TRUE
-              #ns
               #minIncl 1000
               #maxExcl 2000000000
             } :TimeEpoch
@@ -880,9 +869,9 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedEpochUs {
+              #us
               #equatable #TRUE
               #comparable #TRUE
-              #us
               #minIncl 1000
               #maxExcl 2000000000
             } :TimeEpoch
@@ -908,9 +897,9 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedEpochMs {
+              #ms
               #equatable #TRUE
               #comparable #TRUE
-              #ms
               #minIncl 1000
               #maxExcl 2000000000
             } :TimeEpoch
@@ -936,9 +925,9 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedEpochS {
+              #s
               #equatable #TRUE
               #comparable #TRUE
-              #s
               #minIncl 1000
               #maxExcl 2000000000
             } :TimeEpoch
@@ -1079,10 +1068,10 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedSeq {
-              #equatable #TRUE
-              #comparable #TRUE
               #minSize 1
               #maxSize 10
+              #equatable #TRUE
+              #comparable #TRUE
             } :Seq( :Int )
           }
           :type :SaturatedSeq
@@ -1106,9 +1095,9 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedSet {
-              #equatable #TRUE
               #minSize 1
               #maxSize 10
+              #equatable #TRUE
             } :Set( :Int )
           }
           :type :SaturatedSet
@@ -1133,9 +1122,9 @@ public final class MetadataFixtureGenerator {
           :defs {
             :BijectiveMap {
               #invertible
-              #equatable #TRUE
               #minSize 1
               #maxSize 10
+              #equatable #TRUE
             } :Map( :String :Int )
           }
           :type :BijectiveMap
@@ -1369,7 +1358,7 @@ public final class MetadataFixtureGenerator {
         Optional.of("#unsigned")
     ));
 
-    // 2. Tier 3 (Size) before Tier 1 (Trait)
+    // 2. Tier 2 (Trait) before Tier 1 (Definition)
     list.add(new GeneratedFixture(
         Path.of("invalid", "order_violation", "inv_order_trait_before_definition.stvn"),
         """
@@ -1377,18 +1366,18 @@ public final class MetadataFixtureGenerator {
         // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
         // ==============================================================================
         // FIXTURE-ID:         inv_order_trait_before_definition
-        // MATRIX-POSITION:    1.3.1 before 2.1
+        // MATRIX-POSITION:    2.1 before 1.3.1
         // TARGET-TYPE:        :Float
-        // OFFENDING-FACET:    #equatable
+        // OFFENDING-FACET:    #size
         // COVERAGE-KIND:      ORDER_VIOLATION
         // EXPECT-DIAGNOSTIC:  ERR_FACET_ORDER_VIOLATION
-        // TARGET-TOKEN:       #equatable
+        // TARGET-TOKEN:       #size
         // EXPECT-SEVERITY:    ERROR
-        // DESCRIPTION:        Size facet #size placed before trait facet #equatable
+        // DESCRIPTION:        Trait facet #equatable placed before definition facet #size
         // ==============================================================================
         {
           :defs {
-            :BadOrderFloat { #size 32 #equatable #TRUE } :Float
+            :BadOrderFloat { #equatable #TRUE #size 32 } :Float
           }
           :type :BadOrderFloat
           :body 1.0
@@ -1396,7 +1385,7 @@ public final class MetadataFixtureGenerator {
         """,
         CoverageKind.ORDER_VIOLATION,
         Optional.of("ERR_FACET_ORDER_VIOLATION"),
-        Optional.of("#equatable")
+        Optional.of("#size")
     ));
 
     // 3. Sub-tier 4.3 (maxExcl) before 4.1 (minIncl)

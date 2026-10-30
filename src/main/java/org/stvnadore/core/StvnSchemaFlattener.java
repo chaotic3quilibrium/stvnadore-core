@@ -862,7 +862,7 @@ public final class StvnSchemaFlattener {
       sb.append("{");
       boolean first = true;
 
-      // Tier 1: Flags & Intrinsic Modes
+      // Tier 1: Definition (§ 6.1 1.1.1 - 1.5.2)
       if (constraints.unsigned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_UNSIGNED)) {
         if (!first) sb.append(" ");
         first = false;
@@ -878,10 +878,11 @@ public final class StvnSchemaFlattener {
         first = false;
         sb.append(StvnVocabulary.FACET_KW_INVERTIBLE);
       }
-      if (constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
+      var scale = constraints.scale().orElse(null);
+      if (scale != null) {
         if (!first) sb.append(" ");
         first = false;
-        sb.append(StvnVocabulary.FACET_KW_PRESERVE_INDENT).append(" ").append(constraints.preserveIndent() ? StvnVocabulary.VAL_TRUE_SHORT : StvnVocabulary.VAL_FALSE_SHORT);
+        sb.append(StvnVocabulary.SIGIL_VALUE).append(scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale.substring(1) : scale);
       }
       if (constraints.offset() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET)) {
         if (!first) sb.append(" ");
@@ -898,28 +899,6 @@ public final class StvnSchemaFlattener {
         first = false;
         sb.append(StvnVocabulary.FACET_KW_AUDITED);
       }
-      var equatable = constraints.equatable().orElse(null);
-      if (equatable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_EQUATABLE).append(" ").append(equatable ? StvnVocabulary.VAL_TRUE_SHORT : StvnVocabulary.VAL_FALSE_SHORT);
-      }
-      var comparable = constraints.comparable().orElse(null);
-      if (comparable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_COMPARABLE).append(" ").append(comparable ? StvnVocabulary.VAL_TRUE_SHORT : StvnVocabulary.VAL_FALSE_SHORT);
-      }
-
-      // Tier 2: Temporal Scale
-      var scale = constraints.scale().orElse(null);
-      if (scale != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.SIGIL_VALUE).append(scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale.substring(1) : scale);
-      }
-
-      // Tier 3: Dimensions & Capacity
       var size = constraints.size().orElse(null);
       if (size != null) {
         if (!first) sb.append(" ");
@@ -939,7 +918,21 @@ public final class StvnSchemaFlattener {
         sb.append(StvnVocabulary.FACET_KW_MAX_SIZE).append(" ").append(maxSize);
       }
 
-      // Tier 4: Value Intervals (Lower before Upper)
+      // Tier 2: Trait (§ 6.1 2.1 - 2.2)
+      var equatable = constraints.equatable().orElse(null);
+      if (equatable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) {
+        if (!first) sb.append(" ");
+        first = false;
+        sb.append(StvnVocabulary.FACET_KW_EQUATABLE).append(" ").append(equatable ? StvnVocabulary.VAL_TRUE_SHORT : StvnVocabulary.VAL_FALSE_SHORT);
+      }
+      var comparable = constraints.comparable().orElse(null);
+      if (comparable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) {
+        if (!first) sb.append(" ");
+        first = false;
+        sb.append(StvnVocabulary.FACET_KW_COMPARABLE).append(" ").append(comparable ? StvnVocabulary.VAL_TRUE_SHORT : StvnVocabulary.VAL_FALSE_SHORT);
+      }
+
+      // Tier 3: Bounds (§ 6.1 3.1 - 3.4, Lower before Upper)
       var minIncl = constraints.minIncl().orElse(null);
       if (minIncl != null) {
         if (!first) sb.append(" ");
@@ -956,6 +949,12 @@ public final class StvnSchemaFlattener {
         first = false;
         sb.append(StvnVocabulary.FACET_KW_MIN_EXCL).append(" ").append(minExcl);
       }
+      var maxIncl = constraints.maxIncl().orElse(null);
+      if (maxIncl != null) {
+        if (!first) sb.append(" ");
+        first = false;
+        sb.append(StvnVocabulary.FACET_KW_MAX_INCL).append(" ").append(maxIncl);
+      }
       var maxExcl = constraints.maxExcl().orElse(null);
       if (maxExcl != null) {
         if (!first) sb.append(" ");
@@ -966,22 +965,8 @@ public final class StvnSchemaFlattener {
         first = false;
         sb.append(StvnVocabulary.FACET_KW_MAX_EXCL).append(" \"").append(escapeString(constraints.dateMaxExcl().get())).append("\"");
       }
-      var maxIncl = constraints.maxIncl().orElse(null);
-      if (maxIncl != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_MAX_INCL).append(" ").append(maxIncl);
-      }
 
-      // Tier 5: Pattern & Text Structure
-      var regex = constraints.regex().orElse(null);
-      if (regex != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_REGEX).append(" \"").append(escapeString(regex)).append("\"");
-      }
-
-      // Tier 6: Set & Variant Membership
+      // Tier 4: Constraint (§ 6.1 4.1 - 4.4)
       var filterIncl = constraints.filterIncl().orElse(null);
       if (filterIncl != null) {
         if (!first) sb.append(" ");
@@ -1007,6 +992,17 @@ public final class StvnSchemaFlattener {
           sb.append(v);
         }
         sb.append("]");
+      }
+      if (constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
+        if (!first) sb.append(" ");
+        first = false;
+        sb.append(StvnVocabulary.FACET_KW_PRESERVE_INDENT).append(" ").append(constraints.preserveIndent() ? StvnVocabulary.VAL_TRUE_SHORT : StvnVocabulary.VAL_FALSE_SHORT);
+      }
+      var regex = constraints.regex().orElse(null);
+      if (regex != null) {
+        if (!first) sb.append(" ");
+        first = false;
+        sb.append(StvnVocabulary.FACET_KW_REGEX).append(" \"").append(escapeString(regex)).append("\"");
       }
 
       sb.append("}");

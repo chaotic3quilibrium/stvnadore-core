@@ -3,7 +3,7 @@
 // @error: MALFORMED_SCHEMA
 {
   :defs {
-    :ConflictingEpoch { #s #ms } :TimeEpoch
+    :ConflictingEpoch { #ms #s } :TimeEpoch
   }
   :type :ConflictingEpoch
   :body 1710500000

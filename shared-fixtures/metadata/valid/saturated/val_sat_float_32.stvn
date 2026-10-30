@@ -9,8 +9,8 @@
 {
   :defs {
     :SaturatedFloat32 {
-      #equatable #TRUE
       #size 32
+      #equatable #TRUE
       #minIncl -1000.0
       #maxExcl 1000.0
     } :Float

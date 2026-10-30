@@ -1,0 +1,12 @@
+// @spec: SPEC-03-TEMPORAL-DATETIME
+// @case: Negative - Unrecognized facet alongside conflicting temporal modes
+// @error: ERR_UNRECOGNIZED_METADATA_FACET
+{
+  :meta {
+    #name "unrecognized_facet_with_conflicting_modes"
+    #kind #DEFS
+  }
+  :defs {
+    :AuditMarker { #milli #offset #zoned } :DateTime
+  }
+}

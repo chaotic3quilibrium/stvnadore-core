@@ -9,9 +9,9 @@
 {
   :defs {
     :SaturatedString {
-      #preserveIndent #TRUE
       #minSize 2
       #maxSize 16
+      #preserveIndent #TRUE
       #regex "^[a-z]+$"
     } :String
   }

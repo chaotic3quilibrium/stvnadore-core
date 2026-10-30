@@ -56,14 +56,14 @@ public class StvnTemporalPreludeValidationTest {
     String source = """
         {
           :defs {
-            :Timestamp { #s #ms } :TimeEpoch
+            :Timestamp { #ms #s } :TimeEpoch
           }
           :type :Timestamp
           :body 1710500000
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Conflicting scales #s and #ms must be rejected");
+    assertTrue(result.hasErrors(), "Conflicting scales #ms and #s must be rejected");
     var error = result.diagnostics().getFirst();
     assertEquals(DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE, error.errorCode().orElse(null));
   }

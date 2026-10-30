@@ -178,7 +178,7 @@ public class StvnIntervalAlgebraSoundnessTest {
         """;
     var emptyResult = StvnCompiler.compileToResult(emptyDomainSource, null, StvnParserConfig.DEFAULT);
     assertTrue(emptyResult.hasErrors(), "Zero-width discrete interval [10, 10) must fail compilation");
-    assertTrue(emptyResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INVERTED_RANGE.equals(d.errorCode().orElse(null))));
+    assertTrue(emptyResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN.equals(d.errorCode().orElse(null))));
   }
 
   @ParameterizedTest
