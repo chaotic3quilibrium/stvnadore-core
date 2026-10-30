@@ -8,9 +8,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.binary.readers.StvnMapReader;
 import org.stvnadore.core.binary.readers.StvnSeqReader;
-import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.ir.StvnValue.StvnFloat;
-import org.stvnadore.core.ir.StvnValue.StvnInteger;
+import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ast.StvnValue.StvnFloat;
+import org.stvnadore.core.ast.StvnValue.StvnInteger;
 import org.stvnadore.core.validation.MalformedPayloadException;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 

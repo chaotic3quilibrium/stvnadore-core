@@ -1,10 +1,13 @@
 /**
- * Intermediate Representation (IR) and Abstract Syntax Tree (AST) models for STVN values.
+ * Pure, parser-decoupled, CPU-bias-free Canonical Intermediate Representation (IR)
+ * for Strongly Typed Value Notation (STVN) 2.0.0.
  * <p>
- * This package complies with the Tier 1 (Sovereign Domain &amp; Logic Core) null-safety and
- * optionality contracts. Null references are strictly prohibited across all parameters, fields,
- * and return values, with absence of data modeled exclusively via {@link java.util.Optional}
- * and algebraic data type wrappers.
+ * All types in this package are deeply immutable Java records and sealed algebras
+ * with zero dependencies on parser-generator runtime contexts or hardware-sized
+ * numeric primitives. All integer quantities use {@link java.math.BigInteger}
+ * and all decimal quantities use {@link java.math.BigDecimal}.
+ *
+ * @since 2.0.0
  */
 @NullMarked
 package org.stvnadore.core.ir;

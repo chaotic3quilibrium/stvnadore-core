@@ -16,7 +16,7 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.binary.readers.StvnMapReader;
 import org.stvnadore.core.binary.readers.StvnSeqReader;
 import org.stvnadore.core.binary.readers.StvnTupleReader;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 import org.stvnadore.core.utils.StvnBinaryUtils;
 import org.stvnadore.core.validation.MalformedPayloadException;
 

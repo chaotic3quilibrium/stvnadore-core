@@ -5,8 +5,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnCompilationResult;
-import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.ir.StvnValue.StvnString;
+import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ast.StvnValue.StvnString;
 
 /**
  * Verification test suite for eager schema definition constraint validation inside {@code :defs}.

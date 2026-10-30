@@ -2,8 +2,8 @@ package org.stvnadore.core.printer.internal;
 
 import org.jspecify.annotations.NullMarked;
 import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.ir.StvnValue.*;
+import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ast.StvnValue.*;
 import org.stvnadore.core.printer.PrinterOptions;
 
 import java.io.IOException;

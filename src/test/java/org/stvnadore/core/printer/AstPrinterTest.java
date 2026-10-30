@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 
 import java.io.StringWriter;
 
@@ -129,7 +129,7 @@ class AstPrinterTest {
         true,
         validValue.schema().enumSubset()
     );
-    var poisonedValue = new org.stvnadore.core.ir.StvnValue.StvnBoolean(poisonedSchema, true);
+    var poisonedValue = new org.stvnadore.core.ast.StvnValue.StvnBoolean(poisonedSchema, true);
 
     var exPoisoned = Assertions.assertThrows(IllegalStateException.class, () -> printer.printToString(poisonedValue));
     Assertions.assertEquals(

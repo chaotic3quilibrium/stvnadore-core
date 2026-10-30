@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 
 import java.io.IOException;
 import java.nio.file.Files;

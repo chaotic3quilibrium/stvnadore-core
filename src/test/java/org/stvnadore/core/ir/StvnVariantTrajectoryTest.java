@@ -4,10 +4,12 @@ import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.ir.StvnValue.StvnEither;
-import org.stvnadore.core.ir.StvnValue.StvnFloat;
-import org.stvnadore.core.ir.StvnValue.StvnOption;
-import org.stvnadore.core.ir.StvnValue.StvnSeq;
+import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ast.VariantStep;
+import org.stvnadore.core.ast.StvnValue.StvnEither;
+import org.stvnadore.core.ast.StvnValue.StvnFloat;
+import org.stvnadore.core.ast.StvnValue.StvnOption;
+import org.stvnadore.core.ast.StvnValue.StvnSeq;
 
 import java.util.List;
 

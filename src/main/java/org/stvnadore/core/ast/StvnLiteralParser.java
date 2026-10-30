@@ -1,4 +1,4 @@
-package org.stvnadore.core.ir;
+package org.stvnadore.core.ast;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;

@@ -5,8 +5,8 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.ir.StvnValue.StvnUnion;
+import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ast.StvnValue.StvnUnion;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
 

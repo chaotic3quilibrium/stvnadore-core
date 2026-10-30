@@ -11,7 +11,7 @@ import org.antlr.v4.runtime.TokenStreamRewriter;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
-import org.stvnadore.core.ir.StvnLiteralParser;
+import org.stvnadore.core.ast.StvnLiteralParser;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.parser.StvnParser.SchemaTypeContext;
@@ -344,7 +344,7 @@ public final class StvnSchemaFlattener {
     ParsedDocument entryDoc = parsedCache.get(normEntryPoint);
     org.stvnadore.core.ast.StvnDocumentMeta entryMeta = null;
     if (entryDoc != null && entryDoc.docCtx() != null && entryDoc.docCtx().documentBody() != null) {
-      entryMeta = org.stvnadore.core.ir.StvnIrVisitor.extractMeta(entryDoc.docCtx().documentBody().metaEntry()).orElse(null);
+      entryMeta = org.stvnadore.core.ast.StvnIrVisitor.extractMeta(entryDoc.docCtx().documentBody().metaEntry()).orElse(null);
     }
 
     StringBuilder metaBuilder = new StringBuilder(":meta{");
@@ -1227,13 +1227,13 @@ public final class StvnSchemaFlattener {
       tokens.add(val.toString());
     } else if (ctx.floatLiteral() != null) {
       BigDecimal val = StvnLiteralParser.parseBigDecimal(ctx.floatLiteral().getText());
-      tokens.add(formatFloat(val, org.stvnadore.core.ir.StvnValue.FloatPrecision.EXACT));
+      tokens.add(formatFloat(val, org.stvnadore.core.ast.StvnValue.FloatPrecision.EXACT));
     } else if (ctx.stringLiteral() != null) {
       var parsed = StvnLiteralParser.parseStringNew(ctx.stringLiteral().getText(), preserveIndent);
       String escaped = escapeString(parsed.text());
-      if (parsed.style() == org.stvnadore.core.ir.StvnValue.StringStyle.SIMPLE) {
+      if (parsed.style() == org.stvnadore.core.ast.StvnValue.StringStyle.SIMPLE) {
         tokens.add("\"" + escaped + "\"");
-      } else if (parsed.style() == org.stvnadore.core.ir.StvnValue.StringStyle.FENCED) {
+      } else if (parsed.style() == org.stvnadore.core.ast.StvnValue.StringStyle.FENCED) {
         String tag = parsed.optionalFenceTag().orElse("FENCE");
         tokens.add("\"\"\"[" + tag + "]\n" + parsed.text() + "[" + tag + "]\"\"\"");
       }
@@ -1266,8 +1266,8 @@ public final class StvnSchemaFlattener {
     }
   }
 
-  private static String formatFloat(BigDecimal value, org.stvnadore.core.ir.StvnValue.FloatPrecision floatPrecision) {
-    var s = (floatPrecision == org.stvnadore.core.ir.StvnValue.FloatPrecision.EXACT)
+  private static String formatFloat(BigDecimal value, org.stvnadore.core.ast.StvnValue.FloatPrecision floatPrecision) {
+    var s = (floatPrecision == org.stvnadore.core.ast.StvnValue.FloatPrecision.EXACT)
         ? value.toPlainString()
         : value.toString();
     if (!s.contains(".")) {

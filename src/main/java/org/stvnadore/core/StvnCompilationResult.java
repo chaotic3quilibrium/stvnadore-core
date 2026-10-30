@@ -15,7 +15,7 @@ import java.util.function.Function;
  * Supports partial AST recovery where {@link #document()} is present even in the presence of recoverable
  * semantic errors.
  *
- * @param <T> the type of the compiled AST payload (typically {@link org.stvnadore.core.ir.StvnValue})
+ * @param <T> the type of the compiled AST payload (typically {@link org.stvnadore.core.ast.StvnValue})
  * @param document              the compiled AST (clean or partial), or empty on unrecoverable syntax failure
  * @param diagnostics           the immutable list of all recorded diagnostics
  * @param isRecoveredPartialAst true if the document was generated via partial error recovery

@@ -1,4 +1,4 @@
-package org.stvnadore.core.ir;
+package org.stvnadore.core.ast;
 
 import org.jspecify.annotations.NullMarked;
 
@@ -12,6 +12,9 @@ import org.jspecify.annotations.NullMarked;
 public record VariantStep(String tag, boolean isInferred) {
   /**
    * Canonical constructor verifying that the tag is non-null.
+   *
+   * @param tag        the representation of the variant tag
+   * @param isInferred true if the variant step was auto-synthesized by implicit resolution rules
    */
   public VariantStep {
     java.util.Objects.requireNonNull(tag);

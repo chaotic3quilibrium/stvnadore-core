@@ -1,14 +1,11 @@
-package org.stvnadore.core.ir;
+package org.stvnadore.core.ast;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ast.StvnDocument;
-import org.stvnadore.core.ast.StvnDocumentKind;
-import org.stvnadore.core.ast.StvnDocumentMeta;
-import org.stvnadore.core.ir.StvnValue.*;
+import org.stvnadore.core.ast.StvnValue.*;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.parser.StvnParser.BodyEntryContext;
 import org.stvnadore.core.parser.StvnParser.MetaEntryContext;

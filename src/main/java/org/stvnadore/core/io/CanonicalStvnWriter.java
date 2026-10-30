@@ -1,8 +1,8 @@
 package org.stvnadore.core.io;
 
 import org.jspecify.annotations.NullMarked;
-import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.ir.StvnValue.*;
+import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ast.StvnValue.*;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.printer.PrinterOptions;
 import org.stvnadore.core.printer.StvnTextPrinter;

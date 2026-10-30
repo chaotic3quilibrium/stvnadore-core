@@ -5,7 +5,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.parser.StvnParser.SchemaTypeContext;
 import org.stvnadore.core.parser.StvnParser.StvnDocumentContext;

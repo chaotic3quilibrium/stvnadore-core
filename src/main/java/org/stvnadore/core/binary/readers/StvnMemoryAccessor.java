@@ -106,7 +106,7 @@ public interface StvnMemoryAccessor {
    */
   default BigDecimal getFloatExact(int index) {
     int stringPayloadOffset = getPointerDereference(index);
-    return org.stvnadore.core.ir.StvnLiteralParser.parseBigDecimal(StvnBinaryDecoder.readStringOutlined(context(), stringPayloadOffset));
+    return org.stvnadore.core.ast.StvnLiteralParser.parseBigDecimal(StvnBinaryDecoder.readStringOutlined(context(), stringPayloadOffset));
   }
 
   /**

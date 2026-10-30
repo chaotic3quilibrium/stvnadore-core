@@ -103,6 +103,8 @@
     * [7.4 Interactive DX Guards & Caret Resolution Boundaries](#74-interactive-dx-guards--caret-resolution-boundaries)
   * [8. Payload Inference & AST Lowering Rules](#8-payload-inference--ast-lowering-rules)
     * [8.1 Inference Rules (Rule A through Rule J)](#81-inference-rules-rule-a-through-rule-j)
+    * [8.2 Canonical Intermediate Representation (IR) Algebra](#82-canonical-intermediate-representation-ir-algebra)
+    * [8.3 CPU-Bias-Free Expression Space Invariant](#83-cpu-bias-free-expression-space-invariant)
   * [9. Opaque Nominal Type Branding & CAS Bijectivity Invariant](#9-opaque-nominal-type-branding--cas-bijectivity-invariant)
     * [9.1 Opaque Nominal Branding Principle](#91-opaque-nominal-branding-principle)
     * [9.1.1 The Anti-Subtyping & Total Nominal Override Principle](#911-the-anti-subtyping--total-nominal-override-principle)
@@ -466,7 +468,7 @@ Metadata constraint blocks `{ ... }` **must immediately precede** the target typ
 ```stvn
 // VALID: Metadata block prefixes the target type
   :Port     { #unsigned #size 16 #minIncl 1 } :Int
-  :Username { #regex "^[a-z0-9_]{3,16}$" #minSize 3 #maxSize 16 } :String
+  :Username { #minSize 3 #maxSize 16 #regex "^[a-z0-9_]{3,16}$" } :String
   :Flag     { #equatable #TRUE } :Float
 
   // INVALID: Suffix or wrapped metadata placement
@@ -686,24 +688,24 @@ When multiple modules or local declarations supply the same type identifier name
 *(See [**Appendix F**](#appendix-f-module-ingestion-import-aliasing-and-collision-resolution-catalogue) for complete, executable code examples demonstrating each resolution scenario.)*
 
 ```mermaid
-graph TD
+flowchart TD
     A["Start Defs Ingestion"] --> B{"Identifier Collision Detected?"}
     B -- " No " --> C["Register Identifier in Scope"]
-    B -- " Yes " --> D{"Is one local & one imported?"}
-    D -- " Yes " --> E["Keep Local Definition<br/>Evict Imported Raw Name"]
-    D -- " No " --> F{"Is one Aliased RHS & one Raw LHS?"}
-    F -- " Yes " --> G["Keep Raw Name in Raw Slot<br/>Keep Alias in RHS Slot<br/>Evict Aliased LHS Raw Name"]
+    B -- " Yes " --> D{"Is one local and one imported?"}
+    D -- " Yes " --> E["Keep Local Definition; Evict Imported Raw Name"]
+    D -- " No " --> F{"Is one Aliased RHS and one Raw LHS?"}
+    F -- " Yes " --> G["Keep Raw Name in Raw Slot; Keep Alias in RHS Slot; Evict Aliased LHS Raw Name"]
     F -- " No " --> H{"Are both distinct Aliased RHS?"}
-    H -- " Yes " --> I["Keep both RHS Aliases<br/>Evict both LHS Raw Names"]
-    H -- " No " --> J["Unmitigated Raw vs Raw Collision<br/>Record Compilation Error"]
+    H -- " Yes " --> I["Keep both RHS Aliases; Evict both LHS Raw Names"]
+    H -- " No " --> J["Unmitigated Raw vs Raw Collision; Record Compilation Error"]
     C --> K["Reach Closing Brace '}'"]
     E --> K
     G --> K
     I --> K
     J --> K
     K --> L{"Unmitigated Collisions in List?"}
-    L -- " Yes " --> M["Fail Fast: Throw NamespaceCollisionException"]
-    L -- " No " --> N["Scope Validated: Parse Type and Body"]
+    L -- " Yes " --> M["Fail Fast: Emit E006 ERR_NAMESPACE_COLLISION"]
+    L -- " No " --> N["Scope Validated: Lower Type and Body"]
 ```
 
 ---
@@ -885,8 +887,8 @@ The `:Int` keyword represents the universal integer type. All integer constraint
 
 | Facet       | Argument                  | Default                            | Invariant                                                                                                                                                                                                                                                                                                                                               |
 |:------------|:--------------------------|:-----------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `#size`     | Integer Literal ($\ge 1$) | 32 (Signed & Unsigned) / Unbounded | Declares exact physical storage width in bits ($n \in \mathbb{N}^+$). Range is $[-2^{n-1}, 2^{n-1}-1]$ when signed, or $[0, 2^n - 1]$ when unsigned. Explicit `{ #size 32 }` on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization. |
-| `#unsigned` | Bare Flag or Boolean      | Signed (`false`)                   | Enforces non-negative physical unsigned boundaries. Replaces legacy `:Uint*`.                                                                                                                                                                                                                                                                           |
+| `#size`     | Integer Literal ($\ge 1$) | 32 (Signed & Unsigned) / Unbounded | Declares exact physical storage width in bits ($n \in \mathbb{N}^+$, open upper bound in CPU-bias-free expression space). Range is $[-2^{n-1}, 2^{n-1})$ when signed, or $[0, 2^n)$ when unsigned. Explicit `{ #size 32 }` on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization. |
+| `#unsigned` | Standalone (0 arguments)  | Absent (Signed)                    | Prohibits negative sign prefixes and shifts domain from $[-2^{n-1}, 2^{n-1})$ to $[0, 2^n)$. Rejects boolean or scalar arguments. Replaces legacy `:Uint*`.                                                                                                                                                                                             |
 
 Canonical integer formulations:
 
@@ -947,7 +949,7 @@ The `:Float` keyword represents numeric values with fractional components:
 | Facet      | Argument                     | Default         | Invariant                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 |:-----------|:-----------------------------|:----------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `#size`    | `32` or `64`                 | `64`            | Configures IEEE-754 single-precision (32-bit) or double-precision (64-bit) floating-point storage. Continuous `:Float` intrinsically defaults to 64-bit double precision; explicit `{ #size 64 }` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization.                                                                                                                                                            |
-| `#exact`   | Bare Flag or Boolean         | IEEE-754 binary | Enforces exact arbitrary-precision decimal arithmetic mirroring Java `BigDecimal` (unscaled integer + 32-bit scale, variable-length wire encoding). Facet `#size` is strictly prohibited on `{ #exact } :Float`.                                                                                                                                                                                                                                                                      |
+| `#exact`   | Standalone (0 arguments)     | Absent (IEEE-754 binary) | Selects discrete arbitrary-precision decimal arithmetic mirroring Java `BigDecimal` (unscaled integer + 32-bit scale, variable-length wire encoding). Mutually exclusive with `#size`. Rejects boolean or scalar arguments.                                                                                                                               |
 | `#maxSize` | `<N>` ($N \in \mathbb{N}^+$) | `16777216`      | Defines maximum allowable significant decimal digits (precision) of the unscaled mantissa on `{ #exact } :Float`. Unadorned `{ #exact } :Float` carries an intrinsic concrete default ceiling of `16,777,216` significant decimal digits. Explicit `{ #exact #maxSize 16777216 }` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization. `#maxSize` is prohibited on continuous `:Float` without `#exact` (`E008`). |
 
 Continuous domains (standard `:Float` without `#exact`) represent continuous real numbers and accept all four boundary facets: `#minIncl`, `#maxIncl`, `#minExcl`, and `#maxExcl`.
@@ -1148,8 +1150,8 @@ flowchart TD
     classDef epoch fill: #E8F8F5, stroke: #1ABC9C, stroke-width: 2px;
     classDef cal fill: #FFF3E0, stroke: #F57C00, stroke-width: 2px;
     Temporal["STVN Base Temporal Kernel"]:::root
-    Temporal --> Epoch[":TimeEpoch\n(Physical Elapsed Ticks)"]:::epoch
-    Temporal --> Cal[":DateTime\n(Calendar Instant & Civil Wall Clock)"]:::cal
+    Temporal --> Epoch[":TimeEpoch — Physical Elapsed Ticks"]:::epoch
+    Temporal --> Cal[":DateTime — Calendar Instant and Civil Wall Clock"]:::cal
     Epoch --> U_S["#s (Seconds, i64)"]:::epoch
     Epoch --> U_MS["#ms (Milliseconds, i64)"]:::epoch
     Epoch --> U_US["#us (Microseconds, i64)"]:::epoch
@@ -1235,96 +1237,102 @@ Overridability across nominal type derivations (`:Child { ... } :Parent`) is str
 
 $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow \text{Tier 3: Bounds} \longrightarrow \text{Tier 4: Constraint} \longrightarrow \text{Tier 5: Directive}$$
 
-| Position | Category   | Modifying             | Tag Name         | Parameter Kind   | Parameter Range                                                 |          Default           | Overridable | Mutually Exclusive to | Description                                                                                                                                                                                                                                    |
-|:--------:|:-----------|:----------------------|:-----------------|:-----------------|:----------------------------------------------------------------|:--------------------------:|:-----------:|:----------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-|  `2.1`   | Trait      | `:Boolean`            | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
-|  `2.2`   | Trait      | `:Boolean`            | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
-| `1.1.1`  | Definition | `:Int`                | `unsigned`       | Standalone       | N/A                                                             |           Absent           |     No      | N/A                   | When present, indicates sign prefix prohibited                                                                                                                                                                                                 |
-| `1.3.1`  | Definition | `:Int`                | `size`           | `:Int`           | $s \ge 1$, open upper bound                                     |            `32`            |     No      | N/A                   | Storage width in bits ($s \ge 1$); determines integer capacity range; explicit declaration of default 32 on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology triggering warning W003 and purged during IR normalization |
-|  `2.1`   | Trait      | `:Int`                | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
-|  `2.2`   | Trait      | `:Int`                | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
-|  `3.1`   | Bounds     | `:Int`                | `minIncl`        | `:Int`           | $\ge -2^{s-1}, < maxExcl$                                       |         $-2^{s-1}$         |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
-|  `3.4`   | Bounds     | `:Int`                | `maxExcl`        | `:Int`           | $\le 2^{s-1}, > minIncl$                                        |         $2^{s-1}$          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
-|  `3.1`   | Bounds     | `:Int (unsigned)`     | `minIncl`        | `:Int`           | $\ge 0, < maxExcl$                                              |            `0`             |     Yes     | N/A                   | Half-open interval; start; explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization                                                                                               |
-|  `3.4`   | Bounds     | `:Int (unsigned)`     | `maxExcl`        | `:Int`           | $\le 2^s, > minIncl$                                            |           $2^s$            |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
-| `1.1.2`  | Definition | `:Float (exact)`      | `exact`          | Standalone       | N/A                                                             |          `<None>`          |     No      | `size 32`, `size 64`  | BigDecimal Equivalent                                                                                                                                                                                                                          |
-| `1.5.2`  | Definition | `:Float (exact)`      | `maxSize`        | `:Int`           | $n \ge 1$, open upper bound                                     |         `16777216`         |     No      | N/A                   | Defines maximum allowable significant decimal digits (precision) of the unscaled mantissa. Explicit `{ #exact #maxSize 16777216 }` is a redundant tautology triggering warning W003 and purged during IR normalization.                        |
-|  `2.1`   | Trait      | `:Float (exact)`      | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
-|  `2.2`   | Trait      | `:Float (exact)`      | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
-|  `3.1`   | Bounds     | `:Float (exact)`      | `minIncl`        | `:Float (exact)` | $< maxExcl$                                                     |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
-|  `3.4`   | Bounds     | `:Float (exact)`      | `maxExcl`        | `:Float (exact)` | $> minIncl$                                                     |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
-| `1.3.1`  | Definition | `:Float (32)`         | `size`           | `:Int`           | $n = 32$                                                        |          `<None>`          |     No      | `exact`, `size 64`    | Specifies IEEE-754 single-precision 32-bit floating point storage; explicit narrowing from 64-bit default                                                                                                                                      |
-|  `2.1`   | Trait      | `:Float (32)`         | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:FALSE`          |     Yes     | N/A                   | Opt-in bitwise IEEE-754 pattern equality override (disabled by default due to NaN hazards)                                                                                                                                                     |
-|  `2.2`   | Trait      | `:Float (32)`         | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables total ordering over floating-point values                                                                                                                                                                                              |
-|  `3.1`   | Bounds     | `:Float (32)`         | `minIncl`        | `:Float (exact)` | $\ge -3.4028235\times 10^{38}, < \text{upper}$                  |      `-3.4028235e+38`      |     Yes     | `minExcl`             | Continuous interval; inclusive lower bound                                                                                                                                                                                                     |
-|  `3.2`   | Bounds     | `:Float (32)`         | `minExcl`        | `:Float (exact)` | $> -3.4028235\times 10^{38}, < \text{upper}$                    |          `<None>`          |     Yes     | `minIncl`             | Continuous interval; exclusive lower bound                                                                                                                                                                                                     |
-|  `3.3`   | Bounds     | `:Float (32)`         | `maxIncl`        | `:Float (exact)` | $\le 3.4028235\times 10^{38}, > \text{lower}$                   |      `3.4028235e+38`       |     Yes     | `maxExcl`             | Continuous interval; inclusive upper bound                                                                                                                                                                                                     |
-|  `3.4`   | Bounds     | `:Float (32)`         | `maxExcl`        | `:Float (exact)` | $< 3.4028235\times 10^{38}, > \text{lower}$                     |          `<None>`          |     Yes     | `maxIncl`             | Continuous interval; exclusive upper bound                                                                                                                                                                                                     |
-| `1.3.1`  | Definition | `:Float (64)`         | `size`           | `:Int`           | $n = 64$                                                        |            `64`            |     No      | `exact`, `size 32`    | Specifies IEEE-754 double-precision 64-bit floating point storage; intrinsic concrete default for unadorned `:Float`; explicit declaration is a redundant tautology triggering warning W003 and purged during IR normalization                 |
-|  `2.1`   | Trait      | `:Float (64)`         | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:FALSE`          |     Yes     | N/A                   | Opt-in bitwise IEEE-754 pattern equality override (disabled by default due to NaN hazards)                                                                                                                                                     |
-|  `2.2`   | Trait      | `:Float (64)`         | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables total ordering over floating-point values                                                                                                                                                                                              |
-|  `3.1`   | Bounds     | `:Float (64)`         | `minIncl`        | `:Float (exact)` | $\ge -1.7976931348623157\times 10^{308}, < \text{upper}$        | `-1.7976931348623157e+308` |     Yes     | `minExcl`             | Continuous interval; inclusive lower bound                                                                                                                                                                                                     |
-|  `3.2`   | Bounds     | `:Float (64)`         | `minExcl`        | `:Float (exact)` | $> -1.7976931348623157\times 10^{308}, < \text{upper}$          |          `<None>`          |     Yes     | `minIncl`             | Continuous interval; exclusive lower bound                                                                                                                                                                                                     |
-|  `3.3`   | Bounds     | `:Float (64)`         | `maxIncl`        | `:Float (exact)` | $\le 1.7976931348623157\times 10^{308}, > \text{lower}$         | `1.7976931348623157e+308`  |     Yes     | `maxExcl`             | Continuous interval; inclusive upper bound                                                                                                                                                                                                     |
-|  `3.4`   | Bounds     | `:Float (64)`         | `maxExcl`        | `:Float (exact)` | $< 1.7976931348623157\times 10^{308}, > \text{lower}$           |          `<None>`          |     Yes     | `maxIncl`             | Continuous interval; exclusive upper bound                                                                                                                                                                                                     |
-| `1.2.1`  | Definition | `:TimeEpoch`          | `ns`             | Standalone       | N/A                                                             |          `<None>`          |     No      | `s`, `ms`, `us`       | Specifies 128-bit nanosecond resolution duration ticks since Unix Epoch                                                                                                                                                                        |
-| `1.2.2`  | Definition | `:TimeEpoch`          | `us`             | Standalone       | N/A                                                             |          `<None>`          |     No      | `s`, `ms`, `ns`       | Specifies 64-bit microsecond resolution duration ticks since Unix Epoch                                                                                                                                                                        |
-| `1.2.3`  | Definition | `:TimeEpoch`          | `ms`             | Standalone       | N/A                                                             |          `<None>`          |     No      | `s`, `us`, `ns`       | Specifies 64-bit millisecond resolution duration ticks since Unix Epoch                                                                                                                                                                        |
-| `1.2.4`  | Definition | `:TimeEpoch`          | `s`              | Standalone       | N/A                                                             |          `<None>`          |     No      | `ms`, `us`, `ns`      | Specifies 64-bit second resolution duration ticks since Unix Epoch                                                                                                                                                                             |
-|  `2.1`   | Trait      | `:TimeEpoch`          | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
-|  `2.2`   | Trait      | `:TimeEpoch`          | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
-|  `3.1`   | Bounds     | `:TimeEpoch (ns)`     | `minIncl`        | `:TimeEpoch`     | $\ge -2^{127}, < maxExcl$                                       |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
-|  `3.4`   | Bounds     | `:TimeEpoch (ns)`     | `maxExcl`        | `:TimeEpoch`     | $\le 2^{127}, > minIncl$                                        |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
-|  `3.1`   | Bounds     | `:TimeEpoch (us)`     | `minIncl`        | `:TimeEpoch`     | $\ge -2^{63}, < maxExcl$                                        |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
-|  `3.4`   | Bounds     | `:TimeEpoch (us)`     | `maxExcl`        | `:TimeEpoch`     | $\le 2^{63}, > minIncl$                                         |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
-|  `3.1`   | Bounds     | `:TimeEpoch (ms)`     | `minIncl`        | `:TimeEpoch`     | $\ge -2^{63}, < maxExcl$                                        |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
-|  `3.4`   | Bounds     | `:TimeEpoch (ms)`     | `maxExcl`        | `:TimeEpoch`     | $\le 2^{63}, > minIncl$                                         |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
-|  `3.1`   | Bounds     | `:TimeEpoch (s)`      | `minIncl`        | `:TimeEpoch`     | $\ge -2^{63}, < maxExcl$                                        |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
-|  `3.4`   | Bounds     | `:TimeEpoch (s)`      | `maxExcl`        | `:TimeEpoch`     | $\le 2^{63}, > minIncl$                                         |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
-| `1.2.5`  | Definition | `:DateTime`           | `offset`         | Standalone       | N/A                                                             |          `<None>`          |     No      | `zoned`, `audited`    | Physical instant with explicit numerical UTC offset; rejects zone brackets                                                                                                                                                                     |
-| `1.2.6`  | Definition | `:DateTime`           | `zoned`          | Standalone       | N/A                                                             |          `<None>`          |     No      | `offset`, `audited`   | Civil schedule instant with IANA jurisdiction name; rejects numerical offset                                                                                                                                                                   |
-| `1.2.7`  | Definition | `:DateTime`           | `audited`        | Standalone       | N/A                                                             |          `<None>`          |     No      | `offset`, `zoned`     | Dual-verified audit record preserving both explicit offset and IANA jurisdiction name                                                                                                                                                          |
-|  `2.1`   | Trait      | `:DateTime`           | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
-|  `2.2`   | Trait      | `:DateTime`           | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
-|  `3.1`   | Bounds     | `:DateTime (offset)`  | `minIncl`        | `:DateTime`      | Valid ISO-8601 string, $< maxExcl$                              |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
-|  `3.4`   | Bounds     | `:DateTime (offset)`  | `maxExcl`        | `:DateTime`      | Valid ISO-8601 string, $> minIncl$                              |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
-|  `3.1`   | Bounds     | `:DateTime (zoned)`   | `minIncl`        | `:DateTime`      | Valid ISO-8601 string, $< maxExcl$                              |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
-|  `3.4`   | Bounds     | `:DateTime (zoned)`   | `maxExcl`        | `:DateTime`      | Valid ISO-8601 string, $> minIncl$                              |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
-|  `3.1`   | Bounds     | `:DateTime (audited)` | `minIncl`        | `:DateTime`      | Valid ISO-8601 string, $< maxExcl$                              |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
-|  `3.4`   | Bounds     | `:DateTime (audited)` | `maxExcl`        | `:DateTime`      | Valid ISO-8601 string, $> minIncl$                              |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
-| `1.5.1`  | Definition | `:String`             | `minSize`        | `:Int`           | $n \ge 0 \land n \le maxSize$                                   |            `0`             |     No      | N/A                   | Minimum character length constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization                                                                         |
-| `1.5.2`  | Definition | `:String`             | `maxSize`        | `:Int`           | $n \ge 1 \land n \ge minSize$, open upper bound                 |         `16777216`         |     No      | N/A                   | Maximum character length allocation cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization                                                        |
-|  `2.1`   | Trait      | `:String`             | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
-|  `2.2`   | Trait      | `:String`             | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
-|  `3.1`   | Bounds     | `:String`             | `minIncl`        | `:String`        | UTF-8 string literal, $< \text{upper}$ (ordinal UTF-8)          |          `<None>`          |     Yes     | `minExcl`             | Lexicographical interval; inclusive lower bound                                                                                                                                                                                                |
-|  `3.2`   | Bounds     | `:String`             | `minExcl`        | `:String`        | UTF-8 string literal, $< \text{upper}$ (ordinal UTF-8)          |          `<None>`          |     Yes     | `minIncl`             | Lexicographical interval; exclusive lower bound                                                                                                                                                                                                |
-|  `3.3`   | Bounds     | `:String`             | `maxIncl`        | `:String`        | UTF-8 string literal, $> \text{lower}$ (ordinal UTF-8)          |          `<None>`          |     Yes     | `maxExcl`             | Lexicographical interval; inclusive upper bound                                                                                                                                                                                                |
-|  `3.4`   | Bounds     | `:String`             | `maxExcl`        | `:String`        | UTF-8 string literal, $> \text{lower}$ (ordinal UTF-8)          |          `<None>`          |     Yes     | `maxIncl`             | Lexicographical interval; exclusive upper bound                                                                                                                                                                                                |
-|  `4.3`   | Constraint | `:String`             | `preserveIndent` | `:Boolean`       | $b \in \{ \text{:F}, \text{:T}, \text{:FALSE}, \text{:TRUE} \}$ |          `:FALSE`          |     Yes     | N/A                   | Essentially only applicable to Fenced string literals                                                                                                                                                                                          |
-|  `4.4`   | Constraint | `:String`             | `regex`          | `:String`        | Valid regular expression                                        |          `<None>`          |     Yes     | N/A                   | Validates string value against compiled regular expression pattern                                                                                                                                                                             |
-|  `2.1`   | Trait      | `:Enum`               | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
-|  `2.2`   | Trait      | `:Enum`               | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
-|  `4.1`   | Constraint | `:Enum`               | `filterIncl`     | `:EnumValues`    | Must appear within parent `:Enum`                               |          `<None>`          |     Yes     | `filterExcl`          | Whitelist filter; restricts enum variants strictly to the listed tags                                                                                                                                                                          |
-|  `4.2`   | Constraint | `:Enum`               | `filterExcl`     | `:EnumValues`    | Must appear within parent `:Enum`                               |          `<None>`          |     Yes     | `filterIncl`          | Blacklist filter; excludes listed tags from the allowed enum variants                                                                                                                                                                          |
-|  `2.1`   | Trait      | `:Tuple`              | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          Derived           |     Yes     | N/A                   | Enables structural field-by-field equality comparison (derived inductively from all constituent fields)                                                                                                                                        |
-|  `2.2`   | Trait      | `:Tuple`              | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          Derived           |     Yes     | N/A                   | Enables lexicographical total ordering comparison across fields (derived inductively from all constituent fields)                                                                                                                              |
-| `1.5.1`  | Definition | `:Seq`                | `minSize`        | `:Int`           | $n \ge 0 \land n \le maxSize$                                   |            `0`             |     No      | N/A                   | Minimum element count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization                                                                            |
-| `1.5.2`  | Definition | `:Seq`                | `maxSize`        | `:Int`           | $n \ge 1 \land n \ge minSize$, open upper bound                 |         `16777216`         |     No      | N/A                   | Maximum element count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization                                                             |
-|  `2.1`   | Trait      | `:Seq`                | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          Derived           |     Yes     | N/A                   | Enables element-by-element sequential equality comparison                                                                                                                                                                                      |
-|  `2.2`   | Trait      | `:Seq`                | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          Derived           |     Yes     | N/A                   | Enables lexicographical ordering comparison across sequence elements                                                                                                                                                                           |
-| `1.5.1`  | Definition | `:Set`                | `minSize`        | `:Int`           | $n \ge 0 \land n \le maxSize$                                   |            `0`             |     No      | N/A                   | Minimum unique element count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization                                                                     |
-| `1.5.2`  | Definition | `:Set`                | `maxSize`        | `:Int`           | $n \ge 1 \land n \ge minSize$, open upper bound                 |         `16777216`         |     No      | N/A                   | Maximum unique element count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization                                                      |
-|  `2.1`   | Trait      | `:Set`                | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          Derived           |     Yes     | N/A                   | Enables content-based unique set equality comparison                                                                                                                                                                                           |
-|  `2.2`   | Trait      | `:Set`                | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:FALSE`          |     Yes     | N/A                   | Opt-in comparison (disabled by default; unordered sets lack natural total ordering)                                                                                                                                                            |
-| `1.1.3`  | Definition | `:Map`                | `invertible`     | Standalone       | N/A                                                             |          `<None>`          |     No      | N/A                   | Ensures uniqueness within each of the set of keys and separately, the set of values                                                                                                                                                            |
-| `1.5.1`  | Definition | `:Map`                | `minSize`        | `:Int`           | $n \ge 0 \land n \le maxSize$                                   |            `0`             |     No      | N/A                   | Minimum entry count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization                                                                              |
-| `1.5.2`  | Definition | `:Map`                | `maxSize`        | `:Int`           | $n \ge 1 \land n \ge minSize$, open upper bound                 |         `16777216`         |     No      | N/A                   | Maximum entry count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization                                                               |
-|  `2.1`   | Trait      | `:Map`                | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          Derived           |     Yes     | N/A                   | Enables key equality comparison (for keys only; values are unconstrained)                                                                                                                                                                      |
-|  `2.2`   | Trait      | `:Map`                | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:FALSE`          |     Yes     | N/A                   | Opt-in comparison (disabled by default; unordered maps lack natural total ordering)                                                                                                                                                            |
-|  `2.1`   | Trait      | `:Map (invertible)`   | `equatable`      | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          Derived           |     Yes     | N/A                   | Enables dual-set bijection equality comparison (both keys and values must resolve to #equatable #TRUE)                                                                                                                                         |
-|  `2.2`   | Trait      | `:Map (invertible)`   | `comparable`     | `:Boolean`       | `:F\|:T\|:FALSE\|:TRUE`                                         |          `:FALSE`          |     Yes     | N/A                   | Opt-in comparison (disabled by default; unordered invertible maps lack natural total ordering)                                                                                                                                                 |
-|   `5`    | Directive  | `:include`            | `strip`          | Standalone       | N/A                                                             |          `<None>`          |     No      | N/A                   | Terminal segment slicing; strips package prefixes from imported identifiers upon ingestion                                                                                                                                                     |
-|   `5`    | Directive  | `:use`                | `strip`          | Standalone       | N/A                                                             |          `<None>`          |     No      | N/A                   | Terminal segment slicing; strips package prefix for local unqualified access within scope                                                                                                                                                      |
+| Position | Category   | Modifying             | Tag Name         | Parameter Kind   | Parameter Range                                                              |          Default           | Overridable | Mutually Exclusive to | Description                                                                                                                                                                                                                                    |
+|:--------:|:-----------|:----------------------|:-----------------|:-----------------|:-----------------------------------------------------------------------------|:--------------------------:|:-----------:|:----------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|  `2.1`   | Trait      | `:Boolean`            | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
+|  `2.2`   | Trait      | `:Boolean`            | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
+| `1.1.1`  | Definition | `:Int`                | `unsigned`       | Standalone       | N/A                                                                          |           Absent           |     No      | N/A                   | When present, indicates sign prefix prohibited                                                                                                                                                                                                 |
+| `1.3.1`  | Definition | `:Int`                | `size`           | `:Int`           | $s \ge 1$, open upper bound                                                  |            `32`            |     No      | N/A                   | Storage width in bits ($s \ge 1$); determines integer capacity range; explicit declaration of default 32 on signed `:Int` or unsigned `{ #unsigned } :Int` is a redundant tautology triggering warning W003 and purged during IR normalization |
+|  `2.1`   | Trait      | `:Int`                | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
+|  `2.2`   | Trait      | `:Int`                | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
+|  `3.1`   | Bounds     | `:Int`                | `minIncl`        | `:Int`           | $\ge -2^{s-1}, < maxExcl$                                                    |         $-2^{s-1}$         |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
+|  `3.4`   | Bounds     | `:Int`                | `maxExcl`        | `:Int`           | $\le 2^{s-1}, > minIncl$                                                     |         $2^{s-1}$          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
+|  `3.1`   | Bounds     | `:Int (unsigned)`     | `minIncl`        | `:Int`           | $\ge 0, < maxExcl$                                                           |            `0`             |     Yes     | N/A                   | Half-open interval; start; explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization                                                                                               |
+|  `3.4`   | Bounds     | `:Int (unsigned)`     | `maxExcl`        | `:Int`           | $\le 2^s, > minIncl$                                                         |           $2^s$            |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
+| `1.1.2`  | Definition | `:Float (exact)`      | `exact`          | Standalone       | N/A                                                                          |          `<None>`          |     No      | `size 32`, `size 64`  | BigDecimal Equivalent                                                                                                                                                                                                                          |
+| `1.5.2`  | Definition | `:Float (exact)`      | `maxSize`        | `:Int`           | $n \ge 1$, open upper bound                                                  |         `16777216`         |     No      | N/A                   | Defines maximum allowable significant decimal digits (precision) of the unscaled mantissa. Explicit `{ #exact #maxSize 16777216 }` is a redundant tautology triggering warning W003 and purged during IR normalization.                        |
+|  `2.1`   | Trait      | `:Float (exact)`      | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
+|  `2.2`   | Trait      | `:Float (exact)`      | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
+|  `3.1`   | Bounds     | `:Float (exact)`      | `minIncl`        | `:Float (exact)` | $< maxExcl$                                                                  |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
+|  `3.4`   | Bounds     | `:Float (exact)`      | `maxExcl`        | `:Float (exact)` | $> minIncl$                                                                  |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
+| `1.3.1`  | Definition | `:Float (32)`         | `size`           | `:Int`           | $n = 32$                                                                     |          `<None>`          |     No      | `exact`, `size 64`    | Specifies IEEE-754 single-precision 32-bit floating point storage; explicit narrowing from 64-bit default                                                                                                                                      |
+|  `2.1`   | Trait      | `:Float (32)`         | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#FALSE`          |     Yes     | N/A                   | Opt-in bitwise IEEE-754 pattern equality override (disabled by default due to NaN hazards)                                                                                                                                                     |
+|  `2.2`   | Trait      | `:Float (32)`         | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables total ordering over floating-point values                                                                                                                                                                                              |
+|  `3.1`   | Bounds     | `:Float (32)`         | `minIncl`        | `:Float (exact)` | $\ge -3.4028235\times 10^{38}, < \text{upper}$                               |      `-3.4028235e+38`      |     Yes     | `minExcl`             | Continuous interval; inclusive lower bound                                                                                                                                                                                                     |
+|  `3.2`   | Bounds     | `:Float (32)`         | `minExcl`        | `:Float (exact)` | $> -3.4028235\times 10^{38}, < \text{upper}$                                 |          `<None>`          |     Yes     | `minIncl`             | Continuous interval; exclusive lower bound                                                                                                                                                                                                     |
+|  `3.3`   | Bounds     | `:Float (32)`         | `maxIncl`        | `:Float (exact)` | $\le 3.4028235\times 10^{38}, > \text{lower}$                                |      `3.4028235e+38`       |     Yes     | `maxExcl`             | Continuous interval; inclusive upper bound                                                                                                                                                                                                     |
+|  `3.4`   | Bounds     | `:Float (32)`         | `maxExcl`        | `:Float (exact)` | $< 3.4028235\times 10^{38}, > \text{lower}$                                  |          `<None>`          |     Yes     | `maxIncl`             | Continuous interval; exclusive upper bound                                                                                                                                                                                                     |
+| `1.3.1`  | Definition | `:Float (64)`         | `size`           | `:Int`           | $n = 64$                                                                     |            `64`            |     No      | `exact`, `size 32`    | Specifies IEEE-754 double-precision 64-bit floating point storage; intrinsic concrete default for unadorned `:Float`; explicit declaration is a redundant tautology triggering warning W003 and purged during IR normalization                 |
+|  `2.1`   | Trait      | `:Float (64)`         | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#FALSE`          |     Yes     | N/A                   | Opt-in bitwise IEEE-754 pattern equality override (disabled by default due to NaN hazards)                                                                                                                                                     |
+|  `2.2`   | Trait      | `:Float (64)`         | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables total ordering over floating-point values                                                                                                                                                                                              |
+|  `3.1`   | Bounds     | `:Float (64)`         | `minIncl`        | `:Float (exact)` | $\ge -1.7976931348623157\times 10^{308}, < \text{upper}$                     | `-1.7976931348623157e+308` |     Yes     | `minExcl`             | Continuous interval; inclusive lower bound                                                                                                                                                                                                     |
+|  `3.2`   | Bounds     | `:Float (64)`         | `minExcl`        | `:Float (exact)` | $> -1.7976931348623157\times 10^{308}, < \text{upper}$                       |          `<None>`          |     Yes     | `minIncl`             | Continuous interval; exclusive lower bound                                                                                                                                                                                                     |
+|  `3.3`   | Bounds     | `:Float (64)`         | `maxIncl`        | `:Float (exact)` | $\le 1.7976931348623157\times 10^{308}, > \text{lower}$                      | `1.7976931348623157e+308`  |     Yes     | `maxExcl`             | Continuous interval; inclusive upper bound                                                                                                                                                                                                     |
+|  `3.4`   | Bounds     | `:Float (64)`         | `maxExcl`        | `:Float (exact)` | $< 1.7976931348623157\times 10^{308}, > \text{lower}$                        |          `<None>`          |     Yes     | `maxIncl`             | Continuous interval; exclusive upper bound                                                                                                                                                                                                     |
+| `1.2.1`  | Definition | `:TimeEpoch`          | `ns`             | Standalone       | N/A                                                                          |          `<None>`          |     No      | `s`, `ms`, `us`       | Specifies 128-bit nanosecond resolution duration ticks since Unix Epoch                                                                                                                                                                        |
+| `1.2.2`  | Definition | `:TimeEpoch`          | `us`             | Standalone       | N/A                                                                          |          `<None>`          |     No      | `s`, `ms`, `ns`       | Specifies 64-bit microsecond resolution duration ticks since Unix Epoch                                                                                                                                                                        |
+| `1.2.3`  | Definition | `:TimeEpoch`          | `ms`             | Standalone       | N/A                                                                          |          `<None>`          |     No      | `s`, `us`, `ns`       | Specifies 64-bit millisecond resolution duration ticks since Unix Epoch                                                                                                                                                                        |
+| `1.2.4`  | Definition | `:TimeEpoch`          | `s`              | Standalone       | N/A                                                                          |          `<None>`          |     No      | `ms`, `us`, `ns`      | Specifies 64-bit second resolution duration ticks since Unix Epoch                                                                                                                                                                             |
+|  `2.1`   | Trait      | `:TimeEpoch`          | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
+|  `2.2`   | Trait      | `:TimeEpoch`          | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
+|  `3.1`   | Bounds     | `:TimeEpoch (ns)`     | `minIncl`        | `:TimeEpoch`     | $\ge -2^{127}, < maxExcl$                                                    |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
+|  `3.4`   | Bounds     | `:TimeEpoch (ns)`     | `maxExcl`        | `:TimeEpoch`     | $\le 2^{127}, > minIncl$                                                     |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
+|  `3.1`   | Bounds     | `:TimeEpoch (us)`     | `minIncl`        | `:TimeEpoch`     | $\ge -2^{63}, < maxExcl$                                                     |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
+|  `3.4`   | Bounds     | `:TimeEpoch (us)`     | `maxExcl`        | `:TimeEpoch`     | $\le 2^{63}, > minIncl$                                                      |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
+|  `3.1`   | Bounds     | `:TimeEpoch (ms)`     | `minIncl`        | `:TimeEpoch`     | $\ge -2^{63}, < maxExcl$                                                     |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
+|  `3.4`   | Bounds     | `:TimeEpoch (ms)`     | `maxExcl`        | `:TimeEpoch`     | $\le 2^{63}, > minIncl$                                                      |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
+|  `3.1`   | Bounds     | `:TimeEpoch (s)`      | `minIncl`        | `:TimeEpoch`     | $\ge -2^{63}, < maxExcl$                                                     |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
+|  `3.4`   | Bounds     | `:TimeEpoch (s)`      | `maxExcl`        | `:TimeEpoch`     | $\le 2^{63}, > minIncl$                                                      |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
+| `1.2.5`  | Definition | `:DateTime`           | `offset`         | Standalone       | N/A                                                                          |          `<None>`          |     No      | `zoned`, `audited`    | Physical instant with explicit numerical UTC offset; rejects zone brackets                                                                                                                                                                     |
+| `1.2.6`  | Definition | `:DateTime`           | `zoned`          | Standalone       | N/A                                                                          |          `<None>`          |     No      | `offset`, `audited`   | Civil schedule instant with IANA jurisdiction name; rejects numerical offset                                                                                                                                                                   |
+| `1.2.7`  | Definition | `:DateTime`           | `audited`        | Standalone       | N/A                                                                          |          `<None>`          |     No      | `offset`, `zoned`     | Dual-verified audit record preserving both explicit offset and IANA jurisdiction name                                                                                                                                                          |
+|  `2.1`   | Trait      | `:DateTime`           | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
+|  `2.2`   | Trait      | `:DateTime`           | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
+|  `3.1`   | Bounds     | `:DateTime (offset)`  | `minIncl`        | `:DateTime`      | Valid ISO-8601 string, $< maxExcl$                                           |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
+|  `3.4`   | Bounds     | `:DateTime (offset)`  | `maxExcl`        | `:DateTime`      | Valid ISO-8601 string, $> minIncl$                                           |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
+|  `3.1`   | Bounds     | `:DateTime (zoned)`   | `minIncl`        | `:DateTime`      | Valid ISO-8601 string, $< maxExcl$                                           |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
+|  `3.4`   | Bounds     | `:DateTime (zoned)`   | `maxExcl`        | `:DateTime`      | Valid ISO-8601 string, $> minIncl$                                           |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
+|  `3.1`   | Bounds     | `:DateTime (audited)` | `minIncl`        | `:DateTime`      | Valid ISO-8601 string, $< maxExcl$                                           |          `<None>`          |     Yes     | N/A                   | Half-open interval; start                                                                                                                                                                                                                      |
+|  `3.4`   | Bounds     | `:DateTime (audited)` | `maxExcl`        | `:DateTime`      | Valid ISO-8601 string, $> minIncl$                                           |          `<None>`          |     Yes     | N/A                   | Half-open interval; end                                                                                                                                                                                                                        |
+| `1.5.1`  | Definition | `:String`             | `minSize`        | `:Int`           | $n \ge 0 \land n \le maxSize$                                                |            `0`             |     No      | N/A                   | Minimum character length constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization                                                                         |
+| `1.5.2`  | Definition | `:String`             | `maxSize`        | `:Int`           | $n \ge 1 \land n \ge minSize$, open upper bound                              |         `16777216`         |     No      | N/A                   | Maximum character length allocation cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization                                                        |
+|  `2.1`   | Trait      | `:String`             | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
+|  `2.2`   | Trait      | `:String`             | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
+|  `3.1`   | Bounds     | `:String`             | `minIncl`        | `:String`        | UTF-8 string literal, $< \text{upper}$ (ordinal UTF-8)                       |          `<None>`          |     Yes     | `minExcl`             | Lexicographical interval; inclusive lower bound                                                                                                                                                                                                |
+|  `3.2`   | Bounds     | `:String`             | `minExcl`        | `:String`        | UTF-8 string literal, $< \text{upper}$ (ordinal UTF-8)                       |          `<None>`          |     Yes     | `minIncl`             | Lexicographical interval; exclusive lower bound                                                                                                                                                                                                |
+|  `3.3`   | Bounds     | `:String`             | `maxIncl`        | `:String`        | UTF-8 string literal, $> \text{lower}$ (ordinal UTF-8)                       |          `<None>`          |     Yes     | `maxExcl`             | Lexicographical interval; inclusive upper bound                                                                                                                                                                                                |
+|  `3.4`   | Bounds     | `:String`             | `maxExcl`        | `:String`        | UTF-8 string literal, $> \text{lower}$ (ordinal UTF-8)                       |          `<None>`          |     Yes     | `maxIncl`             | Lexicographical interval; exclusive upper bound                                                                                                                                                                                                |
+|  `4.3`   | Constraint | `:String`             | `preserveIndent` | `:Boolean`       | $b \in \{ \texttt{\#F}, \texttt{\#T}, \texttt{\#FALSE}, \texttt{\#TRUE} \}$  |          `#FALSE`          |     Yes     | N/A                   | Controls baseline indentation stripping on fenced string literals                                                                                                                                                                              |
+|  `4.4`   | Constraint | `:String`             | `regex`          | `:String`        | Valid regular expression                                                     |          `<None>`          |     Yes     | N/A                   | Validates string value against compiled regular expression pattern                                                                                                                                                                             |
+|  `2.1`   | Trait      | `:Enum`               | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables structural value equality comparison                                                                                                                                                                                                   |
+|  `2.2`   | Trait      | `:Enum`               | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#TRUE`           |     Yes     | N/A                   | Enables total order comparison                                                                                                                                                                                                                 |
+|  `4.1`   | Constraint | `:Enum`               | `filterIncl`     | `:EnumValues`    | Must appear within parent `:Enum`                                            |          `<None>`          |     Yes     | `filterExcl`          | Whitelist filter; restricts enum variants strictly to the listed tags                                                                                                                                                                          |
+|  `4.2`   | Constraint | `:Enum`               | `filterExcl`     | `:EnumValues`    | Must appear within parent `:Enum`                                            |          `<None>`          |     Yes     | `filterIncl`          | Blacklist filter; excludes listed tags from the allowed enum variants                                                                                                                                                                          |
+|  `2.1`   | Trait      | `:Tuple`              | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables structural field-by-field equality comparison (derived inductively from all constituent fields)                                                                                                                                        |
+|  `2.2`   | Trait      | `:Tuple`              | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables lexicographical total ordering comparison across fields (derived inductively from all constituent fields)                                                                                                                              |
+|  `2.1`   | Trait      | `:Option`             | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables structural option equality comparison (derived inductively from inner payload schema $T$)                                                                                                                                              |
+|  `2.2`   | Trait      | `:Option`             | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables total ordering (`#None` < `#Some x`, derived inductively from inner payload schema $T$)                                                                                                                                                |
+|  `2.1`   | Trait      | `:Either`             | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables structural coproduct equality comparison ($\text{equatable}(L) \land \text{equatable}(R)$)                                                                                                                                             |
+|  `2.2`   | Trait      | `:Either`             | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables total ordering (`#Left` < `#Right`, derived inductively from $L$ and $R$)                                                                                                                                                              |
+|  `2.1`   | Trait      | `:Union`              | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables structural coproduct equality comparison ($\bigwedge_{i=1}^n \text{equatable}(T_i)$)                                                                                                                                                   |
+|  `2.2`   | Trait      | `:Union`              | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables branch-ordinal then payload total ordering ($\bigwedge_{i=1}^n \text{comparable}(T_i)$)                                                                                                                                                |
+| `1.5.1`  | Definition | `:Seq`                | `minSize`        | `:Int`           | $n \ge 0 \land n \le maxSize$                                                |            `0`             |     No      | N/A                   | Minimum element count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization                                                                            |
+| `1.5.2`  | Definition | `:Seq`                | `maxSize`        | `:Int`           | $n \ge 1 \land n \ge minSize$, open upper bound                              |         `16777216`         |     No      | N/A                   | Maximum element count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization                                                             |
+|  `2.1`   | Trait      | `:Seq`                | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables element-by-element sequential equality comparison                                                                                                                                                                                      |
+|  `2.2`   | Trait      | `:Seq`                | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables lexicographical ordering comparison across sequence elements                                                                                                                                                                           |
+| `1.5.1`  | Definition | `:Set`                | `minSize`        | `:Int`           | $n \ge 0 \land n \le maxSize$                                                |            `0`             |     No      | N/A                   | Minimum unique element count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization                                                                     |
+| `1.5.2`  | Definition | `:Set`                | `maxSize`        | `:Int`           | $n \ge 1 \land n \ge minSize$, open upper bound                              |         `16777216`         |     No      | N/A                   | Maximum unique element count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization                                                      |
+|  `2.1`   | Trait      | `:Set`                | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables content-based unique set equality comparison                                                                                                                                                                                           |
+|  `2.2`   | Trait      | `:Set`                | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#FALSE`          |     Yes     | N/A                   | Opt-in comparison (disabled by default; unordered sets lack natural total ordering)                                                                                                                                                            |
+| `1.1.3`  | Definition | `:Map`                | `invertible`     | Standalone       | N/A                                                                          |          `<None>`          |     No      | N/A                   | Ensures uniqueness within each of the set of keys and separately, the set of values                                                                                                                                                            |
+| `1.5.1`  | Definition | `:Map`                | `minSize`        | `:Int`           | $n \ge 0 \land n \le maxSize$                                                |            `0`             |     No      | N/A                   | Minimum entry count constraint ($n \ge 0$); explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization                                                                              |
+| `1.5.2`  | Definition | `:Map`                | `maxSize`        | `:Int`           | $n \ge 1 \land n \ge minSize$, open upper bound                              |         `16777216`         |     No      | N/A                   | Maximum entry count capacity cap ($n \ge minSize$); explicit declaration of default 16777216 is a redundant tautology triggering warning W003 and purged during IR normalization                                                               |
+|  `2.1`   | Trait      | `:Map`                | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables key equality comparison (for keys only; values are unconstrained)                                                                                                                                                                      |
+|  `2.2`   | Trait      | `:Map`                | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#FALSE`          |     Yes     | N/A                   | Opt-in comparison (disabled by default; unordered maps lack natural total ordering)                                                                                                                                                            |
+|  `2.1`   | Trait      | `:Map (invertible)`   | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables dual-set bijection equality comparison (both keys and values must resolve to #equatable #TRUE)                                                                                                                                         |
+|  `2.2`   | Trait      | `:Map (invertible)`   | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#FALSE`          |     Yes     | N/A                   | Opt-in comparison (disabled by default; unordered invertible maps lack natural total ordering)                                                                                                                                                 |
+|   `5`    | Directive  | `:include`            | `strip`          | Standalone       | N/A                                                                          |          `<None>`          |     No      | N/A                   | Terminal segment slicing; strips package prefixes from imported identifiers upon ingestion                                                                                                                                                     |
+|   `5`    | Directive  | `:use`                | `strip`          | Standalone       | N/A                                                                          |          `<None>`          |     No      | N/A                   | Terminal segment slicing; strips package prefix for local unqualified access within scope                                                                                                                                                      |
 
 #### Structural Invariants & Ordering Rules
 
@@ -1353,6 +1361,9 @@ $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow
 | **`:String`**              |         `#TRUE`         |        `#TRUE`        | UTF-8 character sequence; lexicographical ordinal comparison                                                        |
 | **`:Enum`**                |         `#TRUE`         |        `#TRUE`        | Nominal variant keyword constants; sequential ordinal indices                                                       |
 | **`:Tuple`**               |       **Derived**       |      **Derived**      | Inductively equatable and comparable if all constituent field types conform                                         |
+| **`:Option`**              |       **Derived**       |      **Derived**      | Inductively equatable and comparable if inner payload type $T$ conforms (`#None` < `#Some x`)                       |
+| **`:Either`**              |       **Derived**       |      **Derived**      | Inductively equatable and comparable if both $L$ and $R$ conform (`#Left` < `#Right`)                               |
+| **`:Union`**               |       **Derived**       |      **Derived**      | Inductively equatable and comparable if all branch types $T_1 \dots T_n$ conform (ordered by branch index)          |
 | **`:Seq`**                 |       **Derived**       |      **Derived**      | Inductively equatable and comparable if element type conforms                                                       |
 | **`:Set`**                 |       **Derived**       |       `#FALSE`        | Equatable if element type conforms; unordered sets lack natural total ordering                                      |
 | **`:Map` (Standard)**      |   **Derived (Keys)**    |       `#FALSE`        | Derived strictly from key type $K$; values are unconstrained; unordered maps lack natural total ordering            |
@@ -1386,6 +1397,14 @@ Composite schemas calculate `#equatable` and `#comparable` capabilities using in
   * Invertible Maps (`#invertible`) enforce a dual-set bijection. Both keys $K$ and values $V$ must resolve to equatable:
     $$\text{equatable} (\text{Map}_{\text{inv}} (K, V)) = \text{equatable} (K) \land \text{equatable} (V), \quad \text{comparable} (\text{Map}_{\text{inv}} (K, V)) = \text{false}$$
     If value type $V$ resolves to $\text{equatable} (V) = \text{false}$ (e.g. continuous `:Float`), the compiler rejects the schema with `ERR_TRAIT_VIOLATION`.
+
+4. **Algebraic Sum Types (`:Option`, `:Either`, `:Union`):**
+  * Optional wrappers (`:Option`) derive equatability and total ordering (`#None` < `#Some x`) directly from inner payload type $T$:
+    $$\text{equatable} (\text{Option} (T)) = \text{equatable} (T), \quad \text{comparable} (\text{Option} (T)) = \text{comparable} (T)$$
+  * Disjoint binary coproducts (`:Either`) derive equatability and total ordering (`#Left` < `#Right`) by conjunction across left branch $L$ and right branch $R$:
+    $$\text{equatable} (\text{Either} (L, R)) = \text{equatable} (L) \land \text{equatable} (R), \quad \text{comparable} (\text{Either} (L, R)) = \text{comparable} (L) \land \text{comparable} (R)$$
+  * $N$-way disjoint coproducts (`:Union`) derive equatability and total ordering (ordered by 1-based branch index `#1` < $\dots$ < `#n`, then inner branch payload) by conjunction across all constituent branch types $T_1, \dots, T_n$:
+    $$\text{equatable} (\text{Union} (T_1, \dots, T_n)) = \bigwedge_{i=1}^n \text{equatable} (T_i), \quad \text{comparable} (\text{Union} (T_1, \dots, T_n)) = \bigwedge_{i=1}^n \text{comparable} (T_i)$$
 
 #### 6.3.2 Explicit Nominal Overrides
 
@@ -1483,6 +1502,43 @@ STVN decoders support implicit tagging for sum types when the payload value is u
 * **Rule H (Right-First Precedence & Either vs. Union):** A 2-branch `:Union( A B )` has no structural bias and allows implicit bidirectional matching across distinct token domains via Rule C. In contrast, `:Either( L R )` is fundamentally right-biased ($R$ precedes $L$). Across all compiler validation passes, diagnostic message enumerations, candidate resolutions, and interactive IDE intention actions/quick-fixes, branch $R$ is evaluated and presented prior to branch $L$. In IDE quick-fixes for ambiguous `:Either` payloads, `Wrap with #Right (-> R)` must always be registered as the primary (top) intention action, followed by `Wrap with #Left (-> L)`.
 * **Rule I (Intersection Clusters & Duplicate Branches):** If an untagged value matches multiple candidate branches in a sum type (due to intersecting structural domains or duplicate nominal types such as `:Union( :Int :Int )`), implicit resolution is disabled. The payload must provide an explicit branch tag (`#Left`, `#Right`, `#1`, `#2`, etc.), or the parser emits `ERR_AMBIGUOUS_SUM_INFERENCE`.
 * **Rule J (Semantic Guard Tracking):** If an explicit branch tag is syntactically valid but the value violates a localized constraint (e.g., a `#regex` mismatch), the AST node is lowered into a monadic diagnostic framework (`StvnAnalysisResult`). The error is tracked in a `StvnDiagnostic` frame with text coordinates for IDE highlighting without crashing the AST pipeline.
+
+### 8.2 Canonical Intermediate Representation (IR) Algebra
+
+Every compliant STVN 2.0.0 compiler lowers Concrete Syntax Trees (CSTs) into an immutable, parser-decoupled **Canonical Intermediate Representation (IR)** (`org.stvnadore.core.ir`). No parser-generator rule context (such as ANTLR `ParserRuleContext`) may cross the Pass 2/Pass 3 lowering boundary into the IR, printers, schema flatteners, CAS hashers, binary codecs, or host mappers.
+
+1. **Root Document Record (`StvnDocument`):**
+   `StvnDocument` encapsulates the normalized compilation unit:
+   * `Optional<StvnDocumentMeta> meta`: Validated `:meta` identity (`#name`, `#domain`, `#kind`).
+   * `StvnDefsCatalog defs`: Immutable catalog of desugared Fully Qualified Nominal Identifiers (FQNIs) mapped to normalized `StvnSchema` types and `StvnConstant` values in topological DFS post-order.
+   * `Optional<StvnSchema> rootType`: Resolved root `:type` schema (absent for `#DEFS` / `#DEFS_INCLUDE` modules).
+   * `Optional<StvnValue> payload`: Validated root `:body` value tree (absent for `#DEFS` / `#DEFS_INCLUDE` modules).
+
+2. **Sealed Schema Algebra (`StvnSchema`):**
+   `StvnSchema` is a closed 16-variant algebraic sum comprising `BooleanSchema`, `IntSchema`, `FloatSchema`, `StringSchema`, `TimeEpochSchema`, `DateTimeSchema`, `EnumSchema`, `EnumSubsetSchema`, `TupleSchema`, `OptionSchema`, `EitherSchema`, `UnionSchema`, `SeqSchema`, `SetSchema`, `MapSchema`, and `PoisonedSchema` (degraded IDE recovery sentinel). Every `StvnSchema` carries:
+   * `Optional<String> aliasName`: Opaque nominal FQNI brand (`Optional.empty()` for anonymous structural constructors).
+   * `TraitProfile traits`: Effective `equatable` and `comparable` booleans alongside explicit Tier-2 override flags.
+   * **Normalized Facet Invariant:** All `W003` tautological facets are purged prior to `StvnSchema` instantiation (§ 9.2).
+
+3. **Sealed Value Algebra (`StvnValue`):**
+   `StvnValue` is a closed 15-variant algebraic sum comprising `StvnBoolean`, `StvnInt`, `StvnFloat`, `StvnString`, `StvnTimeEpoch`, `StvnDateTime`, `StvnEnum`, `StvnTuple`, `StvnOption`, `StvnEither`, `StvnUnion`, `StvnSeq`, `StvnSet`, `StvnMap`, and `StvnErrorValue` (container fault-isolation sentinel preserving $M == N$ cardinality per § 7.2). Every `StvnValue` holds a non-null reference to its governing `StvnSchema`.
+
+### 8.3 CPU-Bias-Free Expression Space Invariant
+
+STVN 2.0.0 separates mathematical value semantics from host CPU register widths:
+
+1. **Arbitrary-Precision Integer Domain (`BigInteger`):**
+   All integer values (`StvnInt`), storage bit-widths (`#size`), string/collection/decimal capacities (`#minSize`, `#maxSize`), integer interval bounds (`#minIncl`, `#maxExcl`), 1-based union branch indices (`#1`, `#2`, ...), 0-based enum ordinals, and `:TimeEpoch` duration ticks (`#ns`, `#us`, `#ms`, `#s`) MUST use arbitrary-precision integers (`java.math.BigInteger` or target-language equivalent) across the AST, Canonical IR, and semantic validation pipeline.
+2. **Symbolic $2^s$ Capacity Verification (Zero-Allocation Guard):**
+   Validators MUST verify $s$-bit integer membership without materializing $2^s$ in memory:
+   * Unsigned $[0, 2^s)$: $v \ge 0 \land \text{bitLength}(v) \le s$.
+   * Signed $[-2^{s-1}, 2^{s-1})$: $(v \ge 0 \land \text{bitLength}(v) \le s - 1) \lor (v < 0 \land \text{bitLength}(-v - 1) \le s - 1)$.
+3. **Arbitrary-Precision Decimal Domain (`BigDecimal`):**
+   All decimal literals (`StvnFloat`, both `{ #exact } :Float` and continuous `#size 32` / `#size 64` `:Float`) and floating-point interval bounds (`#minIncl`, `#minExcl`, `#maxIncl`, `#maxExcl`) MUST use arbitrary-precision base-10 decimals (`java.math.BigDecimal` or target-language equivalent) across the AST, Canonical IR, and interval validator.
+4. **Strict Hardware Lowering Perimeter:**
+   Hardware-sized primitives (`int`, `long`, `float`, `double`) are prohibited in the AST, Canonical IR, and semantic validation passes. Narrowing to hardware primitives is permitted exclusively at two external perimeter adapters:
+   * Fixed-width binary wire codecs (`.stvn_b` / `.stvn_bd`, § 10).
+   * Host-language POJO / record mappers (`StvnMapper`), which MUST enforce exact range checks (`intValueExact()`, `longValueExact()`) before assignment.
 
 ---
 
@@ -1649,62 +1705,62 @@ Byte 4 separates CRC-32C trailer presence (`HAS_TRAILER_CRC32C`), wire layout fr
 ### 10.4 Header Decoding & Strategy Dispatch Pipeline
 
 ```mermaid
-graph TD
-    Start(["Start: Read Buffer Position 0"]) --> MagicCheck{"buffer.getInt(0)<br>== 0x5354564E?"}
-    MagicCheck -- " No " --> ExMagic["Throw IllegalArgumentException<br>(Magic bytes mismatch)"]
+flowchart TD
+    Start(["Start: Read Buffer Position 0"]) --> MagicCheck{"buffer.getInt(0) == 0x5354564E?"}
+    MagicCheck -- " No " --> ExMagic["Throw IllegalArgumentException (Magic bytes mismatch)"]
     MagicCheck -- " Yes " --> ReadByte4["Read Byte 4: controlByte = buffer.get(4)"]
-    ReadByte4 --> Split["Split 4:4 Nibbles:<br>upperNibble = (controlByte >>> 4) & 0x0F<br>lowerNibble = controlByte & 0x0F"]
-    Split --> EncDispatch{"BinaryEncodingStrategy<br>.fromCode(upperNibble)"}
-    EncDispatch -- " 0x1..0xF (Unmapped) " --> ExEnc["Throw UnsupportedEncodingStrategyException"]
+    ReadByte4 --> Split["Extract 1:3:4 Bitfield — hasCrc = (controlByte & 0x80) != 0, encStrategy = (controlByte >>> 4) & 0x07, idStrategy = controlByte & 0x0F"]
+    Split --> EncDispatch{"BinaryEncodingStrategy.fromCode(encStrategy)"}
+    EncDispatch -- " 0x1..0x7 (Reserved / Extension) " --> ExEnc["Throw UnsupportedEncodingStrategyException"]
     EncDispatch -- " 0x0 (ZERO_COPY_POST_ORDER) " --> EncValid["Valid Wire Encoding"]
-    Split --> IdentDispatch{"Switch (lowerNibble)"}
+    Split --> IdentDispatch{"Switch (idStrategy)"}
 %% 0x0: Universal Default
     IdentDispatch -->|0x0| CB0["Universal Default"]
-    CB0 --> P0["Bypass Network Resolution<br>(Use Baked-In Root Client Schema)"]
+    CB0 --> P0["Bypass Network Resolution (Use Baked-In Root Client Schema)"]
     P0 --> End(["Proceed to Parse Payload"])
 %% 0x1 & 0x2: Context-Injected
-    IdentDispatch -->|0x1 or 0x2| CB12{"Is Out-of-Band External<br>Context Present in Wrapper?"}
-    CB12 -->|No| Ex12["Throw Fatal Exception<br>(Context Missing)"]
-    CB12 -->|Yes| P12["Extract Injected Identifier<br>(UUID[0x1] or SHA-256[0x2] from Envelope)"]
+    IdentDispatch -->|0x1 or 0x2| CB12{"Is Out-of-Band External Context Present in Wrapper?"}
+    CB12 -->|No| Ex12["Throw Fatal Exception (Context Missing)"]
+    CB12 -->|Yes| P12["Extract Injected Identifier (UUID[0x1] or SHA-256[0x2] from Envelope)"]
     P12 --> End
 %% 0x3 & 0x4: Trusted Zone Strings
     IdentDispatch -->|0x3 or 0x4| CB34["ReadA: 2 Bytes"]
-    CB34 --> Len34["Interpret ReadA as Unsigned Int<br>(Payload Length)"]
+    CB34 --> Len34["Interpret ReadA as Unsigned Int (Payload Length)"]
     Len34 --> CB34_B["ReadB: Read Length + 1 Bytes"]
-    CB34_B --> Opt34{"Is allowInsecureNetworkResolution<br>Opt-In Flag Active?"}
+    CB34_B --> Opt34{"Is allowInsecureNetworkResolution Opt-In Flag Active?"}
     Opt34 -->|No| Ex34["Throw Explicit SWE Opt-In Exception"]
-    Opt34 -->|Yes| P34["Resolve Semantic Alias String<br>(stringAscii / string)"]
+    Opt34 -->|Yes| P34["Resolve Semantic Alias String (stringAscii / string)"]
     P34 --> Warn34["Warning: Risk of MITM Schema Poisoning"]
     Warn34 --> End
 %% 0x5: Trusted Zone Version
     IdentDispatch -->|0x5| CB5["ReadA: 4 Bytes"]
-    CB5 --> Len5["Interpret ReadA as Long<br>(Key: universal: ReadA + 1)"]
-    Len5 --> Opt5{"Is allowInsecureNetworkResolution<br>Opt-In Flag Active?"}
+    CB5 --> Len5["Interpret ReadA as Long (Key: universal: ReadA + 1)"]
+    Len5 --> Opt5{"Is allowInsecureNetworkResolution Opt-In Flag Active?"}
     Opt5 -->|No| Ex5["Throw Explicit SWE Opt-In Exception"]
-    Opt5 -->|Yes| P5["Enforce Strict Governance<br>(Prevent Integer Collision)"]
+    Opt5 -->|Yes| P5["Enforce Strict Governance (Prevent Integer Collision)"]
     P5 --> End
 %% 0x6: Zero-Trust UUID
     IdentDispatch -->|0x6| CB6["ReadA: 16 Bytes"]
-    CB6 --> Fetch6["Fetch .stvn_d Schema File<br>from Registry"]
-    Fetch6 --> V6{"Does Downloaded Schema Hash<br>Match Header UUID?"}
-    V6 -->|No| Ex6["Throw Verification Exception<br>(128-bit Collision / Mismatch)"]
+    CB6 --> Fetch6["Fetch .stvn_d Schema File from Registry"]
+    Fetch6 --> V6{"Does Downloaded Schema Hash Match Header UUID?"}
+    V6 -->|No| Ex6["Throw Verification Exception (128-bit Collision / Mismatch)"]
     V6 -->|Yes| End
 %% 0x7: Zero-Trust SHA-256
     IdentDispatch -->|0x7| CB7["ReadA: 32 Bytes"]
-    CB7 --> Fetch7["Fetch .stvn_d Schema File<br>from Registry"]
-    Fetch7 --> V7{"Does Canonically Serialized Schema<br>Match 32-Byte Header Hash?"}
+    CB7 --> Fetch7["Fetch .stvn_d Schema File from Registry"]
+    Fetch7 --> V7{"Does Canonically Serialized Schema Match 32-Byte Header Hash?"}
     V7 -->|No| Ex7["Throw PoisonedRegistryPayloadException"]
     V7 -->|Yes| End
 %% 0x8: Autonomous
     IdentDispatch -->|0x8| CB8["ReadA: 4 Bytes"]
-    CB8 --> Len8["Interpret ReadA as Unsigned Int<br>(Payload Length)"]
+    CB8 --> Len8["Interpret ReadA as Unsigned Int (Payload Length)"]
     Len8 --> CB8_B["ReadB: Read Length + 1 Bytes"]
-    CB8_B --> Parse8["Convert ReadB to Unicode Literal<br>(Extract Inline .stvn_d)"]
-    Parse8 --> Guard8{"Enforce Memory Constraint:<br>Is Schema Strictly Ephemeral?"}
+    CB8_B --> Parse8["Convert ReadB to Unicode Literal (Extract Inline .stvn_d)"]
+    Parse8 --> Guard8{"Enforce Memory Constraint: Is Schema Strictly Ephemeral?"}
     Guard8 -->|No / Disk Write Attempt| Ex8["Block Process / Throw Security Exception"]
     Guard8 -->|Yes / JVM Memory Only| End
 %% 0x9..0xF: Unmapped Identity Code
-    IdentDispatch -->|0x9 . . 0xF| ExIdent["Throw StvnSerializationException<br>(Invalid Schema Identity code)"]
+    IdentDispatch -->|0x9 . . 0xF| ExIdent["Throw StvnSerializationException (Invalid Schema Identity code)"]
 %% Styling Elements
     classDef exception fill: #ffcccc, stroke: #cc0000, stroke-width: 2px, color: #000000
     classDef success fill: #d4edda, stroke: #28a745, stroke-width: 2px, color: #000000
@@ -1793,7 +1849,7 @@ The runtime environment pre-registers the canonical prelude under `:org/stvnador
       :Sha256LowerCase { #minSize 64 #maxSize 64 #regex #SHA256_LOWER_CASE_REGEX } :String
       :Sha256MixedCase { #minSize 64 #maxSize 64 #regex #SHA256_MIXED_CASE_REGEX } :String
 
-      :SemVer { #minSize 5 #maxSize 128 #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
+      :SemVer { #minSize 5 #maxSize 128 #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
 
       #EMAIL_LOWER_CASE_REGEX :String "^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$"
       #EMAIL_MIXED_CASE_REGEX :String "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
@@ -2335,179 +2391,339 @@ This appendix documents invalid syntax constructs from other data formats and hi
 
 ### C.1 Anti-Hallucination Traps 1–14
 
+#### TRAP 1: Key-Value Record Structuring & Suffix Metadata (`E008` / `E030`)
+
 ```stvn
-// ----------------------------------------------------------------------------
-  // TRAP 1: JSON / Lisp-Style Record Field Structuring (ILLEGAL)
-  // Diagnostic: E008 / E030
-  // ----------------------------------------------------------------------------
-  // INVALID: STVN does not use named field lists or nested sub-brackets in definitions.
-  :BadRecord (
-  [ [ :host :String ] [ :port :Int { #unsigned #T #size 16 } ] ]
-  // FATAL: Syntax error
-  )
-  // CORRECT: Use :Tuple( ... ) with positional elements:
-  :GoodRecord :Tuple(:String :Int { #unsigned #T #size 16 } )
-
-  // ----------------------------------------------------------------------------
-  // TRAP 2: Flat Bracketed Map Syntax (ILLEGAL)
-  // Diagnostic: E008 / E024
-  // ----------------------------------------------------------------------------
-  // INVALID: STVN Map values MUST NOT use flat brackets or bare key-value lists.
-  :badMapBody1 [ "key1" 100 "key2" 200 ]
-  // FATAL: Type mismatch (Expected Map literal)
-  :badMapBody2 [ [ "key1" 100 ] [ "key2" 200 ] ]
-  // FATAL: Syntax error (List of lists is not Map)
-  // CORRECT: Outer curly braces enclosing bracketed pairs:
-  :goodMapBody { [ "key1" 100 ] [ "key2" 200 ] }
-
-  // ----------------------------------------------------------------------------
-  // TRAP 3: Trailing or Enclosed Metadata Blocks (ILLEGAL)
-  // Diagnostic: E003 / E008
-  // ----------------------------------------------------------------------------
-  // INVALID: Metadata placed after the type or enclosed inside constructor parentheses.
-  :BadPort :Int { #unsigned #T #size 16 } { #minIncl 1 }   // FATAL: Syntax error
-  :BadPort(:Int { #unsigned #T #size 16 } { #minIncl 1 }) // FATAL: Syntax error
-  // CORRECT: Metadata MUST prefix the type constructor:
-  :GoodPort { #minIncl 1 #unsigned #T #size 16 } :Int
-
-  // ----------------------------------------------------------------------------
-  // TRAP 4: Unbracketed :include Directives (ILLEGAL)
-  // Diagnostic: E004
-  // ----------------------------------------------------------------------------
-  // INVALID: Missing outer brackets for :include directive.
-  :include "file.stvn_d"                                   // FATAL: Syntax error
-  // CORRECT: Bracketed directive list:
-  :include [ "file.stvn_d" ]
-
-  // ----------------------------------------------------------------------------
-  // TRAP 5: Tuple Payloads Using Square Brackets (ILLEGAL)
-  // Diagnostic: E008 / E024
-  // ----------------------------------------------------------------------------
-  // INVALID: Using square brackets for :Tuple payloads.
-  :badTuplePayload [ "localhost" 8080 ]
-  // FATAL: Type mismatch (Expected Product, got Seq)
-  // CORRECT: Product (Tuple) instances MUST use parentheses:
-  :goodTuplePayload("localhost" 8080)
-
-  // ----------------------------------------------------------------------------
-  // TRAP 6: Using Hash (#) as a Comment Delimiter (ILLEGAL)
-  // Diagnostic: E001 / E030
-  // ----------------------------------------------------------------------------
-  // INVALID: Attempting line comments with '#'.
-  # This is a shell or Python comment                      // FATAL: Lexical error (Unknown symbol '#')
-  // CORRECT: STVN strictly uses C-style double-slash comments:
-  // This is a valid STVN comment
-
-  // ----------------------------------------------------------------------------
-  // TRAP 7: Colon (:) as an Infix Key-Value Separator (ILLEGAL)
-  // Diagnostic: E030
-  // ----------------------------------------------------------------------------
-  // INVALID: Using colon as an infix delimiter between map keys and values.
-  :badPayload { [ "key": "value" ] }                       // FATAL: Lexical error (Bare colon ':' is prefix only)
-  :badField   [ :port: 8080 ]
-  // FATAL: Syntax error
-  // CORRECT: Space-separated bracketed pairs in maps:
-  :goodMapPayload { [ "key" "value" ] }
-
-  // ----------------------------------------------------------------------------
-  // TRAP 8: Function-Call Parentheses on Scalar Variant Constructors (ILLEGAL)
-  // Diagnostic: E008
-  // ----------------------------------------------------------------------------
-  // INVALID: Parenthesizing scalar sum payloads as if invoking a constructor.
+{
+  // INVALID: STVN tuples are positional; suffix metadata after :Int is prohibited
   :defs {
-  :ScalarOpt :Option(:Int)
-  :TupleOpt  :Option(:Tuple( :Int))
+    :Port :Int { #unsigned #size 16 }
   }
-  :type :Tuple(:ScalarOpt :TupleOpt)
-  :body (
-  #Some( 42)   // FATAL: Type mismatch (Expected scalar Int, got Tuple)
-  #Some 42       // FATAL if applied to :TupleOpt (Expected Tuple, got Int)
-  )
-  // CORRECT: Bare values for scalar variants; parentheses ONLY for tuples:
-  :body (
-  #Some 42       // Valid: matches :Option( :Int )
-  #Some (42)   // Valid: matches :Option( :Tuple( :Int ) )
-  )
+  :type :Tuple( :Port )
+  :body ( :port 8080 )
+}
+```
 
-  // ----------------------------------------------------------------------------
-  // TRAP 9: Unbracketed :use Directives (ILLEGAL)
-  // Diagnostic: E004
-  // ----------------------------------------------------------------------------
-  // INVALID: Missing outer square brackets for :use directive.
-  :use :org/stvnadore/finance { :Transaction :LocalTx }    // FATAL: Syntax error
-  // CORRECT: Scoped imports MUST be bracketed:
-  :use [ :org/stvnadore/finance { :Transaction :LocalTx } ]
-
-  // ----------------------------------------------------------------------------
-  // TRAP 10: Numeric / Bit-Width Facets on :String (ILLEGAL)
-  // Diagnostic: E008
-  // ----------------------------------------------------------------------------
-  // INVALID: Applying #size, #unsigned, #minIncl, or #maxIncl to :String.
-  :BadString1 { #size 64 } :String                         // FATAL: Facet #size invalid on :String
-  :BadString2 { #minIncl 5 #maxIncl 20 } :String           // FATAL: Numeric range invalid on :String
-  // CORRECT: Use string length bounds #minSize / #maxSize or regex constraints:
-  :GoodString { #minSize 5 #maxSize 20 #regex "^[A-Z]+$" } :String
-
-  // ----------------------------------------------------------------------------
-  // TRAP 11: Free-Floating or Empty Metadata Blocks (ILLEGAL)
-  // Diagnostic: E003 / E008
-  // ----------------------------------------------------------------------------
-  // INVALID: Empty metadata blocks or metadata blocks lacking a target declaration.
-  :BadEmpty {} :Int { #size 32 }                           // FATAL: Empty metadata block '{}' is prohibited
-  { #size 32 }                                             // FATAL: Free-floating metadata block without target
-  // CORRECT: Non-empty metadata blocks attached directly to declarations:
-  :GoodInt { #size 64 } :Int
-
-  // ----------------------------------------------------------------------------
-  // TRAP 12: Float Exactness Range Conflict or Non-IEEE Bit-Width (ILLEGAL)
-  // Diagnostic: E010 / E011
-  // ----------------------------------------------------------------------------
-  // INVALID: Applying non-32/64 bit sizes to :Float or combining #exact #T with ranges.
-  :BadFloat1 { #size 128 } :Float                          // FATAL: #size on :Float must be 32 or 64
-  :BadFloat2 { #exact #T #minIncl 1.0 #maxIncl 10.0 } :Float // FATAL: #exact prohibits continuous ranges
-  // CORRECT: Valid IEEE-754 precision declarations:
-  :GoodFloat32 { #size 32 } :Float
-  :GoodFloat64 { #minIncl 0.0 #maxIncl 1.0 } :Float
-
-  // ----------------------------------------------------------------------------
-  // TRAP 13: Non-Monotonic Enum Subset Filtering & Root Order Violations (ILLEGAL)
-  // Diagnostic: E014 / E015
-  // ----------------------------------------------------------------------------
-  // INVALID: Declaring subset variants not present in parent, or reordering variants.
+```stvn
+{
+  // VALID: Prefix metadata before :Int and positional tuple elements
   :defs {
-  :BaseColor :Enum [ #RED #GREEN #BLUE #YELLOW ]
-  // FATAL: #PURPLE was not declared in :BaseColor
-  :InvalidSubset1 { #filterIncl [ #RED #PURPLE ] } :BaseColor
-  // FATAL: Root declaration order violated (#BLUE appears before #GREEN)
-  :InvalidSubset2 { #filterIncl [ #BLUE #GREEN ] } :BaseColor
+    :Port { #unsigned #size 16 } :Int
   }
-  // CORRECT: Monotonic narrowing preserving root declaration ordering:
-  :defs {
-  :ValidSubset { #filterIncl [ #GREEN #BLUE ] } :BaseColor
-  }
+  :type :Tuple( :Port )
+  :body ( 8080 )
+}
+```
 
-  // ----------------------------------------------------------------------------
-  // TRAP 14: Direct Unambiguous Payload Inference Violations (ILLEGAL)
-  // Diagnostic: E023 / E024
-  // ----------------------------------------------------------------------------
-  // INVALID: Passing Either left branch or ambiguous union branch without tags.
-  :defs {
-  :Result :Either(:Int :String)
-  :AmbiguousUnion :Union(:Int :Int { #size 64 } )
+#### TRAP 2: Flat Bracketed Map Syntax (`E008` / `E024`)
+
+```stvn
+{
+  // INVALID: STVN Map values MUST NOT use flat brackets or nested sequence lists
+  :type :Map( :String :Int )
+  :body [ [ "key1" 100 ] [ "key2" 200 ] ]
+}
+```
+
+```stvn
+{
+  // VALID: Outer curly braces enclosing bracketed key-value pairs
+  :type :Map( :String :Int )
+  :body {
+    [ "key1" 100 ]
+    [ "key2" 200 ]
   }
-  :type :Tuple(:Result :AmbiguousUnion)
-  :body (
-  404                                                    // FATAL: Int matches Left branch, which requires explicit #Left / #L
-  100
-  // FATAL: Ambiguous union branch requires explicit #1 or #2 prefix
-)
-  // CORRECT: Explicit tags for Left branch and ambiguous union branches:
-:body (
-  #Left 404
-  // Infallible Left attribution
-  #1 100
-  // Infallible branch index 1 attribution
-)
+}
+```
+
+#### TRAP 3: Trailing Metadata & Non-Monotonic Facet Tier Ordering (`E003` / `E008`)
+
+```stvn
+{
+  // INVALID: Bounds (Tier 3) declared before Definition facets (Tier 1)
+  :defs {
+    :Port { #minIncl 1 #unsigned #size 16 } :Int
+  }
+  :type :Port
+  :body 443
+}
+```
+
+```stvn
+{
+  // VALID: Strict ascending 5-tier order (1.1.1 #unsigned -> 1.3.1 #size -> 3.1 #minIncl)
+  :defs {
+    :Port { #unsigned #size 16 #minIncl 1 } :Int
+  }
+  :type :Port
+  :body 443
+}
+```
+
+#### TRAP 4: Unbracketed `:include` Directives (`E004`)
+
+```stvn
+{
+  // INVALID: Missing outer square brackets for :include directive
+  :meta {
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include "shared_models.shared.stvn_di"
+  }
+  :type :Port
+  :body 8080
+}
+```
+
+```stvn
+{
+  // VALID: Bracketed :include directive list
+  :meta {
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "shared_models.shared.stvn_di" ]
+  }
+  :type :Port
+  :body 8080
+}
+```
+
+#### TRAP 5: Tuple Payloads Using Square Brackets (`E008` / `E024`)
+
+```stvn
+{
+  // INVALID: Using square brackets for :Tuple payloads
+  :type :Tuple( :String { #unsigned #size 16 } :Int )
+  :body [ "localhost" 8080 ]
+}
+```
+
+```stvn
+{
+  // VALID: Tuple instances MUST use parentheses
+  :type :Tuple( :String { #unsigned #size 16 } :Int )
+  :body ( "localhost" 8080 )
+}
+```
+
+#### TRAP 6: Using Hash (`#`) as a Comment Delimiter (`E001` / `E030`)
+
+```stvn
+{
+  // INVALID: Attempting line comments with '#'
+  # This is a shell or Python comment
+  :type :Int
+  :body 42
+}
+```
+
+```stvn
+{
+  // VALID: STVN strictly uses C-style double-slash comments
+  :type :Int
+  :body 42
+}
+```
+
+#### TRAP 7: Colon (`:`) as an Infix Key-Value Separator (`E030`)
+
+```stvn
+{
+  // INVALID: Using colon as an infix delimiter between map keys and values
+  :type :Map( :String :String )
+  :body { [ "key": "value" ] }
+}
+```
+
+```stvn
+{
+  // VALID: Whitespace-separated bracketed key-value pairs in maps
+  :type :Map( :String :String )
+  :body { [ "key" "value" ] }
+}
+```
+
+#### TRAP 8: Function-Call Parentheses on Scalar Variant Constructors (`E008`)
+
+```stvn
+{
+  // INVALID: Parenthesizing scalar sum payloads as if invoking a constructor
+  :defs {
+    :ScalarOpt :Option( :Int )
+    :TupleOpt  :Option( :Tuple( :Int ) )
+  }
+  :type :Tuple( :ScalarOpt :TupleOpt )
+  :body ( #Some ( 42 ) #Some 42 )
+}
+```
+
+```stvn
+{
+  // VALID: Bare values for scalar variants and parentheses exclusively for tuples
+  :defs {
+    :ScalarOpt :Option( :Int )
+    :TupleOpt  :Option( :Tuple( :Int ) )
+  }
+  :type :Tuple( :ScalarOpt :TupleOpt )
+  :body ( #Some 42 #Some ( 42 ) )
+}
+```
+
+#### TRAP 9: Unbracketed `:use` Directives (`E004`)
+
+```stvn
+{
+  // INVALID: Missing outer square brackets for :use directive
+  :defs {
+    :package :com/example/finance {
+      :Transaction :Int
+    }
+    :use :com/example/finance { :Transaction :LocalTx }
+  }
+  :type :LocalTx
+  :body 100
+}
+```
+
+```stvn
+{
+  // VALID: Scoped imports MUST be enclosed in square brackets
+  :defs {
+    :package :com/example/finance {
+      :Transaction :Int
+    }
+    :use [ :com/example/finance { :Transaction :LocalTx } ]
+  }
+  :type :LocalTx
+  :body 100
+}
+```
+
+#### TRAP 10: Applying Numeric Bounds or Bit-Width `#size` to `:String` (`E008`)
+
+```stvn
+{
+  // INVALID: Numeric bound literals and bit-width #size / #unsigned are illegal on :String
+  :defs {
+    :BadCode { #size 8 #minIncl 2 #maxIncl 8 } :String
+  }
+  :type :BadCode
+  :body "ABCD"
+}
+```
+
+```stvn
+{
+  // VALID: Use #minSize / #maxSize for character count and string literals for UTF-8 lexicographical bounds
+  :defs {
+    :Code { #minSize 2 #maxSize 8 #minIncl "AA" #maxIncl "ZZ" } :String
+  }
+  :type :Code
+  :body "ABCD"
+}
+```
+
+#### TRAP 11: Free-Floating or Empty Metadata Blocks (`E003` / `E008`)
+
+```stvn
+{
+  // INVALID: Empty metadata blocks are prohibited
+  :defs {
+    :BadEmpty {} :Int
+  }
+  :type :BadEmpty
+  :body 42
+}
+```
+
+```stvn
+{
+  // VALID: Non-empty metadata blocks prefixing target type declarations
+  :defs {
+    :GoodInt { #size 64 } :Int
+  }
+  :type :GoodInt
+  :body 42
+}
+```
+
+#### TRAP 12: Prohibited Closed/Left-Open Bounds on Discrete Exact Decimal (`E010` / `E011`)
+
+```stvn
+{
+  // INVALID: Discrete { #exact } :Float requires half-open [#minIncl, #maxExcl); #maxIncl and #minExcl are prohibited
+  :defs {
+    :Price { #exact #minIncl 0.0 #maxIncl 999.99 } :Float
+  }
+  :type :Price
+  :body 19.99
+}
+```
+
+```stvn
+{
+  // VALID: Standalone #exact with discrete half-open [#minIncl, #maxExcl) bounds
+  :defs {
+    :Price { #exact #minIncl 0.00 #maxExcl 1000.00 } :Float
+  }
+  :type :Price
+  :body 19.99
+}
+```
+
+#### TRAP 13: Non-Monotonic Enum Subset Filtering & Root Order Violations (`E014` / `E015`)
+
+```stvn
+{
+  // INVALID: Declaring subset variants not present in parent, or reordering variants
+  :defs {
+    :BaseColor :Enum [ #RED #GREEN #BLUE #YELLOW ]
+    :InvalidSubset1 { #filterIncl [ #RED #PURPLE ] } :BaseColor
+    :InvalidSubset2 { #filterIncl [ #BLUE #GREEN ] } :BaseColor
+  }
+  :type :InvalidSubset1
+  :body #RED
+}
+```
+
+```stvn
+{
+  // VALID: Monotonic subset narrowing preserving root declaration order
+  :defs {
+    :BaseColor :Enum [ #RED #GREEN #BLUE #YELLOW ]
+    :ValidSubset { #filterIncl [ #GREEN #BLUE ] } :BaseColor
+  }
+  :type :ValidSubset
+  :body #GREEN
+}
+```
+
+#### TRAP 14: Direct Unambiguous Payload Inference Violations (`E023` / `E024`)
+
+```stvn
+{
+  // INVALID: Passing Either left branch or ambiguous union branch without explicit tags
+  :defs {
+    :Result :Either( :Int :String )
+    :AmbiguousUnion :Union( :Int { #minIncl 0 #maxExcl 1000 } :Int )
+  }
+  :type :Tuple( :Result :AmbiguousUnion )
+  :body ( 404 100 )
+}
+```
+
+```stvn
+{
+  // VALID: Explicit tags for Left branch and overlapping union branches
+  :defs {
+    :Result :Either( :Int :String )
+    :AmbiguousUnion :Union( :Int { #minIncl 0 #maxExcl 1000 } :Int )
+  }
+  :type :Tuple( :Result :AmbiguousUnion )
+  :body ( #Left 404 #1 100 )
+}
 ```
 
 ---
@@ -2516,49 +2732,51 @@ This appendix documents invalid syntax constructs from other data formats and hi
 
 STVN compilers and tooling MUST report diagnostic codes adhering to the standard diagnostic taxonomy defined in the following table:
 
-| Diagnostic Code | Canonical Identifier                      | Category       | Severity | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-|:----------------|:------------------------------------------|:---------------|:---------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `E001`          | `TAB_DISCIPLINE_VIOLATION`                | Lexical        | Fatal    | A literal tab character `\t` was encountered in the source text outside the verbatim body of a fenced multi-line string.                                                                                                                                                                                                                                                                                                                                    |
-| `E002`          | `ROOT_ENCLOSURE_MISSING`                  | Syntactic      | Fatal    | The document root is not enclosed within matching curly braces `{ ... }`.                                                                                                                                                                                                                                                                                                                                                                                   |
-| `E003`          | `EMPTY_METADATA_BLOCK`                    | Syntactic      | Fatal    | An empty type or constant metadata annotation block `{}` was encountered (§ 3.5.1).                                                                                                                                                                                                                                                                                                                                                                         |
-| `E004`          | `EMPTY_DIRECTIVE_BLOCK`                   | Syntactic      | Fatal    | An empty `:include []` or `:use []` directive was encountered.                                                                                                                                                                                                                                                                                                                                                                                              |
-| `E005`          | `DUPLICATE_MODULE_IMPORT`                 | Semantic       | Fatal    | A module file path or package URI was imported more than once in `:defs`.                                                                                                                                                                                                                                                                                                                                                                                   |
-| `E006`          | `NAMESPACE_COLLISION`                     | Semantic       | Fatal    | Unmitigated nominal identifier collision between imported modules.                                                                                                                                                                                                                                                                                                                                                                                          |
-| `E007`          | `CIRCULAR_DEPENDENCY`                     | Semantic       | Fatal    | Cyclical module inclusion detected in the `:include` transitive graph.                                                                                                                                                                                                                                                                                                                                                                                      |
-| `E008`          | `INVALID_FACET_TARGET`                    | Semantic       | Fatal    | A metadata facet was attached to an incompatible type constructor.                                                                                                                                                                                                                                                                                                                                                                                          |
-| `E009`          | `INT_OVERFLOW`                            | Semantic/Codec | Fatal    | An integer literal exceeds the range permitted by `#size` and `#unsigned`.                                                                                                                                                                                                                                                                                                                                                                                  |
-| `E010`          | `FLOAT_INVALID_SIZE`                      | Semantic/Codec | Fatal    | `:Float` `#size` is not equal to 32 or 64.                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `E011`          | `FLOAT_EXACT_RANGE_CONFLICT`              | Semantic       | Fatal    | Facet `#exact #T` was combined with continuous range bounds.                                                                                                                                                                                                                                                                                                                                                                                                |
-| `E012`          | `STRING_BOUND_VIOLATION`                  | Semantic/Codec | Fatal    | String character count violates `#minSize` or `#maxSize` constraints.                                                                                                                                                                                                                                                                                                                                                                                       |
-| `E013`          | `REGEX_MISMATCH`                          | Semantic/Codec | Fatal    | String literal does not match the compiled `#regex` regular expression.                                                                                                                                                                                                                                                                                                                                                                                     |
-| `E014`          | `ENUM_SUBSET_NOT_SUBSET`                  | Semantic       | Fatal    | Child enum subset specifies variant not declared in parent enum.                                                                                                                                                                                                                                                                                                                                                                                            |
-| `E015`          | `ENUM_SUBSET_ORDER_VIOLATION`             | Semantic       | Fatal    | Child enum subset reorders variants relative to root enum order.                                                                                                                                                                                                                                                                                                                                                                                            |
-| `E016`          | `ENUM_SUBSET_EMPTY`                       | Semantic       | Fatal    | Enum subset filter evaluates to an empty variant set.                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `E017`          | `COLLECTION_EMPTY_VIOLATION`              | Semantic/Codec | Fatal    | Empty collection literal provided where `#minSize 1` is required.                                                                                                                                                                                                                                                                                                                                                                                           |
-| `E018`          | `INVERTIBLE_MAP_DUPLICATE`                | Semantic/Codec | Fatal    | Duplicate value detected in map configured with `#invertible #T`.                                                                                                                                                                                                                                                                                                                                                                                           |
-| `E019`          | `TEMPORAL_OFFSET_IN_ZONED`                | Semantic       | Fatal    | Numerical UTC offset detected in `:DateTime` literal with IANA zone.                                                                                                                                                                                                                                                                                                                                                                                        |
-| `E020`          | `TEMPORAL_ZONE_IN_EPOCH`                  | Semantic       | Fatal    | Named IANA zone bracket detected in physical `:TimeEpoch` literal.                                                                                                                                                                                                                                                                                                                                                                                          |
-| `E021`          | `TEMPORAL_AUDITED_MISMATCH`               | Semantic       | Fatal    | Historical offset does not match IANA tzdb rule for date and zone.                                                                                                                                                                                                                                                                                                                                                                                          |
-| `E022`          | `TEMPORAL_DST_GAP_LITERAL`                | Semantic       | Fatal    | Wall-clock literal falls into daylight saving spring-forward civil gap.                                                                                                                                                                                                                                                                                                                                                                                     |
-| `E023`          | `EITHER_LEFT_MISSING_TAG`                 | Semantic       | Fatal    | Value intended for `:Either` Left branch was emitted without explicit `#L` tag.                                                                                                                                                                                                                                                                                                                                                                             |
-| `E024`          | `UNION_BRANCH_AMBIGUOUS`                  | Semantic       | Fatal    | Value conforms to multiple union branches without explicit `#index` tag.                                                                                                                                                                                                                                                                                                                                                                                    |
-| `E025`          | `FENCE_DELIMITER_MISMATCH`                | Lexical        | Fatal    | Closing fenced string tag does not match opening tag.                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `E026`          | `FENCE_PROHIBITED_ARROW`                  | Lexical        | Fatal    | Fenced string opening contains prohibited `->` arrow syntax.                                                                                                                                                                                                                                                                                                                                                                                                |
-| `E027`          | `OPAQUE_TYPE_BRAND_MISMATCH`              | Semantic       | Fatal    | Assignment between nominal types with distinct SHA-256 CAS identities.                                                                                                                                                                                                                                                                                                                                                                                      |
-| `E028`          | `CONSTANT_TYPE_MISMATCH`                  | Semantic       | Fatal    | Constant definition value does not conform to its declared type.                                                                                                                                                                                                                                                                                                                                                                                            |
-| `E029`          | `DEAD_CODE_CANONICAL_FAIL`                | Serialization  | Fatal    | Transitively unreachable definition emitted in canonical serialization.                                                                                                                                                                                                                                                                                                                                                                                     |
-| `E030`          | `TYPE_RESOLUTION_FAILURE`                 | Semantic       | Fatal    | Referenced nominal type or constant symbol is not declared in scope.                                                                                                                                                                                                                                                                                                                                                                                        |
-| `E031`          | `DOCUMENT_KIND_MISMATCH`                  | Semantic       | Fatal    | Document #kind facet conflicts with physical file extension.                                                                                                                                                                                                                                                                                                                                                                                                |
-| `E032`          | `INVALID_FILENAME_STEM`                   | Syntactic      | Fatal    | Filename lacks visible non-empty stem segment (bare dotfile) or violates stem cardinality invariant ($1 \le \text{stems} \le 2$, multi-stem fragmentation $\ge 3$) (§ 3.10.2).                                                                                                                                                                                                                                                                              |
-| `E033`          | `META_POSITION_INVALID`                   | Syntactic      | Fatal    | :meta root block placed after :defs, :type, or :body.                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `E034`          | `LEGACY_FILE_EXTENSION_PURGED`            | Syntactic      | Fatal    | Excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas, .stvn_bin, .stvn_f, .stvn_df, .stvn_bf, .stvn_bdf) used.                                                                                                                                                                                                                                                                                                                                 |
-| `E035`          | `UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | Semantic       | Fatal    | Module :use in a flat hermetic document (.stvn / .stvn_d) targets an external package not declared in local :defs or prelude.                                                                                                                                                                                                                                                                                                                               |
-| `E037`          | `ERR_RESERVED_PACKAGE_PROHIBITED`         | Semantic       | Fatal    | User document declares a :package enclosure, qualified type, or qualified constant targeting reserved runtime namespace :org/stvnadore/* (§ 3.9 Invariant 8).                                                                                                                                                                                                                                                                                               |
-| `E038`          | `ERR_RESERVED_DOMAIN_PROHIBITED`          | Semantic       | Fatal    | User document declares a reserved system domain beginning with prefix "stvn_" in root :meta (§ 3.10.1 Rule 6).                                                                                                                                                                                                                                                                                                                                              |
-| `E039`          | `EMPTY_META_BLOCK`                        | Syntactic      | Fatal    | An empty root document metadata block ':meta {}' was encountered (§ 3.10.1).                                                                                                                                                                                                                                                                                                                                                                                |
-| `W001`          | `DOCUMENT_NAME_MISMATCH`                  | Semantic       | Warning  | Declared #name does not match filename stem slot 0.                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `W002`          | `DOCUMENT_DOMAIN_OMITTED_IN_FILENAME`     | Semantic       | Warning  | Declared #domain is omitted from filename stem slot 1.                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `W003`          | `WARN_REDUNDANT_METADATA_FACET`           | Semantic       | Warning  | Metadata facet declaration is tautological or redundant (e.g. #minIncl 0 on unsigned integer, #maxExcl 2^N on unsigned integer, #minIncl -2^{N-1} or #maxExcl 2^{N-1} on signed integer, #minSize 0 on container, #size 32 on signed :Int or unsigned { #unsigned } :Int, #size 64 on continuous :Float, #maxSize 16777216 on { #exact } :Float, or bare primitive trait defaults). Purged during semantic IR lowering without halting compilation (§ 9.2). |
+| Diagnostic Code | Canonical Identifier                      | Category           | Severity | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+|:----------------|:------------------------------------------|:-------------------|:---------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `E001`          | `TAB_DISCIPLINE_VIOLATION`                | Lexical            | Fatal    | A literal tab character `\t` was encountered in the source text outside the verbatim body of a fenced multi-line string.                                                                                                                                                                                                                                                                                                                                    |
+| `E002`          | `ROOT_ENCLOSURE_MISSING`                  | Syntactic          | Fatal    | The document root is not enclosed within matching curly braces `{ ... }`.                                                                                                                                                                                                                                                                                                                                                                                   |
+| `E003`          | `EMPTY_METADATA_BLOCK`                    | Syntactic          | Fatal    | An empty type or constant metadata annotation block `{}` was encountered (§ 3.5.1).                                                                                                                                                                                                                                                                                                                                                                         |
+| `E004`          | `EMPTY_DIRECTIVE_BLOCK`                   | Syntactic          | Fatal    | An empty `:include []` or `:use []` directive was encountered.                                                                                                                                                                                                                                                                                                                                                                                              |
+| `E005`          | `DUPLICATE_MODULE_IMPORT`                 | Semantic           | Fatal    | A module file path or package URI was imported more than once in `:defs`.                                                                                                                                                                                                                                                                                                                                                                                   |
+| `E006`          | `NAMESPACE_COLLISION`                     | Semantic           | Fatal    | Unmitigated nominal identifier collision between imported modules.                                                                                                                                                                                                                                                                                                                                                                                          |
+| `E007`          | `CIRCULAR_DEPENDENCY`                     | Semantic           | Fatal    | Cyclical module inclusion detected in the `:include` transitive graph.                                                                                                                                                                                                                                                                                                                                                                                      |
+| `E008`          | `INVALID_FACET_TARGET`                    | Semantic           | Fatal    | A metadata facet was attached to an incompatible type constructor.                                                                                                                                                                                                                                                                                                                                                                                          |
+| `E009`          | `INT_OVERFLOW`                            | Semantic/Codec     | Fatal    | An integer literal exceeds the range permitted by `#size` and `#unsigned`.                                                                                                                                                                                                                                                                                                                                                                                  |
+| `E010`          | `FLOAT_INVALID_SIZE`                      | Semantic/Codec     | Fatal    | `:Float` `#size` is not equal to 32 or 64.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `E011`          | `FLOAT_EXACT_RANGE_CONFLICT`              | Semantic           | Fatal    | Facet `#exact` was combined with continuous bound `#minExcl` or `#maxIncl` (use discrete half-open `[#minIncl, #maxExcl)`).                                                                                                                                                                                                                                                                                                                                 |
+| `E012`          | `STRING_BOUND_VIOLATION`                  | Semantic/Codec     | Fatal    | String character count violates `#minSize` or `#maxSize` constraints, or string value violates UTF-8 lexicographical bounds.                                                                                                                                                                                                                                                                                                                                |
+| `E013`          | `REGEX_MISMATCH`                          | Semantic/Codec     | Fatal    | String literal does not match the compiled `#regex` regular expression.                                                                                                                                                                                                                                                                                                                                                                                     |
+| `E014`          | `ENUM_SUBSET_NOT_SUBSET`                  | Semantic           | Fatal    | Child enum subset specifies variant not declared in parent enum.                                                                                                                                                                                                                                                                                                                                                                                            |
+| `E015`          | `ENUM_SUBSET_ORDER_VIOLATION`             | Semantic           | Fatal    | Child enum subset reorders variants relative to root enum order.                                                                                                                                                                                                                                                                                                                                                                                            |
+| `E016`          | `ENUM_SUBSET_EMPTY`                       | Semantic           | Fatal    | Enum subset filter evaluates to an empty variant set.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `E017`          | `COLLECTION_EMPTY_VIOLATION`              | Semantic/Codec     | Fatal    | Empty collection literal provided where `#minSize 1` is required.                                                                                                                                                                                                                                                                                                                                                                                           |
+| `E018`          | `INVERTIBLE_MAP_DUPLICATE`                | Semantic/Codec     | Fatal    | Duplicate value detected in map configured with standalone `#invertible`.                                                                                                                                                                                                                                                                                                                                                                                   |
+| `E019`          | `TEMPORAL_OFFSET_IN_ZONED`                | Semantic           | Fatal    | Numerical UTC offset detected in `:DateTime` literal with IANA zone.                                                                                                                                                                                                                                                                                                                                                                                        |
+| `E020`          | `TEMPORAL_ZONE_IN_EPOCH`                  | Semantic           | Fatal    | Named IANA zone bracket detected in physical `:TimeEpoch` literal.                                                                                                                                                                                                                                                                                                                                                                                          |
+| `E021`          | `TEMPORAL_AUDITED_MISMATCH`               | Semantic           | Fatal    | Historical offset does not match IANA tzdb rule for date and zone.                                                                                                                                                                                                                                                                                                                                                                                          |
+| `E022`          | `TEMPORAL_DST_GAP_LITERAL`                | Semantic           | Fatal    | Wall-clock literal falls into daylight saving spring-forward civil gap.                                                                                                                                                                                                                                                                                                                                                                                     |
+| `E023`          | `EITHER_LEFT_MISSING_TAG`                 | Semantic           | Fatal    | Value intended for `:Either` Left branch was emitted without explicit `#L` tag.                                                                                                                                                                                                                                                                                                                                                                             |
+| `E024`          | `UNION_BRANCH_AMBIGUOUS`                  | Semantic           | Fatal    | Value conforms to multiple union branches without explicit `#index` tag.                                                                                                                                                                                                                                                                                                                                                                                    |
+| `E025`          | `FENCE_DELIMITER_MISMATCH`                | Lexical            | Fatal    | Closing fenced string tag does not match opening tag.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `E026`          | `FENCE_PROHIBITED_ARROW`                  | Lexical            | Fatal    | Fenced string opening contains prohibited `->` arrow syntax.                                                                                                                                                                                                                                                                                                                                                                                                |
+| `E027`          | `OPAQUE_TYPE_BRAND_MISMATCH`              | Semantic           | Fatal    | Assignment between nominal types with distinct SHA-256 CAS identities.                                                                                                                                                                                                                                                                                                                                                                                      |
+| `E028`          | `CONSTANT_TYPE_MISMATCH`                  | Semantic           | Fatal    | Constant definition value does not conform to its declared type.                                                                                                                                                                                                                                                                                                                                                                                            |
+| `E029`          | `DEAD_CODE_CANONICAL_FAIL`                | Serialization      | Fatal    | Transitively unreachable definition emitted in canonical serialization.                                                                                                                                                                                                                                                                                                                                                                                     |
+| `E030`          | `TYPE_RESOLUTION_FAILURE`                 | Semantic           | Fatal    | Referenced nominal type or constant symbol is not declared in scope.                                                                                                                                                                                                                                                                                                                                                                                        |
+| `E031`          | `DOCUMENT_KIND_MISMATCH`                  | Semantic           | Fatal    | Document `#kind` facet conflicts with physical file extension.                                                                                                                                                                                                                                                                                                                                                                                              |
+| `E032`          | `INVALID_FILENAME_STEM`                   | Syntactic          | Fatal    | Filename lacks visible non-empty stem segment (bare dotfile) or violates stem cardinality invariant ($1 \le \text{stems} \le 2$, multi-stem fragmentation $\ge 3$) (§ 3.10.2).                                                                                                                                                                                                                                                                              |
+| `E033`          | `META_POSITION_INVALID`                   | Syntactic          | Fatal    | `:meta` root block placed after `:defs`, `:type`, or `:body`.                                                                                                                                                                                                                                                                                                                                                                                               |
+| `E034`          | `LEGACY_FILE_EXTENSION_PURGED`            | Syntactic          | Fatal    | Excised legacy file extension (`.stvn_incl`, `.stvn_inclf`, `.stvn_cas`, `.stvn_bin`, `.stvn_f`, `.stvn_df`, `.stvn_bf`, `.stvn_bdf`) used.                                                                                                                                                                                                                                                                                                                 |
+| `E035`          | `UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | Semantic           | Fatal    | Module `:use` in a flat hermetic document (`.stvn` / `.stvn_d`) targets an external package not declared in local `:defs` or prelude.                                                                                                                                                                                                                                                                                                                       |
+| `E036`          | `UNRECOGNIZED_METADATA_FACET`             | Syntactic/Semantic | Fatal    | An unknown metadata facet identifier was declared inside a `{ ... }` metadata block.                                                                                                                                                                                                                                                                                                                                                                        |
+| `E037`          | `ERR_RESERVED_PACKAGE_PROHIBITED`         | Semantic           | Fatal    | User document declares a `:package` enclosure, qualified type, or qualified constant targeting reserved runtime namespace `:org/stvnadore/*` (§ 3.9 Invariant 8).                                                                                                                                                                                                                                                                                           |
+| `E038`          | `ERR_RESERVED_DOMAIN_PROHIBITED`          | Semantic           | Fatal    | User document declares a reserved system domain beginning with prefix `"stvn_"` in root `:meta` (§ 3.10.1 Rule 6).                                                                                                                                                                                                                                                                                                                                          |
+| `E039`          | `EMPTY_META_BLOCK`                        | Syntactic          | Fatal    | An empty root document metadata block `:meta {}` was encountered (§ 3.10.1).                                                                                                                                                                                                                                                                                                                                                                                |
+| `E040`          | `NON_OVERRIDABLE_FACET`                   | Semantic           | Fatal    | A nominal type derivation attempted to override or re-declare an immutable Tier 1 Definition facet (§ 6.1 & § 9.1.1).                                                                                                                                                                                                                                                                                                                                       |
+| `W001`          | `DOCUMENT_NAME_MISMATCH`                  | Semantic           | Warning  | Declared `#name` does not match filename stem slot 0.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `W002`          | `DOCUMENT_DOMAIN_OMITTED_IN_FILENAME`     | Semantic           | Warning  | Declared `#domain` is omitted from filename stem slot 1.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `W003`          | `WARN_REDUNDANT_METADATA_FACET`           | Semantic           | Warning  | Metadata facet declaration is tautological or redundant (e.g. `#minIncl 0` on unsigned integer, `#maxExcl 2^N` on unsigned integer, `#minIncl -2^{N-1}` or `#maxExcl 2^{N-1}` on signed integer, `#minSize 0` on container, `#size 32` on signed `:Int` or unsigned `{ #unsigned } :Int`, `#size 64` on continuous `:Float`, `#maxSize 16777216` on `{ #exact } :Float`, or bare primitive trait defaults). Purged during semantic IR lowering (§ 9.2).     |
 
 ### C.3 Normative STVN 2.0.0 Diagnostic Codes
 
@@ -2613,8 +2831,10 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME`    | `"WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME"`    | Warning  | #domain declared in :meta is omitted from filename stem slot 1.                                                                                                                |
 | `ERR_LEGACY_FILE_EXTENSION_PURGED`            | `"ERR_LEGACY_FILE_EXTENSION_PURGED"`            | Fatal    | Legacy excised file extension passed to compiler or include.                                                                                                                   |
 | `WARN_REDUNDANT_METADATA_FACET`               | `"WARN_REDUNDANT_METADATA_FACET"`               | Warning  | Metadata facet declaration is tautological or redundant. Purged during semantic IR lowering; non-blocking warning emitted without halting compilation (§ 9.2).                 |
-| `ERR_RESERVED_PACKAGE_PROHIBITED`             | `"ERR_RESERVED_PACKAGE_PROHIBITED"`             | Fatal    | User document declares :package enclosure, qualified type, or qualified constant targeting reserved runtime namespace :org/stvnadore/* (§ 3.9 Invariant 8).                    |
-| `ERR_RESERVED_DOMAIN_PROHIBITED`              | `"ERR_RESERVED_DOMAIN_PROHIBITED"`              | Fatal    | User document declares reserved system domain beginning with prefix "stvn_" in :meta (§ 3.10.1 Rule 6).                                                                        |
+| `ERR_RESERVED_PACKAGE_PROHIBITED`             | `"ERR_RESERVED_PACKAGE_PROHIBITED"`             | Fatal    | User document declares `:package` enclosure, qualified type, or qualified constant targeting reserved runtime namespace `:org/stvnadore/*` (§ 3.9 Invariant 8).                |
+| `ERR_RESERVED_DOMAIN_PROHIBITED`              | `"ERR_RESERVED_DOMAIN_PROHIBITED"`              | Fatal    | User document declares reserved system domain beginning with prefix `"stvn_"` in `:meta` (§ 3.10.1 Rule 6).                                                                    |
+| `ERR_UNRECOGNIZED_METADATA_FACET`             | `"ERR_UNRECOGNIZED_METADATA_FACET"`             | Fatal    | Unrecognized metadata facet tag encountered in `{ ... }` metadata block (`E036`).                                                                                              |
+| `ERR_NON_OVERRIDABLE_FACET`                   | `"ERR_NON_OVERRIDABLE_FACET"`                   | Fatal    | Nominal alias derivation attempted to override or re-specify an immutable Tier 1 Definition facet (`E040`, § 6.1 & § 9.1.1).                                                   |
 
 ### C.4 Discrete Half-Open Interval Semantics ($[minIncl, maxExcl)$)
 
@@ -2686,7 +2906,6 @@ KW_BODY    : ':body' ;
 KW_PACKAGE : ':package' ;
 KW_USE     : ':use' ;
 KW_INCLUDE : ':include' ;
-KW_CONST   : ':const' ;
 
 // Scalar Primitive Kernels
 ATOM_INT      : ':Int' ;
@@ -2735,6 +2954,13 @@ KW_KIND_BODY         : '#BODY' ;
 KW_KIND_DEFS         : '#DEFS' ;
 KW_KIND_BODY_INCLUDE : '#BODY_INCLUDE' ;
 KW_KIND_DEFS_INCLUDE : '#DEFS_INCLUDE' ;
+KW_NS                : '#ns' ;
+KW_US                : '#us' ;
+KW_MS                : '#ms' ;
+KW_S                 : '#s' ;
+KW_OFFSET            : '#offset' ;
+KW_ZONED             : '#zoned' ;
+KW_AUDITED           : '#audited' ;
 
 // Value Keywords and Literals
 KW_TRUE        : '#TRUE' ;
@@ -2764,6 +2990,8 @@ LITERAL_FLOAT   : '-'? [0-9]+ '.' [0-9]+ ([eE] [-+]? [0-9]+)? ;
 LITERAL_STRING_SIMPLE : '"' (~["\\\r\n\t] | '\\' .)* '"' ;
 
 fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
+
+PROHIBITED_FENCE_START : '"""->' ~[\r\n]* ;
 
 // Fenced String Rule STR-04 (Without prohibited '->' arrow)
 FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
@@ -2875,15 +3103,18 @@ bodyEntry : KW_BODY value ;
 
 typeDefinition     : typeDefTarget metadataMap? schemaType ;
 typeDefTarget      : typeKeyword ;
-constantDefinition : (KW_CONST typeKeyword | valueKeyword) metadataMap? schemaType value ;
+constantDefinition : valueKeyword metadataMap? schemaType value ;
 
 // Metadata Blocks: Must contain one or more facet entries (Empty blocks prohibited)
 metadataMap   : LBRACE metadataEntry+ RBRACE ;
 
 metadataEntry : facetSize
               | facetUnsigned
+              | facetTemporalScale
+              | facetTemporalMode
               | facetRange
               | facetExact
+              | facetInvertible
               | facetSizeBounds
               | facetRegex
               | facetTraitBool
@@ -2891,20 +3122,23 @@ metadataEntry : facetSize
               | facetDirective
               ;
 
-facetSize       : KW_SIZE integerLiteral ;
-facetUnsigned   : KW_UNSIGNED booleanLiteral ;
-facetRange      : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) (integerLiteral | floatLiteral) ;
-facetExact      : KW_EXACT booleanLiteral ;
-facetSizeBounds : (KW_MIN_SIZE | KW_MAX_SIZE) integerLiteral ;
-facetRegex      : KW_REGEX stringLiteral ;
-facetTraitBool  : (KW_EQUATABLE | KW_COMPARABLE | KW_INVERTIBLE | KW_PRESERVE_INDENT) booleanLiteral ;
-facetFilter     : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
-facetDirective  : KW_STRIP ;
+facetSize          : KW_SIZE integerLiteral ;
+facetUnsigned      : KW_UNSIGNED ;
+facetTemporalScale : KW_NS | KW_US | KW_MS | KW_S ;
+facetTemporalMode  : KW_OFFSET | KW_ZONED | KW_AUDITED ;
+facetRange         : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) (integerLiteral | floatLiteral | stringLiteral | valueKeyword) ;
+facetExact         : KW_EXACT ;
+facetInvertible    : KW_INVERTIBLE ;
+facetSizeBounds    : (KW_MIN_SIZE | KW_MAX_SIZE) integerLiteral ;
+facetRegex         : KW_REGEX (stringLiteral | valueKeyword) ;
+facetTraitBool     : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) booleanLiteral ;
+facetFilter        : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
+facetDirective     : KW_STRIP ;
 
 variantList : LBRACK valueKeyword* RBRACK ;
 
 // Type System Grammar
-schemaType : schemaConstructor | typeKeyword ;
+schemaType : metadataMap? (schemaConstructor | typeKeyword) ;
 
 schemaConstructor : atomicKernelType
                   | collectionType
@@ -2954,7 +3188,7 @@ collectionValue : listLiteral | mapLiteral | tupleLiteral ;
 listLiteral     : LBRACK value* RBRACK ;
 mapLiteral      : LBRACE mapEntry* RBRACE ;
 mapEntry        : LBRACK value value RBRACK ;
-tupleLiteral    : LPAREN value+ RPAREN ;
+tupleLiteral    : LPAREN value* RPAREN ;
 
 booleanLiteral : KW_TRUE | KW_FALSE | KW_TRUE_SHORT | KW_FALSE_SHORT ;
 integerLiteral : LITERAL_INTEGER ;
@@ -3038,14 +3272,14 @@ where $\text{Parse}: \mathcal{T} \to \mathcal{A}$, $\mathcal{E}: \mathcal{A} \to
 **Proof:**
 
 1. **Injectivity of $\text{Parse}$ ($\text{Parse}: \mathcal{T} \to \mathcal{A}$):**
-  - *Epoch:* $t \in \mathcal{T}_{\text{Epoch}}$ is an integer scalar $n \in [-2^{63}, 2^{63}-1]$. The mapping $n \mapsto \text{StvnEpochNode} (n)$ is a bijection between lexical integers and AST nodes.
+  - *Epoch:* For scale width $w \in \{64, 128\}$ ($w = 128$ for `#ns`; $w = 64$ for `#us`, `#ms`, `#s`), $t \in \mathcal{T}_{\text{Epoch}(w)}$ is an arbitrary-precision integer scalar $n \in [-2^{w-1}, 2^{w-1})$. The mapping $n \mapsto \text{StvnTimeEpoch}(n, \text{scale})$ is a bijection between lexical integers and Canonical IR nodes.
   - *Offset:* $t \in \mathcal{T}_{\text{Offset}}$ conforms to $L \cdot \delta$ where $L$ is a local ISO datetime and $\delta \in [-18:00, +18:00]$. Since zone brackets are rejected, $\text{Parse}$ extracts $(L, \delta)$ bijectively.
   - *Zoned:* $t \in \mathcal{T}_{\text{Zoned}}$ conforms to $L \cdot [Z]$ where $Z$ is a validated IANA identifier. Because numeric offsets are syntactically prohibited, $\text{Parse}$ extracts $(L, Z)$ bijectively.
   - *Audited:* $t \in \mathcal{T}_{\text{Audited}}$ conforms to $L \cdot \delta \cdot [Z]$ with $\delta = \text{ZoneRules} (Z).\text{getOffset} (L)$. $\text{Parse}$ preserves $(L, \delta, Z)$ verbatim after consistency verification.
   - Thus, no temporal component is dropped or synthesized. $\text{Parse}$ is strictly injective across all four domains.
 
 2. **Injectivity of Binary Codec ($\mathcal{E}: \mathcal{A} \to \mathcal{B}$ and $\mathcal{D}: \mathcal{B} \to \mathcal{A}$):**
-  - *Epoch:* $\mathcal{E} (\text{StvnEpochNode} (n)) = \text{int64\_to\_be} (n)$. $\mathcal{D} (\text{be\_to\_int64} (b)) = n$. By integer representation, $\mathcal{D} (\mathcal{E} (a)) = a$.
+  - *Epoch:* $\mathcal{E} (\text{StvnTimeEpoch} (n, \text{scale})) = \text{int}W\text{\_to\_be} (n)$ ($W \in \{64, 128\}$). $\mathcal{D} (\text{be\_to\_int}W (b)) = n$. By two's-complement bijection, $\mathcal{D} (\mathcal{E} (a)) = a$.
   - *Offset:* $\mathcal{E} (\text{StvnOffsetNode} (L, \delta)) = (\text{i64} (L_{\text{nanos}}), \text{i32} (\delta_{\text{seconds}}))$. $\mathcal{D}$ reconstructs $(L, \delta)$ exactly without rounding or timezone transformation.
   - *Zoned:* $\mathcal{E} (\text{StvnZonedNode} (L, Z)) = (\text{i64} (L_{\text{nanos}}), \text{u16} (Z_{\text{id}}))$ where $Z_{\text{id}}$ is the dictionary pool index. $\mathcal{D}$ resolves $\text{Dictionary}[Z_{\text{id}}] = Z$ and reconstructs $(L, Z)$.
   - *Audited:* $\mathcal{E} (\text{StvnAuditedNode} (L, \delta, Z)) = (\text{i64} (L_{\text{nanos}}), \text{i32} (\delta_{\text{seconds}}), \text{u16} (Z_{\text{id}}))$. $\mathcal{D}$ reconstructs $(L, \delta, Z)$ identically.

@@ -1,6 +1,7 @@
 package org.stvnadore.core;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.jspecify.annotations.NullMarked;
@@ -494,6 +495,18 @@ public final class StvnVocabulary {
   // ============================================================================
   // 11. ARCHITECTURAL LIMITS & BUFFER CAPACITIES
   // ============================================================================
+
+  /** Default physical storage bit-width for unadorned {@code :Int} and {@code { #unsigned } :Int} schemas (32 bits). */
+  public static final BigInteger DEFAULT_INT_BIT_WIDTH = BigInteger.valueOf(32L);
+
+  /** Default physical storage bit-width for unadorned continuous {@code :Float} schemas (64 bits). */
+  public static final BigInteger DEFAULT_FLOAT_BIT_WIDTH = BigInteger.valueOf(64L);
+
+  /** Default maximum cardinality, character count, or significant-digit ceiling in CPU-bias-free expression space (16,777,216). */
+  public static final BigInteger DEFAULT_MAX_SIZE = BigInteger.valueOf(16_777_216L);
+
+  /** Maximum UTF-8 byte frame length permitted in binary wire containers (67,108,864 bytes / 64 MiB). */
+  public static final int MAX_WIRE_UTF8_FRAME_BYTES = 67_108_864;
 
   /** Default allocation capacity limit in characters for unadorned {@code :String} instances (16,777,216 characters / 16 MiB). */
   public static final int DEFAULT_UNBOUNDED_STRING_CAPACITY = 16_777_216;

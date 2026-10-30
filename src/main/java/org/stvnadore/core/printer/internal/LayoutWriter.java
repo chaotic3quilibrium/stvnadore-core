@@ -1,6 +1,6 @@
 package org.stvnadore.core.printer.internal;
 
-import org.stvnadore.core.ir.StvnValue.FloatPrecision;
+import org.stvnadore.core.ast.StvnValue.FloatPrecision;
 import org.stvnadore.core.printer.PrinterOptions;
 
 import java.io.IOException;

@@ -1,7 +1,6 @@
 package org.stvnadore.core.ast;
 
 import org.jspecify.annotations.NullMarked;
-import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.parser.StvnParser.StvnDocumentContext;
 
 import java.util.NoSuchElementException;

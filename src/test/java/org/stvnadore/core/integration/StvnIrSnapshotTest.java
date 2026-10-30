@@ -14,7 +14,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 import org.stvnadore.core.utils.IrGeneratorUtility;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.binary.SchemaIdentityStrategy;

@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnCompilationResult;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 
 /**
  * Verification test suite for multi-error diagnostics, duplicate definition detection,

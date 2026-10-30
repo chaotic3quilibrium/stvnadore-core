@@ -15,10 +15,10 @@ import org.stvnadore.core.parser.StvnParser.SumTypeContext;
 import org.stvnadore.core.ast.StvnDocumentKind;
 import org.stvnadore.core.ast.StvnDocumentMeta;
 import org.stvnadore.core.stdlib.StvnPrelude;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
-import org.stvnadore.core.ir.StvnLiteralParser;
+import org.stvnadore.core.ast.StvnLiteralParser;
 
 import java.io.IOException;
 import java.io.Serial;
@@ -2424,7 +2424,7 @@ public class StvnTypeResolver {
   }
 
   private static String extractRawStringValue(String raw) {
-    return org.stvnadore.core.ir.StvnLiteralParser.parseString(raw, true);
+    return org.stvnadore.core.ast.StvnLiteralParser.parseString(raw, true);
   }
 
   /**
@@ -5405,7 +5405,7 @@ public class StvnTypeResolver {
       if (sizeCtx.metadataValue() != null) {
         if (sizeCtx.metadataValue().integerLiteral() != null) {
           try {
-            return Optional.of(org.stvnadore.core.ir.StvnLiteralParser.parseBigInteger(
+            return Optional.of(org.stvnadore.core.ast.StvnLiteralParser.parseBigInteger(
                 sizeCtx.metadataValue().integerLiteral().getText()).intValueExact());
           } catch (Exception ignored) {}
         } else if (sizeCtx.metadataValue().valueKeyword() != null) {
@@ -7079,8 +7079,8 @@ public class StvnTypeResolver {
    * @throws StvnCollectionCollisionException if a duplicate key is detected
    */
   public static void validateMapKeyUniqueness(
-      org.stvnadore.core.ir.StvnValue key,
-      Set<org.stvnadore.core.ir.StvnValue> seenKeys,
+      org.stvnadore.core.ast.StvnValue key,
+      Set<org.stvnadore.core.ast.StvnValue> seenKeys,
       ValueContext keyCtx) {
     if (!seenKeys.add(key)) {
       int startOffset = keyCtx.getStart().getStartIndex();
@@ -7099,8 +7099,8 @@ public class StvnTypeResolver {
    * @throws StvnCollectionCollisionException if a duplicate value is detected
    */
   public static void validateInvertibleMapValueUniqueness(
-      org.stvnadore.core.ir.StvnValue val,
-      Set<org.stvnadore.core.ir.StvnValue> seenValues,
+      org.stvnadore.core.ast.StvnValue val,
+      Set<org.stvnadore.core.ast.StvnValue> seenValues,
       ValueContext valCtx) {
     if (!seenValues.add(val)) {
       int startOffset = valCtx.getStart().getStartIndex();

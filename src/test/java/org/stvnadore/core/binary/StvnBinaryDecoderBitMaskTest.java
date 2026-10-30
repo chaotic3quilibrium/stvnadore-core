@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.binary.exceptions.PoisonedRegistryPayloadException;
 import org.stvnadore.core.binary.exceptions.StvnCorruptedBitPatternException;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 import org.stvnadore.core.stdlib.StvnPrelude;
 
 import java.math.BigInteger;

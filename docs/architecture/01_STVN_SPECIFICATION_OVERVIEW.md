@@ -1,7 +1,7 @@
-# STVN Architectural Specification 01: Language & AST Overview
+# STVN Architectural Specification 01: Language & Canonical IR Overview
 
-- **Document ID**: `STVN-SPEC-01`  
-- **Status**: Canonical Specification  
+- **Document ID**: `STVN-SPEC-01`
+- **Status**: Canonical Specification
 - **Version**: 2.0.0
 - **Compliance**: Mandatory across all STVN parsers, compilers, and IDE integrations.
 
@@ -10,11 +10,11 @@
 **Table of Contents**
 
 <!-- TOC -->
-* [STVN Architectural Specification 01: Language & AST Overview](#stvn-architectural-specification-01-language--ast-overview)
+* [STVN Architectural Specification 01: Language & Canonical IR Overview](#stvn-architectural-specification-01-language--canonical-ir-overview)
   * [1. Dual-Track Lexical Grammar](#1-dual-track-lexical-grammar)
     * [Syntactic Comment Standard](#syntactic-comment-standard)
   * [2. Root Enclosure & File Extension Contract](#2-root-enclosure--file-extension-contract)
-  * [3. Nominal AST Record Model](#3-nominal-ast-record-model)
+  * [3. Canonical IR Record Model (`org.stvnadore.core.ir`)](#3-canonical-ir-record-model-orgstvnadorecoreir)
   * [4. Sum Types vs. Product Types](#4-sum-types-vs-product-types)
     * [Sum Types (Algebraic Disjunctions)](#sum-types-algebraic-disjunctions)
     * [Product Types (Algebraic Conjunctions)](#product-types-algebraic-conjunctions)
@@ -35,14 +35,14 @@ Strongly Typed Value Notation (STVN) partitions identifiers, tokens, and type co
    * The colon (`:`) is a bound prefix sigil attached directly to typic identifiers without intervening whitespace.
    * It is **never** a delimiter or infix operator. Standalone colons (`ERR_BARE_COLON_PROHIBITED`) and JSON-style key-value colons (`trap7_infix_colon.stvn`) are fatal syntax errors.
    * All type constructors, nominal type declarations, structural annotations, and module keywords begin with a colon (`:`).
-   * Examples: `:defs`, `:type`, `:body`, `:include`, `:package`, `:use`, `:Int`, `:Float`, `:String`, `:Boolean`, `:TimeEpoch`, `:DateTime`, `:Tuple`, `:Option`, `:Either`, `:Union`, `:Map`.
-   * Type names support forward-slash namespaces (e.g., `:net/http/Status`). Under STVN root clearance guarantees, all standard domain and temporal types reside in `:org/stvnadore/prelude/*`. Bare unqualified references trigger `ERR_UNKNOWN_TYPE`.
+   * Examples: `:meta`, `:defs`, `:type`, `:body`, `:include`, `:package`, `:use`, `:Int`, `:Float`, `:String`, `:Boolean`, `:TimeEpoch`, `:DateTime`, `:Tuple`, `:Option`, `:Either`, `:Union`, `:Enum`, `:Seq`, `:Set`, `:Map`.
+   * Type names support forward-slash namespaces (e.g., `:net/http/Status`). Under STVN root clearance guarantees, all standard domain types reside in `:org/stvnadore/prelude/*`. Bare unqualified references trigger `ERR_UNKNOWN_TYPE`.
 
 2. **The Variable / Value Track (`#`)**:
    * The hash (`#`) is a bound prefix sigil attached directly to value identifiers without intervening whitespace.
    * It is **never** a delimiter or comment marker. Standalone hashes (`ERR_BARE_HASH_PROHIBITED`) and shell-style hash comments (`trap6_hash_comment.stvn`) are fatal syntax errors.
-   * All literal values, sum type algebraic tags, boolean literals, enum constants, and constant bindings begin with a hash (`#`).
-   * Examples: `#TRUE`, `#FALSE`, `#Some`, `#None`, `#Left`, `#Right`, `#1`, `#2`, `#HTTP`, `#MAX_RETRY`.
+   * All literal values, sum type algebraic tags, boolean literals, metadata facet tags, enum constants, and constant bindings begin with a hash (`#`).
+   * Examples: `#TRUE`, `#FALSE`, `#T`, `#F`, `#Some`, `#None`, `#Left`, `#Right`, `#1`, `#2`, `#HTTP`, `#MAX_RETRY`.
    * Constant names support forward-slash namespaces (e.g., `#net/http/OK`).
    * Compile-time typed constant bindings in `:defs` bind immutable values: `#PORT { #unsigned #size 16 } :Int 8080`.
 
@@ -58,47 +58,57 @@ STVN strictly mandates single-line comments (`// ...`). Multi-line block comment
 
 ## 2. Root Enclosure & File Extension Contract
 
-Every text-based STVN document must enclose its content within a single root curly brace pair `{ ... }`.
+Every text-based STVN document must enclose its content within a single root curly brace pair `{ ... }`. STVN 2.0.0 defines strictly six file extensions:
 
-| Extension     | Document Kind    | Encoding | Required Sections                   | Prohibited Sections          |
-|:--------------|:-----------------|:---------|:------------------------------------|:-----------------------------|
-| `.stvn`       | `#BODY`          | Textual  | `:body`                             | `:include`                   |
-| `.stvn_i`     | `#BODY_INCLUDE`  | Textual  | `:body`                             | None                         |
-| `.stvn_d`     | `#DEFS`          | Textual  | `:defs`                             | `:body`, `:include`          |
-| `.stvn_di`    | `#DEFS_INCLUDE`  | Textual  | `:defs`                             | `:body`                      |
-| `.stvn_b`     | `#BODY`          | Binary   | Header + Payload                    | `:include`                   |
-| `.stvn_bd`    | `#DEFS`          | Binary   | Header + Payload                    | `:include`, `:body`          |
-| `.stvn_cas.stvn` | `#BODY`          | Textual  | `:Tuple( :String :String :String )` | None                         |
+| Extension  | Document Kind   | Encoding | Required Sections   | Prohibited Sections |
+|:-----------|:----------------|:---------|:--------------------|:--------------------|
+| `.stvn`    | `#BODY`         | Textual  | `:type`, `:body`    | `:include`          |
+| `.stvn_i`  | `#BODY_INCLUDE` | Textual  | `:type`, `:body`    | None                |
+| `.stvn_d`  | `#DEFS`         | Textual  | `:defs`             | `:type`, `:body`, `:include` |
+| `.stvn_di` | `#DEFS_INCLUDE` | Textual  | `:defs`             | `:type`, `:body`    |
+| `.stvn_b`  | `#BODY`         | Binary   | Header + Payload    | `:include`          |
+| `.stvn_bd` | `#DEFS`         | Binary   | Header + Payload    | `:include`, `:body` |
+
+Content-Addressable Storage (CAS) envelope documents and Intermediate Representation (IR) snapshots use standard `.stvn` or `.stvn_i` extensions paired with reserved system domains (`"stvn_cas"` and `"stvn_ir"`).
 
 ---
 
-## 3. Nominal AST Record Model
+## 3. Canonical IR Record Model (`org.stvnadore.core.ir`)
 
-In the Java 21 SDK (`org.stvnadore.core.ir.StvnValue`), all AST nodes are immutable records adhering to 100% `@NullMarked` JSpecify 1.0.0 compliance:
+In the Java 21 SDK (`org.stvnadore.core.ir`), all Canonical IR nodes are immutable, ANTLR-decoupled records adhering to 100% `@NullMarked` JSpecify 1.0.0 compliance and the CPU-Bias-Free Expression Space Invariant (`java.math.BigInteger` and `java.math.BigDecimal` exclusively; zero hardware-sized primitives for STVN domain quantities):
 
 ```java
 package org.stvnadore.core.ir;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.StvnDiagnostic;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
-import java.util.SequencedMap;
-import java.util.SequencedSet;
+import java.util.Optional;
 
 @NullMarked
 public sealed interface StvnValue {
-  record StvnBoolean(boolean value) implements StvnValue {}
-  record StvnInteger(BigInteger value, int bitWidth, boolean isUnsigned) implements StvnValue {}
-  record StvnFloat(BigDecimal value, FloatPrecision precision, boolean isNaN, boolean isPositiveInfinity, boolean isNegativeInfinity, boolean isNegativeZero) implements StvnValue {}
-  record StvnString(String value) implements StvnValue {}
-  record StvnTuple(List<StvnValue> elements) implements StvnValue {}
-  record StvnSeq(List<StvnValue> elements) implements StvnValue {}
-  record StvnSet(SequencedSet<StvnValue> elements) implements StvnValue {}
-  record StvnMap(SequencedMap<StvnValue, StvnValue> entries) implements StvnValue {}
-  record StvnTime(Object value, TemporalScale scale) implements StvnValue {}
-  record StvnDateTime(String isoText, DateTimeMode mode) implements StvnValue {}
-  record StvnError(String errorMessage, int startOffset, int endOffset) implements StvnValue {}
+  StvnSchema schema();
+
+  record StvnBoolean(StvnSchema schema, boolean value) implements StvnValue {}
+  record StvnInt(StvnSchema schema, BigInteger value) implements StvnValue {}
+  record StvnFloat(StvnSchema schema, BigDecimal decimalValue, boolean negativeZero, Ieee754SpecialKind specialKind) implements StvnValue {}
+  record StvnString(StvnSchema schema, String value) implements StvnValue {}
+  record StvnTimeEpoch(StvnSchema schema, BigInteger epochTicks, StvnSchema.TemporalScale scale) implements StvnValue {}
+  record StvnDateTime(StvnSchema schema, StvnSchema.DateTimeMode mode, LocalDateTime localWallClock, Optional<ZoneOffset> offset, Optional<ZoneId> zone, String canonicalIsoText) implements StvnValue {}
+  record StvnEnum(StvnSchema schema, String variantTag, BigInteger rootOrdinal) implements StvnValue {}
+  record StvnTuple(StvnSchema schema, List<StvnValue> elements) implements StvnValue {}
+  record StvnOption(StvnSchema schema, Optional<StvnValue> value) implements StvnValue {}
+  record StvnEither(StvnSchema schema, EitherBranch branch, StvnValue value) implements StvnValue {}
+  record StvnUnion(StvnSchema schema, BigInteger oneBasedBranchIndex, StvnValue value) implements StvnValue {}
+  record StvnSeq(StvnSchema schema, List<StvnValue> elements) implements StvnValue {}
+  record StvnSet(StvnSchema schema, List<StvnValue> elements) implements StvnValue {}
+  record StvnMap(StvnSchema schema, List<MapEntryValue> entries) implements StvnValue {}
+  record StvnErrorValue(StvnSchema schema, StvnDiagnostic diagnostic) implements StvnValue {}
 }
 ```
 
@@ -108,36 +118,36 @@ public sealed interface StvnValue {
 
 ### Sum Types (Algebraic Disjunctions)
 * **Option Types (`:Option( :T )`)**: Represents either a present value (`#Some value`) or an absent value (`#None`). Inferred from untagged values via Rule A.
-* **Either Types (`:Either( :L :R )`)**: Represents either a left value (`#Left value`) or a right value (`#Right value`). Inferred `#Right` via Rule B.
-* **Algebraic Unions (`:Union( :T1 :T2 ... )`)**: Explicit indexed branch tags (`#1 val`, `#2 val`). Inferred structural branches via Rule F/G.
-* **Enumerations (`:Enum [ #A #B #C ]`)**: Finite set of constant value keywords.
+* **Either Types (`:Either( :L :R )`)**: Represents either a left value (`#Left value`) or a right value (`#Right value`). Inferred `#Right` via Rule B; untagged Left payloads fail closed with `E023`.
+* **Algebraic Unions (`:Union( :T1 :T2 ... )`)**: Explicit 1-based indexed branch tags (`#1 val`, `#2 val` using `BigInteger` branch indices). Inferred structural branches via Rule C/F/G.
+* **Enumerations (`:Enum [ #A #B #C ]`)**: Finite set of constant value keywords with 0-based `BigInteger` root ordinals.
 
 ### Product Types (Algebraic Conjunctions)
 * **Tuples (`:Tuple( :T1 ... :Tn )`)**: Heterogeneous ordered sequence enclosed in parentheses `( val1 ... valN )`.
 * **Maps (`:Map( :K :V )`)**: Ordered sequence of unique key-value pairs enclosed in braces: `{ [ k1 v1 ] [ k2 v2 ] }`.
-* **Invertible Maps (`{ #invertible } :Map( :K :V )`)**: Enforces dual-set uniqueness (all keys unique AND all values unique). Duplicate keys trigger `DUPLICATE_MAP_KEY`; duplicate values trigger `DUPLICATE_INVERTED_MAP_VALUE`.
+* **Invertible Maps (`{ #invertible } :Map( :K :V )`)**: Enforces dual-set uniqueness (all keys unique AND all values unique). Duplicate values trigger `E018` (`INVERTIBLE_MAP_DUPLICATE`).
 * **Sequences (`:Seq( :T )`)**: Homogeneous ordered list enclosed in brackets: `[ v1 v2 v3 ]`.
 * **Sets (`:Set( :T )`)**: Homogeneous unique element collection enclosed in brackets: `[ v1 v2 v3 ]`.
 
 ### Strict Product Demarcation
-Parentheses `( ... )` in STVN are strictly and exclusively product constructors (`:Tuple`). Parenthesizing a scalar variant (e.g., `#Some ( 42 )` for `:Option( { #unsigned } :Int )`) is a fatal syntax error (`MalformedPayloadException`).
+Parentheses `( ... )` in STVN are strictly and exclusively tuple constructors (`:Tuple`). Parenthesizing a scalar variant (e.g., `#Some ( 42 )` for `:Option( { #unsigned } :Int )`) is a fatal semantic error.
 
 ---
 
 ## 5. Arbitrary Bit-Width Numeric Systems
 
-STVN natively supports arbitrary bit-width integers ($n \ge 1$) using orthogonal scalar metadata:
-* **Signed Integers (`{ #size n } :Int`)**: Valid range $[-2^{n-1}, 2^{n-1}-1]$ (e.g., `{ #size 8 } :Int`, `{ #size 16 } :Int`, `{ #size 64 } :Int`).
-* **Unsigned Integers (`{ #unsigned #size n } :Int`)**: Valid range $[0, 2^n-1]$ (e.g., `{ #unsigned #size 8 } :Int`, `{ #unsigned #size 16 } :Int`, `{ #unsigned #size 49 } :Int`).
-* **High-Bit Binary Masking**: Binary decoders allocate $B = \lceil n/8 \rceil$ bytes and verify that unused upper bits in containment bytes are zero. If any unused high bit is set to 1, decoders reject the buffer immediately with `StvnCorruptedBitPatternException`.
-* **Compile-Time Constant Bounds Enforcement**: Semantic validation validates constant integer literals against declared bit-width ranges. Values exceeding capacity bounds emit `ERR_INTEGER_OVERFLOW` and halt compilation before IR lowering.
-* **Exact Decimals (`{ #exact } :Float`)**: Preserves arbitrary-precision decimal representations without IEEE 754 floating-point rounding hazards.
+STVN natively supports arbitrary bit-width integers ($s \ge 1$, open upper bound in `BigInteger` expression space) using prefix metadata facets:
+* **Signed Integers (`{ #size s } :Int`)**: Valid half-open range $[-2^{s-1}, 2^{s-1})$ (e.g., `{ #size 8 } :Int`, `{ #size 16 } :Int`, `{ #size 4096 } :Int`).
+* **Unsigned Integers (`{ #unsigned #size s } :Int`)**: Valid half-open range $[0, 2^s)$ (e.g., `{ #unsigned #size 8 } :Int`, `{ #unsigned #size 16 } :Int`, `{ #unsigned #size 49 } :Int`).
+* **Symbolic $2^s$ Capacity Verification**: Semantic validators verify $s$-bit capacity symbolically via `BigInteger.bitLength()` in $O(1)$ space without materializing $2^s$.
+* **High-Bit Binary Masking**: Binary decoders allocate $B = \lceil s/8 \rceil$ bytes and verify that unused upper bits in containment bytes are zero. If any unused high bit is set to 1, decoders reject the buffer immediately with `StvnCorruptedBitPatternException`.
+* **Exact Decimals (`{ #exact } :Float`)**: Preserves arbitrary-precision `BigDecimal` representations without IEEE-754 floating-point rounding hazards.
 
 ---
 
 ## 6. Tripartite Temporal Architecture
- 
-STVN elevates date-time values into base primitive types `:DateTime` and `:TimeEpoch` with mandatory orthogonal metadata facets:
+
+STVN elevates date-time values into base primitive types `:DateTime` and `:TimeEpoch` with mandatory standalone prefix metadata facets:
 
 1. **Physical Instant (`{ #offset } :DateTime`)**:
    * Absolute timeline point with numerical UTC offset (`"2026-03-15T08:00:00-05:00"`).
@@ -146,27 +156,26 @@ STVN elevates date-time values into base primitive types `:DateTime` and `:TimeE
 
 2. **Civil Wall-Clock Schedule (`{ #zoned } :DateTime`)**:
    * Human civil wall-clock time bound to an IANA time zone (`"2026-03-15T08:00:00[America/Chicago]"`).
-   * Numerical offsets are prohibited. Rejects invalid timestamps falling into Daylight Saving Time (DST) spring-forward gaps at parse time.
+   * Numerical offsets are prohibited (`E019`). Rejects invalid timestamps falling into Daylight Saving Time (DST) spring-forward gaps (`E022`).
    * Binary wire size: 10 bytes (`local_nanos: i64` + `zone_dict_id: u16`).
 
 3. **Regulatory Audit Record (`{ #audited } :DateTime`)**:
    * Compliance record capturing both observed UTC offset and IANA jurisdiction (`"2026-03-15T08:00:00-05:00[America/Chicago]"`).
-   * Validates offset consistency against IANA `ZoneRules` at compile time.
+   * Validates offset consistency against IANA `ZoneRules` at compile time (`E021`).
    * Binary wire size: 14 bytes (`local_nanos: i64` + `offset_seconds: i32` + `zone_dict_id: u16`).
 
 4. **Physical Epoch Timestamps (`{ #s } :TimeEpoch`, `{ #ms } :TimeEpoch`, `{ #us } :TimeEpoch`, `{ #ns } :TimeEpoch`)**:
-   * Discrete physical epoch duration ticks since Unix epoch (1970-01-01T00:00:00Z).
-   * Requires exactly one bare scale flag (`#s`, `#ms`, `#us`, or `#ns`). Omitting scale emits `ERR_TEMPORAL_SCALE_MISSING`.
+   * Discrete physical epoch duration ticks since Unix epoch (1970-01-01T00:00:00Z), stored as `BigInteger` in the Canonical IR and lowered to 64-bit (`#s`, `#ms`, `#us`) or 128-bit (`#ns`) signed integers on the binary wire.
+   * Requires exactly one standalone scale flag (`#s`, `#ms`, `#us`, or `#ns`). Omitting scale emits `ERR_TEMPORAL_SCALE_MISSING`.
 
 ---
 
 ## 7. Monadic Compilation & Diagnostic Accumulation
 
-* **Monadic Results (`StvnCompilationResult`)**: Returns clean or partial ASTs alongside accumulated `StvnDiagnostic` frames.
+* **Monadic Results (`StvnCompilationResult` / `StvnAnalysisResult`)**: Returns validated Canonical IR (`StvnDocument`) alongside accumulated `StvnDiagnostic` frames (`canonicalCode` `E001`–`E040` / `W001`–`W003` and `symbolicId`).
 * **Bounded Diagnostic Accumulator (`DiagnosticBag`)**: Memory-bounded accumulation suppresses runaway error floods and appends a sentinel `STVN_DIAG_LIMIT_EXCEEDED` warning.
-* **Standard Diagnostic Error Codes**: Emits uniform diagnostic codes (`ERR_UNKNOWN_TYPE`, `ERR_RESERVED_KEYWORD_ON_LHS`, `ERR_INTEGER_OVERFLOW`, `ERR_UNUSED_STRIP_PREFIX`).
-* **Compiler Lowering Gate**: When `DiagnosticBag.hasErrors()` is true, the compiler halts before lowering to IR, preventing illegal constants or malformed constructs from reaching code generation.
-* **Error-Tolerant AST Nodes (`StvnError`)**: Isolates semantic and syntax failures into localized `StvnError` leaves, allowing sibling nodes and surrounding structures to parse successfully.
+* **Redundant Facet Normalization (`W003`)**: Tautological metadata facets emit non-blocking warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and are immediately purged from `StvnSchema` during IR lowering.
+* **Fault-Isolated IR Sentinels (`PoisonedSchema` & `StvnErrorValue`)**: Isolates schema and child value failures into localized `PoisonedSchema` and `StvnErrorValue` nodes, preserving $M == N$ container cardinality so valid sibling elements validate without cascading noise.
 
 ---
 
@@ -175,19 +184,17 @@ STVN elevates date-time values into base primitive types `:DateTime` and `:TimeE
 STVN serialization enforces mathematical determinism and hermetic document self-containment:
 
 1. **Transitive Reachability Closure**:
-   * Canonical AST serializers (`CanonicalStvnWriter`, `AstPrettyPrinter`, `AstCompactPrinter`) compute the reachability closure of nominal types and typed constants.
+   * Canonical IR serializers (`CanonicalStvnWriter`) compute the reachability closure of nominal types and typed constants in `StvnDefsCatalog`.
    * Traversal starts from the document root `:type` and `:body` payload.
-   * The compiler retains all reachable intermediate nominal definitions in the `:defs` block.
+   * The serializer retains all reachable intermediate nominal definitions in the `:defs` block.
 
 2. **Dead-Code Elimination**:
-   * Definitions not reachable from the root `:type` or `:body` are discarded.
-   * Dead code never appears in canonical output.
+   * Definitions not reachable from the root `:type` or `:body` are pruned (or rejected with `E029` under strict canonical validation).
 
 3. **Universal Alias Desugaring**:
-   * Local aliases declared via `:use` desugar directly into Fully Qualified Nominal Identifiers (FQNIs).
+   * Local aliases declared via `:use` or `:include` desugar directly into Fully Qualified Nominal Identifiers (FQNIs).
    * Canonical documents emit zero `:package` or `:use` wrappers.
 
 4. **Topological Dependency Ordering**:
-   * Retained definitions emit in topological dependency order.
+   * Retained definitions emit in deterministic DFS post-order.
    * Dependencies strictly precede dependent definitions.
-

@@ -10,12 +10,12 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
-import org.stvnadore.core.ir.StvnIrVisitor;
-import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.ir.StvnValue.StvnOption;
-import org.stvnadore.core.ir.StvnValue.StvnEither;
-import org.stvnadore.core.ir.StvnValue.StvnInteger;
-import org.stvnadore.core.ir.VariantStep;
+import org.stvnadore.core.ast.StvnIrVisitor;
+import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ast.StvnValue.StvnOption;
+import org.stvnadore.core.ast.StvnValue.StvnEither;
+import org.stvnadore.core.ast.StvnValue.StvnInteger;
+import org.stvnadore.core.ast.VariantStep;
 
 class StvnTypeResolverRegressionTest {
 
@@ -504,8 +504,8 @@ class StvnTypeResolverRegressionTest {
     Assertions.assertTrue(outerTrajectory.get(0).isInferred());
 
     var seqVal = outerOpt.value().orElseThrow();
-    Assertions.assertTrue(seqVal instanceof org.stvnadore.core.ir.StvnValue.StvnSeq);
-    var seq = (org.stvnadore.core.ir.StvnValue.StvnSeq) seqVal;
+    Assertions.assertTrue(seqVal instanceof org.stvnadore.core.ast.StvnValue.StvnSeq);
+    var seq = (org.stvnadore.core.ast.StvnValue.StvnSeq) seqVal;
     
     var innerVal = seq.elements().get(0);
     Assertions.assertTrue(innerVal instanceof StvnOption);
@@ -530,7 +530,7 @@ class StvnTypeResolverRegressionTest {
       var bodyEntry = doc.documentBody().bodyEntry();
       var val = StvnIrVisitor.build(bodyEntry, doc);
       Assertions.assertTrue(val.isPresent());
-      Assertions.assertTrue(val.get() instanceof org.stvnadore.core.ir.StvnValue.StvnBoolean);
+      Assertions.assertTrue(val.get() instanceof org.stvnadore.core.ast.StvnValue.StvnBoolean);
     }
   }
 

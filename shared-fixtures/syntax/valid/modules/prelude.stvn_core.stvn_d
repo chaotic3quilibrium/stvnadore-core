@@ -18,7 +18,7 @@
       :Sha256LowerCase { #minSize 64 #maxSize 64 #regex #SHA256_LOWER_CASE_REGEX } :String
       :Sha256MixedCase { #minSize 64 #maxSize 64 #regex #SHA256_MIXED_CASE_REGEX } :String
 
-      :SemVer { #minSize 5 #maxSize 128 #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-zA-Z0-9-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
+      :SemVer { #minSize 5 #maxSize 128 #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
 
       #EMAIL_LOWER_CASE_REGEX :String "^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$"
       #EMAIL_MIXED_CASE_REGEX :String "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"

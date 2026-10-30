@@ -13,8 +13,8 @@ import org.stvnadore.core.binary.exceptions.UnsupportedEncodingStrategyException
 import org.stvnadore.core.binary.readers.StvnMapReader;
 import org.stvnadore.core.binary.readers.StvnSeqReader;
 import org.stvnadore.core.binary.readers.StvnTupleReader;
-import org.stvnadore.core.ir.StvnLiteralParser;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnLiteralParser;
+import org.stvnadore.core.ast.StvnValue;
 import org.stvnadore.core.validation.MalformedPayloadException;
 import org.stvnadore.core.validation.StvnTypeResolver;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;

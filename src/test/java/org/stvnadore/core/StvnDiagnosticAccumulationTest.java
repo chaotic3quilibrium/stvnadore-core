@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.io.CanonicalStvnWriter;
-import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.ir.StvnValue.*;
+import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ast.StvnValue.*;
 import org.stvnadore.core.printer.StvnTextPrinter;
 
 import java.io.StringWriter;

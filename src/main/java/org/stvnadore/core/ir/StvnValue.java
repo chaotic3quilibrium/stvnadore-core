@@ -1,1155 +1,478 @@
 package org.stvnadore.core.ir;
 
 import org.jspecify.annotations.NullMarked;
-import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
+import org.stvnadore.core.StvnDiagnostic;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Represents the root interface for all nodes in the STVN (Strongly Typed Value Notation)
- * Intermediate Representation (IR) / Abstract Syntax Tree (AST).
+ * Closed 15-variant Canonical Intermediate Representation (IR) value algebra for STVN 2.0.0.
  * <p>
- * This is a {@code sealed} interface that permits only three direct structural sub-interfaces:
- * <ul>
- *   <li>{@link StvnAtomic} - For scalar/primitive values (booleans, integers, floats, strings, timestamps).</li>
- *   <li>{@link StvnCollection} - For composite container structures (sequences, sets, maps, tuples).</li>
- *   <li>{@link StvnSum} - For algebraic variant structures (options, eithers, unions, enums).</li>
- * </ul>
- * <p>
- * Every {@code StvnValue} node holds a non-null reference to its resolved schema configuration,
- * capturing its nominal constraints, traits, and aliases.
- * <p>
- * <b>Thread Safety &amp; Immutability:</b>
- * All implementations of {@code StvnValue} are strict Java records and are completely immutable.
- * They are thread-safe and safe for concurrent sharing across multiple threads.
+ * Every value node is an immutable Java record paired with its governing {@link StvnSchema}.
+ * All integer values, enum ordinals, union branch indices, and epoch ticks use {@link BigInteger},
+ * and all floating-point and exact decimal values use {@link BigDecimal}.
  *
- * @since 1.0.0
+ * @since 2.0.0
  */
 @NullMarked
-public sealed interface StvnValue {
+public sealed interface StvnValue permits
+    StvnValue.StvnBoolean,
+    StvnValue.StvnInt,
+    StvnValue.StvnFloat,
+    StvnValue.StvnString,
+    StvnValue.StvnTimeEpoch,
+    StvnValue.StvnDateTime,
+    StvnValue.StvnEnum,
+    StvnValue.StvnTuple,
+    StvnValue.StvnOption,
+    StvnValue.StvnEither,
+    StvnValue.StvnUnion,
+    StvnValue.StvnSeq,
+    StvnValue.StvnSet,
+    StvnValue.StvnMap,
+    StvnValue.StvnErrorValue {
 
   /**
-   * Returns the resolved schema configuration associated with this AST value node.
+   * Returns the governing normalized {@link StvnSchema} for this value node.
    *
-   * @return the non-null {@link ResolvedSchema} of this node
+   * @return the non-null {@link StvnSchema}
    */
-  ResolvedSchema schema();
+  StvnSchema schema();
 
   /**
-   * Sealed sub-interface representing scalar/atomic primitive values in the STVN AST.
-   */
-  sealed interface StvnAtomic extends StvnValue permits
-      StvnBoolean, StvnInteger, StvnFloat, StvnString, StvnTime,
-      StvnDateTimeOffset, StvnDateTimeZoned, StvnDateTimeAudited {
-  }
-
-  /**
-   * Represents a boolean scalar literal payload.
-   * <p>
-   * Maps to the STVN {@code :Boolean} primitive, representing either {@code #TRUE} or {@code #FALSE}.
+   * Lowered {@code :Boolean} truth value ({@code #TRUE} or {@code #FALSE}).
    *
-   * @param schema the resolved schema mapping this node
-   * @param value  the native boolean value
+   * @param schema governing normalized schema
+   * @param value  boolean truth payload
+   * @since 2.0.0
    */
-  record StvnBoolean(ResolvedSchema schema, boolean value) implements StvnAtomic {
+  record StvnBoolean(StvnSchema schema, boolean value) implements StvnValue {
+
     /**
-     * Canonical constructor validating that the schema is non-null.
+     * Canonical constructor verifying non-null schema.
      *
-     * @param schema the resolved schema mapping this node
-     * @param value  the native boolean value
+     * @param schema governing normalized schema
+     * @param value  boolean truth payload
      */
     public StvnBoolean {
-      java.util.Objects.requireNonNull(schema);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnBoolean that)) return false;
-      return this.value == that.value &&
-             java.util.Objects.equals(this.schema, that.schema);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, value);
+      Objects.requireNonNull(schema, "schema must not be null");
     }
   }
 
   /**
-   * Represents a signed or unsigned arbitrary-precision integer scalar literal payload.
-   * <p>
-   * Maps to STVN integer typologies (e.g. {@code { #size 8 } :Int}, {@code { #size 32 } :Int}, {@code { #unsigned #size 64 } :Int}).
-   * Handles custom constraints like bitwidth constraints and high-bit checks for unsigned integers.
+   * Lowered arbitrary-precision {@code :Int} integer value.
    *
-   * @param schema     the resolved schema mapping this node
-   * @param value      the integer payload as a non-null {@link BigInteger}
-   * @param bitWidth   the constraint bit-width (e.g. 8, 16, 32, 64)
-   * @param isUnsigned true if the schema mandates unsigned validation
+   * @param schema governing normalized schema
+   * @param value  arbitrary-precision integer payload
+   * @since 2.0.0
    */
-  record StvnInteger(
-      ResolvedSchema schema,
-      BigInteger value,
-      int bitWidth,
-      boolean isUnsigned
-  ) implements StvnAtomic {
-    /**
-     * Canonical constructor validating that the schema and value are non-null.
-     *
-     * @param schema     the resolved schema mapping this node
-     * @param value      the integer payload
-     * @param bitWidth   the constraint bit-width
-     * @param isUnsigned true if the schema mandates unsigned validation
-     */
-    public StvnInteger {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(value);
-    }
+  record StvnInt(StvnSchema schema, BigInteger value) implements StvnValue {
 
     /**
-     * Convenience constructor mapping a native byte to an 8-bit signed integer value node.
+     * Canonical constructor verifying non-null schema and value.
      *
-     * @param schema the resolved schema mapping this node
-     * @param value  the native byte payload
+     * @param schema governing normalized schema
+     * @param value  arbitrary-precision integer payload
      */
-    public StvnInteger(ResolvedSchema schema, byte value) {
-      this(schema, BigInteger.valueOf(value), 8, false);
-    }
-
-    /**
-     * Convenience constructor mapping a native short to a 16-bit signed integer value node.
-     *
-     * @param schema the resolved schema mapping this node
-     * @param value  the native short payload
-     */
-    public StvnInteger(ResolvedSchema schema, short value) {
-      this(schema, BigInteger.valueOf(value), 16, false);
-    }
-
-    /**
-     * Convenience constructor mapping a native int to a 32-bit signed integer value node.
-     *
-     * @param schema the resolved schema mapping this node
-     * @param value  the native int payload
-     */
-    public StvnInteger(ResolvedSchema schema, int value) {
-      this(schema, BigInteger.valueOf(value), 32, false);
-    }
-
-    /**
-     * Convenience constructor mapping a native long to a 64-bit signed integer value node.
-     *
-     * @param schema the resolved schema mapping this node
-     * @param value  the native long payload
-     */
-    public StvnInteger(ResolvedSchema schema, long value) {
-      this(schema, BigInteger.valueOf(value), 64, false);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnInteger that)) return false;
-      return this.bitWidth == that.bitWidth &&
-             this.isUnsigned == that.isUnsigned &&
-             java.util.Objects.equals(this.schema, that.schema) &&
-             java.util.Objects.equals(this.value, that.value);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, value, bitWidth, isUnsigned);
+    public StvnInt {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(value, "value must not be null");
     }
   }
 
   /**
-   * Represents a floating-point or arbitrary-precision decimal scalar literal payload.
-   * <p>
-   * Maps to STVN floating-point typologies ({@code { #size 32 } :Float}, {@code { #size 64 } :Float}, or arbitrary precision {@code { #exact } :Float}).
+   * Classification of finite and non-finite IEEE-754 floating-point states.
    *
-   * @param schema             the resolved schema mapping this node
-   * @param value              the float payload represented as a non-null {@link BigDecimal}
-   * @param precision          the precision specification (FLOAT32, FLOAT64, or EXACT)
-   * @param isNaN              true if this float represents IEEE-754 NaN
-   * @param isPositiveInfinity true if this float represents IEEE-754 +Infinity
-   * @param isNegativeInfinity true if this float represents IEEE-754 -Infinity
-   * @param isNegativeZero     true if this float represents IEEE-754 -0.0
+   * @since 2.0.0
+   */
+  enum Ieee754SpecialKind {
+    /** Standard finite numeric value stored in {@link StvnFloat#decimalValue()}. */
+    FINITE,
+    /** IEEE-754 positive infinity ({@code +Infinity}). */
+    POSITIVE_INFINITY,
+    /** IEEE-754 negative infinity ({@code -Infinity}). */
+    NEGATIVE_INFINITY,
+    /** IEEE-754 quiet Not-a-Number ({@code NaN}). */
+    NAN
+  }
+
+  /**
+   * Lowered {@code :Float} machine floating-point or exact base-10 decimal value.
+   *
+   * @param schema       governing normalized schema
+   * @param decimalValue arbitrary-precision base-10 decimal payload ({@link BigDecimal#ZERO} when non-finite)
+   * @param negativeZero {@code true} if the value represents IEEE-754 signed negative zero ({@code -0.0})
+   * @param specialKind  finite or IEEE-754 non-finite state classification
+   * @since 2.0.0
    */
   record StvnFloat(
-      ResolvedSchema schema,
-      BigDecimal value,
-      FloatPrecision precision,
-      boolean isNaN,
-      boolean isPositiveInfinity,
-      boolean isNegativeInfinity,
-      boolean isNegativeZero
-  ) implements StvnAtomic {
+      StvnSchema schema,
+      BigDecimal decimalValue,
+      boolean negativeZero,
+      Ieee754SpecialKind specialKind
+  ) implements StvnValue {
+
     /**
-     * Canonical constructor validating that all mandatory reference parameters are non-null.
+     * Canonical constructor verifying non-null components.
      *
-     * @param schema             the resolved schema mapping this node
-     * @param value              the float payload represented as a non-null {@link BigDecimal}
-     * @param precision          the precision specification
-     * @param isNaN              true if this float represents IEEE-754 NaN
-     * @param isPositiveInfinity true if this float represents IEEE-754 +Infinity
-     * @param isNegativeInfinity true if this float represents IEEE-754 -Infinity
-     * @param isNegativeZero     true if this float represents IEEE-754 -0.0
+     * @param schema       governing normalized schema
+     * @param decimalValue arbitrary-precision decimal payload
+     * @param negativeZero whether the value is IEEE-754 {@code -0.0}
+     * @param specialKind  finite or special IEEE-754 state
      */
     public StvnFloat {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(value);
-      java.util.Objects.requireNonNull(precision);
-    }
-
-    /**
-     * Convenience constructor mapping a native float to a 32-bit float value node.
-     *
-     * @param schema the resolved schema mapping this node
-     * @param value  the native float payload
-     */
-    public StvnFloat(ResolvedSchema schema, float value) {
-      this(
-          schema,
-          (Float.isNaN(value) || Float.isInfinite(value)) ? BigDecimal.ZERO : new BigDecimal(Float.toString(value)),
-          FloatPrecision.FLOAT32,
-          Float.isNaN(value),
-          value == Float.POSITIVE_INFINITY,
-          value == Float.NEGATIVE_INFINITY,
-          Float.floatToRawIntBits(value) == Float.floatToRawIntBits(-0.0f)
-      );
-    }
-
-    /**
-     * Convenience constructor mapping a native double to a 64-bit float value node.
-     *
-     * @param schema the resolved schema mapping this node
-     * @param value  the native double payload
-     */
-    public StvnFloat(ResolvedSchema schema, double value) {
-      this(
-          schema,
-          (Double.isNaN(value) || Double.isInfinite(value)) ? BigDecimal.ZERO : BigDecimal.valueOf(value),
-          FloatPrecision.FLOAT64,
-          Double.isNaN(value),
-          value == Double.POSITIVE_INFINITY,
-          value == Double.NEGATIVE_INFINITY,
-          Double.doubleToRawLongBits(value) == Double.doubleToRawLongBits(-0.0)
-      );
-    }
-
-    /**
-     * Convenience constructor mapping an exact BigDecimal value to a float value node.
-     *
-     * @param schema the resolved schema mapping this node
-     * @param value  the arbitrary-precision decimal payload
-     */
-    public StvnFloat(ResolvedSchema schema, BigDecimal value) {
-      this(schema, value, FloatPrecision.EXACT, false, false, false, false);
-    }
-
-    /**
-     * Backward-compatible 3-argument constructor mapping schema, value, and precision.
-     *
-     * @param schema    the resolved schema mapping this node
-     * @param value     the decimal payload
-     * @param precision the precision specification
-     */
-    public StvnFloat(ResolvedSchema schema, BigDecimal value, FloatPrecision precision) {
-      this(schema, value, precision, false, false, false, false);
-    }
-
-    /**
-     * Factory method creating a 32-bit float value supporting special IEEE-754 states without BigDecimal crashes.
-     *
-     * @param schema the resolved schema
-     * @param val    the 32-bit float value
-     * @return the constructed {@link StvnFloat}
-     */
-    public static StvnFloat ofFloat(ResolvedSchema schema, float val) {
-      return new StvnFloat(schema, val);
-    }
-
-    /**
-     * Factory method creating a 64-bit float value supporting special IEEE-754 states without BigDecimal crashes.
-     *
-     * @param schema the resolved schema
-     * @param val    the 64-bit double value
-     * @return the constructed {@link StvnFloat}
-     */
-    public static StvnFloat ofDouble(ResolvedSchema schema, double val) {
-      return new StvnFloat(schema, val);
-    }
-
-    /**
-     * Returns the native float value, respecting special IEEE-754 states.
-     *
-     * @return the float value
-     */
-    public float floatValue() {
-      if (isNaN) return Float.NaN;
-      if (isPositiveInfinity) return Float.POSITIVE_INFINITY;
-      if (isNegativeInfinity) return Float.NEGATIVE_INFINITY;
-      if (isNegativeZero) return -0.0f;
-      return value.floatValue();
-    }
-
-    /**
-     * Returns the native double value, respecting special IEEE-754 states.
-     *
-     * @return the double value
-     */
-    public double doubleValue() {
-      if (isNaN) return Double.NaN;
-      if (isPositiveInfinity) return Double.POSITIVE_INFINITY;
-      if (isNegativeInfinity) return Double.NEGATIVE_INFINITY;
-      if (isNegativeZero) return -0.0d;
-      return value.doubleValue();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnFloat that)) return false;
-      if (!java.util.Objects.equals(this.schema, that.schema)) return false;
-      if (this.precision != that.precision) return false;
-      if (this.isNaN != that.isNaN) return false;
-      if (this.isPositiveInfinity != that.isPositiveInfinity) return false;
-      if (this.isNegativeInfinity != that.isNegativeInfinity) return false;
-      if (this.isNegativeZero != that.isNegativeZero) return false;
-      if (this.isNaN || this.isPositiveInfinity || this.isNegativeInfinity || this.isNegativeZero) {
-        return true;
-      }
-      if (this.precision == FloatPrecision.FLOAT32) {
-        return Float.floatToIntBits(this.value.floatValue()) == Float.floatToIntBits(that.value.floatValue());
-      } else if (this.precision == FloatPrecision.FLOAT64) {
-        return Double.doubleToLongBits(this.value.doubleValue()) == Double.doubleToLongBits(that.value.doubleValue());
-      } else {
-        return this.value.compareTo(that.value) == 0 || this.value.stripTrailingZeros().equals(that.value.stripTrailingZeros());
-      }
-    }
-
-    @Override
-    public int hashCode() {
-      if (isNaN) {
-        return java.util.Objects.hash(schema, precision, StvnVocabulary.LITERAL_NAN);
-      }
-      if (isPositiveInfinity) {
-        return java.util.Objects.hash(schema, precision, StvnVocabulary.LITERAL_POS_INFINITY);
-      }
-      if (isNegativeInfinity) {
-        return java.util.Objects.hash(schema, precision, StvnVocabulary.LITERAL_NEG_INFINITY);
-      }
-      if (isNegativeZero) {
-        return java.util.Objects.hash(schema, precision, StvnVocabulary.LITERAL_NEG_ZERO);
-      }
-      if (precision == FloatPrecision.FLOAT32) {
-        return java.util.Objects.hash(schema, precision, Float.floatToIntBits(value.floatValue()));
-      } else if (precision == FloatPrecision.FLOAT64) {
-        return java.util.Objects.hash(schema, precision, Double.doubleToLongBits(value.doubleValue()));
-      } else {
-        return java.util.Objects.hash(schema, precision, value.stripTrailingZeros());
-      }
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(decimalValue, "decimalValue must not be null");
+      Objects.requireNonNull(specialKind, "specialKind must not be null");
     }
   }
 
   /**
-   * Defines the layout style of string literals under the pure 2-tier string architecture.
-   */
-  enum StringStyle {
-    /** Single-line double-quoted string. */
-    SIMPLE,
-    /** Custom tagged multi-line fenced block string. */
-    FENCED
-  }
-
-  /**
-   * Represents a character sequence literal payload.
-   * <p>
-   * Maps to STVN string typologies ({@code :String}, {@code { #minSize N #maxSize N } :String}, etc.), supporting
-   * 2-tier presentation styles (simple, fenced).
+   * Lowered UTF-8 {@code :String} character sequence value.
    *
-   * @param schema   the resolved schema mapping this node
-   * @param value    the non-null string content
-   * @param style    the formatting layout style (SIMPLE, FENCED)
-   * @param fenceTag optional tag for fenced block styling (e.g. `markdown`)
-   * @param trait    structural constraints (fixed length boundaries, non-emptiness checks)
+   * @param schema governing normalized schema
+   * @param value  unescaped and margin-normalized UTF-8 string payload
+   * @since 2.0.0
    */
-  record StvnString(
-      ResolvedSchema schema,
-      String value,
-      StringStyle style,
-      Optional<String> fenceTag,
-      StringTrait trait
-  ) implements StvnAtomic {
+  record StvnString(StvnSchema schema, String value) implements StvnValue {
+
     /**
-     * Canonical constructor validating that all parameters are non-null.
+     * Canonical constructor verifying non-null schema and string payload.
      *
-     * @param schema   the resolved schema mapping this node
-     * @param value    the non-null string content
-     * @param style    the formatting layout style
-     * @param fenceTag optional tag for fenced block styling
-     * @param trait    structural constraints
+     * @param schema governing normalized schema
+     * @param value  UTF-8 string payload
      */
     public StvnString {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(value);
-      java.util.Objects.requireNonNull(style);
-      java.util.Objects.requireNonNull(fenceTag);
-      java.util.Objects.requireNonNull(trait);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnString that)) return false;
-      return this.style == that.style &&
-             java.util.Objects.equals(this.schema, that.schema) &&
-             java.util.Objects.equals(this.value, that.value) &&
-             java.util.Objects.equals(this.fenceTag, that.fenceTag) &&
-             java.util.Objects.equals(this.trait, that.trait);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, value, style, fenceTag, trait);
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(value, "value must not be null");
     }
   }
 
   /**
-   * Represents a temporal timestamp or date-time offset.
-   * <p>
-   * Supports standard unix epoch markers (seconds, milliseconds, nanoseconds) and ISO-8601 offset/zoned representations.
+   * Lowered {@code :TimeEpoch} physical tick timestamp value.
    *
-   * @param schema the resolved schema mapping this node
-   * @param value  the timestamp payload (either a numeric {@link BigInteger} representing unix epoch time, or an ISO-8601 {@link String})
-   * @param kind   the specific time representation flavor (EPOCH_S, EPOCH_MS, EPOCH_NS, OFFSET, ZONED)
+   * @param schema     governing normalized schema
+   * @param epochTicks arbitrary-precision elapsed ticks since {@code 1970-01-01T00:00:00Z}
+   * @param scale      physical tick duration scale ({@code #ns}, {@code #us}, {@code #ms}, {@code #s})
+   * @since 2.0.0
    */
-  record StvnTime(ResolvedSchema schema, Object value, TimeKind kind) implements StvnAtomic {
-    /**
-     * Canonical constructor validating that all parameters are non-null.
-     *
-     * @param schema the resolved schema mapping this node
-     * @param value  the timestamp payload
-     * @param kind   the specific time representation flavor
-     */
-    public StvnTime {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(value);
-      java.util.Objects.requireNonNull(kind);
-    }
+  record StvnTimeEpoch(
+      StvnSchema schema,
+      BigInteger epochTicks,
+      StvnSchema.TemporalScale scale
+  ) implements StvnValue {
 
     /**
-     * Convenience constructor for epoch-based temporal values.
+     * Canonical constructor verifying non-null components.
      *
-     * @param schema     the resolved schema mapping this node
-     * @param epochValue the numeric epoch value
-     * @param kind       the epoch precision kind (EPOCH_S, EPOCH_MS, EPOCH_NS)
-     * @throws IllegalArgumentException if kind is not one of the EPOCH options
+     * @param schema     governing normalized schema
+     * @param epochTicks elapsed epoch ticks
+     * @param scale      physical tick duration scale
      */
-    public StvnTime(ResolvedSchema schema, long epochValue, TimeKind kind) {
-      this(schema, BigInteger.valueOf(epochValue), kind);
-      if (kind != TimeKind.EPOCH_S && kind != TimeKind.EPOCH_MS && kind != TimeKind.EPOCH_US && kind != TimeKind.EPOCH_NS) {
-        throw new IllegalArgumentException("Invalid State: Numeric payloads can only be paired with EPOCH TimeKinds. Received: " + kind);
-      }
-    }
-
-    /**
-     * Convenience constructor for ISO-8601 offset or zoned string temporal values.
-     *
-     * @param schema    the resolved schema mapping this node
-     * @param isoString the ISO-8601 formatted text
-     * @param kind      the offset/zoned precision kind (OFFSET, ZONED)
-     * @throws IllegalArgumentException if kind is not OFFSET or ZONED
-     */
-    public StvnTime(ResolvedSchema schema, String isoString, TimeKind kind) {
-      this(schema, (Object) isoString, kind);
-      if (kind != TimeKind.OFFSET && kind != TimeKind.ZONED) {
-        throw new IllegalArgumentException("Invalid State: String payloads can only be paired with ZONED or OFFSET TimeKinds. Received: " + kind);
-      }
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnTime that)) return false;
-      return this.kind == that.kind &&
-             java.util.Objects.equals(this.schema, that.schema) &&
-             java.util.Objects.equals(this.value, that.value);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, value, kind);
+    public StvnTimeEpoch {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(epochTicks, "epochTicks must not be null");
+      Objects.requireNonNull(scale, "scale must not be null");
     }
   }
 
   /**
-   * Represents an absolute physical instant with an explicit UTC offset.
-   * Maps to the STVN {@code :DateTimeOffset} primitive.
+   * Lowered tripartite {@code :DateTime} calendar and wall-clock timestamp value.
    *
-   * @param schema the resolved schema mapping this node
-   * @param value  the native {@link OffsetDateTime} payload
+   * @param schema           governing normalized schema
+   * @param mode             tripartite datetime mode ({@code #offset}, {@code #zoned}, {@code #audited})
+   * @param localWallClock   parsed civil local date-time component
+   * @param offset           numerical UTC offset (present for {@code #offset} and {@code #audited})
+   * @param zone             IANA time zone jurisdiction (present for {@code #zoned} and {@code #audited})
+   * @param canonicalIsoText canonical unquoted ISO-8601 textual representation
+   * @since 2.0.0
    */
-  record StvnDateTimeOffset(ResolvedSchema schema, OffsetDateTime value) implements StvnAtomic {
+  record StvnDateTime(
+      StvnSchema schema,
+      StvnSchema.DateTimeMode mode,
+      LocalDateTime localWallClock,
+      Optional<ZoneOffset> offset,
+      Optional<ZoneId> zone,
+      String canonicalIsoText
+  ) implements StvnValue {
+
     /**
-     * Canonical constructor validating non-null schema and value.
+     * Canonical constructor verifying non-null components.
      *
-     * @param schema the resolved schema mapping this node
-     * @param value  the native {@link OffsetDateTime} payload
+     * @param schema           governing normalized schema
+     * @param mode             tripartite datetime mode
+     * @param localWallClock   civil local date-time component
+     * @param offset           optional UTC offset
+     * @param zone             optional IANA time zone jurisdiction
+     * @param canonicalIsoText canonical unquoted ISO-8601 text
      */
-    public StvnDateTimeOffset {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(value);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnDateTimeOffset that)) return false;
-      return java.util.Objects.equals(this.schema, that.schema) &&
-             this.value.isEqual(that.value) &&
-             this.value.getOffset().equals(that.value.getOffset());
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, value);
+    public StvnDateTime {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(mode, "mode must not be null");
+      Objects.requireNonNull(localWallClock, "localWallClock must not be null");
+      Objects.requireNonNull(offset, "offset must not be null");
+      Objects.requireNonNull(zone, "zone must not be null");
+      Objects.requireNonNull(canonicalIsoText, "canonicalIsoText must not be null");
     }
   }
 
   /**
-   * Represents a civil wall-clock schedule bound to an IANA time zone jurisdiction.
-   * Maps to the STVN {@code :DateTimeZoned} primitive.
+   * Lowered {@code :Enum} symbolic enumeration variant value.
    *
-   * @param schema        the resolved schema mapping this node
-   * @param localDateTime the civil local date-time payload
-   * @param zoneId        the IANA zone identifier
+   * @param schema      governing normalized enum or enum-subset schema
+   * @param variantTag  hash-prefixed symbolic variant identifier (for example, {@code #ACTIVE})
+   * @param rootOrdinal 0-based declaration ordinal within the terminal root {@link StvnSchema.EnumSchema}
+   * @since 2.0.0
    */
-  record StvnDateTimeZoned(ResolvedSchema schema, LocalDateTime localDateTime, ZoneId zoneId) implements StvnAtomic {
-    /**
-     * Canonical constructor validating non-null parameters.
-     *
-     * @param schema        the resolved schema mapping this node
-     * @param localDateTime the civil local date-time payload
-     * @param zoneId        the IANA zone identifier
-     */
-    public StvnDateTimeZoned {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(localDateTime);
-      java.util.Objects.requireNonNull(zoneId);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnDateTimeZoned that)) return false;
-      return java.util.Objects.equals(this.schema, that.schema) &&
-             this.localDateTime.equals(that.localDateTime) &&
-             this.zoneId.equals(that.zoneId);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, localDateTime, zoneId);
-    }
-  }
-
-  /**
-   * Represents an immutable regulatory compliance record containing both observed UTC offset and IANA jurisdiction.
-   * Maps to the STVN {@code :DateTimeAudited} primitive.
-   *
-   * @param schema         the resolved schema mapping this node
-   * @param offsetDateTime the recorded offset date-time payload
-   * @param zoneId         the IANA zone identifier
-   */
-  record StvnDateTimeAudited(ResolvedSchema schema, OffsetDateTime offsetDateTime, ZoneId zoneId) implements StvnAtomic {
-    /**
-     * Canonical constructor validating non-null parameters.
-     *
-     * @param schema         the resolved schema mapping this node
-     * @param offsetDateTime the recorded offset date-time payload
-     * @param zoneId         the IANA zone identifier
-     */
-    public StvnDateTimeAudited {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(offsetDateTime);
-      java.util.Objects.requireNonNull(zoneId);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnDateTimeAudited that)) return false;
-      return java.util.Objects.equals(this.schema, that.schema) &&
-             this.offsetDateTime.isEqual(that.offsetDateTime) &&
-             this.offsetDateTime.getOffset().equals(that.offsetDateTime.getOffset()) &&
-             this.zoneId.equals(that.zoneId);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, offsetDateTime, zoneId);
-    }
-  }
-
-  /**
-   * Defines the target binary width and precision boundaries for floating-point values.
-   */
-  enum FloatPrecision {
-    /** 32-bit single precision IEEE 754 float. */
-    FLOAT32,
-    /** 64-bit double precision IEEE 754 float. */
-    FLOAT64,
-    /** Arbitrary precision decimal mapped to java.math.BigDecimal. */
-    EXACT
-  }
-
-  /**
-   * Describes the layout structure of temporal payloads.
-   */
-  enum TimeKind {
-    /** Unix epoch tracking standard seconds (64-bit integer representation). */
-    EPOCH_S,
-    /** Unix epoch tracking standard milliseconds (64-bit integer representation). */
-    EPOCH_MS,
-    /** Unix epoch tracking standard microseconds (64-bit integer representation). */
-    EPOCH_US,
-    /** Unix epoch tracking arbitrary nanoseconds (BigInteger representation). */
-    EPOCH_NS,
-    /** ISO-8601 date-time with a direct numerical timezone offset (e.g. +05:00). */
-    OFFSET,
-    /** ISO-8601 date-time with a geographical zone identifier (e.g. [America/New_York]). */
-    ZONED
-  }
-
-  /**
-   * Holds metadata constraints on string lengths.
-   *
-   * @param fixedLength if positive, specifies the exact required length of the string (len == N)
-   * @param maxLength   if positive, specifies the maximum allowed length of the string (len &lt;= N)
-   * @param isNonEmpty  if true, mandates that the string has at least one character (len &gt;= 1)
-   */
-  record StringTrait(int fixedLength, int maxLength, boolean isNonEmpty) {
-    /**
-     * Backward-compatible convenience constructor.
-     *
-     * @param fixedLength exact length constraint
-     * @param isNonEmpty  non-emptiness constraint
-     */
-    public StringTrait(int fixedLength, boolean isNonEmpty) {
-      this(fixedLength, fixedLength > 0 ? fixedLength : 0, isNonEmpty || fixedLength > 0);
-    }
+  record StvnEnum(
+      StvnSchema schema,
+      String variantTag,
+      BigInteger rootOrdinal
+  ) implements StvnValue {
 
     /**
-     * Factory for unbounded standard strings ({@code :String}).
+     * Canonical constructor verifying non-null components and non-negative {@code rootOrdinal}.
      *
-     * @return an unbounded string trait instance
-     */
-    public static StringTrait unbounded() {
-      return new StringTrait(0, 0, false);
-    }
-
-    /**
-     * Factory for exact fixed-length strings ({@code { #minSize N #maxSize N } :String}).
-     *
-     * @param fixedLength the exact required length
-     * @return an exact fixed-length string trait instance
-     */
-    public static StringTrait fixed(int fixedLength) {
-      return new StringTrait(fixedLength, 0, true);
-    }
-  }
-
-  /**
-   * Sealed sub-interface representing composite collection types (sequences, sets, maps, tuples).
-   * <p>
-   * Collection implementations preserve positional insertion order and enforce absolute immutability.
-   */
-  sealed interface StvnCollection extends StvnValue permits
-      StvnSeq, StvnSet, StvnMap, StvnTuple {
-  }
-
-  /**
-   * Represents an ordered sequence array of values.
-   * <p>
-   * Maps to the STVN {@code :Seq} collection.
-   * Positional ordering is preserved, and elements are exposed as an unmodifiable list.
-   *
-   * @param schema     the resolved schema mapping this node
-   * @param elements   the ordered list of child {@link StvnValue} nodes
-   * @param isNonEmpty if true, validation mandates at least one element is present
-   */
-  record StvnSeq(ResolvedSchema schema, List<StvnValue> elements, boolean isNonEmpty) implements StvnCollection {
-    /**
-     * Canonical constructor validating that elements and schema are non-null.
-     *
-     * @param schema     the resolved schema mapping this node
-     * @param elements   the ordered list of child nodes
-     * @param isNonEmpty if true, validation mandates at least one element is present
-     */
-    public StvnSeq {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(elements);
-      elements = List.copyOf(elements);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnSeq that)) return false;
-      return this.isNonEmpty == that.isNonEmpty &&
-             java.util.Objects.equals(this.schema, that.schema) &&
-             java.util.Objects.equals(this.elements, that.elements);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, elements, isNonEmpty);
-    }
-  }
-
-  /**
-   * Represents an insertion-ordered set enforcing unique elements.
-   * <p>
-   * Maps to the STVN {@code :Set} collection.
-   * Demands that all elements satisfy {@code #equatable} traits. Internally backed by a sequenced set,
-   * preserving deterministic encounter order.
-   *
-   * @param schema     the resolved schema mapping this node
-   * @param elements   the unique set of {@link StvnValue} nodes, which must implement {@link java.util.SequencedSet}
-   * @param isNonEmpty if true, validation mandates at least one element is present
-   */
-  record StvnSet(ResolvedSchema schema, java.util.Set<StvnValue> elements,
-                 boolean isNonEmpty) implements StvnCollection {
-    /**
-     * Canonical constructor validating that elements and schema are non-null and that elements implements SequencedSet.
-     *
-     * @param schema     the resolved schema mapping this node
-     * @param elements   the unique set of child nodes
-     * @param isNonEmpty if true, validation mandates at least one element is present
-     * @throws org.stvnadore.core.validation.MalformedPayloadException if the passed elements set does not implement {@link java.util.SequencedSet}
-     */
-    public StvnSet {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(elements);
-      if (!(elements instanceof java.util.SequencedSet)) {
-        throw new org.stvnadore.core.validation.MalformedPayloadException("Non-deterministic set implementation detected: " + elements.getClass().getName() + ". Sets must implement java.util.SequencedSet.");
-      }
-      elements = java.util.Collections.unmodifiableSequencedSet(new java.util.LinkedHashSet<>(elements));
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnSet that)) return false;
-      if (!java.util.Objects.equals(this.schema, that.schema)) return false;
-      if (this.isNonEmpty != that.isNonEmpty) return false;
-      if (this.elements.size() != that.elements.size()) return false;
-      var it1 = this.elements.iterator();
-      var it2 = that.elements.iterator();
-      while (it1.hasNext()) {
-        if (!it1.next().equals(it2.next())) return false;
-      }
-      return true;
-    }
-
-    @Override
-    public int hashCode() {
-      int hash = 1;
-      hash = 31 * hash + schema.hashCode();
-      for (var element : elements) {
-        hash = 31 * hash + (element == null ? 0 : element.hashCode());
-      }
-      hash = 31 * hash + Boolean.hashCode(isNonEmpty);
-      return hash;
-    }
-  }
-
-  /**
-   * Represents an associative map of key-value pairs.
-   * <p>
-   * Maps to STVN {@code :Map} structures.
-   * Key encounter order is preserved, and keys must satisfy the {@code #equatable} trait.
-   * Backed by {@link java.util.SequencedMap} to guarantee determinism in text and binary representations.
-   *
-   * @param schema       the resolved schema mapping this node
-   * @param entries      the associative mapping of key-value {@link StvnValue} pairs
-   * @param isNonEmpty   if true, validation mandates at least one entry is present
-   * @param isInvertible if true, mandates that all values are also unique (bidirectional map)
-   */
-  record StvnMap(ResolvedSchema schema, java.util.Map<StvnValue, StvnValue> entries, boolean isNonEmpty,
-                 boolean isInvertible) implements StvnCollection {
-    /**
-     * Canonical constructor validating that entries and schema are non-null and that entries implements SequencedMap.
-     *
-     * @param schema       the resolved schema mapping this node
-     * @param entries      the associative map entries
-     * @param isNonEmpty   if true, validation mandates at least one entry is present
-     * @param isInvertible if true, mandates that all values are also unique (bidirectional map)
-     * @throws org.stvnadore.core.validation.MalformedPayloadException if the passed entries map does not implement {@link java.util.SequencedMap}
-     */
-    public StvnMap {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(entries);
-      if (!(entries instanceof java.util.SequencedMap)) {
-        throw new org.stvnadore.core.validation.MalformedPayloadException("Non-deterministic map implementation detected: " + entries.getClass().getName() + ". Maps must implement java.util.SequencedMap.");
-      }
-      entries = java.util.Collections.unmodifiableSequencedMap(new java.util.LinkedHashMap<>(entries));
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnMap that)) return false;
-      if (!java.util.Objects.equals(this.schema, that.schema)) return false;
-      if (this.isNonEmpty != that.isNonEmpty) return false;
-      if (this.isInvertible != that.isInvertible) return false;
-      if (this.entries.size() != that.entries.size()) return false;
-      var it1 = this.entries.entrySet().iterator();
-      var it2 = that.entries.entrySet().iterator();
-      while (it1.hasNext()) {
-        var e1 = it1.next();
-        var e2 = it2.next();
-        if (!e1.getKey().equals(e2.getKey())) return false;
-        if (!e1.getValue().equals(e2.getValue())) return false;
-      }
-      return true;
-    }
-
-    @Override
-    public int hashCode() {
-      int hash = 1;
-      hash = 31 * hash + schema.hashCode();
-      for (var entry : entries.entrySet()) {
-        hash = 31 * hash + (entry.getKey() == null ? 0 : entry.getKey().hashCode());
-        hash = 31 * hash + (entry.getValue() == null ? 0 : entry.getValue().hashCode());
-      }
-      hash = 31 * hash + Boolean.hashCode(isNonEmpty);
-      hash = 31 * hash + Boolean.hashCode(isInvertible);
-      return hash;
-    }
-  }
-
-  /**
-   * Represents a fixed-size, heterogeneous sequence of values.
-   * <p>
-   * Maps to the STVN {@code :Tuple} type.
-   *
-   * @param schema   the resolved schema mapping this node
-   * @param elements the positional list of child {@link StvnValue} elements
-   */
-  record StvnTuple(ResolvedSchema schema, List<StvnValue> elements) implements StvnCollection {
-    /**
-     * Canonical constructor validating that elements and schema are non-null.
-     *
-     * @param schema   the resolved schema mapping this node
-     * @param elements the positional list of child elements
-     */
-    public StvnTuple {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(elements);
-      elements = List.copyOf(elements);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnTuple that)) return false;
-      return java.util.Objects.equals(this.schema, that.schema) &&
-             java.util.Objects.equals(this.elements, that.elements);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, elements);
-    }
-  }
-
-  /**
-   * Sealed sub-interface representing algebraic sum type variants (Option, Either, Union, Enum).
-   */
-  sealed interface StvnSum extends StvnValue permits
-      StvnOption, StvnEither, StvnUnion, StvnEnum {
-  }
-
-  /**
-   * Represents an optional container choice, wrapping an underlying value or indicating emptiness.
-   * <p>
-   * Maps to the STVN {@code :Option(T)} sum type, admitting either {@code #Some value} or {@code #None} tags.
-   *
-   * @param schema the resolved schema mapping this node
-   * @param value  the optional inner {@link StvnValue} payload
-   * @param trajectory the variant resolution trajectory metadata
-   */
-  record StvnOption(ResolvedSchema schema, Optional<StvnValue> value, List<VariantStep> trajectory) implements StvnSum {
-    /**
-     * Canonical constructor validating that schema, value and trajectory are non-null.
-     *
-     * @param schema     the resolved schema mapping this node
-     * @param value      the optional inner payload
-     * @param trajectory the variant resolution trajectory metadata
-     */
-    public StvnOption {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(value);
-      java.util.Objects.requireNonNull(trajectory);
-      trajectory = List.copyOf(trajectory);
-    }
-
-    /**
-     * Overloaded constructor defaulting trajectory to an empty list.
-     *
-     * @param schema the resolved schema mapping this node
-     * @param value  the optional inner payload
-     */
-    public StvnOption(ResolvedSchema schema, Optional<StvnValue> value) {
-      this(schema, value, List.of());
-    }
-
-    /**
-     * Checks if this optional represents the empty state (#None).
-     *
-     * @return {@code true} if empty, otherwise {@code false}
-     */
-    public boolean isNone() {
-      return value.isEmpty();
-    }
-
-    /**
-     * Checks if this optional wraps a value (#Some).
-     *
-     * @return {@code true} if a value is present, otherwise {@code false}
-     */
-    public boolean isSome() {
-      return value.isPresent();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnOption that)) return false;
-      return java.util.Objects.equals(this.schema, that.schema) &&
-             java.util.Objects.equals(this.value, that.value);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, value);
-    }
-
-    @Override
-    public String toString() {
-      return "StvnOption[schema=" + schema + ", value=" + value + "]";
-    }
-  }
-
-  /**
-   * Represents a two-way choice between a left or right variant value.
-   * <p>
-   * Maps to the STVN {@code :Either(L R)} sum type, utilizing {@code #Left value} or {@code #Right value} tags.
-   * Supports implied tagging where a right-compatible value can be resolved without an explicit wrapper.
-   *
-   * @param schema      the resolved schema mapping this node
-   * @param value       the wrapped value payload
-   * @param isRight     true if the value represents the right variant, false for the left
-   * @param isAmbiguous true if the value is structurally compatible with both left and right options,
-   *                    requiring explicit tagging to avoid resolution failure
-   * @param trajectory  the variant resolution trajectory metadata
-   */
-  record StvnEither(ResolvedSchema schema, StvnValue value, boolean isRight,
-                    boolean isAmbiguous, List<VariantStep> trajectory) implements StvnSum {
-    /**
-     * Canonical constructor validating that schema, value and trajectory are non-null.
-     *
-     * @param schema      the resolved schema mapping this node
-     * @param value       the wrapped value payload
-     * @param isRight     true if the value represents the right variant
-     * @param isAmbiguous true if the value is structurally compatible with both variants
-     * @param trajectory  the variant resolution trajectory metadata
-     */
-    public StvnEither {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(value);
-      java.util.Objects.requireNonNull(trajectory);
-      trajectory = List.copyOf(trajectory);
-    }
-
-    /**
-     * Overloaded constructor defaulting trajectory to an empty list.
-     *
-     * @param schema      the resolved schema mapping this node
-     * @param value       the wrapped value payload
-     * @param isRight     true if the value represents the right variant
-     * @param isAmbiguous true if the value is structurally compatible with both variants
-     */
-    public StvnEither(ResolvedSchema schema, StvnValue value, boolean isRight, boolean isAmbiguous) {
-      this(schema, value, isRight, isAmbiguous, List.of());
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnEither that)) return false;
-      return this.isRight == that.isRight &&
-             this.isAmbiguous == that.isAmbiguous &&
-             java.util.Objects.equals(this.schema, that.schema) &&
-             java.util.Objects.equals(this.value, that.value);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, value, isRight, isAmbiguous);
-    }
-
-    @Override
-    public String toString() {
-      return "StvnEither[schema=" + schema + ", value=" + value + ", isRight=" + isRight + ", isAmbiguous=" + isAmbiguous + "]";
-    }
-  }
-
-  /**
-   * Represents an N-way variant selection plane where the matching option is resolved structurally.
-   * <p>
-   * Maps to the STVN {@code :Union} type.
-   * To ensure single-pass deterministic matching, member variants must possess completely distinct
-   * structural profiles (the Union Structural Distinctness Rule).
-   *
-   * @param schema   the resolved schema mapping this node
-   * @param value    the underlying active payload value
-   * @param tagIndex the resolved 0-based index of the matched variant within the union schema list
-   */
-  record StvnUnion(ResolvedSchema schema, StvnValue value, int tagIndex) implements StvnSum {
-    /**
-     * Canonical constructor validating that schema and value are non-null.
-     *
-     * @param schema   the resolved schema mapping this node
-     * @param value    the underlying active payload value
-     * @param tagIndex the resolved 0-based index of the matched variant
-     */
-    public StvnUnion {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(value);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnUnion that)) return false;
-      return this.tagIndex == that.tagIndex &&
-             java.util.Objects.equals(this.schema, that.schema) &&
-             java.util.Objects.equals(this.value, that.value);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, value, tagIndex);
-    }
-  }
-
-  /**
-   * Represents a nominal enum keyword constant.
-   * <p>
-   * Maps to the STVN {@code :Enum} type. Enum values are serialized as keyword identifiers prefixed
-   * with a hash (e.g. {@code #RED}).
-   *
-   * @param schema          the resolved schema mapping this enum
-   * @param keyword         the nominal string keyword identifier (excluding the hash character)
-   * @param sequentialIndex the 0-based index position of the keyword in the enum declaration
-   * @param variantCount    the total number of defined enum options in the parent schema
-   */
-  record StvnEnum(ResolvedSchema schema, String keyword, int sequentialIndex, int variantCount) implements StvnSum {
-    /**
-     * Canonical constructor validating that schema and keyword are non-null.
-     *
-     * @param schema          the resolved schema mapping this enum
-     * @param keyword         the nominal string keyword identifier
-     * @param sequentialIndex the 0-based index position
-     * @param variantCount    the total number of enum options
+     * @param schema      governing normalized schema
+     * @param variantTag  hash-prefixed variant tag
+     * @param rootOrdinal 0-based root declaration ordinal (&gt;= 0)
      */
     public StvnEnum {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(keyword);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnEnum that)) return false;
-      return this.sequentialIndex == that.sequentialIndex &&
-             this.variantCount == that.variantCount &&
-             java.util.Objects.equals(this.schema, that.schema) &&
-             java.util.Objects.equals(this.keyword, that.keyword);
-    }
-
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, keyword, sequentialIndex, variantCount);
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(variantTag, "variantTag must not be null");
+      Objects.requireNonNull(rootOrdinal, "rootOrdinal must not be null");
+      if (rootOrdinal.compareTo(BigInteger.ZERO) < 0) {
+        throw new IllegalArgumentException("rootOrdinal must be >= 0, got: " + rootOrdinal);
+      }
     }
   }
 
   /**
-   * Represents an error-tolerant AST node constructed during semantic error recovery.
-   * <p>
-   * Allows partial AST construction and downstream inspection even when individual AST child
-   * branches fail type unification, range constraint validation, or uniqueness checks.
+   * Lowered heterogeneous positional {@code :Tuple} value.
    *
-   * @param schema      the expected resolved schema that was being validated, or fallback schema
-   * @param rawText     the raw source text fragment corresponding to the erroneous node
-   * @param startOffset the 0-based absolute character start index
-   * @param endOffset   the 0-based absolute character end index
-   * @param diagnostics the diagnostics associated with this specific erroneous sub-tree
-   * @since 1.3.0
+   * @param schema   governing normalized schema
+   * @param elements ordered unmodifiable list of positional field values
+   * @since 2.0.0
    */
-  record StvnError(
-      ResolvedSchema schema,
-      String rawText,
-      int startOffset,
-      int endOffset,
-      List<org.stvnadore.core.StvnDiagnostic> diagnostics
-  ) implements StvnValue {
+  record StvnTuple(StvnSchema schema, List<StvnValue> elements) implements StvnValue {
+
     /**
-     * Canonical constructor validating that schema, rawText, and diagnostics are non-null.
+     * Canonical constructor verifying non-null components and defensively copying {@code elements}.
      *
-     * @param schema      the expected resolved schema that was being validated
-     * @param rawText     the raw source text fragment
-     * @param startOffset the 0-based absolute start offset
-     * @param endOffset   the 0-based absolute end offset
-     * @param diagnostics the diagnostics associated with this node
+     * @param schema   governing normalized schema
+     * @param elements ordered list of positional field values
      */
-    public StvnError {
-      java.util.Objects.requireNonNull(schema);
-      java.util.Objects.requireNonNull(rawText);
-      java.util.Objects.requireNonNull(diagnostics);
-      diagnostics = List.copyOf(diagnostics);
+    public StvnTuple {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(elements, "elements must not be null");
+      elements = List.copyOf(elements);
     }
+  }
 
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StvnError that)) return false;
-      return this.startOffset == that.startOffset &&
-             this.endOffset == that.endOffset &&
-             java.util.Objects.equals(this.schema, that.schema) &&
-             java.util.Objects.equals(this.rawText, that.rawText) &&
-             java.util.Objects.equals(this.diagnostics, that.diagnostics);
+  /**
+   * Lowered {@code :Option} monadic choice value ({@code #Some} or {@code #None}).
+   *
+   * @param schema governing normalized schema
+   * @param value  present wrapped {@link StvnValue} for {@code #Some}, or empty for {@code #None}
+   * @since 2.0.0
+   */
+  record StvnOption(StvnSchema schema, Optional<StvnValue> value) implements StvnValue {
+
+    /**
+     * Canonical constructor verifying non-null schema and optional container.
+     *
+     * @param schema governing normalized schema
+     * @param value  optional wrapped value
+     */
+    public StvnOption {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(value, "value must not be null");
     }
+  }
 
-    @Override
-    public int hashCode() {
-      return java.util.Objects.hash(schema, rawText, startOffset, endOffset, diagnostics);
+  /**
+   * Branch discriminator for binary {@code :Either} disjoint sum values.
+   *
+   * @since 2.0.0
+   */
+  enum EitherBranch {
+    /** Left branch ({@code #Left} / {@code #L}). */
+    LEFT,
+    /** Right branch ({@code #Right} / {@code #R}). */
+    RIGHT
+  }
+
+  /**
+   * Lowered binary {@code :Either} disjoint sum value.
+   *
+   * @param schema governing normalized schema
+   * @param branch active branch ({@link EitherBranch#LEFT} or {@link EitherBranch#RIGHT})
+   * @param value  wrapped branch payload value
+   * @since 2.0.0
+   */
+  record StvnEither(StvnSchema schema, EitherBranch branch, StvnValue value) implements StvnValue {
+
+    /**
+     * Canonical constructor verifying non-null components.
+     *
+     * @param schema governing normalized schema
+     * @param branch active branch discriminator
+     * @param value  wrapped branch payload value
+     */
+    public StvnEither {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(branch, "branch must not be null");
+      Objects.requireNonNull(value, "value must not be null");
     }
+  }
 
-    @Override
-    public String toString() {
-      return "StvnError[schema=" + (schema != null ? schema.aliasName().orElse("Anonymous") : "null") +
-             ", span=[" + startOffset + ".." + endOffset + "], raw=\"" + rawText + "\"]";
+  /**
+   * Lowered 1-based indexed {@code :Union} multi-branch sum value.
+   *
+   * @param schema              governing normalized schema
+   * @param oneBasedBranchIndex 1-based branch index (&gt;= 1) corresponding to {@code #1}, {@code #2}, and so on
+   * @param value               wrapped branch payload value
+   * @since 2.0.0
+   */
+  record StvnUnion(
+      StvnSchema schema,
+      BigInteger oneBasedBranchIndex,
+      StvnValue value
+  ) implements StvnValue {
+
+    /**
+     * Canonical constructor verifying non-null components and 1-based positive branch index (&gt;= 1).
+     *
+     * @param schema              governing normalized schema
+     * @param oneBasedBranchIndex 1-based branch index (&gt;= 1)
+     * @param value               wrapped branch payload value
+     */
+    public StvnUnion {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(oneBasedBranchIndex, "oneBasedBranchIndex must not be null");
+      Objects.requireNonNull(value, "value must not be null");
+      if (oneBasedBranchIndex.compareTo(BigInteger.ONE) < 0) {
+        throw new IllegalArgumentException("oneBasedBranchIndex must be >= 1, got: " + oneBasedBranchIndex);
+      }
+    }
+  }
+
+  /**
+   * Lowered homogeneous ordered {@code :Seq} sequence collection value.
+   *
+   * @param schema   governing normalized schema
+   * @param elements ordered unmodifiable list of sequence elements
+   * @since 2.0.0
+   */
+  record StvnSeq(StvnSchema schema, List<StvnValue> elements) implements StvnValue {
+
+    /**
+     * Canonical constructor verifying non-null components and defensively copying {@code elements}.
+     *
+     * @param schema   governing normalized schema
+     * @param elements ordered list of sequence elements
+     */
+    public StvnSeq {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(elements, "elements must not be null");
+      elements = List.copyOf(elements);
+    }
+  }
+
+  /**
+   * Lowered insertion-ordered unique {@code :Set} collection value.
+   *
+   * @param schema   governing normalized schema
+   * @param elements insertion-ordered unmodifiable list of unique set elements
+   * @since 2.0.0
+   */
+  record StvnSet(StvnSchema schema, List<StvnValue> elements) implements StvnValue {
+
+    /**
+     * Canonical constructor verifying non-null components and defensively copying {@code elements}.
+     *
+     * @param schema   governing normalized schema
+     * @param elements insertion-ordered list of unique set elements
+     */
+    public StvnSet {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(elements, "elements must not be null");
+      elements = List.copyOf(elements);
+    }
+  }
+
+  /**
+   * Immutable key-value pair entry within an associative {@link StvnMap}.
+   *
+   * @param key   lowered map key value
+   * @param value lowered map target value
+   * @since 2.0.0
+   */
+  record KeyValueEntry(StvnValue key, StvnValue value) {
+
+    /**
+     * Canonical constructor verifying non-null key and value.
+     *
+     * @param key   lowered map key value
+     * @param value lowered map target value
+     */
+    public KeyValueEntry {
+      Objects.requireNonNull(key, "key must not be null");
+      Objects.requireNonNull(value, "value must not be null");
+    }
+  }
+
+  /**
+   * Lowered insertion-ordered associative {@code :Map} collection value.
+   *
+   * @param schema  governing normalized schema
+   * @param entries insertion-ordered unmodifiable list of {@link KeyValueEntry} pairs
+   * @since 2.0.0
+   */
+  record StvnMap(StvnSchema schema, List<KeyValueEntry> entries) implements StvnValue {
+
+    /**
+     * Canonical constructor verifying non-null components and defensively copying {@code entries}.
+     *
+     * @param schema  governing normalized schema
+     * @param entries insertion-ordered list of key-value pairs
+     */
+    public StvnMap {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(entries, "entries must not be null");
+      entries = List.copyOf(entries);
+    }
+  }
+
+  /**
+   * Container fault-isolation sentinel value preserving {@code M == N} element cardinality
+   * during semantic error recovery without corrupting adjacent valid siblings.
+   *
+   * @param schema     expected or poisoned {@link StvnSchema} at the failure site
+   * @param diagnostic localized {@link StvnDiagnostic} describing the lowering failure
+   * @since 2.0.0
+   */
+  record StvnErrorValue(
+      StvnSchema schema,
+      StvnDiagnostic diagnostic
+  ) implements StvnValue {
+
+    /**
+     * Canonical constructor verifying non-null schema and diagnostic.
+     *
+     * @param schema     expected or poisoned schema
+     * @param diagnostic localized failure diagnostic
+     */
+    public StvnErrorValue {
+      Objects.requireNonNull(schema, "schema must not be null");
+      Objects.requireNonNull(diagnostic, "diagnostic must not be null");
     }
   }
 }

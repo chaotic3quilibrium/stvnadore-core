@@ -1,7 +1,7 @@
 package org.stvnadore.core.binary;
 
-import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.ir.StvnValue.*;
+import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ast.StvnValue.*;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;

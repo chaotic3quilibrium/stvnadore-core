@@ -20,6 +20,11 @@ import org.jspecify.annotations.Nullable;
 @NullMarked
 public final class StvnErrorStrategy extends DefaultErrorStrategy {
 
+  /** Constructs a new coordinate-pinning parser error strategy. */
+  public StvnErrorStrategy() {
+    super();
+  }
+
   @Override
   public void reportError(Parser recognizer, RecognitionException e) {
     if (inErrorRecoveryMode(recognizer)) {
@@ -131,6 +136,12 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
     return prevToken != null && prevToken.getType() == StvnParser.KW_META;
   }
 
+  /**
+   * Determines whether the supplied token can legally begin a {@code schemaType} production.
+   *
+   * @param token the lookahead token to inspect, or {@code null}
+   * @return {@code true} if {@code token} is a valid {@code schemaType} starter token
+   */
   public static boolean isValidSchemaTypeStarter(@Nullable Token token) {
     if (token == null) return false;
     int type = token.getType();
@@ -152,6 +163,13 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
         || type == StvnParser.TYPE_KEYWORD_BASE;
   }
 
+  /**
+   * Determines whether the supplied token is a root document clause keyword
+   * ({@code :meta}, {@code :defs}, {@code :type}, or {@code :body}).
+   *
+   * @param token the lookahead token to inspect, or {@code null}
+   * @return {@code true} if {@code token} is a root document clause keyword
+   */
   public static boolean isTopLevelKeyword(@Nullable Token token) {
     if (token == null) return false;
     int type = token.getType();

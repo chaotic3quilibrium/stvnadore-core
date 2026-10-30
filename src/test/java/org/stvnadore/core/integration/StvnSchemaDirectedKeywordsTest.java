@@ -8,7 +8,7 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
-import org.stvnadore.core.ir.StvnValue.*;
+import org.stvnadore.core.ast.StvnValue.*;
 import org.stvnadore.core.validation.MalformedPayloadException;
 
 import java.util.Optional;
@@ -350,7 +350,7 @@ public class StvnSchemaDirectedKeywordsTest {
     assertBinaryRoundTrip(ir);
   }
 
-  private void assertBinaryRoundTrip(org.stvnadore.core.ir.StvnValue ir) {
+  private void assertBinaryRoundTrip(org.stvnadore.core.ast.StvnValue ir) {
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     var encoded = encoder.encode(ir);
     var rootPointer = StvnBinaryDecoder.openStrict(encoded, new SchemaIdentityStrategy.UniversalDefault());

@@ -3,6 +3,8 @@ package org.stvnadore.core.ir;
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.stvnadore.core.ast.StvnLiteralParser;
+import org.stvnadore.core.ast.StvnValue;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;

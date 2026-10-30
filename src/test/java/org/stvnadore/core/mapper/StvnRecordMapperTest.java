@@ -10,9 +10,9 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.annotations.StvnInt;
 import org.stvnadore.core.annotations.StvnString;
 import org.stvnadore.core.annotations.StvnBits;
-import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.ir.StvnValue.StvnEither;
-import org.stvnadore.core.ir.StvnValue.StvnUnion;
+import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ast.StvnValue.StvnEither;
+import org.stvnadore.core.ast.StvnValue.StvnUnion;
 import org.stvnadore.core.validation.MalformedPayloadException;
 
 class StvnRecordMapperTest {

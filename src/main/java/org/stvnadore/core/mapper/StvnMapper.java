@@ -12,7 +12,7 @@ import org.stvnadore.core.annotations.StvnString;
 import org.stvnadore.core.annotations.StvnBits;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.parser.StvnParser.SchemaTypeContext;

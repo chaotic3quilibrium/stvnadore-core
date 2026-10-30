@@ -1,9 +1,9 @@
 # STVN Architectural Specification 02: Content-Addressable Storage (CAS) & Schema Registry
 
-**Document ID**: `STVN-SPEC-02`  
-**Status**: Canonical Specification  
-**Version**: 2.0.0
-**Compliance**: Mandatory across all STVN repository servers, storage backends, and deployment topologies.
+- **Document ID**: `STVN-SPEC-02`
+- **Status**: Canonical Specification
+- **Version**: 2.0.0
+- **Compliance**: Mandatory across all STVN repository servers, storage backends, and deployment topologies.
 
 ---
 
@@ -25,38 +25,60 @@
 
 ## 1. 2/62 Physical Storage Topology
 
-To eliminate filesystem inode saturation and directory search degradation, physical Content-Addressable Storage (CAS) files are stored using a 2-character directory prefix derived from the 64-character lowercase hexadecimal SHA-256 digest:
+To eliminate filesystem inode saturation and directory search degradation, physical Content-Addressable Storage (CAS) envelope files use the standard `.stvn` extension paired with the reserved `"stvn_cas"` system domain (`.stvn_cas.stvn`) under a 2-character directory prefix derived from the 64-character lowercase hexadecimal SHA-256 digest:
 
-$$\text{File Path} = \langle\text{CAS_ROOT}\rangle \,/\, \text{hash}[0..1] \,/\, \text{hash}[2..63] \text{".stvn_cas"}$$
+$$\text{File Path} = \langle\text{CAS\_ROOT}\rangle \,/\, \text{hash}[0..1] \,/\, \text{hash}[2..63] \text{".stvn\_cas.stvn"}$$
 
 ### Directory Layout
 ```
 <CAS_ROOT>/
 ├── 0a/
-│   └── 1b2c3d4e5f...62chars.stvn_cas
+│   └── 1b2c3d4e5f...62chars.stvn_cas.stvn
 ├── e3/
-│   └── b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.stvn_cas
+│   └── b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.stvn_cas.stvn
 └── .quarantine/
-    └── b0c44298fc...62chars.stvn_cas.1772398400000.HASH_MISMATCH.quarantine
+    └── b0c44298fc...62chars.stvn_cas.stvn.1772398400000.HASH_MISMATCH.quarantine
 ```
 
 ---
 
 ## 2. CAS Envelope Format & Storage Immutability
 
-Once written, a physical CAS file is immutable. The physical `.stvn_cas` file encloses the canonical source text in a 3-element STVN tuple:
+Once written, a physical CAS envelope file is immutable. The `.stvn_cas.stvn` document encloses the canonical hermetic `.stvn_d` schema source text inside a root-enclosed 3-element STVN `:Tuple`:
 
 ```stvn
-(:Tuple
-  "UserProfile"
-  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-  "{\n  :defs {\n    :UserProfile :Tuple( { #size 64 } :Int { #minSize 1 } :String )\n  }\n}"
-)
+{
+  :meta {
+    #domain "stvn_cas"
+    #kind #BODY
+  }
+  :defs {
+    :SchemaName :String
+    :Sha256Hex { #minSize 64 #maxSize 64 #regex "^[0-9a-f]{64}$" } :String
+    :StvnDef { #preserveIndent #TRUE } :String
+  }
+  :type :Tuple( :SchemaName :Sha256Hex :StvnDef )
+  :body (
+    "UserProfile"
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    """[SHA256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]
+{
+  :meta {
+    #name "user_profile"
+    #kind #DEFS
+  }
+  :defs {
+    :UserProfile :Tuple( { #size 64 } :Int { #minSize 1 } :String )
+  }
+}
+[SHA256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]"""
+  )
+}
 ```
 
-1. **Element 0 (`:String`)**: Nominal schema identifier (e.g. `"UserProfile"`).
-2. **Element 1 (`:String`)**: 64-character lowercase hexadecimal SHA-256 content digest.
-3. **Element 2 (`:String`)**: Canonical STVN source text.
+1. **Element 0 (`:SchemaName`)**: Nominal schema identifier (e.g. `"UserProfile"`).
+2. **Element 1 (`:Sha256Hex`)**: 64-character lowercase hexadecimal SHA-256 content digest.
+3. **Element 2 (`:StvnDef`)**: Canonical hermetic `.stvn_d` STVN source text preserved verbatim via `#preserveIndent #TRUE`.
 
 ---
 
@@ -98,7 +120,7 @@ All schema payload bodies must use the MIME Content-Type: `application/stvn`.
 
 ### Endpoint Contract
 1. **`POST /api/v1/schemas/{name}`**:
-   * Publishes and indexes a new canonical STVN schema.
+   * Publishes and indexes a new canonical `.stvn_d` STVN schema.
    * `201 Created`: Schema successfully published and indexed.
    * `200 OK`: Idempotent publication (exact schema name and hash already exist).
    * `202 Accepted`: CAS write succeeded; relational indexing deferred to background sweeper.
@@ -112,7 +134,7 @@ All schema payload bodies must use the MIME Content-Type: `application/stvn`.
    * `404 Not Found`: No matching record.
 
 3. **`GET /api/v1/schemas/cas/{hash}`**:
-   * Fetches raw immutable STVN schema source directly by 64-character SHA-256 CAS hash.
+   * Fetches raw immutable `.stvn_d` STVN schema source directly by 64-character SHA-256 CAS hash.
    * `200 OK`: Returns schema source with `Content-Type: application/stvn`.
    * `400 Bad Request`: Hash parameter is not a 64-character hex string.
    * `404 Not Found`: Hash does not exist in CAS storage.
@@ -122,9 +144,9 @@ All schema payload bodies must use the MIME Content-Type: `application/stvn`.
 ## 5. Background Relational Projection Sweeper
 
 The `RelationalProjectionSweeper` executes on a background Virtual Thread every 60 seconds:
-1. Iterates all physical `.stvn_cas` files under `<CAS_ROOT>`.
+1. Iterates all physical `.stvn_cas.stvn` files under `<CAS_ROOT>`.
 2. Checks if `cas_hash` exists in `version_catalog`.
-3. If absent, decodes the tuple envelope, parses inner source text with `StvnCompiler.analyze()`, and recomputes the SHA-256 digest using `StvnSchemaHasher.computeSha256(schema)`.
+3. If absent, decodes the `:Tuple` envelope, compiles the inner `.stvn_d` source text with `StvnCompiler`, and recomputes the SHA-256 digest using `StvnSchemaHasher.computeSha256(schema)`.
 4. If computed hash $\ne$ filename hash, the file is atomically relocated to `.quarantine/` with a timestamped reason suffix:
-   `<CAS_ROOT>/.quarantine/<hash_suffix>.stvn_cas.<timestamp>.<REASON>.quarantine`
+   `<CAS_ROOT>/.quarantine/<hash_suffix>.stvn_cas.stvn.<timestamp>.<REASON>.quarantine`
 5. If valid, inserts projection into `version_catalog` and `schema_source_audit`.

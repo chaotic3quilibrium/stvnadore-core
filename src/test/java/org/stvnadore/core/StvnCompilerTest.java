@@ -3,7 +3,7 @@ package org.stvnadore.core;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 import org.stvnadore.core.printer.AstPrettyPrinter;
 
 public class StvnCompilerTest {
@@ -288,10 +288,10 @@ public class StvnCompilerTest {
     Assertions.assertTrue(result.document().isPresent());
     var payloadOpt = result.document().get().payload();
     Assertions.assertTrue(payloadOpt.isPresent());
-    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnTuple.class, payloadOpt.get());
-    var tuple = (org.stvnadore.core.ir.StvnValue.StvnTuple) payloadOpt.get();
+    Assertions.assertInstanceOf(org.stvnadore.core.ast.StvnValue.StvnTuple.class, payloadOpt.get());
+    var tuple = (org.stvnadore.core.ast.StvnValue.StvnTuple) payloadOpt.get();
     Assertions.assertEquals(6, tuple.elements().size(), "Tuple must maintain full element cardinality");
-    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnError.class, tuple.elements().get(2), "Malformed child element must be recorded as StvnError");
+    Assertions.assertInstanceOf(org.stvnadore.core.ast.StvnValue.StvnError.class, tuple.elements().get(2), "Malformed child element must be recorded as StvnError");
   }
 
   @Test
@@ -314,7 +314,7 @@ public class StvnCompilerTest {
     Assertions.assertTrue(doc.hasPayload());
     Assertions.assertEquals("my_doc", doc.requireMeta().name().orElseThrow());
     Assertions.assertEquals(org.stvnadore.core.ast.StvnDocumentKind.BODY, doc.requireMeta().kind().orElseThrow());
-    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnInteger.class, doc.requirePayload());
+    Assertions.assertInstanceOf(org.stvnadore.core.ast.StvnValue.StvnInteger.class, doc.requirePayload());
   }
 
   @Test
@@ -328,6 +328,6 @@ public class StvnCompilerTest {
         """;
     var payloadOpt = StvnCompiler.compilePayload(source);
     Assertions.assertTrue(payloadOpt.isPresent());
-    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnInteger.class, payloadOpt.get());
+    Assertions.assertInstanceOf(org.stvnadore.core.ast.StvnValue.StvnInteger.class, payloadOpt.get());
   }
 }

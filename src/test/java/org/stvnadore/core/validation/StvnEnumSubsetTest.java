@@ -8,7 +8,7 @@ import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.binary.StvnSchemaHasher;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 
 import java.nio.ByteBuffer;
 import java.util.List;

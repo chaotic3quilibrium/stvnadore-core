@@ -11,7 +11,7 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
 
 ---
 
-- Version: 2.0.0 - 2026.09.26
+- Version: 2.0.0-SNAPSHOT
 
 ---
 
@@ -49,12 +49,6 @@ The engine is 100% feature-complete, zero-warning compliant (`-Xlint:all -Werror
     * [I'm not looking to win the lottery, I just don't want to work for free](#im-not-looking-to-win-the-lottery-i-just-dont-want-to-work-for-free)
 * [Version History](#version-history)
   * [v2.0.0](#v200)
-  * [v1.3.1](#v131)
-  * [v1.3.0](#v130)
-  * [v1.2.0](#v120)
-  * [v1.1.1](#v111)
-  * [v1.1.0](#v110)
-  * [v1.0.2](#v102)
 <!-- TOC -->
 
 ---
@@ -79,9 +73,9 @@ Add the following Maven dependency to your `pom.xml`:
 
 The formal specifications governing the STVN grammar, CAS topology, binary protocols, and IDE integration are located in `docs/architecture/`:
 
-1. [01_STVN_SPECIFICATION_OVERVIEW.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md) — Dual-track grammar, AST records, algebraic sum/product types, and arbitrary bit-widths.
+1. [01_STVN_SPECIFICATION_OVERVIEW.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/01_STVN_SPECIFICATION_OVERVIEW.md) — Dual-track grammar, Canonical IR records, algebraic sum/product types, and arbitrary bit-widths.
 2. [02_CONTENT_ADDRESSABLE_STORAGE_REGISTRY.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/02_CONTENT_ADDRESSABLE_STORAGE_REGISTRY.md) — 2/62 filesystem CAS sharding, envelope framing, PostgreSQL/H2 catalog DDL, and background projection sweeper.
-3. [03_BINARY_ENCODING_AND_ZERO_TRUST.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/03_BINARY_ENCODING_AND_ZERO_TRUST.md) — Byte 4 4:4 nibble control architecture, Strategy `0x07` zero-trust verification, and tripartite temporal binary layouts.
+3. [03_BINARY_ENCODING_AND_ZERO_TRUST.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/03_BINARY_ENCODING_AND_ZERO_TRUST.md) — Byte 4 1:3:4 control byte architecture, Strategy `0x07` zero-trust verification, and tripartite temporal binary layouts.
 4. [04_INTELLIJ_PLUGIN_INTEGRATION.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/04_INTELLIJ_PLUGIN_INTEGRATION.md) — Grammar-Kit PSI tree, EDT discipline, sub-token diagnostic annotator, and schema flattener.
 5. [SOUNDNESS_BOUNDARIES.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/SOUNDNESS_BOUNDARIES.md) — Nullability invariants, Tier 1 soundness, and JSpecify 1.0.0 boundary definitions.
 6. [STVN_LANGUAGE_SPEC.md](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/docs/architecture/STVN_LANGUAGE_SPEC.md) — The complete data grammar specification.
@@ -107,8 +101,8 @@ import java.math.BigInteger;
 import java.util.Optional;
 
 public record UserProfile(
-    @StvnString(nonEmpty = true) String username,
-    @StvnInt(minIncl = 18, maxIncl = 150) int age,
+    @StvnString(minSize = 1, maxSize = 64) String username,
+    @StvnInt(minIncl = 18, maxExcl = 151) int age,
     @StvnBits(value = 49, unsigned = true) BigInteger accountId,
     Optional<String> bio
 ) {
@@ -250,8 +244,8 @@ STVN strictly segregates the lexical and semantic namespaces of types and values
 
 Data models represent pure, immutable values:
 
-* **Deterministic Sequenced Ordering**: Collections in the AST ([StvnSet](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L647) and [StvnMap](https://github.com/chaotic3quilibrium/stvnadore-core/blob/main/src/main/java/org/stvnadore/core/ir/StvnValue.java#L716)) strictly enforce `java.util.SequencedSet` and `java.util.SequencedMap` and wrap them in unmodifiable decorators.
-* **Invertible Bidirectional Maps (`{ #invertible } :Map`)**: Enforces dual-set uniqueness: all keys must be unique **and** all values must be unique. Duplicate keys trigger `DUPLICATE_MAP_KEY`; duplicate values trigger `DUPLICATE_INVERTED_MAP_VALUE`.
+* **Deterministic Sequenced Ordering**: Collections in the Canonical IR (`StvnSeq`, `StvnSet`, and `StvnMap` in `org.stvnadore.core.ir.StvnValue`) preserve deterministic insertion order using deeply immutable unmodifiable lists.
+* **Invertible Bidirectional Maps (`{ #invertible } :Map`)**: Enforces dual-set uniqueness: all keys must be unique **and** all values must be unique. Duplicate values trigger `E018` (`INVERTIBLE_MAP_DUPLICATE`).
 * **Content-Addressable Storage (CAS)**: `StvnCompiler.computeCasFingerprint(StvnValue)` computes deterministic 32-byte SHA-256 fingerprints across canonically serialized representations.
 
 ### 3. Arbitrary Bit-Width Numeric Systems
@@ -280,9 +274,9 @@ STVN elevates date-time values into base primitive types `:DateTime` and `:TimeE
 
 ### 6. Monadic Diagnostic Accumulation & Error Recovery
 
-* **Monadic Results (`StvnCompilationResult`)**: Returns clean or partial ASTs alongside accumulated `StvnDiagnostic` frames.
+* **Monadic Results (`StvnCompilationResult` / `StvnAnalysisResult`)**: Returns validated Canonical IR documents alongside accumulated `StvnDiagnostic` frames.
 * **Bounded Diagnostic Accumulator (`DiagnosticBag`)**: Memory-bounded accumulation suppresses runaway error floods and appends a sentinel `STVN_DIAG_LIMIT_EXCEEDED` warning.
-* **Error-Tolerant AST Nodes (`StvnError`)**: Isolates semantic and syntax failures into localized `StvnError` leaves, allowing sibling nodes and surrounding structures to parse successfully.
+* **Fault-Isolated IR Sentinels (`PoisonedSchema` & `StvnErrorValue`)**: Isolates semantic and syntax failures into localized `PoisonedSchema` and `StvnErrorValue` nodes while preserving container cardinality so valid sibling elements validate cleanly.
 
 ### 7. Zero-Copy Protocol Engine & High-Bit Masking
 
@@ -396,57 +390,9 @@ Please email: <jim.oflaherty.jr+scrml@gmail.com>, letting us know what license y
 
 ## v2.0.0
 
-- 2026.09.26
-- Baseline 2.0.0 elevation with orthogonal scalar architecture
-- Pruned obsolete compound types (`:Int32`, `:Uint16`, `:StringFixed`, `:FloatExact`) in favor of canonical metadata facets
-- Elevated `:TimeEpoch` (with mandatory bare scale flags `#s`, `#ms`, `#us`, `#ns`) and `:DateTime` (with mandatory mode facets `#offset`, `#zoned`, `#audited`) as base primitives
-- Universal Allowlist Gating ($\mathcal{T} \times \mathcal{F}$) failing closed on 108 invalid type-facet pairings
-- Enforced discrete half-open intervals $[minIncl, maxExcl)$ with empty domain checks (`ERR_EMPTY_INTERVAL_DOMAIN`)
-- Strategy `0x07` (`0x87`) wire framing with mandatory CRC-32C trailer and SHA-256 CAS zero-trust verification
-- Passed all 884 verification tests with zero compiler or Javadoc warnings under Java 21 LTS
-
-## v1.3.1
-
-- 2026.09.20
-- To support `stvnadore-plugin`, tolerant grammar recovery: Supported empty blocks (`{}`) in `:use`, `:include`, and metadata maps with dedicated semantic diagnostics (`ERR_EMPTY_METADATA_BLOCK`, `ERR_EMPTY_DIRECTIVE_BLOCK`)
-- Facet target matrix governance: Enforced target domain boundaries emitting `ERR_INVALID_METADATA_FACET` with permitted facet lists
-- Compiler coordinate span normalization: Half-open interval `[startOffset, endOffset)` calculation aligned with `stopIndex + 1` across parser syntax and semantic error listeners
-- Cross-file package enclave isolation: Verified private packaged symbols fail closed with `ERR_UNKNOWN_TYPE` across module boundaries
-
-## v1.3.0
-
-- 2026.09.17
-- Refactored to align the core SDK with the cannonical STVN specification; prohibited the tab character as whitespace, added constants for :String capacities, create canonical AST printers, and expanded shared-fixtures and snapshots
-- Updates to add canonical formatting and browser shared fixtures
-- Implement compiler transitive reachability, dead-code elimination, and universal alias desurgaring
-
-## v1.2.0
-
-- 2026.09.12
-- Standard prelude relocated to namespace `:org/stvnadore/prelude/*` and out of root, completely clearing the root namespace
-- Atomic temporal primitives pruned to nominal prelude schemas
-- Package enclosures (`:package`) with automatic LHS FQNI expansion
-- Scoped `:use` with atomic unary `#strip` terminal slicing
-- Hermetic flat payload tier (`.stvn`) and flat schema tier (`.stvn_d`)
-- Arbitrary bit-width integer overflow enforcement (BigInteger)
-- Updated shared-fixtures conformance suite
-
-## v1.1.1
-
-- 2026.09.07
-- Formalized **Rule STR-04 (Fenced String Language Discriminator Invariant)** in ANTLR4 lexer and parser
-- Prohibited `"""->[TAG]` in favor of canonical `"""[TAG]` (enforced under Rule STR-04 / E026)
-- Enforced strict tag character class `^[a-zA-Z0-9_-]{1,256}$` with length bounding from 1 to 256 characters
-- Remediated all missing Javadoc parameter tags in `StvnTypeResolver.java` and enforced `<failOnWarnings>true</failOnWarnings>`
-- Updated Section 5.3 in `STVN_LANGUAGE_SPEC.md` to define Rule STR-04 invariants
-
-## v1.1.0
-
-- 2026.09.06
-- Implemented enum subset filtering with transitive chaining
-- Added Control Byte 4 bitwise partitioning (1:3:4) for CRC-32C, SchemaIdentityStrategy, and BinaryEncodingStrategy 
-
-## v1.0.2
-
-- 2026.09.04
-- Initial release across all four repositories
+- Clean-sheet STVN 2.0.0 architecture with orthogonal prefix metadata facets and CPU-bias-free `BigInteger` / `BigDecimal` Canonical IR (`org.stvnadore.core.ir`)
+- Elevated `:TimeEpoch` (with mandatory standalone scale flags `#s`, `#ms`, `#us`, `#ns`) and `:DateTime` (with mandatory standalone mode facets `#offset`, `#zoned`, `#audited`) as base primitives
+- Universal Allowlist Gating across the 95-row 5-tier metadata matrix (`§ 6.1`) with `W003` tautological facet normalization and Tier-1 `E040` immutability enforcement
+- Enforced discrete half-open intervals $[minIncl, maxExcl)$ with empty domain checks (`ERR_EMPTY_INTERVAL_DOMAIN`) and UTF-8 lexicographical `:String` bounds
+- Byte 4 `1:3:4` wire framing (`(controlByte >>> 4) & 0x07`) with CRC-32C trailer support and Strategy `0x07` SHA-256 CAS zero-trust verification
+- Zero compiler or Javadoc warnings (`-Xlint:all -Werror`, `doclint:all`) under Java 21 LTS

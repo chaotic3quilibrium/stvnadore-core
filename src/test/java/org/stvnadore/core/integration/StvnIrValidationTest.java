@@ -7,12 +7,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 
-import org.stvnadore.core.ir.StvnValue.StvnEnum;
-import org.stvnadore.core.ir.StvnValue.StvnOption;
-import org.stvnadore.core.ir.StvnValue.StvnString;
-import org.stvnadore.core.ir.StvnValue.StvnTuple;
+import org.stvnadore.core.ast.StvnValue.StvnEnum;
+import org.stvnadore.core.ast.StvnValue.StvnOption;
+import org.stvnadore.core.ast.StvnValue.StvnString;
+import org.stvnadore.core.ast.StvnValue.StvnTuple;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

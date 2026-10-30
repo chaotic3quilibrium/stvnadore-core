@@ -1,7 +1,7 @@
 package org.stvnadore.core.printer;
 
 import org.jspecify.annotations.NullMarked;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 
 import java.io.IOException;
 import java.io.Writer;

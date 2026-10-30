@@ -13,7 +13,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ast.StvnValue;
 import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
 import org.stvnadore.core.validation.StvnTypeResolver;
 import org.stvnadore.core.parser.StvnParser.StvnDocumentContext;

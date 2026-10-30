@@ -2199,23 +2199,23 @@ public class StvnEndToEndIntegrationTest {
   @org.junit.jupiter.api.Test
   public void testSequencingRejection() {
       var dummySchema = org.stvnadore.core.test.StvnTestFactory.createDummySchema();
-      var nonSequencedSet = new java.util.HashSet<org.stvnadore.core.ir.StvnValue>();
-      nonSequencedSet.add(new org.stvnadore.core.ir.StvnValue.StvnBoolean(dummySchema, true));
+      var nonSequencedSet = new java.util.HashSet<org.stvnadore.core.ast.StvnValue>();
+      nonSequencedSet.add(new org.stvnadore.core.ast.StvnValue.StvnBoolean(dummySchema, true));
 
       org.junit.jupiter.api.Assertions.assertThrows(
           org.stvnadore.core.validation.MalformedPayloadException.class,
-          () -> new org.stvnadore.core.ir.StvnValue.StvnSet(dummySchema, nonSequencedSet, false)
+          () -> new org.stvnadore.core.ast.StvnValue.StvnSet(dummySchema, nonSequencedSet, false)
       );
 
-      var nonSequencedMap = new java.util.HashMap<org.stvnadore.core.ir.StvnValue, org.stvnadore.core.ir.StvnValue>();
+      var nonSequencedMap = new java.util.HashMap<org.stvnadore.core.ast.StvnValue, org.stvnadore.core.ast.StvnValue>();
       nonSequencedMap.put(
-          new org.stvnadore.core.ir.StvnValue.StvnBoolean(dummySchema, true),
-          new org.stvnadore.core.ir.StvnValue.StvnBoolean(dummySchema, false)
+          new org.stvnadore.core.ast.StvnValue.StvnBoolean(dummySchema, true),
+          new org.stvnadore.core.ast.StvnValue.StvnBoolean(dummySchema, false)
       );
 
       org.junit.jupiter.api.Assertions.assertThrows(
           org.stvnadore.core.validation.MalformedPayloadException.class,
-          () -> new org.stvnadore.core.ir.StvnValue.StvnMap(dummySchema, nonSequencedMap, false, false)
+          () -> new org.stvnadore.core.ast.StvnValue.StvnMap(dummySchema, nonSequencedMap, false, false)
       );
   }
 
