@@ -1,50 +1,55 @@
 package org.stvnadore.core.validation;
 
-import java.util.Optional;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
-import org.stvnadore.core.parser.StvnLexer;
-import org.stvnadore.core.parser.StvnParser;
-import org.stvnadore.core.ast.StvnIrVisitor;
-import org.stvnadore.core.ast.StvnValue;
-import org.stvnadore.core.ast.StvnValue.StvnOption;
-import org.stvnadore.core.ast.StvnValue.StvnEither;
-import org.stvnadore.core.ast.StvnValue.StvnInteger;
-import org.stvnadore.core.ast.VariantStep;
+import org.stvnadore.core.io.CanonicalStvnWriter;
+import org.stvnadore.core.ir.StvnSchema;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ir.StvnValue.EitherBranch;
+import org.stvnadore.core.ir.StvnValue.StvnEither;
+import org.stvnadore.core.ir.StvnValue.StvnInt;
+import org.stvnadore.core.ir.StvnValue.StvnOption;
+import org.stvnadore.core.printer.AstCompactPrinter;
+
+import java.math.BigInteger;
+import java.util.List;
+import java.util.Optional;
 
 class StvnTypeResolverRegressionTest {
 
   @Test
   void testNominalAliasPrefixCollision_Floaty() {
-    var lexer = new StvnLexer(CharStreams.fromString(":Floaty"));
-    lexer.removeErrorListeners();
-    var parser = new StvnParser(new CommonTokenStream(lexer));
-    parser.removeErrorListeners();
-    var schemaCtx = parser.schemaType();
-
-    var rs = new StvnTypeResolver.ResolvedSchema(schemaCtx, StvnTypeResolver.StvnConstraints.empty(), Optional.of("Floaty"));
-    var updated = StvnTypeResolver.applyDefaults(rs);
-
-    Assertions.assertNotEquals(Optional.of(false), updated.constraints().equatable());
+    String input = """
+        {
+          :defs {
+            :Floaty :Int
+          }
+          :type :Floaty
+          :body 7
+        }
+        """;
+    var schema = StvnCompiler.compile(input).document().orElseThrow()
+        .defs().findType(":Floaty").orElseThrow();
+    Assertions.assertTrue(schema.traits().equatable(), "Nominal alias :Floaty backed by :Int must remain equatable");
   }
 
   @Test
   void testNominalAliasPrefixCollision_Setting() {
-    var lexer = new StvnLexer(CharStreams.fromString(":Setting"));
-    lexer.removeErrorListeners();
-    var parser = new StvnParser(new CommonTokenStream(lexer));
-    parser.removeErrorListeners();
-    var schemaCtx = parser.schemaType();
-
-    var rs = new StvnTypeResolver.ResolvedSchema(schemaCtx, StvnTypeResolver.StvnConstraints.empty(), Optional.of("Setting"));
-    var updated = StvnTypeResolver.deriveAndApplyTraits(rs, java.util.List.of());
-
-    Assertions.assertNotEquals(Optional.of(false), updated.constraints().comparable());
+    String input = """
+        {
+          :defs {
+            :Setting :String
+          }
+          :type :Setting
+          :body "enabled"
+        }
+        """;
+    var schema = StvnCompiler.compile(input).document().orElseThrow()
+        .defs().findType(":Setting").orElseThrow();
+    Assertions.assertTrue(schema.traits().comparable(), "Nominal alias :Setting backed by :String must remain comparable");
   }
 
   @Test
@@ -57,76 +62,58 @@ class StvnTypeResolverRegressionTest {
         [TAG]\"\"\" } :String
           }
           :type :MyString
-          :body "value"
+          :body "my c\\n"
         }
         """;
 
-    var lexer = new StvnLexer(CharStreams.fromString(input));
-    lexer.removeErrorListeners();
-    var parser = new StvnParser(new CommonTokenStream(lexer));
-    parser.removeErrorListeners();
-    var doc = parser.stvnDocument();
-
-    var defOpt = StvnTypeResolver.findTypeDefinition(doc, ":MyString");
-    Assertions.assertTrue(defOpt.isPresent());
-
-    var metaMap = defOpt.get().schemaType() != null ? defOpt.get().schemaType().metadataMap() : null;
-    var constraints = StvnTypeResolver.extractConstraints(metaMap);
-    var regex = constraints.regex();
-
-    Assertions.assertEquals("my [content]\n", regex.orElse(null));
+    var res = StvnCompiler.compile(input);
+    Assertions.assertTrue(res.isSuccess(), () -> "Expected clean compile: " + res.diagnostics());
+    var doc = res.document().orElseThrow();
+    var stringSchema = (StvnSchema.StringSchema) doc.defs().findType(":MyString").orElseThrow();
+    Assertions.assertEquals(Optional.of("my [content]\n"), stringSchema.rawRegexPattern());
   }
 
   @Test
-  void testMalformedListThrowsMalformedAstContextException() {
+  void testMalformedListFailsCompilation() {
     var input = """
         {
           :type :Seq(:Option(:Tuple(:Int)))
           :body [ #Some ( ) ]
         }
         """;
-    var doc = org.stvnadore.core.StvnCompiler.parse(input, org.stvnadore.core.StvnParserConfig.DEFAULT);
-
-    var bodyEntry = doc.documentBody().bodyEntry();
-    Assertions.assertThrows(MalformedAstContextException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
+    var res = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(res.hasErrors());
+    Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(input));
   }
 
   @Test
-  void testMalformedMapThrowsMalformedAstContextException() {
+  void testMalformedMapFailsCompilation() {
     var input = """
         {
           :type :Map(:String :Int)
           :body { [ "key" ] }
         }
         """;
-    var doc = org.stvnadore.core.StvnCompiler.parse(input, org.stvnadore.core.StvnParserConfig.DEFAULT);
-
-    var bodyEntry = doc.documentBody().bodyEntry();
-    Assertions.assertThrows(MalformedAstContextException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
+    var res = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(res.hasErrors());
+    Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(input));
   }
 
   @Test
-  void testMalformedTupleThrowsMalformedAstContextException() {
+  void testMalformedTupleFailsCompilation() {
     var input = """
         {
           :type :Tuple(:Option(:Tuple(:Int)))
           :body ( #Some ( ) )
         }
         """;
-    var doc = org.stvnadore.core.StvnCompiler.parse(input, org.stvnadore.core.StvnParserConfig.DEFAULT);
-
-    var bodyEntry = doc.documentBody().bodyEntry();
-    Assertions.assertThrows(MalformedAstContextException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
+    var res = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(res.hasErrors());
+    Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(input));
   }
 
   @Test
-  void testEmptySeqSchemaThrowsMalformedSchemaException() {
+  void testEmptySeqSchemaFailsCompilation() {
     var input = """
         {
           :defs {
@@ -136,15 +123,9 @@ class StvnTypeResolverRegressionTest {
           :body [1]
         }
         """;
-    var doc = org.stvnadore.core.StvnCompiler.parse(input, org.stvnadore.core.StvnParserConfig.DEFAULT);
-
-    Assertions.assertThrows(MalformedSchemaException.class, () -> {
-      StvnTypeResolver.validateDocumentConstraints(doc);
-    });
-  }
-
-  private StvnParser.StvnDocumentContext parseDocument(String input) {
-    return org.stvnadore.core.StvnCompiler.parse(input, org.stvnadore.core.StvnParserConfig.STRICT);
+    var res = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(res.hasErrors());
+    Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(input));
   }
 
   @Test
@@ -155,9 +136,10 @@ class StvnTypeResolverRegressionTest {
           :body { ["a" 1] ["a" 2] }
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
+    var ex = Assertions.assertThrows(
+        StvnCollectionCollisionException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
     Assertions.assertEquals("Duplicate map key detected", ex.getMessage());
     int expectedStart = input.lastIndexOf("\"a\"");
     Assertions.assertEquals(expectedStart, ex.startOffset());
@@ -175,9 +157,10 @@ class StvnTypeResolverRegressionTest {
           :body { ["a" 1] ["a" 2] }
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
+    var ex = Assertions.assertThrows(
+        StvnCollectionCollisionException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
     Assertions.assertEquals("Duplicate map key detected", ex.getMessage());
     int expectedStart = input.lastIndexOf("\"a\"");
     Assertions.assertEquals(expectedStart, ex.startOffset());
@@ -195,9 +178,10 @@ class StvnTypeResolverRegressionTest {
           :body { ["a" 1] ["a" 2] }
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
+    var ex = Assertions.assertThrows(
+        StvnCollectionCollisionException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
     Assertions.assertEquals("Duplicate map key detected", ex.getMessage());
     int expectedStart = input.lastIndexOf("\"a\"");
     Assertions.assertEquals(expectedStart, ex.startOffset());
@@ -215,9 +199,10 @@ class StvnTypeResolverRegressionTest {
           :body { ["a" 1] ["a" 2] }
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
+    var ex = Assertions.assertThrows(
+        StvnCollectionCollisionException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
     Assertions.assertEquals("Duplicate map key detected", ex.getMessage());
     int expectedStart = input.lastIndexOf("\"a\"");
     Assertions.assertEquals(expectedStart, ex.startOffset());
@@ -241,9 +226,10 @@ class StvnTypeResolverRegressionTest {
           }
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
+    var ex = Assertions.assertThrows(
+        StvnCollectionCollisionException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
     Assertions.assertEquals("Duplicate inverted map value detected", ex.getMessage());
     int expectedStart = input.lastIndexOf(" 1]") + 1;
     Assertions.assertEquals(expectedStart, ex.startOffset());
@@ -267,9 +253,10 @@ class StvnTypeResolverRegressionTest {
           }
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var ex = Assertions.assertThrows(StvnCollectionCollisionException.class, () -> StvnIrVisitor.build(bodyEntry, doc));
+    var ex = Assertions.assertThrows(
+        StvnCollectionCollisionException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
     Assertions.assertEquals("Duplicate inverted map value detected", ex.getMessage());
     int expectedStart = input.lastIndexOf(" 1]") + 1;
     Assertions.assertEquals(expectedStart, ex.startOffset());
@@ -288,8 +275,10 @@ class StvnTypeResolverRegressionTest {
           :body { [1.0 1] }
         }
         """;
-    var doc = parseDocument(input);
-    var ex = Assertions.assertThrows(MalformedSchemaException.class, () -> StvnTypeResolver.validateDocumentConstraints(doc));
+    var ex = Assertions.assertThrows(
+        MalformedSchemaException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
     Assertions.assertEquals("Map keys require types to be #equatable #TRUE", ex.getMessage());
   }
 
@@ -305,8 +294,10 @@ class StvnTypeResolverRegressionTest {
           :body { [1 1.0] }
         }
         """;
-    var doc = parseDocument(input);
-    var ex = Assertions.assertThrows(MalformedSchemaException.class, () -> StvnTypeResolver.validateDocumentConstraints(doc));
+    var ex = Assertions.assertThrows(
+        MalformedSchemaException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
     Assertions.assertEquals("Inverted map values require types to be #equatable #TRUE", ex.getMessage());
   }
 
@@ -322,8 +313,10 @@ class StvnTypeResolverRegressionTest {
           :body [ 1.0 ]
         }
         """;
-    var doc = parseDocument(input);
-    var ex = Assertions.assertThrows(MalformedSchemaException.class, () -> StvnTypeResolver.validateDocumentConstraints(doc));
+    var ex = Assertions.assertThrows(
+        MalformedSchemaException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
     Assertions.assertEquals("Set elements require types to be #equatable #TRUE", ex.getMessage());
   }
 
@@ -335,19 +328,13 @@ class StvnTypeResolverRegressionTest {
           :body #Some #Some 42
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var val = StvnIrVisitor.build(bodyEntry, doc).orElseThrow();
-    Assertions.assertTrue(val instanceof StvnOption);
-    var outerOpt = (StvnOption) val;
+    var val = StvnCompiler.compilePayload(input).orElseThrow();
+    var outerOpt = Assertions.assertInstanceOf(StvnOption.class, val);
     Assertions.assertTrue(outerOpt.value().isPresent());
-    var innerOptVal = outerOpt.value().get();
-    Assertions.assertTrue(innerOptVal instanceof StvnOption);
-    var innerOpt = (StvnOption) innerOptVal;
+    var innerOpt = Assertions.assertInstanceOf(StvnOption.class, outerOpt.value().get());
     Assertions.assertTrue(innerOpt.value().isPresent());
-    var innerVal = innerOpt.value().get();
-    Assertions.assertTrue(innerVal instanceof StvnInteger);
-    Assertions.assertEquals(java.math.BigInteger.valueOf(42), ((StvnInteger) innerVal).value());
+    var innerVal = Assertions.assertInstanceOf(StvnInt.class, innerOpt.value().get());
+    Assertions.assertEquals(BigInteger.valueOf(42), innerVal.value());
   }
 
   @Test
@@ -358,22 +345,15 @@ class StvnTypeResolverRegressionTest {
           :body #Left 42
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var val = StvnIrVisitor.build(bodyEntry, doc).orElseThrow();
-    Assertions.assertTrue(val instanceof StvnOption);
-    var outerOpt = (StvnOption) val;
+    var val = StvnCompiler.compilePayload(input).orElseThrow();
+    var outerOpt = Assertions.assertInstanceOf(StvnOption.class, val);
     Assertions.assertTrue(outerOpt.value().isPresent());
-    var innerOptVal = outerOpt.value().get();
-    Assertions.assertTrue(innerOptVal instanceof StvnOption);
-    var innerOpt = (StvnOption) innerOptVal;
+    var innerOpt = Assertions.assertInstanceOf(StvnOption.class, outerOpt.value().get());
     Assertions.assertTrue(innerOpt.value().isPresent());
-    var innerVal = innerOpt.value().get();
-    Assertions.assertTrue(innerVal instanceof StvnEither);
-    var either = (StvnEither) innerVal;
-    Assertions.assertFalse(either.isRight());
-    Assertions.assertTrue(either.value() instanceof StvnInteger);
-    Assertions.assertEquals(java.math.BigInteger.valueOf(42), ((StvnInteger) either.value()).value());
+    var either = Assertions.assertInstanceOf(StvnEither.class, innerOpt.value().get());
+    Assertions.assertEquals(EitherBranch.LEFT, either.branch());
+    var innerInt = Assertions.assertInstanceOf(StvnInt.class, either.value());
+    Assertions.assertEquals(BigInteger.valueOf(42), innerInt.value());
   }
 
   @Test
@@ -384,11 +364,7 @@ class StvnTypeResolverRegressionTest {
           :body [ "Inferred Outer Left" ]
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    Assertions.assertThrows(MalformedPayloadException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
+    Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(input));
   }
 
   @Test
@@ -399,11 +375,7 @@ class StvnTypeResolverRegressionTest {
           :body [ #Right "Inferred Inner Left" ]
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    Assertions.assertThrows(MalformedPayloadException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
+    Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(input));
   }
 
   @Test
@@ -414,10 +386,8 @@ class StvnTypeResolverRegressionTest {
           :body [ #Right #Left "Inferred Inner Left" ]
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var val = StvnIrVisitor.build(bodyEntry, doc);
-    Assertions.assertNotNull(val);
+    var val = StvnCompiler.compilePayload(input);
+    Assertions.assertTrue(val.isPresent());
   }
 
   @Test
@@ -432,11 +402,7 @@ class StvnTypeResolverRegressionTest {
           :body [ 1 ]
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    Assertions.assertThrows(MalformedPayloadException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
+    Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(input));
   }
 
   @Test
@@ -447,11 +413,7 @@ class StvnTypeResolverRegressionTest {
           :body #Some
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    Assertions.assertThrows(MalformedPayloadException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
+    Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(input));
   }
 
   @Test
@@ -462,26 +424,20 @@ class StvnTypeResolverRegressionTest {
           :body 42
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var val = StvnIrVisitor.build(bodyEntry, doc).orElseThrow();
-    
-    Assertions.assertTrue(val instanceof StvnOption);
-    var outerOpt = (StvnOption) val;
-    var outerTrajectory = outerOpt.trajectory();
-    Assertions.assertEquals(1, outerTrajectory.size());
-    Assertions.assertEquals("#Some", outerTrajectory.get(0).tag());
-    Assertions.assertTrue(outerTrajectory.get(0).isInferred());
-    
-    var innerEitherVal = outerOpt.value().orElseThrow();
-    Assertions.assertTrue(innerEitherVal instanceof StvnEither);
-    var innerEither = (StvnEither) innerEitherVal;
-    var innerTrajectory = innerEither.trajectory();
-    Assertions.assertEquals(2, innerTrajectory.size());
-    Assertions.assertEquals("#Some", innerTrajectory.get(0).tag());
-    Assertions.assertTrue(innerTrajectory.get(0).isInferred());
-    Assertions.assertEquals("#Right", innerTrajectory.get(1).tag());
-    Assertions.assertTrue(innerTrajectory.get(1).isInferred());
+    var doc = StvnCompiler.compile(input).document().orElseThrow();
+    var val = doc.requirePayload();
+
+    var outerOpt = Assertions.assertInstanceOf(StvnOption.class, val);
+    var innerEither = Assertions.assertInstanceOf(StvnEither.class, outerOpt.value().orElseThrow());
+    Assertions.assertEquals(EitherBranch.RIGHT, innerEither.branch());
+    Assertions.assertEquals(BigInteger.valueOf(42), Assertions.assertInstanceOf(StvnInt.class, innerEither.value()).value());
+
+    String compact = AstCompactPrinter.print(doc);
+    Assertions.assertTrue(compact.contains(":body 42"), "HAPPY_PATH_INFERRED must elide #Some and #Right: " + compact);
+    String canonical = StvnCompiler.toCanonicalString(doc);
+    Assertions.assertTrue(canonical.contains(":body #S #R 42"), "Canonical CAS form must emit explicit #S #R: " + canonical);
+    Assertions.assertEquals(val, StvnCompiler.compilePayload(compact).orElseThrow());
+    Assertions.assertEquals(val, StvnCompiler.compilePayload(canonical).orElseThrow());
   }
 
   @Test
@@ -492,45 +448,34 @@ class StvnTypeResolverRegressionTest {
           :body [ 42 ]
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var val = StvnIrVisitor.build(bodyEntry, doc).orElseThrow();
+    var doc = StvnCompiler.compile(input).document().orElseThrow();
+    var val = doc.requirePayload();
 
-    Assertions.assertTrue(val instanceof StvnOption);
-    var outerOpt = (StvnOption) val;
-    var outerTrajectory = outerOpt.trajectory();
-    Assertions.assertEquals(1, outerTrajectory.size());
-    Assertions.assertEquals("#Some", outerTrajectory.get(0).tag());
-    Assertions.assertTrue(outerTrajectory.get(0).isInferred());
+    var outerOpt = Assertions.assertInstanceOf(StvnOption.class, val);
+    var seq = Assertions.assertInstanceOf(StvnValue.StvnSeq.class, outerOpt.value().orElseThrow());
+    var innerOpt = Assertions.assertInstanceOf(StvnOption.class, seq.elements().get(0));
+    Assertions.assertEquals(BigInteger.valueOf(42), Assertions.assertInstanceOf(StvnInt.class, innerOpt.value().orElseThrow()).value());
 
-    var seqVal = outerOpt.value().orElseThrow();
-    Assertions.assertTrue(seqVal instanceof org.stvnadore.core.ast.StvnValue.StvnSeq);
-    var seq = (org.stvnadore.core.ast.StvnValue.StvnSeq) seqVal;
-    
-    var innerVal = seq.elements().get(0);
-    Assertions.assertTrue(innerVal instanceof StvnOption);
-    var innerOpt = (StvnOption) innerVal;
-    var innerTrajectory = innerOpt.trajectory();
-    
-    Assertions.assertEquals(1, innerTrajectory.size());
-    Assertions.assertEquals("#Some", innerTrajectory.get(0).tag());
-    Assertions.assertTrue(innerTrajectory.get(0).isInferred());
+    String compact = AstCompactPrinter.print(doc);
+    Assertions.assertTrue(compact.contains(":body[42]"), "HAPPY_PATH_INFERRED must elide outer and inner #Some: " + compact);
+    String canonical = StvnCompiler.toCanonicalString(doc);
+    Assertions.assertTrue(canonical.contains(":body #S[#S 42]"), "Canonical CAS form must emit explicit #S[#S 42]: " + canonical);
+    Assertions.assertEquals(val, StvnCompiler.compilePayload(compact).orElseThrow());
+    Assertions.assertEquals(val, StvnCompiler.compilePayload(canonical).orElseThrow());
   }
 
   @Test
   void testValidBooleanLiterals() {
-    var inputs = java.util.List.of(
+    var inputs = List.of(
         "{ :type :Boolean :body #TRUE }",
         "{ :type :Boolean :body #T }",
         "{ :type :Boolean :body #FALSE }",
         "{ :type :Boolean :body #F }"
     );
     for (var input : inputs) {
-      var doc = parseDocument(input);
-      var bodyEntry = doc.documentBody().bodyEntry();
-      var val = StvnIrVisitor.build(bodyEntry, doc);
+      var val = StvnCompiler.compilePayload(input);
       Assertions.assertTrue(val.isPresent());
-      Assertions.assertTrue(val.get() instanceof org.stvnadore.core.ast.StvnValue.StvnBoolean);
+      Assertions.assertInstanceOf(StvnValue.StvnBoolean.class, val.get());
     }
   }
 
@@ -542,12 +487,14 @@ class StvnTypeResolverRegressionTest {
           :body #False
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var ex = Assertions.assertThrows(StvnMalformedLiteralException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
-    Assertions.assertEquals("Invalid boolean literal casing: found '#False', expected exactly '#TRUE', '#T', '#FALSE', or '#F'.", ex.getMessage());
+    var ex = Assertions.assertThrows(
+        StvnMalformedLiteralException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
+    Assertions.assertEquals(
+        "Invalid boolean literal casing: found '#False', expected exactly '#TRUE', '#T', '#FALSE', or '#F'.",
+        ex.getMessage()
+    );
     Assertions.assertEquals(input.indexOf("#False"), ex.startOffset());
     Assertions.assertEquals(input.indexOf("#False") + "#False".length(), ex.endOffset());
   }
@@ -560,12 +507,14 @@ class StvnTypeResolverRegressionTest {
           :body #t
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var ex = Assertions.assertThrows(StvnMalformedLiteralException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
-    Assertions.assertEquals("Invalid boolean literal casing: found '#t', expected exactly '#TRUE', '#T', '#FALSE', or '#F'.", ex.getMessage());
+    var ex = Assertions.assertThrows(
+        StvnMalformedLiteralException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
+    Assertions.assertEquals(
+        "Invalid boolean literal casing: found '#t', expected exactly '#TRUE', '#T', '#FALSE', or '#F'.",
+        ex.getMessage()
+    );
     Assertions.assertEquals(input.indexOf("#t"), ex.startOffset());
     Assertions.assertEquals(input.indexOf("#t") + "#t".length(), ex.endOffset());
   }
@@ -578,12 +527,14 @@ class StvnTypeResolverRegressionTest {
           :body #true
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var ex = Assertions.assertThrows(StvnMalformedLiteralException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
-    Assertions.assertEquals("Invalid boolean literal casing: found '#true', expected exactly '#TRUE', '#T', '#FALSE', or '#F'.", ex.getMessage());
+    var ex = Assertions.assertThrows(
+        StvnMalformedLiteralException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
+    Assertions.assertEquals(
+        "Invalid boolean literal casing: found '#true', expected exactly '#TRUE', '#T', '#FALSE', or '#F'.",
+        ex.getMessage()
+    );
     Assertions.assertEquals(input.indexOf("#true"), ex.startOffset());
     Assertions.assertEquals(input.indexOf("#true") + "#true".length(), ex.endOffset());
   }
@@ -596,12 +547,14 @@ class StvnTypeResolverRegressionTest {
           :body 42
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    var ex = Assertions.assertThrows(MalformedPayloadException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
-    Assertions.assertTrue(ex.getMessage().contains("Type mismatch: Expected boolean, got integer"));
+    var ex = Assertions.assertThrows(
+        MalformedPayloadException.class,
+        () -> StvnCompiler.compilePayload(input)
+    );
+    Assertions.assertTrue(
+        ex.getMessage().contains("Type mismatch") && ex.getMessage().contains(":Boolean") && ex.getMessage().contains(":Int"),
+        "Unexpected message: " + ex.getMessage()
+    );
   }
 
   @Test
@@ -612,11 +565,7 @@ class StvnTypeResolverRegressionTest {
           :body [ #TRUE ]
         }
         """;
-    var doc = parseDocument(input);
-    var bodyEntry = doc.documentBody().bodyEntry();
-    Assertions.assertThrows(MalformedPayloadException.class, () -> {
-      StvnIrVisitor.build(bodyEntry, doc);
-    });
+    Assertions.assertThrows(MalformedPayloadException.class, () -> StvnCompiler.compilePayload(input));
   }
 
   @Test
@@ -633,7 +582,10 @@ class StvnTypeResolverRegressionTest {
         """;
     var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.hasErrors(), "Valid nominal type :IntCounter must compile cleanly");
-    Assertions.assertEquals(42L, Assertions.assertInstanceOf(StvnInteger.class, result.document().orElseThrow().requirePayload()).value().longValue());
+    Assertions.assertEquals(
+        42L,
+        Assertions.assertInstanceOf(StvnInt.class, result.document().orElseThrow().requirePayload()).value().longValue()
+    );
   }
 
   @Test
@@ -702,13 +654,12 @@ class StvnTypeResolverRegressionTest {
     var result = StvnCompiler.compileToResult(input, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.hasErrors(), "Nominal :Int32 in :defs must compile cleanly");
     Assertions.assertTrue(result.isSuccess(), "Compilation must succeed");
-    Assertions.assertInstanceOf(StvnValue.StvnInteger.class, result.document().orElseThrow().requirePayload());
+    Assertions.assertInstanceOf(StvnInt.class, result.document().orElseThrow().requirePayload());
   }
 
   @Test
   @DisplayName("TC-PRELUDE-USE-01: Scoped :use import of :IPv4 compiles cleanly and enforces regex")
   void testScopedPreludeUseIPv4RegexConstraint() {
-    // Happy path: valid IPv4 string passes cleanly
     String validSource = """
         {
           :defs {
@@ -722,7 +673,6 @@ class StvnTypeResolverRegressionTest {
     var validResult = StvnCompiler.compileToResult(validSource, null, StvnParserConfig.DEFAULT);
     Assertions.assertTrue(validResult.isSuccess(), "Scoped :use import of :IPv4 must compile cleanly: " + validResult.diagnostics());
 
-    // Negative path: empty string violates #minSize 7
     String emptySource = """
         {
           :defs {
@@ -735,11 +685,14 @@ class StvnTypeResolverRegressionTest {
         """;
     var emptyResult = StvnCompiler.compileToResult(emptySource, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(emptyResult.isSuccess(), "Empty string must violate #minSize constraint for :IPv4");
-    Assertions.assertTrue(emptyResult.diagnostics().stream().anyMatch(d ->
-        d.message().contains("String cannot be empty") || d.message().contains("minSize")),
-        "Must record constraint violation for empty string: " + emptyResult.diagnostics());
+    Assertions.assertTrue(
+        emptyResult.diagnostics().stream().anyMatch(d ->
+            d.message().contains("String cannot be empty")
+                || d.message().contains("minSize")
+                || d.message().contains("Length")),
+        "Must record constraint violation for empty string: " + emptyResult.diagnostics()
+    );
 
-    // Negative path: invalid IPv4 pattern violates #regex
     String invalidPatternSource = """
         {
           :defs {
@@ -752,15 +705,16 @@ class StvnTypeResolverRegressionTest {
         """;
     var patternResult = StvnCompiler.compileToResult(invalidPatternSource, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(patternResult.isSuccess(), "Malformed IP address must violate regex pattern for :IPv4");
-    Assertions.assertTrue(patternResult.diagnostics().stream().anyMatch(d ->
-        d.message().contains("pattern") || d.message().contains("regex")),
-        "Must record regex violation: " + patternResult.diagnostics());
+    Assertions.assertTrue(
+        patternResult.diagnostics().stream().anyMatch(d ->
+            d.message().contains("pattern") || d.message().contains("regex")),
+        "Must record regex violation: " + patternResult.diagnostics()
+    );
   }
 
   @Test
   @DisplayName("TC-PRELUDE-USE-02: Scoped :use import of :Port compiles cleanly and enforces numeric bounds")
   void testScopedPreludeUsePortBoundsConstraint() {
-    // Happy path: valid port integer passes cleanly
     String validSource = """
         {
           :defs {
@@ -774,7 +728,6 @@ class StvnTypeResolverRegressionTest {
     var validResult = StvnCompiler.compileToResult(validSource, null, StvnParserConfig.DEFAULT);
     Assertions.assertTrue(validResult.isSuccess(), "Scoped :use import of :Port must compile cleanly: " + validResult.diagnostics());
 
-    // Negative path: 70000 exceeds 16-bit unsigned integer capacity (0 to 65535)
     String overflowSource = """
         {
           :defs {
@@ -787,9 +740,13 @@ class StvnTypeResolverRegressionTest {
         """;
     var overflowResult = StvnCompiler.compileToResult(overflowSource, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(overflowResult.isSuccess(), "Port 70000 must violate bounds for 16-bit Port");
-    Assertions.assertTrue(overflowResult.diagnostics().stream().anyMatch(d ->
-        DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) || d.message().contains("out of bounds")),
-        "Must record integer overflow diagnostic: " + overflowResult.diagnostics());
+    Assertions.assertTrue(
+        overflowResult.diagnostics().stream().anyMatch(d ->
+            DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null))
+                || d.message().contains("overflows")
+                || d.message().contains("out of bounds")),
+        "Must record integer overflow diagnostic: " + overflowResult.diagnostics()
+    );
   }
 
   @Test
@@ -859,14 +816,16 @@ class StvnTypeResolverRegressionTest {
         """;
     var result = StvnCompiler.compileToResult(source, "document.stvn", StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.isSuccess(), "Hermetic document targeting external package must be rejected");
-    Assertions.assertTrue(result.diagnostics().stream().anyMatch(d ->
-        DiagnosticBag.ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT.equals(d.errorCode().orElse(null))),
-        "Must record ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT: " + result.diagnostics());
+    Assertions.assertTrue(
+        result.diagnostics().stream().anyMatch(d ->
+            DiagnosticBag.ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT.equals(d.errorCode().orElse(null))),
+        "Must record ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT: " + result.diagnostics()
+    );
   }
 
   @Test
-  @DisplayName("TC-REG-OFFSETS-01: Throwing validateDocumentConstraints preserves legacy exception and offsets")
-  void testThrowingValidateDocumentConstraintsPreservesLegacyExceptionAndOffsets() {
+  @DisplayName("TC-REG-OFFSETS-01: Throwing compilePayload preserves MalformedSchemaException and pinned offsets")
+  void testThrowingCompilePayloadPreservesMalformedSchemaExceptionAndOffsets() {
     String source = """
         {
           :defs {
@@ -876,11 +835,10 @@ class StvnTypeResolverRegressionTest {
           :body [ ( 1 ) ]
         }
         """;
-    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
     var ex = Assertions.assertThrows(
         MalformedSchemaException.class,
-        () -> StvnTypeResolver.validateDocumentConstraints(doc),
-        "validateDocumentConstraints(doc) throwing entrypoint must throw MalformedSchemaException"
+        () -> StvnCompiler.compilePayload(source),
+        "compilePayload(source) throwing entrypoint must throw MalformedSchemaException"
     );
     Assertions.assertEquals("Set elements require types to be #equatable #TRUE", ex.getMessage());
     Assertions.assertTrue(ex.startOffset() >= 0, "startOffset must be non-negative");

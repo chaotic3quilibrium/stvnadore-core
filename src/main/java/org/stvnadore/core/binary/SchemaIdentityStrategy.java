@@ -1,5 +1,12 @@
 package org.stvnadore.core.binary;
 
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.UUID;
+
 /**
  * Strategy contract defining how schema identities are registered, cached,
  * and resolved across local or remote environments.
@@ -8,6 +15,7 @@ package org.stvnadore.core.binary;
  *
  * @since 1.0.0
  */
+@NullMarked
 public sealed interface SchemaIdentityStrategy {
 
   /**
@@ -54,6 +62,14 @@ public sealed interface SchemaIdentityStrategy {
    * @param repositoryKey the ASCII key under which the schema is cataloged
    */
   record AsciiStringKey(String repositoryKey) implements SchemaIdentityStrategy {
+    /**
+     * Canonical constructor verifying non-null repository key.
+     *
+     * @param repositoryKey the ASCII key under which the schema is cataloged
+     */
+    public AsciiStringKey {
+      Objects.requireNonNull(repositoryKey, "repositoryKey must not be null");
+    }
   }
 
   /**
@@ -62,6 +78,14 @@ public sealed interface SchemaIdentityStrategy {
    * @param repositoryKey the Unicode key under which the schema is cataloged
    */
   record UnicodeStringKey(String repositoryKey) implements SchemaIdentityStrategy {
+    /**
+     * Canonical constructor verifying non-null repository key.
+     *
+     * @param repositoryKey the Unicode key under which the schema is cataloged
+     */
+    public UnicodeStringKey {
+      Objects.requireNonNull(repositoryKey, "repositoryKey must not be null");
+    }
   }
 
   /**
@@ -77,7 +101,15 @@ public sealed interface SchemaIdentityStrategy {
    *
    * @param uuid the explicit UUID
    */
-  record ExplicitUuid(java.util.UUID uuid) implements SchemaIdentityStrategy {
+  record ExplicitUuid(UUID uuid) implements SchemaIdentityStrategy {
+    /**
+     * Canonical constructor verifying non-null UUID.
+     *
+     * @param uuid the explicit UUID
+     */
+    public ExplicitUuid {
+      Objects.requireNonNull(uuid, "uuid must not be null");
+    }
   }
 
   /**
@@ -87,16 +119,25 @@ public sealed interface SchemaIdentityStrategy {
    */
   record ExplicitSha256(byte[] hash) implements SchemaIdentityStrategy {
     /**
+     * Canonical constructor verifying non-null hash array.
+     *
+     * @param hash the raw SHA-256 byte array
+     */
+    public ExplicitSha256 {
+      Objects.requireNonNull(hash, "hash must not be null");
+    }
+
+    /**
      * Compares this strategy with another object for equivalence based on the hash bytes.
      *
      * @param o the other object to compare
      * @return {@code true} if the hashes are identical, otherwise {@code false}
      */
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
       return (this == o) || (
-          (o instanceof ExplicitSha256(var thatHash)) &&
-              java.util.Arrays.equals(this.hash, thatHash));
+          (o instanceof ExplicitSha256(var thatHash))
+              && Arrays.equals(this.hash, thatHash));
     }
 
     /**
@@ -106,15 +147,24 @@ public sealed interface SchemaIdentityStrategy {
      */
     @Override
     public int hashCode() {
-      return java.util.Arrays.hashCode(hash);
+      return Arrays.hashCode(hash);
     }
   }
 
   /**
-   * Self-describing schema strategy that carries the inline source text definition content (.stvn_d).
+   * Self-describing schema strategy carrying inline STVN definitions schema source text ({@code .stvn_d}).
    *
-   * @param stvnInclfContent the source STVN definitions schema content (.stvn_d)
+   * @param schemaSourceText the STVN definitions schema source text ({@code .stvn_d})
+   * @since 2.0.0
    */
-  record SelfDescribingSchema(String stvnInclfContent) implements SchemaIdentityStrategy {
+  record SelfDescribingSchema(String schemaSourceText) implements SchemaIdentityStrategy {
+    /**
+     * Canonical constructor verifying non-null schema source text.
+     *
+     * @param schemaSourceText the STVN definitions schema source text
+     */
+    public SelfDescribingSchema {
+      Objects.requireNonNull(schemaSourceText, "schemaSourceText must not be null");
+    }
   }
 }

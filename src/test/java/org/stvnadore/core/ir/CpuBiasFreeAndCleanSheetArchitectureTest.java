@@ -528,6 +528,80 @@ class CpuBiasFreeAndCleanSheetArchitectureTest {
     assertEquals(Optional.of("ERR_UNKNOWN_TYPE"), symbolicSingleDiag.errorCode());
   }
 
+  @Test
+  @DisplayName("TC-IR-ARCH-07: Verify total excision of org.stvnadore.core.ast, LegacyAstBridge, and StvnTypeResolver from src/main/java and runtime classpath")
+  void testTotalLegacyAstBridgeAndResolverExcision() throws IOException {
+    Path mainJavaRoot = Path.of("src", "main", "java");
+    assertTrue(Files.isDirectory(mainJavaRoot), "src/main/java directory must exist");
+
+    assertFalse(
+        Files.exists(mainJavaRoot.resolve(Path.of("org", "stvnadore", "core", "ast"))),
+        "Legacy package directory src/main/java/org/stvnadore/core/ast must not exist"
+    );
+    assertFalse(
+        Files.exists(mainJavaRoot.resolve(Path.of("org", "stvnadore", "core", "lowering", "LegacyAstBridge.java"))),
+        "Transitional bridge class LegacyAstBridge.java must not exist in src/main/java"
+    );
+    assertFalse(
+        Files.exists(mainJavaRoot.resolve(Path.of("org", "stvnadore", "core", "validation", "StvnTypeResolver.java"))),
+        "Legacy CST resolver StvnTypeResolver.java must not exist in src/main/java"
+    );
+    assertFalse(
+        Files.exists(mainJavaRoot.resolve(Path.of("org", "stvnadore", "core", "validation", "ResolvedType.java"))),
+        "Legacy ResolvedType.java must not exist in src/main/java"
+    );
+    assertFalse(
+        Files.exists(mainJavaRoot.resolve(Path.of("org", "stvnadore", "core", "io", "StvnCanonicalDefinitionsResolver.java"))),
+        "Legacy StvnCanonicalDefinitionsResolver.java must not exist in src/main/java"
+    );
+
+    List<String> mainSourceViolations = new ArrayList<>();
+    try (var stream = Files.walk(mainJavaRoot)) {
+      List<Path> mainJavaFiles = stream.filter(p -> p.toString().endsWith(".java")).sorted().toList();
+      for (Path file : mainJavaFiles) {
+        List<String> lines = Files.readAllLines(file);
+        for (int i = 0; i < lines.size(); i++) {
+          String line = lines.get(i);
+          if (line.contains("org.stvnadore.core.ast")
+              || line.contains("LegacyAstBridge")
+              || line.contains("StvnTypeResolver")
+              || line.contains("stvnInclfContent")) {
+            mainSourceViolations.add(file + ":" + (i + 1) + ": " + line.trim());
+          }
+        }
+      }
+    }
+    assertTrue(
+        mainSourceViolations.isEmpty(),
+        "Production sources in src/main/java must have zero references to legacy AST, bridge, or resolver types:\n"
+            + String.join("\n", mainSourceViolations)
+    );
+
+    Module coreModule = StvnSchema.class.getModule();
+    assertFalse(
+        coreModule.getPackages().contains("org.stvnadore.core.ast"),
+        "Compiled module org.stvnadore.core must not contain package org.stvnadore.core.ast"
+    );
+
+    List<String> excisedClassNames = List.of(
+        "org.stvnadore.core.ast.StvnDocument",
+        "org.stvnadore.core.ast.StvnValue",
+        "org.stvnadore.core.ast.StvnIrVisitor",
+        "org.stvnadore.core.ast.StvnLiteralParser",
+        "org.stvnadore.core.ast.VariantStep",
+        "org.stvnadore.core.lowering.LegacyAstBridge",
+        "org.stvnadore.core.validation.StvnTypeResolver"
+    );
+    ClassLoader cl = StvnSchema.class.getClassLoader();
+    for (String className : excisedClassNames) {
+      assertThrows(
+          ClassNotFoundException.class,
+          () -> Class.forName(className, false, cl),
+          "Excised legacy class must not exist on compiled runtime classpath: " + className
+      );
+    }
+  }
+
   private static Set<Class<?>> collectAllIrTypes() {
     Set<Class<?>> collected = new LinkedHashSet<>();
     for (Class<?> root : TOP_LEVEL_IR_CLASSES) {

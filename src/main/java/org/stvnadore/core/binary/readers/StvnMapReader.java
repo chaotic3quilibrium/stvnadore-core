@@ -1,71 +1,61 @@
 package org.stvnadore.core.binary.readers;
 
+import org.jspecify.annotations.NullMarked;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryDecoder.DecodeContext;
-import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
+import org.stvnadore.core.ir.StvnSchema;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
- * Zero-copy in-place reader for traversing STVN binary representation of Maps.
+ * Zero-copy in-place reader for traversing STVN binary representations of {@code :Map} collections.
  * <p>
- * This class facilitates direct memory access semantics on the underlying byte buffer,
- * exposing separate {@link StvnMemoryAccessor} instances for keys and values segments.
- * This structure allows out-of-order map entry queries without generating intermediate garbage
- * or instantiating AST nodes.
- *
- * <h2>Unsigned 1-Based Length Format</h2>
- * Map entry count is encoded using an unsigned 1-based format ({@code length = value + 1}).
- * A stored byte/word value of {@code 0} indicates a map length of {@code 1} entry.
- * This optimizes space and prevents buffer overrun exploits by eliminating reliance on null termination.
+ * Exposes separate {@link StvnMemoryAccessor} instances for contiguous key and value segments,
+ * allowing out-of-order map entry queries without generating intermediate garbage or instantiating IR nodes.
  *
  * @since 1.0.0
  */
+@NullMarked
 public final class StvnMapReader {
 
   private final int length;
 
   /**
-   * Accessor providing zero-copy primitive lookup on the contiguous array of Map Keys.
+   * Accessor providing zero-copy lookup on the contiguous array of map keys.
    */
   public final StvnMemoryAccessor keys;
 
   /**
-   * Accessor providing zero-copy primitive lookup on the contiguous array of Map Values.
+   * Accessor providing zero-copy lookup on the contiguous array of map values.
    */
   public final StvnMemoryAccessor values;
 
   /**
-   * Constructs a new StvnMapReader resolving key and value strides and length boundaries.
+   * Constructs a new {@code StvnMapReader} resolving key and value strides and length boundaries.
    *
    * @param ctx        the decode context containing the raw buffer
    * @param baseOffset the start memory address of the map data block
-   * @param schema     the map's resolved schema configuration
+   * @param schema     the map's pure-IR {@link StvnSchema}
    */
-  public StvnMapReader(DecodeContext ctx, int baseOffset, ResolvedSchema schema) {
+  public StvnMapReader(DecodeContext ctx, int baseOffset, StvnSchema schema) {
+    Objects.requireNonNull(ctx, "ctx must not be null");
+    Objects.requireNonNull(schema, "schema must not be null");
+
     StvnBinaryDecoder.LengthResult lr = StvnBinaryDecoder.readDerivedLengthPrefix(ctx.buffer(), baseOffset);
     this.length = lr.length();
     int keysStartOffset = baseOffset + lr.bytesConsumed();
 
-    List<ResolvedSchema> childSchemas = StvnBinaryDecoder.extractChildSchemas(schema);
-    ResolvedSchema keySchema = childSchemas.isEmpty()
-        ? null
-        : childSchemas.get(0);
-    ResolvedSchema valueSchema = childSchemas.size() > 1
-        ? childSchemas.get(1)
-        : null;
+    List<StvnSchema> childSchemas = StvnBinaryDecoder.extractChildSchemas(schema);
+    StvnSchema keySchema = childSchemas.isEmpty() ? null : childSchemas.get(0);
+    StvnSchema valueSchema = childSchemas.size() > 1 ? childSchemas.get(1) : null;
 
     int kInline = StvnBinaryDecoder.getInlineSize(keySchema);
-    int keyStride = (kInline > 0)
-        ? kInline
-        : ctx.offsetSize();
+    int keyStride = (kInline > 0) ? kInline : ctx.offsetSize();
 
     int vInline = StvnBinaryDecoder.getInlineSize(valueSchema);
-    int valueStride = (vInline > 0)
-        ? vInline
-        : ctx.offsetSize();
+    int valueStride = (vInline > 0) ? vInline : ctx.offsetSize();
 
-    // Values array starts exactly after the Keys array finishes
     int valuesStartOffset = keysStartOffset + (this.length * keyStride);
 
     if (this.length > 0) {

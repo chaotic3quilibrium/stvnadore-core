@@ -7,7 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnCompilationResult;
 import org.stvnadore.core.StvnSchemaFlattener;
-import org.stvnadore.core.ast.StvnValue;
+
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -203,7 +203,7 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res1.isSuccess());
     Assertions.assertTrue(res1.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal -1 out of range for :U3 [0, 7]")));
+        d.message().contains("Integer literal '-1' overflows unsigned 3-bit capacity for #C1")));
 
     String overflow = """
         {
@@ -219,7 +219,7 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res2.isSuccess());
     Assertions.assertTrue(res2.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal 8 out of range for :U3 [0, 7]")));
+        d.message().contains("Integer literal '8' overflows unsigned 3-bit capacity for #C2")));
   }
 
   @Test
@@ -239,7 +239,7 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res1.isSuccess());
     Assertions.assertTrue(res1.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal -5 out of range for :I3 [-4, 3]")));
+        d.message().contains("Integer literal '-5' overflows signed 3-bit capacity for #C1")));
 
     String overflow = """
         {
@@ -255,7 +255,7 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res2.isSuccess());
     Assertions.assertTrue(res2.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal 4 out of range for :I3 [-4, 3]")));
+        d.message().contains("Integer literal '4' overflows signed 3-bit capacity for #C2")));
   }
 
   @Test
@@ -494,18 +494,21 @@ public class StvnDefinitionsOverhaulTest {
               :defs {
                 :Port :org/stvnadore/prelude/Port
                 :LocalPort :Port
+                :Endpoint :Tuple( :LocalPort :Port )
               }
-              :type :LocalPort
-              :body 8080
+              :type :Endpoint
+              :body ( 8080 9090 )
             }
             """
     );
 
     String flattened = StvnSchemaFlattener.flatten(workspace, "main.stvn");
-    Assertions.assertTrue(flattened.contains(":LocalPort :Port"),
-        "Must preserve nominal alias :LocalPort :Port verbatim: " + flattened);
-    Assertions.assertTrue(flattened.contains(":Port :org/stvnadore/prelude/Port"),
-        "Must preserve :Port :org/stvnadore/prelude/Port verbatim: " + flattened);
+    Assertions.assertTrue(flattened.contains(":LocalPort{#unsigned #size 16 #minIncl 1}:Int"),
+        "Must emit normalized 5-tier :LocalPort definition: " + flattened);
+    Assertions.assertTrue(flattened.contains(":Port{#unsigned #size 16 #minIncl 1}:Int"),
+        "Must emit normalized 5-tier :Port definition: " + flattened);
+    Assertions.assertTrue(flattened.contains(":Endpoint :Tuple(:LocalPort :Port)"),
+        "Must preserve nominal alias references :LocalPort and :Port verbatim inside composite definitions: " + flattened);
   }
 
   @Test

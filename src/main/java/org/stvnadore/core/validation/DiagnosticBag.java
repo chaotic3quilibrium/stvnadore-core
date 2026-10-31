@@ -589,7 +589,7 @@ public final class DiagnosticBag {
       if (ERR_DUPLICATE_DEF.equals(errorCode)) {
         return new IllegalStateException(message);
       } else if (ERR_CIRCULAR_TYPE.equals(errorCode)) {
-        return new StvnTypeResolver.CircularReferenceException(message);
+        return new CircularReferenceException(message);
       } else if ("CYCLIC_MODULE_INCLUDE".equals(errorCode)) {
         return new CyclicDependencyException(message, List.of(), List.of());
       } else if (ERR_NAMESPACE_COLLISION.equals(errorCode)) {

@@ -1,32 +1,53 @@
 package org.stvnadore.core.printer;
 
 import org.jspecify.annotations.NullMarked;
-import org.stvnadore.core.ast.StvnDocument;
-import org.stvnadore.core.ast.StvnValue;
-import org.stvnadore.core.parser.StvnParser;
+import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.io.CanonicalStvnWriter;
+import org.stvnadore.core.ir.StvnDefsCatalog;
+import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.ir.StvnDocumentMeta;
+import org.stvnadore.core.ir.StvnSchema;
+import org.stvnadore.core.ir.StvnSchema.BoundKind;
+import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
+import org.stvnadore.core.ir.StvnSchema.TraitProfile;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.lowering.StvnPayloadLowerer;
+import org.stvnadore.core.lowering.StvnReachabilityAndCasVerifier;
 import org.stvnadore.core.printer.internal.LayoutWriter;
 import org.stvnadore.core.printer.internal.PatternPrinterDispatcher;
 import org.stvnadore.core.printer.internal.PrettyLayoutWriter;
-import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
+import org.stvnadore.core.validation.DiagnosticBag;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.io.Writer;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.io.StvnCanonicalDefinitionsResolver;
-import org.stvnadore.core.io.StvnCanonicalDefinitionsResolver.ResolvedCanonicalDefinition;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
- * Abstract base class for STVN printers, orchestrating formatting and serialization loops.
+ * Abstract base class for pure-IR STVN printers, orchestrating formatting and serialization loops.
  * <p>
- * This class provides standard implementation logic for printing the {@code :defs},
- * {@code :type}, and {@code :body} blocks of an STVN document. It coordinates the printing options,
- * constraint visualization, and delegates layout-specific operations to a subclass-provided
- * {@link LayoutWriter}.
+ * This class provides standard implementation logic for printing the {@code :meta}, {@code :defs},
+ * {@code :type}, and {@code :body} sections of a pure-IR {@link StvnDocument} or {@link StvnValue}.
+ * Metadata facets serialize strictly in the canonical 5-tier decimal sequence ({@code 1.1.1}
+ * through {@code 5.0}, § 6.1) with zero {@code W003} tautologies. Both {@code #DEFS} /
+ * {@code #DEFS_INCLUDE} schemas and {@code #BODY} / {@code #BODY_INCLUDE} payload documents
+ * serialize losslessly.
  * </p>
+ *
+ * @since 1.0.0
  */
 @NullMarked
 public abstract class AbstractStvnPrinter implements StvnTextPrinter {
+
+  private static final BigInteger THIRTY_TWO = BigInteger.valueOf(32L);
+
   /**
    * The formatting options applied to this printer.
    */
@@ -38,7 +59,7 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
    * @param options the formatting options to use
    */
   protected AbstractStvnPrinter(PrinterOptions options) {
-    this.options = options;
+    this.options = Objects.requireNonNull(options, "options must not be null");
   }
 
   /**
@@ -56,142 +77,76 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
    */
   protected abstract LayoutWriter createLayoutWriter(Writer target);
 
-  /**
-   * Serializes a pure-IR {@link org.stvnadore.core.ir.StvnDocument} to the destination writer.
-   *
-   * @param document the pure-IR document to serialize
-   * @param target   the target writer destination
-   * @throws IOException if an I/O error occurs during serialization
-   * @since 2.0.0
-   */
-  public void print(org.stvnadore.core.ir.StvnDocument document, Writer target) throws IOException {
-    print(org.stvnadore.core.lowering.LegacyAstBridge.toLegacyDocument(document), target);
-  }
-
-  /**
-   * Serializes a pure-IR {@link org.stvnadore.core.ir.StvnDocument} and returns its formatted string.
-   *
-   * @param document the pure-IR document to serialize
-   * @return the formatted STVN string
-   * @since 2.0.0
-   */
-  public String printToString(org.stvnadore.core.ir.StvnDocument document) {
-    return printToString(org.stvnadore.core.lowering.LegacyAstBridge.toLegacyDocument(document));
-  }
-
   @Override
   public void print(StvnValue value, Writer target) throws IOException {
-    print(value, (ResolvedSchema) null, target);
+    print(value, null, target);
   }
 
   /**
-   * Serializes the given STVN value with an explicit schema context.
+   * Serializes the given pure-IR {@link StvnValue} with an optional explicit {@link StvnSchema} context.
    *
-   * @param value          the STVN value tree to serialize
-   * @param explicitSchema optional explicit target schema, or null
+   * @param value          the pure-IR STVN value tree to serialize
+   * @param explicitSchema optional explicit target schema, or {@code null}
    * @param target         the target writer destination
-   * @throws IOException if an I/O error occurs during serialization
+   * @throws IOException          if an I/O error occurs during serialization
+   * @throws NullPointerException if {@code value} or {@code target} is {@code null}
+   * @since 2.0.0
    */
-  public void print(StvnValue value, @org.jspecify.annotations.Nullable ResolvedSchema explicitSchema, Writer target) throws IOException {
+  public void print(StvnValue value, @Nullable StvnSchema explicitSchema, Writer target) throws IOException {
+    Objects.requireNonNull(value, "value must not be null");
+    Objects.requireNonNull(target, "target must not be null");
+
+    if (options.sumTypePolicy() == PrinterOptions.SumTypePolicy.HAPPY_PATH_INFERRED) {
+      boolean hasContext = (explicitSchema != null && !PatternPrinterDispatcher.isRealPoisonedSchema(explicitSchema))
+          || !PatternPrinterDispatcher.isRealPoisonedSchema(value.schema());
+      if (!hasContext) {
+        throw new IllegalStateException(
+            "Cannot apply HAPPY_PATH_INFERRED without schema context: target schema is required to verify variant elision legality under Rules A, B, and I."
+        );
+      }
+    }
+
     var layout = createLayoutWriter(target);
     if (options.coverage() == PrinterOptions.Coverage.BODY_ONLY) {
       PatternPrinterDispatcher.dispatch(value, layout, options);
-    } else {
-      layout.openGroup("{");
-      var pretty = layout instanceof PrettyLayoutWriter;
-      if (pretty) {
-        layout.newline();
-        layout.indent();
-      }
-
-      var schema = explicitSchema != null ? explicitSchema : value.schema();
-      List<ResolvedCanonicalDefinition> defs = StvnCanonicalDefinitionsResolver.resolveDefinitions(value, explicitSchema);
-      if (!defs.isEmpty()) {
-        layout.writeLiteral(StvnVocabulary.KEYWORD_DEFS);
-        layout.appendSeparator();
-        layout.openGroup("{");
-
-        var firstDef = true;
-        for (var s : defs) {
-          if (!firstDef) {
-            if (pretty) {
-              layout.newline();
-            } else {
-              layout.appendSeparator();
-            }
-          }
-          if (firstDef && pretty) {
-            layout.newline();
-            layout.indent();
-          }
-          firstDef = false;
-
-          layout.writeLiteral(s.canonicalName());
-
-          var constraints = s.constraints();
-          if (!isConstraintsEmpty(constraints)) {
-            layout.appendSeparator();
-            writeConstraints(constraints, layout);
-          }
-
-          layout.appendSeparator();
-          writeSchemaType(s.schemaNode(), layout, s.lexicalContext(), false);
-        }
-
-        if (pretty) {
-          layout.outdent();
-          layout.newline();
-        }
-        layout.closeGroup("}");
-
-        if (pretty) {
-          layout.newline();
-        } else {
-          layout.appendSeparator();
-        }
-      }
-
-      layout.writeLiteral(StvnVocabulary.KEYWORD_TYPE);
-      layout.appendSeparator();
-      if (schema != null) {
-        var alias = schema.aliasName().orElse(null);
-        if (alias != null) {
-          layout.writeLiteral(alias);
-        } else {
-          writeSchemaType(schema.node(), layout, schema.node(), true);
-        }
-      } else {
-        throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing schema context");
-      }
-
-      if (pretty) {
-        layout.newline();
-      } else {
-        layout.appendSeparator();
-      }
-
-      layout.writeLiteral(StvnVocabulary.KEYWORD_BODY);
-      layout.appendSeparator();
-      PatternPrinterDispatcher.dispatch(value, layout, options);
-
-      if (pretty) {
-        layout.outdent();
-        layout.newline();
-      }
-      layout.closeGroup("}");
+      layout.flush();
+      return;
     }
+
+    StvnDocument synthesized = StvnReachabilityAndCasVerifier.synthesizeDocumentFromValue(value);
+    if (explicitSchema != null && explicitSchema != value.schema()) {
+      StvnDocument withExplicitRoot = new StvnDocument(
+          Optional.empty(),
+          mergeExplicitRootIntoCatalog(synthesized.defs(), explicitSchema),
+          Optional.of(explicitSchema),
+          Optional.of(value),
+          true,
+          false
+      );
+      synthesized = StvnReachabilityAndCasVerifier.verifyAndPruneCanonical(
+          withExplicitRoot,
+          false,
+          new DiagnosticBag(16)
+      );
+    }
+
+    writeFullDocumentSections(synthesized, layout);
     layout.flush();
   }
 
   /**
-   * Serializes the given STVN value with an explicit schema context to a string.
+   * Serializes the given pure-IR {@link StvnValue} with an explicit {@link StvnSchema} context to a string.
    *
-   * @param value          the STVN value tree to serialize
+   * @param value          the pure-IR STVN value tree to serialize
    * @param explicitSchema the explicit target schema
-   * @return the serialized string
+   * @return the serialized STVN string
+   * @throws NullPointerException if {@code value} or {@code explicitSchema} is {@code null}
+   * @since 2.0.0
    */
-  public String printToString(StvnValue value, ResolvedSchema explicitSchema) {
-    var sw = new java.io.StringWriter();
+  public String printToString(StvnValue value, StvnSchema explicitSchema) {
+    Objects.requireNonNull(value, "value must not be null");
+    Objects.requireNonNull(explicitSchema, "explicitSchema must not be null");
+    var sw = new StringWriter();
     try {
       print(value, explicitSchema, sw);
     } catch (IOException e) {
@@ -201,150 +156,50 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
   }
 
   /**
-   * Serializes the given STVN document into the specified writer.
+   * Serializes a pure-IR {@link StvnDocument} to the destination writer.
+   * <p>
+   * Supports both {@code #DEFS} / {@code #DEFS_INCLUDE} schemas (where {@code payload()} is empty)
+   * and {@code #BODY} / {@code #BODY_INCLUDE} payload documents without returning an empty string
+   * on definitions-only schemas.
+   * </p>
    *
-   * @param document the STVN document to serialize
+   * @param document the pure-IR document to serialize
    * @param target   the target writer destination
-   * @throws IOException if an I/O error occurs during serialization
+   * @throws IOException          if an I/O error occurs during serialization
+   * @throws NullPointerException if {@code document} or {@code target} is {@code null}
+   * @since 2.0.0
    */
   public void print(StvnDocument document, Writer target) throws IOException {
+    Objects.requireNonNull(document, "document must not be null");
+    Objects.requireNonNull(target, "target must not be null");
+
     var layout = createLayoutWriter(target);
-    if (options.coverage() == PrinterOptions.Coverage.BODY_ONLY) {
-      if (document.hasPayload()) {
-        PatternPrinterDispatcher.dispatch(document.requirePayload(), layout, options);
-      }
-    } else {
-      layout.openGroup("{");
-      var pretty = layout instanceof PrettyLayoutWriter;
-      if (pretty) {
-        layout.newline();
-        layout.indent();
-      }
-
-      if (document.hasMeta()) {
-        var meta = document.requireMeta();
-        layout.writeLiteral(StvnVocabulary.KEYWORD_META);
-        layout.appendSeparator();
-        layout.openGroup("{");
-        var firstMeta = true;
-        if (meta.name().isPresent()) {
-          firstMeta = false;
-          layout.writeLiteral(StvnVocabulary.FACET_KW_META_NAME);
-          layout.appendSeparator();
-          layout.writeSimpleString(meta.name().get());
-        }
-        if (meta.domain().isPresent()) {
-          if (!firstMeta && pretty) layout.appendSeparator();
-          firstMeta = false;
-          layout.writeLiteral(StvnVocabulary.FACET_KW_META_DOMAIN);
-          layout.appendSeparator();
-          layout.writeSimpleString(meta.domain().get());
-        }
-        if (meta.kind().isPresent()) {
-          if (!firstMeta && pretty) layout.appendSeparator();
-          firstMeta = false;
-          layout.writeLiteral(StvnVocabulary.FACET_KW_META_KIND);
-          layout.appendSeparator();
-          layout.writeLiteral(meta.kind().get().keyword());
-        }
-        layout.closeGroup("}");
-        if (pretty) {
-          layout.newline();
-        } else {
-          layout.appendSeparator();
-        }
-      }
-
-      if (document.hasPayload()) {
-        var value = document.requirePayload();
-        var schema = value.schema();
-        List<ResolvedCanonicalDefinition> defs = StvnCanonicalDefinitionsResolver.resolveDefinitions(value);
-        if (!defs.isEmpty()) {
-          layout.writeLiteral(StvnVocabulary.KEYWORD_DEFS);
-          layout.appendSeparator();
-          layout.openGroup("{");
-
-          var firstDef = true;
-          for (var s : defs) {
-            if (!firstDef) {
-              if (pretty) {
-                layout.newline();
-              } else {
-                layout.appendSeparator();
-              }
-            }
-            if (firstDef && pretty) {
-              layout.newline();
-              layout.indent();
-            }
-            firstDef = false;
-
-            layout.writeLiteral(s.canonicalName());
-
-            var constraints = s.constraints();
-            if (!isConstraintsEmpty(constraints)) {
-              layout.appendSeparator();
-              writeConstraints(constraints, layout);
-            }
-
-            layout.appendSeparator();
-            writeSchemaType(s.schemaNode(), layout, s.lexicalContext(), false);
-          }
-
-          if (pretty) {
-            layout.outdent();
-            layout.newline();
-          }
-          layout.closeGroup("}");
-
-          if (pretty) {
-            layout.newline();
-          } else {
-            layout.appendSeparator();
-          }
-        }
-
-        layout.writeLiteral(StvnVocabulary.KEYWORD_TYPE);
-        layout.appendSeparator();
-        if (schema != null) {
-          var alias = schema.aliasName().orElse(null);
-          if (alias != null) {
-            layout.writeLiteral(alias);
-          } else {
-            writeSchemaType(schema.node(), layout, schema.node(), true);
-          }
-        } else {
-          throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing schema context");
-        }
-
-        if (pretty) {
-          layout.newline();
-        } else {
-          layout.appendSeparator();
-        }
-
-        layout.writeLiteral(StvnVocabulary.KEYWORD_BODY);
-        layout.appendSeparator();
-        PatternPrinterDispatcher.dispatch(value, layout, options);
-      }
-
-      if (pretty) {
-        layout.outdent();
-        layout.newline();
-      }
-      layout.closeGroup("}");
+    if (options.coverage() == PrinterOptions.Coverage.BODY_ONLY && document.payload().isPresent()) {
+      PatternPrinterDispatcher.dispatch(document.payload().get(), layout, options);
+      layout.flush();
+      return;
     }
+
+    StvnDocument canonicalDoc = StvnReachabilityAndCasVerifier.verifyAndPruneCanonical(
+        document,
+        false,
+        new DiagnosticBag(16)
+    );
+    writeFullDocumentSections(canonicalDoc, layout);
     layout.flush();
   }
 
   /**
-   * Serializes the given STVN document to a string.
+   * Serializes a pure-IR {@link StvnDocument} and returns its formatted string.
    *
-   * @param document the STVN document to serialize
-   * @return the serialized string
+   * @param document the pure-IR document to serialize
+   * @return the formatted STVN string
+   * @throws NullPointerException if {@code document} is {@code null}
+   * @since 2.0.0
    */
   public String printToString(StvnDocument document) {
-    var sw = new java.io.StringWriter();
+    Objects.requireNonNull(document, "document must not be null");
+    var sw = new StringWriter();
     try {
       print(document, sw);
     } catch (IOException e) {
@@ -353,416 +208,615 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
     return sw.toString();
   }
 
-  private void writeConstraints(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints constraints, LayoutWriter layout) throws IOException {
-    if (isConstraintsEmpty(constraints)) {
+  private void writeFullDocumentSections(StvnDocument doc, LayoutWriter layout) throws IOException {
+    boolean pretty = layout instanceof PrettyLayoutWriter;
+    layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+    if (pretty) {
+      layout.newline();
+      layout.indent();
+    }
+
+    boolean wroteSection = false;
+
+    if (doc.meta().isPresent()) {
+      wroteSection = true;
+      StvnDocumentMeta meta = doc.meta().get();
+      layout.writeLiteral(StvnVocabulary.KEYWORD_META);
+      layout.appendSeparator();
+      layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+      boolean firstMeta = true;
+      if (meta.name().isPresent()) {
+        firstMeta = false;
+        layout.writeLiteral(StvnVocabulary.FACET_KW_META_NAME);
+        layout.appendSeparator();
+        layout.writeSimpleString(meta.name().get());
+      }
+      if (meta.domain().isPresent()) {
+        if (!firstMeta) {
+          layout.appendSeparator();
+        }
+        firstMeta = false;
+        layout.writeLiteral(StvnVocabulary.FACET_KW_META_DOMAIN);
+        layout.appendSeparator();
+        layout.writeSimpleString(meta.domain().get());
+      }
+      if (meta.kind().isPresent()) {
+        if (!firstMeta) {
+          layout.appendSeparator();
+        }
+        layout.writeLiteral(StvnVocabulary.FACET_KW_META_KIND);
+        layout.appendSeparator();
+        layout.writeLiteral(meta.kind().get().keyword());
+      }
+      layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
+    }
+
+    StvnDefsCatalog defs = doc.defs();
+    if (!defs.nominalTypes().isEmpty() || !defs.constants().isEmpty()) {
+      if (wroteSection) {
+        if (pretty) {
+          layout.newline();
+        } else {
+          layout.appendSeparator();
+        }
+      }
+      wroteSection = true;
+
+      layout.writeLiteral(StvnVocabulary.KEYWORD_DEFS);
+      layout.appendSeparator();
+      layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+
+      boolean firstDef = true;
+      for (var constEntry : defs.constants().entrySet()) {
+        if (!firstDef) {
+          if (pretty) {
+            layout.newline();
+          } else {
+            layout.appendSeparator();
+          }
+        } else if (pretty) {
+          layout.newline();
+          layout.indent();
+        }
+        firstDef = false;
+
+        layout.writeLiteral(constEntry.getKey());
+        layout.appendSeparator();
+        writeSchemaReferenceOrInline(constEntry.getValue().schema(), layout);
+        layout.appendSeparator();
+        PatternPrinterDispatcher.dispatch(constEntry.getValue().value(), layout, options);
+      }
+
+      for (var typeEntry : defs.nominalTypes().entrySet()) {
+        if (!firstDef) {
+          if (pretty) {
+            layout.newline();
+          } else {
+            layout.appendSeparator();
+          }
+        } else if (pretty) {
+          layout.newline();
+          layout.indent();
+        }
+        firstDef = false;
+
+        layout.writeLiteral(typeEntry.getKey());
+        writeSchemaDefinitionWithOptionalFacets(typeEntry.getValue(), layout);
+      }
+
+      if (pretty && !firstDef) {
+        layout.outdent();
+        layout.newline();
+      }
+      layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
+    }
+
+    Optional<StvnSchema> effectiveRootType = doc.rootType().isPresent()
+        ? doc.rootType()
+        : doc.payload().map(StvnValue::schema);
+
+    if (effectiveRootType.isPresent()) {
+      if (wroteSection) {
+        if (pretty) {
+          layout.newline();
+        } else {
+          layout.appendSeparator();
+        }
+      }
+      wroteSection = true;
+
+      layout.writeLiteral(StvnVocabulary.KEYWORD_TYPE);
+      layout.appendSeparator();
+      writeSchemaReferenceOrInline(effectiveRootType.get(), layout);
+    }
+
+    if (doc.payload().isPresent()) {
+      if (wroteSection) {
+        if (pretty) {
+          layout.newline();
+        } else {
+          layout.appendSeparator();
+        }
+      }
+      layout.writeLiteral(StvnVocabulary.KEYWORD_BODY);
+      layout.appendSeparator();
+      PatternPrinterDispatcher.dispatch(doc.payload().get(), layout, options);
+    }
+
+    if (pretty) {
+      layout.outdent();
+      layout.newline();
+    }
+    layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
+  }
+
+  private void writeSchemaDefinitionWithOptionalFacets(StvnSchema schema, LayoutWriter layout) throws IOException {
+    List<FacetEmitter> facets = collectFiveTierFacets(schema);
+    if (!facets.isEmpty()) {
+      layout.appendSeparator();
+      emitFacetBlock(facets, layout);
+    }
+    layout.appendSeparator();
+    writeSchemaConstructorOnly(schema, layout);
+  }
+
+  private void writeSchemaReferenceOrInline(StvnSchema schema, LayoutWriter layout) throws IOException {
+    if (schema instanceof StvnSchema.PoisonedSchema p) {
+      if (StvnPayloadLowerer.RECURSIVE_BACK_EDGE_SENTINEL.equals(p.primaryDiagnosticCode())
+          && p.aliasName().isPresent()) {
+        layout.writeLiteral(p.aliasName().get());
+        return;
+      }
+      if (p.bestEffortFallback().isPresent()) {
+        writeSchemaReferenceOrInline(p.bestEffortFallback().get(), layout);
+        return;
+      }
+      layout.writeLiteral(StvnVocabulary.TYPE_BOOLEAN);
       return;
     }
-    var pretty = layout instanceof PrettyLayoutWriter;
-    var count = countConstraints(constraints);
-    var inline = (count <= 1) || !pretty;
 
-    layout.openGroup("{");
+    if (schema.aliasName().isPresent()) {
+      layout.writeLiteral(schema.aliasName().get());
+      return;
+    }
+
+    List<FacetEmitter> facets = collectFiveTierFacets(schema);
+    if (!facets.isEmpty()) {
+      emitFacetBlock(facets, layout);
+      layout.appendSeparator();
+    }
+    writeSchemaConstructorOnly(schema, layout);
+  }
+
+  private void writeSchemaConstructorOnly(StvnSchema schema, LayoutWriter layout) throws IOException {
+    switch (schema) {
+      case StvnSchema.BooleanSchema ignored -> layout.writeLiteral(StvnVocabulary.TYPE_BOOLEAN);
+      case StvnSchema.IntSchema ignored -> layout.writeLiteral(StvnVocabulary.TYPE_INT);
+      case StvnSchema.FloatSchema ignored -> layout.writeLiteral(StvnVocabulary.TYPE_FLOAT);
+      case StvnSchema.StringSchema ignored -> layout.writeLiteral(StvnVocabulary.TYPE_STRING);
+      case StvnSchema.TimeEpochSchema ignored -> layout.writeLiteral(StvnVocabulary.TYPE_TIME_EPOCH);
+      case StvnSchema.DateTimeSchema ignored -> layout.writeLiteral(StvnVocabulary.TYPE_DATE_TIME);
+      case StvnSchema.EnumSchema en -> {
+        layout.writeLiteral(StvnVocabulary.TYPE_ENUM);
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
+        boolean first = true;
+        for (String v : en.rootVariants()) {
+          if (!first) {
+            layout.appendSeparator();
+          }
+          first = false;
+          layout.writeLiteral(v);
+        }
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
+      }
+      case StvnSchema.EnumSubsetSchema sub -> {
+        String parentAlias = sub.parentEnum().aliasName()
+            .or(() -> sub.rootEnum().aliasName())
+            .orElseThrow(() -> new IllegalStateException("EnumSubsetSchema parent lacks nominal alias"));
+        layout.writeLiteral(parentAlias);
+      }
+      case StvnSchema.TupleSchema tup -> {
+        layout.writeLiteral(StvnVocabulary.TYPE_TUPLE);
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
+        boolean first = true;
+        for (StvnSchema field : tup.fieldSchemas()) {
+          if (!first) {
+            layout.appendSeparator();
+          }
+          first = false;
+          writeSchemaReferenceOrInline(field, layout);
+        }
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
+      }
+      case StvnSchema.OptionSchema opt -> {
+        layout.writeLiteral(StvnVocabulary.TYPE_OPTION);
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
+        writeSchemaReferenceOrInline(opt.valueSchema(), layout);
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
+      }
+      case StvnSchema.EitherSchema eith -> {
+        layout.writeLiteral(StvnVocabulary.TYPE_EITHER);
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
+        writeSchemaReferenceOrInline(eith.leftSchema(), layout);
+        layout.appendSeparator();
+        writeSchemaReferenceOrInline(eith.rightSchema(), layout);
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
+      }
+      case StvnSchema.UnionSchema un -> {
+        layout.writeLiteral(StvnVocabulary.TYPE_UNION);
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
+        boolean first = true;
+        for (StvnSchema branch : un.branchSchemas()) {
+          if (!first) {
+            layout.appendSeparator();
+          }
+          first = false;
+          writeSchemaReferenceOrInline(branch, layout);
+        }
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
+      }
+      case StvnSchema.SeqSchema seq -> {
+        layout.writeLiteral(StvnVocabulary.TYPE_SEQ);
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
+        writeSchemaReferenceOrInline(seq.elementSchema(), layout);
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
+      }
+      case StvnSchema.SetSchema set -> {
+        layout.writeLiteral(StvnVocabulary.TYPE_SET);
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
+        writeSchemaReferenceOrInline(set.elementSchema(), layout);
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
+      }
+      case StvnSchema.MapSchema map -> {
+        layout.writeLiteral(StvnVocabulary.TYPE_MAP);
+        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
+        writeSchemaReferenceOrInline(map.keySchema(), layout);
+        layout.appendSeparator();
+        writeSchemaReferenceOrInline(map.valueSchema(), layout);
+        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
+      }
+      case StvnSchema.PoisonedSchema p -> {
+        if (p.bestEffortFallback().isPresent()) {
+          writeSchemaConstructorOnly(p.bestEffortFallback().get(), layout);
+        } else {
+          layout.writeLiteral(StvnVocabulary.TYPE_BOOLEAN);
+        }
+      }
+    }
+  }
+
+  private static void emitFacetBlock(List<FacetEmitter> facets, LayoutWriter layout) throws IOException {
+    boolean pretty = layout instanceof PrettyLayoutWriter;
+    boolean inline = (facets.size() <= 1) || !pretty;
+
+    layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
     if (!inline) {
       layout.indent();
     }
 
-    var firstC = true;
-
-    // Tier 1: Flags & Intrinsic Modes
-    if (constraints.unsigned()) {
+    boolean first = true;
+    for (FacetEmitter emitter : facets) {
       if (inline) {
-        if (!firstC) layout.appendSeparator();
+        if (!first) {
+          layout.appendSeparator();
+        }
       } else {
         layout.newline();
       }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_UNSIGNED);
-    }
-    if (constraints.exact()) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_EXACT);
-    }
-    if (constraints.invertible()) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_INVERTIBLE);
-    }
-    if (constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
-      layout.appendSeparator();
-      layout.writeBoolean(constraints.preserveIndent(), options.symbolStyle());
-    }
-    if (constraints.offset()) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_OFFSET);
-    }
-    if (constraints.zoned()) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_ZONED);
-    }
-    if (constraints.audited()) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_AUDITED);
-    }
-    var equatable = constraints.equatable().orElse(null);
-    if (equatable != null && constraints.explicitOverrides().contains("equatable")) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_EQUATABLE);
-      layout.appendSeparator();
-      layout.writeBoolean(equatable, options.symbolStyle());
-    }
-    var comparable = constraints.comparable().orElse(null);
-    if (comparable != null && constraints.explicitOverrides().contains("comparable")) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_COMPARABLE);
-      layout.appendSeparator();
-      layout.writeBoolean(comparable, options.symbolStyle());
-    }
-
-    // Tier 2: Temporal Scale
-    var scale = constraints.scale().orElse(null);
-    if (scale != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      String scaleKw = scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale : StvnVocabulary.SIGIL_VALUE + scale;
-      layout.writeLiteral(scaleKw);
-    }
-
-    // Tier 3: Dimensions & Capacity
-    var size = constraints.size().orElse(null);
-    if (size != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_SIZE);
-      layout.appendSeparator();
-      layout.writeLiteral(size.toString());
-    }
-    var minSize = constraints.minSize().orElse(null);
-    if (minSize != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_SIZE);
-      layout.appendSeparator();
-      layout.writeLiteral(minSize.toString());
-    }
-    var maxSize = constraints.maxSize().orElse(null);
-    if (maxSize != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
-      layout.appendSeparator();
-      layout.writeLiteral(maxSize.toString());
-    }
-
-    // Tier 4: Value Intervals (Lower before Upper)
-    var minIncl = constraints.minIncl().orElse(null);
-    if (minIncl != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
-      layout.appendSeparator();
-      layout.writeLiteral(minIncl.toString());
-    } else if (constraints.dateMinIncl().isPresent()) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
-      layout.appendSeparator();
-      layout.writeSimpleString(constraints.dateMinIncl().get());
-    }
-    var minExcl = constraints.minExcl().orElse(null);
-    if (minExcl != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_MIN_EXCL);
-      layout.appendSeparator();
-      layout.writeLiteral(minExcl.toString());
-    }
-    var maxExcl = constraints.maxExcl().orElse(null);
-    if (maxExcl != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
-      layout.appendSeparator();
-      layout.writeLiteral(maxExcl.toString());
-    } else if (constraints.dateMaxExcl().isPresent()) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
-      layout.appendSeparator();
-      layout.writeSimpleString(constraints.dateMaxExcl().get());
-    }
-    var maxIncl = constraints.maxIncl().orElse(null);
-    if (maxIncl != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_MAX_INCL);
-      layout.appendSeparator();
-      layout.writeLiteral(maxIncl.toString());
-    }
-
-    // Tier 5: Pattern & Text Structure
-    var regex = constraints.regex().orElse(null);
-    if (regex != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_REGEX);
-      layout.appendSeparator();
-      layout.writeSimpleString(regex);
-    }
-
-    // Tier 6: Set & Variant Membership
-    var filterIncl = constraints.filterIncl().orElse(null);
-    if (filterIncl != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_INCL);
-      layout.appendSeparator();
-      layout.openGroup("[");
-      var firstV = true;
-      for (String v : filterIncl) {
-        if (!firstV) layout.appendSeparator();
-        firstV = false;
-        layout.writeLiteral(v);
-      }
-      layout.closeGroup("]");
-    }
-    var filterExcl = constraints.filterExcl().orElse(null);
-    if (filterExcl != null) {
-      if (inline) {
-        if (!firstC) layout.appendSeparator();
-      } else {
-        layout.newline();
-      }
-      firstC = false;
-      layout.writeLiteral(StvnVocabulary.FACET_KW_FILTER_EXCL);
-      layout.appendSeparator();
-      layout.openGroup("[");
-      var firstV = true;
-      for (String v : filterExcl) {
-        if (!firstV) layout.appendSeparator();
-        firstV = false;
-        layout.writeLiteral(v);
-      }
-      layout.closeGroup("]");
+      first = false;
+      emitter.emit(layout);
     }
 
     if (!inline) {
       layout.outdent();
       layout.newline();
     }
-    layout.closeGroup("}");
+    layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
   }
 
-  private boolean isConstraintsEmpty(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints c) {
-    var hasMinIncl = c.minIncl().isPresent() || c.dateMinIncl().isPresent();
-    var hasMinExcl = c.minExcl().isPresent();
-    var hasMaxIncl = c.maxIncl().isPresent();
-    var hasMaxExcl = c.maxExcl().isPresent() || c.dateMaxExcl().isPresent();
-    var hasRegex = c.regex().isPresent();
-    var hasPreserveIndent = c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
-    var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE);
-    var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE);
+  private List<FacetEmitter> collectFiveTierFacets(StvnSchema schema) {
+    List<FacetEmitter> facets = new ArrayList<>();
 
-    return !hasMinIncl && !hasMinExcl && !hasMaxIncl && !hasMaxExcl
-        && !hasRegex && !hasPreserveIndent && !hasEquatable && !hasComparable
-        && c.filterIncl().isEmpty() && c.filterExcl().isEmpty()
-        && c.size().isEmpty() && !c.unsigned() && !c.exact()
-        && c.minSize().isEmpty() && c.maxSize().isEmpty() && !c.invertible()
-        && c.scale().isEmpty() && !c.offset() && !c.zoned() && !c.audited();
-  }
-
-  private void writeSchemaType(StvnParser.SchemaTypeContext node, LayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext) throws IOException {
-    writeSchemaType(node, layout, lexicalContext, true);
-  }
-
-  private void writeSchemaType(StvnParser.SchemaTypeContext node, LayoutWriter layout, org.antlr.v4.runtime.ParserRuleContext lexicalContext, boolean writeConstraints) throws IOException {
-    if (writeConstraints && node.metadataMap() != null) {
-      var constraints = org.stvnadore.core.validation.StvnTypeResolver.extractConstraints(node.metadataMap());
-      if (!isConstraintsEmpty(constraints)) {
-        writeConstraints(constraints, layout);
-        layout.appendSeparator();
-      }
-    }
-    if (node.typeKeyword() != null) {
-      String desugared = StvnCanonicalDefinitionsResolver.resolveCanonicalTypeKeyword(node.typeKeyword().getText(), lexicalContext);
-      layout.writeLiteral(desugared);
-    } else if (node.schemaConstructor() != null) {
-      var ctor = node.schemaConstructor();
-      if (ctor.atomicType() != null) {
-        layout.writeLiteral(ctor.atomicType().getText());
-      } else if (ctor.collectionType() != null) {
-        var col = ctor.collectionType();
-        layout.writeLiteral(resolveCollectionType(ctor.collectionType()));
-        layout.openGroup("(");
-        var first = true;
-        for (var st : col.schemaType()) {
-          if (!first) layout.appendSeparator();
-          first = false;
-          writeSchemaType(st, layout, lexicalContext, true);
+    // Tier 1: Definition (§ 6.1 1.1.1 .. 1.5.2)
+    switch (schema) {
+      case StvnSchema.IntSchema i -> {
+        if (i.unsigned()) {
+          facets.add(l -> l.writeLiteral(StvnVocabulary.FACET_KW_UNSIGNED));
         }
-        layout.closeGroup(")");
-      } else if (ctor.productType() != null) {
-        var prod = ctor.productType();
-        if (prod instanceof StvnParser.TupleTypeContext tt) {
-          layout.writeLiteral(StvnVocabulary.TYPE_TUPLE);
-          layout.openGroup("(");
-          var first = true;
-          for (var st : tt.schemaType()) {
-            if (!first) layout.appendSeparator();
-            first = false;
-            writeSchemaType(st, layout, lexicalContext, true);
-          }
-          layout.closeGroup(")");
-        }
-      } else if (ctor.sumType() != null) {
-        var sum = ctor.sumType();
-        if (sum.KW_OPTION() != null) {
-          layout.writeLiteral(StvnVocabulary.TYPE_OPTION);
-          layout.openGroup("(");
-          writeSchemaType(sum.schemaType(0), layout, lexicalContext, true);
-          layout.closeGroup(")");
-        } else if (sum.KW_EITHER() != null) {
-          layout.writeLiteral(StvnVocabulary.TYPE_EITHER);
-          layout.openGroup("(");
-          writeSchemaType(sum.schemaType(0), layout, lexicalContext, true);
-          layout.appendSeparator();
-          writeSchemaType(sum.schemaType(1), layout, lexicalContext, true);
-          layout.closeGroup(")");
-        } else if (sum.KW_UNION() != null) {
-          layout.writeLiteral(StvnVocabulary.TYPE_UNION);
-          layout.openGroup("(");
-          var first = true;
-          for (var st : sum.schemaType()) {
-            if (!first) layout.appendSeparator();
-            first = false;
-            writeSchemaType(st, layout, lexicalContext, true);
-          }
-          layout.closeGroup(")");
-        } else if (sum.KW_ENUM() != null) {
-          layout.writeLiteral(StvnVocabulary.TYPE_ENUM);
-          layout.openGroup("[");
-          var first = true;
-          for (var kw : sum.enumDef().valueKeyword()) {
-            if (!first) layout.appendSeparator();
-            first = false;
-            layout.writeLiteral(kw.getText());
-          }
-          layout.closeGroup("]");
+        if (!i.bitWidth().equals(StvnVocabulary.DEFAULT_INT_BIT_WIDTH)) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(i.bitWidth().toString());
+          });
         }
       }
+      case StvnSchema.FloatSchema f -> {
+        if (f.representation() == FloatRepresentation.EXACT_DECIMAL) {
+          facets.add(l -> l.writeLiteral(StvnVocabulary.FACET_KW_EXACT));
+        }
+        if (f.representation() == FloatRepresentation.IEEE_32) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(THIRTY_TWO.toString());
+          });
+        }
+        if (f.representation() == FloatRepresentation.EXACT_DECIMAL
+            && !f.exactMaxDigits().equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(f.exactMaxDigits().toString());
+          });
+        }
+      }
+      case StvnSchema.MapSchema map -> {
+        if (map.invertible()) {
+          facets.add(l -> l.writeLiteral(StvnVocabulary.FACET_KW_INVERTIBLE));
+        }
+        if (map.minSize().signum() > 0) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MIN_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(map.minSize().toString());
+          });
+        }
+        if (!map.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(map.maxSize().toString());
+          });
+        }
+      }
+      case StvnSchema.TimeEpochSchema te ->
+          facets.add(l -> l.writeLiteral(CanonicalStvnWriter.temporalScaleFacetKeyword(te.scale())));
+      case StvnSchema.DateTimeSchema dt ->
+          facets.add(l -> l.writeLiteral(CanonicalStvnWriter.dateTimeModeFacetKeyword(dt.mode())));
+      case StvnSchema.StringSchema s -> {
+        if (s.minSize().signum() > 0) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MIN_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(s.minSize().toString());
+          });
+        }
+        if (!s.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(s.maxSize().toString());
+          });
+        }
+      }
+      case StvnSchema.SeqSchema seq -> {
+        if (seq.minSize().signum() > 0) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MIN_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(seq.minSize().toString());
+          });
+        }
+        if (!seq.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(seq.maxSize().toString());
+          });
+        }
+      }
+      case StvnSchema.SetSchema set -> {
+        if (set.minSize().signum() > 0) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MIN_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(set.minSize().toString());
+          });
+        }
+        if (!set.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MAX_SIZE);
+            l.appendSeparator();
+            l.writeLiteral(set.maxSize().toString());
+          });
+        }
+      }
+      default -> {
+        // No Tier-1 facets
+      }
     }
+
+    // Tier 2: Trait (§ 6.1 2.1 .. 2.2)
+    TraitProfile traits = schema.traits();
+    if (traits.explicitEquatableOverride().isPresent()) {
+      boolean eq = traits.explicitEquatableOverride().get();
+      facets.add(l -> {
+        l.writeLiteral(StvnVocabulary.FACET_KW_EQUATABLE);
+        l.appendSeparator();
+        l.writeBoolean(eq, options.symbolStyle());
+      });
+    }
+    if (traits.explicitComparableOverride().isPresent()) {
+      boolean cmp = traits.explicitComparableOverride().get();
+      facets.add(l -> {
+        l.writeLiteral(StvnVocabulary.FACET_KW_COMPARABLE);
+        l.appendSeparator();
+        l.writeBoolean(cmp, options.symbolStyle());
+      });
+    }
+
+    // Tier 3: Domain Bounds (§ 6.1 3.1 .. 3.4)
+    switch (schema) {
+      case StvnSchema.IntSchema i -> {
+        if (i.explicitMinIncl().isPresent()) {
+          BigInteger min = i.explicitMinIncl().get();
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
+            l.appendSeparator();
+            l.writeLiteral(min.toString());
+          });
+        }
+        if (i.explicitMaxExcl().isPresent()) {
+          BigInteger max = i.explicitMaxExcl().get();
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
+            l.appendSeparator();
+            l.writeLiteral(max.toString());
+          });
+        }
+      }
+      case StvnSchema.FloatSchema f -> {
+        if (f.lowerBound().isPresent()) {
+          var lb = f.lowerBound().get();
+          String kw = lb.kind() == BoundKind.INCLUSIVE
+              ? StvnVocabulary.FACET_KW_MIN_INCL
+              : StvnVocabulary.FACET_KW_MIN_EXCL;
+          facets.add(l -> {
+            l.writeLiteral(kw);
+            l.appendSeparator();
+            l.writeFloat(lb.value(), f.representation());
+          });
+        }
+        if (f.upperBound().isPresent()) {
+          var ub = f.upperBound().get();
+          String kw = ub.kind() == BoundKind.INCLUSIVE
+              ? StvnVocabulary.FACET_KW_MAX_INCL
+              : StvnVocabulary.FACET_KW_MAX_EXCL;
+          facets.add(l -> {
+            l.writeLiteral(kw);
+            l.appendSeparator();
+            l.writeFloat(ub.value(), f.representation());
+          });
+        }
+      }
+      case StvnSchema.StringSchema s -> {
+        if (s.lowerBound().isPresent()) {
+          var lb = s.lowerBound().get();
+          String kw = lb.kind() == BoundKind.INCLUSIVE
+              ? StvnVocabulary.FACET_KW_MIN_INCL
+              : StvnVocabulary.FACET_KW_MIN_EXCL;
+          facets.add(l -> {
+            l.writeLiteral(kw);
+            l.appendSeparator();
+            l.writeSimpleString(lb.value());
+          });
+        }
+        if (s.upperBound().isPresent()) {
+          var ub = s.upperBound().get();
+          String kw = ub.kind() == BoundKind.INCLUSIVE
+              ? StvnVocabulary.FACET_KW_MAX_INCL
+              : StvnVocabulary.FACET_KW_MAX_EXCL;
+          facets.add(l -> {
+            l.writeLiteral(kw);
+            l.appendSeparator();
+            l.writeSimpleString(ub.value());
+          });
+        }
+      }
+      case StvnSchema.TimeEpochSchema te -> {
+        if (te.explicitMinIncl().isPresent()) {
+          BigInteger min = te.explicitMinIncl().get();
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
+            l.appendSeparator();
+            l.writeLiteral(min.toString());
+          });
+        }
+        if (te.explicitMaxExcl().isPresent()) {
+          BigInteger max = te.explicitMaxExcl().get();
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
+            l.appendSeparator();
+            l.writeLiteral(max.toString());
+          });
+        }
+      }
+      case StvnSchema.DateTimeSchema dt -> {
+        if (dt.explicitMinInclIso().isPresent()) {
+          String minIso = dt.explicitMinInclIso().get();
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MIN_INCL);
+            l.appendSeparator();
+            l.writeSimpleString(minIso);
+          });
+        }
+        if (dt.explicitMaxExclIso().isPresent()) {
+          String maxIso = dt.explicitMaxExclIso().get();
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_MAX_EXCL);
+            l.appendSeparator();
+            l.writeSimpleString(maxIso);
+          });
+        }
+      }
+      default -> {
+        // No Tier-3 facets
+      }
+    }
+
+    // Tier 4: Constraint / Lexical (§ 6.1 4.1 .. 4.4)
+    switch (schema) {
+      case StvnSchema.EnumSubsetSchema sub -> {
+        String filterKw = sub.inclusiveFilter()
+            ? StvnVocabulary.FACET_KW_FILTER_INCL
+            : StvnVocabulary.FACET_KW_FILTER_EXCL;
+        List<String> filterList = sub.declaredFilterList();
+        facets.add(l -> {
+          l.writeLiteral(filterKw);
+          l.appendSeparator();
+          l.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
+          boolean first = true;
+          for (String v : filterList) {
+            if (!first) {
+              l.appendSeparator();
+            }
+            first = false;
+            l.writeLiteral(v);
+          }
+          l.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
+        });
+      }
+      case StvnSchema.StringSchema s -> {
+        if (s.preserveIndent()) {
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
+            l.appendSeparator();
+            l.writeBoolean(true, options.symbolStyle());
+          });
+        }
+        if (s.rawRegexPattern().isPresent()) {
+          String rx = s.rawRegexPattern().get();
+          facets.add(l -> {
+            l.writeLiteral(StvnVocabulary.FACET_KW_REGEX);
+            l.appendSeparator();
+            l.writeSimpleString(rx);
+          });
+        }
+      }
+      default -> {
+        // No Tier-4 facets
+      }
+    }
+
+    return facets;
   }
 
-  private int countConstraints(org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints c) {
-    var count = 0;
-    if (c.minIncl().isPresent() || c.dateMinIncl().isPresent()) count++;
-    if (c.minExcl().isPresent()) count++;
-    if (c.maxIncl().isPresent()) count++;
-    if (c.maxExcl().isPresent() || c.dateMaxExcl().isPresent()) count++;
-    if (c.regex().isPresent()) count++;
-    if (c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) count++;
-    if (c.equatable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) count++;
-    if (c.comparable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) count++;
-    if (c.filterIncl().isPresent()) count++;
-    if (c.filterExcl().isPresent()) count++;
-    if (c.unsigned()) count++;
-    if (c.exact()) count++;
-    if (c.size().isPresent()) count++;
-    if (c.minSize().isPresent()) count++;
-    if (c.maxSize().isPresent()) count++;
-    if (c.invertible()) count++;
-    if (c.scale().isPresent()) count++;
-    if (c.offset()) count++;
-    if (c.zoned()) count++;
-    if (c.audited()) count++;
-    return count;
+  private static StvnDefsCatalog mergeExplicitRootIntoCatalog(StvnDefsCatalog base, StvnSchema explicitSchema) {
+    if (explicitSchema.aliasName().isEmpty()) {
+      return base;
+    }
+    String alias = explicitSchema.aliasName().get();
+    if (base.nominalTypes().containsKey(alias)) {
+      return base;
+    }
+    Map<String, StvnSchema> merged = new LinkedHashMap<>(base.nominalTypes());
+    merged.put(alias, explicitSchema);
+    return new StvnDefsCatalog(merged, base.constants());
+  }
+
+  @FunctionalInterface
+  private interface FacetEmitter {
+    void emit(LayoutWriter layout) throws IOException;
   }
 }

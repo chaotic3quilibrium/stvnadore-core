@@ -8,9 +8,9 @@ import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.ir.StvnValue.*;
+import org.stvnadore.core.validation.CircularReferenceException;
 import org.stvnadore.core.validation.MalformedPayloadException;
 import org.stvnadore.core.validation.MalformedSchemaException;
-import org.stvnadore.core.validation.StvnTypeResolver.CircularReferenceException;
 
 import java.util.Optional;
 

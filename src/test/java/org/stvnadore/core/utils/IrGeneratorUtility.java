@@ -1,43 +1,50 @@
 package org.stvnadore.core.utils;
 
+import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.binary.SchemaIdentityStrategy;
+import org.stvnadore.core.binary.StvnBinaryEncoder;
+import org.stvnadore.core.io.CanonicalLayoutWriter;
+import org.stvnadore.core.io.CanonicalStvnWriter;
+import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.ir.StvnSchema;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.lowering.StvnReachabilityAndCasVerifier;
+
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.io.StringWriter;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ast.StvnValue;
-import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
-import org.stvnadore.core.validation.StvnTypeResolver;
-import org.stvnadore.core.parser.StvnParser.StvnDocumentContext;
 
 /**
- * Utility to process valid STVN test fixtures and output/verify normalized IR snapshots.
+ * Pure-IR utility to process valid STVN test fixtures and output or verify normalized IR snapshots.
  */
 public final class IrGeneratorUtility {
 
   private static final Path FIXTURES_DIR = Paths.get("shared-fixtures/syntax/valid");
   private static final Path SUBSTRATE_SCHEMA_PATH = Paths.get("shared-fixtures/syntax/valid/modules/stvn_ir_substrate.stvn_ir.stvn_d");
   private static final boolean UPDATE_MODE = Boolean.getBoolean("updateSnapshots");
+  private static final String PRELUDE_TYPE_PREFIX = StvnVocabulary.SIGIL_TYPIC + "org/stvnadore/prelude/";
 
   private IrGeneratorUtility() {
     // Utility class
   }
 
   public static void main(String[] args) throws Exception {
-    System.out.println("Starting IR Snapshot generation pipeline...");
+    System.out.println("Starting pure-IR Snapshot generation pipeline...");
     int processedCount = 0;
 
     try (Stream<Path> paths = Files.walk(FIXTURES_DIR)) {
       List<Path> files = paths.filter(Files::isRegularFile)
-          .filter(p -> (p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i")) && !p.getFileName().toString().endsWith(".stvn_ir.stvn_i"))
+          .filter(p -> (p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i"))
+              && !p.getFileName().toString().endsWith(".stvn_ir.stvn_i"))
           .toList();
       for (Path file : files) {
         processFixture(file);
@@ -50,9 +57,8 @@ public final class IrGeneratorUtility {
 
   private static void processFixture(Path stvnFile) throws Exception {
     String stvnContent = Files.readString(stvnFile).replace("\r\n", "\n");
-    
-    // Compile STVN input to IR
-    var compilation = StvnCompiler.compile(stvnContent, stvnFile.toString(), org.stvnadore.core.StvnParserConfig.DEFAULT);
+
+    var compilation = StvnCompiler.compile(stvnContent, stvnFile.toString(), StvnParserConfig.DEFAULT);
     var liveDoc = compilation.document()
         .orElseThrow(() -> new IllegalStateException("Failed to compile valid fixture: " + stvnFile));
     var irNode = liveDoc.payload()
@@ -64,18 +70,18 @@ public final class IrGeneratorUtility {
     Path binSnapshotPath = stvnFile.resolveSibling(baseName + ".stvn_b");
 
     String relativeSubstratePath = stvnFile.getParent().relativize(SUBSTRATE_SCHEMA_PATH).toString().replace('\\', '/');
-    String generatedSnapshot = serializeSnapshotDocument(baseName, relativeSubstratePath, irNode);
+    String generatedSnapshot = serializeSnapshotDocument(baseName, relativeSubstratePath, liveDoc);
 
     if (UPDATE_MODE) {
       Files.writeString(irSnapshotPath, generatedSnapshot);
-      
+
       boolean isCrc = stvnFile.getFileName().toString().contains("crc32c");
-      var encoder = new org.stvnadore.core.binary.StvnBinaryEncoder(true, new org.stvnadore.core.binary.SchemaIdentityStrategy.UniversalDefault(), isCrc);
-      java.nio.ByteBuffer buf = encoder.encode(irNode, meta);
+      var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), isCrc);
+      ByteBuffer buf = encoder.encode(irNode, meta);
       byte[] encoded = new byte[buf.remaining()];
       buf.get(encoded);
       Files.write(binSnapshotPath, encoded);
-      
+
       System.out.printf("  [UPDATED] %s and %s%n", irSnapshotPath.getFileName(), binSnapshotPath.getFileName());
     } else {
       if (!Files.exists(irSnapshotPath)) {
@@ -84,14 +90,13 @@ public final class IrGeneratorUtility {
         );
       }
       String existingSnapshot = Files.readString(irSnapshotPath);
-      
-      // Clean line endings for cross-OS comparison
+
       String cleanGenerated = generatedSnapshot.replace("\r\n", "\n").trim();
       String cleanExisting = existingSnapshot.replace("\r\n", "\n").trim();
 
       if (!cleanGenerated.equals(cleanExisting)) {
         throw new RuntimeException(
-            "Snapshot mismatch for " + stvnFile + ". Difference detected in AST representation."
+            "Snapshot mismatch for " + stvnFile + ". Difference detected in IR snapshot representation."
         );
       }
     }
@@ -99,37 +104,46 @@ public final class IrGeneratorUtility {
 
   /**
    * Pure-IR convenience serialization entry point.
-   */
-  public static String serializeIr(org.stvnadore.core.ir.StvnValue value) {
-    return serializeSnapshotDocument("snapshot", "stvn_ir_substrate.stvn_ir.stvn_d", value);
-  }
-
-  /**
-   * Translates a pure-IR {@link org.stvnadore.core.ir.StvnValue} graph into a valid STVN snapshot document.
-   */
-  public static String serializeSnapshotDocument(
-      String baseName,
-      String relativeSubstratePath,
-      org.stvnadore.core.ir.StvnValue rootValue
-  ) {
-    return serializeSnapshotDocument(
-        baseName,
-        relativeSubstratePath,
-        org.stvnadore.core.lowering.LegacyAstBridge.toLegacyValue(rootValue)
-    );
-  }
-
-  /**
-   * Backward-compatible convenience serialization entry point.
+   *
+   * @param value the pure-IR value to serialize
+   * @return the formatted STVN IR snapshot document
    */
   public static String serializeIr(StvnValue value) {
     return serializeSnapshotDocument("snapshot", "stvn_ir_substrate.stvn_ir.stvn_d", value);
   }
 
   /**
-   * Translates the StvnValue graph and TypeRegistry into a valid STVN document adhering to stvn_ir_substrate.stvn_ir.stvn_d.
+   * Translates a standalone pure-IR {@link StvnValue} graph into a valid STVN snapshot document.
+   *
+   * @param baseName              the snapshot base name
+   * @param relativeSubstratePath the relative path to {@code stvn_ir_substrate.stvn_ir.stvn_d}
+   * @param rootValue             the pure-IR root value
+   * @return the formatted STVN IR snapshot document
    */
-  public static String serializeSnapshotDocument(String baseName, String relativeSubstratePath, StvnValue rootValue) {
+  public static String serializeSnapshotDocument(
+      String baseName,
+      String relativeSubstratePath,
+      StvnValue rootValue
+  ) {
+    StvnDocument synthesized = StvnReachabilityAndCasVerifier.synthesizeDocumentFromValue(rootValue);
+    return serializeSnapshotDocument(baseName, relativeSubstratePath, synthesized);
+  }
+
+  /**
+   * Translates a pure-IR {@link StvnDocument} into a valid STVN snapshot document adhering to
+   * {@code stvn_ir_substrate.stvn_ir.stvn_d}.
+   *
+   * @param baseName              the snapshot base name
+   * @param relativeSubstratePath the relative path to {@code stvn_ir_substrate.stvn_ir.stvn_d}
+   * @param doc                   the pure-IR document containing definitions and root payload
+   * @return the formatted STVN IR snapshot document
+   */
+  public static String serializeSnapshotDocument(
+      String baseName,
+      String relativeSubstratePath,
+      StvnDocument doc
+  ) {
+    StvnValue rootValue = doc.requirePayload();
     StringBuilder sb = new StringBuilder();
     sb.append("{\n");
     sb.append("  :meta {\n");
@@ -143,230 +157,183 @@ public final class IrGeneratorUtility {
     sb.append("  :type :IrSnapshotDocument\n");
     sb.append("  :body (\n");
 
-    // 1. TypeRegistry map
-    StvnDocumentContext doc = findDocumentContext(rootValue);
     sb.append("    {\n");
     serializeTypeRegistry(doc, rootValue, sb);
     sb.append("    }\n");
 
-    // 2. Lowered IrValue coproduct
     serializeIrValue(rootValue, 4, sb);
     sb.append("\n  )\n");
     sb.append("}\n");
     return sb.toString();
   }
 
-  private static StvnDocumentContext findDocumentContext(StvnValue value) {
-    if (value == null || value.schema() == null || value.schema().node() == null) {
-      return null;
-    }
-    org.antlr.v4.runtime.ParserRuleContext current = value.schema().node();
-    while (current != null) {
-      if (current instanceof StvnDocumentContext) {
-        return (StvnDocumentContext) current;
-      }
-      current = current.getParent();
-    }
-    return null;
-  }
-
-  private static Optional<ResolvedSchema> resolveNominalSchema(StvnDocumentContext doc, String kw) {
-    return StvnTypeResolver.findTypeDefinition(doc, kw).flatMap(typeDef -> {
-      var metaMap = typeDef.schemaType() != null ? typeDef.schemaType().metadataMap() : null;
-      var meta = StvnTypeResolver.extractConstraints(metaMap);
-      return StvnTypeResolver.resolvePrimitiveSchema(doc, typeDef.schemaType(), new java.util.HashSet<>())
-          .map(resolvedSchema -> StvnTypeResolver.applyDefaults(new ResolvedSchema(
-              resolvedSchema.node(),
-              meta.merge(resolvedSchema.constraints()),
-              Optional.of(kw),
-              Optional.empty(),
-              Optional.empty(),
-              Optional.of(resolvedSchema),
-              Optional.of(meta),
-              false,
-              Optional.empty()
-          )));
-    });
-  }
-
-  private static void serializeTypeRegistry(StvnDocumentContext doc, StvnValue rootValue, StringBuilder sb) {
+  private static void serializeTypeRegistry(StvnDocument doc, StvnValue rootValue, StringBuilder sb) {
     Set<String> seenKeys = new LinkedHashSet<>();
-    if (doc != null && doc.documentBody() != null && doc.documentBody().defsEntry() != null) {
-      var defsEntry = doc.documentBody().defsEntry();
-      if (defsEntry.defsElement() != null) {
-        for (var de : defsEntry.defsElement()) {
-          if (de.typeDefinition() != null) {
-            String kw = de.typeDefinition().typeDefTarget().getText();
-            if (seenKeys.add(kw)) {
-              var schemaOpt = resolveNominalSchema(doc, kw);
-              if (schemaOpt.isPresent()) {
-                emitRegistryEntry(kw, schemaOpt.get(), sb);
-              } else {
-                emitFallbackRegistryEntry(kw, sb);
-              }
-            }
-          } else if (de.packageEnclosure() != null) {
-            var pkgPath = de.packageEnclosure().packagePath().getText();
-            if (de.packageEnclosure().packageElement() != null) {
-              for (var pe : de.packageEnclosure().packageElement()) {
-                if (pe.typeDefinition() != null) {
-                  String localName = pe.typeDefinition().typeDefTarget().getText().substring(1);
-                  String fqni = pkgPath + "/" + localName;
-                  if (seenKeys.add(fqni)) {
-                    var schemaOpt = resolveNominalSchema(doc, fqni);
-                    if (schemaOpt.isPresent()) {
-                      emitRegistryEntry(fqni, schemaOpt.get(), sb);
-                    } else {
-                      emitFallbackRegistryEntry(fqni, sb);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+    for (var entry : doc.defs().nominalTypes().entrySet()) {
+      String fqni = entry.getKey();
+      if (fqni.startsWith(PRELUDE_TYPE_PREFIX)) {
+        continue;
+      }
+      if (seenKeys.add(fqni)) {
+        emitRegistryEntry(fqni, entry.getValue(), sb);
       }
     }
-    if (rootValue.schema() != null && seenKeys.add("<:type>")) {
-      emitRegistryEntry("<:type>", rootValue.schema(), sb);
+    StvnSchema rootSchema = doc.rootType().orElse(rootValue.schema());
+    if (seenKeys.add("<:type>")) {
+      emitRegistryEntry("<:type>", rootSchema, sb);
     }
   }
 
-  private static void emitRegistryEntry(String key, ResolvedSchema schema, StringBuilder sb) {
-    String nodeText = schema.node() != null ? schema.node().getText() : ":Any";
+  private static void emitRegistryEntry(String key, StvnSchema schema, StringBuilder sb) {
+    String nodeText = formatCanonicalSchemaBody(schema);
     String aliasText = schema.aliasName().orElse("");
-    boolean equatable = schema.constraints().equatable().orElse(true);
-    boolean comparable = schema.constraints().comparable().orElse(true);
+    boolean equatable = schema.traits().equatable();
+    boolean comparable = schema.traits().comparable();
     sb.append("      [ \"").append(escapeString(key)).append("\" ( \"")
-      .append(escapeString(nodeText)).append("\" \"")
-      .append(escapeString(aliasText)).append("\" ( ")
-      .append(equatable ? "#TRUE" : "#FALSE").append(" ")
-      .append(comparable ? "#TRUE" : "#FALSE").append(" ) ) ]\n");
+        .append(escapeString(nodeText)).append("\" \"")
+        .append(escapeString(aliasText)).append("\" ( ")
+        .append(equatable ? "#TRUE" : "#FALSE").append(" ")
+        .append(comparable ? "#TRUE" : "#FALSE").append(" ) ) ]\n");
   }
 
-  private static void emitFallbackRegistryEntry(String key, StringBuilder sb) {
-    sb.append("      [ \"").append(escapeString(key)).append("\" ( \":Any\" \"\" ( #TRUE #TRUE ) ) ]\n");
+  private static String formatCanonicalSchemaBody(StvnSchema schema) {
+    try {
+      StringWriter sw = new StringWriter();
+      CanonicalLayoutWriter layout = new CanonicalLayoutWriter(sw);
+      CanonicalStvnWriter.writeSchemaDefinitionBody(schema, layout);
+      layout.flush();
+      return sw.toString();
+    } catch (IOException e) {
+      throw new RuntimeException("Unreachable IOException in StringWriter", e);
+    }
   }
 
   private static void serializeIrValue(StvnValue value, int indent, StringBuilder sb) {
     String spaces = " ".repeat(indent);
-    if (value instanceof StvnValue.StvnBoolean b) {
-      sb.append(spaces).append("#1 ").append(b.value() ? "#TRUE" : "#FALSE");
-    } else if (value instanceof StvnValue.StvnInteger i) {
-      sb.append(spaces).append("#2 ( ").append(i.value()).append(" ")
-        .append(i.bitWidth()).append(" ")
-        .append(i.isUnsigned() ? "#TRUE" : "#FALSE").append(" )");
-    } else if (value instanceof StvnValue.StvnFloat f) {
-      sb.append(spaces).append("#3 ");
-      if (f.isNaN()) {
-        sb.append("#NaN");
-      } else if (f.isPositiveInfinity()) {
-        sb.append("#+Infinity");
-      } else if (f.isNegativeInfinity()) {
-        sb.append("#-Infinity");
-      } else if (f.isNegativeZero()) {
-        sb.append("-0.0");
-      } else {
-        String s = f.value().toPlainString();
-        if (!s.contains(".")) {
-          s += ".0";
+    switch (value) {
+      case StvnValue.StvnBoolean b ->
+          sb.append(spaces).append("#1 ").append(b.value() ? "#TRUE" : "#FALSE");
+      case StvnValue.StvnInt i -> {
+        int bitWidth = i.schema() instanceof StvnSchema.IntSchema is
+            ? is.bitWidth().intValue()
+            : 32;
+        boolean unsigned = i.schema() instanceof StvnSchema.IntSchema is && is.unsigned();
+        sb.append(spaces).append("#2 ( ").append(i.value()).append(" ")
+            .append(bitWidth).append(" ")
+            .append(unsigned ? "#TRUE" : "#FALSE").append(" )");
+      }
+      case StvnValue.StvnFloat f -> {
+        sb.append(spaces).append("#3 ");
+        switch (f.specialKind()) {
+          case NAN -> sb.append("#NaN");
+          case POSITIVE_INFINITY -> sb.append("#+Infinity");
+          case NEGATIVE_INFINITY -> sb.append("#-Infinity");
+          case FINITE -> {
+            if (f.negativeZero()) {
+              sb.append("-0.0");
+            } else {
+              String s = f.decimalValue().toPlainString();
+              if (!s.contains(".")) {
+                s += ".0";
+              }
+              sb.append(s);
+            }
+          }
         }
-        sb.append(s);
       }
-    } else if (value instanceof StvnValue.StvnString s) {
-      sb.append(spaces).append("#4 \"").append(escapeString(s.value())).append("\"");
-    } else if (value instanceof StvnValue.StvnEnum e) {
-      sb.append(spaces).append("#5 ( \"").append(escapeString(e.keyword())).append("\" ").append(e.sequentialIndex()).append(" )");
-    } else if (value instanceof StvnValue.StvnOption opt) {
-      if (opt.isNone()) {
-        sb.append(spaces).append("#7 #NONE");
-      } else {
-        sb.append(spaces).append("#6 ( #SOME\n");
-        serializeIrValue(opt.value().get(), indent + 2, sb);
+      case StvnValue.StvnString s ->
+          sb.append(spaces).append("#4 \"").append(escapeString(s.value())).append("\"");
+      case StvnValue.StvnEnum e ->
+          sb.append(spaces).append("#5 ( \"").append(escapeString(e.variantTag())).append("\" ")
+              .append(e.rootOrdinal()).append(" )");
+      case StvnValue.StvnOption opt -> {
+        if (opt.value().isEmpty()) {
+          sb.append(spaces).append("#7 #NONE");
+        } else {
+          sb.append(spaces).append("#6 ( #SOME\n");
+          serializeIrValue(opt.value().get(), indent + 2, sb);
+          sb.append("\n").append(spaces).append(")");
+        }
+      }
+      case StvnValue.StvnEither either -> {
+        if (either.branch() == StvnValue.EitherBranch.RIGHT) {
+          sb.append(spaces).append("#9 ( #RIGHT\n");
+          serializeIrValue(either.value(), indent + 2, sb);
+          sb.append("\n").append(spaces).append(")");
+        } else {
+          sb.append(spaces).append("#8 ( #LEFT\n");
+          serializeIrValue(either.value(), indent + 2, sb);
+          sb.append("\n").append(spaces).append(")");
+        }
+      }
+      case StvnValue.StvnUnion union -> {
+        sb.append(spaces).append("#10 ( ").append(union.oneBasedBranchIndex()).append("\n");
+        serializeIrValue(union.value(), indent + 2, sb);
         sb.append("\n").append(spaces).append(")");
       }
-    } else if (value instanceof StvnValue.StvnEither either) {
-      if (either.isRight()) {
-        sb.append(spaces).append("#9 ( #RIGHT\n");
-        serializeIrValue(either.value(), indent + 2, sb);
-        sb.append("\n").append(spaces).append(")");
-      } else {
-        sb.append(spaces).append("#8 ( #LEFT\n");
-        serializeIrValue(either.value(), indent + 2, sb);
-        sb.append("\n").append(spaces).append(")");
+      case StvnValue.StvnTuple tuple -> {
+        sb.append(spaces).append("#11 [");
+        for (StvnValue elem : tuple.elements()) {
+          sb.append("\n");
+          serializeIrValue(elem, indent + 2, sb);
+        }
+        if (!tuple.elements().isEmpty()) {
+          sb.append("\n").append(spaces);
+        }
+        sb.append("]");
       }
-    } else if (value instanceof StvnValue.StvnUnion union) {
-      sb.append(spaces).append("#10 ( ").append(union.tagIndex() + 1).append("\n");
-      serializeIrValue(union.value(), indent + 2, sb);
-      sb.append("\n").append(spaces).append(")");
-    } else if (value instanceof StvnValue.StvnTuple tuple) {
-      sb.append(spaces).append("#11 [");
-      for (StvnValue elem : tuple.elements()) {
-        sb.append("\n");
-        serializeIrValue(elem, indent + 2, sb);
+      case StvnValue.StvnSeq seq -> {
+        boolean nonEmpty = seq.schema() instanceof StvnSchema.SeqSchema ss && ss.minSize().signum() > 0;
+        sb.append(spaces).append("#12 ( ").append(nonEmpty ? "#TRUE" : "#FALSE").append(" [");
+        for (StvnValue elem : seq.elements()) {
+          sb.append("\n");
+          serializeIrValue(elem, indent + 2, sb);
+        }
+        if (!seq.elements().isEmpty()) {
+          sb.append("\n").append(spaces);
+        }
+        sb.append("] )");
       }
-      if (!tuple.elements().isEmpty()) {
-        sb.append("\n").append(spaces);
+      case StvnValue.StvnSet set -> {
+        sb.append(spaces).append("#13 [");
+        for (StvnValue elem : set.elements()) {
+          sb.append("\n");
+          serializeIrValue(elem, indent + 2, sb);
+        }
+        if (!set.elements().isEmpty()) {
+          sb.append("\n").append(spaces);
+        }
+        sb.append("]");
       }
-      sb.append("]");
-    } else if (value instanceof StvnValue.StvnSeq seq) {
-      sb.append(spaces).append("#12 ( ").append(seq.isNonEmpty() ? "#TRUE" : "#FALSE").append(" [");
-      for (StvnValue elem : seq.elements()) {
-        sb.append("\n");
-        serializeIrValue(elem, indent + 2, sb);
+      case StvnValue.StvnMap map -> {
+        boolean invertible = map.schema() instanceof StvnSchema.MapSchema ms && ms.invertible();
+        sb.append(spaces).append("#14 ( ").append(invertible ? "#TRUE" : "#FALSE").append(" [");
+        for (var entry : map.entries()) {
+          sb.append("\n").append(spaces).append("  (\n");
+          serializeIrValue(entry.key(), indent + 4, sb);
+          sb.append("\n");
+          serializeIrValue(entry.value(), indent + 4, sb);
+          sb.append("\n").append(spaces).append("  )");
+        }
+        if (!map.entries().isEmpty()) {
+          sb.append("\n").append(spaces);
+        }
+        sb.append("] )");
       }
-      if (!seq.elements().isEmpty()) {
-        sb.append("\n").append(spaces);
-      }
-      sb.append("] )");
-    } else if (value instanceof StvnValue.StvnSet set) {
-      sb.append(spaces).append("#13 [");
-      for (StvnValue elem : set.elements()) {
-        sb.append("\n");
-        serializeIrValue(elem, indent + 2, sb);
-      }
-      if (!set.elements().isEmpty()) {
-        sb.append("\n").append(spaces);
-      }
-      sb.append("]");
-    } else if (value instanceof StvnValue.StvnMap map) {
-      sb.append(spaces).append("#14 ( ").append(map.isInvertible() ? "#TRUE" : "#FALSE").append(" [");
-      for (var entry : map.entries().entrySet()) {
-        sb.append("\n").append(spaces).append("  (\n");
-        serializeIrValue(entry.getKey(), indent + 4, sb);
-        sb.append("\n");
-        serializeIrValue(entry.getValue(), indent + 4, sb);
-        sb.append("\n").append(spaces).append("  )");
-      }
-      if (!map.entries().isEmpty()) {
-        sb.append("\n").append(spaces);
-      }
-      sb.append("] )");
-    } else if (value instanceof StvnValue.StvnTime t) {
-      if (t.value() instanceof BigInteger bi) {
-        sb.append(spaces).append("#2 ( ").append(bi).append(" 64 #FALSE )");
-      } else {
-        sb.append(spaces).append("#4 \"").append(escapeString(t.value().toString())).append("\"");
-      }
-    } else if (value instanceof StvnValue.StvnDateTimeOffset dto) {
-      sb.append(spaces).append("#4 \"").append(escapeString(dto.value().toString())).append("\"");
-    } else if (value instanceof StvnValue.StvnDateTimeZoned dtz) {
-      sb.append(spaces).append("#4 \"").append(escapeString(dtz.localDateTime().toString() + "[" + dtz.zoneId().getId() + "]")).append("\"");
-    } else if (value instanceof StvnValue.StvnDateTimeAudited dta) {
-      sb.append(spaces).append("#4 \"").append(escapeString(dta.offsetDateTime().toString() + "[" + dta.zoneId().getId() + "]")).append("\"");
-    } else if (value != null) {
-      sb.append(spaces).append("#4 \"").append(escapeString(value.toString())).append("\"");
+      case StvnValue.StvnTimeEpoch te ->
+          sb.append(spaces).append("#2 ( ").append(te.epochTicks()).append(" 64 #FALSE )");
+      case StvnValue.StvnDateTime dt ->
+          sb.append(spaces).append("#4 \"").append(escapeString(dt.canonicalIsoText())).append("\"");
+      case StvnValue.StvnErrorValue err ->
+          sb.append(spaces).append("#4 \"").append(escapeString(err.diagnostic().message())).append("\"");
     }
   }
 
   private static String escapeString(String s) {
-    if (s == null) {
-      return "";
-    }
     return s.replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-            .replace("\t", "    ");
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t");
   }
 }

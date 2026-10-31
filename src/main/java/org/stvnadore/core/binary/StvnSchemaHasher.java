@@ -1,37 +1,45 @@
 package org.stvnadore.core.binary;
 
+import org.jspecify.annotations.NullMarked;
 import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.validation.StvnTypeResolver;
-import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
-import org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints;
+import org.stvnadore.core.ir.StvnSchema;
+import org.stvnadore.core.ir.StvnSchema.BoundKind;
+import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
+import org.stvnadore.core.lowering.StvnPayloadLowerer;
 import org.stvnadore.core.validation.MalformedSchemaException;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * Deterministic schema hashing engine for STVN.
+ * Deterministic pure-IR schema hashing engine for STVN 2.0.0.
  * <p>
  * Generates structural fingerprint identities (such as RFC-compliant Version 8 UUIDs or SHA-256 hashes)
- * by recursively digesting schema definitions. The hashing process digests:
+ * by recursively digesting normalized {@link StvnSchema} definitions. The hashing process digests:
  * <ol>
- *   <li>The primitive base type name (e.g. {@code :Int}, {@code :Seq}).</li>
- *   <li>Metadata constraints in a deterministic sequence (bounds, regex, preserveIndent, equatable, comparable).</li>
- *   <li>Recursive nested structures (tuple items, union branches, underlying aliases).</li>
+ *   <li>Optional nominal FQNI alias identity.</li>
+ *   <li>The canonical base type or constructor identifier (for example, {@code :Int}, {@code :Seq}, {@code :Enum}).</li>
+ *   <li>Normalized metadata facets and trait overrides in a deterministic sequence.</li>
+ *   <li>Recursive nested child schemas (tuple fields, union branches, collection elements, map key/values).</li>
  * </ol>
  * <p>
- * To prevent stack overflows or infinite loops, cycles are tracked using thread-local active checks.
- * Anonymous cycles trigger a {@link MalformedSchemaException}, whereas nominal circular definitions
- * write their alias identifier to break the cycle deterministically.
+ * Recursive back-edges and reference cycles are tracked deterministically. Anonymous cycles fail closed
+ * with {@link MalformedSchemaException}, whereas nominal circular definitions digest their alias identifier
+ * to break the cycle deterministically.
  *
  * @since 1.0.0
  */
-public class StvnSchemaHasher {
+@NullMarked
+public final class StvnSchemaHasher {
 
   private StvnSchemaHasher() {
     // Utility class, non-instantiable
@@ -67,53 +75,28 @@ public class StvnSchemaHasher {
   private static final byte[] PREFIX_ZONED_TRUE = "zoned:true".getBytes(StandardCharsets.UTF_8);
   private static final byte[] PREFIX_AUDITED_TRUE = "audited:true".getBytes(StandardCharsets.UTF_8);
 
-  private static final ThreadLocal<java.util.Set<ResolvedSchema>> ACTIVE_SCHEMAS =
-      ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
-
-  private static final ThreadLocal<java.util.Set<org.antlr.v4.runtime.ParserRuleContext>> ACTIVE_NODES =
-      ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+  private static final ThreadLocal<Set<StvnSchema>> ACTIVE_SCHEMAS =
+      ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
 
   /**
-   * Generates a deterministic RFC-compliant Version 8 UUID for a pure-IR {@link org.stvnadore.core.ir.StvnSchema}.
-   *
-   * @param schema the pure-IR schema to hash
-   * @return a deterministic Version 8 UUID representing the schema's identity
-   * @since 2.0.0
-   */
-  public static UUID hashSchema(org.stvnadore.core.ir.StvnSchema schema) {
-    return hashSchema(org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(schema));
-  }
-
-  /**
-   * Computes a deterministic SHA-256 structural identity fingerprint for a pure-IR {@link org.stvnadore.core.ir.StvnSchema}.
-   *
-   * @param schema the pure-IR schema to digest
-   * @return a 32-byte array containing the SHA-256 hash representation
-   * @since 2.0.0
-   */
-  public static byte[] computeSha256(org.stvnadore.core.ir.StvnSchema schema) {
-    return computeSha256(org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(schema));
-  }
-
-  /**
-   * Generates a deterministic RFC-compliant Version 8 (Custom) UUID based on the structural constraints of the schema.
+   * Generates a deterministic RFC-compliant Version 8 (Custom) UUID for a pure-IR {@link StvnSchema}.
    * <p>
-   * This is computed by wrapping the first 16 bytes of the structural SHA-256 fingerprint
+   * Computed by wrapping the first 16 bytes of the structural SHA-256 fingerprint
    * and applying standard RFC 9562 version and variant bitmasks.
    *
-   * @param schema the resolved schema to hash
-   * @return a deterministic Version 8 UUID representing the schema's identity
-   * @throws MalformedSchemaException if an anonymous cycle is detected
+   * @param schema the pure-IR schema to hash
+   * @return a deterministic Version 8 UUID representing the schema's structural identity
+   * @throws MalformedSchemaException if an anonymous structural cycle or poisoned schema is detected
+   * @since 2.0.0
    */
-  public static UUID hashSchema(ResolvedSchema schema) {
+  public static UUID hashSchema(StvnSchema schema) {
+    Objects.requireNonNull(schema, "schema must not be null");
     byte[] hashBytes = computeSha256(schema);
 
-    // Construct a UUID from the first 16 bytes of the SHA-256 hash
     ByteBuffer buffer = ByteBuffer.wrap(hashBytes);
     long msb = buffer.getLong();
     long lsb = buffer.getLong();
 
-    // Apply RFC standard Version 8 (Custom) UUID masking
     msb = (msb & 0xFFFFFFFFFFFF0FFFL) | 0x0000000000008000L;
     lsb = (lsb & 0x3FFFFFFFFFFFFFFFL) | 0x8000000000000000L;
 
@@ -121,48 +104,51 @@ public class StvnSchemaHasher {
   }
 
   /**
-   * Computes a deterministic SHA-256 structural identity fingerprint for the given schema.
+   * Computes a deterministic SHA-256 structural identity fingerprint for a pure-IR {@link StvnSchema}.
    *
-   * @param schema the resolved schema to digest
-   * @return a byte array containing the SHA-256 hash representation
-   * @throws MalformedSchemaException if an anonymous structural cycle is detected
+   * @param schema the pure-IR schema to digest
+   * @return a 32-byte array containing the SHA-256 hash representation
+   * @throws MalformedSchemaException if an anonymous structural cycle or poisoned schema is detected
+   * @since 2.0.0
    */
-  public static byte[] computeSha256(ResolvedSchema schema) {
+  public static byte[] computeSha256(StvnSchema schema) {
+    Objects.requireNonNull(schema, "schema must not be null");
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      digestSchema(schema, digest);
+      digestSchema(schema, digest, new HashSet<>());
       return digest.digest();
     } catch (NoSuchAlgorithmException e) {
-      throw new RuntimeException("SHA-256 algorithm missing from environment", e);
+      throw new IllegalStateException("SHA-256 algorithm missing from environment", e);
     }
   }
 
-  private static void digestSchema(ResolvedSchema schema, MessageDigest digest) {
-    digestSchema(schema, digest, new java.util.HashSet<>());
-  }
+  private static void digestSchema(StvnSchema schema, MessageDigest digest, Set<String> visited) {
+    if (schema instanceof StvnSchema.PoisonedSchema poisoned) {
+      if (StvnPayloadLowerer.RECURSIVE_BACK_EDGE_SENTINEL.equals(poisoned.primaryDiagnosticCode())) {
+        String alias = poisoned.aliasName().orElseThrow(() ->
+            new MalformedSchemaException("Malformed schema: anonymous cycle detected during schema hashing.", -1, -1));
+        digest.update(PREFIX_CYCLE);
+        digest.update(alias.getBytes(StandardCharsets.UTF_8));
+        return;
+      }
+      if (poisoned.bestEffortFallback().isPresent()) {
+        digestSchema(poisoned.bestEffortFallback().get(), digest, visited);
+        return;
+      }
+      throw new MalformedSchemaException(
+          "Cannot compute hash for poisoned schema: " + poisoned.primaryDiagnosticCode(), -1, -1);
+    }
 
-  private static void digestSchema(ResolvedSchema schema, MessageDigest digest, java.util.Set<String> visited) {
-    if (schema == null) return;
-
-    var activeSchemas = ACTIVE_SCHEMAS.get();
-    var activeNodes = ACTIVE_NODES.get();
-
-    boolean isSchemaCycle = activeSchemas.contains(schema);
-    boolean isNodeCycle = schema.node() != null && activeNodes.contains(schema.node());
-
-    if (isSchemaCycle || isNodeCycle) {
+    Set<StvnSchema> activeSchemas = ACTIVE_SCHEMAS.get();
+    if (activeSchemas.contains(schema)) {
       String alias = schema.aliasName().orElseThrow(() ->
-          new MalformedSchemaException("Malformed schema: anonymous cycle detected during schema hashing."));
+          new MalformedSchemaException("Malformed schema: anonymous cycle detected during schema hashing.", -1, -1));
       digest.update(PREFIX_CYCLE);
       digest.update(alias.getBytes(StandardCharsets.UTF_8));
       return;
     }
 
     activeSchemas.add(schema);
-    if (schema.node() != null) {
-      activeNodes.add(schema.node());
-    }
-
     try {
       String alias = schema.aliasName().orElse(null);
       if (alias != null) {
@@ -171,129 +157,225 @@ public class StvnSchemaHasher {
         if (visited.contains(alias)) {
           return;
         }
-        visited = new java.util.HashSet<>(visited);
+        visited = new HashSet<>(visited);
         visited.add(alias);
       }
 
-      // 1. Digest the primitive base type (e.g., ":String", ":Int")
-      String baseType = StvnTypeResolver.getPrimitiveBaseType(schema.node());
-      if (baseType != null) {
-        digest.update(baseType.getBytes(StandardCharsets.UTF_8));
-        if (org.stvnadore.core.StvnVocabulary.TYPE_ENUM.equals(baseType) && schema.node() != null && schema.node().schemaConstructor() != null && schema.node().schemaConstructor().sumType() != null) {
-          var enumDef = schema.node().schemaConstructor().sumType().enumDef();
-          if (enumDef != null) {
-            for (var kw : enumDef.valueKeyword()) {
-              digest.update(PREFIX_ENUM_VARIANT);
-              digest.update(kw.getText().getBytes(StandardCharsets.UTF_8));
-            }
-          }
-        }
-      }
+      // 1. Digest base type constructor and enum/subset variants
+      String baseType = switch (schema) {
+        case StvnSchema.BooleanSchema ignored -> StvnVocabulary.TYPE_BOOLEAN;
+        case StvnSchema.IntSchema ignored -> StvnVocabulary.TYPE_INT;
+        case StvnSchema.FloatSchema ignored -> StvnVocabulary.TYPE_FLOAT;
+        case StvnSchema.StringSchema ignored -> StvnVocabulary.TYPE_STRING;
+        case StvnSchema.TimeEpochSchema ignored -> StvnVocabulary.TYPE_TIME_EPOCH;
+        case StvnSchema.DateTimeSchema ignored -> StvnVocabulary.TYPE_DATE_TIME;
+        case StvnSchema.EnumSchema ignored -> StvnVocabulary.TYPE_ENUM;
+        case StvnSchema.EnumSubsetSchema ignored -> StvnVocabulary.TYPE_ENUM;
+        case StvnSchema.TupleSchema ignored -> StvnVocabulary.TYPE_TUPLE;
+        case StvnSchema.OptionSchema ignored -> StvnVocabulary.TYPE_OPTION;
+        case StvnSchema.EitherSchema ignored -> StvnVocabulary.TYPE_EITHER;
+        case StvnSchema.UnionSchema ignored -> StvnVocabulary.TYPE_UNION;
+        case StvnSchema.SeqSchema ignored -> StvnVocabulary.TYPE_SEQ;
+        case StvnSchema.SetSchema ignored -> StvnVocabulary.TYPE_SET;
+        case StvnSchema.MapSchema ignored -> StvnVocabulary.TYPE_MAP;
+        case StvnSchema.PoisonedSchema ignored -> throw new IllegalStateException("Handled above");
+      };
+      digest.update(baseType.getBytes(StandardCharsets.UTF_8));
 
-      if (schema.enumSubset().isPresent()) {
-        var subset = schema.enumSubset().get();
+      if (schema instanceof StvnSchema.EnumSchema en) {
+        for (String variant : en.rootVariants()) {
+          digest.update(PREFIX_ENUM_VARIANT);
+          digest.update(variant.getBytes(StandardCharsets.UTF_8));
+        }
+      } else if (schema instanceof StvnSchema.EnumSubsetSchema sub) {
+        for (String rootVar : sub.rootEnum().rootVariants()) {
+          digest.update(PREFIX_ENUM_VARIANT);
+          digest.update(rootVar.getBytes(StandardCharsets.UTF_8));
+        }
         digest.update(PREFIX_SUBSET_NAME);
-        digest.update(subset.name().getBytes(StandardCharsets.UTF_8));
+        digest.update(sub.aliasName().orElse("").getBytes(StandardCharsets.UTF_8));
         digest.update(PREFIX_SUBSET_PARENT);
-        digest.update(subset.parentType().getBytes(StandardCharsets.UTF_8));
+        digest.update(sub.parentEnum().aliasName().orElse("").getBytes(StandardCharsets.UTF_8));
         digest.update(PREFIX_SUBSET_ROOT);
-        digest.update(subset.rootEnum().getBytes(StandardCharsets.UTF_8));
+        digest.update(sub.rootEnum().aliasName().orElse("").getBytes(StandardCharsets.UTF_8));
         digest.update(PREFIX_SUBSET_FILTER_TYPE);
-        digest.update((subset.isInclusive() ? "incl" : "excl").getBytes(StandardCharsets.UTF_8));
-        for (String variant : subset.allowedVariants()) {
+        digest.update((sub.inclusiveFilter() ? "incl" : "excl").getBytes(StandardCharsets.UTF_8));
+        for (String variant : sub.activeVariants()) {
           digest.update(PREFIX_SUBSET_VARIANT);
           digest.update(variant.getBytes(StandardCharsets.UTF_8));
         }
       }
 
-      // 2. Digest constraints in a strictly deterministic order
-      StvnConstraints constraints = schema.constraints();
-      constraints.minIncl().ifPresent(val -> {
-        digest.update(PREFIX_MIN_INCL);
-        digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
-      });
-      constraints.minExcl().ifPresent(val -> {
-        digest.update(PREFIX_MIN_EXCL);
-        digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
-      });
-      constraints.maxIncl().ifPresent(val -> {
-        digest.update(PREFIX_MAX_INCL);
-        digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
-      });
-      constraints.maxExcl().ifPresent(val -> {
-        digest.update(PREFIX_MAX_EXCL);
-        digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
-      });
-      constraints.dateMinIncl().ifPresent(val -> {
-        digest.update(PREFIX_DATE_MIN_INCL);
-        digest.update(val.getBytes(StandardCharsets.UTF_8));
-      });
-      constraints.dateMaxExcl().ifPresent(val -> {
-        digest.update(PREFIX_DATE_MAX_EXCL);
-        digest.update(val.getBytes(StandardCharsets.UTF_8));
-      });
-      constraints.regex().ifPresent(val -> {
-        digest.update(PREFIX_REGEX);
-        digest.update(val.getBytes(StandardCharsets.UTF_8));
-      });
+      // 2. Digest constraints in deterministic sequence
+      switch (schema) {
+        case StvnSchema.IntSchema i -> {
+          i.explicitMinIncl().ifPresent(val -> {
+            digest.update(PREFIX_MIN_INCL);
+            digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
+          });
+          i.explicitMaxExcl().ifPresent(val -> {
+            digest.update(PREFIX_MAX_EXCL);
+            digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
+          });
+        }
+        case StvnSchema.TimeEpochSchema te -> {
+          te.explicitMinIncl().ifPresent(val -> {
+            digest.update(PREFIX_MIN_INCL);
+            digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
+          });
+          te.explicitMaxExcl().ifPresent(val -> {
+            digest.update(PREFIX_MAX_EXCL);
+            digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
+          });
+        }
+        case StvnSchema.FloatSchema f -> {
+          f.lowerBound().ifPresent(lb -> {
+            digest.update(lb.kind() == BoundKind.INCLUSIVE ? PREFIX_MIN_INCL : PREFIX_MIN_EXCL);
+            digest.update(lb.value().toPlainString().getBytes(StandardCharsets.UTF_8));
+          });
+          f.upperBound().ifPresent(ub -> {
+            digest.update(ub.kind() == BoundKind.INCLUSIVE ? PREFIX_MAX_INCL : PREFIX_MAX_EXCL);
+            digest.update(ub.value().toPlainString().getBytes(StandardCharsets.UTF_8));
+          });
+        }
+        case StvnSchema.StringSchema s -> {
+          s.lowerBound().ifPresent(lb -> {
+            digest.update(lb.kind() == BoundKind.INCLUSIVE ? PREFIX_MIN_INCL : PREFIX_MIN_EXCL);
+            digest.update(lb.value().getBytes(StandardCharsets.UTF_8));
+          });
+          s.upperBound().ifPresent(ub -> {
+            digest.update(ub.kind() == BoundKind.INCLUSIVE ? PREFIX_MAX_INCL : PREFIX_MAX_EXCL);
+            digest.update(ub.value().getBytes(StandardCharsets.UTF_8));
+          });
+        }
+        case StvnSchema.DateTimeSchema dt -> {
+          dt.explicitMinInclIso().ifPresent(val -> {
+            digest.update(PREFIX_DATE_MIN_INCL);
+            digest.update(val.getBytes(StandardCharsets.UTF_8));
+          });
+          dt.explicitMaxExclIso().ifPresent(val -> {
+            digest.update(PREFIX_DATE_MAX_EXCL);
+            digest.update(val.getBytes(StandardCharsets.UTF_8));
+          });
+        }
+        default -> {
+          // No interval bounds
+        }
+      }
 
-      digest.update(constraints.preserveIndent() ? PREFIX_PRESERVE_INDENT_TRUE : PREFIX_PRESERVE_INDENT_FALSE);
+      if (schema instanceof StvnSchema.StringSchema s) {
+        s.rawRegexPattern().ifPresent(rx -> {
+          digest.update(PREFIX_REGEX);
+          digest.update(rx.getBytes(StandardCharsets.UTF_8));
+        });
+        digest.update(s.preserveIndent() ? PREFIX_PRESERVE_INDENT_TRUE : PREFIX_PRESERVE_INDENT_FALSE);
+      } else {
+        digest.update(PREFIX_PRESERVE_INDENT_FALSE);
+      }
 
-      constraints.equatable().ifPresent(val -> {
+      schema.traits().explicitEquatableOverride().ifPresent(val -> {
         digest.update(PREFIX_EQUATABLE);
         digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
       });
-      constraints.comparable().ifPresent(val -> {
+      schema.traits().explicitComparableOverride().ifPresent(val -> {
         digest.update(PREFIX_COMPARABLE);
         digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
       });
 
-      constraints.size().ifPresent(val -> {
-        digest.update(PREFIX_SIZE);
-        digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
-      });
-      if (constraints.unsigned()) {
-        digest.update(PREFIX_UNSIGNED_TRUE);
-      }
-      if (constraints.exact()) {
-        digest.update(PREFIX_EXACT_TRUE);
-      }
-      constraints.minSize().ifPresent(val -> {
-        digest.update(PREFIX_MIN_SIZE);
-        digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
-      });
-      constraints.maxSize().ifPresent(val -> {
-        digest.update(PREFIX_MAX_SIZE);
-        digest.update(val.toString().getBytes(StandardCharsets.UTF_8));
-      });
-      if (constraints.invertible()) {
-        digest.update(PREFIX_INVERTIBLE_TRUE);
-      }
-      constraints.scale().ifPresent(val -> {
-        digest.update(PREFIX_SCALE);
-        String s = val.startsWith(StvnVocabulary.SIGIL_VALUE) ? val.substring(1) : val;
-        digest.update(s.getBytes(StandardCharsets.UTF_8));
-      });
-      if (constraints.offset()) {
-        digest.update(PREFIX_OFFSET_TRUE);
-      }
-      if (constraints.zoned()) {
-        digest.update(PREFIX_ZONED_TRUE);
-      }
-      if (constraints.audited()) {
-        digest.update(PREFIX_AUDITED_TRUE);
+      switch (schema) {
+        case StvnSchema.IntSchema i -> {
+          if (!i.bitWidth().equals(StvnVocabulary.DEFAULT_INT_BIT_WIDTH)) {
+            digest.update(PREFIX_SIZE);
+            digest.update(i.bitWidth().toString().getBytes(StandardCharsets.UTF_8));
+          }
+          if (i.unsigned()) {
+            digest.update(PREFIX_UNSIGNED_TRUE);
+          }
+        }
+        case StvnSchema.FloatSchema f -> {
+          if (f.representation() == FloatRepresentation.IEEE_32) {
+            digest.update(PREFIX_SIZE);
+            digest.update("32".getBytes(StandardCharsets.UTF_8));
+          } else if (f.representation() == FloatRepresentation.EXACT_DECIMAL) {
+            digest.update(PREFIX_EXACT_TRUE);
+            if (!f.exactMaxDigits().equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
+              digest.update(PREFIX_MAX_SIZE);
+              digest.update(f.exactMaxDigits().toString().getBytes(StandardCharsets.UTF_8));
+            }
+          }
+        }
+        case StvnSchema.StringSchema s -> {
+          if (s.minSize().signum() > 0) {
+            digest.update(PREFIX_MIN_SIZE);
+            digest.update(s.minSize().toString().getBytes(StandardCharsets.UTF_8));
+          }
+          if (!s.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
+            digest.update(PREFIX_MAX_SIZE);
+            digest.update(s.maxSize().toString().getBytes(StandardCharsets.UTF_8));
+          }
+        }
+        case StvnSchema.SeqSchema seq -> {
+          if (seq.minSize().signum() > 0) {
+            digest.update(PREFIX_MIN_SIZE);
+            digest.update(seq.minSize().toString().getBytes(StandardCharsets.UTF_8));
+          }
+          if (!seq.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
+            digest.update(PREFIX_MAX_SIZE);
+            digest.update(seq.maxSize().toString().getBytes(StandardCharsets.UTF_8));
+          }
+        }
+        case StvnSchema.SetSchema set -> {
+          if (set.minSize().signum() > 0) {
+            digest.update(PREFIX_MIN_SIZE);
+            digest.update(set.minSize().toString().getBytes(StandardCharsets.UTF_8));
+          }
+          if (!set.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
+            digest.update(PREFIX_MAX_SIZE);
+            digest.update(set.maxSize().toString().getBytes(StandardCharsets.UTF_8));
+          }
+        }
+        case StvnSchema.MapSchema map -> {
+          if (map.minSize().signum() > 0) {
+            digest.update(PREFIX_MIN_SIZE);
+            digest.update(map.minSize().toString().getBytes(StandardCharsets.UTF_8));
+          }
+          if (!map.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
+            digest.update(PREFIX_MAX_SIZE);
+            digest.update(map.maxSize().toString().getBytes(StandardCharsets.UTF_8));
+          }
+          if (map.invertible()) {
+            digest.update(PREFIX_INVERTIBLE_TRUE);
+          }
+        }
+        case StvnSchema.TimeEpochSchema te -> {
+          digest.update(PREFIX_SCALE);
+          String scaleToken = switch (te.scale()) {
+            case NS -> StvnVocabulary.SCALE_NS;
+            case US -> StvnVocabulary.SCALE_US;
+            case MS -> StvnVocabulary.SCALE_MS;
+            case S -> StvnVocabulary.SCALE_S;
+          };
+          digest.update(scaleToken.getBytes(StandardCharsets.UTF_8));
+        }
+        case StvnSchema.DateTimeSchema dt -> {
+          switch (dt.mode()) {
+            case OFFSET -> digest.update(PREFIX_OFFSET_TRUE);
+            case ZONED -> digest.update(PREFIX_ZONED_TRUE);
+            case AUDITED -> digest.update(PREFIX_AUDITED_TRUE);
+          }
+        }
+        default -> {
+          // No additional Tier-1 facets
+        }
       }
 
-      // 3. Recursively digest structural children (e.g., Tuple elements, Map Key/Values)
-      List<ResolvedSchema> children = StvnBinaryDecoder.extractChildSchemas(schema);
-      for (ResolvedSchema child : children) {
+      // 3. Recursively digest structural children
+      List<StvnSchema> children = StvnBinaryDecoder.extractChildSchemas(schema);
+      for (StvnSchema child : children) {
         digestSchema(child, digest, visited);
       }
     } finally {
       activeSchemas.remove(schema);
-      if (schema.node() != null) {
-        activeNodes.remove(schema.node());
-      }
     }
   }
 }

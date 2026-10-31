@@ -2,7 +2,7 @@ package org.stvnadore.core.printer.internal;
 
 import org.jspecify.annotations.NullMarked;
 import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ast.StvnValue.FloatPrecision;
+import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
 import org.stvnadore.core.printer.PrinterOptions;
 
 import java.io.IOException;
@@ -80,8 +80,8 @@ public final class CompactLayoutWriter implements LayoutWriter {
   }
 
   @Override
-  public void writeFloat(BigDecimal val, FloatPrecision precision) throws IOException {
-    writeToken(formatFloat(val, precision));
+  public void writeFloat(BigDecimal val, FloatRepresentation representation) throws IOException {
+    writeToken(formatFloat(val, representation));
   }
 
   @Override
@@ -93,7 +93,6 @@ public final class CompactLayoutWriter implements LayoutWriter {
   public void writeSimpleString(String s) throws IOException {
     writeToken("\"" + escapeString(s) + "\"");
   }
-
 
   @Override
   public void openGroup(String delimiter) throws IOException {

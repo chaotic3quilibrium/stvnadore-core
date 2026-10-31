@@ -1,49 +1,69 @@
 package org.stvnadore.core.binary;
 
-import org.stvnadore.core.ast.StvnValue;
-import org.stvnadore.core.ast.StvnValue.*;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.binary.exceptions.StvnSerializationException;
+import org.stvnadore.core.io.CanonicalStvnWriter;
+import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.ir.StvnDocumentKind;
+import org.stvnadore.core.ir.StvnDocumentMeta;
+import org.stvnadore.core.ir.StvnSchema;
+import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
+import org.stvnadore.core.ir.StvnSchema.TemporalScale;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ir.StvnValue.EitherBranch;
+import org.stvnadore.core.ir.StvnValue.KeyValueEntry;
+import org.stvnadore.core.lowering.StvnLiteralParser;
+import org.stvnadore.core.utils.StvnBinaryUtils;
+import org.stvnadore.core.validation.StvnIntegerOverflowException;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.zip.CRC32C;
 
-import org.jspecify.annotations.Nullable;
-import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ast.StvnDocumentKind;
-import org.stvnadore.core.ast.StvnDocumentMeta;
-import org.stvnadore.core.utils.StvnBinaryUtils;
-import org.stvnadore.core.validation.StvnTypeResolver;
-
 /**
- * Binary encoder for serializing STVN Intermediate Representation (IR) values
- * into highly optimized, zero-copy binary byte layouts.
+ * Pure-IR binary encoder for serializing STVN 2.0.0 {@link StvnDocument} and {@link StvnValue} trees
+ * into zero-copy binary byte layouts ({@code .stvn_b} and {@code .stvn_bd}).
  * <p>
- * The encoder determines optimal offset sizes (1, 2, or 4 bytes) dynamically based on the total
- * footprint estimation, serializes values in a post-order traversal, and builds the magic-prefixed
- * binary header.
+ * Dynamically determines optimal offset pointer sizes (1, 2, or 4 bytes) from total footprint estimation,
+ * serializes composite payloads in post-order traversal, and emits the magic-prefixed binary header
+ * with optional 4-byte CRC-32C integrity trailers.
  *
- * <h2>Unsigned 1-Based Length Format</h2>
- * Any variable-length fields (like strings, sequences, and maps) write their sizes using an unsigned
- * 1-based encoding format ({@code length = value + 1}). Under this scheme, a stored byte value of {@code 0}
- * corresponds to a decoded length of {@code 1} byte. This minimizes overall framing size overhead for small
- * payloads and removes dependency on null-terminators, eliminating traditional buffer overflow vulnerabilities.
+ * <h2>Temporal &amp; Arbitrary Bit-Width Fidelity</h2>
+ * <ul>
+ *   <li>{@code { #s | #ms | #us } :TimeEpoch} encodes as signed 64-bit two's-complement little-endian ticks (8 bytes),
+ *       preserving negative pre-1970 Unix timestamps.</li>
+ *   <li>{@code { #ns } :TimeEpoch} encodes as signed 128-bit two's-complement little-endian ticks (16 bytes)
+ *       backed by {@link BigInteger} without 64-bit truncation.</li>
+ *   <li>{@code :Int} encodes into exact $B = \lceil n / 8 \rceil$ little-endian two's-complement bytes
+ *       (4 bytes for unadorned 32-bit {@code :Int}), failing closed on bit-width overflow.</li>
+ * </ul>
  *
- * <h2>Thread Safety &amp; Mutability</h2>
- * This class is stateful (maintains serialization buffers and caches during the encoding lifecycle)
- * and is <b>not thread-safe</b>. Instances should not be shared concurrently across threads.
+ * <h2>Thread Safety</h2>
+ * Instances maintain internal serialization buffers during an {@code encode} call and are <b>not thread-safe</b>.
  *
  * @since 1.0.0
  */
+@NullMarked
 public class StvnBinaryEncoder {
 
-  private static final int MAGIC_BYTES = 0x5354564E; // "STVN"
   private static final int INITIAL_CAPACITY = 1024 * 16;
+  private static final byte STRING_STYLE_SIMPLE = 0;
 
-  private byte[] data;
-  private ByteBuffer buffer;
+  private static final BigInteger MIN_SIGNED_64 = BigInteger.valueOf(Long.MIN_VALUE);
+  private static final BigInteger MAX_SIGNED_64 = BigInteger.valueOf(Long.MAX_VALUE);
+  private static final BigInteger MIN_SIGNED_128 = BigInteger.ONE.shiftLeft(127).negate();
+  private static final BigInteger MAX_SIGNED_128 = BigInteger.ONE.shiftLeft(127).subtract(BigInteger.ONE);
+
+  private byte[] data = new byte[0];
+  private ByteBuffer buffer = ByteBuffer.allocate(0);
 
   private final boolean isMinimizingOffsetSize;
   private final @Nullable SchemaIdentityStrategy identityStrategy;
@@ -52,7 +72,6 @@ public class StvnBinaryEncoder {
 
   private int offsetSize;
 
-  // Cache UTF-8 conversions during the pre-pass to avoid double-encoding strings later
   private final IdentityHashMap<StvnValue, byte[]> stringCache = new IdentityHashMap<>();
 
   private record Footprint(long staticBytes, long pointerCount) {
@@ -62,48 +81,51 @@ public class StvnBinaryEncoder {
   }
 
   /**
-   * Constructs a new StvnBinaryEncoder configuration defaulting to {@link BinaryEncodingStrategy#ZERO_COPY_POST_ORDER}.
+   * Constructs a new {@code StvnBinaryEncoder} defaulting to {@link BinaryEncodingStrategy#ZERO_COPY_POST_ORDER}.
    *
-   * @param isMinimizingOffsetSize if {@code true}, the encoder will downscale offset pointer sizes (to 1 or 2 bytes)
-   *                               if the total buffer footprint allows, saving space
-   * @param identityStrategy       the strategy used to register and verify schema hashes, or {@code null} if untyped
+   * @param isMinimizingOffsetSize if {@code true}, downscales pointer widths to 1 or 2 bytes when footprint allows
+   * @param identityStrategy       the schema identity strategy, or {@code null}
    */
   public StvnBinaryEncoder(boolean isMinimizingOffsetSize, @Nullable SchemaIdentityStrategy identityStrategy) {
     this(isMinimizingOffsetSize, identityStrategy, BinaryEncodingStrategy.ZERO_COPY_POST_ORDER, false);
   }
 
   /**
-   * Constructs a new StvnBinaryEncoder configuration defaulting to {@link BinaryEncodingStrategy#ZERO_COPY_POST_ORDER}
-   * with an optional CRC-32C trailer flag.
+   * Constructs a new {@code StvnBinaryEncoder} with an explicit CRC-32C trailer flag.
    *
-   * @param isMinimizingOffsetSize if {@code true}, the encoder will downscale offset pointer sizes (to 1 or 2 bytes)
-   *                               if the total buffer footprint allows, saving space
-   * @param identityStrategy       the strategy used to register and verify schema hashes, or {@code null} if untyped
+   * @param isMinimizingOffsetSize if {@code true}, downscales pointer widths to 1 or 2 bytes when footprint allows
+   * @param identityStrategy       the schema identity strategy, or {@code null}
    * @param hasTrailerCrc32c       if {@code true}, appends a 4-byte CRC-32C trailer and sets Bit 7 of Byte 4
    */
-  public StvnBinaryEncoder(boolean isMinimizingOffsetSize, @Nullable SchemaIdentityStrategy identityStrategy, boolean hasTrailerCrc32c) {
+  public StvnBinaryEncoder(
+      boolean isMinimizingOffsetSize,
+      @Nullable SchemaIdentityStrategy identityStrategy,
+      boolean hasTrailerCrc32c
+  ) {
     this(isMinimizingOffsetSize, identityStrategy, BinaryEncodingStrategy.ZERO_COPY_POST_ORDER, hasTrailerCrc32c);
   }
 
   /**
-   * Constructs a new StvnBinaryEncoder configuration with explicit encoding and identity strategies.
+   * Constructs a new {@code StvnBinaryEncoder} with explicit encoding and identity strategies.
    *
-   * @param isMinimizingOffsetSize if {@code true}, the encoder will downscale offset pointer sizes (to 1 or 2 bytes)
-   *                               if the total buffer footprint allows, saving space
-   * @param identityStrategy       the strategy used to register and verify schema hashes, or {@code null} if untyped
-   * @param encodingStrategy       the binary wire encoding strategy to use
+   * @param isMinimizingOffsetSize if {@code true}, downscales pointer widths to 1 or 2 bytes when footprint allows
+   * @param identityStrategy       the schema identity strategy, or {@code null}
+   * @param encodingStrategy       the binary wire encoding strategy
    */
-  public StvnBinaryEncoder(boolean isMinimizingOffsetSize, @Nullable SchemaIdentityStrategy identityStrategy, BinaryEncodingStrategy encodingStrategy) {
+  public StvnBinaryEncoder(
+      boolean isMinimizingOffsetSize,
+      @Nullable SchemaIdentityStrategy identityStrategy,
+      BinaryEncodingStrategy encodingStrategy
+  ) {
     this(isMinimizingOffsetSize, identityStrategy, encodingStrategy, false);
   }
 
   /**
-   * Constructs a new StvnBinaryEncoder configuration with explicit encoding, identity strategies, and CRC-32C trailer flag.
+   * Constructs a new {@code StvnBinaryEncoder} with explicit encoding strategy, identity strategy, and CRC-32C flag.
    *
-   * @param isMinimizingOffsetSize if {@code true}, the encoder will downscale offset pointer sizes (to 1 or 2 bytes)
-   *                               if the total buffer footprint allows, saving space
-   * @param identityStrategy       the strategy used to register and verify schema hashes, or {@code null} if untyped
-   * @param encodingStrategy       the binary wire encoding strategy to use
+   * @param isMinimizingOffsetSize if {@code true}, downscales pointer widths to 1 or 2 bytes when footprint allows
+   * @param identityStrategy       the schema identity strategy, or {@code null}
+   * @param encodingStrategy       the binary wire encoding strategy
    * @param hasTrailerCrc32c       if {@code true}, appends a 4-byte CRC-32C trailer and sets Bit 7 of Byte 4
    */
   public StvnBinaryEncoder(
@@ -114,7 +136,7 @@ public class StvnBinaryEncoder {
   ) {
     this.isMinimizingOffsetSize = isMinimizingOffsetSize;
     this.identityStrategy = identityStrategy;
-    this.encodingStrategy = encodingStrategy;
+    this.encodingStrategy = Objects.requireNonNull(encodingStrategy, "encodingStrategy must not be null");
     if (identityStrategy instanceof SchemaIdentityStrategy.ExplicitSha256) {
       this.hasTrailerCrc32c = true;
     } else {
@@ -125,113 +147,135 @@ public class StvnBinaryEncoder {
   /**
    * Returns whether this encoder appends a 4-byte CRC-32C trailer to serialized byte buffers.
    *
-   * @return {@code true} if CRC-32C trailer appending is enabled, {@code false} otherwise
+   * @return {@code true} if CRC-32C trailer appending is enabled
    */
   public boolean hasTrailerCrc32c() {
     return hasTrailerCrc32c;
   }
 
   /**
-   * Encodes the provided root pure-IR {@link org.stvnadore.core.ir.StvnValue} tree into a binary byte buffer.
+   * Encodes a pure-IR {@link StvnDocument} into either a {@code .stvn_b} binary body frame
+   * ({@code #kind == #BODY}, Byte 5 {@code 0b00}) or a {@code .stvn_bd} binary definitions frame
+   * ({@code #kind == #DEFS}, Byte 5 {@code 0b01}).
    *
-   * @param root the root pure-IR value node to encode
-   * @return a read-only, little-endian byte buffer containing the STVN binary payload
+   * @param document the pure-IR document to encode
+   * @return a little-endian {@link ByteBuffer} containing the serialized binary envelope
+   * @throws IllegalStateException      if the document contains unrecovered {@link StvnValue.StvnErrorValue} nodes
+   * @throws StvnSerializationException if schema or metadata validation fails
    * @since 2.0.0
    */
-  public ByteBuffer encode(org.stvnadore.core.ir.StvnValue root) {
-    if (org.stvnadore.core.StvnCompiler.hasErrorNodes(root)) {
-      throw new IllegalStateException("Cannot encode partial IR containing unrecovered StvnErrorValue nodes");
+  public ByteBuffer encode(StvnDocument document) {
+    Objects.requireNonNull(document, "document must not be null");
+    if (document.payload().isPresent()) {
+      StvnDocumentMeta effectiveMeta = document.meta()
+          .map(m -> m.kind().isPresent()
+              ? m
+              : new StvnDocumentMeta(m.name(), m.domain(), Optional.of(StvnDocumentKind.BODY)))
+          .orElseGet(() -> StvnDocumentMeta.ofKind(StvnDocumentKind.BODY));
+      return encode(document.payload().get(), effectiveMeta);
     }
-    return encode(org.stvnadore.core.lowering.LegacyAstBridge.toLegacyValue(root));
+
+    StvnDocumentKind defsKind = document.hasIncludes() ? StvnDocumentKind.DEFS_INCLUDE : StvnDocumentKind.DEFS;
+    StvnDocumentMeta effectiveMeta = document.meta()
+        .map(m -> m.kind().isPresent()
+            ? m
+            : new StvnDocumentMeta(m.name(), m.domain(), Optional.of(defsKind)))
+        .orElseGet(() -> StvnDocumentMeta.ofKind(defsKind));
+
+    String canonicalDefsText = new CanonicalStvnWriter().printToString(document);
+    byte[] defsUtf8 = canonicalDefsText.getBytes(StandardCharsets.UTF_8);
+    int totalStringLength = 1 + defsUtf8.length;
+    int prefixLen = getDerivedLengthPrefixSize(totalStringLength);
+
+    Footprint payloadFp = new Footprint(prefixLen + totalStringLength, 1);
+    return encodeEnvelope(effectiveMeta, payloadFp, () -> writeRawOutlinedUtf8Bytes(defsUtf8));
   }
 
   /**
-   * Encodes the provided root pure-IR {@link org.stvnadore.core.ir.StvnValue} tree and pure-IR document metadata.
+   * Encodes the provided root pure-IR {@link StvnValue} tree into a {@code .stvn_b} binary byte buffer
+   * with default {@code #BODY} document metadata.
    *
    * @param root the root pure-IR value node to encode
-   * @param meta the pure-IR document metadata, or {@code null}
-   * @return a read-only, little-endian byte buffer containing the STVN binary payload
+   * @return a little-endian {@link ByteBuffer} containing the STVN binary payload
+   * @throws IllegalStateException      if {@code root} contains unrecovered {@link StvnValue.StvnErrorValue} nodes
+   * @throws StvnSerializationException if schema validation fails
    * @since 2.0.0
-   */
-  public ByteBuffer encode(
-      org.stvnadore.core.ir.StvnValue root,
-      org.stvnadore.core.ir.@Nullable StvnDocumentMeta meta
-  ) {
-    if (org.stvnadore.core.StvnCompiler.hasErrorNodes(root)) {
-      throw new IllegalStateException("Cannot encode partial IR containing unrecovered StvnErrorValue nodes");
-    }
-    return encode(
-        org.stvnadore.core.lowering.LegacyAstBridge.toLegacyValue(root),
-        meta != null ? org.stvnadore.core.lowering.LegacyAstBridge.toLegacyMeta(meta) : null
-    );
-  }
-
-  /**
-   * Encodes the provided root STVN IR AST value tree into a binary byte buffer.
-   *
-   * @param root the root value node of the AST to encode
-   * @return a read-only, little-endian byte buffer containing the STVN binary payload
-   * @throws org.stvnadore.core.binary.exceptions.StvnSerializationException if structural fields or schemas are invalid
    */
   public ByteBuffer encode(StvnValue root) {
     return encode(root, StvnDocumentMeta.ofKind(StvnDocumentKind.BODY));
   }
 
   /**
-   * Encodes the provided root STVN IR AST value tree and document metadata into a binary byte buffer.
+   * Encodes the provided root pure-IR {@link StvnValue} tree and optional {@link StvnDocumentMeta}
+   * into a binary byte buffer.
    *
-   * @param root the root value node of the AST to encode
-   * @param meta the document identity metadata to serialize into Byte 5+
-   * @return a read-only, little-endian byte buffer containing the STVN binary payload
-   * @throws org.stvnadore.core.binary.exceptions.StvnSerializationException if structural fields or schemas are invalid
+   * @param root the root pure-IR value node to encode
+   * @param meta the pure-IR document identity metadata to serialize into Byte 5+, or {@code null}
+   * @return a little-endian {@link ByteBuffer} containing the STVN binary payload
+   * @throws IllegalStateException      if {@code root} contains unrecovered {@link StvnValue.StvnErrorValue} nodes
+   * @throws StvnSerializationException if schema validation fails
+   * @since 2.0.0
    */
   public ByteBuffer encode(StvnValue root, @Nullable StvnDocumentMeta meta) {
-    this.stringCache.clear();
+    Objects.requireNonNull(root, "root must not be null");
+    if (StvnCompiler.hasErrorNodes(root)) {
+      throw new IllegalStateException("Cannot encode partial IR containing unrecovered StvnErrorValue nodes");
+    }
 
+    this.stringCache.clear();
     StvnDocumentMeta effectiveMeta = meta != null ? meta : StvnDocumentMeta.ofKind(StvnDocumentKind.BODY);
 
-    if (identityStrategy != null && root.schema() != null) {
+    if (identityStrategy != null) {
       StvnBinaryDecoder.validateSchemaHash(root.schema(), identityStrategy);
     }
 
-    // 1. Calculate static footprint and pointer count (Root takes 1 pointer in header)
     Footprint fp = calculateFootprint(root).add(new Footprint(0, 1));
+    return encodeEnvelope(effectiveMeta, fp, () -> writeValuePostOrder(root));
+  }
 
-    // 2. Calculate metadata frame footprint (Byte 5 + optional strings)
+  @FunctionalInterface
+  private interface PayloadWriter {
+    int write();
+  }
+
+  private ByteBuffer encodeEnvelope(
+      StvnDocumentMeta effectiveMeta,
+      Footprint payloadFootprint,
+      PayloadWriter payloadWriter
+  ) {
     long metaFrameLength = 1; // Byte 5 (MetaControlByte)
     byte[] nameBytes = null;
     if (effectiveMeta.name().isPresent()) {
       nameBytes = effectiveMeta.name().get().getBytes(StandardCharsets.UTF_8);
-      metaFrameLength += 1 + nameBytes.length; // 1B len + bytes
+      metaFrameLength += 1 + nameBytes.length;
     }
     byte[] domainBytes = null;
     if (effectiveMeta.domain().isPresent()) {
       domainBytes = effectiveMeta.domain().get().getBytes(StandardCharsets.UTF_8);
-      metaFrameLength += 1 + domainBytes.length; // 1B len + bytes
+      metaFrameLength += 1 + domainBytes.length;
     }
 
-    // Base header size: 4 (Magic) + 1 (Control) + metaFrameLength + 1 (Flags) + Strategy Payload
     long baseHeader = 5 + metaFrameLength + 1;
     if (identityStrategy != null) {
       baseHeader += switch (identityStrategy) {
         case SchemaIdentityStrategy.UniversalDefault ignored -> 0;
         case SchemaIdentityStrategy.UuidV8Hash ignored -> 0;
         case SchemaIdentityStrategy.Sha256Hash ignored -> 0;
-        case SchemaIdentityStrategy.AsciiStringKey ascii -> 2 + ascii.repositoryKey().getBytes(StandardCharsets.US_ASCII).length;
-        case SchemaIdentityStrategy.UnicodeStringKey utf8 -> 2 + utf8.repositoryKey().getBytes(StandardCharsets.UTF_8).length;
+        case SchemaIdentityStrategy.AsciiStringKey ascii ->
+            2 + ascii.repositoryKey().getBytes(StandardCharsets.US_ASCII).length;
+        case SchemaIdentityStrategy.UnicodeStringKey utf8 ->
+            2 + utf8.repositoryKey().getBytes(StandardCharsets.UTF_8).length;
         case SchemaIdentityStrategy.UniversalVersion ignored -> 4;
         case SchemaIdentityStrategy.ExplicitUuid ignored -> 16;
         case SchemaIdentityStrategy.ExplicitSha256 ignored -> 32;
-        case SchemaIdentityStrategy.SelfDescribingSchema self -> 4 + self.stvnInclfContent().getBytes(StandardCharsets.UTF_8).length;
+        case SchemaIdentityStrategy.SelfDescribingSchema self ->
+            4 + self.schemaSourceText().getBytes(StandardCharsets.UTF_8).length;
       };
     }
-    fp = fp.add(new Footprint(baseHeader, 0));
-    if (hasTrailerCrc32c) {
-      fp = fp.add(new Footprint(4, 0));
-    }
 
-    // 3. Determine optimal Offset Size
-    this.offsetSize = 4; // Default to uint32
+    Footprint fp = payloadFootprint.add(new Footprint(baseHeader + (hasTrailerCrc32c ? 4 : 0), 0));
+
+    this.offsetSize = 4;
     if (isMinimizingOffsetSize) {
       if (fp.staticBytes + fp.pointerCount <= 255) {
         this.offsetSize = 1;
@@ -240,14 +284,13 @@ public class StvnBinaryEncoder {
       }
     }
 
-    // 4. Initialize buffer state
-    var headerSize = (int) baseHeader + this.offsetSize;
-    this.data = new byte[INITIAL_CAPACITY];
+    int headerSize = (int) baseHeader + this.offsetSize;
+    int initialAlloc = Math.max(INITIAL_CAPACITY, headerSize + 64);
+    this.data = new byte[initialAlloc];
     this.buffer = ByteBuffer.wrap(this.data).order(ByteOrder.LITTLE_ENDIAN);
     this.buffer.position(headerSize);
 
-    // 5. Execute post-order traversal
-    int rootOffset = writeValuePostOrder(root);
+    int rootOffset = payloadWriter.write();
     int payloadLimit = buffer.position();
     writeHeader(rootOffset, effectiveMeta, nameBytes, domainBytes);
 
@@ -269,80 +312,46 @@ public class StvnBinaryEncoder {
     return buffer.slice().order(ByteOrder.LITTLE_ENDIAN);
   }
 
-  // --- PHASE 1: FOOTPRINT CALCULATION ---
-
   private Footprint calculateFootprint(StvnValue value) {
-    // GUARD: Handle ANY standalone fixed-width primitive (e.g., a root { #size 32 } :Int or :Float)
+    validateInlineConstraintsPrecheck(value);
     int inlineSize = getInlineSize(value);
     if (inlineSize > 0) {
       return new Footprint(inlineSize, 0);
     }
 
-    if (value.schema() == null) {
-      throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing schema context for value: " + value);
-    }
-    var isAny = false;
-
-    var fp = switch (value) {
+    return switch (value) {
       case StvnValue.StvnString str -> {
         byte[] utf8Bytes = str.value().getBytes(StandardCharsets.UTF_8);
         stringCache.put(str, utf8Bytes);
-        int totalLength = 1 + utf8Bytes.length; // +1 for the style byte
-        if (str.style() == StvnValue.StringStyle.FENCED) {
-          byte[] tagBytes = str.fenceTag()
-              .map(fTag -> fTag.getBytes(StandardCharsets.UTF_8))
-              .orElseGet(() -> "TAG".getBytes(StandardCharsets.UTF_8));
-          totalLength += 1 + tagBytes.length; // +1 for tag length byte
-        }
+        int totalLength = 1 + utf8Bytes.length;
         int prefixLen = getDerivedLengthPrefixSize(totalLength);
         yield new Footprint(prefixLen + totalLength, 0);
       }
-      case StvnValue.StvnInteger bigInt -> { // bitWidth == 0 (Arbitrary Precision / Out-of-line)
-        byte[] bytes = bigInt.value().toByteArray();
-        int prefixLen = getDerivedLengthPrefixSize(bytes.length);
-        yield new Footprint(prefixLen + bytes.length, 0);
-      }
-      case StvnFloat exactFloat -> { // precision == EXACT (Out-of-line)
-        byte[] utf8Bytes = exactFloat.value().toString().getBytes(StandardCharsets.UTF_8);
-        int totalLength = 1 + utf8Bytes.length; // +1 for fallback style byte
+      case StvnValue.StvnFloat exactFloat -> {
+        byte[] utf8Bytes = formatExactFloatWireString(exactFloat).getBytes(StandardCharsets.UTF_8);
+        stringCache.put(exactFloat, utf8Bytes);
+        int totalLength = 1 + utf8Bytes.length;
         int prefixLen = getDerivedLengthPrefixSize(totalLength);
         yield new Footprint(prefixLen + totalLength, 0);
       }
-      case StvnTime time -> { // ZONED or OFFSET (Out-of-line)
-        byte[] utf8Bytes = time.value().toString().getBytes(StandardCharsets.UTF_8);
-        stringCache.put(time, utf8Bytes);
-        int totalLength = 1 + utf8Bytes.length; // +1 for fallback style byte
+      case StvnValue.StvnDateTime dt -> {
+        String canonicalIso = StvnLiteralParser.formatCanonicalDateTime(
+            dt.mode(), dt.localWallClock(), dt.offset(), dt.zone());
+        byte[] utf8Bytes = canonicalIso.getBytes(StandardCharsets.UTF_8);
+        stringCache.put(dt, utf8Bytes);
+        int totalLength = 1 + utf8Bytes.length;
         int prefixLen = getDerivedLengthPrefixSize(totalLength);
         yield new Footprint(prefixLen + totalLength, 0);
       }
-      case StvnDateTimeOffset dto -> {
-        byte[] utf8Bytes = dto.value().toString().getBytes(StandardCharsets.UTF_8);
-        stringCache.put(dto, utf8Bytes);
-        int totalLength = 1 + utf8Bytes.length; // +1 for fallback style byte
-        int prefixLen = getDerivedLengthPrefixSize(totalLength);
-        yield new Footprint(prefixLen + totalLength, 0);
-      }
-      case StvnDateTimeZoned dtz -> {
-        byte[] utf8Bytes = (dtz.localDateTime().toString() + "[" + dtz.zoneId().getId() + "]").getBytes(StandardCharsets.UTF_8);
-        stringCache.put(dtz, utf8Bytes);
-        int totalLength = 1 + utf8Bytes.length; // +1 for fallback style byte
-        int prefixLen = getDerivedLengthPrefixSize(totalLength);
-        yield new Footprint(prefixLen + totalLength, 0);
-      }
-      case StvnDateTimeAudited dta -> {
-        byte[] utf8Bytes = (dta.offsetDateTime().toString() + "[" + dta.zoneId().getId() + "]").getBytes(StandardCharsets.UTF_8);
-        stringCache.put(dta, utf8Bytes);
-        int totalLength = 1 + utf8Bytes.length; // +1 for fallback style byte
-        int prefixLen = getDerivedLengthPrefixSize(totalLength);
-        yield new Footprint(prefixLen + totalLength, 0);
-      }
-      case StvnTuple tuple -> {
+      case StvnValue.StvnTuple tuple -> {
         long staticB = 0;
         long ptrs = 0;
         for (StvnValue el : tuple.elements()) {
           int elInline = getInlineSize(el);
-          if (elInline > 0) staticB += elInline;
-          else {
+          if (elInline > 0) {
+            validateInlineConstraintsPrecheck(el);
+            staticB += elInline;
+          } else {
             ptrs += 1;
             Footprint childFp = calculateFootprint(el);
             staticB += childFp.staticBytes;
@@ -351,57 +360,31 @@ public class StvnBinaryEncoder {
         }
         yield new Footprint(staticB, ptrs);
       }
-      case StvnSeq seq -> {
-        int count = seq.elements().size();
-        long staticB = getDerivedLengthPrefixSize(count);
-        long ptrs = 0;
-        for (StvnValue el : seq.elements()) {
-          int elInline = getInlineSize(el);
-          if (elInline > 0) staticB += elInline;
-          else {
-            ptrs += 1;
-            Footprint childFp = calculateFootprint(el);
-            staticB += childFp.staticBytes;
-            ptrs += childFp.pointerCount;
-          }
-        }
-        yield new Footprint(staticB, ptrs);
-      }
-      case StvnSet set -> {
-        int count = set.elements().size();
-        long staticB = getDerivedLengthPrefixSize(count);
-        long ptrs = 0;
-        for (StvnValue el : set.elements()) {
-          int elInline = getInlineSize(el);
-          if (elInline > 0) staticB += elInline;
-          else {
-            ptrs += 1;
-            Footprint childFp = calculateFootprint(el);
-            staticB += childFp.staticBytes;
-            ptrs += childFp.pointerCount;
-          }
-        }
-        yield new Footprint(staticB, ptrs);
-      }
-      case StvnMap map -> {
+      case StvnValue.StvnSeq seq -> calculateSequenceFootprint(seq.elements());
+      case StvnValue.StvnSet set -> calculateSequenceFootprint(set.elements());
+      case StvnValue.StvnMap map -> {
         int count = map.entries().size();
         long staticB = getDerivedLengthPrefixSize(count);
         long ptrs = 0;
-        for (var entry : map.entries().entrySet()) {
-          StvnValue k = entry.getKey();
+        for (KeyValueEntry entry : map.entries()) {
+          StvnValue k = entry.key();
           int kInline = getInlineSize(k);
-          if (kInline > 0) staticB += kInline;
-          else {
+          if (kInline > 0) {
+            validateInlineConstraintsPrecheck(k);
+            staticB += kInline;
+          } else {
             ptrs += 1;
             Footprint kFp = calculateFootprint(k);
             staticB += kFp.staticBytes;
             ptrs += kFp.pointerCount;
           }
 
-          StvnValue v = entry.getValue();
+          StvnValue v = entry.value();
           int vInline = getInlineSize(v);
-          if (vInline > 0) staticB += vInline;
-          else {
+          if (vInline > 0) {
+            validateInlineConstraintsPrecheck(v);
+            staticB += vInline;
+          } else {
             ptrs += 1;
             Footprint vFp = calculateFootprint(v);
             staticB += vFp.staticBytes;
@@ -410,341 +393,269 @@ public class StvnBinaryEncoder {
         }
         yield new Footprint(staticB, ptrs);
       }
-      case StvnOption opt -> opt.value()
+      case StvnValue.StvnOption opt -> opt.value()
           .map(inner -> {
             int optInline = getInlineSize(inner);
             if (optInline > 0) {
+              validateInlineConstraintsPrecheck(inner);
               return new Footprint(1 + optInline, 0);
-            } else {
-              Footprint innerFp = calculateFootprint(inner);
-              // 1 tag byte + 1 pointer to the out-of-line payload
-              return new Footprint(1 + innerFp.staticBytes(), 1 + innerFp.pointerCount());
             }
+            Footprint innerFp = calculateFootprint(inner);
+            return new Footprint(1 + innerFp.staticBytes(), 1 + innerFp.pointerCount());
           })
           .orElse(new Footprint(1, 0));
-      case StvnEither either -> {
+      case StvnValue.StvnEither either -> {
         StvnValue inner = either.value();
         int eitherInline = getInlineSize(inner);
         if (eitherInline > 0) {
+          validateInlineConstraintsPrecheck(inner);
           yield new Footprint(1 + eitherInline, 0);
-        } else {
-          Footprint innerFp = calculateFootprint(inner);
-          yield new Footprint(1 + innerFp.staticBytes(), 1 + innerFp.pointerCount());
         }
+        Footprint innerFp = calculateFootprint(inner);
+        yield new Footprint(1 + innerFp.staticBytes(), 1 + innerFp.pointerCount());
       }
-      case StvnUnion union -> {
+      case StvnValue.StvnUnion union -> {
         StvnValue inner = union.value();
         int unionInline = getInlineSize(inner);
         if (unionInline > 0) {
+          validateInlineConstraintsPrecheck(inner);
           yield new Footprint(1 + unionInline, 0);
-        } else {
-          Footprint innerFp = calculateFootprint(inner);
-          yield new Footprint(1 + innerFp.staticBytes(), 1 + innerFp.pointerCount());
         }
+        Footprint innerFp = calculateFootprint(inner);
+        yield new Footprint(1 + innerFp.staticBytes(), 1 + innerFp.pointerCount());
       }
-      case StvnBoolean b -> new Footprint(1, 0);
-      case StvnEnum e -> new Footprint(calculateEnumByteSize(e), 0);
-      case StvnError err -> throw new IllegalStateException("Cannot binary encode AST containing unrecovered StvnError nodes");
-      default -> throw new UnsupportedOperationException("Type mapping pending: " + value.getClass());
+      case StvnValue.StvnErrorValue ignored ->
+          throw new IllegalStateException("Cannot binary encode IR containing unrecovered StvnErrorValue nodes");
+      default ->
+          throw new StvnSerializationException("Unexpected inline value reached outlined footprint calculator: " + value.getClass());
     };
-
-    if (isAny) {
-      fp = fp.add(new Footprint(1, 0));
-    }
-    return fp;
   }
 
-  private int getInlineSize(StvnValue value) {
-    if (value.schema() == null) {
-      throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing schema context for value: " + value);
+  private Footprint calculateSequenceFootprint(List<StvnValue> elements) {
+    int count = elements.size();
+    long staticB = getDerivedLengthPrefixSize(count);
+    long ptrs = 0;
+    for (StvnValue el : elements) {
+      int elInline = getInlineSize(el);
+      if (elInline > 0) {
+        validateInlineConstraintsPrecheck(el);
+        staticB += elInline;
+      } else {
+        ptrs += 1;
+        Footprint childFp = calculateFootprint(el);
+        staticB += childFp.staticBytes;
+        ptrs += childFp.pointerCount;
+      }
     }
+    return new Footprint(staticB, ptrs);
+  }
 
-    if (value instanceof StvnInteger i) {
-      boolean isBareInt = i.bitWidth() == 0 ||
-          (i.schema() != null && i.schema().constraints().size().isEmpty() &&
-              (i.schema().underlyingSchema().isEmpty() || i.schema().underlyingSchema().get().constraints().size().isEmpty()) &&
-              StvnTypeResolver.getPrimitiveBaseType(i.schema().node()).equals(StvnVocabulary.TYPE_INT));
-      if (isBareInt) {
-        int maxInlineBits = i.isUnsigned() ? 32 : 31;
-        if (i.value().bitLength() > maxInlineBits) {
-          return 0; // Escalate to out-of-line BigInt; prevents silent truncation!
+  private static void validateInlineConstraintsPrecheck(StvnValue value) {
+    if (value instanceof StvnValue.StvnInt i) {
+      if (!(i.schema() instanceof StvnSchema.IntSchema intSchema)) {
+        throw new StvnSerializationException("StvnInt requires IntSchema governing schema");
+      }
+      if (!intSchema.acceptsWidth(i.value())) {
+        throw new StvnIntegerOverflowException(
+            "Integer value " + i.value() + " overflows "
+                + (intSchema.unsigned() ? "unsigned " : "signed ")
+                + intSchema.bitWidth() + "-bit binary wire slot",
+            -1,
+            -1
+        );
+      }
+    } else if (value instanceof StvnValue.StvnTimeEpoch te) {
+      BigInteger ticks = te.epochTicks();
+      if (te.scale() == TemporalScale.NS) {
+        if (ticks.compareTo(MIN_SIGNED_128) < 0 || ticks.compareTo(MAX_SIGNED_128) > 0) {
+          throw new StvnIntegerOverflowException(
+              "Nanosecond :TimeEpoch tick count " + ticks + " overflows signed 128-bit wire slot",
+              -1,
+              -1
+          );
         }
-        return 4;
-      }
-      if (i.bitWidth() > 0) {
-        return (i.bitWidth() + 7) / 8;
+      } else {
+        if (ticks.compareTo(MIN_SIGNED_64) < 0 || ticks.compareTo(MAX_SIGNED_64) > 0) {
+          throw new StvnIntegerOverflowException(
+              ":TimeEpoch (" + te.scale() + ") tick count " + ticks + " overflows signed 64-bit wire slot",
+              -1,
+              -1
+          );
+        }
       }
     }
+  }
 
-    if (value.schema() != null) {
-      int schemaSize = StvnBinaryDecoder.getInlineSize(value.schema());
-      // If the schema correctly resolved to an inline size, strictly obey it
-      if (schemaSize > 0) return schemaSize;
+  private static int getInlineSize(StvnValue value) {
+    if (value instanceof StvnValue.StvnErrorValue) {
+      throw new IllegalStateException("Cannot binary encode IR containing unrecovered StvnErrorValue nodes");
     }
-
-    // 2. Safely fallback for out-of-line / schemaless / mock unit test evaluations
-    return switch (value) {
-      case StvnBoolean ignored -> 1;
-      case StvnEnum e -> calculateEnumByteSize(e);
-      case StvnInteger i -> i.bitWidth() == 0
-          ? 0
-          : (i.bitWidth() + 7) / 8;
-      case StvnFloat f -> f.precision() == FloatPrecision.FLOAT32
-          ? 4
-          : (f.precision() == FloatPrecision.FLOAT64
-             ? 8
-              : 0);
-      case StvnTime t ->
-          (t.kind() == TimeKind.EPOCH_S || t.kind() == TimeKind.EPOCH_MS || t.kind() == TimeKind.EPOCH_US || t.kind() == TimeKind.EPOCH_NS)
-              ? 8
-              : 0;
-      case StvnError err -> throw new IllegalStateException("Cannot binary encode AST containing unrecovered StvnError nodes");
-      default -> 0; // Strings, Collections, BigInts, Sum Types are out-of-line
-    };
+    return StvnBinaryDecoder.getInlineSize(value.schema());
   }
 
   private void writeInlineValue(StvnValue value) {
     switch (value) {
-      case StvnBoolean b -> buffer.put((byte) (b.value()
-          ? 1
-          : 0));
-      case StvnEnum e -> {
-        int byteSize = getInlineSize(e); // CRITICAL: Synchronized with Decoder
-        int index = e.sequentialIndex();
+      case StvnValue.StvnBoolean b ->
+          buffer.put((byte) (b.value() ? 1 : 0));
+
+      case StvnValue.StvnEnum e -> {
+        int byteSize = getInlineSize(e);
+        int index = e.rootOrdinal().intValueExact();
         switch (byteSize) {
           case 1 -> buffer.put((byte) index);
           case 2 -> buffer.putShort((short) index);
           case 4 -> buffer.putInt(index);
+          default -> throw new IllegalStateException("Unsupported enum slot byte size: " + byteSize);
         }
       }
-      case StvnInteger i -> {
-        int byteSize = getInlineSize(i); // CRITICAL: Synchronized with Decoder
-        byte[] bigEndian = i.value().toByteArray();
 
-        // Dynamically write exact little-endian bytes, with safe sign-extension padding
-        for (int b = 0; b < byteSize; b++) {
-          if (b < bigEndian.length) {
-            buffer.put(bigEndian[bigEndian.length - 1 - b]);
-          } else {
-            buffer.put((byte) (i.value().signum() < 0
-                ? 0xFF
-                : 0x00));
-          }
-        }
+      case StvnValue.StvnInt i -> {
+        StvnSchema.IntSchema intSchema = (StvnSchema.IntSchema) i.schema();
+        int byteSize = getInlineSize(i);
+        writeTwosComplementLittleEndian(i.value(), byteSize, intSchema.unsigned(), intSchema.bitWidth().intValueExact());
       }
-      case StvnFloat f -> {
-        int byteSize = getInlineSize(f); // CRITICAL: Synchronized with Decoder
-        // Force the float to pack perfectly into the schema's expected slot using raw IEEE-754 bit representations
+
+      case StvnValue.StvnFloat f -> {
+        int byteSize = getInlineSize(f);
         if (byteSize == 4) {
-          float val = f.floatValue();
-          buffer.putInt(Float.floatToRawIntBits(val));
+          int rawBits = switch (f.specialKind()) {
+            case NAN -> Float.floatToRawIntBits(Float.NaN);
+            case POSITIVE_INFINITY -> Float.floatToRawIntBits(Float.POSITIVE_INFINITY);
+            case NEGATIVE_INFINITY -> Float.floatToRawIntBits(Float.NEGATIVE_INFINITY);
+            case FINITE -> f.negativeZero()
+                ? Float.floatToRawIntBits(-0.0f)
+                : Float.floatToRawIntBits(f.decimalValue().floatValue());
+          };
+          buffer.putInt(rawBits);
         } else if (byteSize == 8) {
-          double val = f.doubleValue();
-          buffer.putLong(Double.doubleToRawLongBits(val));
+          long rawBits = switch (f.specialKind()) {
+            case NAN -> Double.doubleToRawLongBits(Double.NaN);
+            case POSITIVE_INFINITY -> Double.doubleToRawLongBits(Double.POSITIVE_INFINITY);
+            case NEGATIVE_INFINITY -> Double.doubleToRawLongBits(Double.NEGATIVE_INFINITY);
+            case FINITE -> f.negativeZero()
+                ? Double.doubleToRawLongBits(-0.0d)
+                : Double.doubleToRawLongBits(f.decimalValue().doubleValue());
+          };
+          buffer.putLong(rawBits);
+        } else {
+          throw new IllegalStateException("Unexpected inline float byteSize: " + byteSize);
         }
       }
-      case StvnTime t -> {
-        long val = ((BigInteger) t.value()).longValue();
-        buffer.putLong(val);
+
+      case StvnValue.StvnTimeEpoch te -> {
+        int byteSize = te.scale() == TemporalScale.NS ? 16 : 8;
+        writeTwosComplementLittleEndian(te.epochTicks(), byteSize, false, byteSize * 8);
       }
-      case StvnError err -> throw new IllegalStateException("Cannot binary encode AST containing unrecovered StvnError nodes");
-      default -> throw new IllegalStateException("Attempted to write out-of-line type inline: " + value.getClass());
+
+      case StvnValue.StvnErrorValue ignored ->
+          throw new IllegalStateException("Cannot binary encode IR containing unrecovered StvnErrorValue nodes");
+
+      default ->
+          throw new IllegalStateException("Attempted to write out-of-line type inline: " + value.getClass());
     }
   }
 
-  private int calculateEnumByteSize(StvnEnum enumNode) {
-    int variantCount = enumNode.variantCount();
-    if (variantCount <= 256) return 1;
-    if (variantCount <= 65536) return 2;
-    return 4;
+  private void writeTwosComplementLittleEndian(BigInteger val, int byteSize, boolean unsigned, int bitWidth) {
+    byte[] bigEndian = val.toByteArray();
+    byte padByte = (!unsigned && val.signum() < 0) ? (byte) 0xFF : (byte) 0x00;
+
+    for (int b = 0; b < byteSize; b++) {
+      byte outByte;
+      if (b < bigEndian.length) {
+        outByte = bigEndian[bigEndian.length - 1 - b];
+      } else {
+        outByte = padByte;
+      }
+      if (unsigned && b == byteSize - 1 && (bitWidth % 8) != 0) {
+        int validMask = (1 << (bitWidth % 8)) - 1;
+        outByte = (byte) (outByte & validMask);
+      }
+      buffer.put(outByte);
+    }
   }
 
-  private int getDerivedLengthPrefixSize(int length) {
-    if (length <= 0x3F) return 1;
-    if (length <= 0x3FFF) return 2;
-    if (length <= 0x3FFFFF) return 3;
+  private static String formatExactFloatWireString(StvnValue.StvnFloat f) {
+    return switch (f.specialKind()) {
+      case NAN -> "NaN";
+      case POSITIVE_INFINITY -> "+Infinity";
+      case NEGATIVE_INFINITY -> "-Infinity";
+      case FINITE -> f.negativeZero() ? "-0.0" : f.decimalValue().toString();
+    };
+  }
+
+  private static int getDerivedLengthPrefixSize(int length) {
+    if (length <= 0x3F) {
+      return 1;
+    }
+    if (length <= 0x3FFF) {
+      return 2;
+    }
+    if (length <= 0x3FFFFF) {
+      return 3;
+    }
     return 5;
   }
 
-  // --- PHASE 2: BINARY WRITING ---
-
   private int writeValuePostOrder(StvnValue value) {
-    return writeValuePostOrder(value, false);
-  }
-
-  private int writeValuePostOrder(StvnValue value, boolean forceNoAny) {
-    // GUARD: Handle ANY standalone fixed-width primitive (e.g., a root { #size 32 } :Int or :Float)
-    var inlineSize = getInlineSize(value);
+    int inlineSize = getInlineSize(value);
     if (inlineSize > 0) {
       ensureCapacity(inlineSize);
-      var startOffset = buffer.position();
+      int startOffset = buffer.position();
       writeInlineValue(value);
       return startOffset;
     }
 
-    if (value.schema() == null) {
-      throw new org.stvnadore.core.binary.exceptions.StvnSerializationException("Missing schema context for value: " + value);
-    }
-    var isAny = false;
-    var tag = (byte) 0;
-
     return switch (value) {
-      case StvnString str -> writeStringOutlined(str, str.value(), isAny, tag);
-      case StvnTime time -> (time.kind() == TimeKind.OFFSET || time.kind() == TimeKind.ZONED)
-          ? writeStringOutlined(time, time.value().toString(), isAny, tag)
-          : -1;
-      case StvnDateTimeOffset dto -> writeStringOutlined(dto, dto.value().toString(), isAny, tag);
-      case StvnDateTimeZoned dtz -> writeStringOutlined(dtz, dtz.localDateTime().toString() + "[" + dtz.zoneId().getId() + "]", isAny, tag);
-      case StvnDateTimeAudited dta -> writeStringOutlined(dta, dta.offsetDateTime().toString() + "[" + dta.zoneId().getId() + "]", isAny, tag);
-      // Zoned/Offset Fallback
-      case StvnInteger bigInt -> {
-        // Out-of-line BigInt (Arbitrary Precision)
-        var bytes = bigInt.value().toByteArray();
-        var length = bytes.length;
-        if (isAny) {
-          ensureCapacity(1 + 5 + length);
-          var startOffset = buffer.position();
-          buffer.put(tag);
-          writeDerivedLengthPrefix(length);
-          buffer.put(bytes);
-          yield startOffset;
-        } else {
-          ensureCapacity(5 + length);
-          var startOffset = buffer.position();
-          writeDerivedLengthPrefix(length);
-          buffer.put(bytes);
-          yield startOffset;
-        }
-      }
-      case StvnFloat exactFloat -> writeStringOutlined(exactFloat, exactFloat.value().toString(), isAny, tag); // EXACT fallback
-      case StvnTuple tuple -> writeTuple(tuple, isAny, tag);
-      case StvnSeq seq -> writeSeqOutlined(seq.elements(), isAny, tag);
-      case StvnSet set -> writeSeqOutlined(set.elements().stream().toList(), isAny, tag);
-      case StvnMap map -> writeMapOutlined(map, isAny, tag);
-      case StvnOption opt -> writeOptionOutlined(opt, isAny, tag);
-      case StvnEither either -> writeEitherOutlined(either, isAny, tag);
-      case StvnUnion union -> writeUnionOutlined(union, isAny, tag);
-      case StvnBoolean b -> {
-        if (isAny) {
-          ensureCapacity(2);
-          var startOffset = buffer.position();
-          buffer.put(tag);
-          buffer.put((byte) (b.value() ? 1 : 0));
-          yield startOffset;
-        } else {
-          ensureCapacity(1);
-          var startOffset = buffer.position();
-          buffer.put((byte) (b.value() ? 1 : 0));
-          yield startOffset;
-        }
-      }
-      case StvnEnum e -> {
-        var byteSize = calculateEnumByteSize(e);
-        if (isAny) {
-          ensureCapacity(1 + byteSize);
-          var startOffset = buffer.position();
-          buffer.put(tag);
-          var index = e.sequentialIndex();
-          switch (byteSize) {
-            case 1 -> buffer.put((byte) index);
-            case 2 -> buffer.putShort((short) index);
-            case 4 -> buffer.putInt(index);
-          }
-          yield startOffset;
-        } else {
-          ensureCapacity(byteSize);
-          var startOffset = buffer.position();
-          var index = e.sequentialIndex();
-          switch (byteSize) {
-            case 1 -> buffer.put((byte) index);
-            case 2 -> buffer.putShort((short) index);
-            case 4 -> buffer.putInt(index);
-          }
-          yield startOffset;
-        }
-      }
-      case StvnError err -> throw new IllegalStateException("Cannot binary encode AST containing unrecovered StvnError nodes");
-      default -> -1;
+      case StvnValue.StvnString str -> writeCachedOrEncodeOutlinedString(str, str.value());
+      case StvnValue.StvnFloat exactFloat ->
+          writeCachedOrEncodeOutlinedString(exactFloat, formatExactFloatWireString(exactFloat));
+      case StvnValue.StvnDateTime dt ->
+          writeCachedOrEncodeOutlinedString(
+              dt,
+              StvnLiteralParser.formatCanonicalDateTime(dt.mode(), dt.localWallClock(), dt.offset(), dt.zone())
+          );
+      case StvnValue.StvnTuple tuple -> writeTuple(tuple);
+      case StvnValue.StvnSeq seq -> writeSeqOutlined(seq.elements());
+      case StvnValue.StvnSet set -> writeSeqOutlined(set.elements());
+      case StvnValue.StvnMap map -> writeMapOutlined(map);
+      case StvnValue.StvnOption opt -> writeOptionOutlined(opt);
+      case StvnValue.StvnEither either -> writeEitherOutlined(either);
+      case StvnValue.StvnUnion union -> writeUnionOutlined(union);
+      case StvnValue.StvnErrorValue ignored ->
+          throw new IllegalStateException("Cannot binary encode IR containing unrecovered StvnErrorValue nodes");
+      default ->
+          throw new StvnSerializationException("Unexpected value node in writeValuePostOrder: " + value.getClass());
     };
   }
 
-  private int writeStringOutlined(StvnValue sourceNode, String fallbackStr, boolean isAny, byte tag) {
-    // 1. Safe cast to extract string metadata (Style and Tag)
-    if (!(sourceNode instanceof StvnString strNode)) {
-      // Failsafe: If the node isn't a string, fallback to a SIMPLE style string
-      var utf8Bytes = fallbackStr.getBytes(StandardCharsets.UTF_8);
-      var totalLength = 1 + utf8Bytes.length; // 1 byte for style + text
-
-      ensureCapacity((isAny ? 1 : 0) + 5 + totalLength);
-      var startOffset = buffer.position();
-      if (isAny) {
-        buffer.put(tag);
-      }
-      writeDerivedLengthPrefix(totalLength);
-
-      buffer.put((byte) StvnValue.StringStyle.SIMPLE.ordinal());
-      buffer.put(utf8Bytes);
-      return startOffset;
+  private int writeCachedOrEncodeOutlinedString(StvnValue cacheKey, String fallbackText) {
+    byte[] utf8Bytes = stringCache.get(cacheKey);
+    if (utf8Bytes == null) {
+      utf8Bytes = fallbackText.getBytes(StandardCharsets.UTF_8);
     }
+    return writeRawOutlinedUtf8Bytes(utf8Bytes);
+  }
 
-    // 2. Extract the raw text bytes (Querying your cache first!)
-    var textBytes = stringCache.get(strNode);
-    if (textBytes == null) {
-      textBytes = fallbackStr.getBytes(StandardCharsets.UTF_8);
-    }
-
-    var styleByte = (byte) strNode.style().ordinal();
-    int startOffset;
-
-    // 3. Pack the data based on the string style
-    if (strNode.style() == StvnValue.StringStyle.FENCED) {
-      var tagBytes = strNode.fenceTag()
-          .map(fTag -> fTag.getBytes(StandardCharsets.UTF_8))
-          .orElseGet(() -> "TAG".getBytes(StandardCharsets.UTF_8));
-
-      // Total = 1 (style) + 1 (tag length) + tag bytes + text bytes
-      var totalLength = 1 + 1 + tagBytes.length + textBytes.length;
-
-      ensureCapacity((isAny ? 1 : 0) + 5 + totalLength);
-      startOffset = buffer.position();
-      if (isAny) {
-        buffer.put(tag);
-      }
-      writeDerivedLengthPrefix(totalLength);
-
-      buffer.put(styleByte);
-      buffer.put((byte) (tagBytes.length - 1));
-      buffer.put(tagBytes);
-      buffer.put(textBytes);
-
-    } else {
-      // Total = 1 (style) + text bytes
-      var totalLength = 1 + textBytes.length;
-
-      ensureCapacity((isAny ? 1 : 0) + 5 + totalLength);
-      startOffset = buffer.position();
-      if (isAny) {
-        buffer.put(tag);
-      }
-      writeDerivedLengthPrefix(totalLength);
-
-      buffer.put(styleByte);
-      buffer.put(textBytes);
-    }
-
+  private int writeRawOutlinedUtf8Bytes(byte[] utf8Bytes) {
+    int totalLength = 1 + utf8Bytes.length;
+    ensureCapacity(5 + totalLength);
+    int startOffset = buffer.position();
+    writeDerivedLengthPrefix(totalLength);
+    buffer.put(STRING_STYLE_SIMPLE);
+    buffer.put(utf8Bytes);
     return startOffset;
   }
 
-  private int writeTuple(StvnTuple tuple, boolean isAny, byte tag) {
-    var elements = tuple.elements();
-    var elementCount = elements.size();
+  private int writeTuple(StvnValue.StvnTuple tuple) {
+    List<StvnValue> elements = tuple.elements();
+    int elementCount = elements.size();
 
-    var outOfLineOffsets = new int[elementCount];
-    var tableSize = 0;
+    int[] outOfLineOffsets = new int[elementCount];
+    int tableSize = 0;
 
-    for (var i = 0; i < elementCount; i++) {
-      var el = elements.get(i);
-      var inlineSize = getInlineSize(el);
+    for (int i = 0; i < elementCount; i++) {
+      StvnValue el = elements.get(i);
+      int inlineSize = getInlineSize(el);
       if (inlineSize == 0) {
         outOfLineOffsets[i] = writeValuePostOrder(el);
         tableSize += this.offsetSize;
@@ -753,15 +664,12 @@ public class StvnBinaryEncoder {
       }
     }
 
-    ensureCapacity((isAny ? 1 : 0) + tableSize);
-    var tupleStartOffset = buffer.position();
-    if (isAny) {
-      buffer.put(tag);
-    }
+    ensureCapacity(tableSize);
+    int tupleStartOffset = buffer.position();
 
-    for (var i = 0; i < elementCount; i++) {
-      var el = elements.get(i);
-      var inlineSize = getInlineSize(el);
+    for (int i = 0; i < elementCount; i++) {
+      StvnValue el = elements.get(i);
+      int inlineSize = getInlineSize(el);
       if (inlineSize == 0) {
         writeOffsetPointer(outOfLineOffsets[i]);
       } else {
@@ -771,24 +679,21 @@ public class StvnBinaryEncoder {
     return tupleStartOffset;
   }
 
-  private int writeSeqOutlined(java.util.List<StvnValue> elements, boolean isAny, byte tag) {
-    var count = elements.size();
+  private int writeSeqOutlined(List<StvnValue> elements) {
+    int count = elements.size();
     if (count == 0) {
-      ensureCapacity((isAny ? 1 : 0) + 5);
-      var emptyOffset = buffer.position();
-      if (isAny) {
-        buffer.put(tag);
-      }
+      ensureCapacity(5);
+      int emptyOffset = buffer.position();
       writeDerivedLengthPrefix(0);
       return emptyOffset;
     }
 
-    var outOfLineOffsets = new int[count];
-    var arrayBlockSize = 0;
+    int[] outOfLineOffsets = new int[count];
+    int arrayBlockSize = 0;
 
-    for (var i = 0; i < count; i++) {
-      var el = elements.get(i);
-      var inlineSize = getInlineSize(el);
+    for (int i = 0; i < count; i++) {
+      StvnValue el = elements.get(i);
+      int inlineSize = getInlineSize(el);
       if (inlineSize == 0) {
         outOfLineOffsets[i] = writeValuePostOrder(el);
         arrayBlockSize += this.offsetSize;
@@ -797,182 +702,165 @@ public class StvnBinaryEncoder {
       }
     }
 
-    var prefixBytes = getDerivedLengthPrefixSize(count);
-    ensureCapacity((isAny ? 1 : 0) + prefixBytes + arrayBlockSize);
-    var seqStartOffset = buffer.position();
-    if (isAny) {
-      buffer.put(tag);
-    }
+    int prefixBytes = getDerivedLengthPrefixSize(count);
+    ensureCapacity(prefixBytes + arrayBlockSize);
+    int seqStartOffset = buffer.position();
     writeDerivedLengthPrefix(count);
 
-    for (var i = 0; i < count; i++) {
-      var el = elements.get(i);
-      var inlineSize = getInlineSize(el);
-      if (inlineSize == 0) writeOffsetPointer(outOfLineOffsets[i]);
-      else writeInlineValue(el);
+    for (int i = 0; i < count; i++) {
+      StvnValue el = elements.get(i);
+      int inlineSize = getInlineSize(el);
+      if (inlineSize == 0) {
+        writeOffsetPointer(outOfLineOffsets[i]);
+      } else {
+        writeInlineValue(el);
+      }
     }
     return seqStartOffset;
   }
 
-  private int writeMapOutlined(StvnMap map, boolean isAny, byte tag) {
-    var entries = map.entries();
-    var count = entries.size();
+  private int writeMapOutlined(StvnValue.StvnMap map) {
+    List<KeyValueEntry> entries = map.entries();
+    int count = entries.size();
 
     if (count == 0) {
-      ensureCapacity((isAny ? 1 : 0) + 5);
-      var emptyOffset = buffer.position();
-      if (isAny) {
-        buffer.put(tag);
-      }
+      ensureCapacity(5);
+      int emptyOffset = buffer.position();
       writeDerivedLengthPrefix(0);
       return emptyOffset;
     }
 
-    var outOfLineKeyOffsets = new int[count];
-    var outOfLineValOffsets = new int[count];
-    var keyArrayBlockSize = 0;
-    var valArrayBlockSize = 0;
+    int[] outOfLineKeyOffsets = new int[count];
+    int[] outOfLineValOffsets = new int[count];
+    int keyArrayBlockSize = 0;
+    int valArrayBlockSize = 0;
 
-    var i = 0;
-    for (var entry : entries.entrySet()) {
-      var k = entry.getKey();
-      var kInline = getInlineSize(k);
+    for (int i = 0; i < count; i++) {
+      KeyValueEntry entry = entries.get(i);
+      StvnValue k = entry.key();
+      int kInline = getInlineSize(k);
       if (kInline == 0) {
-        outOfLineKeyOffsets[i] = writeValuePostOrder(k, true);
+        outOfLineKeyOffsets[i] = writeValuePostOrder(k);
         keyArrayBlockSize += this.offsetSize;
-      } else keyArrayBlockSize += kInline;
+      } else {
+        keyArrayBlockSize += kInline;
+      }
 
-      var v = entry.getValue();
-      var vInline = getInlineSize(v);
+      StvnValue v = entry.value();
+      int vInline = getInlineSize(v);
       if (vInline == 0) {
         outOfLineValOffsets[i] = writeValuePostOrder(v);
         valArrayBlockSize += this.offsetSize;
-      } else valArrayBlockSize += vInline;
-      i++;
+      } else {
+        valArrayBlockSize += vInline;
+      }
     }
 
-    var prefixBytes = getDerivedLengthPrefixSize(count);
-    ensureCapacity((isAny ? 1 : 0) + prefixBytes + keyArrayBlockSize + valArrayBlockSize);
-    var mapStartOffset = buffer.position();
-    if (isAny) {
-      buffer.put(tag);
-    }
-
+    int prefixBytes = getDerivedLengthPrefixSize(count);
+    ensureCapacity(prefixBytes + keyArrayBlockSize + valArrayBlockSize);
+    int mapStartOffset = buffer.position();
     writeDerivedLengthPrefix(count);
 
-    i = 0;
-    for (var k : entries.keySet()) {
-      if (getInlineSize(k) == 0) writeOffsetPointer(outOfLineKeyOffsets[i]);
-      else writeInlineValue(k);
-      i++;
+    for (int i = 0; i < count; i++) {
+      StvnValue k = entries.get(i).key();
+      if (getInlineSize(k) == 0) {
+        writeOffsetPointer(outOfLineKeyOffsets[i]);
+      } else {
+        writeInlineValue(k);
+      }
     }
 
-    i = 0;
-    for (var v : entries.values()) {
-      if (getInlineSize(v) == 0) writeOffsetPointer(outOfLineValOffsets[i]);
-      else writeInlineValue(v);
-      i++;
+    for (int i = 0; i < count; i++) {
+      StvnValue v = entries.get(i).value();
+      if (getInlineSize(v) == 0) {
+        writeOffsetPointer(outOfLineValOffsets[i]);
+      } else {
+        writeInlineValue(v);
+      }
     }
 
     return mapStartOffset;
   }
 
-  private int writeOptionOutlined(StvnOption opt, boolean isAny, byte tag) {
+  private int writeOptionOutlined(StvnValue.StvnOption opt) {
     return opt.value()
         .map(inner -> {
-          var inlineSize = getInlineSize(inner);
+          int inlineSize = getInlineSize(inner);
           if (inlineSize == 0) {
-            var innerOffset = writeValuePostOrder(inner);
-            ensureCapacity((isAny ? 1 : 0) + 1 + this.offsetSize);
-            var startOffset = buffer.position();
-            if (isAny) {
-              buffer.put(tag);
-            }
+            int innerOffset = writeValuePostOrder(inner);
+            ensureCapacity(1 + this.offsetSize);
+            int startOffset = buffer.position();
             buffer.put((byte) 1);
             writeOffsetPointer(innerOffset);
             return startOffset;
-          } else {
-            ensureCapacity((isAny ? 1 : 0) + 1 + inlineSize);
-            var startOffset = buffer.position();
-            if (isAny) {
-              buffer.put(tag);
-            }
-            buffer.put((byte) 1);
-            writeInlineValue(inner);
-            return startOffset;
           }
+          ensureCapacity(1 + inlineSize);
+          int startOffset = buffer.position();
+          buffer.put((byte) 1);
+          writeInlineValue(inner);
+          return startOffset;
         })
         .orElseGet(() -> {
-          ensureCapacity((isAny ? 1 : 0) + 1);
-          var startOffset = buffer.position();
-          if (isAny) {
-            buffer.put(tag);
-          }
+          ensureCapacity(1);
+          int startOffset = buffer.position();
           buffer.put((byte) 0);
           return startOffset;
         });
   }
 
-  private int writeEitherOutlined(StvnEither either, boolean isAny, byte tag) {
-    var inner = either.value();
-    var inlineSize = getInlineSize(inner);
-    var activeTag = (byte) (either.isRight()
-        ? 1
-        : 0);
+  private int writeEitherOutlined(StvnValue.StvnEither either) {
+    StvnValue inner = either.value();
+    int inlineSize = getInlineSize(inner);
+    byte activeTag = (byte) (either.branch() == EitherBranch.RIGHT ? 1 : 0);
 
     if (inlineSize == 0) {
-      var innerOffset = writeValuePostOrder(inner);
-      ensureCapacity((isAny ? 1 : 0) + 1 + this.offsetSize);
-      var startOffset = buffer.position();
-      if (isAny) {
-        buffer.put(tag);
-      }
+      int innerOffset = writeValuePostOrder(inner);
+      ensureCapacity(1 + this.offsetSize);
+      int startOffset = buffer.position();
       buffer.put(activeTag);
       writeOffsetPointer(innerOffset);
       return startOffset;
-    } else {
-      ensureCapacity((isAny ? 1 : 0) + 1 + inlineSize);
-      var startOffset = buffer.position();
-      if (isAny) {
-        buffer.put(tag);
-      }
-      buffer.put(activeTag);
-      writeInlineValue(inner);
-      return startOffset;
     }
+    ensureCapacity(1 + inlineSize);
+    int startOffset = buffer.position();
+    buffer.put(activeTag);
+    writeInlineValue(inner);
+    return startOffset;
   }
 
-  private int writeUnionOutlined(StvnUnion union, boolean isAny, byte tag) {
-    var inner = union.value();
-    var inlineSize = getInlineSize(inner);
-    var activeTag = (byte) union.tagIndex();
+  private int writeUnionOutlined(StvnValue.StvnUnion union) {
+    StvnValue inner = union.value();
+    int inlineSize = getInlineSize(inner);
+    int zeroBasedIndex;
+    try {
+      zeroBasedIndex = union.oneBasedBranchIndex().intValueExact() - 1;
+    } catch (ArithmeticException e) {
+      throw new StvnSerializationException("Union branch index exceeds wire capacity: " + union.oneBasedBranchIndex(), e);
+    }
+    if (zeroBasedIndex < 0 || zeroBasedIndex > 255) {
+      throw new StvnSerializationException("Union branch index out of 1-byte wire tag range [1..256]: " + union.oneBasedBranchIndex());
+    }
+    byte activeTag = (byte) zeroBasedIndex;
 
     if (inlineSize == 0) {
-      var innerOffset = writeValuePostOrder(inner);
-      ensureCapacity((isAny ? 1 : 0) + 1 + this.offsetSize);
-      var startOffset = buffer.position();
-      if (isAny) {
-        buffer.put(tag);
-      }
+      int innerOffset = writeValuePostOrder(inner);
+      ensureCapacity(1 + this.offsetSize);
+      int startOffset = buffer.position();
       buffer.put(activeTag);
       writeOffsetPointer(innerOffset);
       return startOffset;
-    } else {
-      ensureCapacity((isAny ? 1 : 0) + 1 + inlineSize);
-      var startOffset = buffer.position();
-      if (isAny) {
-        buffer.put(tag);
-      }
-      buffer.put(activeTag);
-      writeInlineValue(inner);
-      return startOffset;
     }
+    ensureCapacity(1 + inlineSize);
+    int startOffset = buffer.position();
+    buffer.put(activeTag);
+    writeInlineValue(inner);
+    return startOffset;
   }
-
-  // --- BUFFER UTILITIES ---
 
   private void writeDerivedLengthPrefix(int length) {
-    if (length < 0) throw new IllegalArgumentException("Length cannot be negative");
+    if (length < 0) {
+      throw new IllegalArgumentException("Length cannot be negative");
+    }
     if (length <= 0x3F) {
       buffer.put((byte) length);
     } else if (length <= 0x3FFF) {
@@ -983,7 +871,6 @@ public class StvnBinaryEncoder {
       buffer.put((byte) ((length >>> 8) & 0xFF));
       buffer.put((byte) (length & 0xFF));
     } else {
-      // 4 additional bytes. (Upper bits are always 0 for Java's 32-bit int max length)
       buffer.put((byte) 0xC0);
       buffer.putInt(length);
     }
@@ -995,6 +882,7 @@ public class StvnBinaryEncoder {
       case 2 -> buffer.putShort((short) targetOffset);
       case 4 -> buffer.putInt(targetOffset);
       case 8 -> buffer.putLong(targetOffset);
+      default -> throw new IllegalStateException("Unsupported offsetSize: " + this.offsetSize);
     }
   }
 
@@ -1006,7 +894,7 @@ public class StvnBinaryEncoder {
   ) {
     int finalPos = buffer.position();
     buffer.position(0);
-    // Write literal ASCII bytes in network byte order ['S', 'T', 'V', 'N']
+
     buffer.put((byte) 'S');
     buffer.put((byte) 'T');
     buffer.put((byte) 'V');
@@ -1019,7 +907,6 @@ public class StvnBinaryEncoder {
     byte controlByte = (byte) (trailerBit | encodingBits | identityBits);
     buffer.put(controlByte);
 
-    // Byte 5: MetaControlByte
     int kindBits = switch (meta.kind().orElse(StvnDocumentKind.BODY)) {
       case BODY -> 0b00;
       case DEFS -> 0b01;
@@ -1042,9 +929,12 @@ public class StvnBinaryEncoder {
 
     if (identityStrategy != null) {
       switch (identityStrategy) {
-        case SchemaIdentityStrategy.UniversalDefault ignored -> {}
-        case SchemaIdentityStrategy.UuidV8Hash ignored -> {}
-        case SchemaIdentityStrategy.Sha256Hash ignored -> {}
+        case SchemaIdentityStrategy.UniversalDefault ignored -> {
+        }
+        case SchemaIdentityStrategy.UuidV8Hash ignored -> {
+        }
+        case SchemaIdentityStrategy.Sha256Hash ignored -> {
+        }
         case SchemaIdentityStrategy.AsciiStringKey ascii -> {
           byte[] bytes = ascii.repositoryKey().getBytes(StandardCharsets.US_ASCII);
           buffer.putShort((short) (bytes.length - 1));
@@ -1055,18 +945,16 @@ public class StvnBinaryEncoder {
           buffer.putShort((short) (bytes.length - 1));
           buffer.put(bytes);
         }
-        case SchemaIdentityStrategy.UniversalVersion uv -> {
-          buffer.putInt((int) (uv.version() - 1));
-        }
+        case SchemaIdentityStrategy.UniversalVersion uv ->
+            buffer.putInt((int) (uv.version() - 1));
         case SchemaIdentityStrategy.ExplicitUuid explicit -> {
           buffer.putLong(explicit.uuid().getMostSignificantBits());
           buffer.putLong(explicit.uuid().getLeastSignificantBits());
         }
-        case SchemaIdentityStrategy.ExplicitSha256 explicit -> {
-          buffer.put(explicit.hash());
-        }
+        case SchemaIdentityStrategy.ExplicitSha256 explicit ->
+            buffer.put(explicit.hash());
         case SchemaIdentityStrategy.SelfDescribingSchema self -> {
-          byte[] bytes = self.stvnInclfContent().getBytes(StandardCharsets.UTF_8);
+          byte[] bytes = self.schemaSourceText().getBytes(StandardCharsets.UTF_8);
           buffer.putInt(bytes.length - 1);
           buffer.put(bytes);
         }
@@ -1078,7 +966,7 @@ public class StvnBinaryEncoder {
       case 2 -> 0b01;
       case 4 -> 0b10;
       case 8 -> 0b11;
-      default -> throw new IllegalStateException();
+      default -> throw new IllegalStateException("Unsupported offsetSize: " + offsetSize);
     };
     buffer.put((byte) offsetCode);
 
@@ -1096,27 +984,5 @@ public class StvnBinaryEncoder {
       this.buffer = ByteBuffer.wrap(this.data).order(ByteOrder.LITTLE_ENDIAN);
       this.buffer.position(currentPos);
     }
-  }
-
-  private byte getTagForValue(StvnValue value) {
-    return (byte) (switch (value) {
-      case StvnString ignored -> 0;
-      case StvnInteger ignored -> 1;
-      case StvnFloat ignored -> 2;
-      case StvnBoolean ignored -> 3;
-      case StvnSeq ignored -> 4;
-      case StvnMap ignored -> 5;
-      case StvnSet ignored -> 6;
-      case StvnTuple ignored -> 7;
-      case StvnTime ignored -> 8;
-      case StvnDateTimeOffset ignored -> 8;
-      case StvnDateTimeZoned ignored -> 8;
-      case StvnDateTimeAudited ignored -> 8;
-      case StvnEnum ignored -> 9;
-      case StvnOption ignored -> 10;
-      case StvnEither ignored -> 11;
-      case StvnUnion ignored -> 12;
-      case StvnError err -> throw new IllegalStateException("Cannot binary encode AST containing unrecovered StvnError nodes");
-    });
   }
 }

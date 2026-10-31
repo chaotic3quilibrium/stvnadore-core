@@ -5,7 +5,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
-import org.stvnadore.core.ast.StvnValue;
+
 
 /**
  * Validates strict parser configuration, fail-fast behavior, and diagnostic extraction.

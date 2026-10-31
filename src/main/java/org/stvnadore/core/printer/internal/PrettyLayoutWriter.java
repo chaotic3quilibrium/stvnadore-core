@@ -2,7 +2,7 @@ package org.stvnadore.core.printer.internal;
 
 import org.jspecify.annotations.NullMarked;
 import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ast.StvnValue.FloatPrecision;
+import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
 import org.stvnadore.core.printer.PrinterOptions;
 
 import java.io.IOException;
@@ -72,9 +72,9 @@ public final class PrettyLayoutWriter implements LayoutWriter {
   }
 
   @Override
-  public void writeFloat(BigDecimal val, FloatPrecision precision) throws IOException {
+  public void writeFloat(BigDecimal val, FloatRepresentation representation) throws IOException {
     writeIndentIfNeeded();
-    writer.write(formatFloat(val, precision));
+    writer.write(formatFloat(val, representation));
   }
 
   @Override
@@ -90,7 +90,6 @@ public final class PrettyLayoutWriter implements LayoutWriter {
     writer.write(escapeString(s));
     writer.write("\"");
   }
-
 
   @Override
   public void openGroup(String delimiter) throws IOException {

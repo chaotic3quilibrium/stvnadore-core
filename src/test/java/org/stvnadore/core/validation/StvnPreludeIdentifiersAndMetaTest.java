@@ -5,8 +5,9 @@ import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ast.StvnCatalogMeta;
-import org.stvnadore.core.ast.StvnDocumentKind;
+import org.stvnadore.core.ir.StvnDocumentKind;
+import org.stvnadore.core.ir.StvnDocumentMeta;
+import java.util.Optional;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -357,21 +358,20 @@ public class StvnPreludeIdentifiersAndMetaTest {
   }
 
   @Test
-  @DisplayName("TC-PRELUDE-JAVA-01: Java record StvnCatalogMeta contracts")
+  @DisplayName("TC-PRELUDE-JAVA-01: Pure-IR Java record StvnDocumentMeta contracts")
   void testJavaRecordStvnCatalogMetaContracts() {
-    var cat = StvnCatalogMeta.of("core", "domain", StvnDocumentKind.DEFS);
-    assertEquals("core", cat.name());
-    assertEquals("domain", cat.domain());
-    assertEquals(StvnDocumentKind.DEFS, cat.kind());
+    var cat = StvnDocumentMeta.of("core", "domain", StvnDocumentKind.DEFS);
+    assertEquals(Optional.of("core"), cat.name());
+    assertEquals(Optional.of("domain"), cat.domain());
+    assertEquals(Optional.of(StvnDocumentKind.DEFS), cat.kind());
 
-    // Null checks
-    assertThrows(NullPointerException.class, () -> new StvnCatalogMeta(null, "d", StvnDocumentKind.BODY));
-    assertThrows(NullPointerException.class, () -> new StvnCatalogMeta("n", null, StvnDocumentKind.BODY));
-    assertThrows(NullPointerException.class, () -> new StvnCatalogMeta("n", "d", null));
-
-    // Non-empty checks
-    assertThrows(IllegalArgumentException.class, () -> new StvnCatalogMeta("", "d", StvnDocumentKind.BODY));
-    assertThrows(IllegalArgumentException.class, () -> new StvnCatalogMeta("n", "", StvnDocumentKind.BODY));
+    // Null checks on factory & canonical constructor
+    assertThrows(NullPointerException.class, () -> StvnDocumentMeta.of(null, "d", StvnDocumentKind.BODY));
+    assertThrows(NullPointerException.class, () -> StvnDocumentMeta.of("n", null, StvnDocumentKind.BODY));
+    assertThrows(NullPointerException.class, () -> StvnDocumentMeta.of("n", "d", null));
+    assertThrows(NullPointerException.class, () -> new StvnDocumentMeta(null, Optional.empty(), Optional.empty()));
+    assertThrows(NullPointerException.class, () -> new StvnDocumentMeta(Optional.empty(), null, Optional.empty()));
+    assertThrows(NullPointerException.class, () -> new StvnDocumentMeta(Optional.empty(), Optional.empty(), null));
   }
 
   @Test

@@ -156,7 +156,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 1 ]
                 }
                 """,
-            "Type mismatch: Expected boolean, got integer"),
+            "Type mismatch: expected scalar :Boolean, found scalar :Int literal '1'"),
 
         TestProfile.createError(
             "Boolean Validation - Implicit Truthiness String 'true'",
@@ -166,7 +166,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "true" ]
                 }
                 """,
-            "Type mismatch: Expected boolean, got string"),
+            "Type mismatch: expected scalar :Boolean, found scalar :String literal"),
 
         TestProfile.createError(
             "Boolean Validation - Implicit Truthiness bare word boolean true",
@@ -176,7 +176,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ true ]
                 }
                 """,
-            "STVN Syntax Error: extraneous input 'true'"),
+            "STVN Syntax Error: unexpected extraneous symbol 'true'"),
 
         TestProfile.create(
             "Enum Validation - Keywords Match Defined List",
@@ -256,7 +256,7 @@ public class StvnEndToEndIntegrationTest {
                   :body #N
                 }
                 """,
-            "Ambiguous keyword clash: Token #N is both a control keyword for :Option and a valid variant of enum"),
+            "Rule C violation: Ambiguous keyword clash; '#N' is both an :Option control tag and an active inner :Enum variant"),
 
         TestProfile.createError(
             "Enum Validation - Option Tag Collision Ambiguity Short Some",
@@ -266,7 +266,7 @@ public class StvnEndToEndIntegrationTest {
                   :body #S
                 }
                 """,
-            "Ambiguous keyword clash: Token #S is both a control keyword for :Option and a valid variant of enum"),
+            "Rule C violation: Ambiguous keyword clash; '#S' is both an :Option control tag and an active inner :Enum variant"),
 
         TestProfile.createError(
             "Enum Validation - Either Tag Collision Ambiguity Short Left",
@@ -276,7 +276,7 @@ public class StvnEndToEndIntegrationTest {
                   :body #L
                 }
                 """,
-            "Ambiguous keyword clash: Token #L is both a control keyword for :Either and a valid variant of enum"),
+            "Rule C violation: Ambiguous keyword clash; '#L' is both an :Either control tag and an active branch :Enum variant"),
 
         TestProfile.createError(
             "Enum Validation - Either Tag Collision Ambiguity Short Right",
@@ -286,7 +286,7 @@ public class StvnEndToEndIntegrationTest {
                   :body #R
                 }
                 """,
-            "Ambiguous keyword clash: Token #R is both a control keyword for :Either and a valid variant of enum")
+            "Rule C violation: Ambiguous keyword clash; '#R' is both an :Either control tag and an active branch :Enum variant")
     ).map(testProfile -> Arguments.of(testProfile.displayName(), testProfile));
   }
 
@@ -309,7 +309,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ -2147483649 ]
                 }
                 """,
-            "Value [-2147483649] is out of bounds for :Int (-2147483648 to 2147483647)"),
+            "Integer literal '-2147483649' overflows signed 32-bit capacity for :Int"),
 
         TestProfile.createError(
             "Default Number Alias - Int32 Overflow",
@@ -319,7 +319,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 2147483648 ]
                 }
                 """,
-            "Value [2147483648] is out of bounds for :Int (-2147483648 to 2147483647)"),
+            "Integer literal '2147483648' overflows signed 32-bit capacity for :Int"),
 
         TestProfile.create(
             "Default Number Alias - Uint32 Boundaries Success",
@@ -344,7 +344,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ -1 ]
                 }
                 """,
-            "Value [-1] is out of bounds for :U32 (0 to 4294967295)"),
+            "Integer literal '-1' overflows unsigned 32-bit capacity for :U32"),
 
         TestProfile.createError(
             "Default Number Alias - Uint32 Overflow",
@@ -357,7 +357,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 4294967296 ]
                 }
                 """,
-            "Value [4294967296] is out of bounds for :U32 (0 to 4294967295)"),
+            "Integer literal '4294967296' overflows unsigned 32-bit capacity for :U32"),
 
         TestProfile.create(
             "Integer 1-Bit Validation - Int1 Boundaries success",
@@ -382,7 +382,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ -2 ]
                 }
                 """,
-            "Value [-2] is out of bounds for :I1 (-1 to 0)"),
+            "Integer literal '-2' overflows signed 1-bit capacity for :I1"),
 
         TestProfile.createError(
             "Integer 1-Bit Validation - Int1 Overflow",
@@ -395,7 +395,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 1 ]
                 }
                 """,
-            "Value [1] is out of bounds for :I1 (-1 to 0)"),
+            "Integer literal '1' overflows signed 1-bit capacity for :I1"),
 
         TestProfile.create(
             "Integer 1-Bit Validation - Uint1 Boundaries Success",
@@ -420,7 +420,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ -1 ]
                 }
                 """,
-            "Value [-1] is out of bounds for :U1 (0 to 1)"),
+            "Integer literal '-1' overflows unsigned 1-bit capacity for :U1"),
 
         TestProfile.createError(
             "Integer 1-Bit Validation - Uint1 Overflow",
@@ -433,7 +433,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 2 ]
                 }
                 """,
-            "Value [2] is out of bounds for :U1 (0 to 1)"),
+            "Integer literal '2' overflows unsigned 1-bit capacity for :U1"),
 
         TestProfile.createError(
             "Integer 7-Bit Validation - Int7 Underflow",
@@ -446,7 +446,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ -65 ]
                 }
                 """,
-            "Value [-65] is out of bounds for :I7 (-64 to 63)"),
+            "Integer literal '-65' overflows signed 7-bit capacity for :I7"),
 
         TestProfile.create(
             "Integer 8-Bit Validation - Int8 Success",
@@ -471,7 +471,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ -1 ]
                 }
                 """,
-            "Value [-1] is out of bounds for :U256 (0 to 115792089237316195423570985008687907853269984665640564039457584007913129639935)"),
+            "Integer literal '-1' overflows unsigned 256-bit capacity for :U256"),
 
         TestProfile.create(
             "Float Boundaries - Float32 Success",
@@ -546,7 +546,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 0x8000 ]
                 }
                 """,
-            "Value [32768] is out of bounds for :I16 (-32768 to 32767)")
+            "Integer literal '0x8000' overflows signed 16-bit capacity for :I16")
     ).map(testProfile -> Arguments.of(testProfile.displayName(), testProfile));
   }
 
@@ -691,7 +691,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "2026-03-15 08:00:00" ]
                 }
                 """,
-            "Invalid OffsetDateTime format"),
+            "Invalid {#offset} :DateTime format"),
 
         TestProfile.createError(
             "Temporal Validation - DateTimeOffset Rejects Zone",
@@ -704,7 +704,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "2026-03-15T08:00:00[America/Chicago]" ]
                 }
                 """,
-            "Time zone brackets [...] are prohibited in :DateTimeOffset"),
+            "Time zone brackets [...] are prohibited in {#offset} :DateTime"),
 
         TestProfile.create(
             "Temporal Validation - DateTimeZoned Success",
@@ -729,7 +729,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "2026-03-06T15:53:08-06:00" ]
                 }
                 """,
-            "Invalid ZonedDateTime format"),
+            "Explicit UTC offsets (+/-HH:mm or Z) are prohibited in {#zoned} :DateTime"),
 
         TestProfile.createError(
             "Temporal Validation - DateTimeZoned Rejects Offset",
@@ -742,7 +742,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" ]
                 }
                 """,
-            "Explicit offsets (±HH:mm or Z) are prohibited in :DateTimeZoned"),
+            "Explicit UTC offsets (+/-HH:mm or Z) are prohibited in {#zoned} :DateTime"),
 
         TestProfile.create(
             "Temporal Validation - DateTimeAudited Success",
@@ -767,7 +767,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "2026-03-15T08:00:00-05:00" ]
                 }
                 """,
-            "Invalid :DateTimeAudited literal. Mandates both an explicit UTC offset and an IANA zone ID"),
+            "Invalid {#audited} :DateTime format"),
 
         TestProfile.create(
             "Temporal Validation - TimeEpochNs BigInteger Storage Success",
@@ -806,7 +806,7 @@ public class StvnEndToEndIntegrationTest {
                   ]" +      //<-- trailing double-quote, space, and plus-sign
                 }
                 """,
-            "STVN Syntax Error: token recognition error"),
+            "STVN Syntax Error: unrecognized lexical character sequence"),
 
         TestProfile.createError(
             "Bounded String - Fixed Length Mismatch",
@@ -1169,7 +1169,7 @@ public class StvnEndToEndIntegrationTest {
                     hi1234[FENCE_OOPS]\"\"\"
                   ]
                 }""",
-            "STVN Syntax Error: Rule STR-04 violation: Mismatched closing fence tag '[FENCE_OOPS]', expected '[FENCE]'")
+            "STVN Syntax Error: Rule STR-04 violation: Unclosed fenced string: expected closing delimiter '[FENCE]\"\"\"', found mismatched closing tag '[FENCE_OOPS]'")
     ).map(testProfile -> Arguments.of(testProfile.displayName(), testProfile));
   }
 
@@ -1232,7 +1232,7 @@ public class StvnEndToEndIntegrationTest {
                   }
                 }
                 """,
-            "Type mismatch: Expected string, got integer"),
+            "Type mismatch: expected scalar :String, found scalar :Int literal '3'"),
 
         TestProfile.createError(
             "Non-Empty Collections - Void Content Failure Sequence",
@@ -1246,7 +1246,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ [ ] ]
                 }
                 """,
-            "Sequence is marked as non-empty but contains no elements"),
+            "Sequence is marked as non-empty (#minSize 1) but contains no elements"),
 
         TestProfile.createError(
             "Deep Composition - Nested Multi-Layer Pathing Tracking Error",
@@ -1263,7 +1263,7 @@ public class StvnEndToEndIntegrationTest {
                   ]
                 }
                 """,
-            "Type mismatch: Expected float, got string"),
+            "Type mismatch: expected scalar :Float, found scalar :String literal"),
 
         TestProfile.create(
             "Empty Collections Allowed - Default States Allowed Gracefully",
@@ -1468,7 +1468,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ #Some 1 ]
                 }
                 """,
-            "Unexpected Option tag (#Some/#None), schema does not define an :Option"),
+            "Unexpected Option tag '#Some'; target schema is :I8"),
 
         TestProfile.createError(
             "Short Aliases And Downcasting - Nested Target Error Extraction Only",
@@ -1481,7 +1481,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ ( #S "bad" #L 1 ) ]
                 }
                 """,
-            "Type mismatch: Expected integer, got string"),
+            "Type mismatch: expected scalar :Int, found scalar :String literal"),
 
         identicalNesting,
         secondaryBranch,
@@ -1543,7 +1543,7 @@ public class StvnEndToEndIntegrationTest {
                   :body []
                 }
                 """,
-            "STVN Syntax Error: mismatched input '}'"),
+            "STVN Syntax Error: unexpected token '}'; expected <value>"),
 
         TestProfile.createError(
             "Numeric Constraints - Min Bounds Checked",
@@ -1556,7 +1556,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ -1 ]
                 }
                 """,
-            "Constraint violation (:age): Value must be greater than or equal to 0"),
+            "Constraint violation (:age): Value -1 is outside allowable range (must be >= 0)"),
 
         TestProfile.createError(
             "Numeric Constraints - Min Bounds Collision",
@@ -1629,7 +1629,7 @@ public class StvnEndToEndIntegrationTest {
             """
                 {
                   :defs {
-                    :ParentFloat { #minIncl 10.0 #maxIncl 20.0 } :Float
+                    :ParentFloat { #minIncl 0.0 #maxIncl 20.0 } :Float
                     :ChildFloat { #minExcl 0.0 #maxExcl 5.0 } :ParentFloat
                   }
                   :type :Seq( :Tuple( :ParentFloat :ChildFloat ) )
@@ -1691,7 +1691,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 90210 ]
                 }
                 """,
-            "facet 'regex' is not permitted on :Int"
+            "facet '#regex' is not permitted on :Int"
         ),
 
         TestProfile.createError(
@@ -1705,7 +1705,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ 1.1 ]
                 }
                 """,
-            "facet 'preserveIndent' is not permitted on :Float"
+            "facet '#preserveIndent' is not permitted on :Float"
         ),
 
         TestProfile.createError(
@@ -1761,7 +1761,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "admin" ]
                 }
                 """,
-            "STVN Syntax Error: mismatched input 'pattern_without_quotes'"
+            "STVN Syntax Error: unexpected token 'pattern_without_quotes'; expected <value>"
         ),
 
         TestProfile.createError(
@@ -1812,205 +1812,18 @@ public class StvnEndToEndIntegrationTest {
   // ADDITIONAL BLUEPRINT INTEGRATION TESTS
   // =========================================================================
 
-  private static class CustomTypeKeywordContext extends org.stvnadore.core.parser.StvnParser.TypeKeywordContext {
-      private final String text;
-      public CustomTypeKeywordContext(String text) {
-          super(null, 0);
-          this.text = text;
-      }
-      @Override
-      public String getText() {
-          return text;
-      }
-  }
-
-  private static class CustomTypeDefTargetContext extends org.stvnadore.core.parser.StvnParser.TypeDefTargetContext {
-      private final org.stvnadore.core.parser.StvnParser.TypeKeywordContext kw;
-      public CustomTypeDefTargetContext(org.stvnadore.core.parser.StvnParser.TypeKeywordContext kw) {
-          super(null, 0);
-          this.kw = kw;
-      }
-      @Override
-      public org.stvnadore.core.parser.StvnParser.TypeKeywordContext typeKeyword() {
-          return kw;
-      }
-      @Override
-      public String getText() {
-          return kw.getText();
-      }
-  }
-
-  private static class CustomTypeDefinitionContext extends org.stvnadore.core.parser.StvnParser.TypeDefinitionContext {
-      private final org.stvnadore.core.parser.StvnParser.TypeDefTargetContext target;
-      private final org.stvnadore.core.parser.StvnParser.SchemaTypeContext schemaType;
-      public CustomTypeDefinitionContext(org.stvnadore.core.parser.StvnParser.TypeKeywordContext kw, org.stvnadore.core.parser.StvnParser.SchemaTypeContext schemaType) {
-          super(null, 0);
-          this.target = new CustomTypeDefTargetContext(kw);
-          this.schemaType = schemaType;
-      }
-      @Override
-      public org.stvnadore.core.parser.StvnParser.TypeDefTargetContext typeDefTarget() {
-          return target;
-      }
-      @Override
-      public org.stvnadore.core.parser.StvnParser.SchemaTypeContext schemaType() {
-          return schemaType;
-      }
-  }
-
-  private static class CustomDefsEntryContext extends org.stvnadore.core.parser.StvnParser.DefsEntryContext {
-      private final java.util.List<org.stvnadore.core.parser.StvnParser.DefsElementContext> defsList;
-      public CustomDefsEntryContext(java.util.List<org.stvnadore.core.parser.StvnParser.TypeDefinitionContext> typeDefs) {
-          super(null, 0);
-          this.defsList = new java.util.ArrayList<>();
-          for (var td : typeDefs) {
-              var de = new org.stvnadore.core.parser.StvnParser.DefsElementContext(this, 0) {
-                  @Override
-                  public org.stvnadore.core.parser.StvnParser.TypeDefinitionContext typeDefinition() {
-                      return td;
-                  }
-              };
-              this.defsList.add(de);
-          }
-      }
-      @Override
-      public java.util.List<org.stvnadore.core.parser.StvnParser.DefsElementContext> defsElement() {
-          return defsList;
-      }
-  }
-
-  private static class CustomDocumentBodyContext extends org.stvnadore.core.parser.StvnParser.DocumentBodyContext {
-      private final org.stvnadore.core.parser.StvnParser.DefsEntryContext defs;
-      public CustomDocumentBodyContext(org.stvnadore.core.parser.StvnParser.DefsEntryContext defs) {
-          super(null, 0);
-          this.defs = defs;
-      }
-      @Override
-      public org.stvnadore.core.parser.StvnParser.DefsEntryContext defsEntry() {
-          return defs;
-      }
-  }
-
-  private static class CustomDocumentContext extends org.stvnadore.core.parser.StvnParser.StvnDocumentContext {
-      private final org.stvnadore.core.parser.StvnParser.DocumentBodyContext body;
-      public CustomDocumentContext(org.stvnadore.core.parser.StvnParser.DocumentBodyContext body) {
-          super(null, 0);
-          this.body = body;
-      }
-      @Override
-      public org.stvnadore.core.parser.StvnParser.DocumentBodyContext documentBody() {
-          return body;
-      }
-  }
-
-  private static class CustomSchemaTypeContext extends org.stvnadore.core.parser.StvnParser.SchemaTypeContext {
-      private final org.stvnadore.core.parser.StvnParser.SchemaConstructorContext ctor;
-      private final org.stvnadore.core.parser.StvnParser.TypeKeywordContext kw;
-
-      public CustomSchemaTypeContext(org.stvnadore.core.parser.StvnParser.SchemaConstructorContext ctor, org.stvnadore.core.parser.StvnParser.TypeKeywordContext kw) {
-          super(null, 0);
-          this.ctor = ctor;
-          this.kw = kw;
-      }
-
-      @Override
-      public org.stvnadore.core.parser.StvnParser.SchemaConstructorContext schemaConstructor() {
-          return ctor;
-      }
-
-      @Override
-      public org.stvnadore.core.parser.StvnParser.TypeKeywordContext typeKeyword() {
-          return kw;
-      }
-  }
-
-  private static class CustomSchemaConstructorContext extends org.stvnadore.core.parser.StvnParser.SchemaConstructorContext {
-      private final org.stvnadore.core.parser.StvnParser.CollectionTypeContext coll;
-
-      public CustomSchemaConstructorContext(org.stvnadore.core.parser.StvnParser.CollectionTypeContext coll) {
-          super(null, 0);
-          this.coll = coll;
-      }
-
-      @Override
-      public org.stvnadore.core.parser.StvnParser.CollectionTypeContext collectionType() {
-          return coll;
-      }
-  }
-
-  private static class CustomCollectionTypeContext extends org.stvnadore.core.parser.StvnParser.CollectionTypeContext {
-      private final org.stvnadore.core.parser.StvnParser.SchemaTypeContext child;
-
-      public CustomCollectionTypeContext(org.stvnadore.core.parser.StvnParser.SchemaTypeContext child) {
-          super(null, 0);
-          this.child = child;
-      }
-
-      @Override
-      public java.util.List<org.stvnadore.core.parser.StvnParser.SchemaTypeContext> schemaType() {
-          return java.util.List.of(child);
-      }
-
-      @Override
-      public org.stvnadore.core.parser.StvnParser.SchemaTypeContext schemaType(int i) {
-          return i == 0 ? child : null;
-      }
-
-      @Override
-      public org.antlr.v4.runtime.tree.TerminalNode COLL_SEQ() {
-          return new org.antlr.v4.runtime.tree.TerminalNodeImpl(new org.antlr.v4.runtime.CommonToken(0, ":Seq"));
-      }
-  }
-
-  private static class AnonymousCyclicSchemaTypeContext extends org.stvnadore.core.parser.StvnParser.SchemaTypeContext {
-      private org.stvnadore.core.parser.StvnParser.SchemaConstructorContext ctor;
-      public boolean resolving = false;
-
-      public AnonymousCyclicSchemaTypeContext() {
-          super(null, 0);
-      }
-
-      public void setCtor(org.stvnadore.core.parser.StvnParser.SchemaConstructorContext ctor) {
-          this.ctor = ctor;
-      }
-
-      @Override
-      public org.stvnadore.core.parser.StvnParser.SchemaConstructorContext schemaConstructor() {
-          if (resolving) {
-              return null;
-          }
-          return ctor;
-      }
-
-      @Override
-      public org.stvnadore.core.parser.StvnParser.TypeKeywordContext typeKeyword() {
-          return null;
-      }
-  }
-
   @org.junit.jupiter.api.Test
   public void testProgrammaticCyclicAstHashing() {
-      var kw = new CustomTypeKeywordContext(":MyCircularType");
-      var childCtx = new CustomSchemaTypeContext(null, kw);
-      var parentColl = new CustomCollectionTypeContext(childCtx);
-      var parentCtor = new CustomSchemaConstructorContext(parentColl);
-      var parentCtx = new CustomSchemaTypeContext(parentCtor, null);
-
-      var def = new CustomTypeDefinitionContext(kw, parentCtx);
-      var defsEntry = new CustomDefsEntryContext(java.util.List.of(def));
-      var body = new CustomDocumentBodyContext(defsEntry);
-      var doc = new CustomDocumentContext(body);
-
-      // Set parent links for ANTLR hierarchy traversal
-      childCtx.parent = parentColl;
-      parentColl.parent = parentCtor;
-      parentCtor.parent = parentCtx;
-      parentCtx.parent = def;
-      def.parent = defsEntry;
-      defsEntry.parent = body;
-      body.parent = doc;
-
-      var resolved = org.stvnadore.core.validation.StvnTypeResolver.resolvePrimitiveSchema(doc, parentCtx, java.util.Set.of()).get();
+      var doc = org.stvnadore.core.StvnCompiler.compile("""
+          {
+            :defs {
+              :MyCircularType :Seq(:MyCircularType)
+            }
+            :type :MyCircularType
+            :body []
+          }
+          """).document().orElseThrow();
+      var resolved = doc.defs().findType(":MyCircularType").orElseThrow();
 
       var hash1 = org.stvnadore.core.binary.StvnSchemaHasher.hashSchema(resolved);
       var hash2 = org.stvnadore.core.binary.StvnSchemaHasher.hashSchema(resolved);
@@ -2019,36 +1832,23 @@ public class StvnEndToEndIntegrationTest {
 
   @org.junit.jupiter.api.Test
   public void testAnonymousCyclicAstThrowsException() {
-      var parentCtx = new AnonymousCyclicSchemaTypeContext();
-      var childCtx = new AnonymousCyclicSchemaTypeContext() {
-          @Override
-          public org.stvnadore.core.parser.StvnParser.SchemaConstructorContext schemaConstructor() {
-              parentCtx.resolving = true; // break parent's recursion when resolving child
-              return super.schemaConstructor();
-          }
-      };
-
-      var parentColl = new CustomCollectionTypeContext(childCtx);
-      var parentCtor = new CustomSchemaConstructorContext(parentColl);
-      parentCtx.setCtor(parentCtor);
-
-      var childColl = new CustomCollectionTypeContext(parentCtx);
-      var childCtor = new CustomSchemaConstructorContext(childColl);
-      childCtx.setCtor(childCtor);
-
-      org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema resolved;
-      try {
-          parentCtx.resolving = false;
-          childCtx.resolving = false;
-          resolved = org.stvnadore.core.validation.StvnTypeResolver.resolvePrimitiveSchema(null, parentCtx, java.util.Set.of()).get();
-      } finally {
-          parentCtx.resolving = false;
-          childCtx.resolving = false;
-      }
+      var anonBackEdge = new org.stvnadore.core.ir.StvnSchema.PoisonedSchema(
+          Optional.empty(),
+          org.stvnadore.core.lowering.StvnPayloadLowerer.RECURSIVE_BACK_EDGE_SENTINEL,
+          Optional.empty(),
+          org.stvnadore.core.ir.StvnSchema.TraitProfile.ofDefault(true, true)
+      );
+      var cyclicAnonymousSeq = new org.stvnadore.core.ir.StvnSchema.SeqSchema(
+          Optional.empty(),
+          java.math.BigInteger.ZERO,
+          org.stvnadore.core.StvnVocabulary.DEFAULT_MAX_SIZE,
+          anonBackEdge,
+          org.stvnadore.core.ir.StvnSchema.TraitProfile.ofDefault(true, true)
+      );
 
       org.junit.jupiter.api.Assertions.assertThrows(
           org.stvnadore.core.validation.MalformedSchemaException.class,
-          () -> org.stvnadore.core.binary.StvnSchemaHasher.hashSchema(resolved)
+          () -> org.stvnadore.core.binary.StvnSchemaHasher.hashSchema(cyclicAnonymousSeq)
       );
   }
 
@@ -2198,24 +1998,20 @@ public class StvnEndToEndIntegrationTest {
 
   @org.junit.jupiter.api.Test
   public void testSequencingRejection() {
-      var dummySchema = org.stvnadore.core.test.StvnTestFactory.createDummySchema();
-      var nonSequencedSet = new java.util.HashSet<org.stvnadore.core.ast.StvnValue>();
-      nonSequencedSet.add(new org.stvnadore.core.ast.StvnValue.StvnBoolean(dummySchema, true));
+      var nonSequencedSet = new java.util.HashSet<Boolean>();
+      nonSequencedSet.add(true);
 
       org.junit.jupiter.api.Assertions.assertThrows(
           org.stvnadore.core.validation.MalformedPayloadException.class,
-          () -> new org.stvnadore.core.ast.StvnValue.StvnSet(dummySchema, nonSequencedSet, false)
+          () -> org.stvnadore.core.mapper.StvnMapper.toValue(nonSequencedSet, Optional.empty())
       );
 
-      var nonSequencedMap = new java.util.HashMap<org.stvnadore.core.ast.StvnValue, org.stvnadore.core.ast.StvnValue>();
-      nonSequencedMap.put(
-          new org.stvnadore.core.ast.StvnValue.StvnBoolean(dummySchema, true),
-          new org.stvnadore.core.ast.StvnValue.StvnBoolean(dummySchema, false)
-      );
+      var nonSequencedMap = new java.util.HashMap<Boolean, Boolean>();
+      nonSequencedMap.put(true, false);
 
       org.junit.jupiter.api.Assertions.assertThrows(
           org.stvnadore.core.validation.MalformedPayloadException.class,
-          () -> new org.stvnadore.core.ast.StvnValue.StvnMap(dummySchema, nonSequencedMap, false, false)
+          () -> org.stvnadore.core.mapper.StvnMapper.toValue(nonSequencedMap, Optional.empty())
       );
   }
 
@@ -2249,8 +2045,12 @@ public class StvnEndToEndIntegrationTest {
           """).orElseThrow();
       org.junit.jupiter.api.Assertions.assertNotNull(ir2);
       var canon2 = org.stvnadore.core.StvnCompiler.toCanonicalString(ir2);
-      org.junit.jupiter.api.Assertions.assertTrue(canon2.contains("\"\"\"[TAG]\n"));
+      org.junit.jupiter.api.Assertions.assertTrue(canon2.contains("\"\"\"[RAW]\n"));
       org.junit.jupiter.api.Assertions.assertTrue(canon2.contains("helloPreserved"));
       org.junit.jupiter.api.Assertions.assertTrue(canon2.contains("worldPreserved"));
+      org.junit.jupiter.api.Assertions.assertEquals(
+          ir2,
+          org.stvnadore.core.StvnCompiler.compilePayload(canon2).orElseThrow()
+      );
   }
 }

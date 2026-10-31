@@ -7,21 +7,39 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declares validation constraints on string record components or fields.
+ * Declares STVN 2.0.0 validation facets on {@link String} record components or fields.
  * <p>
- * This annotation allows developers to enforce constraints such as non-emptiness on mapped string fields.
+ * Maps directly to the pure-IR {@link org.stvnadore.core.ir.StvnSchema.StringSchema} cardinality
+ * and regular-expression facets ({@code #minSize}, {@code #maxSize}, and {@code #regex}).
  *
- * @since 1.0.0
+ * @since 2.0.0
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.RECORD_COMPONENT, ElementType.FIELD})
 public @interface StvnString {
+
   /**
-   * If {@code true}, validation mandates that the annotated string has a length of at least 1.
-   * Defaults to {@code false}.
+   * Minimum inclusive Unicode code-point count ({@code #minSize}).
+   * Defaults to {@code 0}.
    *
-   * @return {@code true} if non-empty validation is required, otherwise {@code false}
+   * @return the minimum inclusive code-point length
    */
-  boolean nonEmpty() default false;
+  int minSize() default 0;
+
+  /**
+   * Maximum inclusive Unicode code-point count ({@code #maxSize}).
+   * Defaults to {@code 16_777_216} ({@link org.stvnadore.core.StvnVocabulary#DEFAULT_MAX_SIZE}).
+   *
+   * @return the maximum inclusive code-point length
+   */
+  int maxSize() default 16_777_216;
+
+  /**
+   * Optional Java/ECMA regular-expression pattern ({@code #regex}).
+   * Defaults to {@code ""} (unconstrained).
+   *
+   * @return the regular-expression pattern, or {@code ""} if unconstrained
+   */
+  String regex() default "";
 }

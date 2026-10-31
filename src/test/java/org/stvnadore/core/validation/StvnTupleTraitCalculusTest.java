@@ -4,6 +4,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.ir.StvnSchema;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,14 +34,9 @@ public class StvnTupleTraitCalculusTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertFalse(result.hasErrors(), "Tuple(:Int :String) must derive equatable and comparable cleanly: " + result.diagnostics());
 
-    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
-    var defs = StvnTypeResolver.getDocumentDefinitions(doc);
-    var pairDef = defs.get(":Pair");
-    var rsOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, pairDef.defNode().schemaType(), new java.util.HashSet<>());
-    assertTrue(rsOpt.isPresent());
-    var rs = rsOpt.get();
-    assertEquals(java.util.Optional.of(true), rs.constraints().equatable(), "Tuple(:Int :String) equatable trait must be true");
-    assertEquals(java.util.Optional.of(true), rs.constraints().comparable(), "Tuple(:Int :String) comparable trait must be true");
+    StvnSchema pairSchema = result.document().orElseThrow().defs().findType(":Pair").orElseThrow();
+    assertTrue(pairSchema.traits().equatable(), "Tuple(:Int :String) equatable trait must be true");
+    assertTrue(pairSchema.traits().comparable(), "Tuple(:Int :String) comparable trait must be true");
   }
 
   @Test
@@ -61,14 +59,11 @@ public class StvnTupleTraitCalculusTest {
         "Expected ERR_TRAIT_VIOLATION but got: " + result.diagnostics()
     );
 
-    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
-    var defs = StvnTypeResolver.getDocumentDefinitions(doc);
-    var floatPairDef = defs.get(":FloatPair");
-    var rsOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, floatPairDef.defNode().schemaType(), new java.util.HashSet<>());
-    assertTrue(rsOpt.isPresent());
-    var rs = rsOpt.get();
-    assertEquals(java.util.Optional.of(false), rs.constraints().equatable(), "Tuple(:Int :Float) equatable trait must be false");
-    assertEquals(java.util.Optional.of(true), rs.constraints().comparable(), "Tuple(:Int :Float) comparable trait must remain true");
+    StvnSchema floatPairSchema = StvnCompiler.compile(
+        "{ :defs { :FloatPair :Tuple( :Int :Float ) } :type :FloatPair :body ( 1 3.14 ) }"
+    ).document().orElseThrow().defs().findType(":FloatPair").orElseThrow();
+    assertFalse(floatPairSchema.traits().equatable(), "Tuple(:Int :Float) equatable trait must be false");
+    assertTrue(floatPairSchema.traits().comparable(), "Tuple(:Int :Float) comparable trait must remain true");
   }
 
   @Test
@@ -87,14 +82,9 @@ public class StvnTupleTraitCalculusTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertFalse(result.hasErrors(), "Exact decimal float is equatable; Set(:ExactPair) must compile cleanly: " + result.diagnostics());
 
-    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
-    var defs = StvnTypeResolver.getDocumentDefinitions(doc);
-    var exactPairDef = defs.get(":ExactPair");
-    var rsOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, exactPairDef.defNode().schemaType(), new java.util.HashSet<>());
-    assertTrue(rsOpt.isPresent());
-    var rs = rsOpt.get();
-    assertEquals(java.util.Optional.of(true), rs.constraints().equatable(), "Tuple(:Int {#exact} :Float) equatable trait must be true");
-    assertEquals(java.util.Optional.of(true), rs.constraints().comparable(), "Tuple(:Int {#exact} :Float) comparable trait must be true");
+    StvnSchema exactPairSchema = result.document().orElseThrow().defs().findType(":ExactPair").orElseThrow();
+    assertTrue(exactPairSchema.traits().equatable(), "Tuple(:Int {#exact} :Float) equatable trait must be true");
+    assertTrue(exactPairSchema.traits().comparable(), "Tuple(:Int {#exact} :Float) comparable trait must be true");
   }
 
   @Test
@@ -113,14 +103,9 @@ public class StvnTupleTraitCalculusTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertFalse(result.hasErrors(), "Explicit override #equatable #TRUE must satisfy Set element requirement: " + result.diagnostics());
 
-    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
-    var defs = StvnTypeResolver.getDocumentDefinitions(doc);
-    var pairDef = defs.get(":OverriddenPair");
-    var rsOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, pairDef.defNode().schemaType(), new java.util.HashSet<>());
-    assertTrue(rsOpt.isPresent());
-    var rs = rsOpt.get();
-    assertEquals(java.util.Optional.of(true), rs.constraints().equatable(), "Explicitly overridden tuple equatable trait must be true");
-    assertTrue(rs.constraints().explicitOverrides().contains("equatable"), "explicitOverrides must contain 'equatable'");
+    StvnSchema pairSchema = result.document().orElseThrow().defs().findType(":OverriddenPair").orElseThrow();
+    assertTrue(pairSchema.traits().equatable(), "Explicitly overridden tuple equatable trait must be true");
+    assertEquals(Optional.of(true), pairSchema.traits().explicitEquatableOverride(), "explicitEquatableOverride must be present");
   }
 
   @Test
@@ -163,14 +148,11 @@ public class StvnTupleTraitCalculusTest {
         "Expected ERR_TRAIT_VIOLATION but got: " + result.diagnostics()
     );
 
-    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
-    var defs = StvnTypeResolver.getDocumentDefinitions(doc);
-    var nestedDef = defs.get(":NestedTuple");
-    var rsOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, nestedDef.defNode().schemaType(), new java.util.HashSet<>());
-    assertTrue(rsOpt.isPresent());
-    var rs = rsOpt.get();
-    assertEquals(java.util.Optional.of(false), rs.constraints().equatable(), "Deeply nested tuple must derive equatable == false");
-    assertEquals(java.util.Optional.of(true), rs.constraints().comparable(), "Deeply nested tuple must derive comparable == true");
+    StvnSchema nestedSchema = StvnCompiler.compile(
+        "{ :defs { :NestedTuple :Tuple( :Int :Tuple( :String :Tuple( :Boolean :Float ) ) ) } :type :Int :body 0 }"
+    ).document().orElseThrow().defs().findType(":NestedTuple").orElseThrow();
+    assertFalse(nestedSchema.traits().equatable(), "Deeply nested tuple must derive equatable == false");
+    assertTrue(nestedSchema.traits().comparable(), "Deeply nested tuple must derive comparable == true");
   }
 
   @Test
@@ -185,14 +167,10 @@ public class StvnTupleTraitCalculusTest {
           :body 0
         }
         """;
-    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
-    var defs = StvnTypeResolver.getDocumentDefinitions(doc);
-    var tupleDef = defs.get(":TupleWithSet");
-    var rsOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, tupleDef.defNode().schemaType(), new java.util.HashSet<>());
-    assertTrue(rsOpt.isPresent());
-    var rs = rsOpt.get();
-    assertEquals(java.util.Optional.of(true), rs.constraints().equatable(), "Tuple with set is equatable");
-    assertEquals(java.util.Optional.of(false), rs.constraints().comparable(), "Tuple with set must derive comparable == false");
+    StvnSchema tupleSchema = StvnCompiler.compile(source).document().orElseThrow()
+        .defs().findType(":TupleWithSet").orElseThrow();
+    assertTrue(tupleSchema.traits().equatable(), "Tuple with set is equatable");
+    assertFalse(tupleSchema.traits().comparable(), "Tuple with set must derive comparable == false");
   }
 
   @Test

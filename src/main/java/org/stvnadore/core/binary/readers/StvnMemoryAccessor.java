@@ -1,20 +1,25 @@
 package org.stvnadore.core.binary.readers;
 
-import java.math.BigDecimal;
+import org.jspecify.annotations.NullMarked;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryDecoder.DecodeContext;
-import org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema;
+import org.stvnadore.core.ir.StvnSchema;
+import org.stvnadore.core.lowering.StvnLiteralParser;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
 
 import static org.stvnadore.core.binary.StvnBinaryDecoder.getInlineSize;
 
 /**
  * Accessor interface providing zero-copy, in-place primitive extraction from raw STVN binary buffers.
  * <p>
- * This abstraction traverses byte buffers in-place without generating intermediate garbage,
- * converting raw binary segments directly to Java primitives.
+ * Traverses byte buffers in-place without generating intermediate IR nodes, converting raw binary
+ * segments directly to host Java values.
  *
  * @since 1.0.0
  */
+@NullMarked
 public interface StvnMemoryAccessor {
 
   /**
@@ -31,10 +36,6 @@ public interface StvnMemoryAccessor {
    * @return the absolute byte offset
    */
   int getAbsoluteOffset(int index);
-
-  // =========================================================================
-  // PRIMITIVE EXTRACTORS
-  // =========================================================================
 
   /**
    * Extracts a signed 8-bit integer value at the specified element index.
@@ -77,7 +78,25 @@ public interface StvnMemoryAccessor {
   }
 
   /**
-   * Extracts a 32-bit floating point value at the specified element index.
+   * Extracts a signed 128-bit two's-complement integer value (such as {@code { #ns } :TimeEpoch})
+   * at the specified element index.
+   *
+   * @param index the element index
+   * @return the decoded signed 128-bit {@link BigInteger}
+   * @since 2.0.0
+   */
+  default BigInteger getInt128(int index) {
+    int offset = getAbsoluteOffset(index);
+    StvnBinaryDecoder.validateAllocationBounds(16, context().buffer(), offset);
+    byte[] bigEndian = new byte[16];
+    for (int i = 0; i < 16; i++) {
+      bigEndian[15 - i] = context().buffer().get(offset + i);
+    }
+    return new BigInteger(bigEndian);
+  }
+
+  /**
+   * Extracts a 32-bit floating-point value at the specified element index.
    *
    * @param index the element index
    * @return the 32-bit float value
@@ -87,7 +106,7 @@ public interface StvnMemoryAccessor {
   }
 
   /**
-   * Extracts a 64-bit floating point value at the specified element index.
+   * Extracts a 64-bit floating-point value at the specified element index.
    *
    * @param index the element index
    * @return the 64-bit double value
@@ -106,7 +125,7 @@ public interface StvnMemoryAccessor {
    */
   default BigDecimal getFloatExact(int index) {
     int stringPayloadOffset = getPointerDereference(index);
-    return org.stvnadore.core.ast.StvnLiteralParser.parseBigDecimal(StvnBinaryDecoder.readStringOutlined(context(), stringPayloadOffset));
+    return StvnLiteralParser.parseBigDecimal(StvnBinaryDecoder.readStringOutlined(context(), stringPayloadOffset));
   }
 
   /**
@@ -141,18 +160,15 @@ public interface StvnMemoryAccessor {
     return context().readPointer(getAbsoluteOffset(index));
   }
 
-  // =========================================================================
-  // NESTED READER FACTORIES
-  // =========================================================================
-
   /**
-   * Resolves a nested tuple reader at the specified element index using the provided schema.
+   * Resolves a nested tuple reader at the specified element index using the provided pure-IR schema.
    *
    * @param index       the element index
-   * @param tupleSchema the resolved schema context for the nested tuple
+   * @param tupleSchema the pure-IR schema context for the nested tuple
    * @return a non-null {@link StvnTupleReader}
+   * @since 2.0.0
    */
-  default StvnTupleReader getTuple(int index, ResolvedSchema tupleSchema) {
+  default StvnTupleReader getTuple(int index, StvnSchema tupleSchema) {
     int inline = getInlineSize(tupleSchema);
     int targetOffset = (inline > 0)
         ? getAbsoluteOffset(index)
@@ -161,13 +177,14 @@ public interface StvnMemoryAccessor {
   }
 
   /**
-   * Resolves a nested sequence reader at the specified element index using the provided schema.
+   * Resolves a nested sequence reader at the specified element index using the provided pure-IR schema.
    *
    * @param index     the element index
-   * @param seqSchema the resolved schema context for the nested sequence
+   * @param seqSchema the pure-IR schema context for the nested sequence
    * @return a non-null {@link StvnSeqReader}
+   * @since 2.0.0
    */
-  default StvnSeqReader getSeq(int index, ResolvedSchema seqSchema) {
+  default StvnSeqReader getSeq(int index, StvnSchema seqSchema) {
     int inline = getInlineSize(seqSchema);
     int targetOffset = (inline > 0)
         ? getAbsoluteOffset(index)
@@ -176,13 +193,14 @@ public interface StvnMemoryAccessor {
   }
 
   /**
-   * Resolves a nested map reader at the specified element index using the provided schema.
+   * Resolves a nested map reader at the specified element index using the provided pure-IR schema.
    *
    * @param index     the element index
-   * @param mapSchema the resolved schema context for the nested map
+   * @param mapSchema the pure-IR schema context for the nested map
    * @return a non-null {@link StvnMapReader}
+   * @since 2.0.0
    */
-  default StvnMapReader getMap(int index, ResolvedSchema mapSchema) {
+  default StvnMapReader getMap(int index, StvnSchema mapSchema) {
     int inline = getInlineSize(mapSchema);
     int targetOffset = (inline > 0)
         ? getAbsoluteOffset(index)

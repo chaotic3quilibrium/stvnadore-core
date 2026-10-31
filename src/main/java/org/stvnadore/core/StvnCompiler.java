@@ -13,10 +13,10 @@ import org.stvnadore.core.binary.StvnBinaryDecoder.RootPointer;
 import org.stvnadore.core.io.CanonicalStvnWriter;
 import org.stvnadore.core.ir.StvnDefsCatalog;
 import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.ir.StvnDocumentKind;
 import org.stvnadore.core.ir.StvnDocumentMeta;
 import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
-import org.stvnadore.core.lowering.LegacyAstBridge;
 import org.stvnadore.core.lowering.StvnDefsLowerer;
 import org.stvnadore.core.lowering.StvnPayloadLowerer;
 import org.stvnadore.core.lowering.StvnReachabilityAndCasVerifier;
@@ -350,7 +350,7 @@ public final class StvnCompiler {
   }
 
   /**
-   * Compiles an STVN binary byte array payload into a monadic compilation result.
+   * Compiles an STVN binary byte array payload ({@code .stvn_b} or {@code .stvn_bd}) into a monadic compilation result.
    *
    * @param bytes   the raw STVN binary bytes
    * @param docPath the optional URI or file path identifier
@@ -368,7 +368,8 @@ public final class StvnCompiler {
   }
 
   /**
-   * Compiles an STVN binary {@link ByteBuffer} payload into a monadic compilation result.
+   * Compiles an STVN binary {@link ByteBuffer} payload ({@code .stvn_b} or {@code .stvn_bd})
+   * into a monadic compilation result.
    *
    * @param buffer  the raw STVN binary byte buffer
    * @param docPath the optional URI or file path identifier
@@ -386,15 +387,40 @@ public final class StvnCompiler {
     int byteLength = buffer.remaining();
     var diagnosticBag = new DiagnosticBag(config.maxDiagnostics());
     try {
-      RootPointer root = StvnBinaryDecoder.open(buffer);
-      Optional<StvnDocumentMeta> irMeta = root.meta().map(LegacyAstBridge::fromLegacyMeta);
+      RootPointer root = StvnBinaryDecoder.open(buffer.duplicate());
+      Optional<StvnDocumentMeta> irMeta = root.meta();
 
       StvnDefsLowerer.validateBinaryDocumentIdentity(irMeta.orElse(null), docPath, diagnosticBag);
 
+      StvnDocumentKind kind = irMeta.flatMap(StvnDocumentMeta::kind).orElse(StvnDocumentKind.BODY);
+      if (kind == StvnDocumentKind.DEFS || kind == StvnDocumentKind.DEFS_INCLUDE) {
+        try {
+          StvnDocument defsDoc = StvnBinaryDecoder.decodeDocument(buffer.duplicate());
+          return diagnosticBag.hasErrors()
+              ? StvnCompilationResult.partial(defsDoc, diagnosticBag.toList())
+              : StvnCompilationResult.success(defsDoc, diagnosticBag.toList());
+        } catch (Throwable t) {
+          diagnosticBag.addError(
+              "Failed to unpack .stvn_bd definitions payload: " + t.getMessage(),
+              0, byteLength, 1, 0, t,
+              "MALFORMED_PAYLOAD"
+          );
+          var fallbackDoc = new StvnDocument(
+              irMeta,
+              StvnDefsCatalog.EMPTY,
+              Optional.empty(),
+              Optional.empty(),
+              true,
+              kind == StvnDocumentKind.DEFS_INCLUDE
+          );
+          return StvnCompilationResult.partial(fallbackDoc, diagnosticBag.toList());
+        }
+      }
+
       Optional<StvnValue> payload = Optional.empty();
       try {
-        org.stvnadore.core.ast.StvnValue unpacked = StvnBinaryDecoder.unpack(root, Optional.empty());
-        payload = Optional.of(LegacyAstBridge.fromLegacyValue(unpacked));
+        StvnValue unpacked = StvnBinaryDecoder.unpack(root, Optional.empty());
+        payload = Optional.of(unpacked);
       } catch (Throwable t) {
         diagnosticBag.addError(
             "Failed to unpack binary payload: " + t.getMessage(),
@@ -410,7 +436,7 @@ public final class StvnCompiler {
           rootType,
           payload,
           false,
-          false
+          kind == StvnDocumentKind.BODY_INCLUDE
       );
       return diagnosticBag.hasErrors()
           ? StvnCompilationResult.partial(document, diagnosticBag.toList())
@@ -508,7 +534,7 @@ public final class StvnCompiler {
    * @param input  the raw STVN document text to parse
    * @param config the parser configuration defining error handling and strictness
    * @return the parsed {@link StvnParser.StvnDocumentContext} parse tree root
-   * @throws NullPointerException if {@code input} or {@code config} is {@code null}
+   * @throws NullPointerException            if {@code input} or {@code config} is {@code null}
    * @throws StvnSyntaxCancellationException if {@code config.strict()} is true and a syntax error is encountered
    */
   public static StvnParser.StvnDocumentContext parse(String input, StvnParserConfig config) {
@@ -558,16 +584,6 @@ public final class StvnCompiler {
   }
 
   /**
-   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue} node into its canonical STVN text representation.
-   *
-   * @param value the legacy AST value node to serialize
-   * @return the canonical STVN string representation of the value
-   */
-  public static String toCanonicalString(org.stvnadore.core.ast.StvnValue value) {
-    return new CanonicalStvnWriter().printToString(value);
-  }
-
-  /**
    * Serializes the given pure-IR {@link StvnDocument} to compact STVN text using custom options.
    *
    * @param document the pure-IR document to serialize
@@ -588,6 +604,19 @@ public final class StvnCompiler {
    */
   public static String compactPrint(StvnDocument document) {
     return AstCompactPrinter.print(document);
+  }
+
+  /**
+   * Serializes the given pure-IR {@link StvnValue} payload with an explicit {@link StvnSchema} to compact STVN text.
+   *
+   * @param payload the pure-IR value payload to serialize
+   * @param schema  the explicit pure-IR target schema
+   * @param options the printer options to apply
+   * @return the compact STVN string representation
+   * @since 2.0.0
+   */
+  public static String compactPrint(StvnValue payload, StvnSchema schema, PrinterOptions options) {
+    return AstCompactPrinter.print(payload, schema, options);
   }
 
   /**
@@ -614,64 +643,6 @@ public final class StvnCompiler {
   }
 
   /**
-   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnDocument} to compact STVN text using custom options.
-   *
-   * @param document the legacy AST document to serialize
-   * @param options  the printer options to apply
-   * @return the compact STVN string representation
-   */
-  public static String compactPrint(org.stvnadore.core.ast.StvnDocument document, PrinterOptions options) {
-    return AstCompactPrinter.print(document, options);
-  }
-
-  /**
-   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnDocument} to compact STVN text using default options.
-   *
-   * @param document the legacy AST document to serialize
-   * @return the compact STVN string representation
-   */
-  public static String compactPrint(org.stvnadore.core.ast.StvnDocument document) {
-    return AstCompactPrinter.print(document);
-  }
-
-  /**
-   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue} payload with explicit schema to compact STVN text.
-   *
-   * @param payload the legacy AST value payload to serialize
-   * @param schema  the explicit target schema
-   * @param options the printer options to apply
-   * @return the compact STVN string representation
-   */
-  public static String compactPrint(
-      org.stvnadore.core.ast.StvnValue payload,
-      org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema schema,
-      PrinterOptions options
-  ) {
-    return AstCompactPrinter.print(payload, schema, options);
-  }
-
-  /**
-   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue} payload to compact STVN text using custom options.
-   *
-   * @param payload the legacy AST value payload to serialize
-   * @param options the printer options to apply
-   * @return the compact STVN string representation
-   */
-  public static String compactPrint(org.stvnadore.core.ast.StvnValue payload, PrinterOptions options) {
-    return AstCompactPrinter.print(payload, options);
-  }
-
-  /**
-   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue} payload to compact STVN text using default options.
-   *
-   * @param payload the legacy AST value payload to serialize
-   * @return the compact STVN string representation
-   */
-  public static String compactPrint(org.stvnadore.core.ast.StvnValue payload) {
-    return AstCompactPrinter.print(payload);
-  }
-
-  /**
    * Generates a stable SHA-256 content-addressable storage (CAS) fingerprint of the given pure-IR {@link StvnValue}.
    *
    * @param value the pure-IR {@link StvnValue} node to fingerprint
@@ -693,16 +664,6 @@ public final class StvnCompiler {
    */
   public static byte[] computeCasFingerprint(StvnDocument document) {
     return sha256Utf8(toCanonicalString(document));
-  }
-
-  /**
-   * Generates a stable SHA-256 content-addressable storage (CAS) fingerprint of a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue}.
-   *
-   * @param value the legacy AST value node to fingerprint
-   * @return a 32-byte cryptographic SHA-256 hash array of the canonical text preimage
-   */
-  public static byte[] computeCasFingerprint(org.stvnadore.core.ast.StvnValue value) {
-    return sha256Utf8(toCanonicalString(value));
   }
 
   private static byte[] sha256Utf8(String canonical) {
@@ -808,38 +769,6 @@ public final class StvnCompiler {
       case StvnValue.StvnOption opt -> opt.value().map(StvnCompiler::hasErrorNodes).orElse(false);
       case StvnValue.StvnEither either -> hasErrorNodes(either.value());
       case StvnValue.StvnUnion union -> hasErrorNodes(union.value());
-      default -> false;
-    };
-  }
-
-  /**
-   * Checks whether a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue} node or any of its descendants
-   * contains an {@link org.stvnadore.core.ast.StvnValue.StvnError}.
-   *
-   * @param val the legacy AST value node to inspect
-   * @return {@code true} if an error sentinel node is present anywhere in the subtree
-   */
-  public static boolean hasErrorNodes(org.stvnadore.core.ast.StvnValue val) {
-    Objects.requireNonNull(val, "val must not be null");
-    if (val instanceof org.stvnadore.core.ast.StvnValue.StvnError) {
-      return true;
-    }
-    return switch (val) {
-      case org.stvnadore.core.ast.StvnValue.StvnSeq seq ->
-          seq.elements().stream().anyMatch(StvnCompiler::hasErrorNodes);
-      case org.stvnadore.core.ast.StvnValue.StvnSet set ->
-          set.elements().stream().anyMatch(StvnCompiler::hasErrorNodes);
-      case org.stvnadore.core.ast.StvnValue.StvnTuple tuple ->
-          tuple.elements().stream().anyMatch(StvnCompiler::hasErrorNodes);
-      case org.stvnadore.core.ast.StvnValue.StvnMap map ->
-          map.entries().entrySet().stream()
-              .anyMatch(e -> hasErrorNodes(e.getKey()) || hasErrorNodes(e.getValue()));
-      case org.stvnadore.core.ast.StvnValue.StvnOption opt ->
-          opt.value().map(StvnCompiler::hasErrorNodes).orElse(false);
-      case org.stvnadore.core.ast.StvnValue.StvnEither either ->
-          hasErrorNodes(either.value());
-      case org.stvnadore.core.ast.StvnValue.StvnUnion union ->
-          hasErrorNodes(union.value());
       default -> false;
     };
   }

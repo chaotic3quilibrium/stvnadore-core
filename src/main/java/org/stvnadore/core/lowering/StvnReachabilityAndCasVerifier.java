@@ -9,13 +9,17 @@ import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.validation.DiagnosticBag;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Pass 4 stateless reachability, alias-desugaring, and Content-Addressable Storage (CAS)
@@ -124,7 +128,8 @@ public final class StvnReachabilityAndCasVerifier {
           visitCatalogTypePostOrder(entry.getKey(), entry.getValue(), srcCatalog, reachableTypes, activeStack);
         }
       }
-      StvnDefsCatalog defsOut = new StvnDefsCatalog(reachableTypes, filterNonPreludeConstants(srcCatalog.constants()));
+      Map<String, StvnSchema> sortedDefsTypes = topologicalSortLexicographical(reachableTypes);
+      StvnDefsCatalog defsOut = new StvnDefsCatalog(sortedDefsTypes, filterNonPreludeConstants(srcCatalog.constants()));
       return new StvnDocument(
           document.meta(),
           defsOut,
@@ -164,13 +169,14 @@ public final class StvnReachabilityAndCasVerifier {
     }
 
     // Constants are inlined during Passes 2 & 3; canonical payload projection emits only reachable nominal types
-    StvnDefsCatalog prunedCatalog = new StvnDefsCatalog(reachableTypes, Map.of());
+    Map<String, StvnSchema> sortedReachableTypes = topologicalSortLexicographical(reachableTypes);
+    StvnDefsCatalog prunedCatalog = new StvnDefsCatalog(sortedReachableTypes, Map.of());
     return new StvnDocument(
         document.meta(),
         prunedCatalog,
         document.rootType(),
         document.payload(),
-        !reachableTypes.isEmpty(),
+        !sortedReachableTypes.isEmpty(),
         false
     );
   }
@@ -178,7 +184,7 @@ public final class StvnReachabilityAndCasVerifier {
   /**
    * Synthesizes a self-contained canonical {@link StvnDocument} from a standalone {@link StvnValue}
    * by extracting all reachable non-prelude nominal {@link StvnSchema} definitions in topological
-   * DFS post-order.
+   * DFS post-order with lexicographical tie-breaking across independent components.
    *
    * @param value the standalone lowered IR value
    * @return a canonical {@link StvnDocument} enclosing the reachable definitions, root schema, and value
@@ -192,15 +198,129 @@ public final class StvnReachabilityAndCasVerifier {
     collectReachableTypesPostOrder(value.schema(), emptyCat, reachableTypes, activeStack);
     collectReachableFromValue(value, emptyCat, reachableTypes, activeStack);
 
-    StvnDefsCatalog catalog = new StvnDefsCatalog(reachableTypes, Map.of());
+    Map<String, StvnSchema> sortedTypes = topologicalSortLexicographical(reachableTypes);
+    StvnDefsCatalog catalog = new StvnDefsCatalog(sortedTypes, Map.of());
     return new StvnDocument(
         Optional.empty(),
         catalog,
         Optional.of(value.schema()),
         Optional.of(value),
-        !reachableTypes.isEmpty(),
+        !sortedTypes.isEmpty(),
         false
     );
+  }
+
+  /**
+   * Orders a map of nominal {@link StvnSchema} definitions in topological dependency order
+   * (dependencies preceding dependents) with deterministic lexicographical tie-breaking across
+   * independent DAG components.
+   *
+   * @param types the map of nominal FQNIs to lowered schemas
+   * @return a new {@link LinkedHashMap} ordered topologically and lexicographically
+   */
+  public static Map<String, StvnSchema> topologicalSortLexicographical(Map<String, StvnSchema> types) {
+    if (types.size() <= 1) {
+      return new LinkedHashMap<>(types);
+    }
+    List<String> sortedKeys = new ArrayList<>(types.keySet());
+    Collections.sort(sortedKeys);
+
+    Map<String, List<String>> depsMap = new LinkedHashMap<>();
+    for (String key : sortedKeys) {
+      Set<String> rawDeps = new LinkedHashSet<>();
+      collectDirectNominalDeps(types.get(key), rawDeps);
+      rawDeps.remove(key);
+      List<String> sortedDeps = new ArrayList<>();
+      for (String d : rawDeps) {
+        if (types.containsKey(d)) {
+          sortedDeps.add(d);
+        }
+      }
+      Collections.sort(sortedDeps);
+      depsMap.put(key, sortedDeps);
+    }
+
+    Map<String, StvnSchema> ordered = new LinkedHashMap<>();
+    Set<String> visited = new HashSet<>();
+    Set<String> visiting = new HashSet<>();
+    for (String key : sortedKeys) {
+      if (!visited.contains(key)) {
+        dfsLexicographical(key, types, depsMap, visited, visiting, ordered);
+      }
+    }
+    return ordered;
+  }
+
+  private static void dfsLexicographical(
+      String key,
+      Map<String, StvnSchema> types,
+      Map<String, List<String>> depsMap,
+      Set<String> visited,
+      Set<String> visiting,
+      Map<String, StvnSchema> orderedOut
+  ) {
+    if (visited.contains(key) || visiting.contains(key)) {
+      return;
+    }
+    visiting.add(key);
+    for (String dep : depsMap.getOrDefault(key, List.of())) {
+      if (!visited.contains(dep)) {
+        dfsLexicographical(dep, types, depsMap, visited, visiting, orderedOut);
+      }
+    }
+    visiting.remove(key);
+    visited.add(key);
+    StvnSchema s = types.get(key);
+    if (s != null) {
+      orderedOut.put(key, s);
+    }
+  }
+
+  private static void collectDirectNominalDeps(StvnSchema schema, Set<String> depsOut) {
+    switch (schema) {
+      case StvnSchema.EnumSubsetSchema sub -> {
+        sub.parentEnum().aliasName().ifPresent(depsOut::add);
+        sub.rootEnum().aliasName().ifPresent(depsOut::add);
+      }
+      case StvnSchema.TupleSchema tup -> {
+        for (StvnSchema child : tup.fieldSchemas()) {
+          collectChildRefOrTraverse(child, depsOut);
+        }
+      }
+      case StvnSchema.OptionSchema opt -> collectChildRefOrTraverse(opt.valueSchema(), depsOut);
+      case StvnSchema.EitherSchema eith -> {
+        collectChildRefOrTraverse(eith.leftSchema(), depsOut);
+        collectChildRefOrTraverse(eith.rightSchema(), depsOut);
+      }
+      case StvnSchema.UnionSchema un -> {
+        for (StvnSchema branch : un.branchSchemas()) {
+          collectChildRefOrTraverse(branch, depsOut);
+        }
+      }
+      case StvnSchema.SeqSchema seq -> collectChildRefOrTraverse(seq.elementSchema(), depsOut);
+      case StvnSchema.SetSchema set -> collectChildRefOrTraverse(set.elementSchema(), depsOut);
+      case StvnSchema.MapSchema map -> {
+        collectChildRefOrTraverse(map.keySchema(), depsOut);
+        collectChildRefOrTraverse(map.valueSchema(), depsOut);
+      }
+      default -> {
+        // Leaf schema
+      }
+    }
+  }
+
+  private static void collectChildRefOrTraverse(StvnSchema child, Set<String> depsOut) {
+    if (child instanceof StvnSchema.PoisonedSchema p) {
+      if (StvnPayloadLowerer.RECURSIVE_BACK_EDGE_SENTINEL.equals(p.primaryDiagnosticCode())) {
+        p.aliasName().ifPresent(depsOut::add);
+      }
+      return;
+    }
+    if (child.aliasName().isPresent()) {
+      depsOut.add(child.aliasName().get());
+    } else {
+      collectDirectNominalDeps(child, depsOut);
+    }
   }
 
   private static boolean isImplicitPreludeType(String fqni) {
@@ -214,13 +334,13 @@ public final class StvnReachabilityAndCasVerifier {
   private static Map<String, StvnDefsCatalog.StvnConstant> filterNonPreludeConstants(
       Map<String, StvnDefsCatalog.StvnConstant> constants
   ) {
-    Map<String, StvnDefsCatalog.StvnConstant> out = new LinkedHashMap<>();
+    Map<String, StvnDefsCatalog.StvnConstant> sorted = new TreeMap<>();
     for (var entry : constants.entrySet()) {
       if (!isImplicitPreludeConstant(entry.getKey())) {
-        out.put(entry.getKey(), entry.getValue());
+        sorted.put(entry.getKey(), entry.getValue());
       }
     }
-    return out;
+    return new LinkedHashMap<>(sorted);
   }
 
   private static void collectReachableFromValue(

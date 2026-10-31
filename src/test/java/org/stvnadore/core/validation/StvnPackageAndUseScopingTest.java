@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.lowering.StvnDefsLowerer;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -170,13 +171,13 @@ public class StvnPackageAndUseScopingTest {
   @Test
   @DisplayName("TC-STRIP-01: Terminal slicing execution for types and constants")
   void testTerminalSlicingExecution() {
-    Assertions.assertEquals(":UuidLowerCase", StvnTypeResolver.sliceTerminal(":org/stvnadore/prelude/UuidLowerCase"));
-    Assertions.assertEquals(":UuidMixedCase", StvnTypeResolver.sliceTerminal(":org/stvnadore/prelude/UuidMixedCase"));
-    Assertions.assertEquals("#PORT", StvnTypeResolver.sliceTerminal("#org/stvnadore/network/PORT"));
-    Assertions.assertEquals(":Simple", StvnTypeResolver.sliceTerminal(":Simple"));
-    Assertions.assertEquals("#SIMPLE", StvnTypeResolver.sliceTerminal("#SIMPLE"));
-    Assertions.assertEquals(":DeepType", StvnTypeResolver.sliceTerminal(":a/b/c/d/e/DeepType"));
-    Assertions.assertEquals("#DEEP_CONST", StvnTypeResolver.sliceTerminal("#a/b/c/d/e/DEEP_CONST"));
+    Assertions.assertEquals(":UuidLowerCase", StvnDefsLowerer.sliceTerminal(":org/stvnadore/prelude/UuidLowerCase"));
+    Assertions.assertEquals(":UuidMixedCase", StvnDefsLowerer.sliceTerminal(":org/stvnadore/prelude/UuidMixedCase"));
+    Assertions.assertEquals("#PORT", StvnDefsLowerer.sliceTerminal("#org/stvnadore/network/PORT"));
+    Assertions.assertEquals(":Simple", StvnDefsLowerer.sliceTerminal(":Simple"));
+    Assertions.assertEquals("#SIMPLE", StvnDefsLowerer.sliceTerminal("#SIMPLE"));
+    Assertions.assertEquals(":DeepType", StvnDefsLowerer.sliceTerminal(":a/b/c/d/e/DeepType"));
+    Assertions.assertEquals("#DEEP_CONST", StvnDefsLowerer.sliceTerminal("#a/b/c/d/e/DEEP_CONST"));
   }
 
   @Test

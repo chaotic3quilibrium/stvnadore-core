@@ -1,6 +1,7 @@
 package org.stvnadore.core.ir;
 
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -362,6 +363,40 @@ public sealed interface StvnSchema permits
       Objects.requireNonNull(upperBound, "upperBound must not be null");
       Objects.requireNonNull(compiledRegex, "compiledRegex must not be null");
       Objects.requireNonNull(rawRegexPattern, "rawRegexPattern must not be null");
+    }
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof StringSchema other)) {
+        return false;
+      }
+      return preserveIndent == other.preserveIndent
+          && aliasName.equals(other.aliasName)
+          && minSize.equals(other.minSize)
+          && maxSize.equals(other.maxSize)
+          && traits.equals(other.traits)
+          && lowerBound.equals(other.lowerBound)
+          && upperBound.equals(other.upperBound)
+          && compiledRegex.map(Pattern::pattern).equals(other.compiledRegex.map(Pattern::pattern))
+          && rawRegexPattern.equals(other.rawRegexPattern);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          aliasName,
+          minSize,
+          maxSize,
+          traits,
+          lowerBound,
+          upperBound,
+          preserveIndent,
+          compiledRegex.map(Pattern::pattern),
+          rawRegexPattern
+      );
     }
   }
 

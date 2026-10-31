@@ -1,8 +1,9 @@
 package org.stvnadore.core.mapper;
 
+import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.annotations.StvnBits;
 import org.stvnadore.core.annotations.StvnInt;
 import org.stvnadore.core.annotations.StvnString;
-import org.stvnadore.core.annotations.StvnBits;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -11,10 +12,10 @@ import java.lang.reflect.Type;
 /**
  * Internal reflection cache for introspecting Java record classes.
  * <p>
- * This class caches metadata and reflection handles for native Java record types
- * to optimize serialization and deserialization mapping. It avoids repeated
- * reflection calls by storing resolved constructors and component profiles.
- * </p>
+ * Caches structural metadata and {@link MethodHandle} accessors for native Java 21 record types
+ * to accelerate pure-IR serialization and deserialization mapping.
+ *
+ * @since 1.0.0
  */
 public final class StvnRecordCache {
 
@@ -33,7 +34,7 @@ public final class StvnRecordCache {
   };
 
   /**
-   * Retrieves the cached record metadata for a given class.
+   * Retrieves the cached record metadata for a given record class.
    *
    * @param type the Java record class to look up
    * @return the resolved record metadata containing component profiles and canonical constructor
@@ -44,24 +45,24 @@ public final class StvnRecordCache {
   }
 
   /**
-   * Introspected profile of a record component.
+   * Introspected profile of a single Java record component.
    *
    * @param name             the name of the component
    * @param type             the raw class type of the component
    * @param genericType      the generic type of the component
    * @param accessorHandle   the cached method handle to read this component's value
-   * @param stringAnnotation the {@link StvnString} constraint annotation if present
-   * @param intAnnotation    the {@link StvnInt} constraint annotation if present
-   * @param bitsAnnotation   the {@link StvnBits} constraint annotation if present
+   * @param stringAnnotation the {@link StvnString} constraint annotation, or {@code null} if absent
+   * @param intAnnotation    the {@link StvnInt} constraint annotation, or {@code null} if absent
+   * @param bitsAnnotation   the {@link StvnBits} constraint annotation, or {@code null} if absent
    */
   public record RecordComponentProfile(
       String name,
       Class<?> type,
       Type genericType,
       MethodHandle accessorHandle,
-      StvnString stringAnnotation,
-      StvnInt intAnnotation,
-      StvnBits bitsAnnotation
+      @Nullable StvnString stringAnnotation,
+      @Nullable StvnInt intAnnotation,
+      @Nullable StvnBits bitsAnnotation
   ) {
   }
 

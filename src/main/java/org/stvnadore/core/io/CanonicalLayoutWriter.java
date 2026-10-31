@@ -2,7 +2,7 @@ package org.stvnadore.core.io;
 
 import org.jspecify.annotations.NullMarked;
 import org.stvnadore.core.StvnVocabulary;
-import org.stvnadore.core.ast.StvnValue.FloatPrecision;
+import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
 import org.stvnadore.core.printer.PrinterOptions;
 import org.stvnadore.core.printer.internal.LayoutWriter;
 
@@ -16,7 +16,7 @@ import java.math.BigInteger;
  * <p>
  * This writer intercepts structural print directives and forces them into their
  * canonical representation. It normalizes whitespace spacing between adjacent literals
- * and coerces tags or boolean flags to their strict long-form formats, ensuring
+ * and coerces tags or boolean flags to their strict short-form formats, ensuring
  * that formatting options set on higher-level printers do not compromise CAS hashing determinism.
  * </p>
  */
@@ -77,8 +77,8 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
   }
 
   @Override
-  public void writeFloat(BigDecimal val, FloatPrecision precision) throws IOException {
-    writeToken(formatFloat(val, precision));
+  public void writeFloat(BigDecimal val, FloatRepresentation representation) throws IOException {
+    writeToken(formatFloat(val, representation));
   }
 
   @Override
@@ -90,7 +90,6 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
   public void writeSimpleString(String s) throws IOException {
     writeToken("\"" + escapeString(s) + "\"");
   }
-
 
   @Override
   public void openGroup(String delimiter) throws IOException {

@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
-import org.stvnadore.core.ast.StvnValue;
+
 
 class StvnCompilerMonadicTest {
 
@@ -111,7 +111,7 @@ class StvnCompilerMonadicTest {
     Assertions.assertFalse(result.diagnostics().isEmpty());
 
     var diagnostic = result.diagnostics().get(0);
-    Assertions.assertTrue(diagnostic.message().contains("Type mismatch: Expected integer, got float"));
+    Assertions.assertTrue(diagnostic.message().contains("Type mismatch: expected scalar :Int, found scalar :Float"));
     int expectedStart = source.indexOf("1024.0");
     int expectedEnd = expectedStart + "1024.0".length();
     Assertions.assertEquals(expectedStart, diagnostic.startOffset());

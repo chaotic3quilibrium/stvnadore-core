@@ -17,7 +17,7 @@ class StvnSchemaFlattenerTest {
             {
               :defs {
                 :User { #regex "^[a-z]+$" } :String
-                :Age { #minIncl 0 #maxIncl 150 } :Int32
+                :Age { #minIncl 0 #maxExcl 151 } :Int
               }
               :type :User
               :body "bob"
@@ -27,7 +27,7 @@ class StvnSchemaFlattenerTest {
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
     // Nominal sorting: :Age should come before :User
-    String expected = "{:meta{#kind #DEFS}:defs{:Age{#minIncl 0 #maxIncl 150}:Int32 :User{#regex \"^[a-z]+$\"}:String}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:Age{#minIncl 0 #maxExcl 151}:Int :User{#regex \"^[a-z]+$\"}:String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -40,7 +40,7 @@ class StvnSchemaFlattenerTest {
                 :include [
                   "types/user.stvn_di"
                 ]
-                :Status :Enum[#Active #Inactive]
+                :Status :Enum[#ACTIVE #INACTIVE]
               }
               :type :User
               :body ( "Alice" 30 )
@@ -60,7 +60,7 @@ class StvnSchemaFlattenerTest {
             {
               :defs {
                 :Username { #regex "^[A-Za-z0-9_]+$" } :String
-                :Age :Int32
+                :Age :Int
               }
             }
             """
@@ -72,7 +72,7 @@ class StvnSchemaFlattenerTest {
     // :Status
     // :User
     // :Username
-    String expected = "{:meta{#kind #DEFS}:defs{:Age :Int32 :Status :Enum[#Active #Inactive] :User :Tuple(:Username :Age) :Username{#regex \"^[A-Za-z0-9_]+$\"}:String}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:Age :Int :Status :Enum[#ACTIVE #INACTIVE] :User :Tuple(:Username :Age) :Username{#regex \"^[A-Za-z0-9_]+$\"}:String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -179,14 +179,14 @@ class StvnSchemaFlattenerTest {
         "module_a.stvn_d", """
             {
               :defs {
-                :ConflictType :Int32
+                :ConflictType :Int
               }
             }
             """
     );
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
-    // Local priority evicts the imported :ConflictType :Int32, leaving :ConflictType :String
+    // Local priority evicts the imported :ConflictType :Int, leaving :ConflictType :String
     String expected = "{:meta{#kind #DEFS}:defs{:ConflictType :String}}";
     Assertions.assertEquals(expected, result);
   }
@@ -209,7 +209,7 @@ class StvnSchemaFlattenerTest {
         "module_a.stvn_d", """
             {
               :defs {
-                :ConflictType :Int32
+                :ConflictType :Int
               }
             }
             """,
@@ -226,7 +226,7 @@ class StvnSchemaFlattenerTest {
     // :ConflictType from module_a is renamed to :AliasA, which evicts its LHS name (:ConflictType) from the collision,
     // allowing module_b's raw :ConflictType to survive.
     // Alphabetical order: :AliasA, :ConflictType
-    String expected = "{:meta{#kind #DEFS}:defs{:AliasA :Int32 :ConflictType :String}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:AliasA :Int :ConflictType :String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -250,7 +250,7 @@ class StvnSchemaFlattenerTest {
         "module_a.stvn_d", """
             {
               :defs {
-                :ConflictType :Int32
+                :ConflictType :Int
               }
             }
             """,
@@ -266,7 +266,7 @@ class StvnSchemaFlattenerTest {
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     // Both aliases survive, but the raw LHS name (:ConflictType) is evicted and unresolved in the local namespace.
     // No exception is thrown because the collision itself was mitigated by alias renaming.
-    String expected = "{:meta{#kind #DEFS}:defs{:AliasA :Int32 :AliasB :String}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:AliasA :Int :AliasB :String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -286,7 +286,7 @@ class StvnSchemaFlattenerTest {
         "module_a.stvn_d", """
             {
               :defs {
-                :ConflictType :Int32
+                :ConflictType :Int
               }
             }
             """,
@@ -316,14 +316,14 @@ class StvnSchemaFlattenerTest {
                     :ConflictType :ConflictTypeA
                   }
                 ]
-                :ConflictType :Int32
+                :ConflictType :Int
               }
             }
             """,
         "module_a.stvn_d", """
             {
               :defs {
-                :TypeA :Tuple( :ConflictType :Int32 )
+                :TypeA :Tuple( :ConflictType :Int )
                 :ConflictType :String
               }
             }
@@ -332,7 +332,7 @@ class StvnSchemaFlattenerTest {
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
     // TypeA's internal reference to :ConflictType must be rewritten to :ConflictTypeA
-    String expected = "{:meta{#kind #DEFS}:defs{:ConflictType :Int32 :ConflictTypeA :String :TypeA :Tuple(:ConflictTypeA :Int32)}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:ConflictType :Int :ConflictTypeA :String :TypeA :Tuple(:ConflictTypeA :Int)}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -343,7 +343,7 @@ class StvnSchemaFlattenerTest {
             {
               :defs {
                 // This is a line comment that must be stripped
-                :TypeA       :Int32    // Another trailing comment
+                :TypeA       :Int    // Another trailing comment
                 :TypeB {
                    #regex     "^[a-z]+$" // spacing constraint
                 } :String
@@ -354,17 +354,19 @@ class StvnSchemaFlattenerTest {
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn");
     // Comments must be gone, whitespace normalized to single spaces, constraints sorted.
-    String expected = "{:meta{#kind #DEFS}:defs{:TypeA :Int32 :TypeB{#regex \"^[a-z]+$\"}:String}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:TypeA :Int :TypeB{#regex \"^[a-z]+$\"}:String}}";
     Assertions.assertEquals(expected, result);
   }
 
   @Test
   void testCrossPlatformAndDeclarationOrderInvariance() {
-    // Workspace 1: Mix of Windows backslashes, tabs, and different file insertion order (LinkedHashMap)
+    // Workspace 1: Mix of Windows backslashes and different file insertion order (LinkedHashMap)
     Map<String, String> workspace1 = new LinkedHashMap<>();
     workspace1.put("types\\user.stvn_d", """
         {
           :defs {
+            :Username :String
+            :Age :Int
             :User :Tuple( :Username :Age )
           }
         }
@@ -375,7 +377,7 @@ class StvnSchemaFlattenerTest {
             :include [
               "types\\\\user.stvn_d"
             ]
-            :Status :Enum[#Active #Inactive]
+            :Status :Enum[#ACTIVE #INACTIVE]
           }
         }
         """);
@@ -388,13 +390,15 @@ class StvnSchemaFlattenerTest {
             :include [
               "types/user.stvn_d"
             ]
-            :Status :Enum[#Active #Inactive]
+            :Status :Enum[#ACTIVE #INACTIVE]
           }
         }
         """);
     workspace2.put("types/user.stvn_d", """
         {
           :defs {
+            :Age :Int
+            :Username :String
             :User :Tuple( :Username :Age )
           }
         }
@@ -405,7 +409,7 @@ class StvnSchemaFlattenerTest {
 
     // Both must yield identical byte-for-byte outputs
     Assertions.assertEquals(result1, result2);
-    String expected = "{:meta{#kind #DEFS}:defs{:Status :Enum[#Active #Inactive] :User :Tuple(:Username :Age)}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:Age :Int :Status :Enum[#ACTIVE #INACTIVE] :User :Tuple(:Username :Age) :Username :String}}";
     Assertions.assertEquals(expected, result1);
   }
 }

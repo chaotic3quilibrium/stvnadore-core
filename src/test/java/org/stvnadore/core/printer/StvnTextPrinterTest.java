@@ -494,15 +494,15 @@ class StvnTextPrinterTest {
             """,
         optDefault,
         """
-            {:type :String:body ""\"[CUSTOM_FENCE]
+            {:type :String:body ""\"[RAW]
             Nested fenced content
-            [CUSTOM_FENCE]""\"}""",
+            [RAW]""\"}""",
         """
             {
                 :type :String
-                :body ""\"[CUSTOM_FENCE]
+                :body ""\"[RAW]
             Nested fenced content
-            [CUSTOM_FENCE]""\"
+            [RAW]""\"
             }"""
     );
     assertVisualLayout(matrixFencedStr);
@@ -586,22 +586,22 @@ class StvnTextPrinterTest {
             }""",
         optDefault,
         """
-            {:defs{:preservedBlock{#preserveIndent #TRUE}:String}:type :preservedBlock:body ""\"[PRESERVED]
+            {:defs{:preservedBlock{#preserveIndent #TRUE}:String}:type :preservedBlock:body ""\"[RAW]
                   Line 1
                     Nested Indent
                   Line 3
-            [PRESERVED]""\"}""",
+            [RAW]""\"}""",
         """
             {
                 :defs {
                     :preservedBlock {#preserveIndent #TRUE} :String
                 }
                 :type :preservedBlock
-                :body ""\"[PRESERVED]
+                :body ""\"[RAW]
                   Line 1
                     Nested Indent
                   Line 3
-            [PRESERVED]""\"
+            [RAW]""\"
             }"""
     );
     assertVisualLayout(matrixPreserved);
@@ -718,16 +718,14 @@ class StvnTextPrinterTest {
             }
             """,
         optDefault,
-        "{:defs{:baseInt{#minIncl 10}:Int :restrictedInt{#comparable #FALSE #maxExcl 101}:baseInt :finalInt{#comparable #TRUE}:restrictedInt}:type :finalInt:body 42}",
+        "{:defs{:finalInt{#minIncl 10 #maxExcl 101}:Int}:type :finalInt:body 42}",
         """
             {
                 :defs {
-                    :baseInt {#minIncl 10} :Int
-                    :restrictedInt {
-                        #comparable #FALSE
+                    :finalInt {
+                        #minIncl 10
                         #maxExcl 101
-                    } :baseInt
-                    :finalInt {#comparable #TRUE} :restrictedInt
+                    } :Int
                 }
                 :type :finalInt
                 :body 42

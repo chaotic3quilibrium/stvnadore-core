@@ -3,40 +3,45 @@ package org.stvnadore.core;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
-import org.antlr.v4.runtime.Token;
-import org.antlr.v4.runtime.TokenStreamRewriter;
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
-import org.stvnadore.core.ast.StvnLiteralParser;
+import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
+import org.stvnadore.core.io.CanonicalLayoutWriter;
+import org.stvnadore.core.io.CanonicalStvnWriter;
+import org.stvnadore.core.ir.StvnDefsCatalog;
+import org.stvnadore.core.ir.StvnDocumentMeta;
+import org.stvnadore.core.ir.StvnSchema;
+import org.stvnadore.core.lowering.StvnDefsLowerer;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
-import org.stvnadore.core.parser.StvnParser.SchemaTypeContext;
-import org.stvnadore.core.parser.StvnParser.TypeDefinitionContext;
-import org.stvnadore.core.parser.StvnParser.ValueContext;
 import org.stvnadore.core.stdlib.StvnPrelude;
-import org.stvnadore.core.validation.StvnTypeResolver.ConstantDefSource;
 import org.stvnadore.core.validation.CyclicDependencyException;
+import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.DuplicateModuleImportException;
 import org.stvnadore.core.validation.MalformedSchemaException;
 import org.stvnadore.core.validation.NamespaceCollisionException;
-import org.stvnadore.core.validation.StvnTypeResolver;
-import org.stvnadore.core.validation.StvnTypeResolver.DefSource;
-import org.stvnadore.core.validation.StvnTypeResolver.StvnConstraints;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.util.*;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 
 /**
- * Utility engine for flattening multi-file STVN schema modules and include dependency graphs
- * into a single self-contained, canonical schema document.
+ * Pure-IR utility engine for flattening multi-file STVN schema modules and {@code :include}
+ * dependency graphs into a single self-contained, canonical {@code #DEFS} schema document.
  * <p>
- * This class coordinates relative path resolution, import aliasing, duplicate import detection,
- * cyclic dependency detection, zero-shadowing validation, and canonical emission of flattened schemas.
+ * This class delegates module graph resolution, Section 4.2 eviction cascade evaluation,
+ * package/use FQNI desugaring, and 5-tier facet normalization directly to {@link StvnDefsLowerer},
+ * then serializes all resolved definitions in canonical 5-tier decimal order ({@code 1.1.1}
+ * through {@code 5.0}, § 6.1) with zero {@code W003} tautologies and zero {@code ERR_FACET_ORDER_VIOLATION}
+ * errors on recompilation.
+ * </p>
  *
  * @since 1.0.0
  */
@@ -47,42 +52,6 @@ public final class StvnSchemaFlattener {
     // Utility / Facade class
   }
 
-  private enum ClaimType {
-    LOCAL,
-    RAW_IMPORT,
-    RENAMED_IMPORT_LHS,
-    RENAMED_IMPORT_RHS
-  }
-
-  private record NamespaceClaim<T extends ParserRuleContext>(
-      String identifier,
-      T defNode,
-      String sourceModule,
-      ClaimType type
-  ) {}
-
-  private record ImportInfo(
-      String rawPath,
-      String resolvedPath,
-      boolean hasStrip,
-      @Nullable String stripPrefix,
-      Map<String, String> aliasMap
-  ) {}
-
-  private record ParsedDocument(
-      String normalizedPath,
-      StvnParser.StvnDocumentContext docCtx,
-      CommonTokenStream tokenStream,
-      List<ImportInfo> imports,
-      List<TypeDefinitionContext> localDefs,
-      List<StvnParser.ConstantDefinitionContext> localConstDefs
-  ) {}
-
-  private record ResolvedDefinitions(
-      Map<String, DefSource> types,
-      Map<String, ConstantDefSource> constants
-  ) {}
-
   /**
    * Performs path normalization using pure string manipulation to avoid JDK Path resolution nuances on Windows.
    *
@@ -91,26 +60,27 @@ public final class StvnSchemaFlattener {
    * @throws NullPointerException if {@code path} is {@code null}
    */
   public static String normalizePath(String path) {
-    path = path.replace('\\', '/');
-    String[] parts = path.split("/");
+    Objects.requireNonNull(path, "path must not be null");
+    String posix = path.replace('\\', '/');
+    String[] parts = posix.split("/");
     List<String> stack = new ArrayList<>();
     for (String part : parts) {
-      part = part.trim();
-      if (part.isEmpty() || part.equals(".")) {
+      String trimmed = part.trim();
+      if (trimmed.isEmpty() || trimmed.equals(".")) {
         continue;
       }
-      if (part.equals("..")) {
+      if (trimmed.equals("..")) {
         if (!stack.isEmpty() && !stack.getLast().equals("..")) {
           stack.removeLast();
         } else {
           stack.add("..");
         }
       } else {
-        stack.add(part);
+        stack.add(trimmed);
       }
     }
     String resolved = String.join("/", stack);
-    if (path.startsWith("/")) {
+    if (posix.startsWith("/")) {
       return "/" + resolved;
     }
     return resolved;
@@ -125,43 +95,46 @@ public final class StvnSchemaFlattener {
    * @throws NullPointerException if {@code currentPath} or {@code includePath} is {@code null}
    */
   public static String resolveIncludePath(String currentPath, String includePath) {
-    currentPath = normalizePath(currentPath);
-    includePath = includePath.replace('\\', '/');
-    if (includePath.startsWith("/")) {
-      return normalizePath(includePath);
+    Objects.requireNonNull(currentPath, "currentPath must not be null");
+    Objects.requireNonNull(includePath, "includePath must not be null");
+    String normCurrent = normalizePath(currentPath);
+    String posixInclude = includePath.replace('\\', '/');
+    if (posixInclude.startsWith("/")) {
+      return normalizePath(posixInclude);
     }
-    int lastSlash = currentPath.lastIndexOf('/');
+    int lastSlash = normCurrent.lastIndexOf('/');
     if (lastSlash == -1) {
-      return normalizePath(includePath);
+      return normalizePath(posixInclude);
     }
-    String parentDir = currentPath.substring(0, lastSlash);
-    return normalizePath(parentDir + "/" + includePath);
+    String parentDir = normCurrent.substring(0, lastSlash);
+    return normalizePath(parentDir + "/" + posixInclude);
   }
 
   /**
-   * Headless entry point for flattening schema files within a virtual workspace.
-   * <p>
-   * Recursively parses the entry point document and all referenced imports, enforces acyclicity,
-   * detects namespace collisions, and outputs a canonical definitions block.
+   * Headless entry point for flattening schema files within a virtual workspace into a canonical
+   * {@code #DEFS} STVN schema document.
    *
-   * @param workspace a map of normalized file paths to their raw document contents representing the virtual filesystem
+   * @param workspace      a map of file paths to their raw STVN document contents representing the virtual filesystem
    * @param entryPointPath the path of the root schema document to flatten
    * @return the canonical flattened STVN schema string containing all resolved definitions
-   * @throws IllegalArgumentException if {@code entryPointPath} is not found in {@code workspace}
-   * @throws org.stvnadore.core.validation.CyclicDependencyException if a circular include dependency is detected
-   * @throws org.stvnadore.core.validation.DuplicateModuleImportException if a document imports the same module multiple times
-   * @throws org.stvnadore.core.validation.NamespaceCollisionException if conflicting type definitions are imported
-   * @throws NullPointerException if {@code workspace} or {@code entryPointPath} is {@code null}
-   * @throws RuntimeException if a syntax error or unresolved reference is encountered during flattening
+   * @throws IllegalArgumentException       if {@code entryPointPath} or an included module is not found in {@code workspace}
+   * @throws CyclicDependencyException      if a circular include dependency is detected
+   * @throws DuplicateModuleImportException if a document imports the same module multiple times
+   * @throws NamespaceCollisionException    if conflicting unmitigated definitions are imported
+   * @throws MalformedSchemaException       if a semantic or structural schema error is encountered
+   * @throws NullPointerException           if {@code workspace} or {@code entryPointPath} is {@code null}
    */
   public static String flatten(Map<String, String> workspace, String entryPointPath) {
+    Objects.requireNonNull(workspace, "workspace must not be null");
+    Objects.requireNonNull(entryPointPath, "entryPointPath must not be null");
+
     Map<String, String> normalizedWorkspace = new LinkedHashMap<>();
     for (var entry : workspace.entrySet()) {
       normalizedWorkspace.put(normalizePath(entry.getKey()), entry.getValue());
     }
     String normEntryPoint = normalizePath(entryPointPath);
-
-    if (!normalizedWorkspace.containsKey(normEntryPoint)) {
+    String rootContent = normalizedWorkspace.get(normEntryPoint);
+    if (rootContent == null) {
       throw new IllegalArgumentException("Entry point path not found in workspace: " + entryPointPath);
     }
 
@@ -175,1103 +148,136 @@ public final class StvnSchemaFlattener {
           String msg,
           @Nullable RecognitionException e
       ) {
-        throw new RuntimeException("STVN Syntax Error: " + msg, e);
+        throw new MalformedSchemaException(
+            "STVN Syntax Error at line " + line + ":" + charPositionInLine + " - " + msg,
+            e
+        );
       }
     };
 
-    Map<String, ParsedDocument> parsedCache = new HashMap<>();
-    Map<String, ResolvedDefinitions> resolvedCache = new HashMap<>();
-    LinkedHashSet<String> activePaths = new LinkedHashSet<>();
-    List<String> activeRawPaths = new ArrayList<>();
-
-    // Recursively resolve all definitions and check for cycles
-    ResolvedDefinitions entryPointDefs = resolveDocument(
-        normEntryPoint,
-        "",
-        parsedCache,
-        normalizedWorkspace,
-        activePaths,
-        activeRawPaths,
-        resolvedCache,
-        errorListener
-    );
-
-    // Map each definition context to its final name in the entry point context (supporting multiple aliases)
-    Map<TypeDefinitionContext, List<String>> entryPointTypeNames = new IdentityHashMap<>();
-    for (var entry : entryPointDefs.types().entrySet()) {
-      entryPointTypeNames.computeIfAbsent(entry.getValue().defNode(), k -> new ArrayList<>())
-          .add(entry.getKey());
-    }
-
-    // Rewrite type and constant definitions and canonicalize them
-    List<String> outputDefinitions = new ArrayList<>();
-
-    for (var entry : entryPointDefs.constants().entrySet()) {
-      String entryName = entry.getKey();
-      ConstantDefSource cs = entry.getValue();
-      StvnParser.ConstantDefinitionContext originalConst = cs.defNode();
-
-      String sourcePath = cs.sourceName();
-      ParsedDocument doc = parsedCache.get(normalizePath(sourcePath));
-      if (doc == null) {
-        throw new IllegalStateException("Failed to find parsed document for: " + sourcePath);
-      }
-
-      TokenStreamRewriter rewriter = new TokenStreamRewriter(doc.tokenStream());
-      Map<Integer, Integer> replacementRanges = new HashMap<>();
-      Set<Integer> skippedIndices = new HashSet<>();
-
-      int tgtStart = originalConst.valueKeyword().getStart().getTokenIndex();
-      int tgtStop = originalConst.valueKeyword().getStop().getTokenIndex();
-      rewriter.replace(originalConst.valueKeyword().getStart(), originalConst.valueKeyword().getStop(), entryName);
-      replacementRanges.put(tgtStart, tgtStop);
-      for (int i = tgtStart + 1; i <= tgtStop; i++) {
-        skippedIndices.add(i);
-      }
-
-      List<StvnParser.TypeKeywordContext> internalRefs = new ArrayList<>();
-      collectTypeKeywords(originalConst.schemaType(), internalRefs);
-
-      for (var refCtx : internalRefs) {
-        String refText = refCtx.getText();
-        String targetName = resolveReference(refText, doc.normalizedPath(), resolvedCache, entryPointTypeNames);
-        int rStart = refCtx.getStart().getTokenIndex();
-        int rStop = refCtx.getStop().getTokenIndex();
-        rewriter.replace(refCtx.getStart(), refCtx.getStop(), targetName);
-        replacementRanges.put(rStart, rStop);
-        for (int i = rStart + 1; i <= rStop; i++) {
-          skippedIndices.add(i);
-        }
-      }
-
-      int startIdx = originalConst.getStart().getTokenIndex();
-      int stopIdx = originalConst.getStop().getTokenIndex();
-      List<String> tokenTexts = new ArrayList<>();
-      for (int i = startIdx; i <= stopIdx; i++) {
-        if (skippedIndices.contains(i)) {
-          continue;
-        }
-        if (replacementRanges.containsKey(i)) {
-          int end = replacementRanges.get(i);
-          tokenTexts.add(rewriter.getText(new org.antlr.v4.runtime.misc.Interval(i, end)));
-        } else {
-          var interval = new org.antlr.v4.runtime.misc.Interval(i, i);
-          tokenTexts.add(rewriter.getText(interval));
-        }
-      }
-      String spacedRewritten = toCanonicalString(tokenTexts);
-      var cleanConst = parseConstantDefinition(spacedRewritten, errorListener);
-
-      String canonicalConst = printCanonicalConstant(cleanConst);
-      outputDefinitions.add(canonicalConst);
-    }
-
-    for (var entry : entryPointDefs.types().entrySet()) {
-      String entryName = entry.getKey();
-      DefSource ds = entry.getValue();
-      TypeDefinitionContext originalDef = ds.defNode();
-
-      // Locate the document in which this type was originally defined
-      String sourcePath = ds.sourceName();
-      ParsedDocument doc = parsedCache.get(normalizePath(sourcePath));
-      if (doc == null) {
-        throw new IllegalStateException("Failed to find parsed document for: " + sourcePath);
-      }
-
-      // Perform TokenStream rewrites for the definition
-      TokenStreamRewriter rewriter = new TokenStreamRewriter(doc.tokenStream());
-
-      // Rewrite nominal identifier
-      Map<Integer, Integer> replacementRanges = new HashMap<>();
-      Set<Integer> skippedIndices = new HashSet<>();
-
-      int tgtStart = originalDef.typeDefTarget().getStart().getTokenIndex();
-      int tgtStop = originalDef.typeDefTarget().getStop().getTokenIndex();
-      rewriter.replace(originalDef.typeDefTarget().getStart(), originalDef.typeDefTarget().getStop(), entryName);
-      replacementRanges.put(tgtStart, tgtStop);
-      for (int i = tgtStart + 1; i <= tgtStop; i++) {
-        skippedIndices.add(i);
-      }
-
-      // Find all descendant references inside schemaType
-      List<StvnParser.TypeKeywordContext> internalRefs = new ArrayList<>();
-      collectTypeKeywords(originalDef.schemaType(), internalRefs);
-
-      for (var refCtx : internalRefs) {
-        String refText = refCtx.getText();
-        String targetName = resolveReference(refText, doc.normalizedPath(), resolvedCache, entryPointTypeNames);
-        int rStart = refCtx.getStart().getTokenIndex();
-        int rStop = refCtx.getStop().getTokenIndex();
-        rewriter.replace(refCtx.getStart(), refCtx.getStop(), targetName);
-        replacementRanges.put(rStart, rStop);
-        for (int i = rStart + 1; i <= rStop; i++) {
-          skippedIndices.add(i);
-        }
-      }
-
-      // Convert rewritten token stream to a spaced canonical text format to prevent token blending
-      int startIdx = originalDef.getStart().getTokenIndex();
-      int stopIdx = originalDef.getStop().getTokenIndex();
-      List<String> tokenTexts = new ArrayList<>();
-      for (int i = startIdx; i <= stopIdx; i++) {
-        if (skippedIndices.contains(i)) {
-          continue;
-        }
-        if (replacementRanges.containsKey(i)) {
-          int end = replacementRanges.get(i);
-          tokenTexts.add(rewriter.getText(new org.antlr.v4.runtime.misc.Interval(i, end)));
-        } else {
-          var interval = new org.antlr.v4.runtime.misc.Interval(i, i);
-          tokenTexts.add(rewriter.getText(interval));
-        }
-      }
-      String spacedRewritten = toCanonicalString(tokenTexts);
-      var cleanDef = parseTypeDefinition(spacedRewritten, errorListener);
-
-      // Render the definition canonically
-      String canonicalDef = printCanonical(cleanDef);
-      outputDefinitions.add(canonicalDef);
-    }
-
-    // Sort all definitions alphabetically by nominal identifier name
-    outputDefinitions.sort((a, b) -> {
-      String nameA = getNominalName(a);
-      String nameB = getNominalName(b);
-      return nameA.compareTo(nameB);
-    });
-
-    // Build canonical :meta header block
-    ParsedDocument entryDoc = parsedCache.get(normEntryPoint);
-    org.stvnadore.core.ast.StvnDocumentMeta entryMeta = null;
-    if (entryDoc != null && entryDoc.docCtx() != null && entryDoc.docCtx().documentBody() != null) {
-      entryMeta = org.stvnadore.core.ast.StvnIrVisitor.extractMeta(entryDoc.docCtx().documentBody().metaEntry()).orElse(null);
-    }
-
-    StringBuilder metaBuilder = new StringBuilder(":meta{");
-    if (entryMeta != null) {
-      entryMeta.name().ifPresent(n -> metaBuilder.append("#name \"").append(n).append("\""));
-      entryMeta.domain().ifPresent(d -> metaBuilder.append("#domain \"").append(d).append("\""));
-    }
-    metaBuilder.append("#kind #DEFS}");
-
-    // Assemble final output
-    String joinedDefs = String.join(" ", outputDefinitions);
-    return "{" + metaBuilder + ":defs{" + joinedDefs + "}}";
-  }
-
-  private static String getNominalName(String canonicalDef) {
-    int end = 0;
-    while (end < canonicalDef.length()) {
-      char c = canonicalDef.charAt(end);
-      if (end == 0 && (c == ':' || c == '#')) {
-        end++;
-        continue;
-      }
-      if (Character.isLetterOrDigit(c) || c == '_' || c == '/') {
-        end++;
-      } else {
-        break;
-      }
-    }
-    return end > 0 ? canonicalDef.substring(0, end) : canonicalDef;
-  }
-
-  private static void collectTypeKeywords(ParseTree node, List<StvnParser.TypeKeywordContext> list) {
-    if (node instanceof StvnParser.TypeKeywordContext tk) {
-      list.add(tk);
-    } else {
-      for (int i = 0; i < node.getChildCount(); i++) {
-        collectTypeKeywords(node.getChild(i), list);
-      }
-    }
-  }
-
-  private static String resolveReference(
-      String refText,
-      String currentPath,
-      Map<String, ResolvedDefinitions> resolvedCache,
-      Map<TypeDefinitionContext, List<String>> entryPointTypeNames
-  ) {
-    if (isPrimitiveType(refText) || isPreludeType(refText)) {
-      return refText;
-    }
-
-    ResolvedDefinitions currentDefs = resolvedCache.get(currentPath);
-    if (currentDefs != null && currentDefs.types().containsKey(refText)) {
-      DefSource target = currentDefs.types().get(refText);
-      List<String> entryNames = entryPointTypeNames.get(target.defNode());
-      if (entryNames != null && !entryNames.isEmpty()) {
-        if (entryNames.contains(refText)) {
-          return refText;
-        }
-        List<String> sortedNames = new ArrayList<>(entryNames);
-        Collections.sort(sortedNames);
-        return sortedNames.get(0);
-      }
-    }
-
-    return refText;
-  }
-
-  private static boolean isPrimitiveType(String type) {
-    if (type.equals(StvnVocabulary.TYPE_BOOLEAN) || type.equals(StvnVocabulary.TYPE_INT) ||
-        type.equals(StvnVocabulary.TYPE_FLOAT) || type.equals(StvnVocabulary.TYPE_STRING) ||
-        type.equals(StvnVocabulary.TYPE_TIME_EPOCH) || type.equals(StvnVocabulary.TYPE_DATE_TIME) ||
-        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_SEQ) ||
-        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_SET) ||
-        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_MAP) ||
-        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_TUPLE) ||
-        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_OPTION) ||
-        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_EITHER) ||
-        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_UNION) ||
-        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_ENUM)) {
-      return true;
-    }
-    return false;
-  }
-
-  private static boolean isPreludeType(String type) {
-    return StvnPrelude.preludeCatalog().findType(type).isPresent();
-  }
-
-  private static ParsedDocument parseFile(
-      String normalizedPath,
-      String content,
-      BaseErrorListener errorListener
-  ) {
-    var lexer = new StvnLexer(CharStreams.fromString(content));
+    var lexer = new StvnLexer(CharStreams.fromString(rootContent));
     lexer.removeErrorListeners();
     lexer.addErrorListener(errorListener);
-
-    List<Token> tokens = new ArrayList<>();
-    Token token;
-    while ((token = lexer.nextToken()).getType() != Token.EOF) {
-      if (token.getChannel() == Token.DEFAULT_CHANNEL) {
-        tokens.add(token);
-      }
-    }
-    tokens.add(token);
-
-    var tokenSource = new org.antlr.v4.runtime.ListTokenSource(tokens);
-    var tokenStream = new CommonTokenStream(tokenSource);
-    var parser = new StvnParser(tokenStream);
+    var parser = new StvnParser(new CommonTokenStream(lexer));
     parser.removeErrorListeners();
     parser.addErrorListener(errorListener);
-
     var docCtx = parser.stvnDocument();
 
-    List<ImportInfo> imports = new ArrayList<>();
-    List<TypeDefinitionContext> localDefs = new ArrayList<>();
-    List<StvnParser.ConstantDefinitionContext> localConstDefs = new ArrayList<>();
+    DiagnosticBag bag = new DiagnosticBag(32);
+    StvnDefsLowerer.DefsLoweringResult lowered = StvnDefsLowerer.lowerForFlattener(
+        docCtx,
+        normEntryPoint,
+        normalizedWorkspace,
+        bag
+    );
 
-    if (docCtx.documentBody() != null && docCtx.documentBody().defsEntry() != null) {
-      var defsEntry = docCtx.documentBody().defsEntry();
-      if (normalizedPath.endsWith(".stvn") || normalizedPath.endsWith(".stvn_d") || normalizedPath.endsWith(".stvn_b") || normalizedPath.endsWith(".stvn_bd")) {
-        for (var de : defsEntry.defsElement()) {
-          if (de.includeStmt() != null) {
-            throw new MalformedSchemaException("Hermetic document or schema (.stvn / .stvn_d) cannot contain includes: " + normalizedPath);
-          }
+    if (bag.hasErrors()) {
+      for (StvnDiagnostic diag : bag.toList()) {
+        if (diag.severity() != DiagnosticSeverity.ERROR) {
+          continue;
+        }
+        Throwable cause = diag.cause();
+        if (cause instanceof CyclicDependencyException cde) {
+          throw cde;
+        }
+        if (cause instanceof DuplicateModuleImportException dmie) {
+          throw dmie;
+        }
+        if (cause instanceof NamespaceCollisionException nce) {
+          throw nce;
+        }
+        if (cause instanceof IllegalArgumentException iae) {
+          throw iae;
+        }
+        if (cause instanceof MalformedSchemaException mse) {
+          throw mse;
         }
       }
-      Set<String> seenRawPaths = new LinkedHashSet<>();
-      for (var de : defsEntry.defsElement()) {
-        if (de.includeStmt() != null) {
-          var includeStmt = de.includeStmt();
-          if (includeStmt.includeElement() != null) {
-            for (var element : includeStmt.includeElement()) {
-              var rawPathStr = element.stringLiteral().getText();
-              var pathVal = StvnLiteralParser.parseString(rawPathStr, true);
-              if (!seenRawPaths.add(pathVal)) {
-                throw new DuplicateModuleImportException("Duplicate module import detected for path: " + pathVal);
-              }
-              var resolvedPath = resolveIncludePath(normalizedPath, pathVal);
-
-              boolean hasStrip = false;
-              if (element.includeOptionsBlock() != null) {
-                for (var opt : element.includeOptionsBlock().includeOption()) {
-                  if (opt.KW_STRIP() != null) {
-                    hasStrip = true;
-                  }
-                }
-              }
-
-              Map<String, String> aliasMap = new LinkedHashMap<>();
-              if (element.includeAliasBlock() != null && element.includeAliasBlock().includeMapAlias() != null) {
-                for (var alias : element.includeAliasBlock().includeMapAlias()) {
-                  aliasMap.put(alias.typeKeyword(0).getText(), alias.typeKeyword(1).getText());
-                }
-              }
-              imports.add(new ImportInfo(pathVal, resolvedPath, hasStrip, null, aliasMap));
-            }
-          }
-        } else if (de.typeDefinition() != null) {
-          localDefs.add(de.typeDefinition());
-        } else if (de.constantDefinition() != null) {
-          localConstDefs.add(de.constantDefinition());
-        } else if (de.packageEnclosure() != null) {
-          var pkgEnc = de.packageEnclosure();
-          if (pkgEnc.packageElement() != null) {
-            for (var pe : pkgEnc.packageElement()) {
-              if (pe.typeDefinition() != null) {
-                localDefs.add(pe.typeDefinition());
-              } else if (pe.constantDefinition() != null) {
-                localConstDefs.add(pe.constantDefinition());
-              }
-            }
-          }
-        }
-      }
+      StvnDiagnostic firstErr = bag.toList().stream()
+          .filter(d -> d.severity() == DiagnosticSeverity.ERROR)
+          .findFirst()
+          .orElseThrow();
+      throw new MalformedSchemaException(firstErr.message(), firstErr.cause());
     }
 
-    return new ParsedDocument(normalizedPath, docCtx, tokenStream, imports, localDefs, localConstDefs);
-  }
+    StvnDefsCatalog prelude = StvnPrelude.preludeCatalog();
+    TreeMap<String, String> sortedDefinitions = new TreeMap<>();
 
-  private static TypeDefinitionContext parseTypeDefinition(String source, BaseErrorListener errorListener) {
-    String wrapped = "{ :defs { " + source + " } }";
-    var lexer = new StvnLexer(CharStreams.fromString(wrapped));
-    lexer.removeErrorListeners();
-    lexer.addErrorListener(errorListener);
-
-    List<Token> tokens = new ArrayList<>();
-    Token token;
-    while ((token = lexer.nextToken()).getType() != Token.EOF) {
-      if (token.getChannel() == Token.DEFAULT_CHANNEL) {
-        tokens.add(token);
-      }
-    }
-    tokens.add(token);
-
-    var tokenSource = new org.antlr.v4.runtime.ListTokenSource(tokens);
-    var tokenStream = new CommonTokenStream(tokenSource);
-    var parser = new StvnParser(tokenStream);
-    parser.removeErrorListeners();
-    parser.addErrorListener(errorListener);
-
-    var doc = parser.stvnDocument();
-    return doc.documentBody().defsEntry().defsElement(0).typeDefinition();
-  }
-
-  private static ResolvedDefinitions resolveDocument(
-      String currentPath,
-      String currentRawImport,
-      Map<String, ParsedDocument> parsedCache,
-      Map<String, String> workspace,
-      LinkedHashSet<String> activePaths,
-      List<String> activeRawPaths,
-      Map<String, ResolvedDefinitions> resolvedCache,
-      BaseErrorListener errorListener
-  ) {
-    if (activePaths.contains(currentPath)) {
-      List<String> canonicalList = new ArrayList<>(activePaths);
-      int cycleStartIndex = canonicalList.indexOf(currentPath);
-
-      List<String> rawPathsSlice = new ArrayList<>();
-      List<String> canonicalPathsSlice = new ArrayList<>();
-
-      for (int i = cycleStartIndex + 1; i < canonicalList.size(); i++) {
-        rawPathsSlice.add(activeRawPaths.get(i));
-        canonicalPathsSlice.add(canonicalList.get(i));
-      }
-      rawPathsSlice.add(currentRawImport);
-      canonicalPathsSlice.add(currentPath);
-
-      List<String> names = new ArrayList<>();
-      String startFile = canonicalList.get(cycleStartIndex);
-      int lastSlash = startFile.lastIndexOf('/');
-      names.add(lastSlash == -1 ? startFile : startFile.substring(lastSlash + 1));
-
-      for (String p : canonicalPathsSlice) {
-        int ls = p.lastIndexOf('/');
-        names.add(ls == -1 ? p : p.substring(ls + 1));
-      }
-      String trace = String.join(" -> ", names);
-
-      throw new CyclicDependencyException("Cycle detected: " + trace, rawPathsSlice, canonicalPathsSlice);
-    }
-
-    if (resolvedCache.containsKey(currentPath)) {
-      return resolvedCache.get(currentPath);
-    }
-
-    activePaths.add(currentPath);
-    activeRawPaths.add(currentRawImport);
-
-    ParsedDocument parsed = parsedCache.get(currentPath);
-    if (parsed == null) {
-      String content = workspace.get(currentPath);
-      if (content == null) {
-        throw new RuntimeException("Missing file in workspace: " + currentPath);
-      }
-      parsed = parseFile(currentPath, content, errorListener);
-      parsedCache.put(currentPath, parsed);
-    }
-
-    var accumulator = new LinkedHashMap<String, List<NamespaceClaim<TypeDefinitionContext>>>();
-    var constAccumulator = new LinkedHashMap<String, List<NamespaceClaim<StvnParser.ConstantDefinitionContext>>>();
-
-    if (parsed.docCtx.documentBody() != null && parsed.docCtx.documentBody().defsEntry() != null) {
-      var defsEntry = parsed.docCtx.documentBody().defsEntry();
-      var elements = new ArrayList<ParserRuleContext>();
-      if (defsEntry.defsElement() != null) {
-        for (var de : defsEntry.defsElement()) {
-          if (de.typeDefinition() != null) elements.add(de.typeDefinition());
-          else if (de.constantDefinition() != null) elements.add(de.constantDefinition());
-          else if (de.includeStmt() != null) elements.add(de.includeStmt());
-          else if (de.packageEnclosure() != null) elements.add(de.packageEnclosure());
-        }
-      }
-      elements.sort((a, b) -> {
-        var startA = a.getStart();
-        var startB = b.getStart();
-        if (startA != null && startB != null) {
-          return Integer.compare(startA.getTokenIndex(), startB.getTokenIndex());
-        }
-        return 0;
-      });
-
-      int importIdx = 0;
-
-      for (var element : elements) {
-        if (element instanceof TypeDefinitionContext typeDef) {
-          String typeName = typeDef.typeDefTarget().getText();
-          var existingClaims = accumulator.get(typeName);
-          if (existingClaims != null) {
-            for (var claim : existingClaims) {
-              if (claim.type() == ClaimType.LOCAL) {
-                throw new IllegalStateException("Zero-Shadowing constraint violated: " + typeName);
-              }
-            }
-          }
-          accumulator.computeIfAbsent(typeName, k -> new ArrayList<>())
-              .add(new NamespaceClaim<>(typeName, typeDef, currentPath, ClaimType.LOCAL));
-        } else if (element instanceof StvnParser.ConstantDefinitionContext constDef) {
-          String constName = constDef.valueKeyword().getText();
-          var existingClaims = constAccumulator.get(constName);
-          if (existingClaims != null) {
-            for (var claim : existingClaims) {
-              if (claim.type() == ClaimType.LOCAL) {
-                throw new IllegalStateException("Zero-Shadowing constraint violated: " + constName);
-              }
-            }
-          }
-          constAccumulator.computeIfAbsent(constName, k -> new ArrayList<>())
-              .add(new NamespaceClaim<>(constName, constDef, currentPath, ClaimType.LOCAL));
-        } else if (element instanceof StvnParser.PackageEnclosureContext pkgEnc) {
-          String pkgPrefix = pkgEnc.packagePath().getText();
-          if (pkgEnc.packageElement() != null) {
-            for (var pe : pkgEnc.packageElement()) {
-              if (pe.typeDefinition() != null) {
-                var typeDef = pe.typeDefinition();
-                String localName = typeDef.typeDefTarget().getText();
-                String fqni = pkgPrefix + "/" + localName.substring(1);
-                var existingClaims = accumulator.get(fqni);
-                if (existingClaims != null) {
-                  for (var claim : existingClaims) {
-                    if (claim.type() == ClaimType.LOCAL) {
-                      throw new IllegalStateException("Zero-Shadowing constraint violated: " + fqni);
-                    }
-                  }
-                }
-                accumulator.computeIfAbsent(fqni, k -> new ArrayList<>())
-                    .add(new NamespaceClaim<>(fqni, typeDef, currentPath, ClaimType.LOCAL));
-              } else if (pe.constantDefinition() != null) {
-                var constDef = pe.constantDefinition();
-                String localName = constDef.valueKeyword().getText();
-                String fqni = StvnVocabulary.SIGIL_VALUE + pkgPrefix.substring(1) + "/" + localName.substring(1);
-                var existingClaims = constAccumulator.get(fqni);
-                if (existingClaims != null) {
-                  for (var claim : existingClaims) {
-                    if (claim.type() == ClaimType.LOCAL) {
-                      throw new IllegalStateException("Zero-Shadowing constraint violated: " + fqni);
-                    }
-                  }
-                }
-                constAccumulator.computeIfAbsent(fqni, k -> new ArrayList<>())
-                    .add(new NamespaceClaim<>(fqni, constDef, currentPath, ClaimType.LOCAL));
-              }
-            }
-          }
-        } else if (element instanceof StvnParser.IncludeStmtContext includeStmt) {
-          if (includeStmt.includeElement() != null) {
-            for (var inclEl : includeStmt.includeElement()) {
-              ImportInfo imp = parsed.imports.get(importIdx++);
-              ResolvedDefinitions importedDefs = resolveDocument(
-                  imp.resolvedPath(),
-                  imp.rawPath(),
-                  parsedCache,
-                  workspace,
-                  activePaths,
-                  activeRawPaths,
-                  resolvedCache,
-                  errorListener
-              );
-
-              for (var entry : importedDefs.types().entrySet()) {
-                String originalName = entry.getKey();
-                DefSource defSource = entry.getValue();
-
-                String candidateName = originalName;
-                if (imp.hasStrip()) {
-                  candidateName = StvnTypeResolver.sliceTerminal(originalName);
-                }
-
-                String importedName = candidateName;
-                boolean isRenamed = false;
-                if (imp.aliasMap().containsKey(candidateName)) {
-                  importedName = imp.aliasMap().get(candidateName);
-                  isRenamed = true;
-                }
-
-                if (isRenamed) {
-                  accumulator.computeIfAbsent(importedName, k -> new ArrayList<>())
-                      .add(new NamespaceClaim<>(importedName, defSource.defNode(), defSource.sourceName(), ClaimType.RENAMED_IMPORT_RHS));
-                  accumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
-                      .add(new NamespaceClaim<>(candidateName, defSource.defNode(), defSource.sourceName(), ClaimType.RENAMED_IMPORT_LHS));
-                } else {
-                  accumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
-                      .add(new NamespaceClaim<>(candidateName, defSource.defNode(), defSource.sourceName(), ClaimType.RAW_IMPORT));
-                }
-              }
-
-              for (var entry : importedDefs.constants().entrySet()) {
-                String originalName = entry.getKey();
-                ConstantDefSource constSource = entry.getValue();
-
-                String candidateName = originalName;
-                if (imp.hasStrip()) {
-                  candidateName = StvnTypeResolver.sliceTerminal(originalName);
-                }
-
-                constAccumulator.computeIfAbsent(candidateName, k -> new ArrayList<>())
-                    .add(new NamespaceClaim<>(candidateName, constSource.defNode(), constSource.sourceName(), ClaimType.RAW_IMPORT));
-              }
-            }
-          }
-        }
-      }
-    }
-
-    Map<String, DefSource> localDefs = new LinkedHashMap<>();
-    Map<String, ConstantDefSource> localConstDefs = new LinkedHashMap<>();
-    List<String> collisions = new ArrayList<>();
-
-    applyEvictionCascade(accumulator, localDefs, collisions, DefSource::new);
-    applyEvictionCascade(constAccumulator, localConstDefs, collisions, ConstantDefSource::new);
-
-    if (!collisions.isEmpty()) {
-      throw new NamespaceCollisionException("Namespace collision(s) detected: " + collisions);
-    }
-
-    ResolvedDefinitions res = new ResolvedDefinitions(localDefs, localConstDefs);
-    resolvedCache.put(currentPath, res);
-
-    activePaths.remove(currentPath);
-    activeRawPaths.remove(activeRawPaths.size() - 1);
-
-    return res;
-  }
-
-  @FunctionalInterface
-  private interface DefFactory<N extends ParserRuleContext, S> {
-    S create(N node, String sourceModule);
-  }
-
-  private static <N extends ParserRuleContext, S> void applyEvictionCascade(
-      Map<String, List<NamespaceClaim<N>>> accumulator,
-      Map<String, S> destination,
-      List<String> collisions,
-      DefFactory<N, S> factory
-  ) {
-    for (var entry : accumulator.entrySet()) {
-      String id = entry.getKey();
-      List<NamespaceClaim<N>> claims = entry.getValue();
-
-      boolean hasLocal = false;
-      NamespaceClaim<N> localClaim = null;
-      for (var c : claims) {
-        if (c.type() == ClaimType.LOCAL) {
-          hasLocal = true;
-          localClaim = c;
-          break;
-        }
-      }
-
-      if (hasLocal) {
-        List<NamespaceClaim<N>> filteredClaims = new ArrayList<>();
-        filteredClaims.add(localClaim);
-        for (var c : claims) {
-          if (c.type() == ClaimType.RENAMED_IMPORT_RHS) {
-            filteredClaims.add(c);
-          }
-        }
-        if (filteredClaims.size() > 1) {
-          collisions.add(id);
-        } else {
-          destination.put(id, factory.create(localClaim.defNode(), localClaim.sourceModule()));
-        }
-      } else {
-        List<NamespaceClaim<N>> rawClaims = new ArrayList<>();
-        List<NamespaceClaim<N>> lhsClaims = new ArrayList<>();
-        List<NamespaceClaim<N>> rhsClaims = new ArrayList<>();
-        Set<String> seenRawModuleOrigins = new HashSet<>();
-
-        for (var c : claims) {
-          if (c.type() == ClaimType.RAW_IMPORT) {
-            // Deduplicate identical claims imported from the exact same source module via diamond paths
-            if (seenRawModuleOrigins.add(c.sourceModule())) {
-              rawClaims.add(c);
-            }
-          } else if (c.type() == ClaimType.RENAMED_IMPORT_LHS) {
-            lhsClaims.add(c);
-          } else if (c.type() == ClaimType.RENAMED_IMPORT_RHS) {
-            rhsClaims.add(c);
-          }
-        }
-
-        if (!lhsClaims.isEmpty() && !rawClaims.isEmpty()) {
-          lhsClaims.clear();
-        } else if (lhsClaims.size() > 1) {
-          lhsClaims.clear();
-        }
-
-        List<NamespaceClaim<N>> remainingClaims = new ArrayList<>();
-        remainingClaims.addAll(rawClaims);
-        remainingClaims.addAll(lhsClaims);
-        remainingClaims.addAll(rhsClaims);
-
-        if (remainingClaims.size() == 1) {
-          NamespaceClaim<N> single = remainingClaims.get(0);
-          destination.put(id, factory.create(single.defNode(), single.sourceModule()));
-        } else if (remainingClaims.size() > 1) {
-          collisions.add(id);
-        }
-      }
-    }
-  }
-
-  private static void appendConstraints(StringBuilder sb, StvnConstraints constraints) {
-    if (hasConstraints(constraints)) {
-      sb.append("{");
-      boolean first = true;
-
-      // Tier 1: Definition (§ 6.1 1.1.1 - 1.5.2)
-      if (constraints.unsigned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_UNSIGNED)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_UNSIGNED);
-      }
-      if (constraints.exact() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EXACT)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_EXACT);
-      }
-      if (constraints.invertible() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_INVERTIBLE)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_INVERTIBLE);
-      }
-      var scale = constraints.scale().orElse(null);
-      if (scale != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.SIGIL_VALUE).append(scale.startsWith(StvnVocabulary.SIGIL_VALUE) ? scale.substring(1) : scale);
-      }
-      if (constraints.offset() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_OFFSET);
-      }
-      if (constraints.zoned() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_ZONED)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_ZONED);
-      }
-      if (constraints.audited() && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_AUDITED)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_AUDITED);
-      }
-      var size = constraints.size().orElse(null);
-      if (size != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_SIZE).append(" ").append(size);
-      }
-      var minSize = constraints.minSize().orElse(null);
-      if (minSize != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_MIN_SIZE).append(" ").append(minSize);
-      }
-      var maxSize = constraints.maxSize().orElse(null);
-      if (maxSize != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_MAX_SIZE).append(" ").append(maxSize);
-      }
-
-      // Tier 2: Trait (§ 6.1 2.1 - 2.2)
-      var equatable = constraints.equatable().orElse(null);
-      if (equatable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_EQUATABLE).append(" ").append(equatable ? StvnVocabulary.VAL_TRUE_SHORT : StvnVocabulary.VAL_FALSE_SHORT);
-      }
-      var comparable = constraints.comparable().orElse(null);
-      if (comparable != null && constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_COMPARABLE).append(" ").append(comparable ? StvnVocabulary.VAL_TRUE_SHORT : StvnVocabulary.VAL_FALSE_SHORT);
-      }
-
-      // Tier 3: Bounds (§ 6.1 3.1 - 3.4, Lower before Upper)
-      var minIncl = constraints.minIncl().orElse(null);
-      if (minIncl != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_MIN_INCL).append(" ").append(minIncl);
-      } else if (constraints.dateMinIncl().isPresent()) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_MIN_INCL).append(" \"").append(escapeString(constraints.dateMinIncl().get())).append("\"");
-      }
-      var minExcl = constraints.minExcl().orElse(null);
-      if (minExcl != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_MIN_EXCL).append(" ").append(minExcl);
-      }
-      var maxIncl = constraints.maxIncl().orElse(null);
-      if (maxIncl != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_MAX_INCL).append(" ").append(maxIncl);
-      }
-      var maxExcl = constraints.maxExcl().orElse(null);
-      if (maxExcl != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_MAX_EXCL).append(" ").append(maxExcl);
-      } else if (constraints.dateMaxExcl().isPresent()) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_MAX_EXCL).append(" \"").append(escapeString(constraints.dateMaxExcl().get())).append("\"");
-      }
-
-      // Tier 4: Constraint (§ 6.1 4.1 - 4.4)
-      var filterIncl = constraints.filterIncl().orElse(null);
-      if (filterIncl != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_FILTER_INCL).append(" [");
-        var firstEl = true;
-        for (String v : filterIncl) {
-          if (!firstEl) sb.append(" ");
-          firstEl = false;
-          sb.append(v);
-        }
-        sb.append("]");
-      }
-      var filterExcl = constraints.filterExcl().orElse(null);
-      if (filterExcl != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_FILTER_EXCL).append(" [");
-        var firstEl = true;
-        for (String v : filterExcl) {
-          if (!firstEl) sb.append(" ");
-          firstEl = false;
-          sb.append(v);
-        }
-        sb.append("]");
-      }
-      if (constraints.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT)) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_PRESERVE_INDENT).append(" ").append(constraints.preserveIndent() ? StvnVocabulary.VAL_TRUE_SHORT : StvnVocabulary.VAL_FALSE_SHORT);
-      }
-      var regex = constraints.regex().orElse(null);
-      if (regex != null) {
-        if (!first) sb.append(" ");
-        first = false;
-        sb.append(StvnVocabulary.FACET_KW_REGEX).append(" \"").append(escapeString(regex)).append("\"");
-      }
-
-      sb.append("}");
-    }
-  }
-
-  private static String printCanonical(TypeDefinitionContext typeDef) {
-    StringBuilder sb = new StringBuilder();
-    sb.append(typeDef.typeDefTarget().getText());
-
-    List<String> tokens = new ArrayList<>();
-    collectSchemaTypeTokens(typeDef.schemaType(), tokens);
-
-    String tail = toCanonicalString(tokens);
-    if (!tail.startsWith("{")) {
-      sb.append(" ");
-    }
-    sb.append(tail);
-    return sb.toString();
-  }
-
-  private static String printCanonicalConstant(StvnParser.ConstantDefinitionContext constDef) {
-    StringBuilder sb = new StringBuilder();
-    sb.append(constDef.valueKeyword().getText());
-
-    var constMeta = constDef.schemaType() != null ? constDef.schemaType().metadataMap() : null;
-    StvnConstraints constraints = StvnTypeResolver.extractConstraints(constMeta);
-
-    List<String> tokens = new ArrayList<>();
-    collectSchemaTypeTokens(constDef.schemaType(), tokens);
-    String schemaTail = toCanonicalString(tokens);
-    sb.append(" ").append(schemaTail);
-
-    List<String> valTokens = new ArrayList<>();
-    collectValueTokens(constDef.value(), valTokens, constraints.preserveIndent());
-    String valTail = toCanonicalString(valTokens);
-    sb.append(" ").append(valTail);
-
-    return sb.toString();
-  }
-
-  private static StvnParser.ConstantDefinitionContext parseConstantDefinition(String source, BaseErrorListener errorListener) {
-    String wrapped = "{ " + StvnVocabulary.KEYWORD_DEFS + " { " + source + " } }";
-    var lexer = new StvnLexer(CharStreams.fromString(wrapped));
-    lexer.removeErrorListeners();
-    lexer.addErrorListener(errorListener);
-
-    List<Token> tokens = new ArrayList<>();
-    Token token;
-    while ((token = lexer.nextToken()).getType() != Token.EOF) {
-      if (token.getChannel() == Token.DEFAULT_CHANNEL) {
-        tokens.add(token);
-      }
-    }
-    tokens.add(token);
-
-    var tokenSource = new org.antlr.v4.runtime.ListTokenSource(tokens);
-    var tokenStream = new CommonTokenStream(tokenSource);
-    var parser = new StvnParser(tokenStream);
-    parser.removeErrorListeners();
-    parser.addErrorListener(errorListener);
-
-    var doc = parser.stvnDocument();
-    return doc.documentBody().defsEntry().defsElement(0).constantDefinition();
-  }
-
-  private static boolean hasConstraints(StvnConstraints c) {
-    var hasMinIncl = c.minIncl().isPresent() || c.dateMinIncl().isPresent();
-    var hasMinExcl = c.minExcl().isPresent();
-    var hasMaxIncl = c.maxIncl().isPresent();
-    var hasMaxExcl = c.maxExcl().isPresent() || c.dateMaxExcl().isPresent();
-    var hasRegex = c.regex().isPresent();
-    var hasPreserveIndent = c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
-    var hasEquatable = c.equatable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EQUATABLE);
-    var hasComparable = c.comparable().isPresent() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_COMPARABLE);
-    var hasAudited = c.audited() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_AUDITED);
-    var hasExact = c.exact() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_EXACT);
-    var hasInvertible = c.invertible() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_INVERTIBLE);
-    var hasOffset = c.offset() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_OFFSET);
-    var hasUnsigned = c.unsigned() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_UNSIGNED);
-    var hasZoned = c.zoned() && c.explicitOverrides().contains(StvnVocabulary.FACET_NAME_ZONED);
-
-    return hasMinIncl || hasMinExcl || hasMaxIncl || hasMaxExcl
-        || hasRegex || hasPreserveIndent || hasEquatable || hasComparable
-        || c.filterIncl().isPresent() || c.filterExcl().isPresent()
-        || c.size().isPresent() || c.minSize().isPresent() || c.maxSize().isPresent()
-        || c.scale().isPresent() || hasAudited || hasExact || hasInvertible
-        || hasOffset || hasUnsigned || hasZoned;
-  }
-
-  private static String escapeString(String s) {
-    return s.replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t");
-  }
-
-  private static boolean isPunctuation(String token) {
-    return (token.length() == 1) && "()[]{}".contains(token);
-  }
-
-  private static String toCanonicalString(List<String> tokens) {
-    StringBuilder sb = new StringBuilder();
-    String lastToken = "";
-    for (String token : tokens) {
-      if (token.isEmpty()) {
+    for (var constEntry : lowered.defs().constants().entrySet()) {
+      String constName = constEntry.getKey();
+      if (prelude.constants().containsKey(constName)) {
         continue;
       }
-      if (!lastToken.isEmpty()) {
-        boolean omitSpace = isPunctuation(lastToken) || isPunctuation(token)
-            || token.startsWith("{") || lastToken.endsWith("}");
-        if (!omitSpace) {
-          if (!lastToken.endsWith("\n")) {
-            sb.append(' ');
-          }
-        }
-      }
-      sb.append(token);
-      lastToken = token;
+      sortedDefinitions.put(constName, formatCanonicalConstant(constName, constEntry.getValue()));
     }
-    return sb.toString();
-  }
 
-  private static void collectSchemaTypeTokens(SchemaTypeContext ctx, List<String> tokens) {
-    if (ctx.metadataMap() != null) {
-      String baseType = StvnTypeResolver.getPrimitiveBaseType(ctx);
-      var constraints = StvnTypeResolver.normalizeConstraints(StvnTypeResolver.extractConstraints(ctx.metadataMap()), baseType);
-      if (hasConstraints(constraints)) {
-        StringBuilder sb = new StringBuilder();
-        appendConstraints(sb, constraints);
-        tokens.add(sb.toString().trim());
+    for (var typeEntry : lowered.defs().nominalTypes().entrySet()) {
+      String typeName = typeEntry.getKey();
+      if (prelude.nominalTypes().containsKey(typeName)) {
+        continue;
       }
+      sortedDefinitions.put(typeName, formatCanonicalType(typeName, typeEntry.getValue()));
     }
-    if (ctx.typeKeyword() != null) {
-      tokens.add(ctx.typeKeyword().getText());
-    } else if (ctx.schemaConstructor() != null) {
-      var ctor = ctx.schemaConstructor();
-      if (ctor.atomicType() != null) {
-        tokens.add(ctor.atomicType().getText());
-      } else if (ctor.collectionType() != null) {
-        var col = ctor.collectionType();
-        tokens.add(col.getChild(0).getText());
-        tokens.add("(");
-        for (var st : col.schemaType()) {
-          collectSchemaTypeTokens(st, tokens);
+
+    try {
+      StringWriter sw = new StringWriter();
+      CanonicalLayoutWriter layout = new CanonicalLayoutWriter(sw);
+      layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+
+      layout.writeLiteral(StvnVocabulary.KEYWORD_META);
+      layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+      if (lowered.meta().isPresent()) {
+        StvnDocumentMeta meta = lowered.meta().get();
+        if (meta.name().isPresent()) {
+          layout.writeLiteral(StvnVocabulary.FACET_KW_META_NAME);
+          layout.writeSimpleString(meta.name().get());
         }
-        tokens.add(")");
-      } else if (ctor.productType() != null) {
-        var prod = ctor.productType();
-        if (prod instanceof StvnParser.TupleTypeContext tt) {
-          tokens.add(StvnVocabulary.TYPE_TUPLE);
-          tokens.add("(");
-          for (var st : tt.schemaType()) {
-            collectSchemaTypeTokens(st, tokens);
-          }
-          tokens.add(")");
-        }
-      } else if (ctor.sumType() != null) {
-        var sum = ctor.sumType();
-        if (sum.KW_OPTION() != null) {
-          tokens.add(StvnVocabulary.TYPE_OPTION);
-          tokens.add("(");
-          collectSchemaTypeTokens(sum.schemaType(0), tokens);
-          tokens.add(")");
-        } else if (sum.KW_EITHER() != null) {
-          tokens.add(StvnVocabulary.TYPE_EITHER);
-          tokens.add("(");
-          collectSchemaTypeTokens(sum.schemaType(0), tokens);
-          collectSchemaTypeTokens(sum.schemaType(1), tokens);
-          tokens.add(")");
-        } else if (sum.KW_UNION() != null) {
-          tokens.add(StvnVocabulary.TYPE_UNION);
-          tokens.add("(");
-          for (var st : sum.schemaType()) {
-            collectSchemaTypeTokens(st, tokens);
-          }
-          tokens.add(")");
-        } else if (sum.KW_ENUM() != null) {
-          tokens.add(StvnVocabulary.TYPE_ENUM);
-          tokens.add("[");
-          for (var kw : sum.enumDef().valueKeyword()) {
-            tokens.add(kw.getText());
-          }
-          tokens.add("]");
+        if (meta.domain().isPresent()) {
+          layout.writeLiteral(StvnVocabulary.FACET_KW_META_DOMAIN);
+          layout.writeSimpleString(meta.domain().get());
         }
       }
+      layout.writeLiteral(StvnVocabulary.FACET_KW_META_KIND);
+      layout.writeLiteral(StvnVocabulary.KIND_KW_DEFS);
+      layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
+
+      layout.writeLiteral(StvnVocabulary.KEYWORD_DEFS);
+      layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+      for (String renderedDef : sortedDefinitions.values()) {
+        layout.writeLiteral(renderedDef);
+      }
+      layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
+
+      layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
+      layout.flush();
+      return sw.toString();
+    } catch (IOException e) {
+      throw new RuntimeException("Unreachable IOException in StringWriter", e);
     }
   }
 
-  private static void collectValueTokens(ValueContext ctx, List<String> tokens, boolean preserveIndent) {
-    if (ctx.explicitOptionValue() != null) {
-      var opt = ctx.explicitOptionValue();
-      if (opt.KW_NONE() != null || opt.KW_NONE_SHORT() != null) {
-        tokens.add(StvnVocabulary.VAL_NONE_SHORT);
-      } else {
-        tokens.add(StvnVocabulary.VAL_SOME_SHORT);
-        collectValueTokens(opt.value(), tokens, preserveIndent);
-      }
-    } else if (ctx.explicitEitherValue() != null) {
-      var eit = ctx.explicitEitherValue();
-      if (eit.KW_LEFT() != null || eit.KW_LEFT_SHORT() != null) {
-        tokens.add(StvnVocabulary.VAL_LEFT_SHORT);
-        collectValueTokens(eit.value(), tokens, preserveIndent);
-      } else {
-        tokens.add(StvnVocabulary.VAL_RIGHT_SHORT);
-        collectValueTokens(eit.value(), tokens, preserveIndent);
-      }
-    } else if (ctx.explicitUnionValue() != null) {
-      var uni = ctx.explicitUnionValue();
-      tokens.add(uni.UNION_TAG_PREFIX().getText());
-      collectValueTokens(uni.value(), tokens, preserveIndent);
-    } else if (ctx.booleanLiteral() != null) {
-      var bool = ctx.booleanLiteral();
-      if (bool.KW_TRUE() != null || bool.KW_TRUE_SHORT() != null) {
-        tokens.add(StvnVocabulary.VAL_TRUE_SHORT);
-      } else {
-        tokens.add(StvnVocabulary.VAL_FALSE_SHORT);
-      }
-    } else if (ctx.integerLiteral() != null) {
-      BigInteger val = StvnLiteralParser.parseBigInteger(ctx.integerLiteral().getText());
-      tokens.add(val.toString());
-    } else if (ctx.floatLiteral() != null) {
-      BigDecimal val = StvnLiteralParser.parseBigDecimal(ctx.floatLiteral().getText());
-      tokens.add(formatFloat(val, org.stvnadore.core.ast.StvnValue.FloatPrecision.EXACT));
-    } else if (ctx.stringLiteral() != null) {
-      var parsed = StvnLiteralParser.parseStringNew(ctx.stringLiteral().getText(), preserveIndent);
-      String escaped = escapeString(parsed.text());
-      if (parsed.style() == org.stvnadore.core.ast.StvnValue.StringStyle.SIMPLE) {
-        tokens.add("\"" + escaped + "\"");
-      } else if (parsed.style() == org.stvnadore.core.ast.StvnValue.StringStyle.FENCED) {
-        String tag = parsed.optionalFenceTag().orElse("FENCE");
-        tokens.add("\"\"\"[" + tag + "]\n" + parsed.text() + "[" + tag + "]\"\"\"");
-      }
-    } else if (ctx.valueKeyword() != null) {
-      tokens.add(ctx.valueKeyword().getText());
-    } else if (ctx.collectionValue() != null) {
-      var coll = ctx.collectionValue();
-      if (coll.listLiteral() != null) {
-        tokens.add("[");
-        for (var v : coll.listLiteral().value()) {
-          collectValueTokens(v, tokens, preserveIndent);
-        }
-        tokens.add("]");
-      } else if (coll.mapLiteral() != null) {
-        tokens.add("{");
-        for (var entry : coll.mapLiteral().mapEntry()) {
-          tokens.add("[");
-          collectValueTokens(entry.value(0), tokens, preserveIndent);
-          collectValueTokens(entry.value(1), tokens, preserveIndent);
-          tokens.add("]");
-        }
-        tokens.add("}");
-      } else if (coll.tupleLiteral() != null) {
-        tokens.add("(");
-        for (var v : coll.tupleLiteral().value()) {
-          collectValueTokens(v, tokens, preserveIndent);
-        }
-        tokens.add(")");
-      }
+  private static String formatCanonicalConstant(String constName, StvnDefsCatalog.StvnConstant constant) {
+    try {
+      StringWriter sw = new StringWriter();
+      CanonicalLayoutWriter layout = new CanonicalLayoutWriter(sw);
+      CanonicalStvnWriter.writeConstantDefinition(constName, constant, layout);
+      layout.flush();
+      return sw.toString();
+    } catch (IOException e) {
+      throw new RuntimeException("Unreachable IOException in StringWriter", e);
     }
   }
 
-  private static String formatFloat(BigDecimal value, org.stvnadore.core.ast.StvnValue.FloatPrecision floatPrecision) {
-    var s = (floatPrecision == org.stvnadore.core.ast.StvnValue.FloatPrecision.EXACT)
-        ? value.toPlainString()
-        : value.toString();
-    if (!s.contains(".")) {
-      var eIdx = s.indexOf('e');
-      if (eIdx == -1) {
-        eIdx = s.indexOf('E');
-      }
-
-      return (eIdx == -1)
-          ? s + ".0"
-          : s.substring(0, eIdx) + ".0" + s.substring(eIdx);
+  private static String formatCanonicalType(String typeName, StvnSchema schema) {
+    try {
+      StringWriter sw = new StringWriter();
+      CanonicalLayoutWriter layout = new CanonicalLayoutWriter(sw);
+      layout.writeLiteral(typeName);
+      CanonicalStvnWriter.writeSchemaDefinitionBody(schema, layout);
+      layout.flush();
+      return sw.toString();
+    } catch (IOException e) {
+      throw new RuntimeException("Unreachable IOException in StringWriter", e);
     }
-    return s;
   }
 }

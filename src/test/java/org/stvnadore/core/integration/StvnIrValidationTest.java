@@ -260,7 +260,7 @@ public class StvnIrValidationTest {
     if (e instanceof org.stvnadore.core.validation.DuplicateModuleImportException) {
       return "DUPLICATE_IMPORT";
     }
-    if (e instanceof org.stvnadore.core.validation.StvnTypeResolver.CircularReferenceException) {
+    if (e instanceof org.stvnadore.core.validation.CircularReferenceException) {
       return "CIRCULAR_REFERENCE";
     }
     if (e instanceof org.stvnadore.core.validation.StvnMalformedLiteralException) {

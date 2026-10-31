@@ -5,7 +5,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
-import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ir.StvnValue;
 
 /**
  * Anti-tautological test suite validating Pass 1 functional excision of legacy compound types.
@@ -49,7 +49,7 @@ public class StvnCompoundTypeExcisionTest {
     var result = StvnCompiler.compileToResult(doc, null, StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.hasErrors(), "Nominal :Uint64 must compile cleanly");
     Assertions.assertTrue(result.diagnostics().isEmpty(), "Must produce zero diagnostics");
-    Assertions.assertInstanceOf(StvnValue.StvnInteger.class, result.document().orElseThrow().requirePayload());
+    Assertions.assertInstanceOf(StvnValue.StvnInt.class, result.document().orElseThrow().requirePayload());
   }
 
   @Test

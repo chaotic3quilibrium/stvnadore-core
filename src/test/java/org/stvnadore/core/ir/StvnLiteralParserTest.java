@@ -3,8 +3,8 @@ package org.stvnadore.core.ir;
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.stvnadore.core.ast.StvnLiteralParser;
-import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.lowering.StvnLiteralParser;
+
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -111,7 +111,7 @@ class StvnLiteralParserTest {
 
     String withoutArrow = "\"\"\"[SQL]\nSELECT 1;\n[SQL]\"\"\"";
     var parsedWithout = StvnLiteralParser.parseStringNew(withoutArrow, true);
-    Assertions.assertEquals(StvnValue.StringStyle.FENCED, parsedWithout.style());
+    Assertions.assertEquals(StvnLiteralParser.StringStyle.FENCED, parsedWithout.style());
     Assertions.assertEquals("SQL", parsedWithout.optionalFenceTag().orElseThrow());
     Assertions.assertEquals("SELECT 1;\n", parsedWithout.text());
   }

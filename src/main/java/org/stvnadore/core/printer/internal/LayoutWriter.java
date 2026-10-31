@@ -1,6 +1,6 @@
 package org.stvnadore.core.printer.internal;
 
-import org.stvnadore.core.ast.StvnValue.FloatPrecision;
+import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
 import org.stvnadore.core.printer.PrinterOptions;
 
 import java.io.IOException;
@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 /**
- * Layout writer contract for formatting and printing STVN AST values to text writers.
+ * Layout writer contract for formatting and printing pure-IR STVN values to text writers.
  *
  * @since 1.0.0
  */
@@ -40,13 +40,13 @@ public interface LayoutWriter {
   void writeInteger(BigInteger val) throws IOException;
 
   /**
-   * Writes a float value formatted according to the specified precision level.
+   * Writes a float value formatted according to the specified representation mode.
    *
-   * @param val       the float value
-   * @param precision the float precision level
+   * @param val            the float value
+   * @param representation the float representation mode
    * @throws IOException if a writing exception occurs
    */
-  void writeFloat(BigDecimal val, FloatPrecision precision) throws IOException;
+  void writeFloat(BigDecimal val, FloatRepresentation representation) throws IOException;
 
   /**
    * Writes an enum keyword variant value to the target output.
@@ -63,7 +63,6 @@ public interface LayoutWriter {
    * @throws IOException if a writing exception occurs
    */
   void writeSimpleString(String s) throws IOException;
-
 
   /**
    * Writes an Option Some variant tag prefix.
@@ -153,26 +152,26 @@ public interface LayoutWriter {
   void flush() throws IOException;
 
   /**
-   * Returns a String representation of a {@link BigDecimal}, ensuring that the resulting string always contains a
+   * Returns a string representation of a {@link BigDecimal}, ensuring that the resulting string always contains a
    * decimal point.
    * <p>
-   * The formatting behavior relies on the provided {@link FloatPrecision}:
+   * The formatting behavior depends on the provided {@link FloatRepresentation}:
    * <ul>
-   * <li>{@link FloatPrecision#EXACT}: Utilizes {@link BigDecimal#toPlainString()}, disabling scientific notation.</li>
-   * <li>Other precisions: Utilizes {@link BigDecimal#toString()}, which may include scientific notation.</li>
+   * <li>{@link FloatRepresentation#EXACT_DECIMAL}: Uses {@link BigDecimal#toPlainString()}, disabling scientific notation.</li>
+   * <li>IEEE-754 representations: Uses {@link BigDecimal#toString()}, which may include scientific notation.</li>
    * </ul>
-   * If the initial string representation lacks a decimal point, this method will inject {@code ".0"} appropriately
-   * (either before the exponent character or at the end of the string).
+   * If the initial string representation lacks a decimal point, this method injects {@code ".0"} either before the
+   * exponent character or at the end of the string.
    *
    * @param value          the {@link BigDecimal} value to format
-   * @param floatPrecision the precision strategy to use for the initial string conversion
+   * @param representation the schema float representation mode
    * @return a string representation of the decimal value, guaranteed to contain a decimal point
    */
   default String formatFloat(
       BigDecimal value,
-      FloatPrecision floatPrecision
+      FloatRepresentation representation
   ) {
-    var s = (floatPrecision == FloatPrecision.EXACT)
+    var s = (representation == FloatRepresentation.EXACT_DECIMAL)
         ? value.toPlainString()
         : value.toString();
     if (!s.contains(".")) {

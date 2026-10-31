@@ -16,7 +16,7 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.binary.readers.StvnMapReader;
 import org.stvnadore.core.binary.readers.StvnSeqReader;
 import org.stvnadore.core.binary.readers.StvnTupleReader;
-import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.utils.StvnBinaryUtils;
 import org.stvnadore.core.validation.MalformedPayloadException;
 
@@ -62,8 +62,8 @@ class StvnBinaryCrc32cTrailerTest {
 
     var root = StvnBinaryDecoder.open(bufCrc);
     StvnValue unpacked = StvnBinaryDecoder.unpack(root, Optional.of(ir.schema()));
-    assertInstanceOf(StvnValue.StvnInteger.class, unpacked);
-    assertEquals(BigInteger.valueOf(42), ((StvnValue.StvnInteger) unpacked).value());
+    assertInstanceOf(StvnValue.StvnInt.class, unpacked);
+    assertEquals(BigInteger.valueOf(42), ((StvnValue.StvnInt) unpacked).value());
   }
 
   @Test
@@ -82,8 +82,8 @@ class StvnBinaryCrc32cTrailerTest {
     var root = StvnBinaryDecoder.open(buf);
     StvnValue unpacked = StvnBinaryDecoder.unpack(root, Optional.of(expectedIr.schema()));
 
-    assertEquals(expectedIr.toString(), unpacked.toString(),
-        "Unpacked AST from CRC-32C protected binary must equal original compiled AST");
+    assertEquals(expectedIr, unpacked,
+        "Unpacked IR from CRC-32C protected binary must equal original compiled IR");
   }
 
   @Test
@@ -239,13 +239,14 @@ class StvnBinaryCrc32cTrailerTest {
     var directRoot = StvnBinaryDecoder.open(directBuf);
     StvnValue directValue = StvnBinaryDecoder.unpack(directRoot, Optional.of(ir.schema()));
 
-    assertEquals(heapValue.toString(), directValue.toString(),
-        "Direct buffer and heap buffer unpacking must yield identical AST results");
+    assertEquals(heapValue, directValue,
+        "Direct buffer and heap buffer unpacking must yield identical IR results");
 
     // Corrupt Direct Buffer and verify failure
     ByteBuffer corruptedDirect = ByteBuffer.allocateDirect(directBuf.capacity()).order(ByteOrder.LITTLE_ENDIAN);
     corruptedDirect.put(directBuf.duplicate().position(0));
-    corruptedDirect.put(6, (byte) (corruptedDirect.get(6) ^ 0x01));
+    int corruptedByte = Byte.toUnsignedInt(corruptedDirect.get(6)) ^ 0x01;
+    corruptedDirect.put(6, (byte) corruptedByte);
     corruptedDirect.flip();
 
     assertThrows(MalformedPayloadException.class, () -> StvnBinaryDecoder.open(corruptedDirect));

@@ -25,12 +25,12 @@ import org.stvnadore.core.parser.StvnErrorStrategy;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.stdlib.StvnPrelude;
+import org.stvnadore.core.validation.CircularReferenceException;
 import org.stvnadore.core.validation.CyclicDependencyException;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.DuplicateModuleImportException;
 import org.stvnadore.core.validation.MalformedSchemaException;
 import org.stvnadore.core.validation.NamespaceCollisionException;
-import org.stvnadore.core.validation.StvnTypeResolver;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -274,6 +274,35 @@ public final class StvnDefsLowerer {
   }
 
   /**
+   * Lowers the {@code :meta} and {@code :defs} sections of a parsed STVN document against an
+   * in-memory virtual workspace for {@link org.stvnadore.core.StvnSchemaFlattener}.
+   *
+   * @param doc                        the parsed ANTLR root document context
+   * @param rootVirtualPath            the POSIX-normalized virtual root file path
+   * @param normalizedVirtualWorkspace map of POSIX-normalized virtual paths to raw STVN contents
+   * @param diagnosticBag              the diagnostic accumulator
+   * @return the lowered {@link DefsLoweringResult}
+   */
+  public static DefsLoweringResult lowerForFlattener(
+      StvnParser.StvnDocumentContext doc,
+      String rootVirtualPath,
+      Map<String, String> normalizedVirtualWorkspace,
+      DiagnosticBag diagnosticBag
+  ) {
+    Objects.requireNonNull(doc, "doc must not be null");
+    Objects.requireNonNull(rootVirtualPath, "rootVirtualPath must not be null");
+    Objects.requireNonNull(normalizedVirtualWorkspace, "normalizedVirtualWorkspace must not be null");
+    Objects.requireNonNull(diagnosticBag, "diagnosticBag must not be null");
+
+    ModuleCompilationContext moduleCtx = new ModuleCompilationContext(
+        StvnParserConfig.DEFAULT, false, normalizedVirtualWorkspace, true
+    );
+    moduleCtx.activeVirtualPaths.add(rootVirtualPath);
+    moduleCtx.activeRawPaths.add(rootVirtualPath);
+    return lowerDocumentUnit(doc, rootVirtualPath, moduleCtx, diagnosticBag).toPublicResult();
+  }
+
+  /**
    * Lowers a standalone {@link StvnParser.SchemaTypeContext} against an already finalized {@link StvnDefsCatalog}.
    *
    * @param schemaCtx     the parsed schema type context
@@ -436,13 +465,28 @@ public final class StvnDefsLowerer {
   private static final class ModuleCompilationContext {
     final StvnParserConfig config;
     final boolean bootstrapPreludeMode;
+    final @Nullable Map<String, String> virtualWorkspace;
+    final boolean flattenerMode;
     final List<Path> activeCanonicalPaths = new ArrayList<>();
+    final List<String> activeVirtualPaths = new ArrayList<>();
     final List<String> activeRawPaths = new ArrayList<>();
     final Map<Path, CompiledUnit> compiledModuleCache = new HashMap<>();
+    final Map<String, CompiledUnit> compiledVirtualModuleCache = new HashMap<>();
 
     ModuleCompilationContext(StvnParserConfig config, boolean bootstrapPreludeMode) {
+      this(config, bootstrapPreludeMode, null, false);
+    }
+
+    ModuleCompilationContext(
+        StvnParserConfig config,
+        boolean bootstrapPreludeMode,
+        @Nullable Map<String, String> virtualWorkspace,
+        boolean flattenerMode
+    ) {
       this.config = config;
       this.bootstrapPreludeMode = bootstrapPreludeMode;
+      this.virtualWorkspace = virtualWorkspace;
+      this.flattenerMode = flattenerMode;
     }
 
     boolean isSystemAuthority() {
@@ -598,7 +642,7 @@ public final class StvnDefsLowerer {
       );
     }
 
-    boolean sectionsEligible = validateDocumentSectionEligibility(doc, docPath, identity, diagnosticBag);
+    boolean sectionsEligible = validateDocumentSectionEligibility(doc, docPath, identity, moduleCtx, diagnosticBag);
     if (!sectionsEligible) {
       return new CompiledUnit(
           identity.meta(),
@@ -701,7 +745,7 @@ public final class StvnDefsLowerer {
         ext != null ? StvnDocumentKind.fromExtension(ext) : Optional.empty();
 
     if (metaEntry == null) {
-      if (!fatalPathRejection && !moduleCtx.bootstrapPreludeMode && expectedKindOpt.isPresent()
+      if (!fatalPathRejection && !moduleCtx.bootstrapPreludeMode && !moduleCtx.flattenerMode && expectedKindOpt.isPresent()
           && (expectedKindOpt.get() == StvnDocumentKind.DEFS
               || expectedKindOpt.get() == StvnDocumentKind.DEFS_INCLUDE
               || expectedKindOpt.get() == StvnDocumentKind.BODY_INCLUDE
@@ -919,6 +963,7 @@ public final class StvnDefsLowerer {
       StvnParser.StvnDocumentContext doc,
       @Nullable String docPath,
       IdentityOutcome identity,
+      ModuleCompilationContext moduleCtx,
       DiagnosticBag diagnosticBag
   ) {
     var body = doc.documentBody();
@@ -965,7 +1010,7 @@ public final class StvnDefsLowerer {
         || (ext != null && (ext.equals(".stvn") || ext.equals(".stvn_b"))))
         && (ext == null || !ext.equals(".stvn_i"));
 
-    if (isHermeticBody && docPath != null && !docPath.isEmpty()) {
+    if (!moduleCtx.flattenerMode && isHermeticBody && docPath != null && !docPath.isEmpty()) {
       if (body.typeEntry() == null || body.bodyEntry() == null) {
         Token startTok = doc.getStart();
         int start = startTok != null ? Math.max(0, startTok.getStartIndex()) : 0;
@@ -1001,6 +1046,42 @@ public final class StvnDefsLowerer {
       }
     }
     return includePath;
+  }
+
+  private static String normalizeVirtualPath(String path) {
+    String posix = path.replace('\\', '/');
+    String[] parts = posix.split("/");
+    List<String> stack = new ArrayList<>();
+    for (String part : parts) {
+      String trimmed = part.trim();
+      if (trimmed.isEmpty() || ".".equals(trimmed)) {
+        continue;
+      }
+      if ("..".equals(trimmed)) {
+        if (!stack.isEmpty() && !"..".equals(stack.getLast())) {
+          stack.removeLast();
+        } else {
+          stack.add("..");
+        }
+      } else {
+        stack.add(trimmed);
+      }
+    }
+    String resolved = String.join("/", stack);
+    return posix.startsWith("/") ? "/" + resolved : resolved;
+  }
+
+  private static String resolveVirtualIncludePath(@Nullable String currentDocPath, String includePathStr) {
+    String posixInc = includePathStr.replace('\\', '/');
+    if (posixInc.startsWith("/") || currentDocPath == null || currentDocPath.isEmpty()) {
+      return normalizeVirtualPath(posixInc);
+    }
+    String normCurrent = normalizeVirtualPath(currentDocPath);
+    int lastSlash = normCurrent.lastIndexOf('/');
+    if (lastSlash < 0) {
+      return normalizeVirtualPath(posixInc);
+    }
+    return normalizeVirtualPath(normCurrent.substring(0, lastSlash) + "/" + posixInc);
   }
 
   // ===========================================================================
@@ -1658,90 +1739,43 @@ public final class StvnDefsLowerer {
           continue;
         }
 
-        Path resolvedPath = resolveIncludePath(docPath, pathVal);
-        Path canonicalPath = resolvedPath.toAbsolutePath().normalize();
+        CompiledUnit importedUnit;
+        if (moduleCtx.virtualWorkspace != null) {
+          String resolvedVirtual = resolveVirtualIncludePath(docPath, pathVal);
+          if (moduleCtx.activeVirtualPaths.contains(resolvedVirtual)) {
+            int cycleStart = moduleCtx.activeVirtualPaths.indexOf(resolvedVirtual);
+            List<String> rawSlice = new ArrayList<>();
+            List<String> canonicalSlice = new ArrayList<>();
+            for (int i = cycleStart + 1; i < moduleCtx.activeVirtualPaths.size(); i++) {
+              rawSlice.add(moduleCtx.activeRawPaths.get(i));
+              canonicalSlice.add(moduleCtx.activeVirtualPaths.get(i));
+            }
+            rawSlice.add(pathVal);
+            canonicalSlice.add(resolvedVirtual);
 
-        if (moduleCtx.activeCanonicalPaths.contains(canonicalPath)) {
-          int cycleStart = moduleCtx.activeCanonicalPaths.indexOf(canonicalPath);
-          List<String> rawSlice = new ArrayList<>();
-          List<String> canonicalSlice = new ArrayList<>();
-          for (int i = cycleStart + 1; i < moduleCtx.activeCanonicalPaths.size(); i++) {
-            rawSlice.add(moduleCtx.activeRawPaths.get(i));
-            canonicalSlice.add(moduleCtx.activeCanonicalPaths.get(i).toString());
-          }
-          rawSlice.add(pathVal);
-          canonicalSlice.add(canonicalPath.toString());
-
-          List<String> names = new ArrayList<>();
-          Path startFile = moduleCtx.activeCanonicalPaths.get(cycleStart);
-          names.add(startFile.getFileName() != null ? startFile.getFileName().toString() : startFile.toString());
-          for (String p : canonicalSlice) {
-            int ls = p.replace('\\', '/').lastIndexOf('/');
-            names.add(ls == -1 ? p : p.substring(ls + 1));
-          }
-          String trace = String.join(" -> ", names);
-          CyclicDependencyException cde = new CyclicDependencyException("Cycle detected: " + trace, rawSlice, canonicalSlice);
-          diagnosticBag.addErrorDual(
-              cde.getMessage(),
-              elemSpan.start(), elemSpan.end(), elemSpan.line(), elemSpan.column(),
-              cde,
-              "E007",
-              "CYCLIC_MODULE_INCLUDE"
-          );
-          continue;
-        }
-
-        if (incFileName.endsWith(".stvn") || incFileName.endsWith(".stvn_i") || incFileName.endsWith(".stvn_b")) {
-          String msg = "Invalid " + StvnVocabulary.KEYWORD_INCLUDE + " target '" + pathVal
-              + "': payload documents cannot be imported; target must be a definitions module (.stvn_d or .stvn_di)";
-          diagnosticBag.addError(
-              msg,
-              pathLitSpan.start(), pathLitSpan.end(), pathLitSpan.line(), pathLitSpan.column(),
-              null,
-              DiagnosticBag.ERR_MODULE_IMPORT
-          );
-          continue;
-        }
-
-        CompiledUnit importedUnit = moduleCtx.compiledModuleCache.get(canonicalPath);
-        if (importedUnit == null) {
-          String content;
-          try {
-            content = Files.readString(resolvedPath, StandardCharsets.UTF_8);
-          } catch (IOException ioe) {
-            diagnosticBag.addError(
-                "Failed to read include file: " + pathVal,
+            List<String> names = new ArrayList<>();
+            String startVirtual = moduleCtx.activeVirtualPaths.get(cycleStart);
+            int startSlash = startVirtual.lastIndexOf('/');
+            names.add(startSlash < 0 ? startVirtual : startVirtual.substring(startSlash + 1));
+            for (String p : canonicalSlice) {
+              int ls = p.lastIndexOf('/');
+              names.add(ls < 0 ? p : p.substring(ls + 1));
+            }
+            String trace = String.join(" -> ", names);
+            CyclicDependencyException cde = new CyclicDependencyException("Cycle detected: " + trace, rawSlice, canonicalSlice);
+            diagnosticBag.addErrorDual(
+                cde.getMessage(),
                 elemSpan.start(), elemSpan.end(), elemSpan.line(), elemSpan.column(),
-                ioe,
-                DiagnosticBag.ERR_MODULE_IMPORT
+                cde,
+                "E007",
+                "CYCLIC_MODULE_INCLUDE"
             );
             continue;
           }
 
-          var lexer = new StvnLexer(CharStreams.fromString(content));
-          lexer.removeErrorListeners();
-          var parser = new StvnParser(new CommonTokenStream(lexer));
-          parser.removeErrorListeners();
-          var childListener = StvnErrorListener.accumulating(diagnosticBag);
-          lexer.addErrorListener(childListener);
-          parser.addErrorListener(childListener);
-          parser.setErrorHandler(new StvnErrorStrategy());
-
-          StvnParser.StvnDocumentContext importedDocCtx = parser.stvnDocument();
-
-          moduleCtx.activeCanonicalPaths.add(canonicalPath);
-          moduleCtx.activeRawPaths.add(pathVal);
-          try {
-            importedUnit = lowerDocumentUnit(importedDocCtx, resolvedPath.toString(), moduleCtx, diagnosticBag);
-          } finally {
-            moduleCtx.activeCanonicalPaths.removeLast();
-            moduleCtx.activeRawPaths.removeLast();
-          }
-
-          StvnDocumentKind impKind = importedUnit.effectiveKind().orElse(null);
-          if (impKind == StvnDocumentKind.BODY || impKind == StvnDocumentKind.BODY_INCLUDE) {
+          if (incFileName.endsWith(".stvn") || incFileName.endsWith(".stvn_i") || incFileName.endsWith(".stvn_b")) {
             String msg = "Invalid " + StvnVocabulary.KEYWORD_INCLUDE + " target '" + pathVal
-                + "': document declares payload kind '" + impKind.keyword() + "'";
+                + "': payload documents cannot be imported; target must be a definitions module (.stvn_d or .stvn_di)";
             diagnosticBag.addError(
                 msg,
                 pathLitSpan.start(), pathLitSpan.end(), pathLitSpan.line(), pathLitSpan.column(),
@@ -1751,7 +1785,153 @@ public final class StvnDefsLowerer {
             continue;
           }
 
-          moduleCtx.compiledModuleCache.put(canonicalPath, importedUnit);
+          importedUnit = moduleCtx.compiledVirtualModuleCache.get(resolvedVirtual);
+          if (importedUnit == null) {
+            String content = moduleCtx.virtualWorkspace.get(resolvedVirtual);
+            if (content == null) {
+              IllegalArgumentException missingEx = new IllegalArgumentException(
+                  "Included module path not found in workspace: " + pathVal + " (resolved: " + resolvedVirtual + ")"
+              );
+              diagnosticBag.addError(
+                  missingEx.getMessage(),
+                  elemSpan.start(), elemSpan.end(), elemSpan.line(), elemSpan.column(),
+                  missingEx,
+                  DiagnosticBag.ERR_MODULE_IMPORT
+              );
+              continue;
+            }
+
+            var lexer = new StvnLexer(CharStreams.fromString(content));
+            lexer.removeErrorListeners();
+            var parser = new StvnParser(new CommonTokenStream(lexer));
+            parser.removeErrorListeners();
+            var childListener = StvnErrorListener.accumulating(diagnosticBag);
+            lexer.addErrorListener(childListener);
+            parser.addErrorListener(childListener);
+            parser.setErrorHandler(new StvnErrorStrategy());
+
+            StvnParser.StvnDocumentContext importedDocCtx = parser.stvnDocument();
+
+            moduleCtx.activeVirtualPaths.add(resolvedVirtual);
+            moduleCtx.activeRawPaths.add(pathVal);
+            try {
+              importedUnit = lowerDocumentUnit(importedDocCtx, resolvedVirtual, moduleCtx, diagnosticBag);
+            } finally {
+              moduleCtx.activeVirtualPaths.removeLast();
+              moduleCtx.activeRawPaths.removeLast();
+            }
+
+            StvnDocumentKind impKind = importedUnit.effectiveKind().orElse(null);
+            if (impKind == StvnDocumentKind.BODY || impKind == StvnDocumentKind.BODY_INCLUDE) {
+              String msg = "Invalid " + StvnVocabulary.KEYWORD_INCLUDE + " target '" + pathVal
+                  + "': document declares payload kind '" + impKind.keyword() + "'";
+              diagnosticBag.addError(
+                  msg,
+                  pathLitSpan.start(), pathLitSpan.end(), pathLitSpan.line(), pathLitSpan.column(),
+                  null,
+                  DiagnosticBag.ERR_MODULE_IMPORT
+              );
+              continue;
+            }
+
+            moduleCtx.compiledVirtualModuleCache.put(resolvedVirtual, importedUnit);
+          }
+        } else {
+          Path resolvedPath = resolveIncludePath(docPath, pathVal);
+          Path canonicalPath = resolvedPath.toAbsolutePath().normalize();
+
+          if (moduleCtx.activeCanonicalPaths.contains(canonicalPath)) {
+            int cycleStart = moduleCtx.activeCanonicalPaths.indexOf(canonicalPath);
+            List<String> rawSlice = new ArrayList<>();
+            List<String> canonicalSlice = new ArrayList<>();
+            for (int i = cycleStart + 1; i < moduleCtx.activeCanonicalPaths.size(); i++) {
+              rawSlice.add(moduleCtx.activeRawPaths.get(i));
+              canonicalSlice.add(moduleCtx.activeCanonicalPaths.get(i).toString());
+            }
+            rawSlice.add(pathVal);
+            canonicalSlice.add(canonicalPath.toString());
+
+            List<String> names = new ArrayList<>();
+            Path startFile = moduleCtx.activeCanonicalPaths.get(cycleStart);
+            names.add(startFile.getFileName() != null ? startFile.getFileName().toString() : startFile.toString());
+            for (String p : canonicalSlice) {
+              int ls = p.replace('\\', '/').lastIndexOf('/');
+              names.add(ls == -1 ? p : p.substring(ls + 1));
+            }
+            String trace = String.join(" -> ", names);
+            CyclicDependencyException cde = new CyclicDependencyException("Cycle detected: " + trace, rawSlice, canonicalSlice);
+            diagnosticBag.addErrorDual(
+                cde.getMessage(),
+                elemSpan.start(), elemSpan.end(), elemSpan.line(), elemSpan.column(),
+                cde,
+                "E007",
+                "CYCLIC_MODULE_INCLUDE"
+            );
+            continue;
+          }
+
+          if (incFileName.endsWith(".stvn") || incFileName.endsWith(".stvn_i") || incFileName.endsWith(".stvn_b")) {
+            String msg = "Invalid " + StvnVocabulary.KEYWORD_INCLUDE + " target '" + pathVal
+                + "': payload documents cannot be imported; target must be a definitions module (.stvn_d or .stvn_di)";
+            diagnosticBag.addError(
+                msg,
+                pathLitSpan.start(), pathLitSpan.end(), pathLitSpan.line(), pathLitSpan.column(),
+                null,
+                DiagnosticBag.ERR_MODULE_IMPORT
+            );
+            continue;
+          }
+
+          importedUnit = moduleCtx.compiledModuleCache.get(canonicalPath);
+          if (importedUnit == null) {
+            String content;
+            try {
+              content = Files.readString(resolvedPath, StandardCharsets.UTF_8);
+            } catch (IOException ioe) {
+              diagnosticBag.addError(
+                  "Failed to read include file: " + pathVal,
+                  elemSpan.start(), elemSpan.end(), elemSpan.line(), elemSpan.column(),
+                  ioe,
+                  DiagnosticBag.ERR_MODULE_IMPORT
+              );
+              continue;
+            }
+
+            var lexer = new StvnLexer(CharStreams.fromString(content));
+            lexer.removeErrorListeners();
+            var parser = new StvnParser(new CommonTokenStream(lexer));
+            parser.removeErrorListeners();
+            var childListener = StvnErrorListener.accumulating(diagnosticBag);
+            lexer.addErrorListener(childListener);
+            parser.addErrorListener(childListener);
+            parser.setErrorHandler(new StvnErrorStrategy());
+
+            StvnParser.StvnDocumentContext importedDocCtx = parser.stvnDocument();
+
+            moduleCtx.activeCanonicalPaths.add(canonicalPath);
+            moduleCtx.activeRawPaths.add(pathVal);
+            try {
+              importedUnit = lowerDocumentUnit(importedDocCtx, resolvedPath.toString(), moduleCtx, diagnosticBag);
+            } finally {
+              moduleCtx.activeCanonicalPaths.removeLast();
+              moduleCtx.activeRawPaths.removeLast();
+            }
+
+            StvnDocumentKind impKind = importedUnit.effectiveKind().orElse(null);
+            if (impKind == StvnDocumentKind.BODY || impKind == StvnDocumentKind.BODY_INCLUDE) {
+              String msg = "Invalid " + StvnVocabulary.KEYWORD_INCLUDE + " target '" + pathVal
+                  + "': document declares payload kind '" + impKind.keyword() + "'";
+              diagnosticBag.addError(
+                  msg,
+                  pathLitSpan.start(), pathLitSpan.end(), pathLitSpan.line(), pathLitSpan.column(),
+                  null,
+                  DiagnosticBag.ERR_MODULE_IMPORT
+              );
+              continue;
+            }
+
+            moduleCtx.compiledModuleCache.put(canonicalPath, importedUnit);
+          }
         }
 
         projectIncludedModule(
@@ -1785,35 +1965,61 @@ public final class StvnDefsLowerer {
         }
       }
 
+      Map<String, String> includeRenames = new LinkedHashMap<>();
+      for (String exportedKey : importedUnit.exportedTypes().keySet()) {
+        String strippedKey = sliceTerminal(exportedKey);
+        if (aliasMap.containsKey(exportedKey)) {
+          includeRenames.put(exportedKey, aliasMap.get(exportedKey));
+        } else if (hasStrip && aliasMap.containsKey(strippedKey)) {
+          includeRenames.put(exportedKey, aliasMap.get(strippedKey));
+        } else if (hasStrip && exportedKey.contains("/")) {
+          includeRenames.put(exportedKey, strippedKey);
+        }
+      }
+
       for (var entry : importedUnit.exportedTypes().entrySet()) {
         String originalFqni = entry.getKey();
         ExportedTypeSymbol sym = entry.getValue();
         boolean isPackaged = originalFqni.contains("/");
         String stripped = sliceTerminal(originalFqni);
+        StvnSchema baseSymSchema = includeRenames.isEmpty()
+            ? sym.schema()
+            : rewriteNestedChildAliases(sym.schema(), includeRenames);
+        ExportedTypeSymbol effectiveSym = baseSymSchema == sym.schema()
+            ? sym
+            : new ExportedTypeSymbol(sym.canonicalFqni(), baseSymSchema, sym.ledger(), sym.originModuleKey());
 
         if (aliasMap.containsKey(originalFqni) || (hasStrip && aliasMap.containsKey(stripped))) {
           String aliasRhs = aliasMap.containsKey(originalFqni)
               ? aliasMap.get(originalFqni)
               : aliasMap.get(stripped);
-          ExportedTypeSymbol projected = isPackaged
-              ? sym
-              : new ExportedTypeSymbol(aliasRhs, rebrandSchema(sym.schema(), Optional.of(aliasRhs)), sym.ledger(), sym.originModuleKey());
+          ExportedTypeSymbol projected = new ExportedTypeSymbol(
+              aliasRhs,
+              rebrandSchema(baseSymSchema, Optional.of(aliasRhs)),
+              sym.ledger(),
+              sym.originModuleKey()
+          );
           Map<String, List<ScopeClaim<ExportedTypeSymbol>>> dest =
               aliasRhs.contains("/") ? packagedTypeClaims : typeClaims;
           dest.computeIfAbsent(aliasRhs, k -> new ArrayList<>())
               .add(new ScopeClaim<>(aliasRhs, projected, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RENAMED_IMPORT_RHS));
           // Note: originalFqni is intentionally evicted from this include projection per Appendix F Scenarios 2 & 3!
+        } else if (isPackaged && hasStrip) {
+          ExportedTypeSymbol strippedSym = new ExportedTypeSymbol(
+              stripped,
+              rebrandSchema(baseSymSchema, Optional.of(stripped)),
+              sym.ledger(),
+              sym.originModuleKey()
+          );
+          typeClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
+              .add(new ScopeClaim<>(stripped, strippedSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
         } else if (isPackaged) {
           // Retain full FQNI in packagedImportPool for qualified :pkg/Name and :use [ :pkg ... ]
           packagedTypeClaims.computeIfAbsent(originalFqni, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(originalFqni, sym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
-          if (hasStrip) {
-            typeClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
-                .add(new ScopeClaim<>(stripped, sym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
-          }
+              .add(new ScopeClaim<>(originalFqni, effectiveSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
         } else {
           typeClaims.computeIfAbsent(originalFqni, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(originalFqni, sym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
+              .add(new ScopeClaim<>(originalFqni, effectiveSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
         }
       }
 
@@ -1822,17 +2028,28 @@ public final class StvnDefsLowerer {
         ExportedConstantSymbol sym = entry.getValue();
         boolean isPackaged = originalFqni.contains("/");
         String stripped = sliceTerminal(originalFqni);
-
-        if (isPackaged) {
-          packagedConstClaims.computeIfAbsent(originalFqni, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(originalFqni, sym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
-          if (hasStrip) {
-            constClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
-                .add(new ScopeClaim<>(stripped, sym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
+        ExportedConstantSymbol effectiveConstSym = sym;
+        if (!includeRenames.isEmpty()) {
+          StvnSchema rewrittenConstSchema = rewriteSchemaAliasesRecursive(sym.constant().schema(), includeRenames, true);
+          if (rewrittenConstSchema != sym.constant().schema()) {
+            String targetConstFqni = isPackaged && hasStrip ? stripped : sym.canonicalFqni();
+            effectiveConstSym = new ExportedConstantSymbol(
+                targetConstFqni,
+                new StvnDefsCatalog.StvnConstant(targetConstFqni, rewrittenConstSchema, sym.constant().value()),
+                sym.originModuleKey()
+            );
           }
+        }
+
+        if (isPackaged && hasStrip) {
+          constClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
+              .add(new ScopeClaim<>(stripped, effectiveConstSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
+        } else if (isPackaged) {
+          packagedConstClaims.computeIfAbsent(originalFqni, k -> new ArrayList<>())
+              .add(new ScopeClaim<>(originalFqni, effectiveConstSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
         } else {
           constClaims.computeIfAbsent(originalFqni, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(originalFqni, sym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
+              .add(new ScopeClaim<>(originalFqni, effectiveConstSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
         }
       }
     }
@@ -2125,6 +2342,120 @@ public final class StvnDefsLowerer {
       };
     }
 
+    static StvnSchema rewriteNestedChildAliases(StvnSchema schema, Map<String, String> renames) {
+      if (renames.isEmpty()) {
+        return schema;
+      }
+      return rewriteSchemaAliasesRecursive(schema, renames, false);
+    }
+
+    private static StvnSchema rewriteSchemaAliasesRecursive(
+        StvnSchema schema,
+        Map<String, String> renames,
+        boolean rewriteTopAlias
+    ) {
+      Optional<String> effectiveAlias = schema.aliasName();
+      if (rewriteTopAlias && effectiveAlias.isPresent() && renames.containsKey(effectiveAlias.get())) {
+        effectiveAlias = Optional.of(renames.get(effectiveAlias.get()));
+      }
+      return switch (schema) {
+        case StvnSchema.BooleanSchema s -> effectiveAlias.equals(s.aliasName())
+            ? s
+            : new StvnSchema.BooleanSchema(effectiveAlias, s.traits());
+        case StvnSchema.IntSchema s -> effectiveAlias.equals(s.aliasName())
+            ? s
+            : new StvnSchema.IntSchema(
+                effectiveAlias, s.unsigned(), s.bitWidth(), s.traits(), s.explicitMinIncl(), s.explicitMaxExcl()
+            );
+        case StvnSchema.FloatSchema s -> effectiveAlias.equals(s.aliasName())
+            ? s
+            : new StvnSchema.FloatSchema(
+                effectiveAlias, s.representation(), s.exactMaxDigits(), s.traits(), s.lowerBound(), s.upperBound()
+            );
+        case StvnSchema.StringSchema s -> effectiveAlias.equals(s.aliasName())
+            ? s
+            : new StvnSchema.StringSchema(
+                effectiveAlias, s.minSize(), s.maxSize(), s.traits(), s.lowerBound(), s.upperBound(),
+                s.preserveIndent(), s.compiledRegex(), s.rawRegexPattern()
+            );
+        case StvnSchema.TimeEpochSchema s -> effectiveAlias.equals(s.aliasName())
+            ? s
+            : new StvnSchema.TimeEpochSchema(
+                effectiveAlias, s.scale(), s.traits(), s.explicitMinIncl(), s.explicitMaxExcl()
+            );
+        case StvnSchema.DateTimeSchema s -> effectiveAlias.equals(s.aliasName())
+            ? s
+            : new StvnSchema.DateTimeSchema(
+                effectiveAlias, s.mode(), s.traits(), s.explicitMinInclIso(), s.explicitMaxExclIso()
+            );
+        case StvnSchema.EnumSchema s -> effectiveAlias.equals(s.aliasName())
+            ? s
+            : new StvnSchema.EnumSchema(effectiveAlias, s.rootVariants(), s.traits());
+        case StvnSchema.EnumSubsetSchema s -> new StvnSchema.EnumSubsetSchema(
+            effectiveAlias,
+            rewriteSchemaAliasesRecursive(s.parentEnum(), renames, true),
+            (StvnSchema.EnumSchema) rewriteSchemaAliasesRecursive(s.rootEnum(), renames, true),
+            s.activeVariants(),
+            s.inclusiveFilter(),
+            s.declaredFilterList(),
+            s.traits()
+        );
+        case StvnSchema.TupleSchema s -> {
+          List<StvnSchema> rewrittenFields = new ArrayList<>(s.fieldSchemas().size());
+          for (StvnSchema f : s.fieldSchemas()) {
+            rewrittenFields.add(rewriteSchemaAliasesRecursive(f, renames, true));
+          }
+          yield new StvnSchema.TupleSchema(effectiveAlias, rewrittenFields, s.traits());
+        }
+        case StvnSchema.OptionSchema s -> new StvnSchema.OptionSchema(
+            effectiveAlias,
+            rewriteSchemaAliasesRecursive(s.valueSchema(), renames, true),
+            s.traits()
+        );
+        case StvnSchema.EitherSchema s -> new StvnSchema.EitherSchema(
+            effectiveAlias,
+            rewriteSchemaAliasesRecursive(s.leftSchema(), renames, true),
+            rewriteSchemaAliasesRecursive(s.rightSchema(), renames, true),
+            s.traits()
+        );
+        case StvnSchema.UnionSchema s -> {
+          List<StvnSchema> rewrittenBranches = new ArrayList<>(s.branchSchemas().size());
+          for (StvnSchema b : s.branchSchemas()) {
+            rewrittenBranches.add(rewriteSchemaAliasesRecursive(b, renames, true));
+          }
+          yield new StvnSchema.UnionSchema(effectiveAlias, rewrittenBranches, s.traits());
+        }
+        case StvnSchema.SeqSchema s -> new StvnSchema.SeqSchema(
+            effectiveAlias,
+            s.minSize(),
+            s.maxSize(),
+            rewriteSchemaAliasesRecursive(s.elementSchema(), renames, true),
+            s.traits()
+        );
+        case StvnSchema.SetSchema s -> new StvnSchema.SetSchema(
+            effectiveAlias,
+            s.minSize(),
+            s.maxSize(),
+            rewriteSchemaAliasesRecursive(s.elementSchema(), renames, true),
+            s.traits()
+        );
+        case StvnSchema.MapSchema s -> new StvnSchema.MapSchema(
+            effectiveAlias,
+            s.invertible(),
+            s.minSize(),
+            s.maxSize(),
+            rewriteSchemaAliasesRecursive(s.keySchema(), renames, true),
+            rewriteSchemaAliasesRecursive(s.valueSchema(), renames, true),
+            s.traits()
+        );
+        case StvnSchema.PoisonedSchema s -> effectiveAlias.equals(s.aliasName())
+            ? s
+            : new StvnSchema.PoisonedSchema(
+                effectiveAlias, s.primaryDiagnosticCode(), s.bestEffortFallback(), s.traits()
+            );
+      };
+    }
+
     Optional<StvnSchema> findLoweredNominalSchema(String fqni) {
       LoweredSchemaBundle local = loweredTypes.get(fqni);
       if (local != null) {
@@ -2356,7 +2687,7 @@ public final class StvnDefsLowerer {
         diagnosticBag.addError(
             msg,
             sp.start(), sp.end(), sp.line(), sp.column(),
-            new StvnTypeResolver.CircularReferenceException(msg),
+            new CircularReferenceException(msg),
             DiagnosticBag.ERR_CIRCULAR_TYPE
         );
         return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE));
@@ -2428,7 +2759,7 @@ public final class StvnDefsLowerer {
         diagnosticBag.addError(
             msg,
             sp.start(), sp.end(), sp.line(), sp.column(),
-            new StvnTypeResolver.CircularReferenceException(msg),
+            new CircularReferenceException(msg),
             DiagnosticBag.ERR_CIRCULAR_TYPE
         );
         registerPoisonedType(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE);
@@ -3512,13 +3843,69 @@ public final class StvnDefsLowerer {
         }
       }
 
-      boolean eqOverridden = childEquatable != null && childEquatable != defaultEq;
-      boolean compOverridden = childComparable != null && childComparable != defaultComp;
+      boolean hasEnumFilter = filterInclCtx != null || filterExclCtx != null;
+      boolean intrinsicRootEq = switch (baseSchema) {
+        case StvnSchema.BooleanSchema ignored -> true;
+        case StvnSchema.IntSchema ignored -> true;
+        case StvnSchema.FloatSchema ignored -> effectiveExactFloat;
+        case StvnSchema.StringSchema ignored -> true;
+        case StvnSchema.TimeEpochSchema ignored -> true;
+        case StvnSchema.DateTimeSchema ignored -> true;
+        case StvnSchema.EnumSchema en -> hasEnumFilter ? en.traits().equatable() : true;
+        case StvnSchema.EnumSubsetSchema sub -> hasEnumFilter
+            ? sub.traits().equatable()
+            : sub.parentEnum().traits().equatable();
+        case StvnSchema.TupleSchema tup -> tup.fieldSchemas().stream().allMatch(f -> f.traits().equatable());
+        case StvnSchema.OptionSchema opt -> opt.valueSchema().traits().equatable();
+        case StvnSchema.EitherSchema eith ->
+            eith.leftSchema().traits().equatable() && eith.rightSchema().traits().equatable();
+        case StvnSchema.UnionSchema un -> un.branchSchemas().stream().allMatch(b -> b.traits().equatable());
+        case StvnSchema.SeqSchema seq -> seq.elementSchema().traits().equatable();
+        case StvnSchema.SetSchema set -> set.elementSchema().traits().equatable();
+        case StvnSchema.MapSchema map -> (map.invertible() || childInvertible)
+            ? (map.keySchema().traits().equatable() && map.valueSchema().traits().equatable())
+            : map.keySchema().traits().equatable();
+        case StvnSchema.PoisonedSchema p -> p.traits().equatable();
+      };
+      boolean intrinsicRootComp = switch (baseSchema) {
+        case StvnSchema.BooleanSchema ignored -> true;
+        case StvnSchema.IntSchema ignored -> true;
+        case StvnSchema.FloatSchema ignored -> true;
+        case StvnSchema.StringSchema ignored -> true;
+        case StvnSchema.TimeEpochSchema ignored -> true;
+        case StvnSchema.DateTimeSchema ignored -> true;
+        case StvnSchema.EnumSchema en -> hasEnumFilter ? en.traits().comparable() : true;
+        case StvnSchema.EnumSubsetSchema sub -> hasEnumFilter
+            ? sub.traits().comparable()
+            : sub.parentEnum().traits().comparable();
+        case StvnSchema.TupleSchema tup -> tup.fieldSchemas().stream().allMatch(f -> f.traits().comparable());
+        case StvnSchema.OptionSchema opt -> opt.valueSchema().traits().comparable();
+        case StvnSchema.EitherSchema eith ->
+            eith.leftSchema().traits().comparable() && eith.rightSchema().traits().comparable();
+        case StvnSchema.UnionSchema un -> un.branchSchemas().stream().allMatch(b -> b.traits().comparable());
+        case StvnSchema.SeqSchema seq -> seq.elementSchema().traits().comparable();
+        case StvnSchema.SetSchema ignored -> false;
+        case StvnSchema.MapSchema ignored -> false;
+        case StvnSchema.PoisonedSchema p -> p.traits().comparable();
+      };
+      Optional<Boolean> normExplicitEq = (finalEq != intrinsicRootEq)
+          ? Optional.of(finalEq)
+          : Optional.empty();
+      Optional<Boolean> normExplicitComp;
+      if (finalComp == intrinsicRootComp) {
+        normExplicitComp = Optional.empty();
+      } else if (childComparable != null) {
+        normExplicitComp = Optional.of(finalComp);
+      } else {
+        boolean resolvedComp = finalComp;
+        normExplicitComp = baseSchema.traits().explicitComparableOverride()
+            .filter(inherited -> inherited == resolvedComp);
+      }
       TraitProfile finalTraits = new TraitProfile(
           finalEq,
           finalComp,
-          eqOverridden ? Optional.of(finalEq) : baseSchema.traits().explicitEquatableOverride(),
-          compOverridden ? Optional.of(finalComp) : baseSchema.traits().explicitComparableOverride()
+          normExplicitEq,
+          normExplicitComp
       );
 
       // Now specialize & validate domain constraints per concrete schema family + W003 tautology purging!

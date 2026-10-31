@@ -1139,7 +1139,14 @@ public final class StvnPayloadLowerer {
     };
   }
 
-  private static Object canonicalEqualityKey(StvnValue value) {
+  /**
+   * Computes a normalized structural equality key for an {@link StvnValue} node in accordance with
+   * STVN 2.0.0 set/map key uniqueness and invertible map value uniqueness semantics.
+   *
+   * @param value the lowered pure-IR value
+   * @return an immutable value-based key implementing {@link Object#equals} and {@link Object#hashCode}
+   */
+  public static Object canonicalEqualityKey(StvnValue value) {
     return switch (value) {
       case StvnValue.StvnBoolean b -> Boolean.valueOf(b.value());
       case StvnValue.StvnInt i -> i.value();
@@ -1522,6 +1529,10 @@ public final class StvnPayloadLowerer {
           innerVal = evaluateNext(innerQueue, optionSchema.valueSchema());
         } catch (LoweringAbortException e) {
           innerVal = new StvnErrorValue(optionSchema.valueSchema(), e.diagnostic());
+        } finally {
+          while (!innerQueue.isEmpty()) {
+            queue.addFirst(innerQueue.removeLast());
+          }
         }
         return new StvnValue.StvnOption(optionSchema, Optional.of(innerVal));
       }
@@ -1571,6 +1582,10 @@ public final class StvnPayloadLowerer {
           branchVal = evaluateNext(branchQueue, branchSchema);
         } catch (LoweringAbortException e) {
           branchVal = new StvnErrorValue(branchSchema, e.diagnostic());
+        } finally {
+          while (!branchQueue.isEmpty()) {
+            queue.addFirst(branchQueue.removeLast());
+          }
         }
         return new StvnValue.StvnEither(
             eitherSchema,
@@ -1688,6 +1703,10 @@ public final class StvnPayloadLowerer {
           branchVal = evaluateNext(branchQueue, selectedSchema);
         } catch (LoweringAbortException e) {
           branchVal = new StvnErrorValue(selectedSchema, e.diagnostic());
+        } finally {
+          while (!branchQueue.isEmpty()) {
+            queue.addFirst(branchQueue.removeLast());
+          }
         }
         return new StvnValue.StvnUnion(unionSchema, oneBased, branchVal);
       }
@@ -2494,14 +2513,20 @@ public final class StvnPayloadLowerer {
                 new MalformedPayloadException(msg, span.start(), span.end(), e),
                 "E028", DiagnosticBag.ERR_TYPE_MISMATCH);
           }
-          validateDateTimeBounds(odt.toInstant(), isoText, dtSchema, label, span);
+          String canonicalIso = StvnLiteralParser.formatCanonicalDateTime(
+              DateTimeMode.OFFSET,
+              odt.toLocalDateTime(),
+              Optional.of(odt.getOffset()),
+              Optional.empty()
+          );
+          validateDateTimeBounds(odt.toInstant(), canonicalIso, dtSchema, label, span);
           yield new StvnValue.StvnDateTime(
               dtSchema,
               DateTimeMode.OFFSET,
               odt.toLocalDateTime(),
               Optional.of(odt.getOffset()),
               Optional.empty(),
-              isoText
+              canonicalIso
           );
         }
         case ZONED -> {
@@ -2545,15 +2570,20 @@ public final class StvnPayloadLowerer {
                 new MalformedPayloadException(msg, span.start(), span.end()),
                 "E022", DiagnosticBag.ERR_TEMPORAL_DST_GAP_LITERAL);
           }
-          String isoText = rawText.substring(1, rawText.length() - 1);
-          validateDateTimeBounds(ldt.atZone(zoneId).toInstant(), isoText, dtSchema, label, span);
+          String canonicalIso = StvnLiteralParser.formatCanonicalDateTime(
+              DateTimeMode.ZONED,
+              ldt,
+              Optional.empty(),
+              Optional.of(zoneId)
+          );
+          validateDateTimeBounds(ldt.atZone(zoneId).toInstant(), canonicalIso, dtSchema, label, span);
           yield new StvnValue.StvnDateTime(
               dtSchema,
               DateTimeMode.ZONED,
               ldt,
               Optional.empty(),
               Optional.of(zoneId),
-              isoText
+              canonicalIso
           );
         }
         case AUDITED -> {
@@ -2599,15 +2629,20 @@ public final class StvnPayloadLowerer {
                 new MalformedPayloadException(msg, span.start(), span.end()),
                 "E021", DiagnosticBag.ERR_TEMPORAL_AUDITED_MISMATCH);
           }
-          String isoText = rawText.substring(1, rawText.length() - 1);
-          validateDateTimeBounds(odt.toInstant(), isoText, dtSchema, label, span);
+          String canonicalIso = StvnLiteralParser.formatCanonicalDateTime(
+              DateTimeMode.AUDITED,
+              ldt,
+              Optional.of(odt.getOffset()),
+              Optional.of(zoneId)
+          );
+          validateDateTimeBounds(odt.toInstant(), canonicalIso, dtSchema, label, span);
           yield new StvnValue.StvnDateTime(
               dtSchema,
               DateTimeMode.AUDITED,
               ldt,
               Optional.of(odt.getOffset()),
               Optional.of(zoneId),
-              isoText
+              canonicalIso
           );
         }
       };

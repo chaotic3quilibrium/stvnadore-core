@@ -2,7 +2,8 @@ import org.jspecify.annotations.NullMarked;
 
 /**
  * The main module for the STVN (Strongly Typed Value Notation) core library.
- * Provides compilation, validation, printing, and mapping capabilities for STVN documents.
+ * Provides compilation, validation, printing, binary encoding/decoding, and mapping capabilities
+ * for STVN 2.0.0 documents.
  */
 @SuppressWarnings({"requires-automatic", "requires-transitive-automatic"})
 @NullMarked
@@ -10,7 +11,6 @@ module org.stvnadore.core {
     requires transitive static org.jspecify;
 
     exports org.stvnadore.core;
-    exports org.stvnadore.core.ast;
     exports org.stvnadore.core.stdlib;
     exports org.stvnadore.core.validation;
     exports org.stvnadore.core.ir;

@@ -2,143 +2,85 @@ package org.stvnadore.core.validation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.stvnadore.core.parser.StvnParser;
-import java.util.Optional;
-import java.util.Set;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.HashSet;
+import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.ir.StvnDefsCatalog;
+import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.lowering.StvnDefsLowerer;
 
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * Pure-IR plugin boundary null-safety and fail-closed contract tests replacing the excised 1.x {@code StvnTypeResolver} boundary tests.
+ */
 class StvnTypeResolverPluginBoundaryTest {
 
   @Test
-  void test_getDocumentDefinitions() {
-    StvnTypeResolver.getDocumentDefinitions(null);
+  void testReservedNamespacePredicatesHandleNullSafely() {
+    Assertions.assertFalse(StvnDefsLowerer.isReservedPackage(null));
+    Assertions.assertFalse(StvnDefsLowerer.isReservedDomain(null));
+    Assertions.assertFalse(StvnDefsLowerer.isReservedConstant(null));
+    Assertions.assertTrue(StvnDefsLowerer.isReservedPackage(":org/stvnadore/prelude"));
+    Assertions.assertTrue(StvnDefsLowerer.isReservedDomain("stvn_core"));
+    Assertions.assertTrue(StvnDefsLowerer.isReservedConstant("#org/stvnadore/prelude/PI"));
   }
 
   @Test
-  void test_extractConstraints() {
-    StvnTypeResolver.extractConstraints(null);
+  void testSliceTerminalPreservesLeadingSigils() {
+    Assertions.assertEquals(":MyType", StvnDefsLowerer.sliceTerminal(":pkg/sub/MyType"));
+    Assertions.assertEquals("#MY_CONST", StvnDefsLowerer.sliceTerminal("#pkg/sub/MY_CONST"));
+    Assertions.assertEquals(":RootType", StvnDefsLowerer.sliceTerminal(":RootType"));
   }
 
   @Test
-  void test_findDefInDocument() {
-    StvnTypeResolver.findDefInDocument(null, "");
+  void testStvnCompilerNullGuards() {
+    Assertions.assertThrows(NullPointerException.class, () -> StvnCompiler.compile((String) null));
+    Assertions.assertThrows(NullPointerException.class, () -> StvnCompiler.compile("{}", null, null));
+    Assertions.assertThrows(NullPointerException.class, () -> StvnCompiler.compileToResult((String) null));
+    Assertions.assertThrows(NullPointerException.class, () -> StvnCompiler.analyze(null));
+    Assertions.assertThrows(NullPointerException.class, () -> StvnCompiler.analyze("{}", null, null));
+    Assertions.assertThrows(NullPointerException.class, () -> StvnCompiler.hasErrorNodes(null));
   }
 
   @Test
-  void test_findAllDefinitions() {
-    StvnTypeResolver.findAllDefinitions(null, "");
+  void testStvnDefsCatalogNullGuards() {
+    Assertions.assertThrows(NullPointerException.class, () -> new StvnDefsCatalog(null, Map.of()));
+    Assertions.assertThrows(NullPointerException.class, () -> new StvnDefsCatalog(Map.of(), null));
+    Assertions.assertThrows(NullPointerException.class, () -> StvnDefsCatalog.EMPTY.findType(null));
+    Assertions.assertThrows(NullPointerException.class, () -> StvnDefsCatalog.EMPTY.findConstant(null));
+    Assertions.assertEquals(Optional.empty(), StvnDefsCatalog.EMPTY.findType(":Missing"));
+    Assertions.assertEquals(Optional.empty(), StvnDefsCatalog.EMPTY.findConstant("#MISSING"));
   }
 
   @Test
-  void test_findTypeDefinition() {
-    StvnTypeResolver.findTypeDefinition(null, "");
+  void testStvnDocumentNullGuards() {
+    Assertions.assertThrows(
+        NullPointerException.class,
+        () -> new StvnDocument(null, StvnDefsCatalog.EMPTY, Optional.empty(), Optional.empty(), false, false)
+    );
+    Assertions.assertThrows(
+        NullPointerException.class,
+        () -> new StvnDocument(Optional.empty(), null, Optional.empty(), Optional.empty(), false, false)
+    );
+    Assertions.assertThrows(
+        NullPointerException.class,
+        () -> new StvnDocument(Optional.empty(), StvnDefsCatalog.EMPTY, null, Optional.empty(), false, false)
+    );
+    Assertions.assertThrows(
+        NullPointerException.class,
+        () -> new StvnDocument(Optional.empty(), StvnDefsCatalog.EMPTY, Optional.empty(), null, false, false)
+    );
   }
 
   @Test
-  void test_resolvePrimitiveSchema() {
-    StvnTypeResolver.resolvePrimitiveSchema(null, null, new HashSet<>());
-  }
+  void testEmptyAndRecoveredPluginCompilationNeverThrows() {
+    var emptyRes = StvnCompiler.compileToResult("{}", null, StvnParserConfig.DEFAULT);
+    Assertions.assertFalse(emptyRes.hasErrors());
+    Assertions.assertTrue(emptyRes.document().isEmpty());
 
-  @Test
-  void test_applyDefaults() {
-    Assertions.assertThrows(MalformedSchemaException.class, () -> {
-      StvnTypeResolver.applyDefaults(null);
-    });
-  }
-
-  @Test
-  void test_deriveAndApplyTraits() {
-    Assertions.assertThrows(MalformedSchemaException.class, () -> {
-      StvnTypeResolver.deriveAndApplyTraits(null, new ArrayList<>());
-    });
-  }
-
-  @Test
-  void test_getPrimitiveBaseType() {
-    StvnTypeResolver.getPrimitiveBaseType(null);
-  }
-
-  @Test
-  void test_resolveSchemaNode() {
-    StvnTypeResolver.resolveSchemaNode(null, null);
-  }
-
-  @Test
-  void test_isSameSchemaNode() {
-    StvnTypeResolver.isSameSchemaNode(null, null, null);
-  }
-
-  @Test
-  void test_canMatch() {
-    StvnTypeResolver.canMatch(null, null, StvnTypeResolver.LiteralType.STRING_LITERAL, "");
-  }
-
-  @Test
-  void test_isValidSchemaType() {
-    StvnTypeResolver.isValidSchemaType(null);
-  }
-
-  @Test
-  void test_getInnerSchemas() {
-    Assertions.assertThrows(MalformedSchemaException.class, () -> {
-      StvnTypeResolver.getInnerSchemas(null);
-    });
-  }
-
-  @Test
-  void test_resolveCandidateSchemas() {
-    StvnTypeResolver.resolveCandidateSchemas(null, null);
-  }
-
-  @Test
-  void test_isAncestor() {
-    StvnTypeResolver.isAncestor(null, null);
-  }
-
-  @Test
-  void test_validateDocumentConstraints() {
-    StvnTypeResolver.validateDocumentConstraints(null);
-  }
-
-  @Test
-  void test_validateTypeDefinition() {
-    Assertions.assertThrows(MalformedSchemaException.class, () -> {
-      StvnTypeResolver.validateTypeDefinition(null, null);
-    });
-  }
-
-  @Test
-  void test_findAliasNameForSchemaType() {
-    StvnTypeResolver.findAliasNameForSchemaType(null, null);
-  }
-
-  @Test
-  void test_DefSourceConstructor() {
-    Assertions.assertThrows(MalformedSchemaException.class, () -> {
-      new StvnTypeResolver.DefSource(null, "module");
-    });
-  }
-
-  @Test
-  void test_ResolvedSchemaConstructor1() {
-    Assertions.assertThrows(NullPointerException.class, () -> {
-      new StvnTypeResolver.ResolvedSchema(null, StvnTypeResolver.StvnConstraints.empty(), Optional.empty());
-    });
-  }
-
-  @Test
-  void test_ResolvedSchemaConstructor2() {
-    Assertions.assertThrows(NullPointerException.class, () -> {
-      new StvnTypeResolver.ResolvedSchema(null, StvnTypeResolver.StvnConstraints.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-    });
-  }
-
-  @Test
-  void test_StvnConstraintsMerge() {
-    Assertions.assertThrows(MalformedSchemaException.class, () -> {
-      StvnTypeResolver.StvnConstraints.empty().merge(null);
-    });
+    var malformedRes = StvnCompiler.compileToResult("{ :type :UnknownPluginType :body 1 }", null, StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(malformedRes.hasErrors());
+    Assertions.assertFalse(malformedRes.diagnostics().isEmpty());
   }
 }

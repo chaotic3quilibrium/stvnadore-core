@@ -4,9 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
-
-import java.util.HashSet;
-import java.util.Optional;
+import org.stvnadore.core.ir.StvnSchema;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,14 +33,9 @@ public class StvnMapTraitCalculusTest {
     assertFalse(result.hasErrors(), "Standard :Map(:String :Float) must compile cleanly with zero diagnostics: " + result.diagnostics());
     assertEquals(0, result.diagnostics().size(), "Diagnostics count must be zero");
 
-    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
-    var defs = StvnTypeResolver.getDocumentDefinitions(doc);
-    var mapDef = defs.get(":FloatMap");
-    var rsOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, mapDef.defNode().schemaType(), new HashSet<>());
-    assertTrue(rsOpt.isPresent());
-    var rs = rsOpt.get();
-    assertEquals(Optional.of(true), rs.constraints().equatable(), "Standard :Map(:String :Float) equatable trait must be true (derived strictly from key)");
-    assertEquals(Optional.of(false), rs.constraints().comparable(), "Standard :Map(:String :Float) comparable trait must be false");
+    StvnSchema mapSchema = result.document().orElseThrow().defs().findType(":FloatMap").orElseThrow();
+    assertTrue(mapSchema.traits().equatable(), "Standard :Map(:String :Float) equatable trait must be true (derived strictly from key)");
+    assertFalse(mapSchema.traits().comparable(), "Standard :Map(:String :Float) comparable trait must be false");
   }
 
   @Test
@@ -83,14 +76,9 @@ public class StvnMapTraitCalculusTest {
     assertFalse(result.hasErrors(), "Invertible map with exact decimal float values must compile cleanly: " + result.diagnostics());
     assertEquals(0, result.diagnostics().size(), "Diagnostics count must be zero");
 
-    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
-    var defs = StvnTypeResolver.getDocumentDefinitions(doc);
-    var mapDef = defs.get(":InvExactMap");
-    var rsOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, mapDef.defNode().schemaType(), new HashSet<>());
-    assertTrue(rsOpt.isPresent());
-    var rs = rsOpt.get();
-    assertEquals(Optional.of(true), rs.constraints().equatable(), "Invertible map with exact float values equatable trait must be true");
-    assertEquals(Optional.of(false), rs.constraints().comparable(), "Invertible map comparable trait must be false");
+    StvnSchema mapSchema = result.document().orElseThrow().defs().findType(":InvExactMap").orElseThrow();
+    assertTrue(mapSchema.traits().equatable(), "Invertible map with exact float values equatable trait must be true");
+    assertFalse(mapSchema.traits().comparable(), "Invertible map comparable trait must be false");
   }
 
   @Test
@@ -108,14 +96,9 @@ public class StvnMapTraitCalculusTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertFalse(result.hasErrors(), "Invertible map with int values must compile cleanly: " + result.diagnostics());
 
-    var doc = StvnCompiler.parse(source, StvnParserConfig.DEFAULT);
-    var defs = StvnTypeResolver.getDocumentDefinitions(doc);
-    var mapDef = defs.get(":InvMap");
-    var rsOpt = StvnTypeResolver.resolvePrimitiveSchema(doc, mapDef.defNode().schemaType(), new HashSet<>());
-    assertTrue(rsOpt.isPresent());
-    var rs = rsOpt.get();
-    assertEquals(Optional.of(true), rs.constraints().equatable(), "Invertible map equatable trait must be true");
-    assertEquals(Optional.of(false), rs.constraints().comparable(), "Invertible map comparable trait must be false");
+    StvnSchema mapSchema = result.document().orElseThrow().defs().findType(":InvMap").orElseThrow();
+    assertTrue(mapSchema.traits().equatable(), "Invertible map equatable trait must be true");
+    assertFalse(mapSchema.traits().comparable(), "Invertible map comparable trait must be false");
   }
 
   @Test
@@ -163,7 +146,6 @@ public class StvnMapTraitCalculusTest {
         "Expected ERR_DUPLICATE_INVERTED_MAP_VALUE but got: " + result.diagnostics()
     );
   }
-
 
   @Test
   @DisplayName("TC-MAP-07: Dual key and value violation in invertible map accumulates with exact pinning")
