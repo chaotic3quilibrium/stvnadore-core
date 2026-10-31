@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "binary_crc32c_payload_tampered"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E028 #MALFORMED_PAYLOAD #ERROR 1 1 0 132 "CRC-32C trailer mismatch: payload corrupted or truncated" )
+  ]
+}

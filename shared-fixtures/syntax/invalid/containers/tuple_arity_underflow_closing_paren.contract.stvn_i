@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "tuple_arity_underflow_closing_paren"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E028 #TUPLE_ARITY_MISMATCH #ERROR 14 22 373 374 "Tuple arity mismatch: Expected 3 elements, got 2" )
+  ]
+}

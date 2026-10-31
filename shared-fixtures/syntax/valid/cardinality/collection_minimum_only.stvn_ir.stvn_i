@@ -10,13 +10,13 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":NonEmptySequence" ( "{#minSize1}:Seq(:String)" ":NonEmptySequence" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( "{#minSize1}:Seq(:String)" ":NonEmptySequence" ( #TRUE #TRUE ) ) ]
+      [ ":NonEmptySequence" ( "{#minSize 1}:Seq(:String)" ":NonEmptySequence" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#minSize 1}:Seq(:String)" ":NonEmptySequence" ( #TRUE #TRUE ) ) ]
     }
-    #12 ( #TRUE [
-      #4 "alpha"
-      #4 "beta"
-      #4 "gamma"
-    ] )
+    #15 [
+      #5 "alpha"
+      #5 "beta"
+      #5 "gamma"
+    ]
   )
 }

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "inline_metadata_incompatible_facet"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 5 27 147 163 "Constraint violation (<:type>): facet '#regex' is not permitted on :Int; permitted facets: [#comparable, #equatable, #maxExcl, #minIncl, #size, #unsigned]" )
+  ]
+}

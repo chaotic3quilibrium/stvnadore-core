@@ -4,14 +4,14 @@
 // FIXTURE-ID:         val_sat_set
 // TARGET-TYPE:        :Set
 // COVERAGE-KIND:      SATURATED_VALID
-// DESCRIPTION:        Saturated Set with traits and size boundaries
+// DESCRIPTION:        Saturated Set with opt-in #comparable trait and size boundaries
 // ==============================================================================
 {
   :defs {
     :SaturatedSet {
       #minSize 1
       #maxSize 10
-      #equatable #TRUE
+      #comparable #TRUE
     } :Set( :Int )
   }
   :type :SaturatedSet

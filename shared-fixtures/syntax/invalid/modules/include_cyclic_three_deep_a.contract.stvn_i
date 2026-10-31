@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "include_cyclic_three_deep_a"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E007 #CYCLIC_MODULE_INCLUDE #ERROR 8 7 111 147 "Cycle detected: include_cyclic_three_deep_a.stvn_i -> include_cyclic_three_deep_b.stvn_di -> include_cyclic_three_deep_c.stvn_di -> include_cyclic_three_deep_a.stvn_i" )
+  ]
+}

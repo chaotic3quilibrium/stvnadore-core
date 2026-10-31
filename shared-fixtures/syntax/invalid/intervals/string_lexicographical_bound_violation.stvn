@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "string_lexicographical_bound_violation"
+    #kind #BODY
+  }
+  :defs {
+    :FirstHalfAlpha { #minIncl "A" #maxExcl "N" } :String
+  }
+  :type :Seq( :FirstHalfAlpha )
+  :body [ "APPLE" "ZEBRA" "MANGO" ]
+}

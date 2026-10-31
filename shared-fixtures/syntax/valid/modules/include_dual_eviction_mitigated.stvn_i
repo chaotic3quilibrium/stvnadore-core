@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "include_dual_eviction_mitigated"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [
+      "../../invalid/modules/module_dual_a.stvn_di" { :ConflictType :RecordA }
+      "../../invalid/modules/module_dual_b.stvn_di" { :ConflictType :RecordB }
+    ]
+    :MergedPair :Tuple( :RecordA :RecordB )
+  }
+  :type :MergedPair
+  :body ( 100 "two-hundred" )
+}

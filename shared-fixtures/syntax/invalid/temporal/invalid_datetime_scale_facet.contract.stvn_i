@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "invalid_datetime_scale_facet"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 10 32 250 253 "Constraint violation (:TradeTimestamp): facet '#us' is not permitted on :DateTime; permitted facets: [#audited, #comparable, #equatable, #maxExcl, #minIncl, #offset, #zoned]" )
+  ]
+}

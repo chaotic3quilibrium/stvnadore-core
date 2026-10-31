@@ -12,11 +12,11 @@
     {
       [ "<:type>" ( ":Seq(:Boolean)" "" ( #TRUE #TRUE ) ) ]
     }
-    #12 ( #FALSE [
+    #15 [
       #1 #TRUE
       #1 #FALSE
       #1 #TRUE
       #1 #FALSE
-    ] )
+    ]
   )
 }

@@ -10,8 +10,8 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":BadInt" ( "{#size32}:Int" ":BadInt" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( "{#size32}:Int" ":BadInt" ( #TRUE #TRUE ) ) ]
+      [ ":BadInt" ( ":Int" ":BadInt" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Int" ":BadInt" ( #TRUE #TRUE ) ) ]
     }
     #2 ( 42 32 #FALSE )
   )

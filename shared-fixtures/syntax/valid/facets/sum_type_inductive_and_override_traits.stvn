@@ -1,0 +1,25 @@
+{
+  :meta {
+    #name "sum_type_inductive_and_override_traits"
+    #kind #BODY
+  }
+  :defs {
+    :InductiveOpt :Option( :Int )
+    :InductiveEither :Either( :String :Int )
+    :InductiveUnion :Union( :Boolean :String )
+    :RestoredFloatOpt { #equatable #TRUE } :Option( :Float )
+    :CompositeSetBundle :Tuple(
+      :Set( :InductiveOpt )
+      :Set( :InductiveEither )
+      :Set( :InductiveUnion )
+      :Set( :RestoredFloatOpt )
+    )
+  }
+  :type :CompositeSetBundle
+  :body (
+    [ #None 42 ]
+    [ #Left "err" 200 ]
+    [ #TRUE "ok" ]
+    [ #None 3.14 ]
+  )
+}

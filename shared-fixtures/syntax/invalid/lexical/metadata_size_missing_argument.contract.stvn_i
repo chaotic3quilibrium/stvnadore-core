@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "metadata_size_missing_argument"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 9 26 317 318 "STVN Syntax Error: unexpected token '}'; expected <value>" )
+    ( #E008 #INCOMPATIBLE_METADATA_TYPE #ERROR 9 26 317 318 "Constraint violation (:InvalidPort): facet '#size' requires an integer literal, got ''" )
+  ]
+}

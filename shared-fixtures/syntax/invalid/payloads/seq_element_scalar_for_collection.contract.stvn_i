@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "seq_element_scalar_for_collection"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E028 #ERR_TYPE_MISMATCH #ERROR 8 5 208 224 "Type mismatch: expected collection constructor :Seq, found scalar :String literal" )
+  ]
+}

@@ -1,0 +1,13 @@
+// @mode: CANONICAL_STRICT
+{
+  :meta {
+    #name "canonical_unreachable_dead_code_e029"
+    #kind #BODY
+  }
+  :defs {
+    :LiveId :Int
+    :DeadOrphan :String
+  }
+  :type :LiveId
+  :body 42
+}

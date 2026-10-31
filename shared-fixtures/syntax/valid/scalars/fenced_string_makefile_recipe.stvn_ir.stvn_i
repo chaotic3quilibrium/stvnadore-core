@@ -10,9 +10,9 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":MakefileScript" ( "{#preserveIndent#TRUE}:String" ":MakefileScript" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( "{#preserveIndent#TRUE}:String" ":MakefileScript" ( #TRUE #TRUE ) ) ]
+      [ ":MakefileScript" ( "{#preserveIndent #T}:String" ":MakefileScript" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#preserveIndent #T}:String" ":MakefileScript" ( #TRUE #TRUE ) ) ]
     }
-    #4 "all: build test\n\nbuild:\n    gcc -O2 main.c -o app\n\ntest:\n    ./app --test\n"
+    #5 "all: build test\n\nbuild:\n\tgcc -O2 main.c -o app\n\ntest:\n\t./app --test\n"
   )
 }

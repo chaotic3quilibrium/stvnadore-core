@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #equatable #TRUE } :Set( :Int )
+  :TestedType { #equatable #FALSE } :Set( :Int )
   }
   :type :TestedType
   :body [ 1 2 3 ]

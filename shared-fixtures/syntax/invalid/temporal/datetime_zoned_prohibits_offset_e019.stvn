@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "datetime_zoned_prohibits_offset_e019"
+    #kind #BODY
+  }
+  :defs {
+    :ScheduleTime { #zoned } :DateTime
+  }
+  :type :Seq( :ScheduleTime )
+  :body [
+    "2026-03-15T08:00:00[America/Chicago]"
+    "2026-03-15T08:00:00-05:00[America/Chicago]"
+    "2026-11-15T09:00:00[America/New_York]"
+  ]
+}

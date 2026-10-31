@@ -10,14 +10,16 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":app/v1/Response" ( ":Tuple(:HttpStatus:HttpHeader)" ":app/v1/Response" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:HttpStatus:HttpHeader)" ":app/v1/Response" ( #TRUE #TRUE ) ) ]
+      [ ":HttpStatus" ( ":Enum[#net/http/OK #net/http/NotFound #net/http/Error]" ":HttpStatus" ( #TRUE #TRUE ) ) ]
+      [ ":HttpHeader" ( ":Tuple(:String :String)" ":HttpHeader" ( #TRUE #TRUE ) ) ]
+      [ ":app/v1/Response" ( ":Tuple(:HttpStatus :HttpHeader)" ":app/v1/Response" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:HttpStatus :HttpHeader)" ":app/v1/Response" ( #TRUE #TRUE ) ) ]
     }
-    #11 [
-      #5 ( "#net/http/OK" 0 )
-      #11 [
-        #4 "Content-Type"
-        #4 "application/stvn"
+    #14 [
+      #8 ( "#net/http/OK" 0 )
+      #14 [
+        #5 "Content-Type"
+        #5 "application/stvn"
       ]
     ]
   )

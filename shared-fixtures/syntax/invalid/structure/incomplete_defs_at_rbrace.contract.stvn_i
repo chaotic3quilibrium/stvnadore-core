@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "incomplete_defs_at_rbrace"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 5 3 137 142 "STVN Syntax Error: clause ':defs' requires definition block '{ ... }'" )
+    ( #E031 #ERR_DOCUMENT_KIND_MISMATCH #ERROR 4 1 133 134 "Mandatory ':type' and ':body' sections missing; hermetic payload document ('incomplete_defs_at_rbrace.stvn') requires payload schema and body value" )
+  ]
+}

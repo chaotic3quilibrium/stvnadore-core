@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "constant_zero_shadowing"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E030 #UNDEFINED_CONSTANT #ERROR 10 11 223 242 "Undeclared value keyword or constant: '#NON_EXISTENT_CONST'" )
+  ]
+}

@@ -10,8 +10,8 @@
   :defs {
     :SaturatedDateTimeOffset {
       #offset
-      #equatable #TRUE
-      #comparable #TRUE
+      #equatable #FALSE
+      #comparable #FALSE
       #minIncl "2026-01-01T00:00:00Z"
       #maxExcl "2027-01-01T00:00:00Z"
     } :DateTime

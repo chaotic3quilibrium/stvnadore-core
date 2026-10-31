@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_option_comparable
+// MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Option
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables total ordering (#None < #Some x, derived inductively from inner payload schema T)
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #comparable #FALSE } :Option( :Int )
+  }
+  :type :TestedType
+  :body 42
+}

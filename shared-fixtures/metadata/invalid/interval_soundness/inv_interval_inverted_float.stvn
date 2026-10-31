@@ -12,7 +12,7 @@
 // ==============================================================================
 {
   :defs {
-    :InvertedFloat { #size 64 #minIncl 100.0 #maxExcl 50.0 } :Float
+    :InvertedFloat { #minIncl 100.0 #maxExcl 50.0 } :Float
   }
   :type :InvertedFloat
   :body 75.0

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "metadata_bare_preserve_indent_rejection"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 6 18 189 204 "STVN Syntax Error: Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)" )
+  ]
+}

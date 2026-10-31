@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "invalid_timeepoch_mode_facet"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 10 22 237 245 "Constraint violation (:EpochTrade): facet '#audited' is not permitted on :TimeEpoch; permitted facets: [#comparable, #equatable, #maxExcl, #minIncl, #ms, #ns, #s, #us]" )
+  ]
+}

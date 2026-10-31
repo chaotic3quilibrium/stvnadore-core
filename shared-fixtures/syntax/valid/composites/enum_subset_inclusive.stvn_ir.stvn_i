@@ -10,10 +10,10 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":Environment" ( ":Enum[#LOCAL#DEV#STAGING#CANARY#PROD]" ":Environment" ( #TRUE #TRUE ) ) ]
-      [ ":PreReleaseEnv" ( ":Enum[#LOCAL#DEV#STAGING#CANARY#PROD]" ":PreReleaseEnv" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Enum[#LOCAL#DEV#STAGING#CANARY#PROD]" ":PreReleaseEnv" ( #TRUE #TRUE ) ) ]
+      [ ":Environment" ( ":Enum[#LOCAL #DEV #STAGING #CANARY #PROD]" ":Environment" ( #TRUE #TRUE ) ) ]
+      [ ":PreReleaseEnv" ( "{#filterIncl[#DEV #STAGING #CANARY]}:Environment" ":PreReleaseEnv" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#filterIncl[#DEV #STAGING #CANARY]}:Environment" ":PreReleaseEnv" ( #TRUE #TRUE ) ) ]
     }
-    #5 ( "#STAGING" 2 )
+    #8 ( "#STAGING" 2 )
   )
 }

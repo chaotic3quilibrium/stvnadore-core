@@ -1,0 +1,16 @@
+{
+  :meta {
+    #name "bracketed_type_disallowed"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 5 3 115 120 "STVN Syntax Error: clause ':type' requires a schema type" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 5 16 128 129 "STVN Syntax Error: unexpected token ']'; expected {'}', ':body'}" )
+    ( #E031 #ERR_DOCUMENT_KIND_MISMATCH #ERROR 4 1 111 112 "Mandatory ':type' and ':body' sections missing; hermetic payload document ('bracketed_type_disallowed.stvn') requires payload schema and body value" )
+  ]
+}

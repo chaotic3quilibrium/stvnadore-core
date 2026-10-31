@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "inv_discrete_int_minexcl"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 16 18 725 735 "Discrete type ':Int' prohibits bound '#minExcl'; use half-open bound '#minIncl'" )
+  ]
+}

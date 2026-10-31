@@ -48,6 +48,8 @@ public class StvnMetadataMatrixTest {
   @DisplayName("MM-STALE-01: Materialized static fixtures match canonical TSV matrix (Staleness Assertion)")
   void assertMaterializedFixturesNotStale() throws IOException {
     List<MetadataMatrixRow> rows = MetadataMatrixReader.readDefaultMatrix();
+    Assertions.assertEquals(94, rows.size(),
+        "Canonical STVN 2.0.0 metadata matrix TSV must contain 94 facet rows (95 physical lines)");
     Map<Path, GeneratedFixture> expectedFixtures = MetadataFixtureGenerator.generateAllFixturesInMemory(rows);
 
     Assertions.assertTrue(Files.exists(FIXTURE_ROOT),

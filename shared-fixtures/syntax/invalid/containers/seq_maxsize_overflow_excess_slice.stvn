@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "seq_maxsize_overflow_excess_slice"
+    #kind #BODY
+  }
+  :defs {
+    :PairCap { #maxSize 2 } :Seq( :Int )
+  }
+  :type :PairCap
+  :body [ 10 20 30 40 ]
+}

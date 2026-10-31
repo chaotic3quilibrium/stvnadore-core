@@ -1,0 +1,16 @@
+{
+  :meta {
+    #name "w003_all_tautology_classes"
+    #kind #BODY
+  }
+  :defs {
+    :RedundantSigned8 { #size 8 #equatable #TRUE #minIncl -128 #maxExcl 128 } :Int
+    :RedundantUnsigned8 { #unsigned #size 8 #minIncl 0 #maxExcl 256 } :Int
+    :RedundantExactFloat { #exact #maxSize 16777216 } :Float
+    :RedundantString { #minSize 0 #maxSize 16777216 } :String
+    :RedundantSeq { #minSize 0 #maxSize 16777216 } :Seq( :Int )
+    :Bundle :Tuple( :RedundantSigned8 :RedundantUnsigned8 :RedundantExactFloat :RedundantString :RedundantSeq )
+  }
+  :type :Bundle
+  :body ( 0 0 1.25 "ok" [ 1 ] )
+}

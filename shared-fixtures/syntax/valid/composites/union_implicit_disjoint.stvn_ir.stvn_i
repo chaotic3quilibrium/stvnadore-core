@@ -10,10 +10,10 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":DisjointUnion" ( ":Union(:Int:String)" ":DisjointUnion" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Union(:Int:String)" ":DisjointUnion" ( #TRUE #TRUE ) ) ]
+      [ ":DisjointUnion" ( ":Union(:Int :String)" ":DisjointUnion" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Union(:Int :String)" ":DisjointUnion" ( #TRUE #TRUE ) ) ]
     }
-    #10 ( 1
+    #13 ( 1
       #2 ( 42 32 #FALSE )
     )
   )

@@ -7,7 +7,7 @@
 // TARGET-TYPE:        :String
 // FACET-NAME:         #preserveIndent
 // COVERAGE-KIND:      ISOLATED_VALID
-// DESCRIPTION:        Essentially only applicable to Fenced string literals
+// DESCRIPTION:        Controls baseline indentation stripping on fenced string literals
 // ==============================================================================
 {
   :defs {

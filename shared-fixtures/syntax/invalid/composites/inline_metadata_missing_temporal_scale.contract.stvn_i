@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "inline_metadata_missing_temporal_scale"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_MISSING_TEMPORAL_FACET #ERROR 5 15 147 157 "Temporal primitive ':TimeEpoch' requires a scale facet (#ns, #us, #ms, or #s)" )
+  ]
+}

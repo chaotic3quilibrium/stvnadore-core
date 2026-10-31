@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #maxExcl "alpha" } :String
+  :TestedType { #maxExcl "zzz" } :String
   }
   :type :TestedType
   :body "alpha"

@@ -11,6 +11,8 @@
     :SaturatedString {
       #minSize 2
       #maxSize 16
+      #equatable #FALSE
+      #comparable #FALSE
       #preserveIndent #TRUE
       #regex "^[a-z]+$"
     } :String

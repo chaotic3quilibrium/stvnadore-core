@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "enum_subset_root_order_violation"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E015 #ENUM_SUBSET_ORDER_VIOLATION #ERROR 11 43 311 319 "Root ordering violation (:IllegalOrder): variant '#Pending' violates monotonic root enum declaration order" )
+  ]
+}

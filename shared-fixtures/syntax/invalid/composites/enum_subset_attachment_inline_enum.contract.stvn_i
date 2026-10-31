@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "enum_subset_attachment_inline_enum"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 7 22 200 218 "Constraint violation (:IllegalInline): facet '#filterIncl' cannot be applied to inline enum constructors; filter facets are permitted strictly on nominal aliases of :Enum" )
+  ]
+}

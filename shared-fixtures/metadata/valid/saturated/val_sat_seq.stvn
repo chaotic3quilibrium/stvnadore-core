@@ -11,8 +11,8 @@
     :SaturatedSeq {
       #minSize 1
       #maxSize 10
-      #equatable #TRUE
-      #comparable #TRUE
+      #equatable #FALSE
+      #comparable #FALSE
     } :Seq( :Int )
   }
   :type :SaturatedSeq

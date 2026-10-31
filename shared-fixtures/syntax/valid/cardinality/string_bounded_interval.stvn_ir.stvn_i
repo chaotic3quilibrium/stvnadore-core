@@ -10,9 +10,9 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":BoundedText" ( "{#minSize1#maxSize64}:String" ":BoundedText" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( "{#minSize1#maxSize64}:String" ":BoundedText" ( #TRUE #TRUE ) ) ]
+      [ ":BoundedText" ( "{#minSize 1 #maxSize 64}:String" ":BoundedText" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#minSize 1 #maxSize 64}:String" ":BoundedText" ( #TRUE #TRUE ) ) ]
     }
-    #4 "A compliant payload within interval"
+    #5 "A compliant payload within interval"
   )
 }

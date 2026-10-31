@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "include_duplicate_path"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E005 #DUPLICATE_TYPE_DEFINITION #ERROR 13 7 252 276 "Duplicate module import detected for path: ./module_raw_a.stvn_di" )
+  ]
+}

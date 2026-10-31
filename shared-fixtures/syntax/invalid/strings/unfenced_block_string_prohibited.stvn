@@ -1,8 +1,7 @@
 // @spec: SPEC-06-STRING-CARD
 // @case: Negative - Reject unfenced block string under pure 2-tier string architecture
-// @error: SYNTAX_ERROR
+// @error: FENCE_DELIMITER_MISMATCH
 {
-  :defs {}
   :type :String
   :body """
     This unfenced block string is prohibited under Rule STR-04.

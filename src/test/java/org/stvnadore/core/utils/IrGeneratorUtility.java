@@ -11,10 +11,14 @@ import org.stvnadore.core.ir.StvnDocument;
 import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.lowering.StvnReachabilityAndCasVerifier;
+import org.stvnadore.core.matrix.MetadataFixtureGenerator;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -24,12 +28,15 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * Pure-IR utility to process valid STVN test fixtures and output or verify normalized IR snapshots.
+ * Pure-IR utility to process valid STVN test fixtures and output or verify Option B2 normalized IR snapshots.
  */
 public final class IrGeneratorUtility {
 
+  private static final Path SHARED_FIXTURES_ROOT = Paths.get("shared-fixtures");
   private static final Path FIXTURES_DIR = Paths.get("shared-fixtures/syntax/valid");
   private static final Path SUBSTRATE_SCHEMA_PATH = Paths.get("shared-fixtures/syntax/valid/modules/stvn_ir_substrate.stvn_ir.stvn_d");
+  private static final Path NETWORK_PRIMITIVES_DEFS_PATH = Paths.get("shared-fixtures/syntax/valid/modules/network_primitives.stvn_d");
+  private static final Path NETWORK_PRIMITIVES_BIN_PATH = Paths.get("shared-fixtures/syntax/valid/modules/network_primitives.stvn_bd");
   private static final boolean UPDATE_MODE = Boolean.getBoolean("updateSnapshots");
   private static final String PRELUDE_TYPE_PREFIX = StvnVocabulary.SIGIL_TYPIC + "org/stvnadore/prelude/";
 
@@ -38,7 +45,14 @@ public final class IrGeneratorUtility {
   }
 
   public static void main(String[] args) throws Exception {
-    System.out.println("Starting pure-IR Snapshot generation pipeline...");
+    System.out.println("Starting Option B2 pure-IR snapshot generation pipeline...");
+
+    if (UPDATE_MODE) {
+      MetadataFixtureGenerator.main(new String[0]);
+      normalizeTextualFixturesToLf(SHARED_FIXTURES_ROOT);
+      generateBinaryDefsFixture(NETWORK_PRIMITIVES_DEFS_PATH, NETWORK_PRIMITIVES_BIN_PATH);
+    }
+
     int processedCount = 0;
 
     try (Stream<Path> paths = Files.walk(FIXTURES_DIR)) {
@@ -55,10 +69,55 @@ public final class IrGeneratorUtility {
     System.out.printf("Pipeline run completed. Processed %d fixtures successfully.%n", processedCount);
   }
 
+  private static void normalizeTextualFixturesToLf(Path root) throws IOException {
+    if (!Files.exists(root)) {
+      return;
+    }
+    try (Stream<Path> walk = Files.walk(root)) {
+      List<Path> textualFiles = walk.filter(Files::isRegularFile)
+          .filter(IrGeneratorUtility::isTextualStvnFile)
+          .toList();
+      for (Path file : textualFiles) {
+        String raw = Files.readString(file, StandardCharsets.UTF_8);
+        if (raw.contains("\r")) {
+          String lf = raw.replace("\r\n", "\n").replace("\r", "\n");
+          Files.writeString(file, lf, StandardCharsets.UTF_8);
+        }
+      }
+    }
+  }
+
+  private static boolean isTextualStvnFile(Path path) {
+    String name = path.getFileName().toString();
+    return name.endsWith(".stvn")
+        || name.endsWith(".stvn_i")
+        || name.endsWith(".stvn_d")
+        || name.endsWith(".stvn_di");
+  }
+
+  private static void generateBinaryDefsFixture(Path sourceDefsPath, Path targetBinDefsPath) throws IOException {
+    String source = Files.readString(sourceDefsPath, StandardCharsets.UTF_8).replace("\r\n", "\n");
+    var compilation = StvnCompiler.compile(source, sourceDefsPath.toString(), StvnParserConfig.DEFAULT);
+    if (compilation.hasErrors()) {
+      throw new IllegalStateException("Failed to compile schema module " + sourceDefsPath + ": " + compilation.diagnostics());
+    }
+    var doc = compilation.document()
+        .orElseThrow(() -> new IllegalStateException("Missing IR document for " + sourceDefsPath));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), false);
+    ByteBuffer buf = encoder.encode(doc);
+    byte[] encoded = new byte[buf.remaining()];
+    buf.get(encoded);
+    Files.write(targetBinDefsPath, encoded);
+    System.out.printf("  [UPDATED] %s (%d bytes)%n", targetBinDefsPath.getFileName(), encoded.length);
+  }
+
   private static void processFixture(Path stvnFile) throws Exception {
-    String stvnContent = Files.readString(stvnFile).replace("\r\n", "\n");
+    String stvnContent = Files.readString(stvnFile, StandardCharsets.UTF_8).replace("\r\n", "\n");
 
     var compilation = StvnCompiler.compile(stvnContent, stvnFile.toString(), StvnParserConfig.DEFAULT);
+    if (compilation.hasErrors()) {
+      throw new IllegalStateException("Valid fixture failed compilation " + stvnFile + ": " + compilation.diagnostics());
+    }
     var liveDoc = compilation.document()
         .orElseThrow(() -> new IllegalStateException("Failed to compile valid fixture: " + stvnFile));
     var irNode = liveDoc.payload()
@@ -73,7 +132,15 @@ public final class IrGeneratorUtility {
     String generatedSnapshot = serializeSnapshotDocument(baseName, relativeSubstratePath, liveDoc);
 
     if (UPDATE_MODE) {
-      Files.writeString(irSnapshotPath, generatedSnapshot);
+      Files.writeString(irSnapshotPath, generatedSnapshot, StandardCharsets.UTF_8);
+
+      var snapVerify = StvnCompiler.compile(generatedSnapshot, irSnapshotPath.toString(), StvnParserConfig.SYSTEM);
+      if (!snapVerify.diagnostics().isEmpty()) {
+        throw new IllegalStateException(
+            "Generated Option B2 IR snapshot failed substrate verification for "
+                + irSnapshotPath + ": " + snapVerify.diagnostics()
+        );
+      }
 
       boolean isCrc = stvnFile.getFileName().toString().contains("crc32c");
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), isCrc);
@@ -89,7 +156,7 @@ public final class IrGeneratorUtility {
             "Snapshot file " + irSnapshotPath + " does not exist. Run with -DupdateSnapshots=true to generate it."
         );
       }
-      String existingSnapshot = Files.readString(irSnapshotPath);
+      String existingSnapshot = Files.readString(irSnapshotPath, StandardCharsets.UTF_8);
 
       String cleanGenerated = generatedSnapshot.replace("\r\n", "\n").trim();
       String cleanExisting = existingSnapshot.replace("\r\n", "\n").trim();
@@ -113,7 +180,7 @@ public final class IrGeneratorUtility {
   }
 
   /**
-   * Translates a standalone pure-IR {@link StvnValue} graph into a valid STVN snapshot document.
+   * Translates a standalone pure-IR {@link StvnValue} graph into a valid Option B2 STVN snapshot document.
    *
    * @param baseName              the snapshot base name
    * @param relativeSubstratePath the relative path to {@code stvn_ir_substrate.stvn_ir.stvn_d}
@@ -130,13 +197,13 @@ public final class IrGeneratorUtility {
   }
 
   /**
-   * Translates a pure-IR {@link StvnDocument} into a valid STVN snapshot document adhering to
+   * Translates a pure-IR {@link StvnDocument} into a valid Option B2 STVN snapshot document adhering to
    * {@code stvn_ir_substrate.stvn_ir.stvn_d}.
    *
    * @param baseName              the snapshot base name
    * @param relativeSubstratePath the relative path to {@code stvn_ir_substrate.stvn_ir.stvn_d}
    * @param doc                   the pure-IR document containing definitions and root payload
-   * @return the formatted STVN IR snapshot document
+   * @return the formatted STVN IR snapshot document with LF line endings
    */
   public static String serializeSnapshotDocument(
       String baseName,
@@ -214,65 +281,74 @@ public final class IrGeneratorUtility {
       case StvnValue.StvnBoolean b ->
           sb.append(spaces).append("#1 ").append(b.value() ? "#TRUE" : "#FALSE");
       case StvnValue.StvnInt i -> {
-        int bitWidth = i.schema() instanceof StvnSchema.IntSchema is
-            ? is.bitWidth().intValue()
-            : 32;
+        BigInteger bitWidth = i.schema() instanceof StvnSchema.IntSchema is
+            ? is.bitWidth()
+            : StvnVocabulary.DEFAULT_INT_BIT_WIDTH;
         boolean unsigned = i.schema() instanceof StvnSchema.IntSchema is && is.unsigned();
         sb.append(spaces).append("#2 ( ").append(i.value()).append(" ")
             .append(bitWidth).append(" ")
             .append(unsigned ? "#TRUE" : "#FALSE").append(" )");
       }
       case StvnValue.StvnFloat f -> {
-        sb.append(spaces).append("#3 ");
-        switch (f.specialKind()) {
-          case NAN -> sb.append("#NaN");
-          case POSITIVE_INFINITY -> sb.append("#+Infinity");
-          case NEGATIVE_INFINITY -> sb.append("#-Infinity");
-          case FINITE -> {
-            if (f.negativeZero()) {
-              sb.append("-0.0");
-            } else {
-              String s = f.decimalValue().toPlainString();
-              if (!s.contains(".")) {
-                s += ".0";
-              }
-              sb.append(s);
-            }
-          }
+        String decText = formatFloatDecimal(f);
+        if (f.schema() instanceof StvnSchema.FloatSchema fs
+            && fs.representation() == StvnSchema.FloatRepresentation.EXACT_DECIMAL) {
+          sb.append(spaces).append("#4 ( ").append(decText).append(" ")
+              .append(fs.exactMaxDigits()).append(" )");
+        } else {
+          sb.append(spaces).append("#3 ").append(decText);
         }
       }
       case StvnValue.StvnString s ->
-          sb.append(spaces).append("#4 \"").append(escapeString(s.value())).append("\"");
+          sb.append(spaces).append("#5 \"").append(escapeString(s.value())).append("\"");
+      case StvnValue.StvnTimeEpoch te -> {
+        int scaleBranch = switch (te.scale()) {
+          case NS -> 1;
+          case US -> 2;
+          case MS -> 3;
+          case S -> 4;
+        };
+        sb.append(spaces).append("#6 #").append(scaleBranch).append(" ").append(te.epochTicks());
+      }
+      case StvnValue.StvnDateTime dt -> {
+        int modeBranch = switch (dt.mode()) {
+          case OFFSET -> 1;
+          case ZONED -> 2;
+          case AUDITED -> 3;
+        };
+        sb.append(spaces).append("#7 #").append(modeBranch)
+            .append(" \"").append(escapeString(dt.canonicalIsoText())).append("\"");
+      }
       case StvnValue.StvnEnum e ->
-          sb.append(spaces).append("#5 ( \"").append(escapeString(e.variantTag())).append("\" ")
+          sb.append(spaces).append("#8 ( \"").append(escapeString(e.variantTag())).append("\" ")
               .append(e.rootOrdinal()).append(" )");
       case StvnValue.StvnOption opt -> {
         if (opt.value().isEmpty()) {
-          sb.append(spaces).append("#7 #NONE");
+          sb.append(spaces).append("#10 #NONE");
         } else {
-          sb.append(spaces).append("#6 ( #SOME\n");
+          sb.append(spaces).append("#9 ( #SOME\n");
           serializeIrValue(opt.value().get(), indent + 2, sb);
           sb.append("\n").append(spaces).append(")");
         }
       }
       case StvnValue.StvnEither either -> {
         if (either.branch() == StvnValue.EitherBranch.RIGHT) {
-          sb.append(spaces).append("#9 ( #RIGHT\n");
+          sb.append(spaces).append("#12 ( #RIGHT\n");
           serializeIrValue(either.value(), indent + 2, sb);
           sb.append("\n").append(spaces).append(")");
         } else {
-          sb.append(spaces).append("#8 ( #LEFT\n");
+          sb.append(spaces).append("#11 ( #LEFT\n");
           serializeIrValue(either.value(), indent + 2, sb);
           sb.append("\n").append(spaces).append(")");
         }
       }
       case StvnValue.StvnUnion union -> {
-        sb.append(spaces).append("#10 ( ").append(union.oneBasedBranchIndex()).append("\n");
+        sb.append(spaces).append("#13 ( ").append(union.oneBasedBranchIndex()).append("\n");
         serializeIrValue(union.value(), indent + 2, sb);
         sb.append("\n").append(spaces).append(")");
       }
       case StvnValue.StvnTuple tuple -> {
-        sb.append(spaces).append("#11 [");
+        sb.append(spaces).append("#14 [");
         for (StvnValue elem : tuple.elements()) {
           sb.append("\n");
           serializeIrValue(elem, indent + 2, sb);
@@ -283,8 +359,7 @@ public final class IrGeneratorUtility {
         sb.append("]");
       }
       case StvnValue.StvnSeq seq -> {
-        boolean nonEmpty = seq.schema() instanceof StvnSchema.SeqSchema ss && ss.minSize().signum() > 0;
-        sb.append(spaces).append("#12 ( ").append(nonEmpty ? "#TRUE" : "#FALSE").append(" [");
+        sb.append(spaces).append("#15 [");
         for (StvnValue elem : seq.elements()) {
           sb.append("\n");
           serializeIrValue(elem, indent + 2, sb);
@@ -292,10 +367,10 @@ public final class IrGeneratorUtility {
         if (!seq.elements().isEmpty()) {
           sb.append("\n").append(spaces);
         }
-        sb.append("] )");
+        sb.append("]");
       }
       case StvnValue.StvnSet set -> {
-        sb.append(spaces).append("#13 [");
+        sb.append(spaces).append("#16 [");
         for (StvnValue elem : set.elements()) {
           sb.append("\n");
           serializeIrValue(elem, indent + 2, sb);
@@ -307,7 +382,7 @@ public final class IrGeneratorUtility {
       }
       case StvnValue.StvnMap map -> {
         boolean invertible = map.schema() instanceof StvnSchema.MapSchema ms && ms.invertible();
-        sb.append(spaces).append("#14 ( ").append(invertible ? "#TRUE" : "#FALSE").append(" [");
+        sb.append(spaces).append("#17 ( ").append(invertible ? "#TRUE" : "#FALSE").append(" [");
         for (var entry : map.entries()) {
           sb.append("\n").append(spaces).append("  (\n");
           serializeIrValue(entry.key(), indent + 4, sb);
@@ -320,20 +395,34 @@ public final class IrGeneratorUtility {
         }
         sb.append("] )");
       }
-      case StvnValue.StvnTimeEpoch te ->
-          sb.append(spaces).append("#2 ( ").append(te.epochTicks()).append(" 64 #FALSE )");
-      case StvnValue.StvnDateTime dt ->
-          sb.append(spaces).append("#4 \"").append(escapeString(dt.canonicalIsoText())).append("\"");
       case StvnValue.StvnErrorValue err ->
-          sb.append(spaces).append("#4 \"").append(escapeString(err.diagnostic().message())).append("\"");
+          sb.append(spaces).append("#5 \"").append(escapeString(err.diagnostic().message())).append("\"");
     }
   }
 
+  private static String formatFloatDecimal(StvnValue.StvnFloat f) {
+    boolean isExact = f.schema() instanceof StvnSchema.FloatSchema fs
+        && fs.representation() == StvnSchema.FloatRepresentation.EXACT_DECIMAL;
+    return switch (f.specialKind()) {
+      case NAN, POSITIVE_INFINITY, NEGATIVE_INFINITY ->
+          throw new IllegalStateException("Non-finite IEEE-754 sentinel cannot be serialized in STVN text IR: " + f.specialKind());
+      case FINITE -> {
+        if (f.negativeZero()) {
+          yield "-0.0";
+        }
+        BigDecimal dec = isExact
+            ? f.decimalValue()
+            : (f.decimalValue().signum() == 0 ? BigDecimal.ZERO : f.decimalValue().stripTrailingZeros());
+        String s = dec.toPlainString();
+        if (!s.contains(".")) {
+          s += ".0";
+        }
+        yield s;
+      }
+    };
+  }
+
   private static String escapeString(String s) {
-    return s.replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t");
+    return MetadataFixtureGenerator.escapeStvnString(s);
   }
 }

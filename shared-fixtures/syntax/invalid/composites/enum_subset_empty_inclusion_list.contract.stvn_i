@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "enum_subset_empty_inclusion_list"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E016 #ENUM_SUBSET_EMPTY #ERROR 8 20 229 244 "Enum subset violation (:EmptySubset): filter list cannot be empty" )
+  ]
+}

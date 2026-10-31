@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "inv_mismatch_string_size"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_STRING_CARDINALITY_PROHIBITED #ERROR 16 18 696 704 "Facet '#size' is prohibited on :String; use '#minSize' and '#maxSize' (e.g. { #minSize N #maxSize N } :String)" )
+  ]
+}

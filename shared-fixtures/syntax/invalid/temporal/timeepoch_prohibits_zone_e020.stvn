@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "timeepoch_prohibits_zone_e020"
+    #kind #BODY
+  }
+  :defs {
+    :InstantS { #s } :TimeEpoch
+  }
+  :type :Seq( :InstantS )
+  :body [ 1773561600 "1773561600[UTC]" 1773565200 ]
+}

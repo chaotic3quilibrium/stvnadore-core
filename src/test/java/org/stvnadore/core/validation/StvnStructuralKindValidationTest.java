@@ -22,9 +22,9 @@ public class StvnStructuralKindValidationTest {
     String source = """
         {
           :defs {
-            :String0 { #maxSize 0 } :String
+            :String2 { #maxSize 2 } :String
           }
-          :type :Map( :String0 :Set( :String0 ) )
+          :type :Map( :String2 :Set( :String2 ) )
           :body {
             [ "" "" ]
           }

@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "empty_blocks_with_syntax_errors"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 7 3 168 173 "STVN Syntax Error: clause ':type' requires a schema type" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 8 3 176 181 "STVN Syntax Error: clause ':body' requires a value payload" )
+    ( #E039 #ERR_EMPTY_META_BLOCK #ERROR 5 9 152 154 "Metadata block ':meta {}' must not be empty" )
+    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 6 9 163 165 "Empty definition block ':defs {}' is redundant; omit ':defs' or add definitions" )
+  ]
+}

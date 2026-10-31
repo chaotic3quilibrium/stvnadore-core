@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "inv_interval_inverted_datetime"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 15 65 748 779 "Constraint violation (:InvertedDateTime): datetime #minIncl exceeds #maxExcl" )
+  ]
+}

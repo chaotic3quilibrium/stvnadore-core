@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "either_left_missing_tag_e023"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E023 #EITHER_LEFT_MISSING_TAG #ERROR 10 15 163 184 "Rule E Violation: Untagged value matching Left branch of :Either is non-inferable; explicit #Left tag is required" )
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "zero_bitwidth_int_rejected"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 8 23 135 142 "Constraint violation (:InvalidZeroInt): integer #size must be >= 1, got 0" )
+  ]
+}

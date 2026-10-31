@@ -28,7 +28,7 @@ public final class MetadataFixtureGenerator {
 
   /**
    * Set of TSV type/tag combinations prohibited by the current compiler implementation.
-   * Empty in STVN 2.0.0 as all 83 matrix rows are fully permitted and supported.
+   * Empty in STVN 2.0.0 as all 94 matrix rows are fully permitted and supported.
    */
   public static final Set<String> PROHIBITED_MATRIX_FACETS = Set.of();
 
@@ -103,22 +103,146 @@ public final class MetadataFixtureGenerator {
 
     // 1. Isolated Valid Fixtures
     for (GeneratedFixture f : generateIsolatedValidFixtures(rows)) {
-      map.put(f.relativePath(), f);
+      map.put(f.relativePath(), normalizeLf(f));
     }
     // 2. Saturated Valid Fixtures
     for (GeneratedFixture f : generateSaturatedValidFixtures(rows)) {
-      map.put(f.relativePath(), f);
+      map.put(f.relativePath(), normalizeLf(f));
     }
     // 3. Open Upper Bound Valid Fixtures
     for (GeneratedFixture f : generateOpenUpperBoundFixtures(rows)) {
-      map.put(f.relativePath(), f);
+      map.put(f.relativePath(), normalizeLf(f));
     }
-    // 4. Invalid Negative Fixtures
+    // 4. Invalid Negative Fixtures (+ coordinate-pinned .contract.stvn_i companions)
+    Path errorContractTarget = Path.of("shared-fixtures/syntax/invalid/error_contract.stvn_d");
     for (GeneratedFixture f : generateInvalidEdgeCaseFixtures(rows)) {
-      map.put(f.relativePath(), f);
+      GeneratedFixture normalized = normalizeLf(f);
+      map.put(normalized.relativePath(), normalized);
+
+      String fileName = normalized.relativePath().getFileName().toString();
+      int dot = fileName.indexOf('.');
+      String stem = dot > 0 ? fileName.substring(0, dot) : fileName;
+      Path contractRelPath = normalized.relativePath().resolveSibling(stem + ".contract.stvn_i");
+      Path diskSourcePath = DEFAULT_OUTPUT_ROOT.resolve(normalized.relativePath());
+      Path diskContractPath = DEFAULT_OUTPUT_ROOT.resolve(contractRelPath);
+      String relErrorContract = diskContractPath.getParent()
+          .relativize(errorContractTarget)
+          .toString()
+          .replace('\\', '/');
+      var compRes = org.stvnadore.core.StvnCompiler.compileToResult(
+          normalized.content(),
+          diskSourcePath.toString(),
+          org.stvnadore.core.StvnParserConfig.DEFAULT
+      );
+      String contractContent = formatErrorContractStvnI(stem, relErrorContract, compRes.diagnostics());
+      map.put(contractRelPath, new GeneratedFixture(
+          contractRelPath,
+          contractContent,
+          normalized.kind(),
+          normalized.expectedDiagnostic(),
+          normalized.targetToken()
+      ));
     }
 
     return Collections.unmodifiableMap(map);
+  }
+
+  private static GeneratedFixture normalizeLf(GeneratedFixture fixture) {
+    String lf = fixture.content().replace("\r\n", "\n");
+    return new GeneratedFixture(
+        fixture.relativePath(),
+        lf,
+        fixture.kind(),
+        fixture.expectedDiagnostic(),
+        fixture.targetToken()
+    );
+  }
+
+  /**
+   * Serializes a list of {@link org.stvnadore.core.StvnDiagnostic} instances into a canonical LF-normalized
+   * {@code .contract.stvn_i} ({@code #kind #BODY_INCLUDE}) document importing {@code error_contract.stvn_d}.
+   *
+   * @param stemName                  stem slot 0 of the target negative fixture
+   * @param relativeErrorContractPath POSIX relative path from the contract directory to {@code error_contract.stvn_d}
+   * @param diagnostics               accumulated compiler diagnostics for the negative fixture
+   * @return LF-normalized {@code .contract.stvn_i} source text
+   */
+  public static String formatErrorContractStvnI(
+      String stemName,
+      String relativeErrorContractPath,
+      List<org.stvnadore.core.StvnDiagnostic> diagnostics
+  ) {
+    if (diagnostics.isEmpty()) {
+      throw new IllegalStateException("Negative fixture emitted zero diagnostics: " + stemName);
+    }
+    StringBuilder sb = new StringBuilder();
+    sb.append("{\n");
+    sb.append("  :meta {\n");
+    sb.append("    #name \"").append(escapeStvnString(stemName)).append("\"\n");
+    sb.append("    #domain \"contract\"\n");
+    sb.append("    #kind #BODY_INCLUDE\n");
+    sb.append("  }\n");
+    sb.append("  :defs {\n");
+    sb.append("    :include [ \"").append(escapeStvnString(relativeErrorContractPath)).append("\" ]\n");
+    sb.append("  }\n");
+    sb.append("  :type :ErrorContract\n");
+    sb.append("  :body [\n");
+    for (org.stvnadore.core.StvnDiagnostic d : diagnostics) {
+      String canonical = d.canonicalCode()
+          .or(() -> d.symbolicId().flatMap(org.stvnadore.core.validation.DiagnosticBag::resolveCanonicalCode))
+          .or(() -> d.errorCode().flatMap(org.stvnadore.core.validation.DiagnosticBag::resolveCanonicalCode))
+          .orElse("E002");
+      String symbolic = d.symbolicId()
+          .or(d::errorCode)
+          .orElse("STVN_SYNTAX_ERROR");
+      String severity = d.severity().name();
+      int line1 = Math.max(1, d.line());
+      int col1 = d.column() >= 0 ? d.column() + 1 : 1;
+      int startOff = Math.max(0, d.startOffset());
+      int endOff = Math.max(startOff, d.endOffset());
+      String msg = d.message().isEmpty() ? canonical : d.message();
+      sb.append("    ( #").append(canonical)
+          .append(" #").append(symbolic)
+          .append(" #").append(severity)
+          .append(' ').append(line1)
+          .append(' ').append(col1)
+          .append(' ').append(startOff)
+          .append(' ').append(endOff)
+          .append(" \"").append(escapeStvnString(msg)).append("\" )\n");
+    }
+    sb.append("  ]\n");
+    sb.append("}\n");
+    return sb.toString();
+  }
+
+  /**
+   * Escapes special characters for an STVN double-quoted string literal (preserving horizontal tabs as {@code \t}).
+   *
+   * @param text raw decoded string
+   * @return escaped inner string body without surrounding quotes
+   */
+  public static String escapeStvnString(String text) {
+    StringBuilder sb = new StringBuilder(text.length());
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      switch (c) {
+        case '\\' -> sb.append("\\\\");
+        case '"' -> sb.append("\\\"");
+        case '\t' -> sb.append("\\t");
+        case '\n' -> sb.append("\\n");
+        case '\r' -> sb.append("\\r");
+        case '\b' -> sb.append("\\b");
+        case '\f' -> sb.append("\\f");
+        default -> {
+          if (c < 0x20) {
+            sb.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+          } else {
+            sb.append(c);
+          }
+        }
+      }
+    }
+    return sb.toString();
   }
 
   /**
@@ -386,20 +510,38 @@ public final class MetadataFixtureGenerator {
   }
 
   /**
-   * Materializes fixtures into physical files on disk under the target root directory.
+   * Materializes fixtures into physical LF-normalized files on disk under the target root directory
+   * and prunes any orphaned metadata fixture files.
    *
    * @param rootDir  destination directory root
    * @param fixtures map of relative paths to generated fixtures
    * @throws IOException if directory creation or file writing fails
    */
   public static void materializeFixturesToDirectory(Path rootDir, Map<Path, GeneratedFixture> fixtures) throws IOException {
+    if (Files.exists(rootDir)) {
+      try (java.util.stream.Stream<Path> walk = Files.walk(rootDir)) {
+        List<Path> existing = walk.filter(Files::isRegularFile)
+            .filter(p -> p.toString().endsWith(".stvn")
+                || p.toString().endsWith(".stvn_d")
+                || p.toString().endsWith(".stvn_i")
+                || p.toString().endsWith(".stvn_di"))
+            .toList();
+        for (Path diskFile : existing) {
+          Path rel = rootDir.relativize(diskFile);
+          if (!fixtures.containsKey(rel)) {
+            Files.deleteIfExists(diskFile);
+          }
+        }
+      }
+    }
     for (Map.Entry<Path, GeneratedFixture> entry : fixtures.entrySet()) {
       Path target = rootDir.resolve(entry.getKey());
       Path parent = target.getParent();
       if (parent != null) {
         Files.createDirectories(parent);
       }
-      Files.writeString(target, entry.getValue().content(), StandardCharsets.UTF_8);
+      String lfContent = entry.getValue().content().replace("\r\n", "\n");
+      Files.writeString(target, lfContent, StandardCharsets.UTF_8);
     }
   }
 
@@ -548,7 +690,10 @@ public final class MetadataFixtureGenerator {
     String kind = row.parameterKind();
     return switch (kind) {
       case ":Boolean" -> {
-        if ("Trait".equalsIgnoreCase(row.category()) && ":TRUE".equals(row.defaultValue())) {
+        if ("Trait".equalsIgnoreCase(row.category())
+            && ("#TRUE".equals(row.defaultValue())
+                || ":TRUE".equals(row.defaultValue())
+                || "Derived".equalsIgnoreCase(row.defaultValue()))) {
           yield "#" + row.tagName() + " #FALSE";
         }
         yield "#" + row.tagName() + " #TRUE";
@@ -584,8 +729,8 @@ public final class MetadataFixtureGenerator {
       case ":DateTime" -> {
         String q = row.domainQualifier();
         if ("zoned".equals(q)) {
-          if ("minIncl".equals(row.tagName())) yield "#minIncl \"2026-01-01T00:00:00Z\"";
-          if ("maxExcl".equals(row.tagName())) yield "#maxExcl \"2027-01-01T00:00:00Z\"";
+          if ("minIncl".equals(row.tagName())) yield "#minIncl \"2026-01-01T00:00:00[Europe/Paris]\"";
+          if ("maxExcl".equals(row.tagName())) yield "#maxExcl \"2027-01-01T00:00:00[Europe/Paris]\"";
         } else if ("audited".equals(q)) {
           if ("minIncl".equals(row.tagName())) yield "#minIncl \"2026-06-01T00:00:00-05:00[America/Chicago]\"";
           if ("maxExcl".equals(row.tagName())) yield "#maxExcl \"2026-06-02T00:00:00-05:00[America/Chicago]\"";
@@ -595,7 +740,12 @@ public final class MetadataFixtureGenerator {
         }
         yield "#" + row.tagName() + " \"2026-01-01T00:00:00Z\"";
       }
-      case ":String" -> "regex".equals(row.tagName()) ? "#regex \"^[a-z]+$\"" : "#" + row.tagName() + " \"alpha\"";
+      case ":String" -> {
+        if ("regex".equals(row.tagName())) yield "#regex \"^[a-z]+$\"";
+        if ("minExcl".equals(row.tagName())) yield "#minExcl \"aaa\"";
+        if ("maxExcl".equals(row.tagName())) yield "#maxExcl \"zzz\"";
+        yield "#" + row.tagName() + " \"alpha\"";
+      }
       case ":EnumValues" -> "#" + row.tagName() + " [ #VAL_A ]";
       default -> "#" + row.tagName();
     };
@@ -608,6 +758,9 @@ public final class MetadataFixtureGenerator {
       case ":Set" -> ":Set( :Int )";
       case ":Map" -> ":Map( :String :Int )";
       case ":Tuple" -> ":Tuple( :Int :String )";
+      case ":Option" -> ":Option( :Int )";
+      case ":Either" -> ":Either( :String :Int )";
+      case ":Union" -> ":Union( :Int :String )";
       case ":Enum" -> ":Enum [ #VAL_A #VAL_B ]";
       default -> clean;
     };
@@ -632,6 +785,9 @@ public final class MetadataFixtureGenerator {
       case ":Set" -> "[ 1 2 3 ]";
       case ":Map" -> "{ [ \"k\" 1 ] }";
       case ":Tuple" -> "( 42 \"alpha\" )";
+      case ":Option" -> "42";
+      case ":Either" -> "42";
+      case ":Union" -> "42";
       default -> "0";
     };
   }
@@ -649,12 +805,13 @@ public final class MetadataFixtureGenerator {
         // FIXTURE-ID:         val_sat_boolean
         // TARGET-TYPE:        :Boolean
         // COVERAGE-KIND:      SATURATED_VALID
-        // DESCRIPTION:        Saturated boolean with #equatable trait
+        // DESCRIPTION:        Saturated boolean with non-default trait overrides
         // ==============================================================================
         {
           :defs {
             :SaturatedBoolean {
               #equatable #FALSE
+              #comparable #FALSE
             } :Boolean
           }
           :type :SaturatedBoolean
@@ -678,6 +835,9 @@ public final class MetadataFixtureGenerator {
         {
           :defs {
             :SaturatedInt {
+              #size 64
+              #equatable #FALSE
+              #comparable #FALSE
               #minIncl -1000
               #maxExcl 1000
             } :Int
@@ -704,6 +864,9 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedUInt {
               #unsigned
+              #size 64
+              #equatable #FALSE
+              #comparable #FALSE
               #minIncl 1
               #maxExcl 65536
             } :Int
@@ -731,6 +894,7 @@ public final class MetadataFixtureGenerator {
             :SaturatedFloat32 {
               #size 32
               #equatable #TRUE
+              #comparable #FALSE
               #minIncl -1000.0
               #maxExcl 1000.0
             } :Float
@@ -757,6 +921,7 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedFloat64 {
               #equatable #TRUE
+              #comparable #FALSE
               #minIncl -1000.0
               #maxExcl 1000.0
             } :Float
@@ -783,6 +948,9 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedFloatExact {
               #exact
+              #maxSize 18
+              #equatable #FALSE
+              #comparable #FALSE
               #minIncl 0.0
               #maxExcl 100.0
             } :Float
@@ -810,6 +978,8 @@ public final class MetadataFixtureGenerator {
             :SaturatedString {
               #minSize 2
               #maxSize 16
+              #equatable #FALSE
+              #comparable #FALSE
               #preserveIndent #TRUE
               #regex "^[a-z]+$"
             } :String
@@ -842,8 +1012,8 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedEpochNs {
               #ns
-              #equatable #TRUE
-              #comparable #TRUE
+              #equatable #FALSE
+              #comparable #FALSE
               #minIncl 1000
               #maxExcl 2000000000
             } :TimeEpoch
@@ -870,8 +1040,8 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedEpochUs {
               #us
-              #equatable #TRUE
-              #comparable #TRUE
+              #equatable #FALSE
+              #comparable #FALSE
               #minIncl 1000
               #maxExcl 2000000000
             } :TimeEpoch
@@ -898,8 +1068,8 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedEpochMs {
               #ms
-              #equatable #TRUE
-              #comparable #TRUE
+              #equatable #FALSE
+              #comparable #FALSE
               #minIncl 1000
               #maxExcl 2000000000
             } :TimeEpoch
@@ -926,8 +1096,8 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedEpochS {
               #s
-              #equatable #TRUE
-              #comparable #TRUE
+              #equatable #FALSE
+              #comparable #FALSE
               #minIncl 1000
               #maxExcl 2000000000
             } :TimeEpoch
@@ -954,8 +1124,8 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedDateTimeOffset {
               #offset
-              #equatable #TRUE
-              #comparable #TRUE
+              #equatable #FALSE
+              #comparable #FALSE
               #minIncl "2026-01-01T00:00:00Z"
               #maxExcl "2027-01-01T00:00:00Z"
             } :DateTime
@@ -982,10 +1152,10 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedDateTimeZoned {
               #zoned
-              #equatable #TRUE
-              #comparable #TRUE
-              #minIncl "2026-01-01T00:00:00Z"
-              #maxExcl "2027-01-01T00:00:00Z"
+              #equatable #FALSE
+              #comparable #FALSE
+              #minIncl "2026-01-01T00:00:00[Europe/Paris]"
+              #maxExcl "2027-01-01T00:00:00[Europe/Paris]"
             } :DateTime
           }
           :type :SaturatedDateTimeZoned
@@ -1010,8 +1180,8 @@ public final class MetadataFixtureGenerator {
           :defs {
             :SaturatedDateTimeAudited {
               #audited
-              #equatable #TRUE
-              #comparable #TRUE
+              #equatable #FALSE
+              #comparable #FALSE
               #minIncl "2026-06-01T00:00:00-05:00[America/Chicago]"
               #maxExcl "2026-06-02T00:00:00-05:00[America/Chicago]"
             } :DateTime
@@ -1044,6 +1214,8 @@ public final class MetadataFixtureGenerator {
           :defs {
             :BaseEnum :Enum [ #VAL_A #VAL_B #VAL_C ]
             :SaturatedEnum {
+              #equatable #FALSE
+              #comparable #FALSE
               #filterIncl [ #VAL_A #VAL_B ]
             } :BaseEnum
           }
@@ -1070,8 +1242,8 @@ public final class MetadataFixtureGenerator {
             :SaturatedSeq {
               #minSize 1
               #maxSize 10
-              #equatable #TRUE
-              #comparable #TRUE
+              #equatable #FALSE
+              #comparable #FALSE
             } :Seq( :Int )
           }
           :type :SaturatedSeq
@@ -1090,14 +1262,14 @@ public final class MetadataFixtureGenerator {
         // FIXTURE-ID:         val_sat_set
         // TARGET-TYPE:        :Set
         // COVERAGE-KIND:      SATURATED_VALID
-        // DESCRIPTION:        Saturated Set with traits and size boundaries
+        // DESCRIPTION:        Saturated Set with opt-in #comparable trait and size boundaries
         // ==============================================================================
         {
           :defs {
             :SaturatedSet {
               #minSize 1
               #maxSize 10
-              #equatable #TRUE
+              #comparable #TRUE
             } :Set( :Int )
           }
           :type :SaturatedSet
@@ -1116,7 +1288,7 @@ public final class MetadataFixtureGenerator {
         // FIXTURE-ID:         val_sat_map_invertible
         // TARGET-TYPE:        :Map
         // COVERAGE-KIND:      SATURATED_VALID
-        // DESCRIPTION:        Saturated Map with #invertible, cardinality, and traits
+        // DESCRIPTION:        Saturated Map with #invertible, cardinality, and opt-in #comparable trait
         // ==============================================================================
         {
           :defs {
@@ -1124,7 +1296,7 @@ public final class MetadataFixtureGenerator {
               #invertible
               #minSize 1
               #maxSize 10
-              #equatable #TRUE
+              #comparable #TRUE
             } :Map( :String :Int )
           }
           :type :BijectiveMap
@@ -1659,7 +1831,7 @@ public final class MetadataFixtureGenerator {
         // ==============================================================================
         {
           :defs {
-            :ConflictingBounds { #size 64 #minIncl 0.0 #minExcl 0.0 } :Float
+            :ConflictingBounds { #minIncl 0.0 #minExcl 0.0 } :Float
           }
           :type :ConflictingBounds
           :body 1.0
@@ -1689,7 +1861,7 @@ public final class MetadataFixtureGenerator {
         // ==============================================================================
         {
           :defs {
-            :ConflictingMax { #size 64 #maxExcl 100.0 #maxIncl 100.0 } :Float
+            :ConflictingMax { #maxExcl 100.0 #maxIncl 100.0 } :Float
           }
           :type :ConflictingMax
           :body 1.0
@@ -1772,7 +1944,7 @@ public final class MetadataFixtureGenerator {
         // TARGET-TYPE:        :Enum
         // OFFENDING-FACET:    #filterExcl
         // COVERAGE-KIND:      MUTUALLY_EXCLUSIVE
-        // EXPECT-DIAGNOSTIC:  MALFORMED_SCHEMA
+        // EXPECT-DIAGNOSTIC:  MUTUALLY_EXCLUSIVE_BOUNDS
         // TARGET-TOKEN:       #filterExcl
         // EXPECT-SEVERITY:    ERROR
         // DESCRIPTION:        Enum subset filters #filterIncl and #filterExcl are mutually exclusive
@@ -1787,7 +1959,7 @@ public final class MetadataFixtureGenerator {
         }
         """,
         CoverageKind.MUTUALLY_EXCLUSIVE,
-        Optional.of("MALFORMED_SCHEMA"),
+        Optional.of("MUTUALLY_EXCLUSIVE_BOUNDS"),
         Optional.of("#filterExcl")
     ));
 
@@ -1906,7 +2078,7 @@ public final class MetadataFixtureGenerator {
         // ==============================================================================
         {
           :defs {
-            :InvertedFloat { #size 64 #minIncl 100.0 #maxExcl 50.0 } :Float
+            :InvertedFloat { #minIncl 100.0 #maxExcl 50.0 } :Float
           }
           :type :InvertedFloat
           :body 75.0

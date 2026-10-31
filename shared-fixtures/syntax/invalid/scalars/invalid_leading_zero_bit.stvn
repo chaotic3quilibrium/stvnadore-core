@@ -1,9 +1,9 @@
 // @spec: SPEC-01-SCALAR-KERNEL
-// @case: Negative - Reject invalid leading zero bit
-// @error: ERR_UNDEFINED_TYPE
+// @case: Negative - Reject invalid leading zero bit width
+// @error: SYNTAX_ERROR
 {
   :defs {
-    :BadInt :Int08
+    :BadInt { #size 08 } :Int
   }
   :type :BadInt
   :body 42

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "discrete_interval_empty_domain"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E009 #ERR_EMPTY_INTERVAL_DOMAIN #ERROR 9 7 244 275 "Constraint violation (:EmptyDateRange): datetime half-open interval defines an empty domain" )
+  ]
+}

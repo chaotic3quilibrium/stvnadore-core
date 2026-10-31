@@ -10,13 +10,13 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":BoundedSet" ( "{#minSize2#maxSize5}:Set(:String)" ":BoundedSet" ( #TRUE #FALSE ) ) ]
-      [ "<:type>" ( "{#minSize2#maxSize5}:Set(:String)" ":BoundedSet" ( #TRUE #FALSE ) ) ]
+      [ ":BoundedSet" ( "{#minSize 2 #maxSize 5}:Set(:String)" ":BoundedSet" ( #TRUE #FALSE ) ) ]
+      [ "<:type>" ( "{#minSize 2 #maxSize 5}:Set(:String)" ":BoundedSet" ( #TRUE #FALSE ) ) ]
     }
-    #13 [
-      #4 "Alpha"
-      #4 "Beta"
-      #4 "Gamma"
+    #16 [
+      #5 "Alpha"
+      #5 "Beta"
+      #5 "Gamma"
     ]
   )
 }

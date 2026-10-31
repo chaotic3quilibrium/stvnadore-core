@@ -6,34 +6,42 @@
   }
   :defs {
     :package :org/stvnadore/ir {
-      // 1. Scalar Primitives
-      :IrBoolean :Boolean
-      :IrInt :Tuple( { #size 256 } :Int { #unsigned #size 256 #minIncl 1 } :Int :Boolean )
-      :IrFloat :Float
-      :IrString :String
-      :IrEnum :Tuple( :String { #unsigned } :Int )
+      // 1. Pure Native VOP Kernel Scalar & Tripartite Temporal Primitives (Option B2)
+      :IrIntValue    { #size 8192 } :Int
+      :IrBitWidth    { #unsigned #size 64 #minIncl 1 } :Int
+      :IrOrdinal     { #unsigned #size 64 } :Int
+      :IrBranchIndex { #unsigned #size 64 #minIncl 1 } :Int
+
+      :IrBoolean      :Boolean
+      :IrInt          :Tuple( :IrIntValue :IrBitWidth :Boolean )
+      :IrFloat        :Float
+      :IrExactDecimal :Tuple( { #exact } :Float :IrBitWidth )
+      :IrString       :String
+      :IrTimeEpoch    :Union( { #ns } :TimeEpoch { #us } :TimeEpoch { #ms } :TimeEpoch { #s } :TimeEpoch )
+      :IrDateTime     :Union( { #offset } :DateTime { #zoned } :DateTime { #audited } :DateTime )
+      :IrEnum         :Tuple( :String :IrOrdinal )
 
       // 2. Sum Type Variants (Nominal Disjointness via Option 2)
-      :IrOptionSome :Tuple( :Enum [ #SOME ] :IrValue )
-      :IrOptionNone :Enum [ #NONE ]
-      :IrEitherLeft :Tuple( :Enum [ #LEFT ] :IrValue )
+      :IrOptionSome  :Tuple( :Enum [ #SOME ] :IrValue )
+      :IrOptionNone  :Enum [ #NONE ]
+      :IrEitherLeft  :Tuple( :Enum [ #LEFT ] :IrValue )
       :IrEitherRight :Tuple( :Enum [ #RIGHT ] :IrValue )
-      :IrUnionVal :Tuple( { #unsigned #minIncl 1 } :Int :IrValue )
+      :IrUnionVal    :Tuple( :IrBranchIndex :IrValue )
 
-      // 3. Dynamic Unbounded Product & Collection Nodes
-      :IrTuple :Seq( :IrValue )
-      :IrSeq :Tuple( :Boolean :Seq( :IrValue ) )
-      :IrSet :Seq( :IrValue )
+      // 3. Dynamic Unbounded Product & Collection Nodes (Zero 1.x #nonEmpty Remnants)
+      :IrTuple    :Seq( :IrValue )
+      :IrSeq      :Seq( :IrValue )
+      :IrSet      :Seq( :IrValue )
       :IrMapEntry :Tuple( :IrValue :IrValue )
-      :IrMap :Tuple( :Boolean :Seq( :IrMapEntry ) )
+      :IrMap      :Tuple( :Boolean :Seq( :IrMapEntry ) )
 
       // 4. Recursive Value Node Coproduct
-      :IrValue :Union( :IrBoolean :IrInt :IrFloat :IrString :IrEnum :IrOptionSome :IrOptionNone :IrEitherLeft :IrEitherRight :IrUnionVal :IrTuple :IrSeq :IrSet :IrMap )
+      :IrValue :Union( :IrBoolean :IrInt :IrFloat :IrExactDecimal :IrString :IrTimeEpoch :IrDateTime :IrEnum :IrOptionSome :IrOptionNone :IrEitherLeft :IrEitherRight :IrUnionVal :IrTuple :IrSeq :IrSet :IrMap )
 
       // 5. Schema Registry & Root Document Snapshot
       :IrTraitConstraints :Tuple( :Boolean :Boolean )
       :IrRegisteredSchema :Tuple( :String :String :IrTraitConstraints )
-      :IrTypeRegistry :Map( :String :IrRegisteredSchema )
+      :IrTypeRegistry     :Map( :String :IrRegisteredSchema )
       :IrSnapshotDocument :Tuple( :IrTypeRegistry :IrValue )
     }
   }

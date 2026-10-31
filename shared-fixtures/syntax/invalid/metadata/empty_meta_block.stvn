@@ -1,0 +1,5 @@
+{
+  :meta {}
+  :type :Int
+  :body 42
+}

@@ -1,0 +1,9 @@
+{
+  :meta {
+    #name "meta_kind_extension_mismatch"
+    #kind #DEFS
+  }
+  :defs {
+    :Port { #unsigned #size 16 } :Int
+  }
+}

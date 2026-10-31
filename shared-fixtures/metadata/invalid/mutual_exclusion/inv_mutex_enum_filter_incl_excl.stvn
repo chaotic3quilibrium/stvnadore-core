@@ -6,7 +6,7 @@
 // TARGET-TYPE:        :Enum
 // OFFENDING-FACET:    #filterExcl
 // COVERAGE-KIND:      MUTUALLY_EXCLUSIVE
-// EXPECT-DIAGNOSTIC:  MALFORMED_SCHEMA
+// EXPECT-DIAGNOSTIC:  MUTUALLY_EXCLUSIVE_BOUNDS
 // TARGET-TOKEN:       #filterExcl
 // EXPECT-SEVERITY:    ERROR
 // DESCRIPTION:        Enum subset filters #filterIncl and #filterExcl are mutually exclusive

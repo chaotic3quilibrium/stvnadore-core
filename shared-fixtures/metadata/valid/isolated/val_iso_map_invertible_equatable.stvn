@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #invertible #equatable #TRUE } :Map( :String :Int )
+  :TestedType { #invertible #equatable #FALSE } :Map( :String :Int )
   }
   :type :TestedType
   :body { [ "k" 1 ] }

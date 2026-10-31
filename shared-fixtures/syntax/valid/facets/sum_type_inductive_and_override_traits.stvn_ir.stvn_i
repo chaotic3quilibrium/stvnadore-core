@@ -1,0 +1,51 @@
+{
+  :meta {
+    #name "sum_type_inductive_and_override_traits"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":InductiveOpt" ( ":Option(:Int)" ":InductiveOpt" ( #TRUE #TRUE ) ) ]
+      [ ":InductiveEither" ( ":Either(:String :Int)" ":InductiveEither" ( #TRUE #TRUE ) ) ]
+      [ ":InductiveUnion" ( ":Union(:Boolean :String)" ":InductiveUnion" ( #TRUE #TRUE ) ) ]
+      [ ":RestoredFloatOpt" ( "{#equatable #T}:Option(:Float)" ":RestoredFloatOpt" ( #TRUE #TRUE ) ) ]
+      [ ":CompositeSetBundle" ( ":Tuple(:Set(:InductiveOpt):Set(:InductiveEither):Set(:InductiveUnion):Set(:RestoredFloatOpt))" ":CompositeSetBundle" ( #TRUE #FALSE ) ) ]
+      [ "<:type>" ( ":Tuple(:Set(:InductiveOpt):Set(:InductiveEither):Set(:InductiveUnion):Set(:RestoredFloatOpt))" ":CompositeSetBundle" ( #TRUE #FALSE ) ) ]
+    }
+    #14 [
+      #16 [
+        #10 #NONE
+        #9 ( #SOME
+          #2 ( 42 32 #FALSE )
+        )
+      ]
+      #16 [
+        #11 ( #LEFT
+          #5 "err"
+        )
+        #12 ( #RIGHT
+          #2 ( 200 32 #FALSE )
+        )
+      ]
+      #16 [
+        #13 ( 1
+          #1 #TRUE
+        )
+        #13 ( 2
+          #5 "ok"
+        )
+      ]
+      #16 [
+        #10 #NONE
+        #9 ( #SOME
+          #3 3.14
+        )
+      ]
+    ]
+  )
+}

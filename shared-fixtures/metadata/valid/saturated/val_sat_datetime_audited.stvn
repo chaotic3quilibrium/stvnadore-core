@@ -10,8 +10,8 @@
   :defs {
     :SaturatedDateTimeAudited {
       #audited
-      #equatable #TRUE
-      #comparable #TRUE
+      #equatable #FALSE
+      #comparable #FALSE
       #minIncl "2026-06-01T00:00:00-05:00[America/Chicago]"
       #maxExcl "2026-06-02T00:00:00-05:00[America/Chicago]"
     } :DateTime

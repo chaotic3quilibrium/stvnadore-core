@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "constant_bad_constraint"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 6 60 183 185 "Constraint violation (#RESTRICTED_PORT): Value 80 is outside allowable range (must be >= 1024)" )
+  ]
+}

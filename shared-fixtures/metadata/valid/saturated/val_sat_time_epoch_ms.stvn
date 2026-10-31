@@ -10,8 +10,8 @@
   :defs {
     :SaturatedEpochMs {
       #ms
-      #equatable #TRUE
-      #comparable #TRUE
+      #equatable #FALSE
+      #comparable #FALSE
       #minIncl 1000
       #maxExcl 2000000000
     } :TimeEpoch

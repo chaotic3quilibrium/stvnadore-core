@@ -11,6 +11,7 @@
     :SaturatedFloat32 {
       #size 32
       #equatable #TRUE
+      #comparable #FALSE
       #minIncl -1000.0
       #maxExcl 1000.0
     } :Float

@@ -13,6 +13,6 @@
       [ ":ExactCurrency" ( "{#exact}:Float" ":ExactCurrency" ( #TRUE #TRUE ) ) ]
       [ "<:type>" ( "{#exact}:Float" ":ExactCurrency" ( #TRUE #TRUE ) ) ]
     }
-    #3 3.14159265358979323846264338327950288419716939937510
+    #4 ( 3.14159265358979323846264338327950288419716939937510 16777216 )
   )
 }

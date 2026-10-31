@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "empty_meta_block"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E039 #ERR_EMPTY_META_BLOCK #ERROR 2 9 10 12 "Metadata block ':meta {}' must not be empty" )
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "invalid_regex_override_mismatch"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E013 #REGEX_MISMATCH #ERROR 10 9 235 240 "Constraint violation (:Child): String does not match required pattern: ^def$" )
+  ]
+}

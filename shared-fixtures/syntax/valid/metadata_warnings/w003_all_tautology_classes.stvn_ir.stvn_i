@@ -1,0 +1,31 @@
+{
+  :meta {
+    #name "w003_all_tautology_classes"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":RedundantSigned8" ( "{#size 8}:Int" ":RedundantSigned8" ( #TRUE #TRUE ) ) ]
+      [ ":RedundantUnsigned8" ( "{#unsigned #size 8}:Int" ":RedundantUnsigned8" ( #TRUE #TRUE ) ) ]
+      [ ":RedundantExactFloat" ( "{#exact}:Float" ":RedundantExactFloat" ( #TRUE #TRUE ) ) ]
+      [ ":RedundantString" ( ":String" ":RedundantString" ( #TRUE #TRUE ) ) ]
+      [ ":RedundantSeq" ( ":Seq(:Int)" ":RedundantSeq" ( #TRUE #TRUE ) ) ]
+      [ ":Bundle" ( ":Tuple(:RedundantSigned8 :RedundantUnsigned8 :RedundantExactFloat :RedundantString :RedundantSeq)" ":Bundle" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:RedundantSigned8 :RedundantUnsigned8 :RedundantExactFloat :RedundantString :RedundantSeq)" ":Bundle" ( #TRUE #TRUE ) ) ]
+    }
+    #14 [
+      #2 ( 0 8 #FALSE )
+      #2 ( 0 8 #TRUE )
+      #4 ( 1.25 16777216 )
+      #5 "ok"
+      #15 [
+        #2 ( 1 32 #FALSE )
+      ]
+    ]
+  )
+}

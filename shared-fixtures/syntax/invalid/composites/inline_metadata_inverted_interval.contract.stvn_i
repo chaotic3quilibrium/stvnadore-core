@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "inline_metadata_inverted_interval"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 5 32 151 161 "Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'" )
+    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 5 32 151 161 "Constraint violation (<:type>): effective range is invalid (minimum 10 is greater than maximum 5)" )
+  ]
+}

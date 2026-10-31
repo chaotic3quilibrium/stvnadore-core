@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "datetime_audited_offset_mismatch_e021"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E021 #TEMPORAL_AUDITED_MISMATCH #ERROR 12 5 226 270 "Contradictory offset in {#audited} :DateTime literal: declared offset '-07:00' disagrees with valid IANA offset(s) [-05:00] for '2026-03-15T08:00' in zone 'America/Chicago'." )
+  ]
+}

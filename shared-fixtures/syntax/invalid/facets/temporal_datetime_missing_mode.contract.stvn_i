@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "temporal_datetime_missing_mode"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_MISSING_TEMPORAL_FACET #ERROR 6 16 159 168 "Temporal primitive ':DateTime' requires exactly one mode facet (#offset, #zoned, or #audited)" )
+  ]
+}

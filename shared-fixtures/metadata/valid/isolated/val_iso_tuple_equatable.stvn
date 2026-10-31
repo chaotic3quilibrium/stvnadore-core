@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #equatable #TRUE } :Tuple( :Int :String )
+  :TestedType { #equatable #FALSE } :Tuple( :Int :String )
   }
   :type :TestedType
   :body ( 42 "alpha" )

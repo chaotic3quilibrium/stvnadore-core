@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "trap7_infix_colon"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ERR_BARE_COLON_PROHIBITED #ERROR 6 24 138 139 "STVN Syntax Error: Standalone colon ':' is prohibited in STVN syntax; attach ':' directly as a prefix to a type or clause identifier" )
+  ]
+}

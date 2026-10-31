@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "inference_rule_c_clash"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E024 #ERR_AMBIGUOUS_SUM_INFERENCE #ERROR 10 9 217 222 "Rule C violation: Ambiguous keyword clash; '#Some' is both an :Option control tag and an active inner :Enum variant" )
+  ]
+}

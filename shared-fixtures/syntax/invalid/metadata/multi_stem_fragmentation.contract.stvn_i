@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "multi_stem_fragmentation"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E032 #ERR_INVALID_FILENAME_STEM #ERROR 1 1 0 1 "Invalid filename stem 'multi_stem_fragmentation.a.b.stvn'; filename must contain exactly one or two dot-separated stem segments (<name>.<ext> or <name>.<domain>.<ext>)" )
+  ]
+}

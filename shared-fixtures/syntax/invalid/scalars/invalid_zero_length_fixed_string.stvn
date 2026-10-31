@@ -1,9 +1,9 @@
 // @spec: SPEC-01-SCALAR-KERNEL
 // @case: Negative - Reject invalid zero length fixed string
-// @error: ERR_UNDEFINED_TYPE
+// @error: ERR_CAPACITY_OVERFLOW
 {
   :defs {
-    :ZeroLenString :StringFixed0
+    :ZeroLenString { #maxSize 0 } :String
   }
   :type :ZeroLenString
   :body ""

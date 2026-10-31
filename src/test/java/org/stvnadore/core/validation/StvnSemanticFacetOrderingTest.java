@@ -31,12 +31,12 @@ public class StvnSemanticFacetOrderingTest {
         {
           :defs {
             :TargetType {
-              #regex "^[A-Z0-9]+$"
               #minSize 4
               #maxSize 16
-              #preserveIndent #TRUE
               #equatable #FALSE
               #comparable #FALSE
+              #preserveIndent #TRUE
+              #regex "^[A-Z0-9]+$"
             } :String
           }
           :type :TargetType
@@ -54,16 +54,16 @@ public class StvnSemanticFacetOrderingTest {
   }
 
   @Test
-  @DisplayName("TC-ORDER-02: Numeric interval lower-before-upper ordering in flattener conforms to Tier 4")
+  @DisplayName("TC-ORDER-02: Numeric interval lower-before-upper ordering in flattener conforms to Tier 3")
   void testFlattenerTier4IntervalLowerBeforeUpper() {
     String source = """
         {
           :defs {
             :BoundedInt {
-              #maxExcl 100
-              #minIncl 1
               #unsigned
               #size 16
+              #minIncl 1
+              #maxExcl 100
             } :Int
           }
           :type :BoundedInt
@@ -72,24 +72,20 @@ public class StvnSemanticFacetOrderingTest {
         """;
 
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    // Expected:
-    // Tier 1: #unsigned
-    // Tier 3: #size 16
-    // Tier 4: #minIncl 1 #maxExcl 100
     String expected = "{:meta{#kind #DEFS}:defs{:BoundedInt{#unsigned #size 16 #minIncl 1 #maxExcl 100}:Int}}";
     Assertions.assertEquals(expected, flattened);
   }
 
   @Test
-  @DisplayName("TC-ORDER-03: Temporal scale flag in flattener conforms to Tier 2")
+  @DisplayName("TC-ORDER-03: Temporal scale flag in flattener conforms to Tier 1")
   void testFlattenerTemporalScaleTier2() {
     String source = """
         {
           :defs {
             :EpochWindow {
-              #maxExcl 2000000000
               #s
               #minIncl 1000000000
+              #maxExcl 2000000000
             } :TimeEpoch
           }
           :type :EpochWindow
@@ -98,9 +94,6 @@ public class StvnSemanticFacetOrderingTest {
         """;
 
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    // Expected:
-    // Tier 2: #s
-    // Tier 4: #minIncl 1000000000 #maxExcl 2000000000
     String expected = "{:meta{#kind #DEFS}:defs{:EpochWindow{#s #minIncl 1000000000 #maxExcl 2000000000}:TimeEpoch}}";
     Assertions.assertEquals(expected, flattened);
   }

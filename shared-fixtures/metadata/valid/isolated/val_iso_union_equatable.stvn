@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_union_equatable
+// MATRIX-POSITION:    2.1
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Union
+// FACET-NAME:         #equatable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables structural coproduct equality comparison (derived inductively across all union branches)
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #equatable #FALSE } :Union( :Int :String )
+  }
+  :type :TestedType
+  :body 42
+}

@@ -31,7 +31,7 @@ public class StvnSchemaFlattenerV2Test {
   }
 
   @Test
-  @DisplayName("TC-FLAT-02: #preserveIndent serializes with explicit #F")
+  @DisplayName("TC-FLAT-02: Redundant #preserveIndent #FALSE purges to default :String")
   void testPreserveIndentExplicitTrueNormalizesToBare() {
     String source = """
         {
@@ -43,7 +43,7 @@ public class StvnSchemaFlattenerV2Test {
         }
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    String expected = "{:meta{#kind #DEFS}:defs{:Text{#preserveIndent #F}:String}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:Text :String}}";
     assertEquals(expected, flattened);
   }
 
@@ -53,15 +53,14 @@ public class StvnSchemaFlattenerV2Test {
     String source = """
         {
           :defs {
-            :ComplexInt { #audited #unsigned #size 64 #minIncl 10 } :Int
+            :ComplexInt { #unsigned #size 64 #equatable #FALSE #comparable #FALSE #minIncl 10 #maxExcl 100 } :Int
           }
           :type :ComplexInt
           :body 42
         }
         """;
     String flattened = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    // 5-tier Semantic Category Order: Tier 1 (#unsigned #audited) < Tier 3 (#size 64) < Tier 4 (#minIncl 10)
-    String expected = "{:meta{#kind #DEFS}:defs{:ComplexInt{#unsigned #audited #size 64 #minIncl 10}:Int}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:ComplexInt{#unsigned #size 64 #equatable #F #comparable #F #minIncl 10 #maxExcl 100}:Int}}";
     assertEquals(expected, flattened);
   }
 
@@ -79,9 +78,7 @@ public class StvnSchemaFlattenerV2Test {
         }
         """;
     String pass1 = StvnSchemaFlattener.flatten(Map.of("test.stvn", source), "test.stvn");
-    String inner = pass1.startsWith("{") ? pass1.substring(1, pass1.length() - 1) : pass1;
-    String wrappedPass1 = "{" + inner + ":type :Tuple(:A :B):body(1 \"text\")}";
-    String pass2 = StvnSchemaFlattener.flatten(Map.of("test.stvn", wrappedPass1), "test.stvn");
+    String pass2 = StvnSchemaFlattener.flatten(Map.of("test.stvn_d", pass1), "test.stvn_d");
     assertEquals(pass1, pass2, "Flattener output must remain strictly idempotent");
   }
 }

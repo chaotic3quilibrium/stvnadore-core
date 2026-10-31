@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "nominal_tier1_override_rejected"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 7 25 110 118 "Constraint violation (:BaseId): facet '#size 32' is redundant; unsigned integer '{ #unsigned } :Int' intrinsically defaults to 32-bit storage" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 9 25 208 216 "Constraint violation (:IllegalWidenedId): non-overridable definition facet '#size' is already established by ancestor :BaseId and cannot be re-specified" )
+  ]
+}

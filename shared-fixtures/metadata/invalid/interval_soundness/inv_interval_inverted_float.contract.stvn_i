@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "inv_interval_inverted_float"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 15 37 713 726 "Constraint violation (:InvertedFloat): effective range is invalid (lower bound 100.0 exceeds upper bound 50.0)" )
+  ]
+}

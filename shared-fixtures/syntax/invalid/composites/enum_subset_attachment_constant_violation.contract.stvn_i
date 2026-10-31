@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "enum_subset_attachment_constant_violation"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 8 25 260 280 "Constraint violation (#DEFAULT_PRIORITY): facet '#filterIncl' is not allowed on constant definitions; filter facets are permitted strictly on nominal aliases of :Enum" )
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "unfenced_block_string_prohibited"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E025 #FENCE_DELIMITER_MISMATCH #ERROR 6 9 180 184 "STVN Syntax Error: Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax \"\"\"[TAG]" )
+  ]
+}

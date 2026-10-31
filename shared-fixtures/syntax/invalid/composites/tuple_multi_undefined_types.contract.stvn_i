@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "tuple_multi_undefined_types"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E030 #UNDEFINED_TYPE #ERROR 5 18 138 150 "Undefined type: :TimeEpochNs" )
+    ( #E030 #UNDEFINED_TYPE #ERROR 5 31 151 163 "Undefined type: :TimeEpochUs" )
+    ( #E030 #UNDEFINED_TYPE #ERROR 5 44 164 176 "Undefined type: :TimeEpochMs" )
+    ( #E030 #UNDEFINED_TYPE #ERROR 5 57 177 188 "Undefined type: :TimeEpochS" )
+  ]
+}

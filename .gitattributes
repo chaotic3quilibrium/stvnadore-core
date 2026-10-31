@@ -1,0 +1,10 @@
+# Enforce deterministic LF (\n) line endings across all textual STVN 2.0.0 fixtures and schemas (GATE-09)
+*.stvn    text eol=lf
+*.stvn_i  text eol=lf
+*.stvn_d  text eol=lf
+*.stvn_di text eol=lf
+*.tsv     text eol=lf
+
+# Protect binary STVN snapshots from newline translation
+*.stvn_b  binary
+*.stvn_bd binary

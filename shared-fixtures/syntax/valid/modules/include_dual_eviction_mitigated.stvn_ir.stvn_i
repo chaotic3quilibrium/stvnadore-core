@@ -1,0 +1,23 @@
+{
+  :meta {
+    #name "include_dual_eviction_mitigated"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":RecordA" ( ":Int" ":RecordA" ( #TRUE #TRUE ) ) ]
+      [ ":RecordB" ( ":String" ":RecordB" ( #TRUE #TRUE ) ) ]
+      [ ":MergedPair" ( ":Tuple(:RecordA :RecordB)" ":MergedPair" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:RecordA :RecordB)" ":MergedPair" ( #TRUE #TRUE ) ) ]
+    }
+    #14 [
+      #2 ( 100 32 #FALSE )
+      #5 "two-hundred"
+    ]
+  )
+}

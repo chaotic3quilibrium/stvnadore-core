@@ -1,10 +1,12 @@
 // @spec: SPEC-10-SUM-TYPES
 // @case: Negative - Reject union overlap ambiguous
-// @error: ERR_UNDEFINED_TYPE
+// @error: ERR_AMBIGUOUS_SUM_INFERENCE
 {
   :defs {
-    :OverlapUnion :Union(:Int32 :Int)
+    :LowRange { #minIncl 0 #maxExcl 100 } :Int
+    :MidRange { #minIncl 50 #maxExcl 150 } :Int
+    :OverlapUnion :Union( :LowRange :MidRange )
   }
   :type :OverlapUnion
-  :body 42
+  :body 75
 }

@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "invalid_use_trailing_slash"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ERR_TRAILING_SLASH_PROHIBITED #ERROR 11 12 285 305 "Trailing slash prohibited in :use target: :org/example/models/" )
+    ( #E030 #UNDEFINED_TYPE #ERROR 14 9 332 337 "Undefined type: :User" )
+  ]
+}

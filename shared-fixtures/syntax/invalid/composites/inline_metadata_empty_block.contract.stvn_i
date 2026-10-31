@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "inline_metadata_empty_block"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E003 #ERR_EMPTY_METADATA_BLOCK #ERROR 5 15 139 141 "Empty metadata block is invalid; remove '{}' or specify valid facets" )
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "string_cardinality_inverted"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 6 30 188 198 "Constraint violation (:BadString): #minSize (10) cannot exceed #maxSize (5)" )
+  ]
+}

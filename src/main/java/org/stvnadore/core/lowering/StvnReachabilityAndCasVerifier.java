@@ -110,7 +110,28 @@ public final class StvnReachabilityAndCasVerifier {
       boolean failOnDeadCode,
       DiagnosticBag diagnosticBag
   ) {
+    return verifyAndPruneCanonical(document, failOnDeadCode, Map.of(), diagnosticBag);
+  }
+
+  /**
+   * Executes Appendix G canonical reachability pruning, implicit prelude exclusion, topological
+   * DFS post-order ordering, and optional {@code E029} ({@code DEAD_CODE_CANONICAL_FAIL}) enforcement
+   * with exact source coordinate spans for unreachable definitions.
+   *
+   * @param document        the lowered IR document to canonicalize
+   * @param failOnDeadCode  {@code true} to emit {@code E029} when unreachable definitions exist in {@code document.defs()}
+   * @param definitionSpans source coordinate spans indexed by canonical FQNI for {@code E029} pinning
+   * @param diagnosticBag   the diagnostic accumulator
+   * @return a canonicalized {@link StvnDocument} ready for bijective CAS serialization and SHA-256 hashing
+   */
+  public static StvnDocument verifyAndPruneCanonical(
+      StvnDocument document,
+      boolean failOnDeadCode,
+      Map<String, StvnPayloadLowerer.Span> definitionSpans,
+      DiagnosticBag diagnosticBag
+  ) {
     Objects.requireNonNull(document, "document must not be null");
+    Objects.requireNonNull(definitionSpans, "definitionSpans must not be null");
     Objects.requireNonNull(diagnosticBag, "diagnosticBag must not be null");
 
     StvnDefsCatalog srcCatalog = document.defs();
@@ -160,9 +181,14 @@ public final class StvnReachabilityAndCasVerifier {
         }
       }
       for (String dead : deadSymbols) {
+        StvnPayloadLowerer.Span span = definitionSpans.get(dead);
+        int start = span != null ? span.start() : 0;
+        int end = span != null ? span.end() : 1;
+        int line = span != null ? span.line() : 1;
+        int col = span != null ? span.column() : 0;
         diagnosticBag.addError(
-            "Unreachable definition '" + dead + "' is prohibited in strict canonical mode",
-            0, 1, 1, 0, null,
+            "Unreachable definition '" + dead + "' is prohibited in canonical STVN output",
+            start, end, line, col, null,
             DiagnosticBag.ERR_DEAD_CODE_CANONICAL_FAIL
         );
       }

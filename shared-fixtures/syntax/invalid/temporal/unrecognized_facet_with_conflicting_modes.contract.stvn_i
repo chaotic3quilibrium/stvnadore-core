@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "unrecognized_facet_with_conflicting_modes"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E036 #ERR_UNRECOGNIZED_METADATA_FACET #ERROR 10 20 271 277 "Metadata violation (:AuditMarker): Unrecognized constraint facet '#milli'" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 10 35 286 292 "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive" )
+  ]
+}

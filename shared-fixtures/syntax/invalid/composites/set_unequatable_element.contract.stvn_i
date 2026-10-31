@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "set_unequatable_element"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #TRAIT_VIOLATION #ERROR 5 14 125 131 "Set elements require types to be #equatable #TRUE" )
+  ]
+}

@@ -120,6 +120,9 @@ public class StvnBareFlagFacetValidationTest {
     assertTrue(result.hasErrors(), "Missing argument for " + facet + " must be rejected");
     var error = result.diagnostics().getFirst();
     assertEquals("STVN_SYNTAX_ERROR", error.errorCode().orElse(null));
-    assertTrue(error.message().contains("mismatched input '}'"));
+    assertTrue(
+        error.message().contains("STVN Syntax Error") && error.message().contains("'}'"),
+        "Expected STE syntax error mentioning '}', got: " + error.message()
+    );
   }
 }

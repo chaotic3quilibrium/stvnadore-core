@@ -17,6 +17,6 @@
       [ ":org/stvnadore/prelude/meta/StvnDocumentMeta" ( ":Tuple(:Option(:org/stvnadore/prelude/meta/StvnPosixId64):Option(:org/stvnadore/prelude/meta/StvnPosixId64):org/stvnadore/prelude/meta/StvnDocumentKind)" ":org/stvnadore/prelude/meta/StvnDocumentMeta" ( #TRUE #TRUE ) ) ]
       [ ":org/stvnadore/prelude/meta/StvnCatalogMeta" ( ":Tuple(:org/stvnadore/prelude/meta/StvnPosixId64:org/stvnadore/prelude/meta/StvnPosixId64:org/stvnadore/prelude/meta/StvnDocumentKind)" ":org/stvnadore/prelude/meta/StvnCatalogMeta" ( #TRUE #TRUE ) ) ]
     }
-    #7 #NONE
+    #10 #NONE
   )
 }

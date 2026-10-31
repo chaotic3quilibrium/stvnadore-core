@@ -1,0 +1,13 @@
+{
+  :meta {
+    #name "sum_type_unequatable_branch_in_set"
+    #kind #BODY
+  }
+  :defs {
+    :ValidOpt :Option( :Int )
+    :NonEqUnion :Union( :Int :Float )
+    :Check :Tuple( :Set( :ValidOpt ) :Set( :NonEqUnion ) )
+  }
+  :type :Check
+  :body ( [ 1 ] [ 1 ] )
+}

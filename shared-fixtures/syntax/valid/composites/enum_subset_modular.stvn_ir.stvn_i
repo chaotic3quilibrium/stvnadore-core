@@ -10,10 +10,11 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":HttpProtocol" ( ":Enum[#HTTP_1_0#HTTP_1_1#HTTP_2_0#HTTP_3_0]" ":HttpProtocol" ( #TRUE #TRUE ) ) ]
-      [ ":ModernHttp" ( ":Enum[#HTTP_1_0#HTTP_1_1#HTTP_2_0#HTTP_3_0]" ":ModernHttp" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Enum[#HTTP_1_0#HTTP_1_1#HTTP_2_0#HTTP_3_0]" ":MuxProtocol" ( #TRUE #TRUE ) ) ]
+      [ ":HttpProtocol" ( ":Enum[#HTTP_1_0 #HTTP_1_1 #HTTP_2_0 #HTTP_3_0]" ":HttpProtocol" ( #TRUE #TRUE ) ) ]
+      [ ":ModernHttp" ( "{#filterExcl[#HTTP_1_0]}:HttpProtocol" ":ModernHttp" ( #TRUE #TRUE ) ) ]
+      [ ":MuxProtocol" ( "{#filterIncl[#HTTP_2_0 #HTTP_3_0]}:ModernHttp" ":MuxProtocol" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#filterIncl[#HTTP_2_0 #HTTP_3_0]}:ModernHttp" ":MuxProtocol" ( #TRUE #TRUE ) ) ]
     }
-    #5 ( "#HTTP_3_0" 3 )
+    #8 ( "#HTTP_3_0" 3 )
   )
 }

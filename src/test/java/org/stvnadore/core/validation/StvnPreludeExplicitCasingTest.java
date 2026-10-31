@@ -346,12 +346,12 @@ public class StvnPreludeExplicitCasingTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertFalse(result.isSuccess(), "Excised :Uuid must fail compilation");
     assertTrue(result.diagnostics().stream().anyMatch(d ->
-        DiagnosticBag.ERR_UNDEFINED_TYPE.equals(d.errorCode().orElse(null))
-        || d.message().contains("Undefined type: :org/stvnadore/prelude/Uuid")));
+        DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED.equals(d.errorCode().orElse(null))
+        || DiagnosticBag.ERR_UNDEFINED_TYPE.equals(d.errorCode().orElse(null))));
   }
 
   @Test
-  @DisplayName("TC-EXPLICIT-CASE-23: Deprecated bare :Sha256 emits ERR_UNDEFINED_TYPE")
+  @DisplayName("TC-EXPLICIT-CASE-23: Deprecated bare :Sha256 emits ERR_PRELUDE_ALIAS_PURGED")
   void testExcisedSha256EmitsUndefinedType() {
     String source = """
         {
@@ -362,12 +362,12 @@ public class StvnPreludeExplicitCasingTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertFalse(result.isSuccess(), "Excised :Sha256 must fail compilation");
     assertTrue(result.diagnostics().stream().anyMatch(d ->
-        DiagnosticBag.ERR_UNDEFINED_TYPE.equals(d.errorCode().orElse(null))
-        || d.message().contains("Undefined type: :org/stvnadore/prelude/Sha256")));
+        DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED.equals(d.errorCode().orElse(null))
+        || DiagnosticBag.ERR_UNDEFINED_TYPE.equals(d.errorCode().orElse(null))));
   }
 
   @Test
-  @DisplayName("TC-EXPLICIT-CASE-24: Deprecated bare :Email emits ERR_UNDEFINED_TYPE")
+  @DisplayName("TC-EXPLICIT-CASE-24: Deprecated bare :Email emits ERR_PRELUDE_ALIAS_PURGED")
   void testExcisedEmailEmitsUndefinedType() {
     String source = """
         {
@@ -378,7 +378,7 @@ public class StvnPreludeExplicitCasingTest {
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
     assertFalse(result.isSuccess(), "Excised :Email must fail compilation");
     assertTrue(result.diagnostics().stream().anyMatch(d ->
-        DiagnosticBag.ERR_UNDEFINED_TYPE.equals(d.errorCode().orElse(null))
-        || d.message().contains("Undefined type: :org/stvnadore/prelude/Email")));
+        DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED.equals(d.errorCode().orElse(null))
+        || DiagnosticBag.ERR_UNDEFINED_TYPE.equals(d.errorCode().orElse(null))));
   }
 }

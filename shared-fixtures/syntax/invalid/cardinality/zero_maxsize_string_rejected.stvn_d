@@ -1,0 +1,10 @@
+{
+  :meta {
+    #name "zero_maxsize_string_rejected"
+    #kind #DEFS
+  }
+  :defs {
+    :ValidCode { #maxSize 4 } :String
+    :InvalidZeroStr { #maxSize 0 } :String
+  }
+}

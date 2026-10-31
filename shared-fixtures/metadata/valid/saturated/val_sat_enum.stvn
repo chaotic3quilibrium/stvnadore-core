@@ -10,6 +10,8 @@
   :defs {
     :BaseEnum :Enum [ #VAL_A #VAL_B #VAL_C ]
     :SaturatedEnum {
+      #equatable #FALSE
+      #comparable #FALSE
       #filterIncl [ #VAL_A #VAL_B ]
     } :BaseEnum
   }

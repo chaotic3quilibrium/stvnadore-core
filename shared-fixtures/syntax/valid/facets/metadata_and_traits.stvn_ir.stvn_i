@@ -10,21 +10,21 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":RestrictedPort" ( "{#unsigned#size16#minIncl1024}:Int" ":RestrictedPort" ( #TRUE #TRUE ) ) ]
-      [ ":ScoreRange" ( "{#minExcl0.0#maxIncl10.0}:Float" ":ScoreRange" ( #FALSE #TRUE ) ) ]
-      [ ":NegativeOffset" ( "{#minIncl-100#maxExcl0}:Int" ":NegativeOffset" ( #TRUE #TRUE ) ) ]
-      [ ":RegexIdentifier" ( "{#minSize1#maxSize32#regex\"^[a-z][a-z0-9_-]{2,31}$\"}:String" ":RegexIdentifier" ( #TRUE #TRUE ) ) ]
-      [ ":RawScriptBlock" ( "{#preserveIndent#TRUE}:String" ":RawScriptBlock" ( #TRUE #TRUE ) ) ]
-      [ ":BitwiseFloat" ( "{#equatable#TRUE}:Float" ":BitwiseFloat" ( #TRUE #TRUE ) ) ]
-      [ ":NonEquatableInt" ( "{#equatable#FALSE}:Int" ":NonEquatableInt" ( #FALSE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:RestrictedPort:ScoreRange:NegativeOffset:RegexIdentifier:RawScriptBlock:BitwiseFloat:NonEquatableInt)" "" ( #FALSE #TRUE ) ) ]
+      [ ":RestrictedPort" ( "{#unsigned #size 16 #minIncl 1024}:Int" ":RestrictedPort" ( #TRUE #TRUE ) ) ]
+      [ ":ScoreRange" ( "{#minExcl 0.0 #maxIncl 10.0}:Float" ":ScoreRange" ( #FALSE #TRUE ) ) ]
+      [ ":NegativeOffset" ( "{#minIncl -100 #maxExcl 0}:Int" ":NegativeOffset" ( #TRUE #TRUE ) ) ]
+      [ ":RegexIdentifier" ( "{#minSize 1 #maxSize 32 #regex \"^[a-z][a-z0-9_-]{2,31}$\"}:String" ":RegexIdentifier" ( #TRUE #TRUE ) ) ]
+      [ ":RawScriptBlock" ( "{#preserveIndent #T}:String" ":RawScriptBlock" ( #TRUE #TRUE ) ) ]
+      [ ":BitwiseFloat" ( "{#equatable #T}:Float" ":BitwiseFloat" ( #TRUE #TRUE ) ) ]
+      [ ":NonEquatableInt" ( "{#equatable #F}:Int" ":NonEquatableInt" ( #FALSE #FALSE ) ) ]
+      [ "<:type>" ( ":Tuple(:RestrictedPort :ScoreRange :NegativeOffset :RegexIdentifier :RawScriptBlock :BitwiseFloat :NonEquatableInt)" "" ( #FALSE #FALSE ) ) ]
     }
-    #11 [
+    #14 [
       #2 ( 8080 16 #TRUE )
       #3 9.5
       #2 ( -50 32 #FALSE )
-      #4 "server_node_01"
-      #4 "      Line 1 indented\n        Line 2 further indented\n    "
+      #5 "server_node_01"
+      #5 "      Line 1 indented\n        Line 2 further indented\n    "
       #3 3.141592653589793
       #2 ( 42 32 #FALSE )
     ]

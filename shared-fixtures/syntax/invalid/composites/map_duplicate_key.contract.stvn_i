@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "map_duplicate_key"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E017 #DUPLICATE_MAP_KEY #ERROR 11 7 209 215 "Duplicate map key detected" )
+  ]
+}

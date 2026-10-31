@@ -2648,6 +2648,13 @@ public final class StvnPayloadLowerer {
       };
     }
 
+    private static Instant resolveValidatedBoundInstant(String iso, DateTimeMode mode) {
+      if (iso.indexOf('[') < 0) {
+        return OffsetDateTime.parse(iso).toInstant();
+      }
+      return parseDateTimeBoundInstant("\"" + iso + "\"", mode);
+    }
+
     private void validateDateTimeBounds(
         Instant instant,
         String isoText,
@@ -2656,7 +2663,7 @@ public final class StvnPayloadLowerer {
         Span span
     ) {
       if (dtSchema.explicitMinInclIso().isPresent()) {
-        Instant minInst = parseDateTimeBoundInstant("\"" + dtSchema.explicitMinInclIso().get() + "\"", dtSchema.mode());
+        Instant minInst = resolveValidatedBoundInstant(dtSchema.explicitMinInclIso().get(), dtSchema.mode());
         if (instant.isBefore(minInst)) {
           String msg = "Constraint violation (" + label + "): Timestamp '" + isoText
               + "' is outside allowable range (before #minIncl '" + dtSchema.explicitMinInclIso().get() + "')";
@@ -2667,7 +2674,7 @@ public final class StvnPayloadLowerer {
         }
       }
       if (dtSchema.explicitMaxExclIso().isPresent()) {
-        Instant maxInst = parseDateTimeBoundInstant("\"" + dtSchema.explicitMaxExclIso().get() + "\"", dtSchema.mode());
+        Instant maxInst = resolveValidatedBoundInstant(dtSchema.explicitMaxExclIso().get(), dtSchema.mode());
         if (!instant.isBefore(maxInst)) {
           String msg = "Constraint violation (" + label + "): Timestamp '" + isoText
               + "' is outside allowable range (must be strictly before #maxExcl '"

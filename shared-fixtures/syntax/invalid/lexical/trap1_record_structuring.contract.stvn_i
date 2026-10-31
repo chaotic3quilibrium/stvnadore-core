@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "trap1_record_structuring"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 6 13 134 139 "STVN Syntax Error: unexpected token ':name'; expected <value keyword>" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 6 37 158 159 "STVN Syntax Error: unexpected token '}'; expected <schema type>" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 8 3 166 171 "STVN Syntax Error: unexpected token ':type'; expected {'}', ':type', ':body'}" )
+    ( #E031 #ERR_DOCUMENT_KIND_MISMATCH #ERROR 4 1 110 111 "Mandatory ':type' and ':body' sections missing; hermetic payload document ('trap1_record_structuring.stvn') requires payload schema and body value" )
+  ]
+}

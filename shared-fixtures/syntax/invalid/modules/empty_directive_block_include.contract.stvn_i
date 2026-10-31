@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "empty_directive_block_include"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E004 #ERR_EMPTY_DIRECTIVE_BLOCK #ERROR 12 39 292 294 "Empty directive block in :use or :include statement is invalid; specify {#strip}, alias mappings, or remove '{}'" )
+  ]
+}

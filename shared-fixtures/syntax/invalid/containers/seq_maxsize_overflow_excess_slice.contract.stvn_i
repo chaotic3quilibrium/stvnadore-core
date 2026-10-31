@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "seq_maxsize_overflow_excess_slice"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E012 #CAPACITY_OVERFLOW #ERROR 10 17 166 171 "Constraint violation (:PairCap): Size 4 outside allowable range [0, 2]" )
+  ]
+}

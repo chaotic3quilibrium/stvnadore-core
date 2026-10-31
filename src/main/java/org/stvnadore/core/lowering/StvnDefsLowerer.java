@@ -99,6 +99,7 @@ public final class StvnDefsLowerer {
    * @param rootConstantResolver scoped constant lookup callback for Pass 3 root {@code :body} lowering
    * @param nominalTypeLookup    scoped nominal schema lookup callback for guarded recursive types in Pass 3
    * @param sectionsEligible     {@code true} when top-level clauses satisfy document kind section eligibility
+   * @param definitionSpans      source coordinate spans of locally declared types and constants for {@code E029} pinning
    * @since 2.0.0
    */
   public record DefsLoweringResult(
@@ -109,7 +110,8 @@ public final class StvnDefsLowerer {
       boolean hasIncludes,
       StvnPayloadLowerer.ConstantResolver rootConstantResolver,
       StvnPayloadLowerer.NominalSchemaResolver nominalTypeLookup,
-      boolean sectionsEligible
+      boolean sectionsEligible,
+      Map<String, Span> definitionSpans
   ) {
     /**
      * Canonical constructor verifying non-null components.
@@ -122,6 +124,7 @@ public final class StvnDefsLowerer {
      * @param rootConstantResolver root scope constant resolver
      * @param nominalTypeLookup    nominal schema lookup for recursive types
      * @param sectionsEligible     whether top-level sections are eligible for the effective document kind
+     * @param definitionSpans      source coordinate spans of locally declared definitions
      */
     public DefsLoweringResult {
       Objects.requireNonNull(meta, "meta must not be null");
@@ -129,6 +132,33 @@ public final class StvnDefsLowerer {
       Objects.requireNonNull(rootType, "rootType must not be null");
       Objects.requireNonNull(rootConstantResolver, "rootConstantResolver must not be null");
       Objects.requireNonNull(nominalTypeLookup, "nominalTypeLookup must not be null");
+      Objects.requireNonNull(definitionSpans, "definitionSpans must not be null");
+      definitionSpans = Collections.unmodifiableMap(new LinkedHashMap<>(definitionSpans));
+    }
+
+    /**
+     * Convenience constructor defaulting {@code definitionSpans} to an empty map.
+     *
+     * @param meta                 lowered metadata
+     * @param defs                 lowered definitions catalog
+     * @param rootType             lowered root payload schema
+     * @param hasDefsSection       whether {@code :defs} is present
+     * @param hasIncludes          whether {@code :include} is present
+     * @param rootConstantResolver root scope constant resolver
+     * @param nominalTypeLookup    nominal schema lookup for recursive types
+     * @param sectionsEligible     whether top-level sections are eligible for the effective document kind
+     */
+    public DefsLoweringResult(
+        Optional<StvnDocumentMeta> meta,
+        StvnDefsCatalog defs,
+        Optional<StvnSchema> rootType,
+        boolean hasDefsSection,
+        boolean hasIncludes,
+        StvnPayloadLowerer.ConstantResolver rootConstantResolver,
+        StvnPayloadLowerer.NominalSchemaResolver nominalTypeLookup,
+        boolean sectionsEligible
+    ) {
+      this(meta, defs, rootType, hasDefsSection, hasIncludes, rootConstantResolver, nominalTypeLookup, sectionsEligible, Map.of());
     }
   }
 
@@ -555,7 +585,8 @@ public final class StvnDefsLowerer {
       Map<String, ExportedTypeSymbol> exportedTypes,
       Map<String, ExportedConstantSymbol> exportedConstants,
       StvnPayloadLowerer.ConstantResolver rootConstantResolver,
-      StvnPayloadLowerer.NominalSchemaResolver nominalTypeLookup
+      StvnPayloadLowerer.NominalSchemaResolver nominalTypeLookup,
+      Map<String, Span> definitionSpans
   ) {
     DefsLoweringResult toPublicResult() {
       return new DefsLoweringResult(
@@ -566,7 +597,8 @@ public final class StvnDefsLowerer {
           hasIncludes,
           rootConstantResolver,
           nominalTypeLookup,
-          sectionsEligible
+          sectionsEligible,
+          definitionSpans
       );
     }
   }
@@ -638,7 +670,8 @@ public final class StvnDefsLowerer {
           Map.of(),
           Map.of(),
           (tok, site) -> Optional.empty(),
-          fqni -> Optional.empty()
+          fqni -> Optional.empty(),
+          Map.of()
       );
     }
 
@@ -655,7 +688,8 @@ public final class StvnDefsLowerer {
           Map.of(),
           Map.of(),
           (tok, site) -> Optional.empty(),
-          fqni -> Optional.empty()
+          fqni -> Optional.empty(),
+          Map.of()
       );
     }
 
@@ -670,6 +704,13 @@ public final class StvnDefsLowerer {
     }
 
     StvnDefsCatalog catalog = env.buildCatalog();
+    Map<String, Span> defSpans = new LinkedHashMap<>();
+    for (var entry : env.localTypeAsts.entrySet()) {
+      defSpans.put(entry.getKey(), Span.ofContext(entry.getValue().ctx()));
+    }
+    for (var entry : env.localConstAsts.entrySet()) {
+      defSpans.put(entry.getKey(), Span.ofContext(entry.getValue().ctx()));
+    }
     StvnPayloadLowerer.ConstantResolver rootConstResolver =
         (tokenText, site) -> env.resolveConstantAtSite(tokenText, site);
     StvnPayloadLowerer.NominalSchemaResolver nominalLookup = env::findLoweredNominalSchema;
@@ -685,7 +726,8 @@ public final class StvnDefsLowerer {
         env.exportedTypes,
         env.exportedConstants,
         rootConstResolver,
-        nominalLookup
+        nominalLookup,
+        defSpans
     );
   }
 
@@ -3391,6 +3433,8 @@ public final class StvnDefsLowerer {
       String minBoundName = null;
       StvnParser.MetadataRangeContext maxBoundCtx = null;
       String maxBoundName = null;
+      StvnParser.MetadataRangeContext prohibitedDiscreteMinCtx = null;
+      StvnParser.MetadataRangeContext prohibitedDiscreteMaxCtx = null;
 
       StvnParser.MetadataStringContext regexCtx = null;
       StvnParser.MetadataFilterContext filterInclCtx = null;
@@ -3488,6 +3532,22 @@ public final class StvnDefsLowerer {
               entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
               DiagnosticBag.ERR_DISCRETE_BOUND_KIND_PROHIBITED
           );
+          if ("minExcl".equals(facetName)) {
+            prohibitedDiscreteMinCtx = entry.metadataRange();
+          } else {
+            prohibitedDiscreteMaxCtx = entry.metadataRange();
+          }
+          continue;
+        }
+        if (("filterIncl".equals(facetName) || "filterExcl".equals(facetName))
+            && ownerLabel.startsWith(StvnVocabulary.SIGIL_VALUE)) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): facet '#" + facetName
+                  + "' is not allowed on constant definitions; filter facets are permitted strictly on nominal aliases of "
+                  + StvnVocabulary.TYPE_ENUM,
+              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              DiagnosticBag.ERR_INVALID_METADATA_FACET
+          );
           continue;
         }
         if (!permitted.contains(facetName)) {
@@ -3504,7 +3564,7 @@ public final class StvnDefsLowerer {
           } else {
             message = "Constraint violation (" + ownerLabel + "): facet '#" + facetName + "' is not permitted on "
                 + baseKw + "; permitted facets: "
-                + permitted.stream().map(f -> StvnVocabulary.SIGIL_VALUE + f).toList();
+                + permitted.stream().sorted().map(f -> StvnVocabulary.SIGIL_VALUE + f).toList();
           }
           diagnosticBag.addError(
               message,
@@ -3819,16 +3879,6 @@ public final class StvnDefsLowerer {
       boolean finalEq = childEquatable != null ? childEquatable : defaultEq;
       boolean finalComp = childComparable != null ? childComparable : defaultComp;
 
-      // Unordered sets and maps cannot be elevated to #comparable #TRUE
-      if (finalComp && (baseKw.equals(StvnVocabulary.TYPE_SET) || baseKw.equals(StvnVocabulary.TYPE_MAP))) {
-        Span sp = childComparableSpan != null ? childComparableSpan : Span.ofContext(metaMap);
-        diagnosticBag.addError(
-            "Trait violation (" + ownerLabel + "): unordered container '" + baseKw
-                + "' cannot satisfy '#comparable #TRUE'",
-            sp.start(), sp.end(), sp.line(), sp.column(), null,
-            DiagnosticBag.ERR_TRAIT_VIOLATION
-        );
-      }
       // If #equatable is explicitly disabled to #FALSE on an equatable type while #comparable is #TRUE (unless continuous float)
       if (!finalEq && finalComp && !baseKw.equals(StvnVocabulary.TYPE_FLOAT)) {
         if (childComparable != null && childComparable) {
@@ -3912,10 +3962,38 @@ public final class StvnDefsLowerer {
       StvnSchema loweredSchema = switch (baseSchema) {
         case StvnSchema.BooleanSchema ignored -> new StvnSchema.BooleanSchema(effectiveBrand, finalTraits);
 
-        case StvnSchema.IntSchema intBase -> lowerIntFacets(
-            ownerLabel, effectiveBrand, intBase, parentName, parentLedger, isNominalDerivation,
-            childUnsigned, childSize, childSizeSpan, minBoundCtx, maxBoundCtx, finalTraits, scope
-        );
+        case StvnSchema.IntSchema intBase -> {
+          StvnSchema res = lowerIntFacets(
+              ownerLabel, effectiveBrand, intBase, parentName, parentLedger, isNominalDerivation,
+              childUnsigned, childSize, childSizeSpan, minBoundCtx, maxBoundCtx, finalTraits, scope
+          );
+          if (prohibitedDiscreteMinCtx != null || prohibitedDiscreteMaxCtx != null) {
+            BigInteger candMin = minBoundCtx != null
+                ? resolveIntegerMetadataArgQuiet(minBoundCtx.metadataValue(), scope)
+                : (prohibitedDiscreteMinCtx != null
+                    ? resolveIntegerMetadataArgQuiet(prohibitedDiscreteMinCtx.metadataValue(), scope)
+                    : intBase.explicitMinIncl().orElse(null));
+            BigInteger candMax = maxBoundCtx != null
+                ? resolveIntegerMetadataArgQuiet(maxBoundCtx.metadataValue(), scope)
+                : (prohibitedDiscreteMaxCtx != null
+                    ? resolveIntegerMetadataArgQuiet(prohibitedDiscreteMaxCtx.metadataValue(), scope)
+                    : intBase.explicitMaxExcl().orElse(null));
+            if (candMin != null && candMax != null && candMin.compareTo(candMax) > 0) {
+              Span pin = Span.ofContext(
+                  maxBoundCtx != null ? maxBoundCtx
+                      : (prohibitedDiscreteMaxCtx != null ? prohibitedDiscreteMaxCtx
+                          : (minBoundCtx != null ? minBoundCtx : prohibitedDiscreteMinCtx))
+              );
+              diagnosticBag.addError(
+                  "Constraint violation (" + ownerLabel + "): effective range is invalid (minimum "
+                      + candMin + " is greater than maximum " + candMax + ")",
+                  pin.start(), pin.end(), pin.line(), pin.column(), null,
+                  DiagnosticBag.ERR_INVERTED_RANGE
+              );
+            }
+          }
+          yield res;
+        }
 
         case StvnSchema.FloatSchema floatBase -> lowerFloatFacets(
             ownerLabel, effectiveBrand, floatBase, isNominalDerivation,
@@ -4042,7 +4120,7 @@ public final class StvnDefsLowerer {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): #maxSize must be >= 1, got " + childMaxSize,
               childMaxSizeSpan.start(), childMaxSizeSpan.end(), childMaxSizeSpan.line(), childMaxSizeSpan.column(),
-              null, DiagnosticBag.ERR_INVALID_METADATA_FACET
+              null, DiagnosticBag.ERR_CAPACITY_OVERFLOW
           );
         } else if (childMaxSize.equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
           diagnosticBag.addWarning(
@@ -4093,7 +4171,7 @@ public final class StvnDefsLowerer {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): integer #size must be >= 1, got " + childSize,
               childSizeSpan.start(), childSizeSpan.end(), childSizeSpan.line(), childSizeSpan.column(),
-              null, DiagnosticBag.ERR_INVALID_METADATA_FACET
+              null, DiagnosticBag.ERR_INVERTED_RANGE
           );
         } else if (childSize.equals(StvnVocabulary.DEFAULT_INT_BIT_WIDTH)) {
           String desc = effectiveUnsigned
@@ -4243,7 +4321,7 @@ public final class StvnDefsLowerer {
             );
           } else if (effectiveUnsigned && maxVal.signum() == 0) {
             diagnosticBag.addError(
-                "Constraint violation (" + ownerLabel + "): discrete half-open interval [0, 0) defines an empty domain",
+                "Constraint violation (" + ownerLabel + "): discrete integer interval [0, 0) defines an empty domain",
                 bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
                 DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN
             );
@@ -4274,7 +4352,7 @@ public final class StvnDefsLowerer {
         Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
         if (cmp == 0) {
           diagnosticBag.addError(
-              "Constraint violation (" + ownerLabel + "): discrete half-open interval ["
+              "Constraint violation (" + ownerLabel + "): discrete integer interval ["
                   + effectiveMin.get() + ", " + effectiveMax.get() + ") defines an empty domain",
               pin.start(), pin.end(), pin.line(), pin.column(), null,
               DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN
@@ -4369,7 +4447,7 @@ public final class StvnDefsLowerer {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): exact float #maxSize must be >= 1, got " + childMaxSize,
               childMaxSizeSpan.start(), childMaxSizeSpan.end(), childMaxSizeSpan.line(), childMaxSizeSpan.column(),
-              null, DiagnosticBag.ERR_INVALID_METADATA_FACET
+              null, DiagnosticBag.ERR_CAPACITY_OVERFLOW
           );
         } else if (childMaxSize.equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
           diagnosticBag.addWarning(
@@ -5029,6 +5107,40 @@ public final class StvnDefsLowerer {
     // METADATA ARGUMENT EVALUATION & W003 TRAIT WARNING HELPERS
     // =========================================================================
 
+    private @Nullable BigInteger resolveIntegerMetadataArgQuiet(
+        StvnParser.@Nullable MetadataValueContext mv,
+        ScopeFrame scope
+    ) {
+      if (mv == null) {
+        return null;
+      }
+      if (mv.integerLiteral() != null) {
+        String raw = mv.integerLiteral().getText();
+        if (StvnLiteralParser.isNegativeZero(raw)) {
+          return null;
+        }
+        return StvnLiteralParser.parseBigInteger(raw);
+      }
+      if (mv.valueKeyword() != null) {
+        String kw = mv.valueKeyword().getText();
+        if (isBuiltinNonConstantValueKeyword(kw)) {
+          return null;
+        }
+        Optional<StvnDefsCatalog.StvnConstant> cOpt = resolveConstantInScope(kw, scope);
+        if (cOpt.isEmpty() || isPoisonedConstant(cOpt.get())) {
+          return null;
+        }
+        StvnValue cv = cOpt.get().value();
+        if (cv instanceof StvnValue.StvnInt si) {
+          return si.value();
+        }
+        if (cv instanceof StvnValue.StvnTimeEpoch te) {
+          return te.epochTicks();
+        }
+      }
+      return null;
+    }
+
     private @Nullable BigInteger resolveIntegerMetadataArg(
         String ownerLabel,
         String facetLabel,
@@ -5041,15 +5153,15 @@ public final class StvnDefsLowerer {
       Span sp = Span.ofContext(mv);
       if (mv.integerLiteral() != null) {
         String raw = mv.integerLiteral().getText();
-        if ("-0".equals(raw)) {
+        if (StvnLiteralParser.isNegativeZero(raw)) {
           diagnosticBag.addError(
-              "Negative zero '-0' is prohibited on integer facet '" + facetLabel + "'",
+              "Negative zero '" + raw + "' is prohibited on integer facet '" + facetLabel + "'",
               sp.start(), sp.end(), sp.line(), sp.column(), null,
               DiagnosticBag.ERR_INVALID_NUMERIC_LITERAL
           );
           return null;
         }
-        return new BigInteger(raw);
+        return StvnLiteralParser.parseBigInteger(raw);
       }
       if (mv.valueKeyword() != null) {
         String kw = mv.valueKeyword().getText();

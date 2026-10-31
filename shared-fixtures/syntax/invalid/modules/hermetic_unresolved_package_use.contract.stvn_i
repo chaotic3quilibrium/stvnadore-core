@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "hermetic_unresolved_package_use"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E035 #ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT #ERROR 7 12 97 121 "Scoped :use in hermetic document (.stvn / .stvn_d) cannot target external package: :com/external/undeclared" )
+  ]
+}

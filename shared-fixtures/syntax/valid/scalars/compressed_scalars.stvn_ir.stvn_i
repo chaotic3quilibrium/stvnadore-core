@@ -12,21 +12,21 @@
     {
       [ ":BoolFlag" ( ":Boolean" ":BoolFlag" ( #TRUE #TRUE ) ) ]
       [ ":OptVal" ( ":Option(:String)" ":OptVal" ( #TRUE #TRUE ) ) ]
-      [ ":ChoiceVal" ( ":Either(:Int:String)" ":ChoiceVal" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:BoolFlag:BoolFlag:OptVal:OptVal:ChoiceVal:ChoiceVal)" "" ( #TRUE #TRUE ) ) ]
+      [ ":ChoiceVal" ( ":Either(:Int :String)" ":ChoiceVal" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:BoolFlag :BoolFlag :OptVal :OptVal :ChoiceVal :ChoiceVal)" "" ( #TRUE #TRUE ) ) ]
     }
-    #11 [
+    #14 [
       #1 #TRUE
       #1 #FALSE
-      #6 ( #SOME
-        #4 "Payload"
+      #9 ( #SOME
+        #5 "Payload"
       )
-      #7 #NONE
-      #8 ( #LEFT
+      #10 #NONE
+      #11 ( #LEFT
         #2 ( -100 32 #FALSE )
       )
-      #9 ( #RIGHT
-        #4 "Success"
+      #12 ( #RIGHT
+        #5 "Success"
       )
     ]
   )

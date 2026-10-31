@@ -10,12 +10,12 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":TaskStatus" ( ":Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]" ":TaskStatus" ( #TRUE #TRUE ) ) ]
-      [ ":ActiveStatus" ( ":Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]" ":ActiveStatus" ( #TRUE #TRUE ) ) ]
-      [ ":WorkableStatus" ( ":Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]" ":WorkableStatus" ( #TRUE #TRUE ) ) ]
-      [ ":ExecutionStatus" ( ":Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]" ":ExecutionStatus" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Enum[#BACKLOG#TODO#IN_PROGRESS#CODE_REVIEW#TESTING#DONE#BLOCKED#CANCELLED]" ":ExecutionStatus" ( #TRUE #TRUE ) ) ]
+      [ ":TaskStatus" ( ":Enum[#BACKLOG #TODO #IN_PROGRESS #CODE_REVIEW #TESTING #DONE #BLOCKED #CANCELLED]" ":TaskStatus" ( #TRUE #TRUE ) ) ]
+      [ ":ActiveStatus" ( "{#filterExcl[#BACKLOG #DONE #CANCELLED]}:TaskStatus" ":ActiveStatus" ( #TRUE #TRUE ) ) ]
+      [ ":WorkableStatus" ( "{#filterIncl[#TODO #IN_PROGRESS #CODE_REVIEW #TESTING]}:ActiveStatus" ":WorkableStatus" ( #TRUE #TRUE ) ) ]
+      [ ":ExecutionStatus" ( "{#filterExcl[#CODE_REVIEW #TESTING]}:WorkableStatus" ":ExecutionStatus" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#filterExcl[#CODE_REVIEW #TESTING]}:WorkableStatus" ":ExecutionStatus" ( #TRUE #TRUE ) ) ]
     }
-    #5 ( "#IN_PROGRESS" 2 )
+    #8 ( "#IN_PROGRESS" 2 )
   )
 }

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "trap5_bracketed_tuple"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E028 #ERR_TYPE_MISMATCH #ERROR 9 9 183 197 "Type mismatch: expected product constructor :Tuple, found collection constructor :Seq" )
+  ]
+}

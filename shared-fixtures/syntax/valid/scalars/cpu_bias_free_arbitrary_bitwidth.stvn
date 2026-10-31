@@ -1,0 +1,20 @@
+{
+  :meta {
+    #name "cpu_bias_free_arbitrary_bitwidth"
+    #kind #BODY
+  }
+  :defs {
+    :WideSigned1025 { #size 1025 } :Int
+    :WideUnsigned4096 { #unsigned #size 4096 } :Int
+    :HugeCapString { #minSize 1 #maxSize 2147483648 } :String
+    :HugePrecisionDecimal { #exact #maxSize 50000000 } :Float
+    :Payload :Tuple( :WideSigned1025 :WideUnsigned4096 :HugeCapString :HugePrecisionDecimal )
+  }
+  :type :Payload
+  :body (
+    -170141183460469231731687303715884105729
+    340282366920938463463374607431768211457
+    "cpu-bias-free-ok"
+    3.141592653589793238462643383279502884197169399375105820974944
+  )
+}

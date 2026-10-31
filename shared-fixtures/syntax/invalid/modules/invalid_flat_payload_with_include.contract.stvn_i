@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "invalid_flat_payload_with_include"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E005 #ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT #ERROR 12 5 327 367 "Hermetic document or schema (.stvn / .stvn_d) cannot contain include statements: shared-fixtures\\syntax\\invalid\\modules\\invalid_flat_payload_with_include.stvn" )
+  ]
+}

@@ -112,9 +112,9 @@ class StvnConstantStripTest {
     Files.writeString(mainFile, mainContent);
 
     var res = StvnCompiler.compileToResult(mainContent, mainFile.toString());
-    Assertions.assertFalse(res.isSuccess(), "Parameterized #strip must fail at parser gate");
+    Assertions.assertFalse(res.isSuccess(), "Parameterized #strip must fail compilation");
     Assertions.assertTrue(res.diagnostics().stream()
-        .anyMatch(d -> "STVN_SYNTAX_ERROR".equals(d.errorCode().orElse(null))));
+        .anyMatch(d -> "ERR_INVALID_METADATA_FACET".equals(d.errorCode().orElse(null))));
   }
 
   @Test

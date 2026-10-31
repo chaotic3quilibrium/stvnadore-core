@@ -10,8 +10,8 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":BadFloat" ( "{#size64}:Float" ":BadFloat" ( #FALSE #TRUE ) ) ]
-      [ "<:type>" ( "{#size64}:Float" ":BadFloat" ( #FALSE #TRUE ) ) ]
+      [ ":BadFloat" ( ":Float" ":BadFloat" ( #FALSE #TRUE ) ) ]
+      [ "<:type>" ( ":Float" ":BadFloat" ( #FALSE #TRUE ) ) ]
     }
     #3 3.14
   )

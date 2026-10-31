@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "string_regex_mismatch_e013"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E013 #REGEX_MISMATCH #ERROR 10 16 195 199 "Constraint violation (:HexByte): String does not match required pattern: ^[0-9a-f]{2}$" )
+  ]
+}

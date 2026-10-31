@@ -10,10 +10,10 @@
   :defs {
     :SaturatedDateTimeZoned {
       #zoned
-      #equatable #TRUE
-      #comparable #TRUE
-      #minIncl "2026-01-01T00:00:00Z"
-      #maxExcl "2027-01-01T00:00:00Z"
+      #equatable #FALSE
+      #comparable #FALSE
+      #minIncl "2026-01-01T00:00:00[Europe/Paris]"
+      #maxExcl "2027-01-01T00:00:00[Europe/Paris]"
     } :DateTime
   }
   :type :SaturatedDateTimeZoned

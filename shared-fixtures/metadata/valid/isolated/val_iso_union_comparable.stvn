@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_union_comparable
+// MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Union
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables branch-ordinal then payload total ordering (derived inductively across all union branches)
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #comparable #FALSE } :Union( :Int :String )
+  }
+  :type :TestedType
+  :body 42
+}

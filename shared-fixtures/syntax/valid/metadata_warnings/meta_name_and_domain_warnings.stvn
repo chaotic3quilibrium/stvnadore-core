@@ -1,0 +1,9 @@
+{
+  :meta {
+    #name "mismatched_logical_name"
+    #domain "billing"
+    #kind #BODY
+  }
+  :type :Int
+  :body 42
+}

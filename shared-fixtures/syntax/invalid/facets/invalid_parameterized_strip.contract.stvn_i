@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "invalid_parameterized_strip"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 10 59 272 282 "Metadata facet '#strip' is a standalone flag and does not accept arguments; unexpected '\"pkg/sub/\"'" )
+  ]
+}

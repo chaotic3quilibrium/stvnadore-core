@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "union_overlap_ambiguous"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E024 #ERR_AMBIGUOUS_SUM_INFERENCE #ERROR 11 9 308 310 "Ambiguous implicit resolution: Value matches multiple branches" )
+  ]
+}

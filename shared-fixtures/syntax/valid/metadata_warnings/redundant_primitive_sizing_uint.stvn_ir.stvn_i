@@ -10,8 +10,8 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":BadUInt" ( "{#unsigned#size32}:Int" ":BadUInt" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( "{#unsigned#size32}:Int" ":BadUInt" ( #TRUE #TRUE ) ) ]
+      [ ":BadUInt" ( "{#unsigned}:Int" ":BadUInt" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#unsigned}:Int" ":BadUInt" ( #TRUE #TRUE ) ) ]
     }
     #2 ( 42 32 #TRUE )
   )

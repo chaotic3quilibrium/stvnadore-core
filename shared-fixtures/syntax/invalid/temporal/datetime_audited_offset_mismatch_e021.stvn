@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "datetime_audited_offset_mismatch_e021"
+    #kind #BODY
+  }
+  :defs {
+    :AuditStamp { #audited } :DateTime
+  }
+  :type :Seq( :AuditStamp )
+  :body [
+    "2026-03-15T08:00:00-05:00[America/Chicago]"
+    "2026-03-15T08:00:00-07:00[America/Chicago]"
+  ]
+}

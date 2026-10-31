@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "string_regex_mismatch_e013"
+    #kind #BODY
+  }
+  :defs {
+    :HexByte { #minSize 2 #maxSize 2 #regex "^[0-9a-f]{2}$" } :String
+  }
+  :type :Seq( :HexByte )
+  :body [ "0a" "ZZ" "ff" ]
+}

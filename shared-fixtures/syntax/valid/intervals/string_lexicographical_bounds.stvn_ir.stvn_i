@@ -1,0 +1,23 @@
+{
+  :meta {
+    #name "string_lexicographical_bounds"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":ClosedAlphaCode" ( "{#minSize 2 #maxSize 8 #minIncl \"AA\" #maxIncl \"ZZ\" #regex \"^[A-Z]+$\"}:String" ":ClosedAlphaCode" ( #TRUE #TRUE ) ) ]
+      [ ":OpenAsciiToken" ( "{#minExcl \"000\" #maxExcl \"999\"}:String" ":OpenAsciiToken" ( #TRUE #TRUE ) ) ]
+      [ ":BoundsPair" ( ":Tuple(:ClosedAlphaCode :OpenAsciiToken)" ":BoundsPair" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:ClosedAlphaCode :OpenAsciiToken)" ":BoundsPair" ( #TRUE #TRUE ) ) ]
+    }
+    #14 [
+      #5 "AZ"
+      #5 "500"
+    ]
+  )
+}

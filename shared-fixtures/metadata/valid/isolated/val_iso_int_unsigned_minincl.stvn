@@ -7,7 +7,7 @@
 // TARGET-TYPE:        :Int (unsigned)
 // FACET-NAME:         #minIncl
 // COVERAGE-KIND:      ISOLATED_VALID
-// DESCRIPTION:        Half-open interval; start; explicit declaration of default 0 is a redundant tautology rejected under Rule E036
+// DESCRIPTION:        Half-open interval; start; explicit declaration of default 0 is a redundant tautology triggering warning W003 and purged during IR normalization
 // ==============================================================================
 {
   :defs {

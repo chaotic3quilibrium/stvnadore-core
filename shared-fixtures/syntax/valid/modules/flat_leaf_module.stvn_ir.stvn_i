@@ -10,13 +10,18 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":NetworkConfig" ( ":Tuple(:HostName:Port:Protocol:BitFlag)" ":NetworkConfig" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:HostName:Port:Protocol:BitFlag)" ":NetworkConfig" ( #TRUE #TRUE ) ) ]
+      [ ":HostName" ( "{#minSize 1 #maxSize 64 #regex \"^[a-zA-Z0-9.-]+$\"}:String" ":HostName" ( #TRUE #TRUE ) ) ]
+      [ ":Port" ( "{#unsigned #size 16 #minIncl 1}:Int" ":Port" ( #TRUE #TRUE ) ) ]
+      [ ":Protocol" ( ":Enum[#HTTP #HTTPS #TCP #UDP]" ":Protocol" ( #TRUE #TRUE ) ) ]
+      [ ":BitFlag" ( "{#unsigned #size 1}:Int" ":BitFlag" ( #TRUE #TRUE ) ) ]
+      [ ":NetworkConfig" ( ":Tuple(:HostName :Port :Protocol :BitFlag)" ":NetworkConfig" ( #TRUE #TRUE ) ) ]
+      [ ":UnixPermission" ( "{#unsigned #size 3}:Int" ":UnixPermission" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:HostName :Port :Protocol :BitFlag)" ":NetworkConfig" ( #TRUE #TRUE ) ) ]
     }
-    #11 [
-      #4 "gateway.internal"
+    #14 [
+      #5 "gateway.internal"
       #2 ( 8443 16 #TRUE )
-      #5 ( "#HTTPS" 1 )
+      #8 ( "#HTTPS" 1 )
       #2 ( 1 1 #TRUE )
     ]
   )

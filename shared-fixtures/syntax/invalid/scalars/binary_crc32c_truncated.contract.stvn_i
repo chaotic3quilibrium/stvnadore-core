@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "binary_crc32c_truncated"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E028 #MALFORMED_PAYLOAD #ERROR 1 1 0 6 "Buffer too small for STVN binary with CRC-32C trailer: requires at least 12 bytes, found 6" )
+  ]
+}

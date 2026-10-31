@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #comparable #TRUE } :Tuple( :Int :String )
+  :TestedType { #comparable #FALSE } :Tuple( :Int :String )
   }
   :type :TestedType
   :body ( 42 "alpha" )

@@ -1,0 +1,11 @@
+{
+  :defs {
+    :ValidCount :Int
+  }
+  :meta {
+    #name "meta_after_defs_invalid"
+    #kind #BODY
+  }
+  :type :ValidCount
+  :body 7
+}

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "invalid_constraint_type_int_on_float"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #INCOMPATIBLE_METADATA_TYPE #ERROR 6 25 161 162 "Constraint violation (:BadFloat): minIncl for :Float requires a float literal" )
+  ]
+}

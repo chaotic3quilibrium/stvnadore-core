@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "include_cyclic_indirect"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E007 #CYCLIC_MODULE_INCLUDE #ERROR 8 7 109 141 "Cycle detected: include_cyclic_indirect.stvn_i -> include_cyclic_indirect_b.stvn_di -> include_cyclic_indirect.stvn_i" )
+  ]
+}

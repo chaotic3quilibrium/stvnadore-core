@@ -85,7 +85,8 @@ class CanonicalLayoutWriterTest {
           }
           :type :Doc
           :body ""\"[SQL]
-        SELECT * FROM users;
+        SELECT *
+        FROM users;
         [SQL]""\"
         }
         """;
@@ -97,8 +98,8 @@ class CanonicalLayoutWriterTest {
 
     // 1. Assert byte-for-byte canonical serialized output
     String canonicalModern = StvnCompiler.toCanonicalString(modernAst);
-    Assertions.assertFalse(canonicalModern.contains("->[SQL]"), "Canonical output must strictly omit '->' arrow");
-    Assertions.assertTrue(canonicalModern.contains("\"\"\"[SQL]"), "Canonical output must format as '\"\"\"[TAG]'");
+    Assertions.assertFalse(canonicalModern.contains("->["), "Canonical output must strictly omit '->' arrow");
+    Assertions.assertTrue(canonicalModern.contains("\"\"\"[RAW]"), "Canonical output must format as '\"\"\"[RAW]'");
 
     // 2. Assert SHA-256 CAS fingerprint generation
     byte[] hashModern = StvnCompiler.computeCasFingerprint(modernAst);

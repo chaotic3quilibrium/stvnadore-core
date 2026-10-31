@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "float_exact_size_conflict"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 3 31 42 50 "Constraint violation (:ConflictedFloat): facet '#size' is mutually exclusive with '#exact'" )
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "invalid_exclusive_boundary_shift"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E009 #ERR_EMPTY_INTERVAL_DOMAIN #ERROR 6 30 166 176 "Constraint violation (:ShiftedType): discrete integer interval [6, 6) defines an empty domain" )
+  ]
+}

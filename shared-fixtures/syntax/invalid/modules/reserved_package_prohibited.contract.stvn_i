@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "reserved_package_prohibited"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E037 #ERR_RESERVED_PACKAGE_PROHIBITED #ERROR 7 14 95 114 "Reserved package namespace prohibited: ':org/stvnadore/user' is reserved for runtime and standard library definitions" )
+  ]
+}

@@ -1,9 +1,9 @@
 // @spec: SPEC-01-SCALAR-KERNEL
-// @case: Negative - Reject invalid zero width int suffix
-// @error: ERR_UNDEFINED_TYPE
+// @case: Negative - Reject invalid zero width int
+// @error: ERR_INVERTED_RANGE
 {
   :defs {
-    :ZeroWidthIntType :Int0
+    :ZeroWidthIntType { #size 0 } :Int
   }
   :type :ZeroWidthIntType
   :body 0

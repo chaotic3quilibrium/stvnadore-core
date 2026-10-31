@@ -1,0 +1,12 @@
+{
+  :meta {
+    #name "hermetic_unresolved_package_use"
+    #kind #BODY
+  }
+  :defs {
+    :use [ :com/external/undeclared { #strip } ]
+    :LocalValid :Int
+  }
+  :type :LocalValid
+  :body 5
+}

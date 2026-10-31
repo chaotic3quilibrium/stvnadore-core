@@ -10,9 +10,9 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":FixedCode" ( "{#minSize4#maxSize4}:String" ":FixedCode" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( "{#minSize4#maxSize4}:String" ":FixedCode" ( #TRUE #TRUE ) ) ]
+      [ ":FixedCode" ( "{#minSize 4 #maxSize 4}:String" ":FixedCode" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#minSize 4 #maxSize 4}:String" ":FixedCode" ( #TRUE #TRUE ) ) ]
     }
-    #4 "STVN"
+    #5 "STVN"
   )
 }

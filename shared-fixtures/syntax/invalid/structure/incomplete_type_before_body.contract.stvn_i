@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "incomplete_type_before_body"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 5 3 129 134 "STVN Syntax Error: clause ':type' requires a schema type" )
+  ]
+}

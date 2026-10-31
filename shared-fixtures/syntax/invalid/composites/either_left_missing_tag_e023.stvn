@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "either_left_missing_tag_e023"
+    #kind #BODY
+  }
+  :defs {
+    :Outcome :Either( :String :Int )
+  }
+  :type :Seq( :Outcome )
+  :body [ 200 "untagged-left-error" #Left "explicit-ok" ]
+}

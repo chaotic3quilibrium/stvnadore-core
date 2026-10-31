@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "empty_defs_invalid"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 9 9 205 207 "Definitions schema (.stvn_d) requires at least one type definition inside ':defs { ... }'" )
+  ]
+}

@@ -10,9 +10,9 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":TsvReport" ( "{#preserveIndent#TRUE}:String" ":TsvReport" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( "{#preserveIndent#TRUE}:String" ":TsvReport" ( #TRUE #TRUE ) ) ]
+      [ ":TsvReport" ( "{#preserveIndent #T}:String" ":TsvReport" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#preserveIndent #T}:String" ":TsvReport" ( #TRUE #TRUE ) ) ]
     }
-    #4 "id    name    status\n101    alpha    ACTIVE\n102    beta    PENDING\n"
+    #5 "id\tname\tstatus\n101\talpha\tACTIVE\n102\tbeta\tPENDING\n"
   )
 }

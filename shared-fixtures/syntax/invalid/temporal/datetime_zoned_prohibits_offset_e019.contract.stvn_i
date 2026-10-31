@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "datetime_zoned_prohibits_offset_e019"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E019 #TEMPORAL_OFFSET_IN_ZONED #ERROR 12 5 221 265 "Explicit UTC offsets (+/-HH:mm or Z) are prohibited in {#zoned} :DateTime" )
+  ]
+}

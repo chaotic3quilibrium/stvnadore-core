@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "include_legacy_extension_purged"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E034 #ERR_LEGACY_FILE_EXTENSION_PURGED #ERROR 7 16 109 137 "Excised legacy file extension '.stvn_inclf' is permanently prohibited" )
+  ]
+}

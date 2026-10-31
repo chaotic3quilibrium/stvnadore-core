@@ -11,12 +11,12 @@
   :body (
     {
       [ ":SchemaName" ( ":String" ":SchemaName" ( #TRUE #TRUE ) ) ]
-      [ ":StvnInclf" ( "{#preserveIndent#TRUE}:String" ":StvnInclf" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:SchemaName:StvnInclf)" "" ( #TRUE #TRUE ) ) ]
+      [ ":StvnInclf" ( "{#preserveIndent #T}:String" ":StvnInclf" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:SchemaName :StvnInclf)" "" ( #TRUE #TRUE ) ) ]
     }
-    #11 [
-      #4 "schemaName"
-      #4 "{\n  :defs {\n    :CustomAlias :String\n  }\n}\n    "
+    #14 [
+      #5 "schemaName"
+      #5 "{\n  :defs {\n    :CustomAlias :String\n  }\n}\n    "
     ]
   )
 }

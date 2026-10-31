@@ -1,7 +1,7 @@
 // @spec: SPEC-01-SCALAR-KERNEL
-// @case: Negative - Reject invalid negative int suffix
-// @error: SYNTAX_ERROR
+// @case: Negative - Reject invalid negative int bit width
+// @error: ERR_INVERTED_RANGE
 {
-  :type :Seq(:Int-8)
+  :type :Seq( { #size -8 } :Int )
   :body [ 0 ]
 }

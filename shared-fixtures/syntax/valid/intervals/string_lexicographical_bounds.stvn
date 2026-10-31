@@ -1,0 +1,13 @@
+{
+  :meta {
+    #name "string_lexicographical_bounds"
+    #kind #BODY
+  }
+  :defs {
+    :ClosedAlphaCode { #minSize 2 #maxSize 8 #minIncl "AA" #maxIncl "ZZ" #regex "^[A-Z]+$" } :String
+    :OpenAsciiToken { #minExcl "000" #maxExcl "999" } :String
+    :BoundsPair :Tuple( :ClosedAlphaCode :OpenAsciiToken )
+  }
+  :type :BoundsPair
+  :body ( "AZ" "500" )
+}

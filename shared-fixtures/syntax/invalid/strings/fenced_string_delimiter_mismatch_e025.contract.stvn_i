@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "fenced_string_delimiter_mismatch_e025"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E025 #FENCE_DELIMITER_MISMATCH #ERROR 7 9 106 137 "STVN Syntax Error: Rule STR-04 violation: Unclosed fenced string: expected closing delimiter '[SQL]\"\"\"', found mismatched closing tag '[JSON]'" )
+  ]
+}

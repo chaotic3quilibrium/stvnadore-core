@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "include_cyclic_indirect_b"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E005 #MODULE_IMPORT_FAILED #ERROR 8 7 109 141 "Invalid :include target 'include_cyclic_indirect.stvn_i': payload documents cannot be imported; target must be a definitions module (.stvn_d or .stvn_di)" )
+  ]
+}

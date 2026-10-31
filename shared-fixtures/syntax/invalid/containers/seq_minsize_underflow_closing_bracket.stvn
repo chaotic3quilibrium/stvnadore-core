@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "seq_minsize_underflow_closing_bracket"
+    #kind #BODY
+  }
+  :defs {
+    :MinTwo { #minSize 2 } :Seq( :Int )
+  }
+  :type :MinTwo
+  :body [ 10 ]
+}

@@ -10,15 +10,15 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":BoundedSequence" ( "{#minSize1#maxSize8}:Seq(:Int)" ":BoundedSequence" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( "{#minSize1#maxSize8}:Seq(:Int)" ":BoundedSequence" ( #TRUE #TRUE ) ) ]
+      [ ":BoundedSequence" ( "{#minSize 1 #maxSize 8}:Seq(:Int)" ":BoundedSequence" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#minSize 1 #maxSize 8}:Seq(:Int)" ":BoundedSequence" ( #TRUE #TRUE ) ) ]
     }
-    #12 ( #TRUE [
+    #15 [
       #2 ( 10 32 #FALSE )
       #2 ( 20 32 #FALSE )
       #2 ( 30 32 #FALSE )
       #2 ( 40 32 #FALSE )
       #2 ( 50 32 #FALSE )
-    ] )
+    ]
   )
 }

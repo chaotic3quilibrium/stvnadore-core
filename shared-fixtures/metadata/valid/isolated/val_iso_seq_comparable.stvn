@@ -11,7 +11,7 @@
 // ==============================================================================
 {
   :defs {
-  :TestedType { #comparable #TRUE } :Seq( :Int )
+  :TestedType { #comparable #FALSE } :Seq( :Int )
   }
   :type :TestedType
   :body [ 1 2 3 ]

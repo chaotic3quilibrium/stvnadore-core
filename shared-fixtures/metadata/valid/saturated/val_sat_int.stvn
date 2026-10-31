@@ -9,6 +9,9 @@
 {
   :defs {
     :SaturatedInt {
+      #size 64
+      #equatable #FALSE
+      #comparable #FALSE
       #minIncl -1000
       #maxExcl 1000
     } :Int

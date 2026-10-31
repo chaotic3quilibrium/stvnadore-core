@@ -4,12 +4,13 @@
 // FIXTURE-ID:         val_sat_boolean
 // TARGET-TYPE:        :Boolean
 // COVERAGE-KIND:      SATURATED_VALID
-// DESCRIPTION:        Saturated boolean with #equatable trait
+// DESCRIPTION:        Saturated boolean with non-default trait overrides
 // ==============================================================================
 {
   :defs {
     :SaturatedBoolean {
       #equatable #FALSE
+      #comparable #FALSE
     } :Boolean
   }
   :type :SaturatedBoolean

@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "meta_name_and_domain_warnings"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ "<:type>" ( ":Int" "" ( #TRUE #TRUE ) ) ]
+    }
+    #2 ( 42 32 #FALSE )
+  )
+}

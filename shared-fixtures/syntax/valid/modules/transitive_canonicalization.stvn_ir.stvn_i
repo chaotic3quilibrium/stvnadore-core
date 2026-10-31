@@ -10,18 +10,18 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":com/example/finance/Transaction" ( ":Tuple(:Int:Float)" ":com/example/finance/Transaction" ( #FALSE #TRUE ) ) ]
-      [ ":com/example/finance/CreationTime" ( ":Int" ":com/example/finance/CreationTime" ( #TRUE #TRUE ) ) ]
+      [ ":com/example/finance/Transaction" ( ":Tuple(:Int :Float)" ":com/example/finance/Transaction" ( #FALSE #TRUE ) ) ]
       [ ":A" ( ":String" ":A" ( #TRUE #TRUE ) ) ]
-      [ ":T" ( ":Tuple(:LocalTx:A)" ":T" ( #FALSE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:LocalTx:A)" ":T" ( #FALSE #TRUE ) ) ]
+      [ ":T" ( ":Tuple(:com/example/finance/Transaction :A)" ":T" ( #FALSE #TRUE ) ) ]
+      [ ":com/example/finance/CreationTime" ( ":Int" ":com/example/finance/CreationTime" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:com/example/finance/Transaction :A)" ":T" ( #FALSE #TRUE ) ) ]
     }
-    #11 [
-      #11 [
+    #14 [
+      #14 [
         #2 ( 1001 32 #FALSE )
         #3 49.99
       ]
-      #4 "a"
+      #5 "a"
     ]
   )
 }

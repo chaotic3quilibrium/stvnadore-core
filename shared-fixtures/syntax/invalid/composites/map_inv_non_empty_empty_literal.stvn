@@ -1,6 +1,6 @@
 // @spec: SPEC-08-COLLECTIONS
 // @case: Negative - Reject map inv non empty empty literal
-// @error: MALFORMED_PAYLOAD
+// @error: COLLECTION_EMPTY_VIOLATION
 {
   :defs {
     :NonEmptyMapInv { #invertible #minSize 1 } :Map( :String :Int )

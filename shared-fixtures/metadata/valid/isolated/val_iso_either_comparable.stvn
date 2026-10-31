@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_either_comparable
+// MATRIX-POSITION:    2.2
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Either
+// FACET-NAME:         #comparable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables total ordering (#Left < #Right, derived inductively from L and R)
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #comparable #FALSE } :Either( :String :Int )
+  }
+  :type :TestedType
+  :body 42
+}

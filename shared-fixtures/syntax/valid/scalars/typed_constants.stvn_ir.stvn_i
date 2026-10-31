@@ -10,24 +10,24 @@
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":RetryCount" ( "{#unsigned#size8}:Int" ":RetryCount" ( #TRUE #TRUE ) ) ]
-      [ ":PortNum" ( "{#unsigned#size16}:Int" ":PortNum" ( #TRUE #TRUE ) ) ]
-      [ ":CoordFloat" ( "{#size32}:Float" ":CoordFloat" ( #FALSE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:RetryCount:String:PortNum:Tuple(:CoordFloat:CoordFloat):Seq(:PortNum))" "" ( #FALSE #TRUE ) ) ]
+      [ ":RetryCount" ( "{#unsigned #size 8}:Int" ":RetryCount" ( #TRUE #TRUE ) ) ]
+      [ ":PortNum" ( "{#unsigned #size 16}:Int" ":PortNum" ( #TRUE #TRUE ) ) ]
+      [ ":CoordFloat" ( "{#size 32}:Float" ":CoordFloat" ( #FALSE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:RetryCount :String :PortNum :Tuple(:CoordFloat :CoordFloat):Seq(:PortNum))" "" ( #FALSE #TRUE ) ) ]
     }
-    #11 [
+    #14 [
       #2 ( 3 8 #TRUE )
-      #4 "api.internal.net"
+      #5 "api.internal.net"
       #2 ( 8000 16 #TRUE )
-      #11 [
+      #14 [
         #3 12.34
         #3 56.78
       ]
-      #12 ( #FALSE [
+      #15 [
         #2 ( 80 16 #TRUE )
         #2 ( 443 16 #TRUE )
         #2 ( 8080 16 #TRUE )
-      ] )
+      ]
     ]
   )
 }

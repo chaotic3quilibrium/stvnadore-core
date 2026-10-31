@@ -1,0 +1,18 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         val_iso_option_equatable
+// MATRIX-POSITION:    2.1
+// MATRIX-CATEGORY:    Trait
+// TARGET-TYPE:        :Option
+// FACET-NAME:         #equatable
+// COVERAGE-KIND:      ISOLATED_VALID
+// DESCRIPTION:        Enables structural option equality comparison (derived inductively from inner payload schema T)
+// ==============================================================================
+{
+  :defs {
+  :TestedType { #equatable #FALSE } :Option( :Int )
+  }
+  :type :TestedType
+  :body 42
+}

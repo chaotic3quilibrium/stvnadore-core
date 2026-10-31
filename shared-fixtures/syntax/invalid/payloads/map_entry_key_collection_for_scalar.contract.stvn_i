@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "map_entry_key_collection_for_scalar"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E028 #ERR_TYPE_MISMATCH #ERROR 7 7 185 197 "Type mismatch: expected scalar :String, found collection constructor :Seq" )
+  ]
+}

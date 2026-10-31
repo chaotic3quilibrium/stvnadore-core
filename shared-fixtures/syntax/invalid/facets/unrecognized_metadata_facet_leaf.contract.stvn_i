@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "unrecognized_metadata_facet_leaf"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E036 #ERR_UNRECOGNIZED_METADATA_FACET #ERROR 6 14 180 186 "Metadata violation (:Int64): Unrecognized constraint facet '#sizex'" )
+  ]
+}

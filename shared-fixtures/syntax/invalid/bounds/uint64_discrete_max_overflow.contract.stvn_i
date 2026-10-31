@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "uint64_discrete_max_overflow"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 6 34 192 221 "Constraint violation (:UInt64): #maxExcl value 18446744073709551617 is out of bounds for physical capacity of :Int (unsigned 64-bit)" )
+  ]
+}

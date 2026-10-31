@@ -1,0 +1,10 @@
+{
+  :meta {
+    #name "zero_bitwidth_int_rejected"
+    #kind #DEFS
+  }
+  :defs {
+    :ValidByte { #size 8 } :Int
+    :InvalidZeroInt { #size 0 } :Int
+  }
+}

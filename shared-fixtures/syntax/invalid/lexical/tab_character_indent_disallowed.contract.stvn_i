@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "tab_character_indent_disallowed"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E001 #ERR_TAB_CHARACTER_FORBIDDEN #ERROR 5 1 119 120 "STVN Syntax Error: Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead (ERR_TAB_CHARACTER_FORBIDDEN)" )
+  ]
+}

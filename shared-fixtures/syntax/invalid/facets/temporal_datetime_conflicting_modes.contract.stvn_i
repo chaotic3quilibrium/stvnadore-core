@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "temporal_datetime_conflicting_modes"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 6 26 165 171 "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive" )
+  ]
+}

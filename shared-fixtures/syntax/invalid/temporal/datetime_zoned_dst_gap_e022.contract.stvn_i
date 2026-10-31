@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "datetime_zoned_dst_gap_e022"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E022 #TEMPORAL_DST_GAP_LITERAL #ERROR 12 5 208 246 "Invalid civil time: '2026-03-08T02:30' falls into a DST spring-forward gap in zone 'America/Chicago' (Transition[Gap at 2026-03-08T02:00-06:00 to -05:00])." )
+  ]
+}

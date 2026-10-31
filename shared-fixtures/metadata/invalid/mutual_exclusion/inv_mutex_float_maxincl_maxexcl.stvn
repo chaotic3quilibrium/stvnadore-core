@@ -13,7 +13,7 @@
 // ==============================================================================
 {
   :defs {
-    :ConflictingMax { #size 64 #maxExcl 100.0 #maxIncl 100.0 } :Float
+    :ConflictingMax { #maxExcl 100.0 #maxIncl 100.0 } :Float
   }
   :type :ConflictingMax
   :body 1.0

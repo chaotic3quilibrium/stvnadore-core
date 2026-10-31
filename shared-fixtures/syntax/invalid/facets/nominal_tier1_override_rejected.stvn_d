@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "nominal_tier1_override_rejected"
+    #kind #DEFS
+  }
+  :defs {
+    :BaseId { #unsigned #size 32 } :Int
+    :ValidNarrowedId { #minIncl 1 #maxExcl 1000 } :BaseId
+    :IllegalWidenedId { #size 64 } :BaseId
+  }
+}

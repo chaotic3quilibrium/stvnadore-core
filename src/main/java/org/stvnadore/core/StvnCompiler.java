@@ -243,7 +243,9 @@ public final class StvnCompiler {
           defsRes.hasDefsSection(),
           defsRes.hasIncludes()
       );
-      var verifiedDocument = StvnReachabilityAndCasVerifier.verifyAndOrder(rawDocument, diagnosticBag);
+      var verifiedDocument = hasCanonicalStrictHeader(input)
+          ? StvnReachabilityAndCasVerifier.verifyAndPruneCanonical(rawDocument, true, defsRes.definitionSpans(), diagnosticBag)
+          : StvnReachabilityAndCasVerifier.verifyAndOrder(rawDocument, diagnosticBag);
 
       boolean hasErrors = diagnosticBag.hasErrors()
           || (payload.isPresent() && hasErrorNodes(payload.get()));
@@ -862,6 +864,30 @@ public final class StvnCompiler {
     String rawMsg = t.getMessage() != null ? t.getMessage() : t.toString();
     String sanitizedMsg = StvnSyntaxErrorSanitizer.purgeResidualAntlrJargon(rawMsg);
     diagnosticBag.addError(sanitizedMsg, startOffset, endOffset, line, column, t, symbolicId);
+  }
+
+  private static boolean hasCanonicalStrictHeader(String source) {
+    int limit = Math.min(source.length(), 512);
+    int idx = 0;
+    while (idx < limit) {
+      while (idx < limit && (source.charAt(idx) == ' ' || source.charAt(idx) == '\r' || source.charAt(idx) == '\n')) {
+        idx++;
+      }
+      if (idx + 1 < limit && source.charAt(idx) == '/' && source.charAt(idx + 1) == '/') {
+        int lineEnd = source.indexOf('\n', idx);
+        if (lineEnd < 0) {
+          lineEnd = source.length();
+        }
+        String commentLine = source.substring(idx, lineEnd);
+        if (commentLine.contains("@mode: CANONICAL_STRICT")) {
+          return true;
+        }
+        idx = lineEnd + 1;
+      } else {
+        break;
+      }
+    }
+    return false;
   }
 
   private static int[] resolveLineColumn(String source, int offset) {

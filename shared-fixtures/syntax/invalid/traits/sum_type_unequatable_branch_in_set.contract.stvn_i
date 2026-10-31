@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "sum_type_unequatable_branch_in_set"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #TRAIT_VIOLATION #ERROR 9 44 200 211 "Set elements require types to be #equatable #TRUE" )
+  ]
+}

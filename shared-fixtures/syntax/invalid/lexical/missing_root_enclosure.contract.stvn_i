@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "missing_root_enclosure"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ROOT_ENCLOSURE_MISSING #ERROR 4 1 108 113 "STVN Syntax Error: Document root must be enclosed within curly braces '{ ... }'; found leading token ':type'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 6 1 128 128 "STVN Syntax Error: unexpected token '<EOF>'; expected '}'" )
+  ]
+}

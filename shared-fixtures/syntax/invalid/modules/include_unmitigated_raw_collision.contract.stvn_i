@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "include_unmitigated_raw_collision"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E006 #NAMESPACE_COLLISION #ERROR 4 1 128 338 "Namespace collision(s) detected: [:ConflictType]" )
+  ]
+}

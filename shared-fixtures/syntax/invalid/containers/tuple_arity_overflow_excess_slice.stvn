@@ -1,0 +1,8 @@
+{
+  :meta {
+    #name "tuple_arity_overflow_excess_slice"
+    #kind #BODY
+  }
+  :type :Tuple( :String :Int :Boolean )
+  :body ( "AAPL" 150 #TRUE 999 "EXTRA" )
+}

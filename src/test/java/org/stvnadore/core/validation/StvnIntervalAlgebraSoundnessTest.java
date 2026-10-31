@@ -221,7 +221,7 @@ public class StvnIntervalAlgebraSoundnessTest {
         """;
     var negMinResult = StvnCompiler.compileToResult(negMinSource, null, StvnParserConfig.DEFAULT);
     assertTrue(negMinResult.hasErrors(), "#minSize -1 must fail compilation");
-    assertTrue(negMinResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INVERTED_RANGE.equals(d.errorCode().orElse(null))));
+    assertTrue(negMinResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INVALID_METADATA_FACET.equals(d.errorCode().orElse(null))));
 
     String negMaxSource = """
         {
@@ -234,7 +234,7 @@ public class StvnIntervalAlgebraSoundnessTest {
         """;
     var negMaxResult = StvnCompiler.compileToResult(negMaxSource, null, StvnParserConfig.DEFAULT);
     assertTrue(negMaxResult.hasErrors(), "#maxSize -5 must fail compilation");
-    assertTrue(negMaxResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INVERTED_RANGE.equals(d.errorCode().orElse(null))));
+    assertTrue(negMaxResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_CAPACITY_OVERFLOW.equals(d.errorCode().orElse(null))));
   }
 
   // --------------------------------------------------------------------------
@@ -255,7 +255,7 @@ public class StvnIntervalAlgebraSoundnessTest {
         """;
     var zeroResult = StvnCompiler.compileToResult(zeroSizeSource, null, StvnParserConfig.DEFAULT);
     assertTrue(zeroResult.hasErrors(), "#size 0 on :Int must fail");
-    assertTrue(zeroResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_CAPACITY_OVERFLOW.equals(d.errorCode().orElse(null))));
+    assertTrue(zeroResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INVERTED_RANGE.equals(d.errorCode().orElse(null))));
 
     String open2048Source = """
         {
@@ -320,7 +320,7 @@ public class StvnIntervalAlgebraSoundnessTest {
         """;
     var f16Result = StvnCompiler.compileToResult(badFloat16Source, null, StvnParserConfig.DEFAULT);
     assertTrue(f16Result.hasErrors(), "#size 16 on :Float must fail");
-    assertTrue(f16Result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INVALID_METADATA_FACET.equals(d.errorCode().orElse(null))));
+    assertTrue(f16Result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_FLOAT_INVALID_SIZE.equals(d.errorCode().orElse(null))));
 
     String badFloat128Source = """
         {
@@ -333,7 +333,7 @@ public class StvnIntervalAlgebraSoundnessTest {
         """;
     var f128Result = StvnCompiler.compileToResult(badFloat128Source, null, StvnParserConfig.DEFAULT);
     assertTrue(f128Result.hasErrors(), "#size 128 on :Float must fail");
-    assertTrue(f128Result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INVALID_METADATA_FACET.equals(d.errorCode().orElse(null))));
+    assertTrue(f128Result.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_FLOAT_INVALID_SIZE.equals(d.errorCode().orElse(null))));
 
     String validFloat32Source = """
         {
@@ -431,7 +431,7 @@ public class StvnIntervalAlgebraSoundnessTest {
         """;
     var contraResult = StvnCompiler.compileToResult(contradictorySource, null, StvnParserConfig.DEFAULT);
     assertTrue(contraResult.hasErrors(), "Contradictory offset in datetime bound must fail");
-    assertTrue(contraResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INCOMPATIBLE_TYPE.equals(d.errorCode().orElse(null))));
+    assertTrue(contraResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_TEMPORAL_AUDITED_MISMATCH.equals(d.errorCode().orElse(null))));
 
     String gapSource = """
         {
@@ -447,7 +447,7 @@ public class StvnIntervalAlgebraSoundnessTest {
         """;
     var gapResult = StvnCompiler.compileToResult(gapSource, null, StvnParserConfig.DEFAULT);
     assertTrue(gapResult.hasErrors(), "DST spring-forward gap in datetime bound must fail");
-    assertTrue(gapResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INCOMPATIBLE_TYPE.equals(d.errorCode().orElse(null))));
+    assertTrue(gapResult.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_TEMPORAL_DST_GAP_LITERAL.equals(d.errorCode().orElse(null))));
   }
 
   // --------------------------------------------------------------------------

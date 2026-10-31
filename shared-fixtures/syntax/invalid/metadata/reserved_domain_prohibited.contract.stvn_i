@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "reserved_domain_prohibited"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E038 #ERR_RESERVED_DOMAIN_PROHIBITED #ERROR 4 13 63 74 "Reserved system domain prohibited: User document cannot declare reserved system domain 'stvn_core'; domains with prefix 'stvn_' are strictly reserved for system artifacts" )
+    ( #W002 #WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME #WARNING 4 13 63 74 "Declared #domain 'stvn_core' is omitted from filename stem slot 1" )
+  ]
+}

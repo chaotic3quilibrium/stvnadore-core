@@ -1,0 +1,12 @@
+{
+  :meta {
+    #name "include_legacy_extension_purged"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "./legacy_module.stvn_inclf" ]
+    :LocalOk :Int
+  }
+  :type :LocalOk
+  :body 10
+}

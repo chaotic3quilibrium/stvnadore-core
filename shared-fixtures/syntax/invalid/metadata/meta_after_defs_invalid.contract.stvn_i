@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "meta_after_defs_invalid"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E033 #ERR_META_POSITION_INVALID #ERROR 5 3 39 44 "STVN Syntax Error: Document ':meta' block must appear before ':defs', ':type', and ':body'" )
+    ( #E031 #ERR_DOCUMENT_KIND_MISMATCH #ERROR 1 1 0 1 "Mandatory ':type' and ':body' sections missing; hermetic payload document ('meta_after_defs_invalid.stvn') requires payload schema and body value" )
+  ]
+}

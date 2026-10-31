@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "inv_duplicate_string_maxsize"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_DUPLICATE_METADATA_FACET #ERROR 18 41 813 826 "Metadata violation (:BadDuplicateString): Duplicate facet '#maxSize' is prohibited; each facet may appear at most once per metadata block" )
+  ]
+}

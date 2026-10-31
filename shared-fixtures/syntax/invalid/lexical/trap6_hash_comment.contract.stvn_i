@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "trap6_hash_comment"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ERR_BARE_HASH_PROHIBITED #ERROR 5 3 108 109 "STVN Syntax Error: Standalone hash '#' is prohibited in STVN syntax; attach '#' directly to a value or facet identifier, or use '//' for comments" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 5 5 110 114 "STVN Syntax Error: unexpected token 'This'; expected {'}', ':meta', ':defs', ... (5 options)}" )
+  ]
+}

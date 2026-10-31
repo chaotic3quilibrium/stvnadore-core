@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "facet_target_numeric_on_string"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #INCOMPATIBLE_METADATA_TYPE #ERROR 7 31 200 201 "Constraint violation (:InvalidString): facet '#minIncl' requires a string literal, got '1'" )
+  ]
+}

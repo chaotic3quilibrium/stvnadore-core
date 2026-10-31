@@ -1,0 +1,10 @@
+{
+  :meta {
+    #name "fenced_string_delimiter_mismatch_e025"
+    #kind #BODY
+  }
+  :type :String
+  :body """[SQL]
+SELECT 1;
+[JSON]"""
+}

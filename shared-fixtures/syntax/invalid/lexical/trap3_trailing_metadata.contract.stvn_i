@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "trap3_trailing_metadata"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 6 16 136 137 "STVN Syntax Error: unexpected token '{'; expected <schema type>" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 6 27 147 148 "STVN Syntax Error: unexpected token '1'; expected <schema type>" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 6 38 158 163 "STVN Syntax Error: unexpected token '65536'; expected <schema type>" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 8 3 172 177 "STVN Syntax Error: unexpected token ':type'; expected {'}', ':type', ':body'}" )
+    ( #E031 #ERR_DOCUMENT_KIND_MISMATCH #ERROR 4 1 109 110 "Mandatory ':type' and ':body' sections missing; hermetic payload document ('trap3_trailing_metadata.stvn') requires payload schema and body value" )
+  ]
+}
