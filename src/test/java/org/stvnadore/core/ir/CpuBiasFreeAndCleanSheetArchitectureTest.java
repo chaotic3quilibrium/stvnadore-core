@@ -174,6 +174,11 @@ class CpuBiasFreeAndCleanSheetArchitectureTest {
     List<String> numericViolations = new ArrayList<>();
 
     for (Class<?> irType : allIrTypes) {
+      if (irType == StvnDocumentMeta.SourceSpan.class) {
+        // StvnDocumentMeta.SourceSpan carries 0-based/1-based source text/byte coordinates matching StvnDiagnostic,
+        // not STVN expression-space domain quantities.
+        continue;
+      }
       if (irType.isRecord()) {
         for (RecordComponent rc : irType.getRecordComponents()) {
           inspectTypeForHardwareNumerics(
@@ -253,6 +258,10 @@ class CpuBiasFreeAndCleanSheetArchitectureTest {
     assertEquals(BigInteger.class, StvnValue.StvnTimeEpoch.class.getMethod("epochTicks").getReturnType());
     assertEquals(BigInteger.class, StvnValue.StvnEnum.class.getMethod("rootOrdinal").getReturnType());
     assertEquals(BigInteger.class, StvnValue.StvnUnion.class.getMethod("oneBasedBranchIndex").getReturnType());
+    assertEquals(
+        List.of("line", "column", "startOffset", "endOffset"),
+        java.util.Arrays.stream(StvnDocumentMeta.SourceSpan.class.getRecordComponents()).map(RecordComponent::getName).toList()
+    );
   }
 
   @Test

@@ -1,0 +1,13 @@
+{
+  :meta {
+    #name "defs_schema_multi_error_sibling_isolation"
+    #kind #DEFS
+  }
+  :defs {
+    :ValidCounter { #unsigned #size 64 } :Int
+    :InvalidBoundInt { #minIncl 1 #maxIncl 10 } :Int
+    #INITIAL_COUNT :ValidCounter 0
+    :BrokenRef :MissingSiblingType
+    :ValidLabel { #minSize 1 #maxSize 64 } :String
+  }
+}

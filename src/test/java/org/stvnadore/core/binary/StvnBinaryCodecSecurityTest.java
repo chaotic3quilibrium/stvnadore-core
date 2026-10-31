@@ -712,5 +712,356 @@ public class StvnBinaryCodecSecurityTest {
           compiledBd.document().orElseThrow().defs().nominalTypes().keySet()
       );
     }
+
+    @Test
+    @DisplayName("TC-SEC-BD-02: .stvn_bd with multiple inner semantic errors preserves full DiagnosticBag list and exact inner coordinates")
+    void testBinaryDefinitionsPreservesMultiErrorDiagnosticBagAndInnerCoordinates() {
+      String invalidInnerDefs = """
+          {
+            :meta {
+              #name "broken_defs"
+              #domain "crm"
+              #kind #DEFS
+            }
+            :defs {
+              :BadString { #size 16 } :String
+              :BadRef :MissingType
+            }
+          }
+          """;
+      var headerMeta = new org.stvnadore.core.ir.StvnDocumentMeta(
+          Optional.of("broken_defs"),
+          Optional.of("crm"),
+          Optional.of(org.stvnadore.core.ir.StvnDocumentKind.DEFS)
+      );
+      var encoder = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.SelfDescribingSchema(invalidInnerDefs),
+          true
+      );
+      ByteBuffer bdBuf = encoder.encodeDefinitionsText(invalidInnerDefs, headerMeta);
+      int byteLength = bdBuf.remaining();
+
+      StvnCompilationResult<StvnDocument> textExpected = StvnCompiler.compile(
+          invalidInnerDefs,
+          "broken_defs.crm.stvn_bd",
+          org.stvnadore.core.StvnParserConfig.DEFAULT
+      );
+      StvnCompilationResult<StvnDocument> binResult = StvnCompiler.compile(
+          bdBuf.duplicate(),
+          "broken_defs.crm.stvn_bd",
+          org.stvnadore.core.StvnParserConfig.DEFAULT
+      );
+
+      assertFalse(binResult.isSuccess());
+      assertTrue(binResult.hasErrors());
+      assertTrue(binResult.diagnostics().size() >= 2,
+          "Expected >= 2 accumulated inner diagnostics rather than collapsed MALFORMED_PAYLOAD: " + binResult.diagnostics());
+      assertEquals(textExpected.diagnostics().size(), binResult.diagnostics().size());
+
+      for (int i = 0; i < textExpected.diagnostics().size(); i++) {
+        var expectedDiag = textExpected.diagnostics().get(i);
+        var actualDiag = binResult.diagnostics().get(i);
+        assertEquals(expectedDiag.canonicalCode(), actualDiag.canonicalCode());
+        assertEquals(expectedDiag.symbolicId(), actualDiag.symbolicId());
+        assertEquals(expectedDiag.line(), actualDiag.line());
+        assertEquals(expectedDiag.column(), actualDiag.column());
+        assertEquals(expectedDiag.startOffset(), actualDiag.startOffset());
+        assertEquals(expectedDiag.endOffset(), actualDiag.endOffset());
+        assertFalse(actualDiag.startOffset() == 0 && actualDiag.endOffset() == byteLength,
+            "Diagnostic span must never collapse to [0, byteLength)");
+      }
+    }
+
+    @Test
+    @DisplayName("TC-SEC-BD-03: .stvn_bd with W003 redundant facet warning succeeds while preserving W003 and exact inner coordinates")
+    void testBinaryDefinitionsPreservesW003WarningsAndInnerCoordinates() {
+      String tautologicalDefs = """
+          {
+            :meta {
+              #name "taut_defs"
+              #domain "crm"
+              #kind #DEFS
+            }
+            :defs {
+              :UnsignedPort { #unsigned #size 16 #minIncl 0 } :Int
+            }
+          }
+          """;
+      var headerMeta = new org.stvnadore.core.ir.StvnDocumentMeta(
+          Optional.of("taut_defs"),
+          Optional.of("crm"),
+          Optional.of(org.stvnadore.core.ir.StvnDocumentKind.DEFS)
+      );
+      var encoder = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.SelfDescribingSchema(tautologicalDefs),
+          true
+      );
+      ByteBuffer bdBuf = encoder.encodeDefinitionsText(tautologicalDefs, headerMeta);
+
+      StvnCompilationResult<StvnDocument> binResult = StvnCompiler.compile(
+          bdBuf.duplicate(),
+          "taut_defs.crm.stvn_bd",
+          org.stvnadore.core.StvnParserConfig.DEFAULT
+      );
+
+      assertTrue(binResult.isSuccess(), () -> "Expected success with W003 warning: " + binResult.diagnostics());
+      assertFalse(binResult.hasErrors());
+      assertTrue(binResult.hasWarnings());
+      var w003 = binResult.diagnostics().stream()
+          .filter(d -> d.canonicalCode().filter("W003"::equals).isPresent())
+          .findFirst()
+          .orElseThrow(() -> new AssertionError("Expected W003 warning in .stvn_bd result: " + binResult.diagnostics()));
+      assertEquals(org.stvnadore.core.validation.DiagnosticBag.WARN_REDUNDANT_METADATA_FACET, w003.symbolicId().orElse(null));
+      int expectedFacetIdx = tautologicalDefs.indexOf("#minIncl 0");
+      assertEquals(expectedFacetIdx, w003.startOffset());
+      assertEquals(expectedFacetIdx + "#minIncl 0".length(), w003.endOffset());
+      assertTrue(binResult.document().orElseThrow().hasDefsSection());
+    }
+
+    @Test
+    @DisplayName("TC-SEC-BD-04: .stvn_bd rejects Byte 5 vs inner :meta spoofing with E031 pinned to inner :meta and preserves hasDefsSection")
+    void testBinaryDefinitionsRejectsByte5VsInnerMetaSpoofingAndPreservesHasDefsSection() {
+      // Attack 1: Outer Byte 5 declares ("legit_defs", "crm", DEFS), inner :meta declares ("spoofed_defs", "crm", DEFS)
+      String spoofedNameDefs = """
+          {
+            :meta {
+              #name "spoofed_defs"
+              #domain "crm"
+              #kind #DEFS
+            }
+            :defs {
+              :UserId :Int
+            }
+          }
+          """;
+      var outerMeta = new org.stvnadore.core.ir.StvnDocumentMeta(
+          Optional.of("legit_defs"),
+          Optional.of("crm"),
+          Optional.of(org.stvnadore.core.ir.StvnDocumentKind.DEFS)
+      );
+      ByteBuffer spoofedNameBuf = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.SelfDescribingSchema(spoofedNameDefs),
+          true
+      ).encodeDefinitionsText(spoofedNameDefs, outerMeta);
+
+      StvnCompilationResult<StvnDocument> spoofRes = StvnCompiler.compile(
+          spoofedNameBuf.duplicate(),
+          "legit_defs.crm.stvn_bd",
+          org.stvnadore.core.StvnParserConfig.DEFAULT
+      );
+      assertFalse(spoofRes.isSuccess());
+      assertTrue(spoofRes.hasErrors());
+      // Ensure WT-03 fix suppresses spurious W001 warning from inner :meta ("spoofed_defs") vs outer filename ("legit_defs")
+      assertEquals(1, spoofRes.diagnostics().size(),
+          "Must emit single E031 contradiction without spurious inner filename W001 warning: " + spoofRes.diagnostics());
+      var e031 = spoofRes.diagnostics().getFirst();
+      assertEquals("E031", e031.canonicalCode().orElse(null));
+      assertEquals(org.stvnadore.core.validation.DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, e031.symbolicId().orElse(null));
+      int expectedMetaStart = spoofedNameDefs.indexOf(":meta");
+      assertEquals(expectedMetaStart, e031.startOffset(), "E031 must pin to inner :meta start");
+      assertTrue(e031.message().contains("contradicts embedded ':meta' block"));
+      assertThrows(MalformedPayloadException.class, () -> StvnBinaryDecoder.decodeDocument(spoofedNameBuf.duplicate()));
+
+      // Attack 2: Outer Byte 5 declares ("body_spoof", "crm", DEFS), inner document is a #BODY unit lacking :defs (in-memory docPath = null)
+      String spoofedBodyUnit = "{ :meta { #name \"body_spoof\" #domain \"crm\" #kind #BODY } :type :Int :body 7 }";
+      var bodySpoofOuterMeta = new org.stvnadore.core.ir.StvnDocumentMeta(
+          Optional.of("body_spoof"),
+          Optional.of("crm"),
+          Optional.of(org.stvnadore.core.ir.StvnDocumentKind.DEFS)
+      );
+      ByteBuffer spoofedBodyBuf = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.SelfDescribingSchema(spoofedBodyUnit),
+          true
+      ).encodeDefinitionsText(spoofedBodyUnit, bodySpoofOuterMeta);
+
+      StvnCompilationResult<StvnDocument> bodySpoofRes = StvnCompiler.compile(
+          spoofedBodyBuf.duplicate(),
+          null,
+          org.stvnadore.core.StvnParserConfig.DEFAULT
+      );
+      assertFalse(bodySpoofRes.isSuccess());
+      assertTrue(bodySpoofRes.hasErrors());
+      assertEquals("E031", bodySpoofRes.diagnostics().getFirst().canonicalCode().orElse(null));
+      // Decoded partial document must NOT hardcode hasDefsSection = true when inner unit had no :defs section
+      assertFalse(bodySpoofRes.document().orElseThrow().hasDefsSection(),
+          "Decoded .stvn_bd document must preserve inner hasDefsSection == false rather than hardcoding true");
+
+      // Attack 3: Outer Byte 5 declares ("no_meta", "crm", DEFS), inner document omits :meta altogether (in-memory docPath = null)
+      String omittedMetaUnit = "{ :defs { :OnlyType :Int } }";
+      var omittedOuterMeta = new org.stvnadore.core.ir.StvnDocumentMeta(
+          Optional.of("no_meta"),
+          Optional.of("crm"),
+          Optional.of(org.stvnadore.core.ir.StvnDocumentKind.DEFS)
+      );
+      ByteBuffer omittedMetaBuf = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.SelfDescribingSchema(omittedMetaUnit),
+          true
+      ).encodeDefinitionsText(omittedMetaUnit, omittedOuterMeta);
+
+      StvnCompilationResult<StvnDocument> omittedRes = StvnCompiler.compile(
+          omittedMetaBuf.duplicate(),
+          null,
+          org.stvnadore.core.StvnParserConfig.DEFAULT
+      );
+      assertFalse(omittedRes.isSuccess());
+      assertTrue(omittedRes.hasErrors());
+      assertEquals("E031", omittedRes.diagnostics().getFirst().canonicalCode().orElse(null));
+    }
+
+    @Test
+    @DisplayName("TC-SEC-BD-05: .stvn_bd missing inner :meta after multi-line leading comments pins E031 strictly to root '{' line and column (WT-01)")
+    void testBinaryDefinitionsMissingMetaAfterLeadingCommentsPinsExactLineAndColumn() {
+      String commentedNoMeta = "// header comment\n// second comment\n  {\n    :defs {\n      :T :Int\n    }\n  }\n";
+      int expectedBraceOffset = commentedNoMeta.indexOf('{');
+      var outerMeta = org.stvnadore.core.ir.StvnDocumentMeta.of(
+          "commented_defs", "crm", org.stvnadore.core.ir.StvnDocumentKind.DEFS
+      );
+      ByteBuffer bdBuf = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.UniversalDefault(),
+          true
+      ).encodeDefinitionsText(commentedNoMeta, outerMeta);
+
+      StvnCompilationResult<StvnDocument> res = StvnCompiler.compile(
+          bdBuf.duplicate(),
+          null,
+          org.stvnadore.core.StvnParserConfig.DEFAULT
+      );
+      assertFalse(res.isSuccess());
+      assertTrue(res.hasErrors());
+      assertEquals(1, res.diagnostics().size(), () -> "Unexpected diagnostics: " + res.diagnostics());
+      var diag = res.diagnostics().getFirst();
+      assertEquals("E031", diag.canonicalCode().orElse(null));
+      assertEquals(org.stvnadore.core.validation.DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.symbolicId().orElse(null));
+      assertEquals(3, diag.line(), "Root '{' after two comment lines must pin to line 3");
+      assertEquals(2, diag.column(), "Root '{' after two leading spaces on line 3 must pin to 0-based column 2");
+      assertEquals(expectedBraceOffset, diag.startOffset());
+      assertEquals(expectedBraceOffset + 1, diag.endOffset());
+    }
+
+    @Test
+    @DisplayName("TC-SEC-BD-06: .stvn_bd suppresses cascade E031 when inner :meta is empty (E039) or has invalid POSIX facet (E008) (WT-02)")
+    void testBinaryDefinitionsSuppressesCascadeE031OnMalformedInnerMeta() {
+      var outerMeta = org.stvnadore.core.ir.StvnDocumentMeta.of(
+          "valid_name", "crm", org.stvnadore.core.ir.StvnDocumentKind.DEFS
+      );
+
+      // Case A: Empty inner :meta {} -> strictly E039 (ERR_EMPTY_META_BLOCK), zero cascade E031
+      String emptyMetaDefs = "{\n  :meta {}\n  :defs {\n    :T :Int\n  }\n}\n";
+      ByteBuffer emptyMetaBuf = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.UniversalDefault(),
+          true
+      ).encodeDefinitionsText(emptyMetaDefs, outerMeta);
+
+      StvnCompilationResult<StvnDocument> emptyRes = StvnCompiler.compile(
+          emptyMetaBuf.duplicate(),
+          "valid_name.crm.stvn_bd",
+          org.stvnadore.core.StvnParserConfig.DEFAULT
+      );
+      assertTrue(emptyRes.hasErrors());
+      assertEquals(1, emptyRes.diagnostics().size(),
+          () -> "Empty inner :meta {} must emit strictly E039 without cascade E031: " + emptyRes.diagnostics());
+      assertEquals("E039", emptyRes.diagnostics().getFirst().canonicalCode().orElse(null));
+      assertEquals(org.stvnadore.core.validation.DiagnosticBag.ERR_EMPTY_META_BLOCK,
+          emptyRes.diagnostics().getFirst().symbolicId().orElse(null));
+
+      // Case B: Non-POSIX inner #name "bad name!" -> strictly E008 (ERR_INVALID_METADATA_FACET), zero cascade E031
+      String invalidPosixMetaDefs = """
+          {
+            :meta {
+              #name "bad name!"
+              #domain "crm"
+              #kind #DEFS
+            }
+            :defs {
+              :T :Int
+            }
+          }
+          """;
+      ByteBuffer badFacetBuf = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.UniversalDefault(),
+          true
+      ).encodeDefinitionsText(invalidPosixMetaDefs, outerMeta);
+
+      StvnCompilationResult<StvnDocument> badFacetRes = StvnCompiler.compile(
+          badFacetBuf.duplicate(),
+          "valid_name.crm.stvn_bd",
+          org.stvnadore.core.StvnParserConfig.DEFAULT
+      );
+      assertTrue(badFacetRes.hasErrors());
+      assertEquals(1, badFacetRes.diagnostics().size(),
+          () -> "Non-POSIX inner :meta facet must emit strictly E008 without cascade E031: " + badFacetRes.diagnostics());
+      assertEquals("E008", badFacetRes.diagnostics().getFirst().canonicalCode().orElse(null));
+      assertEquals(org.stvnadore.core.validation.DiagnosticBag.ERR_INVALID_METADATA_FACET,
+          badFacetRes.diagnostics().getFirst().symbolicId().orElse(null));
+    }
+
+    @Test
+    @DisplayName("TC-SEC-BD-07: StvnBinaryDecoder.decodeDocument rejects reserved 'stvn_*' domain under DEFAULT and permits under SYSTEM_DEFAULT (WT-04)")
+    void testDecodeDocumentEnforcesReservedDomainSystemAuthorityOnBodyAndDefs() {
+      // 1. #BODY binary frame declaring #domain "stvn_core"
+      String inlineSchema = "{ :type :Int :body 0 }";
+      StvnValue bodyVal = StvnCompiler.compilePayload("{ :type :Int :body 77 }").orElseThrow();
+      var reservedBodyMeta = org.stvnadore.core.ir.StvnDocumentMeta.of(
+          "sys_payload", "stvn_core", org.stvnadore.core.ir.StvnDocumentKind.BODY
+      );
+      ByteBuffer bodyBuf = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.SelfDescribingSchema(inlineSchema),
+          true
+      ).encode(bodyVal, reservedBodyMeta);
+
+      MalformedPayloadException bodyEx = assertThrows(
+          MalformedPayloadException.class,
+          () -> StvnBinaryDecoder.decodeDocument(bodyBuf.duplicate())
+      );
+      assertTrue(bodyEx.getMessage().contains("Reserved system domain prohibited"));
+
+      StvnDocument sysBodyDoc = StvnBinaryDecoder.decodeDocument(
+          bodyBuf.duplicate(), null, org.stvnadore.core.StvnParserConfig.SYSTEM_DEFAULT
+      );
+      assertEquals(Optional.of("stvn_core"), sysBodyDoc.requireMeta().domain());
+
+      // 2. #DEFS (.stvn_bd) binary frame declaring #domain "stvn_core"
+      String reservedDefsText = """
+          {
+            :meta {
+              #name "sys_defs"
+              #domain "stvn_core"
+              #kind #DEFS
+            }
+            :defs {
+              :SysId :Int
+            }
+          }
+          """;
+      var reservedDefsMeta = org.stvnadore.core.ir.StvnDocumentMeta.of(
+          "sys_defs", "stvn_core", org.stvnadore.core.ir.StvnDocumentKind.DEFS
+      );
+      ByteBuffer defsBuf = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.UniversalDefault(),
+          true
+      ).encodeDefinitionsText(reservedDefsText, reservedDefsMeta);
+
+      MalformedPayloadException defsEx = assertThrows(
+          MalformedPayloadException.class,
+          () -> StvnBinaryDecoder.decodeDocument(defsBuf.duplicate())
+      );
+      assertTrue(defsEx.getMessage().contains("Reserved system domain prohibited"));
+
+      StvnDocument sysDefsDoc = StvnBinaryDecoder.decodeDocument(
+          defsBuf.duplicate(), null, org.stvnadore.core.StvnParserConfig.SYSTEM_DEFAULT
+      );
+      assertEquals(Optional.of("stvn_core"), sysDefsDoc.requireMeta().domain());
+      assertTrue(sysDefsDoc.hasDefsSection());
+    }
   }
 }

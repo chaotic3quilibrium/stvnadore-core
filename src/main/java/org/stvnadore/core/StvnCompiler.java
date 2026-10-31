@@ -87,6 +87,13 @@ public final class StvnCompiler {
     return compile(input, docPath, StvnParserConfig.DEFAULT);
   }
 
+  private record TextCompilationOutcome(
+      StvnCompilationResult<StvnDocument> result,
+      Optional<StvnDocumentMeta> loweredMeta,
+      boolean parsedDocument
+  ) {
+  }
+
   /**
    * Compiles a raw STVN text document with an optional document path and custom parser configuration
    * through the 4-pass stateless STVN 2.0.0 lowering pipeline.
@@ -102,6 +109,23 @@ public final class StvnCompiler {
       String input,
       @Nullable String docPath,
       StvnParserConfig config
+  ) {
+    return compileTextInternal(input, docPath, config).result();
+  }
+
+  private static TextCompilationOutcome compileTextInternal(
+      String input,
+      @Nullable String docPath,
+      StvnParserConfig config
+  ) {
+    return compileTextInternal(input, docPath, config, false);
+  }
+
+  private static TextCompilationOutcome compileTextInternal(
+      String input,
+      @Nullable String docPath,
+      StvnParserConfig config,
+      boolean embeddedBinaryDefsMode
   ) {
     Objects.requireNonNull(input, "input must not be null");
     Objects.requireNonNull(config, "config must not be null");
@@ -137,28 +161,35 @@ public final class StvnCompiler {
               && docBody.bodyEntry() == null);
 
       if (hasNoClauses && parser.getNumberOfSyntaxErrors() > 0) {
-        return StvnCompilationResult.failure(diagnosticBag.toList());
+        return new TextCompilationOutcome(StvnCompilationResult.failure(diagnosticBag.toList()), Optional.empty(), false);
       }
 
       // Pass 2: Stateless metadata, definitions catalog, and root schema lowering
       StvnDefsLowerer.DefsLoweringResult defsRes;
       try {
-        defsRes = StvnDefsLowerer.lowerDocumentHeaderAndDefs(docCtx, docPath, config, diagnosticBag);
+        defsRes = embeddedBinaryDefsMode
+            ? StvnDefsLowerer.lowerEmbeddedBinaryDefs(docCtx, docPath, config, diagnosticBag)
+            : StvnDefsLowerer.lowerDocumentHeaderAndDefs(docCtx, docPath, config, diagnosticBag);
       } catch (Throwable t) {
         mapUnexpectedLoweringException(t, input, diagnosticBag);
-        return StvnCompilationResult.failure(diagnosticBag.toList());
+        return new TextCompilationOutcome(StvnCompilationResult.failure(diagnosticBag.toList()), Optional.empty(), false);
       }
 
       if (hasNoClauses) {
-        return diagnosticBag.hasErrors()
+        StvnCompilationResult<StvnDocument> res = diagnosticBag.hasErrors()
             ? StvnCompilationResult.failure(diagnosticBag.toList())
             : StvnCompilationResult.empty(diagnosticBag.toList());
+        return new TextCompilationOutcome(res, defsRes.meta(), true);
       }
 
       boolean hasBodyClause = docBody != null && docBody.bodyEntry() != null;
       if (!hasBodyClause) {
         if (diagnosticBag.hasErrors()) {
-          return StvnCompilationResult.failure(diagnosticBag.toList());
+          return new TextCompilationOutcome(
+              StvnCompilationResult.failure(diagnosticBag.toList()),
+              defsRes.meta(),
+              true
+          );
         }
         var rawDefsDoc = new StvnDocument(
             defsRes.meta(),
@@ -169,7 +200,11 @@ public final class StvnCompiler {
             defsRes.hasIncludes()
         );
         var verifiedDefsDoc = StvnReachabilityAndCasVerifier.verifyAndOrder(rawDefsDoc, diagnosticBag);
-        return StvnCompilationResult.success(verifiedDefsDoc, diagnosticBag.toList());
+        return new TextCompilationOutcome(
+            StvnCompilationResult.success(verifiedDefsDoc, diagnosticBag.toList()),
+            defsRes.meta(),
+            true
+        );
       }
 
       // Determine whether Pass 3 payload lowering is eligible under fault-containment rules
@@ -216,7 +251,11 @@ public final class StvnCompiler {
       }
 
       if (!canValidateBody) {
-        return StvnCompilationResult.failure(diagnosticBag.toList());
+        return new TextCompilationOutcome(
+            StvnCompilationResult.failure(diagnosticBag.toList()),
+            defsRes.meta(),
+            true
+        );
       }
 
       // Pass 3: Stateless payload lowering with container cardinality fault isolation
@@ -250,9 +289,17 @@ public final class StvnCompiler {
       boolean hasErrors = diagnosticBag.hasErrors()
           || (payload.isPresent() && hasErrorNodes(payload.get()));
       if (hasErrors) {
-        return StvnCompilationResult.partial(verifiedDocument, diagnosticBag.toList());
+        return new TextCompilationOutcome(
+            StvnCompilationResult.partial(verifiedDocument, diagnosticBag.toList()),
+            defsRes.meta(),
+            true
+        );
       }
-      return StvnCompilationResult.success(verifiedDocument, diagnosticBag.toList());
+      return new TextCompilationOutcome(
+          StvnCompilationResult.success(verifiedDocument, diagnosticBag.toList()),
+          defsRes.meta(),
+          true
+      );
     } catch (StvnSyntaxCancellationException e) {
       String raw = e.getMessage() != null ? e.getMessage() : "STVN Syntax Error";
       String msg = StvnSyntaxErrorSanitizer.purgeResidualAntlrJargon(raw);
@@ -277,7 +324,7 @@ public final class StvnCompiler {
           Optional.of(canonicalCode),
           Optional.of(symbolicId)
       ));
-      return StvnCompilationResult.failure(diagnosticBag.toList());
+      return new TextCompilationOutcome(StvnCompilationResult.failure(diagnosticBag.toList()), Optional.empty(), false);
     } catch (ParseCancellationException e) {
       Throwable cause = e.getCause();
       if (cause instanceof RecognitionException re) {
@@ -312,7 +359,7 @@ public final class StvnCompiler {
             Optional.of(symbolicId)
         ));
       }
-      return StvnCompilationResult.failure(diagnosticBag.toList());
+      return new TextCompilationOutcome(StvnCompilationResult.failure(diagnosticBag.toList()), Optional.empty(), false);
     }
   }
 
@@ -392,31 +439,58 @@ public final class StvnCompiler {
       RootPointer root = StvnBinaryDecoder.open(buffer.duplicate());
       Optional<StvnDocumentMeta> irMeta = root.meta();
 
-      StvnDefsLowerer.validateBinaryDocumentIdentity(irMeta.orElse(null), docPath, diagnosticBag);
+      StvnDefsLowerer.validateBinaryDocumentIdentity(
+          irMeta.orElse(null),
+          root.headerSpans(),
+          docPath,
+          config,
+          diagnosticBag
+      );
 
       StvnDocumentKind kind = irMeta.flatMap(StvnDocumentMeta::kind).orElse(StvnDocumentKind.BODY);
       if (kind == StvnDocumentKind.DEFS || kind == StvnDocumentKind.DEFS_INCLUDE) {
+        String defsSource;
         try {
-          StvnDocument defsDoc = StvnBinaryDecoder.decodeDocument(buffer.duplicate());
-          return diagnosticBag.hasErrors()
-              ? StvnCompilationResult.partial(defsDoc, diagnosticBag.toList())
-              : StvnCompilationResult.success(defsDoc, diagnosticBag.toList());
+          defsSource = StvnBinaryDecoder.extractDefinitionsSource(root);
         } catch (Throwable t) {
           diagnosticBag.addError(
               "Failed to unpack .stvn_bd definitions payload: " + t.getMessage(),
               0, byteLength, 1, 0, t,
               "MALFORMED_PAYLOAD"
           );
-          var fallbackDoc = new StvnDocument(
-              irMeta,
-              StvnDefsCatalog.EMPTY,
-              Optional.empty(),
-              Optional.empty(),
-              true,
-              kind == StvnDocumentKind.DEFS_INCLUDE
-          );
-          return StvnCompilationResult.partial(fallbackDoc, diagnosticBag.toList());
+          return StvnCompilationResult.failure(diagnosticBag.toList());
         }
+
+        TextCompilationOutcome innerOutcome = compileTextInternal(defsSource, docPath, config, true);
+        mergeInnerDefinitionsDiagnostics(diagnosticBag, innerOutcome.result().diagnostics());
+
+        Optional<StvnDocumentMeta> embeddedMeta = innerOutcome.result().document()
+            .flatMap(StvnDocument::meta)
+            .or(innerOutcome::loweredMeta);
+        if (innerOutcome.parsedDocument() && irMeta.isPresent()) {
+          verifyBinaryDefinitionsMetadataConsistency(
+              irMeta.get(),
+              embeddedMeta,
+              defsSource,
+              diagnosticBag
+          );
+        }
+
+        if (innerOutcome.result().document().isPresent()) {
+          StvnDocument defsDoc = innerOutcome.result().document().get();
+          var decodedDefsDoc = new StvnDocument(
+              irMeta,
+              defsDoc.defs(),
+              defsDoc.rootType(),
+              Optional.empty(),
+              defsDoc.hasDefsSection(),
+              kind == StvnDocumentKind.DEFS_INCLUDE || defsDoc.hasIncludes()
+          );
+          return diagnosticBag.hasErrors()
+              ? StvnCompilationResult.partial(decodedDefsDoc, diagnosticBag.toList())
+              : StvnCompilationResult.success(decodedDefsDoc, diagnosticBag.toList());
+        }
+        return StvnCompilationResult.failure(diagnosticBag.toList());
       }
 
       Optional<StvnValue> payload = Optional.empty();
@@ -451,6 +525,102 @@ public final class StvnCompiler {
       );
       return StvnCompilationResult.failure(diagnosticBag.toList());
     }
+  }
+
+  private static void mergeInnerDefinitionsDiagnostics(
+      DiagnosticBag targetBag,
+      List<StvnDiagnostic> innerDiagnostics
+  ) {
+    List<StvnDiagnostic> existing = targetBag.toList();
+    for (StvnDiagnostic diag : innerDiagnostics) {
+      boolean duplicateHeaderDiagnostic = existing.stream().anyMatch(prev ->
+          prev.severity() == diag.severity()
+              && Objects.equals(prev.symbolicId(), diag.symbolicId())
+              && Objects.equals(prev.message(), diag.message())
+      );
+      if (!duplicateHeaderDiagnostic) {
+        targetBag.add(diag);
+      }
+    }
+  }
+
+  private static void verifyBinaryDefinitionsMetadataConsistency(
+      StvnDocumentMeta outerMeta,
+      Optional<StvnDocumentMeta> embeddedMetaOpt,
+      String defsSource,
+      DiagnosticBag diagnosticBag
+  ) {
+    if (embeddedMetaOpt.isEmpty()) {
+      boolean alreadyReportedMetaStructureFault = diagnosticBag.toList().stream().anyMatch(d -> {
+        String sym = d.symbolicId().orElse("");
+        return (DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH.equals(sym) && d.message().contains("Mandatory :meta block"))
+            || DiagnosticBag.ERR_EMPTY_META_BLOCK.equals(sym)
+            || DiagnosticBag.ERR_META_POSITION_INVALID.equals(sym);
+      });
+      if (!alreadyReportedMetaStructureFault) {
+        int foundBrace = defsSource.indexOf('{');
+        int braceIdx = Math.max(0, foundBrace);
+        int endIdx = Math.min(defsSource.length(), braceIdx + 1);
+        if (endIdx <= braceIdx) {
+          braceIdx = 0;
+          endIdx = 1;
+        }
+        int[] lineCol = computeLineAndColumn(defsSource, braceIdx);
+        diagnosticBag.addError(
+            "Mandatory :meta block missing in embedded definitions payload; binary Byte 5 header declares "
+                + StvnBinaryDecoder.describeMetaSummary(outerMeta),
+            braceIdx,
+            endIdx,
+            lineCol[0],
+            lineCol[1],
+            null,
+            DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+        );
+      }
+      return;
+    }
+
+    StvnDocumentMeta innerMeta = embeddedMetaOpt.get();
+    if (!outerMeta.equals(innerMeta)) {
+      boolean innerMetaHasFacetParseError = innerMeta.sourceSpan().isPresent()
+          && diagnosticBag.toList().stream().anyMatch(d -> {
+            StvnDocumentMeta.SourceSpan ms = innerMeta.sourceSpan().get();
+            return d.severity() == StvnDiagnostic.DiagnosticSeverity.ERROR
+                && d.startOffset() >= ms.startOffset()
+                && d.endOffset() <= ms.endOffset()
+                && !d.symbolicId().filter(DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED::equals).isPresent();
+          });
+      if (innerMetaHasFacetParseError) {
+        return;
+      }
+      StvnDocumentMeta.SourceSpan span = innerMeta.sourceSpan()
+          .orElseGet(() -> new StvnDocumentMeta.SourceSpan(1, 0, 0, Math.max(1, Math.min(1, defsSource.length()))));
+      diagnosticBag.addError(
+          "Binary Byte 5 metadata header (" + StvnBinaryDecoder.describeMetaSummary(outerMeta)
+              + ") contradicts embedded ':meta' block (" + StvnBinaryDecoder.describeMetaSummary(innerMeta) + ")",
+          span.startOffset(),
+          span.endOffset(),
+          span.line(),
+          span.column(),
+          null,
+          DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+      );
+    }
+  }
+
+  private static int[] computeLineAndColumn(String source, int offset) {
+    int clamped = Math.max(0, Math.min(offset, source.length()));
+    int line = 1;
+    int col = 0;
+    for (int i = 0; i < clamped; i++) {
+      if (source.charAt(i) == '\n') {
+        line++;
+        col = 0;
+      } else {
+        col++;
+      }
+    }
+    return new int[]{line, col};
   }
 
   /**

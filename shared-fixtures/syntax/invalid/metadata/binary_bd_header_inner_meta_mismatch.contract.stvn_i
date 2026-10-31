@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "binary_bd_header_inner_meta_mismatch"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E031 #ERR_DOCUMENT_KIND_MISMATCH #ERROR 2 3 4 64 "Binary Byte 5 metadata header (#name \"binary_bd_header_inner_meta_mismatch\" #kind #DEFS) contradicts embedded ':meta' block (#name \"spoofed_inner_schema\" #kind #DEFS)" )
+  ]
+}

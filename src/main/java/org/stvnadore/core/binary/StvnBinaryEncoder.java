@@ -182,8 +182,40 @@ public class StvnBinaryEncoder {
             : new StvnDocumentMeta(m.name(), m.domain(), Optional.of(defsKind)))
         .orElseGet(() -> StvnDocumentMeta.ofKind(defsKind));
 
-    String canonicalDefsText = new CanonicalStvnWriter().printToString(document);
-    byte[] defsUtf8 = canonicalDefsText.getBytes(StandardCharsets.UTF_8);
+    StvnDocument effectiveDefsDoc = new StvnDocument(
+        Optional.of(effectiveMeta),
+        document.defs(),
+        document.rootType(),
+        Optional.empty(),
+        document.hasDefsSection(),
+        document.hasIncludes()
+    );
+    String canonicalDefsText = new CanonicalStvnWriter().printToString(effectiveDefsDoc);
+    return encodeDefinitionsText(canonicalDefsText, effectiveMeta);
+  }
+
+  /**
+   * Encodes raw UTF-8 STVN definitions source text and an explicit Byte 5+ {@link StvnDocumentMeta}
+   * header into a {@code .stvn_bd} binary definitions frame.
+   * <p>
+   * Preserves exact character coordinates (line, column, and character offsets) of
+   * {@code definitionsSourceText} inside the outlined UTF-8 definitions payload slot.
+   *
+   * @param definitionsSourceText the raw UTF-8 STVN definitions document text to embed
+   * @param meta                  the Byte 5+ document identity metadata header
+   * @return a little-endian {@link ByteBuffer} containing the framed {@code .stvn_bd} binary stream
+   * @throws NullPointerException       if {@code definitionsSourceText} or {@code meta} is {@code null}
+   * @throws StvnSerializationException if {@code meta} violates binary header POSIX identifier bounds
+   * @since 2.0.0
+   */
+  public ByteBuffer encodeDefinitionsText(String definitionsSourceText, StvnDocumentMeta meta) {
+    Objects.requireNonNull(definitionsSourceText, "definitionsSourceText must not be null");
+    Objects.requireNonNull(meta, "meta must not be null");
+    this.stringCache.clear();
+    StvnDocumentMeta effectiveMeta = meta.kind().isPresent()
+        ? meta
+        : new StvnDocumentMeta(meta.name(), meta.domain(), Optional.of(StvnDocumentKind.DEFS), meta.sourceSpan());
+    byte[] defsUtf8 = definitionsSourceText.getBytes(StandardCharsets.UTF_8);
     int totalStringLength = 1 + defsUtf8.length;
     int prefixLen = getDerivedLengthPrefixSize(totalStringLength);
 

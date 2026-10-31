@@ -966,11 +966,10 @@ public class StvnDocumentIdentityValidationTest {
   @Test
   @DisplayName("TC-BIN-ID-03: Binary .stvn_bd with #DEFS kind and matching stem compiles cleanly")
   void testBinaryStvnBdWithDefsKindCompilesCleanly() {
-    String schema = "{ :type :Int :body 0 }";
-    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
-    var meta = new StvnDocumentMeta(Optional.of("my_defs"), Optional.empty(), Optional.of(StvnDocumentKind.DEFS));
+    String schema = "{ :meta { #name \"my_defs\" #kind #DEFS } :defs { :T :Int } }";
+    var defsDoc = StvnCompiler.compile(schema, "my_defs.stvn_d", StvnParserConfig.DEFAULT).document().orElseThrow();
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(schema));
-    var buf = encoder.encode(ir, meta);
+    var buf = encoder.encode(defsDoc);
     byte[] bytes = new byte[buf.remaining()];
     buf.get(bytes);
 
@@ -978,6 +977,7 @@ public class StvnDocumentIdentityValidationTest {
     assertTrue(result.isSuccess(), "Binary .stvn_bd compilation must succeed: " + result.diagnostics());
     assertFalse(result.hasErrors());
     var doc = result.document().orElseThrow();
+    assertTrue(doc.hasDefsSection());
     assertTrue(doc.meta().isPresent());
     var decodedMeta = doc.meta().get();
     assertEquals("my_defs", decodedMeta.name().orElse(null));
@@ -1195,6 +1195,245 @@ public class StvnDocumentIdentityValidationTest {
           var root = StvnBinaryDecoder.open(buf);
           StvnBinaryDecoder.unpack(root, Optional.empty());
         }, "Invalid fixture must throw exception: " + binPath);
+      }
+    }
+  }
+
+  // =========================================================================
+  // UPSTREAM CORE ESCALATIONS #1 & #3: Binary E038, Header Byte Spans,
+  // Mandatory :defs on #DEFS Units, and StvnDocumentMeta.sourceSpan()
+  // =========================================================================
+
+  @Test
+  @DisplayName("TC-ESC1-01: Binary .stvn_b with reserved 'stvn_*' domain emits E038 pinned strictly to #domain byte slice")
+  void testBinaryStvnBReservedDomainEmitsE038WithExactDomainByteSpan() {
+    String inlineSchema = "{ :type :Int :body 0 }";
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(
+        Optional.of("orders"),
+        Optional.of("stvn_core"),
+        Optional.of(StvnDocumentKind.BODY)
+    );
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(inlineSchema));
+    var buf = encoder.encode(ir, meta);
+    byte[] bytes = new byte[buf.remaining()];
+    buf.get(bytes);
+
+    // Byte 5 = MetaControlByte; Byte 6 = nameLen (6); Bytes [7, 13) = "orders";
+    // Byte 13 = domainLen (9); Bytes [14, 23) = "stvn_core"
+    var rejected = StvnCompiler.compile(bytes, "orders.stvn_core.stvn_b", StvnParserConfig.DEFAULT);
+    assertFalse(rejected.isSuccess());
+    assertTrue(rejected.hasErrors());
+    var e038 = rejected.diagnostics().stream()
+        .filter(d -> d.canonicalCode().filter("E038"::equals).isPresent())
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("Expected E038 diagnostic, got: " + rejected.diagnostics()));
+    assertEquals(DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED, e038.symbolicId().orElse(null));
+    assertEquals(1, e038.line());
+    assertEquals(14, e038.column());
+    assertEquals(14, e038.startOffset());
+    assertEquals(23, e038.endOffset());
+    assertEquals("stvn_core", new String(bytes, e038.startOffset(), e038.endOffset() - e038.startOffset(), java.nio.charset.StandardCharsets.UTF_8));
+
+    // Also enforced when docPath is null (in-memory binary frame)
+    var inMemoryRejected = StvnCompiler.compile(bytes, null, StvnParserConfig.DEFAULT);
+    assertTrue(inMemoryRejected.hasErrors());
+    assertEquals("E038", inMemoryRejected.diagnostics().getFirst().canonicalCode().orElse(null));
+    assertEquals(14, inMemoryRejected.diagnostics().getFirst().startOffset());
+    assertEquals(23, inMemoryRejected.diagnostics().getFirst().endOffset());
+
+    // Permitted under SYSTEM_DEFAULT (config.systemAuthority() == true)
+    var systemAccepted = StvnCompiler.compile(bytes, "orders.stvn_core.stvn_b", StvnParserConfig.SYSTEM_DEFAULT);
+    assertTrue(systemAccepted.isSuccess(), "SYSTEM_DEFAULT must permit reserved domain: " + systemAccepted.diagnostics());
+    assertFalse(systemAccepted.hasErrors());
+  }
+
+  @Test
+  @DisplayName("TC-ESC1-02: Binary .stvn_bd with reserved 'stvn_*' domain emits single E038 pinned to #domain header byte slice")
+  void testBinaryStvnBdReservedDomainEmitsE038WithExactHeaderByteSpan() {
+    String defsText = "{ :meta { #name \"cas_env\" #domain \"stvn_cas\" #kind #DEFS } :defs { :Hash :String } }";
+    var sysDefsDoc = StvnCompiler.compile(defsText, "cas_env.stvn_cas.stvn_d", StvnParserConfig.SYSTEM_DEFAULT)
+        .document()
+        .orElseThrow();
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(defsText), true);
+    var buf = encoder.encode(sysDefsDoc);
+    byte[] bytes = new byte[buf.remaining()];
+    buf.get(bytes);
+
+    // Byte 6 = nameLen (7); Bytes [7, 14) = "cas_env"; Byte 14 = domainLen (8); Bytes [15, 23) = "stvn_cas"
+    var rejected = StvnCompiler.compile(bytes, "cas_env.stvn_cas.stvn_bd", StvnParserConfig.DEFAULT);
+    assertFalse(rejected.isSuccess());
+    assertTrue(rejected.hasErrors());
+    var e038List = rejected.diagnostics().stream()
+        .filter(d -> d.canonicalCode().filter("E038"::equals).isPresent())
+        .toList();
+    assertEquals(1, e038List.size(), "Must emit deduplicated header E038 without duplicate inner E038: " + rejected.diagnostics());
+    var e038 = e038List.getFirst();
+    assertEquals(DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED, e038.symbolicId().orElse(null));
+    assertEquals(1, e038.line());
+    assertEquals(15, e038.column());
+    assertEquals(15, e038.startOffset());
+    assertEquals(23, e038.endOffset());
+    assertEquals("stvn_cas", new String(bytes, e038.startOffset(), e038.endOffset() - e038.startOffset(), java.nio.charset.StandardCharsets.UTF_8));
+
+    var accepted = StvnCompiler.compile(bytes, "cas_env.stvn_cas.stvn_bd", StvnParserConfig.SYSTEM_DEFAULT);
+    assertTrue(accepted.isSuccess(), "SYSTEM_DEFAULT must permit .stvn_bd reserved domain: " + accepted.diagnostics());
+  }
+
+  @Test
+  @DisplayName("TC-ESC1-03: Binary header identity diagnostics (E031, E032, E034, W001, W002) pin to exact Byte 5 / #name / #domain byte spans")
+  void testBinaryHeaderIdentityDiagnosticsPinToExactByteSpans() {
+    String inlineSchema = "{ :type :Int :body 0 }";
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 99 }").orElseThrow();
+    var meta = new StvnDocumentMeta(
+        Optional.of("alpha"),
+        Optional.of("billing"),
+        Optional.of(StvnDocumentKind.BODY)
+    );
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(inlineSchema));
+    var buf = encoder.encode(ir, meta);
+    byte[] bytes = new byte[buf.remaining()];
+    buf.get(bytes);
+    // Byte 5 = [5, 6); Byte 6 = 5; #name "alpha" = [7, 12); Byte 12 = 7; #domain "billing" = [13, 20)
+
+    // E034 -> Byte 5 [5, 6)
+    var e034Res = StvnCompiler.compile(bytes, "alpha.billing.stvn_bin", StvnParserConfig.DEFAULT);
+    var e034 = e034Res.diagnostics().getFirst();
+    assertEquals("E034", e034.canonicalCode().orElse(null));
+    assertEquals(5, e034.startOffset());
+    assertEquals(6, e034.endOffset());
+    assertEquals(5, e034.column());
+
+    // E032 -> Byte 5 [5, 6)
+    var e032Res = StvnCompiler.compile(bytes, "a.b.c.stvn_b", StvnParserConfig.DEFAULT);
+    var e032 = e032Res.diagnostics().getFirst();
+    assertEquals("E032", e032.canonicalCode().orElse(null));
+    assertEquals(5, e032.startOffset());
+    assertEquals(6, e032.endOffset());
+
+    // E031 (#BODY frame against .stvn_bd path) -> Byte 5 [5, 6)
+    var e031Res = StvnCompiler.compile(bytes, "alpha.billing.stvn_bd", StvnParserConfig.DEFAULT);
+    var e031 = e031Res.diagnostics().getFirst();
+    assertEquals("E031", e031.canonicalCode().orElse(null));
+    assertEquals(5, e031.startOffset());
+    assertEquals(6, e031.endOffset());
+
+    // W001 (#name mismatch) + W002 (#domain omitted in single-slot filename) -> [7, 12) and [13, 20)
+    var warnRes = StvnCompiler.compile(bytes, "omega.stvn_b", StvnParserConfig.DEFAULT);
+    assertTrue(warnRes.isSuccess());
+    assertEquals(2, warnRes.diagnostics().size());
+    var w001Name = warnRes.diagnostics().get(0);
+    assertEquals("W001", w001Name.canonicalCode().orElse(null));
+    assertEquals(7, w001Name.startOffset());
+    assertEquals(12, w001Name.endOffset());
+    assertEquals("alpha", new String(bytes, w001Name.startOffset(), w001Name.endOffset() - w001Name.startOffset(), java.nio.charset.StandardCharsets.UTF_8));
+
+    var w002Domain = warnRes.diagnostics().get(1);
+    assertEquals("W002", w002Domain.canonicalCode().orElse(null));
+    assertEquals(13, w002Domain.startOffset());
+    assertEquals(20, w002Domain.endOffset());
+    assertEquals("billing", new String(bytes, w002Domain.startOffset(), w002Domain.endOffset() - w002Domain.startOffset(), java.nio.charset.StandardCharsets.UTF_8));
+
+    // W001 (#domain mismatch against slot 1) -> [13, 20)
+    var domainMismatchRes = StvnCompiler.compile(bytes, "alpha.crm.stvn_b", StvnParserConfig.DEFAULT);
+    assertTrue(domainMismatchRes.isSuccess());
+    assertEquals(1, domainMismatchRes.diagnostics().size());
+    var w001Domain = domainMismatchRes.diagnostics().getFirst();
+    assertEquals("W001", w001Domain.canonicalCode().orElse(null));
+    assertEquals(13, w001Domain.startOffset());
+    assertEquals(20, w001Domain.endOffset());
+  }
+
+  @Test
+  @DisplayName("TC-ESC3-01: Definitions schema {:meta{#name \"Empty\"#domain \"crm\"#kind #DEFS}} missing :defs emits E031 pinned to root '{'")
+  void testDefinitionsSchemaMissingMandatoryDefsSectionRejectedWithE031() {
+    String emptyDefsUnit = "{:meta{#name \"Empty\"#domain \"crm\"#kind #DEFS}}";
+
+    // In-memory compilation (#kind #DEFS without docPath)
+    var inMemResult = StvnCompiler.compile(emptyDefsUnit, null, StvnParserConfig.DEFAULT);
+    assertFalse(inMemResult.isSuccess());
+    assertTrue(inMemResult.hasErrors());
+    var diag = inMemResult.diagnostics().getFirst();
+    assertEquals("E031", diag.canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.symbolicId().orElse(null));
+    assertEquals(1, diag.line());
+    assertEquals(0, diag.column());
+    assertEquals(0, diag.startOffset());
+    assertEquals(1, diag.endOffset());
+    assertTrue(diag.message().contains("Mandatory ':defs' section missing"), "Unexpected message: " + diag.message());
+
+    // File-backed .stvn_d and .stvn_di compilation
+    var fileResult = StvnCompiler.compile(emptyDefsUnit, "Empty.crm.stvn_d", StvnParserConfig.DEFAULT);
+    assertFalse(fileResult.isSuccess());
+    assertEquals("E031", fileResult.diagnostics().getFirst().canonicalCode().orElse(null));
+
+    String emptyDefsIncludeUnit = "{:meta{#name \"EmptyIncl\"#domain \"crm\"#kind #DEFS_INCLUDE}}";
+    var inclResult = StvnCompiler.compile(emptyDefsIncludeUnit, "EmptyIncl.crm.stvn_di", StvnParserConfig.DEFAULT);
+    assertFalse(inclResult.isSuccess());
+    assertEquals("E031", inclResult.diagnostics().getFirst().canonicalCode().orElse(null));
+  }
+
+  @Test
+  @DisplayName("TC-ESC3-02: StvnDocumentMeta.sourceSpan() records exact :meta CST span and Byte 5 binary span while preserving 3-arg compatibility")
+  void testStvnDocumentMetaSourceSpanPopulatedForTextAndBinary() {
+    String textSource = "{\n  :meta {\n    #name \"user_schema\"\n    #domain \"crm\"\n    #kind #DEFS\n  }\n  :defs {\n    :UserId :Int\n  }\n}";
+    int expectedStart = textSource.indexOf(":meta");
+    int expectedEnd = textSource.indexOf("}\n  :defs") + 1;
+
+    var textRes = StvnCompiler.compile(textSource, "user_schema.crm.stvn_d", StvnParserConfig.DEFAULT);
+    assertTrue(textRes.isSuccess(), () -> "Text compile failed: " + textRes.diagnostics());
+    var textMeta = textRes.document().orElseThrow().requireMeta();
+    assertTrue(textMeta.sourceSpan().isPresent(), "Textual StvnDocumentMeta must populate sourceSpan");
+    StvnDocumentMeta.SourceSpan cstSpan = textMeta.sourceSpan().get();
+    assertEquals(2, cstSpan.line());
+    assertEquals(2, cstSpan.column());
+    assertEquals(expectedStart, cstSpan.startOffset());
+    assertEquals(expectedEnd, cstSpan.endOffset());
+
+    // Synthetic 3-arg constructor and factory methods default sourceSpan to Optional.empty() and compare semantically equal
+    var syntheticMeta = new StvnDocumentMeta(
+        Optional.of("user_schema"),
+        Optional.of("crm"),
+        Optional.of(StvnDocumentKind.DEFS)
+    );
+    assertTrue(syntheticMeta.sourceSpan().isEmpty());
+    assertEquals(syntheticMeta, textMeta);
+    assertEquals(syntheticMeta.hashCode(), textMeta.hashCode());
+
+    // Binary frame populates Byte 5+ metadata frame span [5, 5 + 1 + (1+11) + (1+3)) = [5, 22)
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(textSource), true);
+    var binBuf = encoder.encode(textRes.document().orElseThrow());
+    var binRes = StvnCompiler.compile(binBuf, "user_schema.crm.stvn_bd", StvnParserConfig.DEFAULT);
+    assertTrue(binRes.isSuccess(), () -> "Binary compile failed: " + binRes.diagnostics());
+    var binMeta = binRes.document().orElseThrow().requireMeta();
+    assertTrue(binMeta.sourceSpan().isPresent(), "Binary StvnDocumentMeta must populate Byte 5 frame sourceSpan");
+    StvnDocumentMeta.SourceSpan binSpan = binMeta.sourceSpan().get();
+    assertEquals(1, binSpan.line());
+    assertEquals(5, binSpan.column());
+    assertEquals(5, binSpan.startOffset());
+    assertEquals(22, binSpan.endOffset());
+    assertEquals(textMeta, binMeta);
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-16: Negative .stvn_bd shared fixtures match deterministic encoder output and emit coordinate-pinned diagnostics (WT-05)")
+  void testInvalidBinaryDefsFixturesBitwiseDeterministicAndCoordinatePinned() throws java.io.IOException {
+    org.stvnadore.core.utils.IrGeneratorUtility.syncNegativeBinaryDefsFixtures(false);
+    java.nio.file.Path invalidFixtures = java.nio.file.Paths.get("shared-fixtures/syntax/invalid");
+    try (var paths = java.nio.file.Files.walk(invalidFixtures)) {
+      var bdFiles = paths.filter(java.nio.file.Files::isRegularFile)
+          .filter(p -> p.toString().endsWith(".stvn_bd"))
+          .toList();
+      assertTrue(bdFiles.size() >= 3, "Expected >= 3 invalid .stvn_bd shared fixtures, found: " + bdFiles.size());
+      for (var bdPath : bdFiles) {
+        int byteLength = (int) java.nio.file.Files.size(bdPath);
+        var res = StvnCompiler.compile(bdPath, StvnParserConfig.DEFAULT);
+        assertTrue(res.hasErrors(), "Expected negative .stvn_bd fixture to produce error diagnostics: " + bdPath);
+        assertFalse(res.diagnostics().isEmpty());
+        for (var diag : res.diagnostics()) {
+          assertFalse(diag.startOffset() == 0 && diag.endOffset() == byteLength,
+              "Negative .stvn_bd diagnostic must never collapse to [0, byteLength) in " + bdPath + ": " + diag);
+        }
       }
     }
   }

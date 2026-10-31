@@ -8,6 +8,8 @@ import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.io.CanonicalLayoutWriter;
 import org.stvnadore.core.io.CanonicalStvnWriter;
 import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.ir.StvnDocumentKind;
+import org.stvnadore.core.ir.StvnDocumentMeta;
 import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.lowering.StvnReachabilityAndCasVerifier;
@@ -22,8 +24,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -37,6 +41,7 @@ public final class IrGeneratorUtility {
   private static final Path SUBSTRATE_SCHEMA_PATH = Paths.get("shared-fixtures/syntax/valid/modules/stvn_ir_substrate.stvn_ir.stvn_d");
   private static final Path NETWORK_PRIMITIVES_DEFS_PATH = Paths.get("shared-fixtures/syntax/valid/modules/network_primitives.stvn_d");
   private static final Path NETWORK_PRIMITIVES_BIN_PATH = Paths.get("shared-fixtures/syntax/valid/modules/network_primitives.stvn_bd");
+  private static final Path INVALID_METADATA_DIR = Paths.get("shared-fixtures/syntax/invalid/metadata");
   private static final boolean UPDATE_MODE = Boolean.getBoolean("updateSnapshots");
   private static final String PRELUDE_TYPE_PREFIX = StvnVocabulary.SIGIL_TYPIC + "org/stvnadore/prelude/";
 
@@ -51,6 +56,9 @@ public final class IrGeneratorUtility {
       MetadataFixtureGenerator.main(new String[0]);
       normalizeTextualFixturesToLf(SHARED_FIXTURES_ROOT);
       generateBinaryDefsFixture(NETWORK_PRIMITIVES_DEFS_PATH, NETWORK_PRIMITIVES_BIN_PATH);
+      syncNegativeBinaryDefsFixtures(true);
+    } else {
+      syncNegativeBinaryDefsFixtures(false);
     }
 
     int processedCount = 0;
@@ -109,6 +117,103 @@ public final class IrGeneratorUtility {
     buf.get(encoded);
     Files.write(targetBinDefsPath, encoded);
     System.out.printf("  [UPDATED] %s (%d bytes)%n", targetBinDefsPath.getFileName(), encoded.length);
+  }
+
+  private record NegativeBinaryDefsSpec(
+      String fileName,
+      StvnDocumentMeta headerMeta,
+      String embeddedDefsText
+  ) {}
+
+  private static List<NegativeBinaryDefsSpec> negativeBinaryDefsSpecs() {
+    return List.of(
+        new NegativeBinaryDefsSpec(
+            "binary_reserved_domain_prohibited.stvn_bd",
+            StvnDocumentMeta.of("binary_reserved_domain_prohibited", "stvn_core", StvnDocumentKind.DEFS),
+            """
+            {
+              :meta {
+                #name "binary_reserved_domain_prohibited"
+                #domain "stvn_core"
+                #kind #DEFS
+              }
+              :defs {
+                :AuditHash :String
+              }
+            }
+            """
+        ),
+        new NegativeBinaryDefsSpec(
+            "binary_bd_header_inner_meta_mismatch.stvn_bd",
+            new StvnDocumentMeta(
+                Optional.of("binary_bd_header_inner_meta_mismatch"),
+                Optional.empty(),
+                Optional.of(StvnDocumentKind.DEFS)
+            ),
+            """
+            {
+              :meta {
+                #name "spoofed_inner_schema"
+                #kind #DEFS
+              }
+              :defs {
+                :ValidAuditId { #unsigned #size 64 } :Int
+              }
+            }
+            """
+        ),
+        new NegativeBinaryDefsSpec(
+            "binary_bd_multi_error_accumulation.stvn_bd",
+            new StvnDocumentMeta(
+                Optional.of("binary_bd_multi_error_accumulation"),
+                Optional.empty(),
+                Optional.of(StvnDocumentKind.DEFS)
+            ),
+            """
+            {
+              :meta {
+                #name "binary_bd_multi_error_accumulation"
+                #kind #DEFS
+              }
+              :defs {
+                :ValidPort { #unsigned #size 16 } :Int
+                :InvalidFixedString { #size 16 } :String
+                #DEFAULT_PORT :ValidPort 443
+                :BrokenAlias :MissingTargetType
+                :ValidTag { #minSize 1 #maxSize 32 } :String
+              }
+            }
+            """
+        )
+    );
+  }
+
+  public static void syncNegativeBinaryDefsFixtures(boolean writeToDisk) throws IOException {
+    Files.createDirectories(INVALID_METADATA_DIR);
+    for (NegativeBinaryDefsSpec spec : negativeBinaryDefsSpecs()) {
+      String lfText = spec.embeddedDefsText().replace("\r\n", "\n");
+      var encoder = new StvnBinaryEncoder(
+          true,
+          new SchemaIdentityStrategy.SelfDescribingSchema(lfText),
+          true
+      );
+      ByteBuffer buf = encoder.encodeDefinitionsText(lfText, spec.headerMeta());
+      byte[] expectedBytes = new byte[buf.remaining()];
+      buf.get(expectedBytes);
+      Path targetPath = INVALID_METADATA_DIR.resolve(spec.fileName());
+      if (writeToDisk) {
+        Files.write(targetPath, expectedBytes);
+        System.out.printf("  [UPDATED] %s (%d bytes)%n", spec.fileName(), expectedBytes.length);
+      } else {
+        if (!Files.exists(targetPath)) {
+          throw new IllegalStateException("Missing negative .stvn_bd fixture: " + targetPath);
+        }
+        byte[] actualBytes = Files.readAllBytes(targetPath);
+        if (!Arrays.equals(expectedBytes, actualBytes)) {
+          throw new IllegalStateException("Binary drift detected in negative .stvn_bd fixture: " + targetPath);
+        }
+      }
+    }
   }
 
   private static void processFixture(Path stvnFile) throws Exception {

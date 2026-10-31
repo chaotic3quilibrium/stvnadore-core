@@ -8,6 +8,7 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.ir.StvnDefsCatalog;
 import org.stvnadore.core.ir.StvnDocumentKind;
 import org.stvnadore.core.ir.StvnDocumentMeta;
@@ -269,7 +270,7 @@ public final class StvnDefsLowerer {
     Objects.requireNonNull(doc, "doc must not be null");
     Objects.requireNonNull(diagnosticBag, "diagnosticBag must not be null");
     ModuleCompilationContext moduleCtx = new ModuleCompilationContext(StvnParserConfig.SYSTEM_STRICT, true);
-    return lowerDocumentUnit(doc, null, moduleCtx, diagnosticBag).toPublicResult();
+    return lowerDocumentUnit(doc, null, moduleCtx, diagnosticBag, false).toPublicResult();
   }
 
   /**
@@ -287,6 +288,40 @@ public final class StvnDefsLowerer {
       StvnParserConfig config,
       DiagnosticBag diagnosticBag
   ) {
+    return lowerDocumentHeaderAndDefsInternal(doc, docPath, config, diagnosticBag, false);
+  }
+
+  /**
+   * Lowers the embedded textual STVN definitions payload of a {@code .stvn_bd} binary frame.
+   * <p>
+   * Skips duplicate outer filename-vs-{@code :meta} checks on the top-level embedded payload
+   * (because {@link #validateBinaryDocumentIdentity(StvnDocumentMeta, StvnBinaryDecoder.BinaryHeaderSpans, String, StvnParserConfig, DiagnosticBag)}
+   * already binds {@code docPath} to Byte 5+ header byte slices), while preserving {@code docPath}
+   * for relative {@code :include} resolution and section-eligibility diagnostics.
+   *
+   * @param doc           the parsed ANTLR document context of the embedded definitions text
+   * @param docPath       the optional physical file path or URI of the enclosing {@code .stvn_bd} container
+   * @param config        the active parser configuration
+   * @param diagnosticBag the diagnostic accumulator
+   * @return the lowered {@link DefsLoweringResult}
+   * @since 2.0.0
+   */
+  public static DefsLoweringResult lowerEmbeddedBinaryDefs(
+      StvnParser.StvnDocumentContext doc,
+      @Nullable String docPath,
+      StvnParserConfig config,
+      DiagnosticBag diagnosticBag
+  ) {
+    return lowerDocumentHeaderAndDefsInternal(doc, docPath, config, diagnosticBag, true);
+  }
+
+  private static DefsLoweringResult lowerDocumentHeaderAndDefsInternal(
+      StvnParser.StvnDocumentContext doc,
+      @Nullable String docPath,
+      StvnParserConfig config,
+      DiagnosticBag diagnosticBag,
+      boolean skipTopLevelPathIdentityChecks
+  ) {
     Objects.requireNonNull(doc, "doc must not be null");
     Objects.requireNonNull(config, "config must not be null");
     Objects.requireNonNull(diagnosticBag, "diagnosticBag must not be null");
@@ -300,7 +335,7 @@ public final class StvnDefsLowerer {
         // Non-filesystem virtual URI; skip canonical stack registration
       }
     }
-    return lowerDocumentUnit(doc, docPath, moduleCtx, diagnosticBag).toPublicResult();
+    return lowerDocumentUnit(doc, docPath, moduleCtx, diagnosticBag, skipTopLevelPathIdentityChecks).toPublicResult();
   }
 
   /**
@@ -329,7 +364,7 @@ public final class StvnDefsLowerer {
     );
     moduleCtx.activeVirtualPaths.add(rootVirtualPath);
     moduleCtx.activeRawPaths.add(rootVirtualPath);
-    return lowerDocumentUnit(doc, rootVirtualPath, moduleCtx, diagnosticBag).toPublicResult();
+    return lowerDocumentUnit(doc, rootVirtualPath, moduleCtx, diagnosticBag, false).toPublicResult();
   }
 
   /**
@@ -356,7 +391,7 @@ public final class StvnDefsLowerer {
 
   /**
    * Validates document identity metadata decoded from an STVN binary payload ({@code .stvn_b}, {@code .stvn_bd})
-   * against its physical filename contract.
+   * against its physical filename contract under {@link StvnParserConfig#DEFAULT} and {@link StvnBinaryDecoder.BinaryHeaderSpans#DEFAULT}.
    *
    * @param meta          the decoded IR metadata record, or {@code null} if absent
    * @param docPath       the optional physical file path or URI
@@ -367,43 +402,83 @@ public final class StvnDefsLowerer {
       @Nullable String docPath,
       DiagnosticBag diagnosticBag
   ) {
+    validateBinaryDocumentIdentity(
+        meta,
+        StvnBinaryDecoder.BinaryHeaderSpans.DEFAULT,
+        docPath,
+        StvnParserConfig.DEFAULT,
+        diagnosticBag
+    );
+  }
+
+  /**
+   * Validates document identity metadata decoded from an STVN binary payload ({@code .stvn_b}, {@code .stvn_bd})
+   * against its physical filename contract and system-authority reserved domain rules, pinning all header
+   * diagnostics to their exact binary header byte spans.
+   *
+   * @param meta          the decoded IR metadata record, or {@code null} if absent
+   * @param headerSpans   the exact byte-offset spans of Byte 5, {@code #name}, and {@code #domain} in the binary header
+   * @param docPath       the optional physical file path or URI
+   * @param config        the parser configuration carrying system authority state
+   * @param diagnosticBag the diagnostic accumulator
+   * @since 2.0.0
+   */
+  public static void validateBinaryDocumentIdentity(
+      @Nullable StvnDocumentMeta meta,
+      StvnBinaryDecoder.BinaryHeaderSpans headerSpans,
+      @Nullable String docPath,
+      StvnParserConfig config,
+      DiagnosticBag diagnosticBag
+  ) {
+    Objects.requireNonNull(headerSpans, "headerSpans must not be null");
+    Objects.requireNonNull(config, "config must not be null");
     Objects.requireNonNull(diagnosticBag, "diagnosticBag must not be null");
-    if (docPath == null || docPath.isEmpty()) {
-      return;
-    }
 
-    String normalized = docPath.replace('\\', '/');
-    int lastSlash = normalized.lastIndexOf('/');
-    String fileName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
+    StvnDocumentMeta.SourceSpan ctrlSpan = headerSpans.metaControlSpan();
+    StvnDocumentMeta.SourceSpan nameSpan = headerSpans.nameSpan().orElse(ctrlSpan);
+    StvnDocumentMeta.SourceSpan domainSpan = headerSpans.domainSpan().orElse(ctrlSpan);
 
-    if (rejectLegacyExtension(fileName, diagnosticBag, 0, 1, 1, 0)) {
-      return;
-    }
-
-    if (fileName.startsWith(".")) {
-      diagnosticBag.addError(
-          "Filename '" + fileName + "' lacks a visible non-empty stem segment before extension; bare dotfiles are prohibited",
-          0, 1, 1, 0, null,
-          DiagnosticBag.ERR_INVALID_FILENAME_STEM
-      );
-      return;
-    }
-
-    int lastDot = fileName.lastIndexOf('.');
     String ext = null;
     String[] dotParts = null;
-    if (lastDot >= 0) {
-      ext = fileName.substring(lastDot);
-      String stemPart = fileName.substring(0, lastDot);
-      dotParts = stemPart.split("\\.", -1);
-      if (dotParts.length >= 3) {
+    boolean fatalPathRejection = false;
+
+    if (docPath != null && !docPath.isEmpty()) {
+      String normalized = docPath.replace('\\', '/');
+      int lastSlash = normalized.lastIndexOf('/');
+      String fileName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
+
+      if (rejectLegacyExtension(
+          fileName,
+          diagnosticBag,
+          ctrlSpan.startOffset(),
+          ctrlSpan.endOffset(),
+          ctrlSpan.line(),
+          ctrlSpan.column()
+      )) {
+        fatalPathRejection = true;
+      } else if (fileName.startsWith(".")) {
         diagnosticBag.addError(
-            "Invalid filename stem '" + fileName
-                + "'; filename must contain exactly one or two dot-separated stem segments (<name>.<ext> or <name>.<domain>.<ext>)",
-            0, 1, 1, 0, null,
+            "Filename '" + fileName + "' lacks a visible non-empty stem segment before extension; bare dotfiles are prohibited",
+            ctrlSpan.startOffset(), ctrlSpan.endOffset(), ctrlSpan.line(), ctrlSpan.column(), null,
             DiagnosticBag.ERR_INVALID_FILENAME_STEM
         );
-        return;
+        fatalPathRejection = true;
+      } else {
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot >= 0) {
+          ext = fileName.substring(lastDot);
+          String stemPart = fileName.substring(0, lastDot);
+          dotParts = stemPart.split("\\.", -1);
+          if (dotParts.length >= 3) {
+            diagnosticBag.addError(
+                "Invalid filename stem '" + fileName
+                    + "'; filename must contain exactly one or two dot-separated stem segments (<name>.<ext> or <name>.<domain>.<ext>)",
+                ctrlSpan.startOffset(), ctrlSpan.endOffset(), ctrlSpan.line(), ctrlSpan.column(), null,
+                DiagnosticBag.ERR_INVALID_FILENAME_STEM
+            );
+            fatalPathRejection = true;
+          }
+        }
       }
     }
 
@@ -411,20 +486,30 @@ public final class StvnDefsLowerer {
         ext != null ? StvnDocumentKind.fromExtension(ext) : Optional.empty();
 
     if (meta == null) {
-      if (expectedKindOpt.isPresent()
+      if (!fatalPathRejection && expectedKindOpt.isPresent()
           && (expectedKindOpt.get() == StvnDocumentKind.DEFS || ".stvn_b".equals(ext))) {
         diagnosticBag.addError(
             "Mandatory :meta block missing; document kind '" + expectedKindOpt.get().keyword()
                 + "' is required for extension '" + ext + "'",
-            0, 1, 1, 0, null,
+            ctrlSpan.startOffset(), ctrlSpan.endOffset(), ctrlSpan.line(), ctrlSpan.column(), null,
             DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
         );
       }
       return;
     }
 
-    if (meta.domain().isPresent() && isReservedDomain(meta.domain().get())) {
-      // Binary payloads decoded outside system authority check domain prefix
+    if (!config.systemAuthority() && meta.domain().isPresent() && isReservedDomain(meta.domain().get())) {
+      String declaredDomain = meta.domain().get();
+      diagnosticBag.addError(
+          "Reserved system domain prohibited: User document cannot declare reserved system domain '" + declaredDomain
+              + "'; domains with prefix 'stvn_' are strictly reserved for system artifacts",
+          domainSpan.startOffset(), domainSpan.endOffset(), domainSpan.line(), domainSpan.column(), null,
+          DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED
+      );
+    }
+
+    if (fatalPathRejection) {
+      return;
     }
 
     StvnDocumentKind declaredKind = meta.kind().orElse(null);
@@ -432,7 +517,7 @@ public final class StvnDefsLowerer {
       diagnosticBag.addError(
           "Document kind '" + declaredKind.keyword() + "' does not match file extension '" + ext
               + "' (expected '" + expectedKindOpt.get().keyword() + "')",
-          0, 1, 1, 0, null,
+          ctrlSpan.startOffset(), ctrlSpan.endOffset(), ctrlSpan.line(), ctrlSpan.column(), null,
           DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
       );
     }
@@ -442,7 +527,7 @@ public final class StvnDefsLowerer {
       if (meta.name().isPresent() && !meta.name().get().equals(stemName)) {
         diagnosticBag.addWarning(
             "Declared #name '" + meta.name().get() + "' does not match filename stem slot 0 '" + stemName + "'",
-            0, 1, 1, 0,
+            nameSpan.startOffset(), nameSpan.endOffset(), nameSpan.line(), nameSpan.column(),
             DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
         );
       }
@@ -451,13 +536,13 @@ public final class StvnDefsLowerer {
         if (dotParts.length == 1) {
           diagnosticBag.addWarning(
               "Declared #domain '" + declaredDomain + "' is omitted from filename stem slot 1",
-              0, 1, 1, 0,
+              domainSpan.startOffset(), domainSpan.endOffset(), domainSpan.line(), domainSpan.column(),
               DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME
           );
         } else if (!declaredDomain.equals(dotParts[1])) {
           diagnosticBag.addWarning(
               "Declared #domain '" + declaredDomain + "' does not match filename stem slot 1 '" + dotParts[1] + "'",
-              0, 1, 1, 0,
+              domainSpan.startOffset(), domainSpan.endOffset(), domainSpan.line(), domainSpan.column(),
               DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
           );
         }
@@ -653,9 +738,10 @@ public final class StvnDefsLowerer {
       StvnParser.StvnDocumentContext doc,
       @Nullable String docPath,
       ModuleCompilationContext moduleCtx,
-      DiagnosticBag diagnosticBag
+      DiagnosticBag diagnosticBag,
+      boolean skipPathIdentityChecks
   ) {
-    IdentityOutcome identity = lowerAndValidateDocumentIdentity(doc, docPath, moduleCtx, diagnosticBag);
+    IdentityOutcome identity = lowerAndValidateDocumentIdentity(doc, docPath, moduleCtx, diagnosticBag, skipPathIdentityChecks);
 
     var body = doc.documentBody();
     if (body == null) {
@@ -735,7 +821,8 @@ public final class StvnDefsLowerer {
       StvnParser.StvnDocumentContext doc,
       @Nullable String docPath,
       ModuleCompilationContext moduleCtx,
-      DiagnosticBag diagnosticBag
+      DiagnosticBag diagnosticBag,
+      boolean skipPathIdentityChecks
   ) {
     String ext = null;
     String fileName = null;
@@ -753,7 +840,12 @@ public final class StvnDefsLowerer {
       int lastSlash = normalized.lastIndexOf('/');
       fileName = lastSlash >= 0 ? normalized.substring(lastSlash + 1) : normalized;
 
-      if (rejectLegacyExtension(fileName, diagnosticBag, docStartIdx, docStopIdx, docLine, docCol)) {
+      if (skipPathIdentityChecks) {
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot >= 0) {
+          ext = fileName.substring(lastDot);
+        }
+      } else if (rejectLegacyExtension(fileName, diagnosticBag, docStartIdx, docStopIdx, docLine, docCol)) {
         fatalPathRejection = true;
       } else if (fileName.startsWith(".")) {
         diagnosticBag.addError(
@@ -787,7 +879,11 @@ public final class StvnDefsLowerer {
         ext != null ? StvnDocumentKind.fromExtension(ext) : Optional.empty();
 
     if (metaEntry == null) {
-      if (!fatalPathRejection && !moduleCtx.bootstrapPreludeMode && !moduleCtx.flattenerMode && expectedKindOpt.isPresent()
+      if (!skipPathIdentityChecks
+          && !fatalPathRejection
+          && !moduleCtx.bootstrapPreludeMode
+          && !moduleCtx.flattenerMode
+          && expectedKindOpt.isPresent()
           && (expectedKindOpt.get() == StvnDocumentKind.DEFS
               || expectedKindOpt.get() == StvnDocumentKind.DEFS_INCLUDE
               || expectedKindOpt.get() == StvnDocumentKind.BODY_INCLUDE
@@ -949,7 +1045,7 @@ public final class StvnDefsLowerer {
       }
     }
 
-    if (!fatalPathRejection && !moduleCtx.bootstrapPreludeMode) {
+    if (!skipPathIdentityChecks && !fatalPathRejection && !moduleCtx.bootstrapPreludeMode) {
       if (declaredKind != null && expectedKindOpt.isPresent() && declaredKind != expectedKindOpt.get()) {
         Span sp = Span.ofContext(kindNode != null ? kindNode : metaEntry);
         diagnosticBag.addError(
@@ -989,10 +1085,18 @@ public final class StvnDefsLowerer {
       }
     }
 
+    Span metaSpan = Span.ofContext(metaEntry);
+    StvnDocumentMeta.SourceSpan irMetaSpan = new StvnDocumentMeta.SourceSpan(
+        metaSpan.line(),
+        metaSpan.column(),
+        metaSpan.start(),
+        metaSpan.end()
+    );
     Optional<StvnDocumentMeta> loweredMeta = Optional.of(new StvnDocumentMeta(
         Optional.ofNullable(declaredName),
         Optional.ofNullable(declaredDomain),
-        Optional.ofNullable(declaredKind)
+        Optional.ofNullable(declaredKind),
+        Optional.of(irMetaSpan)
     ));
     Optional<StvnDocumentKind> effectiveKind = declaredKind != null
         ? Optional.of(declaredKind)
@@ -1041,6 +1145,21 @@ public final class StvnDefsLowerer {
             "Structural violation: Definitions schema (" + targetDesc + ") declaring #kind " + kindLabel
                 + " cannot declare '" + StvnVocabulary.KEYWORD_BODY + "' section [stvn-core:ERR_DOCUMENT_KIND_MISMATCH]",
             sp.start(), sp.end(), sp.line(), sp.column(), null,
+            DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+        );
+        hasViolations = true;
+      }
+      if (!moduleCtx.flattenerMode && body.defsEntry() == null) {
+        Token startTok = doc.getStart();
+        int start = startTok != null ? Math.max(0, startTok.getStartIndex()) : 0;
+        int stop = startTok != null ? Math.max(start + 1, startTok.getStopIndex() + 1) : 1;
+        int line = startTok != null ? startTok.getLine() : 1;
+        int col = startTok != null ? startTok.getCharPositionInLine() : 0;
+        diagnosticBag.addError(
+            "Mandatory '" + StvnVocabulary.KEYWORD_DEFS + "' section missing; definitions schema ("
+                + targetDesc + ") declaring #kind " + kindLabel + " requires a '"
+                + StvnVocabulary.KEYWORD_DEFS + "' section",
+            start, stop, line, col, null,
             DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
         );
         hasViolations = true;
@@ -1857,7 +1976,7 @@ public final class StvnDefsLowerer {
             moduleCtx.activeVirtualPaths.add(resolvedVirtual);
             moduleCtx.activeRawPaths.add(pathVal);
             try {
-              importedUnit = lowerDocumentUnit(importedDocCtx, resolvedVirtual, moduleCtx, diagnosticBag);
+              importedUnit = lowerDocumentUnit(importedDocCtx, resolvedVirtual, moduleCtx, diagnosticBag, false);
             } finally {
               moduleCtx.activeVirtualPaths.removeLast();
               moduleCtx.activeRawPaths.removeLast();
@@ -1953,7 +2072,7 @@ public final class StvnDefsLowerer {
             moduleCtx.activeCanonicalPaths.add(canonicalPath);
             moduleCtx.activeRawPaths.add(pathVal);
             try {
-              importedUnit = lowerDocumentUnit(importedDocCtx, resolvedPath.toString(), moduleCtx, diagnosticBag);
+              importedUnit = lowerDocumentUnit(importedDocCtx, resolvedPath.toString(), moduleCtx, diagnosticBag, false);
             } finally {
               moduleCtx.activeCanonicalPaths.removeLast();
               moduleCtx.activeRawPaths.removeLast();
