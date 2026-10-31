@@ -2309,7 +2309,7 @@ public class StvnIrVisitor extends StvnParserBaseVisitor<StvnValue> {
       case StvnDateTimeAudited ignored -> t.equals(StvnVocabulary.TYPE_DATE_TIME);
       case StvnSeq ignored -> t.equals(StvnVocabulary.TYPE_SEQ);
       case StvnSet ignored -> t.equals(StvnVocabulary.TYPE_SET);
-      case StvnMap ignored -> t.equals(StvnVocabulary.TYPE_MAP) || t.equals(StvnVocabulary.TYPE_MAP_ENTRY);
+      case StvnMap ignored -> t.equals(StvnVocabulary.TYPE_MAP);
       case StvnTuple ignored -> t.equals(StvnVocabulary.TYPE_TUPLE);
       default -> false;
     };

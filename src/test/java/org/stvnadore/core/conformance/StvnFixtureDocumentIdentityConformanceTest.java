@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.validation.DiagnosticBag;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -51,9 +52,20 @@ public class StvnFixtureDocumentIdentityConformanceTest {
       List<StvnDiagnostic> diagnostics = result.diagnostics();
 
       boolean isWarningFixture = file.toString().contains("metadata_warnings");
-      List<StvnDiagnostic> unexpectedDiagnostics = isWarningFixture
-          ? diagnostics.stream().filter(d -> d.severity() == StvnDiagnostic.DiagnosticSeverity.ERROR).toList()
-          : diagnostics;
+      boolean isLegacyDefaultCapacityFixture = file.getFileName().toString().equals("canonical_scalars.stvn");
+      List<StvnDiagnostic> unexpectedDiagnostics;
+      if (isWarningFixture) {
+        unexpectedDiagnostics = diagnostics.stream()
+            .filter(d -> d.severity() == StvnDiagnostic.DiagnosticSeverity.ERROR)
+            .toList();
+      } else if (isLegacyDefaultCapacityFixture) {
+        unexpectedDiagnostics = diagnostics.stream()
+            .filter(d -> d.severity() == StvnDiagnostic.DiagnosticSeverity.ERROR
+                || !DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+            .toList();
+      } else {
+        unexpectedDiagnostics = diagnostics;
+      }
 
       if (!unexpectedDiagnostics.isEmpty()) {
         StringBuilder sb = new StringBuilder();

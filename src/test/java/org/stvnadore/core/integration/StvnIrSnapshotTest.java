@@ -14,7 +14,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
-import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.utils.IrGeneratorUtility;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.binary.SchemaIdentityStrategy;
@@ -73,8 +73,8 @@ public class StvnIrSnapshotTest {
     var snapshotCompilation = StvnCompiler.compile(expectedSnapshot, snapshotPath.toString(), StvnParserConfig.SYSTEM);
     Assertions.assertTrue(snapshotCompilation.diagnostics().isEmpty(), "IR snapshot compilation produced unexpected diagnostics: " + snapshotCompilation.diagnostics());
     var snapshotDoc = snapshotCompilation.document().orElseThrow();
-    Assertions.assertTrue(snapshotDoc.hasPayload(), "Compiled IR snapshot has no payload body");
-    var snapshotPayload = (StvnValue.StvnTuple) snapshotDoc.requirePayload();
+    Assertions.assertTrue(snapshotDoc.payload().isPresent(), "Compiled IR snapshot has no payload body");
+    var snapshotPayload = (StvnValue.StvnTuple) snapshotDoc.payload().orElseThrow();
     Assertions.assertEquals(2, snapshotPayload.elements().size(), "IR snapshot root tuple must have arity 2 (IrTypeRegistry, IrValue)");
 
     // Binary verification check

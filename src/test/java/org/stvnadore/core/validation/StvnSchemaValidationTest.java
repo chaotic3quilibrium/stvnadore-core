@@ -5,8 +5,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnCompilationResult;
-import org.stvnadore.core.ast.StvnValue;
-import org.stvnadore.core.ast.StvnValue.StvnString;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ir.StvnValue.StvnString;
 
 /**
  * Verification test suite for eager schema definition constraint validation inside {@code :defs}.
@@ -217,7 +217,7 @@ public class StvnSchemaValidationTest {
     String input = """
         {
           :defs {
-            :BracketStr { #regex "^\\[[a-z]+\\]$" } :String
+            :BracketStr { #regex "^\\\\[[a-z]+\\\\]$" } :String
           }
           :type :BracketStr
           :body "[hello]"
@@ -410,7 +410,7 @@ public class StvnSchemaValidationTest {
     Assertions.assertFalse(result.isSuccess());
     var diag = result.diagnostics().getFirst();
     Assertions.assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, diag.errorCode().orElse(""));
-    Assertions.assertTrue(diag.message().contains("permitted facets for string types: [#equatable, #comparable, #regex, #preserveIndent]"));
+    Assertions.assertTrue(diag.message().contains("facet '#regex' is not permitted on :Int"));
   }
 
   @Test

@@ -6,13 +6,11 @@ import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.io.CanonicalStvnWriter;
-import org.stvnadore.core.ast.StvnValue;
-import org.stvnadore.core.ast.StvnValue.*;
-import org.stvnadore.core.printer.StvnTextPrinter;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ir.StvnValue.*;
 
 import java.io.StringWriter;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -47,20 +45,20 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertEquals(DiagnosticSeverity.ERROR, diagnostics.get(0).severity());
     Assertions.assertEquals(DiagnosticSeverity.ERROR, diagnostics.get(1).severity());
 
-    StvnValue doc = result.document().get().requirePayload();
+    StvnValue doc = result.document().get().payload().orElseThrow();
     Assertions.assertInstanceOf(StvnSeq.class, doc);
     StvnSeq seq = (StvnSeq) doc;
     Assertions.assertEquals(5, seq.elements().size());
 
-    Assertions.assertInstanceOf(StvnInteger.class, seq.elements().get(0));
-    Assertions.assertInstanceOf(StvnError.class, seq.elements().get(1));
-    Assertions.assertInstanceOf(StvnInteger.class, seq.elements().get(2));
-    Assertions.assertInstanceOf(StvnError.class, seq.elements().get(3));
-    Assertions.assertInstanceOf(StvnInteger.class, seq.elements().get(4));
+    Assertions.assertInstanceOf(StvnInt.class, seq.elements().get(0));
+    Assertions.assertInstanceOf(StvnErrorValue.class, seq.elements().get(1));
+    Assertions.assertInstanceOf(StvnInt.class, seq.elements().get(2));
+    Assertions.assertInstanceOf(StvnErrorValue.class, seq.elements().get(3));
+    Assertions.assertInstanceOf(StvnInt.class, seq.elements().get(4));
 
-    StvnError err1 = (StvnError) seq.elements().get(1);
-    Assertions.assertEquals("300", err1.rawText().trim());
-    Assertions.assertFalse(err1.diagnostics().isEmpty());
+    StvnErrorValue err1 = (StvnErrorValue) seq.elements().get(1);
+    Assertions.assertTrue(err1.diagnostic().message().contains("300"));
+    Assertions.assertEquals(DiagnosticSeverity.ERROR, err1.diagnostic().severity());
   }
 
   @Test
@@ -84,10 +82,12 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertEquals("DUPLICATE_SET_ELEMENT", diags.get(0).errorCode().orElse(""));
     Assertions.assertEquals("DUPLICATE_SET_ELEMENT", diags.get(1).errorCode().orElse(""));
 
-    StvnValue doc = result.document().get().requirePayload();
+    StvnValue doc = result.document().get().payload().orElseThrow();
     Assertions.assertInstanceOf(StvnSet.class, doc);
     StvnSet set = (StvnSet) doc;
-    Assertions.assertEquals(4, set.elements().size());
+    Assertions.assertEquals(6, set.elements().size());
+    Assertions.assertInstanceOf(StvnErrorValue.class, set.elements().get(2));
+    Assertions.assertInstanceOf(StvnErrorValue.class, set.elements().get(4));
   }
 
   @Test
@@ -112,11 +112,11 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertTrue(diags.stream().anyMatch(d -> "TUPLE_ARITY_MISMATCH".equals(d.errorCode().orElse(""))),
         "Must record TUPLE_ARITY_MISMATCH diagnostic");
 
-    StvnValue doc = result.document().get().requirePayload();
+    StvnValue doc = result.document().get().payload().orElseThrow();
     Assertions.assertInstanceOf(StvnTuple.class, doc);
     StvnTuple tuple = (StvnTuple) doc;
-    Assertions.assertEquals(4, tuple.elements().size());
-    Assertions.assertInstanceOf(StvnError.class, tuple.elements().get(0));
+    Assertions.assertEquals(3, tuple.elements().size());
+    Assertions.assertInstanceOf(StvnErrorValue.class, tuple.elements().get(0));
     Assertions.assertInstanceOf(StvnString.class, tuple.elements().get(1));
     Assertions.assertInstanceOf(StvnBoolean.class, tuple.elements().get(2));
   }
@@ -148,7 +148,7 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertTrue(diags.size() >= 3, "Expected at least 3 diagnostics: invalid key 200, invalid value 300, duplicate key 1");
     Assertions.assertTrue(diags.stream().anyMatch(d -> "DUPLICATE_MAP_KEY".equals(d.errorCode().orElse(""))));
 
-    StvnValue doc = result.document().get().requirePayload();
+    StvnValue doc = result.document().get().payload().orElseThrow();
     Assertions.assertInstanceOf(StvnMap.class, doc);
   }
 
@@ -179,7 +179,7 @@ public class StvnDiagnosticAccumulationTest {
   }
 
   @Test
-  @DisplayName("Sum types (Option, Either, Union) error accumulation and StvnError wrapping")
+  @DisplayName("Sum types (Option, Either, Union) error accumulation and StvnErrorValue wrapping")
   void testSumOptionEitherUnionDiagnosticAccumulation() {
     String unionOverflowInput = """
         {
@@ -195,9 +195,7 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertFalse(unionRes.isSuccess());
     Assertions.assertTrue(unionRes.hasErrors());
     Assertions.assertTrue(unionRes.diagnostics().stream().anyMatch(d -> "UNION_BRANCH_OVERFLOW".equals(d.errorCode().orElse(""))));
-    Assertions.assertInstanceOf(StvnUnion.class, unionRes.document().get().requirePayload());
-    StvnUnion union = (StvnUnion) unionRes.document().get().requirePayload();
-    Assertions.assertInstanceOf(StvnError.class, union.value());
+    Assertions.assertInstanceOf(StvnErrorValue.class, unionRes.document().get().payload().orElseThrow());
 
     String eitherMismatchInput = """
         {
@@ -209,9 +207,9 @@ public class StvnDiagnosticAccumulationTest {
     var eitherRes = StvnCompiler.compileToResult(eitherMismatchInput);
     Assertions.assertFalse(eitherRes.isSuccess());
     Assertions.assertTrue(eitherRes.hasErrors());
-    Assertions.assertInstanceOf(StvnEither.class, eitherRes.document().get().requirePayload());
-    StvnEither either = (StvnEither) eitherRes.document().get().requirePayload();
-    Assertions.assertInstanceOf(StvnError.class, either.value());
+    Assertions.assertInstanceOf(StvnEither.class, eitherRes.document().get().payload().orElseThrow());
+    StvnEither either = (StvnEither) eitherRes.document().get().payload().orElseThrow();
+    Assertions.assertInstanceOf(StvnErrorValue.class, either.value());
   }
 
   @Test
@@ -257,7 +255,7 @@ public class StvnDiagnosticAccumulationTest {
     successRes.ifSuccess(doc -> executed.set(true));
     Assertions.assertTrue(executed.get());
 
-    StvnCompilationResult<Integer> mapped = successRes.map(doc -> ((StvnInteger) doc.requirePayload()).value().intValue());
+    StvnCompilationResult<Integer> mapped = successRes.map(doc -> ((StvnInt) doc.payload().orElseThrow()).value().intValue());
     Assertions.assertEquals(42, mapped.document().orElse(0));
 
     String errorInput = """
@@ -277,7 +275,7 @@ public class StvnDiagnosticAccumulationTest {
   }
 
   @Test
-  @DisplayName("Binary encoder rejects ASTs containing unrecovered StvnError nodes")
+  @DisplayName("Binary encoder rejects ASTs containing unrecovered StvnErrorValue nodes")
   void testBinaryEncoderRejectsUnrecoveredErrors() {
     String input = """
         {
@@ -291,7 +289,7 @@ public class StvnDiagnosticAccumulationTest {
 
     var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.document().isPresent());
-    StvnValue partialAst = result.document().get().requirePayload();
+    StvnValue partialAst = result.document().get().payload().orElseThrow();
 
     var encoder = new StvnBinaryEncoder(true, new org.stvnadore.core.binary.SchemaIdentityStrategy.UniversalDefault());
     Assertions.assertThrows(IllegalStateException.class, () -> {
@@ -300,7 +298,7 @@ public class StvnDiagnosticAccumulationTest {
   }
 
   @Test
-  @DisplayName("Canonical writer and pattern printer render StvnError gracefully without throwing")
+  @DisplayName("Canonical writer and pattern printer render StvnErrorValue gracefully without throwing")
   void testPrintersHandleStvnErrorNodesGracefully() throws Exception {
     String input = """
         {
@@ -314,7 +312,7 @@ public class StvnDiagnosticAccumulationTest {
 
     var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.document().isPresent());
-    StvnValue partialAst = result.document().get().requirePayload();
+    StvnValue partialAst = result.document().get().payload().orElseThrow();
 
     StringWriter sw = new StringWriter();
     CanonicalStvnWriter writer = new CanonicalStvnWriter();

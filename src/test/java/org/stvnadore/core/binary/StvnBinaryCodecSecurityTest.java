@@ -187,7 +187,7 @@ public class StvnBinaryCodecSecurityTest {
                              "98765432109876543210987654321098765432109876543210";
       BigInteger bigInt = new BigInteger(hundredDigits);
 
-      ResolvedSchema bareIntSchema = StvnCompiler.compilePayload("{ :type :Int :body 0 }").orElseThrow().schema();
+      ResolvedSchema bareIntSchema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(StvnCompiler.compilePayload("{ :type :Int :body 0 }").orElseThrow().schema());
       StvnInteger original = new StvnInteger(bareIntSchema, bigInt, 0, false);
 
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -213,7 +213,7 @@ public class StvnBinaryCodecSecurityTest {
                              "55554444333322221111";
       BigInteger bigInt = new BigInteger(hundredDigits);
 
-      ResolvedSchema bareIntSchema = StvnCompiler.compilePayload("{ :type :Int :body 0 }").orElseThrow().schema();
+      ResolvedSchema bareIntSchema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(StvnCompiler.compilePayload("{ :type :Int :body 0 }").orElseThrow().schema());
       StvnInteger original = new StvnInteger(bareIntSchema, bigInt, 0, false);
 
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -231,7 +231,7 @@ public class StvnBinaryCodecSecurityTest {
     void testSmallBareIntRoundTripsInline() {
       BigInteger smallVal = BigInteger.valueOf(42);
 
-      ResolvedSchema bareIntSchema = StvnCompiler.compilePayload("{ :type :Int :body 0 }").orElseThrow().schema();
+      ResolvedSchema bareIntSchema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(StvnCompiler.compilePayload("{ :type :Int :body 0 }").orElseThrow().schema());
       StvnInteger original = new StvnInteger(bareIntSchema, smallVal, 32, false);
 
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -256,13 +256,13 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-FLOAT-01: Float.NaN round-trips without BigDecimal crash")
     void testFloat32NaNRoundTrip() {
-      ResolvedSchema schema = StvnCompiler.compilePayload("""
+      ResolvedSchema schema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(StvnCompiler.compilePayload("""
           {
             :defs { :F32 { #size 32 } :Float }
             :type :F32
             :body 0.0
           }
-          """).orElseThrow().schema();
+          """).orElseThrow().schema());
       StvnFloat original = StvnFloat.ofFloat(schema, Float.NaN);
 
       assertTrue(original.isNaN());
@@ -286,13 +286,13 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-FLOAT-02: Double.NaN round-trips without BigDecimal crash")
     void testFloat64NaNRoundTrip() {
-      ResolvedSchema schema = StvnCompiler.compilePayload("""
+      ResolvedSchema schema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(StvnCompiler.compilePayload("""
           {
             :defs { :F64 :Float }
             :type :F64
             :body 0.0
           }
-          """).orElseThrow().schema();
+          """).orElseThrow().schema());
       StvnFloat original = StvnFloat.ofDouble(schema, Double.NaN);
 
       assertTrue(original.isNaN());
@@ -313,13 +313,13 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-FLOAT-03: Float32 +Infinity and -Infinity round-trip accurately")
     void testFloat32InfinitiesRoundTrip() {
-      ResolvedSchema schema = StvnCompiler.compilePayload("""
+      ResolvedSchema schema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(StvnCompiler.compilePayload("""
           {
             :defs { :F32 { #size 32 } :Float }
             :type :F32
             :body 0.0
           }
-          """).orElseThrow().schema();
+          """).orElseThrow().schema());
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
 
       // +Infinity
@@ -346,13 +346,13 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-FLOAT-04: Float64 +Infinity and -Infinity round-trip accurately")
     void testFloat64InfinitiesRoundTrip() {
-      ResolvedSchema schema = StvnCompiler.compilePayload("""
+      ResolvedSchema schema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(StvnCompiler.compilePayload("""
           {
             :defs { :F64 :Float }
             :type :F64
             :body 0.0
           }
-          """).orElseThrow().schema();
+          """).orElseThrow().schema());
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
 
       // +Infinity
@@ -379,20 +379,20 @@ public class StvnBinaryCodecSecurityTest {
     @Test
     @DisplayName("TC-SEC-FLOAT-05: Negative zero (-0.0f and -0.0d) preserves sign bit across wire")
     void testNegativeZeroPreservesSignBit() {
-      ResolvedSchema schema32 = StvnCompiler.compilePayload("""
+      ResolvedSchema schema32 = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(StvnCompiler.compilePayload("""
           {
             :defs { :F32 { #size 32 } :Float }
             :type :F32
             :body 0.0
           }
-          """).orElseThrow().schema();
-      ResolvedSchema schema64 = StvnCompiler.compilePayload("""
+          """).orElseThrow().schema());
+      ResolvedSchema schema64 = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(StvnCompiler.compilePayload("""
           {
             :defs { :F64 :Float }
             :type :F64
             :body 0.0
           }
-          """).orElseThrow().schema();
+          """).orElseThrow().schema());
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
 
       // Float32 -0.0f

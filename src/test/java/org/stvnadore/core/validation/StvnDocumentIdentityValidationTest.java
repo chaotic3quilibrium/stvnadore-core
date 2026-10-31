@@ -6,8 +6,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
-import org.stvnadore.core.ast.StvnDocumentKind;
-import org.stvnadore.core.ast.StvnDocumentMeta;
+import org.stvnadore.core.ir.StvnDocumentKind;
+import org.stvnadore.core.ir.StvnDocumentMeta;
 import org.stvnadore.core.binary.BinaryEncodingStrategy;
 import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
@@ -1014,7 +1014,7 @@ public class StvnDocumentIdentityValidationTest {
     var decoded = root.documentMeta().get();
     assertTrue(decoded.name().isEmpty());
     assertTrue(decoded.domain().isEmpty());
-    assertEquals(Optional.of(StvnDocumentKind.BODY), decoded.kind());
+    assertEquals(Optional.of(org.stvnadore.core.ast.StvnDocumentKind.BODY), decoded.kind());
   }
 
   @Test
@@ -1031,7 +1031,7 @@ public class StvnDocumentIdentityValidationTest {
     var decoded = root.documentMeta().get();
     assertEquals("test_payload", decoded.name().orElse(null));
     assertTrue(decoded.domain().isEmpty());
-    assertEquals(Optional.of(StvnDocumentKind.BODY), decoded.kind());
+    assertEquals(Optional.of(org.stvnadore.core.ast.StvnDocumentKind.BODY), decoded.kind());
   }
 
   @Test
@@ -1048,7 +1048,7 @@ public class StvnDocumentIdentityValidationTest {
     var decoded = root.documentMeta().get();
     assertTrue(decoded.name().isEmpty());
     assertEquals("org_example", decoded.domain().orElse(null));
-    assertEquals(Optional.of(StvnDocumentKind.BODY), decoded.kind());
+    assertEquals(Optional.of(org.stvnadore.core.ast.StvnDocumentKind.BODY), decoded.kind());
   }
 
   @Test
@@ -1065,7 +1065,7 @@ public class StvnDocumentIdentityValidationTest {
     var decoded = root.documentMeta().get();
     assertEquals("entity_cfg", decoded.name().orElse(null));
     assertEquals("cluster_prod", decoded.domain().orElse(null));
-    assertEquals(Optional.of(StvnDocumentKind.BODY), decoded.kind());
+    assertEquals(Optional.of(org.stvnadore.core.ast.StvnDocumentKind.BODY), decoded.kind());
   }
 
   @ParameterizedTest

@@ -376,11 +376,11 @@ public class StvnReservedPackageAndDomainValidationTest {
   @Test
   @DisplayName("TC-RES-16: Decoupled synthetic prelude authority preserves standard library")
   void testSyntheticPreludeAuthorityPreservation() {
-    var preludeDoc = StvnPrelude.getPreludeDocument();
+    var preludeDoc = StvnPrelude.preludeDocument();
     assertNotNull(preludeDoc, "Synthetic prelude document must exist");
 
     var diagnosticBag = new DiagnosticBag();
-    StvnTypeResolver.validateDocumentConstraints(preludeDoc, diagnosticBag);
+    org.stvnadore.core.lowering.StvnReachabilityAndCasVerifier.verifyAndOrder(preludeDoc, diagnosticBag);
     assertFalse(diagnosticBag.hasErrors(), "Prelude validation must produce zero errors: " + diagnosticBag.toList());
     assertTrue(
         diagnosticBag.toList().stream().noneMatch(d ->
@@ -389,7 +389,7 @@ public class StvnReservedPackageAndDomainValidationTest {
         "Prelude must not trigger E037 or E038"
     );
 
-    var defs = StvnTypeResolver.getDocumentDefinitions(preludeDoc);
+    var defs = StvnPrelude.preludeCatalog().nominalTypes();
     assertFalse(defs.isEmpty(), "Prelude document definitions must not be empty");
     assertTrue(defs.containsKey(":org/stvnadore/prelude/Port"), "Prelude must define :org/stvnadore/prelude/Port");
     assertTrue(defs.containsKey(":org/stvnadore/prelude/UuidLowerCase"), "Prelude must define :org/stvnadore/prelude/UuidLowerCase");

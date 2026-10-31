@@ -5,7 +5,8 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Custom parser cancellation exception carrying precise source location metadata.
+ * Custom parser cancellation exception carrying precise source location metadata
+ * and STVN 2.0.0 dual diagnostic identifiers.
  *
  * @since 1.2.0
  */
@@ -21,6 +22,10 @@ public final class StvnSyntaxCancellationException extends ParseCancellationExce
   private final int startOffset;
   /** The end character offset of the syntax error. */
   private final int endOffset;
+  /** The optional normative STVN 2.0.0 canonical code (E001-E040). */
+  private final @Nullable String canonicalCode;
+  /** The optional symbolic diagnostic identifier (ERR_*). */
+  private final @Nullable String symbolicId;
 
   /**
    * Constructs a new StvnSyntaxCancellationException with the specified details.
@@ -40,11 +45,39 @@ public final class StvnSyntaxCancellationException extends ParseCancellationExce
       int endOffset,
       @Nullable Throwable cause
   ) {
+    this(message, line, column, startOffset, endOffset, cause, null, null);
+  }
+
+  /**
+   * Constructs a new StvnSyntaxCancellationException carrying dual STVN 2.0.0 diagnostic codes.
+   *
+   * @param message       the detail message describing the syntax error
+   * @param line          the 1-based line number
+   * @param column        the 0-based column number
+   * @param startOffset   the start character offset
+   * @param endOffset     the end character offset
+   * @param cause         the underlying cause of the syntax error
+   * @param canonicalCode the normative canonical code, or {@code null}
+   * @param symbolicId    the symbolic diagnostic identifier, or {@code null}
+   * @since 2.0.0
+   */
+  public StvnSyntaxCancellationException(
+      String message,
+      int line,
+      int column,
+      int startOffset,
+      int endOffset,
+      @Nullable Throwable cause,
+      @Nullable String canonicalCode,
+      @Nullable String symbolicId
+  ) {
     super(message, cause);
     this.line = line;
     this.column = column;
     this.startOffset = startOffset;
     this.endOffset = endOffset;
+    this.canonicalCode = canonicalCode;
+    this.symbolicId = symbolicId;
   }
 
   /**
@@ -81,5 +114,25 @@ public final class StvnSyntaxCancellationException extends ParseCancellationExce
    */
   public int getEndOffset() {
     return endOffset;
+  }
+
+  /**
+   * Returns the normative STVN 2.0.0 canonical diagnostic code, if assigned.
+   *
+   * @return the canonical code ({@code E001}–{@code E040}), or {@code null}
+   * @since 2.0.0
+   */
+  public @Nullable String getCanonicalCode() {
+    return canonicalCode;
+  }
+
+  /**
+   * Returns the symbolic diagnostic identifier, if assigned.
+   *
+   * @return the symbolic identifier ({@code ERR_*}), or {@code null}
+   * @since 2.0.0
+   */
+  public @Nullable String getSymbolicId() {
+    return symbolicId;
   }
 }

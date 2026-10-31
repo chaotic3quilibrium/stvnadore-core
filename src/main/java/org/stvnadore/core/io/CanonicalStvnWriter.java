@@ -122,6 +122,54 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
   }
 
   /**
+   * Serializes the given pure-IR STVN document into the specified writer in its canonical form.
+   *
+   * @param document the pure-IR STVN document to serialize
+   * @param target   the destination writer
+   * @throws IOException          if an I/O error occurs during serialization
+   * @throws NullPointerException if any argument is null
+   * @since 2.0.0
+   */
+  public void print(org.stvnadore.core.ir.StvnDocument document, Writer target) throws IOException {
+    org.stvnadore.core.lowering.LegacyAstBridge.writeCanonical(document, target);
+  }
+
+  /**
+   * Serializes the given pure-IR STVN document and returns its canonical string representation.
+   *
+   * @param document the pure-IR STVN document to serialize
+   * @return the canonical STVN string representation
+   * @since 2.0.0
+   */
+  public String printToString(org.stvnadore.core.ir.StvnDocument document) {
+    return org.stvnadore.core.lowering.LegacyAstBridge.toCanonicalStvnText(document);
+  }
+
+  /**
+   * Serializes the given pure-IR STVN value tree into the specified writer in its canonical form.
+   *
+   * @param value  the pure-IR STVN value tree to serialize
+   * @param target the destination writer
+   * @throws IOException          if an I/O error occurs during serialization
+   * @throws NullPointerException if any argument is null
+   * @since 2.0.0
+   */
+  public void print(org.stvnadore.core.ir.StvnValue value, Writer target) throws IOException {
+    org.stvnadore.core.lowering.LegacyAstBridge.writeCanonical(value, target);
+  }
+
+  /**
+   * Serializes the given pure-IR STVN value tree and returns its canonical string representation.
+   *
+   * @param value the pure-IR STVN value tree to serialize
+   * @return the canonical STVN string representation
+   * @since 2.0.0
+   */
+  public String printToString(org.stvnadore.core.ir.StvnValue value) {
+    return org.stvnadore.core.lowering.LegacyAstBridge.toCanonicalStvnText(value);
+  }
+
+  /**
    * Serializes the given STVN document and returns its canonical string representation.
    *
    * @param document the STVN document to serialize

@@ -466,6 +466,43 @@ public class StvnBinaryDecoder {
   }
 
   /**
+   * Opens an STVN binary buffer using pure-IR {@link org.stvnadore.core.ir.StvnSchema} fallback definitions.
+   *
+   * @param buffer            the raw little-endian byte buffer to parse
+   * @param registry          the schema registry used to lookup strategies, or {@code null}
+   * @param defaultFallback   the pure-IR fallback schema used if lookup fails, or {@code null}
+   * @param universalFallback the pure-IR universal fallback schema to use, or {@code null}
+   * @return a {@link RootPointer} containing the resolved schema and root layout offset
+   * @since 2.0.0
+   */
+  public static RootPointer openIr(
+      ByteBuffer buffer,
+      @Nullable StvnSchemaRegistry registry,
+      org.stvnadore.core.ir.@Nullable StvnSchema defaultFallback,
+      org.stvnadore.core.ir.@Nullable StvnSchema universalFallback
+  ) {
+    return open(
+        buffer,
+        registry,
+        defaultFallback != null ? org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(defaultFallback) : null,
+        universalFallback != null ? org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(universalFallback) : null
+    );
+  }
+
+  /**
+   * Unpacks a binary payload against an explicit pure-IR {@link org.stvnadore.core.ir.StvnSchema} into a pure-IR {@link org.stvnadore.core.ir.StvnValue}.
+   *
+   * @param root   the root pointer reference
+   * @param schema the pure-IR schema to use for unpacking
+   * @return the unpacked pure-IR {@link org.stvnadore.core.ir.StvnValue}
+   * @since 2.0.0
+   */
+  public static org.stvnadore.core.ir.StvnValue unpack(RootPointer root, org.stvnadore.core.ir.StvnSchema schema) {
+    StvnValue legacy = unpack(root, Optional.of(org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(schema)));
+    return org.stvnadore.core.lowering.LegacyAstBridge.fromLegacyValue(legacy);
+  }
+
+  /**
    * CONVENIENCE Entry Point: Opens a schemaless or simple STVN binary buffer where no registry or fallback schemas are
    * needed.
    *
@@ -486,7 +523,39 @@ public class StvnBinaryDecoder {
    * @throws StvnSerializationException if no schema context can be resolved, or if validation fails
    */
   @SuppressWarnings({"ConstantConditions", "DataFlowIssue"})
-  public static StvnValue unpack(RootPointer root, Optional<ResolvedSchema> schema) {
+  private static Optional<ResolvedSchema> coerceOptionalSchema(Optional<?> schemaOpt) {
+    return schemaOpt.map(s -> switch (s) {
+      case ResolvedSchema rs -> rs;
+      case org.stvnadore.core.ir.StvnSchema irs -> org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(irs);
+      default -> throw new IllegalArgumentException("Unsupported schema argument: " + s.getClass());
+    });
+  }
+
+  /**
+   * Unpacks a binary payload into a pure-IR {@link org.stvnadore.core.ir.StvnValue}.
+   *
+   * @param root      the root pointer reference
+   * @param schemaOpt an optional explicit {@link org.stvnadore.core.ir.StvnSchema} or {@link ResolvedSchema}
+   * @return the unpacked pure-IR {@link org.stvnadore.core.ir.StvnValue}
+   * @since 2.0.0
+   */
+  public static org.stvnadore.core.ir.StvnValue unpackIr(RootPointer root, Optional<?> schemaOpt) {
+    StvnValue legacy = unpack(root, schemaOpt);
+    return org.stvnadore.core.lowering.LegacyAstBridge.fromLegacyValue(legacy);
+  }
+
+  /**
+   * EAGER UNPACKER: Recursively parses the binary buffer and reconstructs the full, immutable STVN IR {@link StvnValue}
+   * AST.
+   *
+   * @param root         the root pointer reference containing the buffer and offset configuration
+   * @param rawSchemaOpt an optional explicit schema to use for unpacking, overriding the root schema
+   * @return the fully reconstructed root {@link StvnValue} AST
+   * @throws StvnSerializationException if no schema context can be resolved, or if validation fails
+   */
+  @SuppressWarnings({"ConstantConditions", "DataFlowIssue"})
+  public static StvnValue unpack(RootPointer root, Optional<?> rawSchemaOpt) {
+    Optional<ResolvedSchema> schema = coerceOptionalSchema(rawSchemaOpt);
     ResolvedSchema effectiveSchema = schema
         .or(root::schema)
         .orElseThrow(() -> new StvnSerializationException("Cannot unpack STVN binary payload: No schema provided or discovered."));
@@ -562,11 +631,12 @@ public class StvnBinaryDecoder {
    * explicit configuration.
    *
    * @param root           the root pointer reference
-   * @param explicitSchema an optional explicit schema to use for reading
+   * @param rawExplicitSchema an optional explicit schema to use for reading
    * @return a zero-copy {@link StvnTupleReader}
    * @throws StvnSerializationException if no schema context can be resolved
    */
-  public static StvnTupleReader readRootTuple(RootPointer root, Optional<ResolvedSchema> explicitSchema) {
+  public static StvnTupleReader readRootTuple(RootPointer root, Optional<?> rawExplicitSchema) {
+    Optional<ResolvedSchema> explicitSchema = coerceOptionalSchema(rawExplicitSchema);
     ResolvedSchema targetSchema = explicitSchema
         .or(root::schema)
         .orElseThrow(() -> new StvnSerializationException("Cannot read tuple: No schema context resolved."));
@@ -578,11 +648,12 @@ public class StvnBinaryDecoder {
    * an explicit configuration.
    *
    * @param root           the root pointer reference
-   * @param explicitSchema an optional explicit schema to use for reading
+   * @param rawExplicitSchema an optional explicit schema to use for reading
    * @return a zero-copy {@link StvnSeqReader}
    * @throws StvnSerializationException if no schema context can be resolved
    */
-  public static StvnSeqReader readRootSeq(RootPointer root, Optional<ResolvedSchema> explicitSchema) {
+  public static StvnSeqReader readRootSeq(RootPointer root, Optional<?> rawExplicitSchema) {
+    Optional<ResolvedSchema> explicitSchema = coerceOptionalSchema(rawExplicitSchema);
     ResolvedSchema targetSchema = explicitSchema
         .or(root::schema)
         .orElseThrow(() -> new StvnSerializationException("Cannot read seq: No schema context resolved."));
@@ -594,11 +665,12 @@ public class StvnBinaryDecoder {
    * explicit configuration.
    *
    * @param root           the root pointer reference
-   * @param explicitSchema an optional explicit schema to use for reading
+   * @param rawExplicitSchema an optional explicit schema to use for reading
    * @return a zero-copy {@link StvnMapReader}
    * @throws StvnSerializationException if no schema context can be resolved
    */
-  public static StvnMapReader readRootMap(RootPointer root, Optional<ResolvedSchema> explicitSchema) {
+  public static StvnMapReader readRootMap(RootPointer root, Optional<?> rawExplicitSchema) {
+    Optional<ResolvedSchema> explicitSchema = coerceOptionalSchema(rawExplicitSchema);
     ResolvedSchema targetSchema = explicitSchema
         .or(root::schema)
         .orElseThrow(() -> new StvnSerializationException("Cannot read map: No schema context resolved."));
@@ -1399,6 +1471,17 @@ public class StvnBinaryDecoder {
   }
 
   /**
+   * Validates that the structural hash of a pure-IR {@link org.stvnadore.core.ir.StvnSchema} matches the expected strategy fingerprint.
+   *
+   * @param schema   the pure-IR schema to validate
+   * @param strategy the expected identity strategy
+   * @since 2.0.0
+   */
+  public static void validateSchemaHash(org.stvnadore.core.ir.StvnSchema schema, SchemaIdentityStrategy strategy) {
+    validateSchemaHash(org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(schema), strategy);
+  }
+
+  /**
    * Validates that the structural hash of a given schema matches the expected explicit fingerprint defined in the
    * identity strategy.
    *
@@ -1518,7 +1601,7 @@ public class StvnBinaryDecoder {
     if (StvnVocabulary.isConstructorMatch(base, StvnVocabulary.TYPE_SEQ) || StvnVocabulary.isConstructorMatch(base, StvnVocabulary.TYPE_SET)) {
       return "SEQUENCE";
     }
-    if (StvnVocabulary.isConstructorMatch(base, StvnVocabulary.TYPE_MAP) || base.equals(StvnVocabulary.TYPE_MAP_ENTRY)) {
+    if (StvnVocabulary.isConstructorMatch(base, StvnVocabulary.TYPE_MAP)) {
       return "MAP";
     }
     if (base.equals(StvnVocabulary.TYPE_ENUM) || StvnVocabulary.isConstructorMatch(base, StvnVocabulary.TYPE_ENUM)) {

@@ -3,7 +3,8 @@ package org.stvnadore.core;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ir.StvnDocumentKind;
+import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.printer.AstPrettyPrinter;
 
 public class StvnCompilerTest {
@@ -32,7 +33,7 @@ public class StvnCompilerTest {
 
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.isSuccess(), "Source compilation must succeed: " + result.diagnostics());
-    StvnValue ast = result.orElseThrow().requirePayload();
+    StvnValue ast = result.orElseThrow().payload().orElseThrow();
 
     String canonical = StvnCompiler.toCanonicalString(ast);
 
@@ -55,7 +56,7 @@ public class StvnCompilerTest {
     // 4. Assert re-compilation round-trip produces clean AST without errors
     var roundTrip = StvnCompiler.compileToResult(canonical);
     Assertions.assertTrue(roundTrip.isSuccess(), "Canonical output must re-compile with zero errors: " + roundTrip.diagnostics());
-    Assertions.assertEquals(canonical, StvnCompiler.toCanonicalString(roundTrip.orElseThrow().requirePayload()),
+    Assertions.assertEquals(canonical, StvnCompiler.toCanonicalString(roundTrip.orElseThrow().payload().orElseThrow()),
         "Canonical serialization must be idempotent");
   }
 
@@ -78,7 +79,7 @@ public class StvnCompilerTest {
 
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.isSuccess(), "Compilation must succeed: " + result.diagnostics());
-    String canonical = StvnCompiler.toCanonicalString(result.orElseThrow().requirePayload());
+    String canonical = StvnCompiler.toCanonicalString(result.orElseThrow().payload().orElseThrow());
 
     Assertions.assertTrue(canonical.contains(":D :Int"));
     Assertions.assertTrue(canonical.contains(":C :Tuple(:D)"));
@@ -109,7 +110,7 @@ public class StvnCompilerTest {
 
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.isSuccess());
-    String pretty = AstPrettyPrinter.print(result.orElseThrow().requirePayload());
+    String pretty = AstPrettyPrinter.print(result.orElseThrow().payload().orElseThrow());
 
     Assertions.assertTrue(pretty.contains(":org/example/geo/Coord :Float"));
     Assertions.assertTrue(pretty.contains(":Point :Tuple(:org/example/geo/Coord :org/example/geo/Coord)"));
@@ -251,7 +252,9 @@ public class StvnCompilerTest {
     Assertions.assertFalse(diag.message().contains("\r"), "Sanitized diagnostic message must not contain raw '\\r'");
     Assertions.assertFalse(diag.message().contains("\\n"), "Sanitized diagnostic message must not contain escaped '\\\\n'");
     Assertions.assertFalse(diag.message().contains("\\r"), "Sanitized diagnostic message must not contain escaped '\\\\r'");
-    Assertions.assertTrue(diag.message().contains("token recognition error at: '#'"), "Must display clean token text '#'");
+    Assertions.assertTrue(diag.message().contains("'#'"), "Must display clean token text '#'");
+    Assertions.assertFalse(diag.message().toLowerCase().contains("token recognition error"),
+        "Diagnostic must not leak raw ANTLR 'token recognition error' jargon: " + diag.message());
   }
 
   @Test
@@ -288,10 +291,10 @@ public class StvnCompilerTest {
     Assertions.assertTrue(result.document().isPresent());
     var payloadOpt = result.document().get().payload();
     Assertions.assertTrue(payloadOpt.isPresent());
-    Assertions.assertInstanceOf(org.stvnadore.core.ast.StvnValue.StvnTuple.class, payloadOpt.get());
-    var tuple = (org.stvnadore.core.ast.StvnValue.StvnTuple) payloadOpt.get();
+    Assertions.assertInstanceOf(StvnValue.StvnTuple.class, payloadOpt.get());
+    var tuple = (StvnValue.StvnTuple) payloadOpt.get();
     Assertions.assertEquals(6, tuple.elements().size(), "Tuple must maintain full element cardinality");
-    Assertions.assertInstanceOf(org.stvnadore.core.ast.StvnValue.StvnError.class, tuple.elements().get(2), "Malformed child element must be recorded as StvnError");
+    Assertions.assertInstanceOf(StvnValue.StvnErrorValue.class, tuple.elements().get(2), "Malformed child element must be recorded as StvnErrorValue");
   }
 
   @Test
@@ -310,11 +313,11 @@ public class StvnCompilerTest {
     var result = StvnCompiler.compile(source);
     Assertions.assertTrue(result.isSuccess());
     var doc = result.orElseThrow();
-    Assertions.assertTrue(doc.hasMeta());
-    Assertions.assertTrue(doc.hasPayload());
-    Assertions.assertEquals("my_doc", doc.requireMeta().name().orElseThrow());
-    Assertions.assertEquals(org.stvnadore.core.ast.StvnDocumentKind.BODY, doc.requireMeta().kind().orElseThrow());
-    Assertions.assertInstanceOf(org.stvnadore.core.ast.StvnValue.StvnInteger.class, doc.requirePayload());
+    Assertions.assertTrue(doc.meta().isPresent());
+    Assertions.assertTrue(doc.payload().isPresent());
+    Assertions.assertEquals("my_doc", doc.meta().orElseThrow().name().orElseThrow());
+    Assertions.assertEquals(StvnDocumentKind.BODY, doc.meta().orElseThrow().kind().orElseThrow());
+    Assertions.assertInstanceOf(StvnValue.StvnInt.class, doc.payload().orElseThrow());
   }
 
   @Test
@@ -328,6 +331,6 @@ public class StvnCompilerTest {
         """;
     var payloadOpt = StvnCompiler.compilePayload(source);
     Assertions.assertTrue(payloadOpt.isPresent());
-    Assertions.assertInstanceOf(org.stvnadore.core.ast.StvnValue.StvnInteger.class, payloadOpt.get());
+    Assertions.assertInstanceOf(StvnValue.StvnInt.class, payloadOpt.get());
   }
 }

@@ -228,4 +228,108 @@ public final class AstCompactPrinter {
     java.util.Objects.requireNonNull(target, "target must not be null");
     new AstCompactPrinter().printToWriter(value, target);
   }
+
+  /**
+   * Serializes the specified pure-IR STVN document using this printer's configuration.
+   *
+   * @param document the pure-IR document to serialize
+   * @return the compact STVN string representation
+   * @since 2.0.0
+   */
+  public String printToString(org.stvnadore.core.ir.StvnDocument document) {
+    return printToString(org.stvnadore.core.lowering.LegacyAstBridge.toLegacyDocument(document));
+  }
+
+  /**
+   * Serializes the specified pure-IR STVN document to the destination writer using this printer's configuration.
+   *
+   * @param document the pure-IR document to serialize
+   * @param target   the destination writer stream
+   * @throws IOException if an I/O error occurs during serialization
+   * @since 2.0.0
+   */
+  public void printToWriter(org.stvnadore.core.ir.StvnDocument document, Writer target) throws IOException {
+    printToWriter(org.stvnadore.core.lowering.LegacyAstBridge.toLegacyDocument(document), target);
+  }
+
+  /**
+   * Serializes the specified pure-IR STVN value tree using this printer's configuration.
+   *
+   * @param value the root pure-IR value node to serialize
+   * @return the compact single-line STVN string
+   * @since 2.0.0
+   */
+  public String printToString(org.stvnadore.core.ir.StvnValue value) {
+    return printToString(org.stvnadore.core.lowering.LegacyAstBridge.toLegacyValue(value));
+  }
+
+  /**
+   * Serializes the specified pure-IR STVN value tree to the destination writer using this printer's configuration.
+   *
+   * @param value  the root pure-IR value node to serialize
+   * @param target the destination writer stream
+   * @throws IOException if an I/O error occurs during serialization
+   * @since 2.0.0
+   */
+  public void printToWriter(org.stvnadore.core.ir.StvnValue value, Writer target) throws IOException {
+    printToWriter(org.stvnadore.core.lowering.LegacyAstBridge.toLegacyValue(value), target);
+  }
+
+  /**
+   * Converts the specified pure-IR STVN document into a compact single-line text representation.
+   *
+   * @param document the pure-IR document to serialize
+   * @return the compact single-line STVN string
+   * @since 2.0.0
+   */
+  public static String print(org.stvnadore.core.ir.StvnDocument document) {
+    return new AstCompactPrinter().printToString(document);
+  }
+
+  /**
+   * Converts the specified pure-IR STVN document into a compact text representation using custom options.
+   *
+   * @param document the pure-IR document to serialize
+   * @param options  the printer options to apply
+   * @return the compact single-line STVN string
+   * @since 2.0.0
+   */
+  public static String print(org.stvnadore.core.ir.StvnDocument document, PrinterOptions options) {
+    return new AstCompactPrinter(options).printToString(document);
+  }
+
+  /**
+   * Converts the specified pure-IR STVN value tree into a compact single-line text representation.
+   *
+   * @param value the root pure-IR value node to serialize
+   * @return the compact single-line STVN string
+   * @since 2.0.0
+   */
+  public static String print(org.stvnadore.core.ir.StvnValue value) {
+    return new AstCompactPrinter().printToString(value);
+  }
+
+  /**
+   * Converts the specified pure-IR STVN value tree into a compact single-line text representation using custom options.
+   *
+   * @param value   the root pure-IR value node to serialize
+   * @param options the printer options to apply
+   * @return the compact single-line STVN string
+   * @since 2.0.0
+   */
+  public static String print(org.stvnadore.core.ir.StvnValue value, PrinterOptions options) {
+    return new AstCompactPrinter(options).printToString(value);
+  }
+
+  /**
+   * Serializes the specified pure-IR STVN value tree to the destination writer using compact single-line layout.
+   *
+   * @param value  the root pure-IR value node to serialize
+   * @param target the destination writer stream
+   * @throws IOException if an I/O error occurs during serialization
+   * @since 2.0.0
+   */
+  public static void print(org.stvnadore.core.ir.StvnValue value, Writer target) throws IOException {
+    new AstCompactPrinter().printToWriter(value, target);
+  }
 }

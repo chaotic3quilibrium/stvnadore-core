@@ -55,7 +55,7 @@ public final class IrGeneratorUtility {
     var compilation = StvnCompiler.compile(stvnContent, stvnFile.toString(), org.stvnadore.core.StvnParserConfig.DEFAULT);
     var liveDoc = compilation.document()
         .orElseThrow(() -> new IllegalStateException("Failed to compile valid fixture: " + stvnFile));
-    StvnValue irNode = liveDoc.payload()
+    var irNode = liveDoc.payload()
         .orElseThrow(() -> new IllegalStateException("Failed to extract payload from fixture: " + stvnFile));
     var meta = liveDoc.meta().orElse(null);
 
@@ -95,6 +95,28 @@ public final class IrGeneratorUtility {
         );
       }
     }
+  }
+
+  /**
+   * Pure-IR convenience serialization entry point.
+   */
+  public static String serializeIr(org.stvnadore.core.ir.StvnValue value) {
+    return serializeSnapshotDocument("snapshot", "stvn_ir_substrate.stvn_ir.stvn_d", value);
+  }
+
+  /**
+   * Translates a pure-IR {@link org.stvnadore.core.ir.StvnValue} graph into a valid STVN snapshot document.
+   */
+  public static String serializeSnapshotDocument(
+      String baseName,
+      String relativeSubstratePath,
+      org.stvnadore.core.ir.StvnValue rootValue
+  ) {
+    return serializeSnapshotDocument(
+        baseName,
+        relativeSubstratePath,
+        org.stvnadore.core.lowering.LegacyAstBridge.toLegacyValue(rootValue)
+    );
   }
 
   /**

@@ -7,23 +7,27 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.ast.StvnValue;
-
-import org.stvnadore.core.ast.StvnValue.StvnEnum;
-import org.stvnadore.core.ast.StvnValue.StvnOption;
-import org.stvnadore.core.ast.StvnValue.StvnString;
-import org.stvnadore.core.ast.StvnValue.StvnTuple;
+import org.stvnadore.core.binary.StvnBinaryDecoder;
+import org.stvnadore.core.binary.exceptions.UnsupportedEncodingStrategyException;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ir.StvnValue.EitherBranch;
+import org.stvnadore.core.ir.StvnValue.StvnEither;
+import org.stvnadore.core.ir.StvnValue.StvnEnum;
+import org.stvnadore.core.ir.StvnValue.StvnInt;
+import org.stvnadore.core.ir.StvnValue.StvnOption;
+import org.stvnadore.core.ir.StvnValue.StvnString;
+import org.stvnadore.core.ir.StvnValue.StvnTuple;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
-import org.stvnadore.core.binary.StvnBinaryDecoder;
-import org.stvnadore.core.binary.exceptions.UnsupportedEncodingStrategyException;
 
 @NullMarked
 public class StvnIrValidationTest {
@@ -35,11 +39,11 @@ public class StvnIrValidationTest {
       String name,
       String input,
       boolean isSuccess,
-      @Nullable String expectedAstString,
+      @Nullable Consumer<StvnValue> irVerifier,
       @Nullable String expectedError
   ) {
-    public static ValidationTestCase success(String name, String input, String expectedAstString) {
-      return new ValidationTestCase(name, input, true, expectedAstString, null);
+    public static ValidationTestCase success(String name, String input, Consumer<StvnValue> irVerifier) {
+      return new ValidationTestCase(name, input, true, irVerifier, null);
     }
 
     public static ValidationTestCase failure(String name, String input, String expectedError) {
@@ -67,7 +71,7 @@ public class StvnIrValidationTest {
       if (!(tuple.elements().get(0) instanceof StvnEnum categoryEnum)) {
         throw new IllegalArgumentException("Contract element 0 must be an ErrorCategory Enum: " + tuple.elements().get(0));
       }
-      String category = categoryEnum.keyword();
+      String category = categoryEnum.variantTag();
 
       if (!(tuple.elements().get(1) instanceof StvnString messageStr)) {
         throw new IllegalArgumentException("Contract element 1 must be an error message String: " + tuple.elements().get(1));
@@ -88,14 +92,27 @@ public class StvnIrValidationTest {
     }
   }
 
+  /**
+   * Loads a test assertion contract (supporting pre-Stage-4 {@code .contract.stvn} filenames in the
+   * test harness without polluting production {@code StvnDefsLowerer} identity validation).
+   */
+  private static StvnValue loadContractPayload(String contractContent, Path contractPath) {
+    String fileName = contractPath.getFileName().toString();
+    String effectivePath = fileName.endsWith(".contract.stvn")
+        ? contractPath.resolveSibling("__contract_harness.stvn_i").toString()
+        : contractPath.toString();
+    return StvnCompiler.compilePayload(contractContent, effectivePath)
+        .orElseThrow(() -> new AssertionError("Failed to compile contract: " + contractPath));
+  }
+
   @ParameterizedTest(name = "{0}")
   @MethodSource("provideValidationCases")
   public void testValidation(String displayName, ValidationTestCase testCase) {
     if (testCase.isSuccess()) {
       var ast = StvnCompiler.compilePayload(testCase.input()).orElseThrow();
       Assertions.assertNotNull(ast);
-      var actualAstString = ast.toString();
-      Assertions.assertEquals(testCase.expectedAstString(), actualAstString);
+      Assertions.assertNotNull(testCase.irVerifier());
+      testCase.irVerifier().accept(ast);
     } else {
       var exception = Assertions.assertThrows(RuntimeException.class, () -> {
         StvnCompiler.compilePayload(testCase.input());
@@ -122,7 +139,7 @@ public class StvnIrValidationTest {
       } catch (Throwable e) {
         String expectedException = e.getClass().getName();
         String errorMessage = e.getMessage();
-        String escapedMessage = errorMessage != null 
+        String escapedMessage = errorMessage != null
             ? errorMessage.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
             : "";
         String category = deriveCategory(e);
@@ -159,9 +176,8 @@ public class StvnIrValidationTest {
     );
 
     String contractContent = Files.readString(testCase.contractPath());
-    StvnValue contractAst = StvnCompiler.compilePayload(contractContent, testCase.contractPath().toString())
-        .orElseThrow(() -> new AssertionError("Failed to compile contract: " + testCase.contractPath()));
-    
+    StvnValue contractAst = loadContractPayload(contractContent, testCase.contractPath());
+
     StvnErrorContract contract = StvnErrorContract.fromAst(contractAst);
 
     Throwable exception = Assertions.assertThrows(Throwable.class, () -> {
@@ -185,7 +201,7 @@ public class StvnIrValidationTest {
 
       Assertions.assertNotNull(rawPaths, "Raw include paths list must not be null");
       Assertions.assertNotNull(canonicalPaths, "Canonical include paths list must not be null");
-      Assertions.assertEquals(rawPaths.size(), canonicalPaths.size(), 
+      Assertions.assertEquals(rawPaths.size(), canonicalPaths.size(),
           "Raw and canonical path lists must have the same size");
       Assertions.assertFalse(rawPaths.isEmpty(), "Cycle path lists must not be empty");
 
@@ -198,12 +214,10 @@ public class StvnIrValidationTest {
         Assertions.assertTrue(canonicalPath.isAbsolute(), "Canonical path must be absolute: " + canonicalStr);
         Assertions.assertTrue(Files.exists(canonicalPath), "Canonical path must exist on disk: " + canonicalStr);
 
-        // Verify the raw path list matches the expected array literals on disk
-        // The including file is at index (i - 1 + n) % n in the canonical list
         String parentCanonicalStr = canonicalPaths.get((i - 1 + n) % n);
         Path parentPath = Paths.get(parentCanonicalStr);
         String parentContent = Files.readString(parentPath);
-        Assertions.assertTrue(parentContent.contains(raw), 
+        Assertions.assertTrue(parentContent.contains(raw),
             "Parent file " + parentCanonicalStr + " does not contain the raw include literal: " + raw);
       }
     }
@@ -215,7 +229,7 @@ public class StvnIrValidationTest {
     Assertions.assertTrue(testCase.hasContract(), "Missing contract for binary fixture: " + testCase.stvnPath());
     byte[] bytes = Files.readAllBytes(testCase.stvnPath());
     String contractContent = Files.readString(testCase.contractPath());
-    var contractAst = StvnCompiler.compilePayload(contractContent, testCase.contractPath().toString()).orElseThrow();
+    var contractAst = loadContractPayload(contractContent, testCase.contractPath());
     var contract = StvnErrorContract.fromAst(contractAst);
 
     var thrown = Assertions.assertThrows(RuntimeException.class, () -> {
@@ -268,12 +282,6 @@ public class StvnIrValidationTest {
       }
       if (msg.contains("Discrete type") || msg.contains("prohibits bound") || msg.contains("Discrete exact float") || msg.contains("Discrete temporal type")) {
         return "ERR_DISCRETE_BOUND_KIND_PROHIBITED";
-      }
-      if (msg.contains("mutually exclusive")) {
-        return "MUTUALLY_EXCLUSIVE_BOUNDS";
-      }
-      if (msg.contains("require types to be #equatable #TRUE")) {
-        return "TRAIT_VIOLATION";
       }
       if (msg.contains("mutually exclusive")) {
         return "MUTUALLY_EXCLUSIVE_BOUNDS";
@@ -374,12 +382,6 @@ public class StvnIrValidationTest {
       if (msg.contains("require types to be #equatable #TRUE")) {
         return "TRAIT_VIOLATION";
       }
-      if (msg.contains("mutually exclusive")) {
-        return "MUTUALLY_EXCLUSIVE_BOUNDS";
-      }
-      if (msg.contains("require types to be #equatable #TRUE")) {
-        return "TRAIT_VIOLATION";
-      }
       if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
         return "ERR_STRING_CARDINALITY_PROHIBITED";
       }
@@ -428,7 +430,8 @@ public class StvnIrValidationTest {
     try (Stream<Path> paths = Files.walk(INVALID_FIXTURES_DIR)) {
       List<Path> targetFiles = paths.filter(Files::isRegularFile).filter(p -> {
         String s = p.toString();
-        if (s.endsWith(".contract.stvn") || s.endsWith("error_contract.stvn_d") || s.endsWith(".stvn_ir") || s.endsWith(".stvn_b")) {
+        if (s.endsWith(".contract.stvn") || s.endsWith(".contract.stvn_i")
+            || s.endsWith("error_contract.stvn_d") || s.endsWith(".stvn_ir") || s.endsWith(".stvn_b")) {
           return false;
         }
         if (s.endsWith(".stvn") || s.endsWith(".stvn_i")) {
@@ -457,29 +460,46 @@ public class StvnIrValidationTest {
         ValidationTestCase.success(
             "Implied Option - Scalar Integer Implied Some",
             "{ :type :Option(:Int) :body 42 }",
-            "StvnOption[schema=ResolvedSchema[node=[333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnInteger[schema=ResolvedSchema[node=[470 436 429 333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=0, sumTypeNode=[436 429 333 159 149], underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false]]]"
+            val -> {
+              var opt = Assertions.assertInstanceOf(StvnOption.class, val);
+              Assertions.assertEquals(BigInteger.valueOf(42), ((StvnInt) opt.value().orElseThrow()).value());
+            }
         ),
         ValidationTestCase.success(
             "Implied Either - Scalar Right Implied Route",
             "{ :type :Either(:Int :String) :body \"right-value\" }",
-            "StvnEither[schema=ResolvedSchema[node=[333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnString[schema=ResolvedSchema[node=[478 436 429 333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=1, sumTypeNode=[436 429 333 159 149], underlyingSchema=null, localConstraints=null, enumSubset=null], value=right-value, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]], isRight=true, isAmbiguous=false]"
+            val -> {
+              var either = Assertions.assertInstanceOf(StvnEither.class, val);
+              Assertions.assertEquals(EitherBranch.RIGHT, either.branch());
+              Assertions.assertEquals("right-value", ((StvnString) either.value()).value());
+            }
         ),
 
         // --- 2b) Explicit Disambiguation Vector ---
         ValidationTestCase.success(
             "Explicit Option - Explicit Some Tag",
             "{ :type :Option(:Int) :body #Some 42 }",
-            "StvnOption[schema=ResolvedSchema[node=[333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnInteger[schema=ResolvedSchema[node=[470 436 429 333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false]]]"
+            val -> {
+              var opt = Assertions.assertInstanceOf(StvnOption.class, val);
+              Assertions.assertEquals(BigInteger.valueOf(42), ((StvnInt) opt.value().orElseThrow()).value());
+            }
         ),
         ValidationTestCase.success(
             "Explicit Option - Explicit None Tag",
             "{ :type :Option(:Int) :body #None }",
-            "StvnOption[schema=ResolvedSchema[node=[333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional.empty]"
+            val -> {
+              var opt = Assertions.assertInstanceOf(StvnOption.class, val);
+              Assertions.assertTrue(opt.value().isEmpty());
+            }
         ),
         ValidationTestCase.success(
             "Explicit Either - Left Variant Tagged",
             "{ :type :Either(:Int :String) :body #Left 42 }",
-            "StvnEither[schema=ResolvedSchema[node=[333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnInteger[schema=ResolvedSchema[node=[477 436 429 333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=42, bitWidth=32, isUnsigned=false], isRight=false, isAmbiguous=false]"
+            val -> {
+              var either = Assertions.assertInstanceOf(StvnEither.class, val);
+              Assertions.assertEquals(EitherBranch.LEFT, either.branch());
+              Assertions.assertEquals(BigInteger.valueOf(42), ((StvnInt) either.value()).value());
+            }
         ),
         ValidationTestCase.success(
             "Explicit Disambiguation - Enum Variant Clash via Double Tagging",
@@ -490,7 +510,13 @@ public class StvnIrValidationTest {
               :body #Left #Left
             }
             """,
-            "StvnEither[schema=ResolvedSchema[node=[333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnEnum[schema=ResolvedSchema[node=[339 212 201 156 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=:Status, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=ResolvedSchema[node=[339 212 201 156 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], localConstraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=null, comparable=null, explicitOverrides=[], filterIncl=null, filterExcl=null], enumSubset=null], keyword=#Left, sequentialIndex=0, variantCount=3], isRight=false, isAmbiguous=false]"
+            val -> {
+              var either = Assertions.assertInstanceOf(StvnEither.class, val);
+              Assertions.assertEquals(EitherBranch.LEFT, either.branch());
+              var enumVal = Assertions.assertInstanceOf(StvnEnum.class, either.value());
+              Assertions.assertEquals("#Left", enumVal.variantTag());
+              Assertions.assertEquals(BigInteger.ZERO, enumVal.rootOrdinal());
+            }
         ),
 
         // --- 2c) Rule C Failure Vector ---
@@ -526,12 +552,22 @@ public class StvnIrValidationTest {
         ValidationTestCase.success(
             "Nested Implicit Evaluation - Option Either Right",
             "{ :type :Option(:Either(:Int :String)) :body \"nested-implicit-right\" }",
-            "StvnOption[schema=ResolvedSchema[node=[333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnEither[schema=ResolvedSchema[node=[470 436 429 333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnString[schema=ResolvedSchema[node=[478 436 429 470 436 429 333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=1, sumTypeNode=[436 429 470 436 429 333 159 149], underlyingSchema=null, localConstraints=null, enumSubset=null], value=nested-implicit-right, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]], isRight=true, isAmbiguous=false]]]"
+            val -> {
+              var opt = Assertions.assertInstanceOf(StvnOption.class, val);
+              var either = Assertions.assertInstanceOf(StvnEither.class, opt.value().orElseThrow());
+              Assertions.assertEquals(EitherBranch.RIGHT, either.branch());
+              Assertions.assertEquals("nested-implicit-right", ((StvnString) either.value()).value());
+            }
         ),
         ValidationTestCase.success(
             "Hybrid Nested Tagging - Explicit Either Implicit Option Some",
             "{ :type :Either(:Int :Option(:String)) :body #Right \"implicit-inner-some\" }",
-            "StvnEither[schema=ResolvedSchema[node=[333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=StvnOption[schema=ResolvedSchema[node=[478 436 429 333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=null, sumTypeNode=null, underlyingSchema=null, localConstraints=null, enumSubset=null], value=Optional[StvnString[schema=ResolvedSchema[node=[470 436 429 478 436 429 333 159 149], constraints=StvnConstraints[minIncl=null, minExcl=null, maxIncl=null, maxExcl=null, regex=null, preserveIndent=false, equatable=true, comparable=true, explicitOverrides=[], filterIncl=null, filterExcl=null], aliasName=null, implicitUnionTag=0, sumTypeNode=[436 429 478 436 429 333 159 149], underlyingSchema=null, localConstraints=null, enumSubset=null], value=implicit-inner-some, style=SIMPLE, fenceTag=Optional.empty, trait=StringTrait[fixedLength=0, maxLength=0, isNonEmpty=false]]]], isRight=true, isAmbiguous=false]"
+            val -> {
+              var either = Assertions.assertInstanceOf(StvnEither.class, val);
+              Assertions.assertEquals(EitherBranch.RIGHT, either.branch());
+              var opt = Assertions.assertInstanceOf(StvnOption.class, either.value());
+              Assertions.assertEquals("implicit-inner-some", ((StvnString) opt.value().orElseThrow()).value());
+            }
         ),
         ValidationTestCase.failure(
             "Deep Rule C Failure Propagation - Sequence Option Keyword Clash",
@@ -558,7 +594,6 @@ public class StvnIrValidationTest {
     Assertions.assertTrue(astStr.contains("ConflictType"));
     Assertions.assertTrue(astStr.contains("ConflictTypeB"));
   }
-
 
   @org.junit.jupiter.api.Test
   @org.junit.jupiter.api.DisplayName("TC-IR-TUPLE-01: Tuple arity mismatch throws MalformedPayloadException with pinned coordinates")

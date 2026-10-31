@@ -5,11 +5,13 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.ast.StvnValue;
-import org.stvnadore.core.ast.StvnValue.StvnUnion;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ir.StvnValue.EitherBranch;
+import org.stvnadore.core.ir.StvnValue.StvnUnion;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
 
+import java.math.BigInteger;
 import java.util.Optional;
 
 class StvnUnionValidationTest {
@@ -30,7 +32,7 @@ class StvnUnionValidationTest {
     StvnValue val = valueOpt.get();
     Assertions.assertTrue(val instanceof StvnUnion);
     StvnUnion unionVal = (StvnUnion) val;
-    Assertions.assertEquals(0, unionVal.tagIndex());
+    Assertions.assertEquals(BigInteger.ONE, unionVal.oneBasedBranchIndex());
   }
 
   @Test
@@ -49,7 +51,7 @@ class StvnUnionValidationTest {
     StvnValue val = valueOpt.get();
     Assertions.assertTrue(val instanceof StvnUnion);
     StvnUnion unionVal = (StvnUnion) val;
-    Assertions.assertEquals(1, unionVal.tagIndex());
+    Assertions.assertEquals(BigInteger.TWO, unionVal.oneBasedBranchIndex());
   }
 
   @Test
@@ -123,8 +125,7 @@ class StvnUnionValidationTest {
     Assertions.assertTrue(valOpt.isPresent());
     Assertions.assertInstanceOf(StvnValue.StvnEither.class, valOpt.get());
     var either = (StvnValue.StvnEither) valOpt.get();
-    Assertions.assertFalse(either.isRight());
-    Assertions.assertTrue(either.isAmbiguous());
+    Assertions.assertEquals(EitherBranch.LEFT, either.branch());
   }
 
   @Test
@@ -144,14 +145,12 @@ class StvnUnionValidationTest {
     var doc = parser.stvnDocument();
 
     var resolvedSchema = StvnTypeResolver.resolvePrimitiveSchema(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>()).orElseThrow();
-    // Int32 and String are both equatable and comparable, so the union should also be
     Assertions.assertEquals(Optional.of(true), resolvedSchema.constraints().equatable());
     Assertions.assertEquals(Optional.of(true), resolvedSchema.constraints().comparable());
   }
 
   @Test
   void testUnionTraitDerivationBubblingNonEquatableBranch() {
-    // Float32 is non-equatable by default
     String input = """
         {
           :defs {
@@ -167,14 +166,12 @@ class StvnUnionValidationTest {
     var doc = parser.stvnDocument();
 
     var resolvedSchema = StvnTypeResolver.resolvePrimitiveSchema(doc, doc.documentBody().typeEntry().schemaType(), new java.util.HashSet<>()).orElseThrow();
-    // One branch is non-equatable, so logical AND results in false
     Assertions.assertEquals(Optional.of(false), resolvedSchema.constraints().equatable());
     Assertions.assertEquals(Optional.of(true), resolvedSchema.constraints().comparable());
   }
 
   @Test
   void testUnionTraitDerivationHaltedByExplicitOverride() {
-    // Explicitly annotated as non-equatable and non-comparable
     String input = """
         {
           :defs {

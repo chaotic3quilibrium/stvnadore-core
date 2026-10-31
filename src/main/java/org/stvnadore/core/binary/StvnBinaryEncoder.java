@@ -132,6 +132,41 @@ public class StvnBinaryEncoder {
   }
 
   /**
+   * Encodes the provided root pure-IR {@link org.stvnadore.core.ir.StvnValue} tree into a binary byte buffer.
+   *
+   * @param root the root pure-IR value node to encode
+   * @return a read-only, little-endian byte buffer containing the STVN binary payload
+   * @since 2.0.0
+   */
+  public ByteBuffer encode(org.stvnadore.core.ir.StvnValue root) {
+    if (org.stvnadore.core.StvnCompiler.hasErrorNodes(root)) {
+      throw new IllegalStateException("Cannot encode partial IR containing unrecovered StvnErrorValue nodes");
+    }
+    return encode(org.stvnadore.core.lowering.LegacyAstBridge.toLegacyValue(root));
+  }
+
+  /**
+   * Encodes the provided root pure-IR {@link org.stvnadore.core.ir.StvnValue} tree and pure-IR document metadata.
+   *
+   * @param root the root pure-IR value node to encode
+   * @param meta the pure-IR document metadata, or {@code null}
+   * @return a read-only, little-endian byte buffer containing the STVN binary payload
+   * @since 2.0.0
+   */
+  public ByteBuffer encode(
+      org.stvnadore.core.ir.StvnValue root,
+      org.stvnadore.core.ir.@Nullable StvnDocumentMeta meta
+  ) {
+    if (org.stvnadore.core.StvnCompiler.hasErrorNodes(root)) {
+      throw new IllegalStateException("Cannot encode partial IR containing unrecovered StvnErrorValue nodes");
+    }
+    return encode(
+        org.stvnadore.core.lowering.LegacyAstBridge.toLegacyValue(root),
+        meta != null ? org.stvnadore.core.lowering.LegacyAstBridge.toLegacyMeta(meta) : null
+    );
+  }
+
+  /**
    * Encodes the provided root STVN IR AST value tree into a binary byte buffer.
    *
    * @param root the root value node of the AST to encode

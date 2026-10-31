@@ -25,7 +25,7 @@ class StvnBinaryDecoderBitMaskTest {
   @Test
   void testUint1BitMaskValidAndCorrupted() {
     var doc = StvnCompiler.compilePayload("{ :defs { :U1 { #unsigned #size 1 } :Int } :type :U1 :body 1 }").orElseThrow();
-    var schema = doc.schema();
+    var schema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(doc.schema());
 
     // Valid: bit-0 is 1, upper 7 bits are 0
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
@@ -53,7 +53,7 @@ class StvnBinaryDecoderBitMaskTest {
   @Test
   void testUint3BitMaskValidAndCorrupted() {
     var doc = StvnCompiler.compilePayload("{ :defs { :U3 { #unsigned #size 3 } :Int } :type :U3 :body 7 }").orElseThrow();
-    var schema = doc.schema();
+    var schema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(doc.schema());
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     var validBuffer = encoder.encode(new StvnValue.StvnInteger(schema, BigInteger.valueOf(7), 3, true));
@@ -79,7 +79,7 @@ class StvnBinaryDecoderBitMaskTest {
   @Test
   void testInt7BitMaskValidAndCorrupted() {
     var doc = StvnCompiler.compilePayload("{ :defs { :I7 { #size 7 } :Int } :type :I7 :body 63 }").orElseThrow();
-    var schema = doc.schema();
+    var schema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(doc.schema());
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     var validBuffer = encoder.encode(new StvnValue.StvnInteger(schema, BigInteger.valueOf(63), 7, false));
@@ -106,7 +106,7 @@ class StvnBinaryDecoderBitMaskTest {
   void testUint49BitMaskValidAndCorrupted() {
     // 49 bits -> 7 bytes. 49 % 8 = 1. Valid mask for the 7th byte (highest byte) is 0x01.
     var doc = StvnCompiler.compilePayload("{ :defs { :U49 { #unsigned #size 49 } :Int } :type :U49 :body 1 }").orElseThrow();
-    var schema = doc.schema();
+    var schema = org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(doc.schema());
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     var validBuffer = encoder.encode(new StvnValue.StvnInteger(schema, BigInteger.ONE, 49, true));
@@ -163,7 +163,7 @@ class StvnBinaryDecoderBitMaskTest {
   void testJpmsModuleExportAccess() {
     // Verify accessibility of StvnCompiler and StvnPrelude from exported packages
     Assertions.assertNotNull(StvnCompiler.class.getModule());
-    Assertions.assertNotNull(StvnPrelude.getPreludeDocument());
+    Assertions.assertNotNull(StvnPrelude.preludeDocument());
     var result = StvnCompiler.compilePayload("{ :type :Boolean :body #TRUE }");
     Assertions.assertTrue(result.isPresent());
   }
@@ -191,7 +191,7 @@ class StvnBinaryDecoderBitMaskTest {
     var encoded = encoder.encode(ast);
 
     var root = StvnBinaryDecoder.open(encoded);
-    var decodedAst = StvnBinaryDecoder.unpack(root, Optional.of(ast.schema()));
+    var decodedAst = StvnBinaryDecoder.unpackIr(root, Optional.of(ast.schema()));
 
     Assertions.assertEquals(ast, decodedAst);
   }

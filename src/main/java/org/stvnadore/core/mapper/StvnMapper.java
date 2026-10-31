@@ -132,7 +132,7 @@ public final class StvnMapper {
    * Resolves the {@link StvnDocumentContext} containing the parser node configuration for the given schema option.
    * <p>
    * If the schema has an associated document context, it is returned. Otherwise, this method falls back
-   * to the implicitly loaded standard library prelude document context {@link org.stvnadore.core.stdlib.StvnPrelude#getPreludeDocument()}.
+   * to the standard library prelude document context.
    * <p>
    * <b>Preconditions:</b>
    * <ul>
@@ -150,7 +150,7 @@ public final class StvnMapper {
         current = current.getParent();
       }
       return Optional.ofNullable((StvnDocumentContext) current);
-    }).orElseGet(org.stvnadore.core.stdlib.StvnPrelude::getPreludeDocument);
+    }).orElseGet(org.stvnadore.core.validation.StvnTypeResolver::legacyPreludeAstContext);
   }
 
   /**
@@ -167,6 +167,61 @@ public final class StvnMapper {
   public static StvnDocumentContext getDocumentContext(ResolvedSchema schema) {
     Objects.requireNonNull(schema);
     return getDocumentContext(Optional.of(schema));
+  }
+
+  /**
+   * Serializes a native Java record instance using a pure-IR {@link org.stvnadore.core.ir.StvnSchema}.
+   *
+   * @param recordInstance the native Java record to serialize
+   * @param schema         the pure-IR schema definition
+   * @return an {@link Optional} containing the serialized legacy {@link StvnValue}
+   * @since 2.0.0
+   */
+  public static Optional<StvnValue> toValue(Object recordInstance, org.stvnadore.core.ir.StvnSchema schema) {
+    Objects.requireNonNull(schema);
+    return toValue(recordInstance, org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(schema));
+  }
+
+  /**
+   * Deserializes a legacy {@link StvnValue} node using a pure-IR {@link org.stvnadore.core.ir.StvnSchema}.
+   *
+   * @param <T>         the target Java class type
+   * @param ast         the legacy STVN value tree to deserialize
+   * @param targetClass the target Java class to instantiate
+   * @param schema      the pure-IR schema definition
+   * @return an {@link Optional} enclosing the deserialized instance
+   * @since 2.0.0
+   */
+  public static <T> Optional<T> fromValue(StvnValue ast, Class<T> targetClass, org.stvnadore.core.ir.StvnSchema schema) {
+    Objects.requireNonNull(ast);
+    Objects.requireNonNull(targetClass);
+    Objects.requireNonNull(schema);
+    return fromValue(ast, targetClass, org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(schema));
+  }
+
+  /**
+   * Deserializes a pure-IR {@link org.stvnadore.core.ir.StvnValue} node using a pure-IR {@link org.stvnadore.core.ir.StvnSchema}.
+   *
+   * @param <T>         the target Java class type
+   * @param irValue     the pure-IR STVN value tree to deserialize
+   * @param targetClass the target Java class to instantiate
+   * @param schema      the pure-IR schema definition
+   * @return an {@link Optional} enclosing the deserialized instance
+   * @since 2.0.0
+   */
+  public static <T> Optional<T> fromValue(
+      org.stvnadore.core.ir.StvnValue irValue,
+      Class<T> targetClass,
+      org.stvnadore.core.ir.StvnSchema schema
+  ) {
+    Objects.requireNonNull(irValue);
+    Objects.requireNonNull(targetClass);
+    Objects.requireNonNull(schema);
+    return fromValue(
+        org.stvnadore.core.lowering.LegacyAstBridge.toLegacyValue(irValue),
+        targetClass,
+        org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(schema)
+    );
   }
 
   /**

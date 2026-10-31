@@ -4,16 +4,19 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
- * Accumulator bag for recording semantic diagnostics during AST compilation and semantic validation.
+ * Accumulator bag for recording semantic and syntactic diagnostics during STVN 2.0.0 compilation.
  * <p>
  * Enforces memory safety by bounding total accumulated diagnostics to a configurable limit
- * to prevent heap exhaustion on massive corrupted documents.
+ * and populates dual diagnostic codes ({@code canonicalCode} {@code E001}–{@code E040} /
+ * {@code W001}–{@code W003} alongside {@code symbolicId} {@code ERR_*} / {@code WARN_*}).
  *
  * @since 1.3.0
  */
@@ -22,12 +25,16 @@ public final class DiagnosticBag {
 
   /** Error code emitted when a regular expression pattern is syntactically invalid. */
   public static final String ERR_INVALID_REGEX = "INVALID_REGEX_PATTERN";
+  /** Error code emitted when a string payload fails to match a compiled {@code #regex} pattern (E013). */
+  public static final String ERR_REGEX_MISMATCH = "REGEX_MISMATCH";
   /** Error code emitted when a numeric range has lower bound greater than upper bound. */
   public static final String ERR_INVERTED_RANGE = "INVALID_NUMERIC_RANGE";
-  /** Error code emitted when collection element count exceeds declared capacity bounds. */
+  /** Error code emitted when collection element count or string length exceeds declared capacity bounds. */
   public static final String ERR_CAPACITY_OVERFLOW = "CAPACITY_OVERFLOW";
   /** Error code emitted when a floating-point literal exceeds IEEE-754 capacity boundaries (code E010). */
   public static final String ERR_FLOAT_OVERFLOW = ERR_CAPACITY_OVERFLOW;
+  /** Error code emitted when continuous {@code :Float} {@code #size} is neither 32 nor 64 (E010). */
+  public static final String ERR_FLOAT_INVALID_SIZE = "FLOAT_INVALID_SIZE";
   /** Error code emitted when metadata trait values are incompatible with the target type. */
   public static final String ERR_INCOMPATIBLE_TYPE = "INCOMPATIBLE_METADATA_TYPE";
   /** Error code emitted when a referenced metadata facet constant identifier has not been defined. */
@@ -42,6 +49,8 @@ public final class DiagnosticBag {
   public static final String ERR_DUPLICATE_DEF = "DUPLICATE_TYPE_DEFINITION";
   /** Error code emitted when a declared module include file cannot be located or read. */
   public static final String ERR_MODULE_IMPORT = "MODULE_IMPORT_FAILED";
+  /** Error code emitted when a module path is imported more than once in the same {@code :defs} block (E005). */
+  public static final String ERR_DUPLICATE_MODULE_IMPORT = "DUPLICATE_MODULE_IMPORT";
   /** Error code emitted when cyclic module include dependencies are detected. */
   @Deprecated(forRemoval = true, since = "2.0.0-SNAPSHOT")
   public static final String ERR_CYCLIC_MODULE = "CYCLIC_MODULE_INCLUDE";
@@ -72,6 +81,8 @@ public final class DiagnosticBag {
   public static final String ERR_TRAIT_VIOLATION = "TRAIT_VIOLATION";
   /** Error code emitted when a schema definition syntax or structure is malformed. */
   public static final String ERR_MALFORMED_SCHEMA = "MALFORMED_SCHEMA";
+  /** Error code emitted when the root document enclosure braces are missing (E002). */
+  public static final String ERR_ROOT_ENCLOSURE_MISSING = "ROOT_ENCLOSURE_MISSING";
   /** Error code emitted when a forbidden tab character ('\t', U+0009) is encountered in STVN syntax outside the verbatim body of a fenced multi-line string (E001). */
   public static final String ERR_TAB_CHARACTER_FORBIDDEN = "ERR_TAB_CHARACTER_FORBIDDEN";
   /** Error code emitted when an empty metadata block '{}' is encountered on a type or constant definition. */
@@ -98,6 +109,8 @@ public final class DiagnosticBag {
   public static final String ERR_BARE_HASH_PROHIBITED = "ERR_BARE_HASH_PROHIBITED";
   /** Error code emitted when a negative zero integer literal is encountered (prohibited on :Int). */
   public static final String ERR_INVALID_NUMERIC_LITERAL = "ERR_INVALID_NUMERIC_LITERAL";
+  /** Error code emitted when a fenced string closing tag mismatches or is unclosed (Rule STR-04, E025). */
+  public static final String ERR_FENCE_DELIMITER_MISMATCH = "FENCE_DELIMITER_MISMATCH";
   /** Error code emitted when a prohibited fenced string delimiter arrow is encountered under Rule STR-04. */
   public static final String ERR_PROHIBITED_FENCE_ARROW = "ERR_PROHIBITED_FENCE_ARROW";
   /** Error code emitted when a payload value violates declared or aliased cardinality bounds. */
@@ -106,11 +119,35 @@ public final class DiagnosticBag {
   public static final String ERR_TYPE_MISMATCH = "ERR_TYPE_MISMATCH";
   /** Error code emitted when a nominal type alias attempts to override or re-specify a non-overridable definition facet. */
   public static final String ERR_NON_OVERRIDABLE_FACET = "ERR_NON_OVERRIDABLE_FACET";
+  /** Error code emitted when child enum subset specifies a variant absent from parent enum (E014). */
+  public static final String ERR_ENUM_SUBSET_NOT_SUBSET = "ENUM_SUBSET_NOT_SUBSET";
   /** Error code emitted when child enum subset reorders variants relative to root enum order (SPEC § 4.8.4, Appendix C.2 E015). */
   public static final String ERR_ENUM_SUBSET_ORDER_VIOLATION = "ENUM_SUBSET_ORDER_VIOLATION";
   /** Canonical alias for enum subset root declaration order mismatch (SPEC § 4.8.4, Appendix C.2 E015). */
   public static final String ERR_ORDER_MISMATCH = ERR_ENUM_SUBSET_ORDER_VIOLATION;
+  /** Error code emitted when enum subset filtering evaluates to zero active variants (E016). */
+  public static final String ERR_ENUM_SUBSET_EMPTY = "ENUM_SUBSET_EMPTY";
 
+  /** Error code emitted when a collection payload violates {@code #minSize} underflow (E017). */
+  public static final String ERR_COLLECTION_EMPTY_VIOLATION = "COLLECTION_EMPTY_VIOLATION";
+  /** Error code emitted when duplicate elements appear in a {@code :Set} payload. */
+  public static final String ERR_DUPLICATE_SET_ELEMENT = "DUPLICATE_SET_ELEMENT";
+  /** Error code emitted when a {@code :Tuple} payload element count differs from declared schema arity. */
+  public static final String ERR_TUPLE_ARITY_MISMATCH = "TUPLE_ARITY_MISMATCH";
+  /** Error code emitted when a {@code :Union} branch index exceeds the declared branch count. */
+  public static final String ERR_UNION_BRANCH_OVERFLOW = "UNION_BRANCH_OVERFLOW";
+  /** Error code emitted when a zoned {@code :DateTime} literal contains a numerical UTC offset (E019). */
+  public static final String ERR_TEMPORAL_OFFSET_IN_ZONED = "TEMPORAL_OFFSET_IN_ZONED";
+  /** Error code emitted when a {@code :TimeEpoch} literal contains an IANA zone bracket (E020). */
+  public static final String ERR_TEMPORAL_ZONE_IN_EPOCH = "TEMPORAL_ZONE_IN_EPOCH";
+  /** Error code emitted when an audited {@code :DateTime} offset disagrees with IANA tzdb rules (E021). */
+  public static final String ERR_TEMPORAL_AUDITED_MISMATCH = "TEMPORAL_AUDITED_MISMATCH";
+  /** Error code emitted when a civil wall-clock literal falls inside a DST spring-forward gap (E022). */
+  public static final String ERR_TEMPORAL_DST_GAP_LITERAL = "TEMPORAL_DST_GAP_LITERAL";
+  /** Error code emitted when an untagged payload matches only the Left branch of {@code :Either} (E023). */
+  public static final String ERR_EITHER_LEFT_MISSING_TAG = "EITHER_LEFT_MISSING_TAG";
+  /** Error code emitted when unreachable definitions appear in strict canonical verification (E029). */
+  public static final String ERR_DEAD_CODE_CANONICAL_FAIL = "DEAD_CODE_CANONICAL_FAIL";
 
   /** Error code emitted when a package enclosure targets a reserved runtime namespace (SPEC § 3.9 Invariant 8, E037). */
   public static final String ERR_RESERVED_PACKAGE_PROHIBITED = "ERR_RESERVED_PACKAGE_PROHIBITED";
@@ -159,6 +196,105 @@ public final class DiagnosticBag {
   /** Error code emitted when discrete intervals define an empty domain [k, k) with zero habitable values (SPEC-04). */
   public static final String ERR_EMPTY_INTERVAL_DOMAIN = "ERR_EMPTY_INTERVAL_DOMAIN";
 
+  private static final Map<String, String> SYMBOLIC_TO_CANONICAL = Map.ofEntries(
+      Map.entry(ERR_TAB_CHARACTER_FORBIDDEN, "E001"),
+      Map.entry("TAB_DISCIPLINE_VIOLATION", "E001"),
+      Map.entry(ERR_ROOT_ENCLOSURE_MISSING, "E002"),
+      Map.entry("STVN_SYNTAX_ERROR", "E002"),
+      Map.entry("STVN_SYNTAX_CANCELLATION", "E002"),
+      Map.entry("STVN_PARSE_CANCELLATION", "E002"),
+      Map.entry(ERR_MALFORMED_SCHEMA, "E002"),
+      Map.entry(ERR_BARE_COLON_PROHIBITED, "E002"),
+      Map.entry(ERR_BARE_HASH_PROHIBITED, "E002"),
+      Map.entry(ERR_RESERVED_KEYWORD_ON_LHS, "E002"),
+      Map.entry(ERR_EMPTY_DEFS_BLOCK, "E002"),
+      Map.entry(ERR_NESTED_PACKAGE_PROHIBITED, "E002"),
+      Map.entry(ERR_TRAILING_SLASH_PROHIBITED, "E002"),
+      Map.entry(ERR_EMPTY_METADATA_BLOCK, "E003"),
+      Map.entry("EMPTY_METADATA_BLOCK", "E003"),
+      Map.entry(ERR_EMPTY_DIRECTIVE_BLOCK, "E004"),
+      Map.entry("EMPTY_DIRECTIVE_BLOCK", "E004"),
+      Map.entry(ERR_DUPLICATE_MODULE_IMPORT, "E005"),
+      Map.entry(ERR_MODULE_IMPORT, "E005"),
+      Map.entry(ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT, "E005"),
+      Map.entry(ERR_NAMESPACE_COLLISION, "E006"),
+      Map.entry(ERR_DUPLICATE_DEF, "E006"),
+      Map.entry("CYCLIC_MODULE_INCLUDE", "E007"),
+      Map.entry("CIRCULAR_DEPENDENCY", "E007"),
+      Map.entry(ERR_CIRCULAR_TYPE, "E007"),
+      Map.entry(ERR_INVALID_METADATA_FACET, "E008"),
+      Map.entry("INVALID_FACET_TARGET", "E008"),
+      Map.entry(ERR_FACET_ORDER_VIOLATION, "E008"),
+      Map.entry(ERR_DUPLICATE_METADATA_FACET, "E008"),
+      Map.entry(ERR_STRING_CARDINALITY_PROHIBITED, "E008"),
+      Map.entry(ERR_INCOMPATIBLE_TYPE, "E008"),
+      Map.entry(ERR_MUTUALLY_EXCLUSIVE, "E008"),
+      Map.entry(ERR_TRAIT_VIOLATION, "E008"),
+      Map.entry(ERR_MISSING_TEMPORAL_FACET, "E008"),
+      Map.entry(ERR_TEMPORAL_SCALE_MISSING, "E008"),
+      Map.entry(ERR_DATETIME_MODE_INVALID, "E008"),
+      Map.entry("ERR_LEGACY_UNIT_FACET_PURGED", "E008"),
+      Map.entry(ERR_INTEGER_OVERFLOW, "E009"),
+      Map.entry("INT_OVERFLOW", "E009"),
+      Map.entry(ERR_INVALID_NUMERIC_LITERAL, "E009"),
+      Map.entry(ERR_INVERTED_RANGE, "E009"),
+      Map.entry(ERR_EMPTY_INTERVAL_DOMAIN, "E009"),
+      Map.entry(ERR_FLOAT_INVALID_SIZE, "E010"),
+      Map.entry(ERR_DISCRETE_BOUND_KIND_PROHIBITED, "E011"),
+      Map.entry("FLOAT_EXACT_RANGE_CONFLICT", "E011"),
+      Map.entry(ERR_CAPACITY_OVERFLOW, "E012"),
+      Map.entry("STRING_BOUND_VIOLATION", "E012"),
+      Map.entry(ERR_CONSTRAINT_VIOLATION, "E012"),
+      Map.entry(ERR_INVALID_REGEX, "E013"),
+      Map.entry(ERR_REGEX_MISMATCH, "E013"),
+      Map.entry(ERR_ENUM_SUBSET_NOT_SUBSET, "E014"),
+      Map.entry(ERR_ENUM_SUBSET_ORDER_VIOLATION, "E015"),
+      Map.entry(ERR_ENUM_SUBSET_EMPTY, "E016"),
+      Map.entry(ERR_COLLECTION_EMPTY_VIOLATION, "E017"),
+      Map.entry(ERR_DUPLICATE_SET_ELEMENT, "E017"),
+      Map.entry(ERR_DUPLICATE_MAP_KEY, "E017"),
+      Map.entry(ERR_DUPLICATE_INVERTED_MAP_VALUE, "E018"),
+      Map.entry("INVERTIBLE_MAP_DUPLICATE", "E018"),
+      Map.entry(ERR_TEMPORAL_OFFSET_IN_ZONED, "E019"),
+      Map.entry(ERR_TEMPORAL_ZONE_IN_EPOCH, "E020"),
+      Map.entry(ERR_TEMPORAL_AUDITED_MISMATCH, "E021"),
+      Map.entry(ERR_TEMPORAL_DST_GAP_LITERAL, "E022"),
+      Map.entry(ERR_EITHER_LEFT_MISSING_TAG, "E023"),
+      Map.entry(ERR_AMBIGUOUS_SUM_INFERENCE, "E024"),
+      Map.entry("UNION_BRANCH_AMBIGUOUS", "E024"),
+      Map.entry(ERR_FENCE_DELIMITER_MISMATCH, "E025"),
+      Map.entry(ERR_PROHIBITED_FENCE_ARROW, "E026"),
+      Map.entry("FENCE_PROHIBITED_ARROW", "E026"),
+      Map.entry(ERR_INCOMPATIBLE_NOMINAL_TYPE, "E027"),
+      Map.entry("OPAQUE_TYPE_BRAND_MISMATCH", "E027"),
+      Map.entry(ERR_TYPE_MISMATCH, "E028"),
+      Map.entry("CONSTANT_TYPE_MISMATCH", "E028"),
+      Map.entry(ERR_TUPLE_ARITY_MISMATCH, "E028"),
+      Map.entry(ERR_UNION_BRANCH_OVERFLOW, "E028"),
+      Map.entry("MALFORMED_PAYLOAD", "E028"),
+      Map.entry(ERR_DEAD_CODE_CANONICAL_FAIL, "E029"),
+      Map.entry(ERR_UNDEFINED_TYPE, "E030"),
+      Map.entry("ERR_UNKNOWN_TYPE", "E030"),
+      Map.entry(ERR_UNDEFINED_CONSTANT, "E030"),
+      Map.entry(ERR_PRELUDE_ALIAS_PURGED, "E030"),
+      Map.entry("TYPE_RESOLUTION_FAILURE", "E030"),
+      Map.entry(ERR_DOCUMENT_KIND_MISMATCH, "E031"),
+      Map.entry("ERR_SECTION_PROHIBITED", "E031"),
+      Map.entry("ERR_SECTION_REQUIRED", "E031"),
+      Map.entry(ERR_INVALID_FILENAME_STEM, "E032"),
+      Map.entry(ERR_META_POSITION_INVALID, "E033"),
+      Map.entry(ERR_LEGACY_FILE_EXTENSION_PURGED, "E034"),
+      Map.entry(ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT, "E035"),
+      Map.entry(ERR_UNRECOGNIZED_METADATA_FACET, "E036"),
+      Map.entry(ERR_RESERVED_PACKAGE_PROHIBITED, "E037"),
+      Map.entry(ERR_RESERVED_DOMAIN_PROHIBITED, "E038"),
+      Map.entry(ERR_EMPTY_META_BLOCK, "E039"),
+      Map.entry(ERR_NON_OVERRIDABLE_FACET, "E040"),
+      Map.entry(WARN_DOCUMENT_NAME_MISMATCH, "W001"),
+      Map.entry(WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME, "W002"),
+      Map.entry(WARN_REDUNDANT_METADATA_FACET, "W003")
+  );
+
   private final int maxDiagnostics;
   private final List<StvnDiagnostic> diagnostics;
   private boolean thresholdExceeded = false;
@@ -181,10 +317,25 @@ public final class DiagnosticBag {
   }
 
   /**
+   * Resolves the normative STVN 2.0.0 canonical specification code ({@code E001}–{@code E040},
+   * {@code W001}–{@code W003}) corresponding to a symbolic diagnostic identifier.
+   *
+   * @param symbolicId the symbolic diagnostic identifier, or {@code null}
+   * @return the optional canonical specification code
+   */
+  public static Optional<String> resolveCanonicalCode(@Nullable String symbolicId) {
+    if (symbolicId == null || symbolicId.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.ofNullable(SYMBOLIC_TO_CANONICAL.get(symbolicId));
+  }
+
+  /**
    * Records a diagnostic into the bag.
    * <p>
-   * If the number of accumulated diagnostics reaches {@code maxDiagnostics}, further diagnostics
-   * are suppressed and a single sentinel warning diagnostic is appended.
+   * Automatically enriches diagnostics that declare a {@code symbolicId} without an explicit
+   * {@code canonicalCode}. If the number of accumulated diagnostics reaches {@code maxDiagnostics},
+   * further diagnostics are suppressed and a single sentinel warning diagnostic is appended.
    *
    * @param diagnostic the diagnostic to record
    * @return {@code true} if the diagnostic was accepted, {@code false} if suppressed due to threshold
@@ -206,8 +357,96 @@ public final class DiagnosticBag {
       }
       return false;
     }
-    diagnostics.add(diagnostic);
+    StvnDiagnostic enriched = diagnostic;
+    if (diagnostic.canonicalCode().isEmpty() && diagnostic.symbolicId().isPresent()) {
+      Optional<String> mapped = resolveCanonicalCode(diagnostic.symbolicId().get());
+      if (mapped.isPresent()) {
+        enriched = new StvnDiagnostic(
+            diagnostic.message(),
+            diagnostic.severity(),
+            diagnostic.line(),
+            diagnostic.column(),
+            diagnostic.startOffset(),
+            diagnostic.endOffset(),
+            diagnostic.cause(),
+            mapped,
+            diagnostic.symbolicId()
+        );
+      }
+    }
+    diagnostics.add(enriched);
     return true;
+  }
+
+  /**
+   * Records an error-level diagnostic carrying both an explicit canonical specification code
+   * and a symbolic identifier.
+   *
+   * @param message       the error message
+   * @param startOffset   the 0-based character start offset
+   * @param endOffset     the 0-based character end offset
+   * @param line          the 1-based source line index
+   * @param column        the 0-based character column offset
+   * @param cause         the underlying throwable cause, or {@code null}
+   * @param canonicalCode the canonical specification code ({@code E001}–{@code E040})
+   * @param symbolicId    the symbolic diagnostic identifier
+   */
+  public void addErrorDual(
+      String message,
+      int startOffset,
+      int endOffset,
+      int line,
+      int column,
+      @Nullable Throwable cause,
+      String canonicalCode,
+      String symbolicId
+  ) {
+    Throwable effectiveCause = buildEffectiveCause(message, startOffset, endOffset, cause, symbolicId);
+    add(new StvnDiagnostic(
+        message,
+        DiagnosticSeverity.ERROR,
+        line,
+        column,
+        startOffset,
+        endOffset,
+        effectiveCause,
+        Optional.of(canonicalCode),
+        Optional.of(symbolicId)
+    ));
+  }
+
+  /**
+   * Records a warning-level diagnostic carrying both an explicit canonical specification code
+   * and a symbolic identifier.
+   *
+   * @param message       the descriptive warning message
+   * @param startOffset   the 0-based character start offset
+   * @param endOffset     the 0-based character end offset
+   * @param line          the 1-based source line index
+   * @param column        the 0-based character column offset
+   * @param canonicalCode the canonical warning code ({@code W001}–{@code W003})
+   * @param symbolicId    the symbolic warning identifier
+   */
+  public void addWarningDual(
+      String message,
+      int startOffset,
+      int endOffset,
+      int line,
+      int column,
+      String canonicalCode,
+      String symbolicId
+  ) {
+    add(new StvnDiagnostic(
+        message,
+        DiagnosticSeverity.WARNING,
+        line,
+        column,
+        startOffset,
+        endOffset,
+        null,
+        Optional.of(canonicalCode),
+        Optional.of(symbolicId)
+    ));
   }
 
   /**
@@ -230,33 +469,32 @@ public final class DiagnosticBag {
       @Nullable Throwable cause,
       @Nullable String errorCode
   ) {
-    Throwable effectiveCause = cause;
-    if (effectiveCause == null) {
-      if (DiagnosticBag.ERR_DUPLICATE_DEF.equals(errorCode)) {
-        effectiveCause = new IllegalStateException(message);
-      } else if (DiagnosticBag.ERR_CIRCULAR_TYPE.equals(errorCode)) {
-        effectiveCause = new StvnTypeResolver.CircularReferenceException(message);
-      } else if (DiagnosticBag.ERR_CYCLIC_MODULE.equals(errorCode)) {
-        effectiveCause = new CyclicDependencyException(message, java.util.List.of(), java.util.List.of());
-      } else if (DiagnosticBag.ERR_NAMESPACE_COLLISION.equals(errorCode)) {
-        effectiveCause = new NamespaceCollisionException(message);
-      } else {
-        effectiveCause = new MalformedSchemaException(message, startOffset, endOffset);
-      }
-    } else if (cause instanceof java.util.regex.PatternSyntaxException) {
-      effectiveCause = new MalformedSchemaException(message, startOffset, endOffset, cause);
+    Throwable effectiveCause = buildEffectiveCause(message, startOffset, endOffset, cause, errorCode);
+    Optional<String> canonical = resolveCanonicalCode(errorCode);
+    if (canonical.isPresent() && errorCode != null) {
+      add(new StvnDiagnostic(
+          message,
+          DiagnosticSeverity.ERROR,
+          line,
+          column,
+          startOffset,
+          endOffset,
+          effectiveCause,
+          canonical,
+          Optional.of(errorCode)
+      ));
+    } else {
+      add(new StvnDiagnostic(
+          message,
+          DiagnosticSeverity.ERROR,
+          line,
+          column,
+          startOffset,
+          endOffset,
+          effectiveCause,
+          Optional.ofNullable(errorCode)
+      ));
     }
-
-    add(new StvnDiagnostic(
-        message,
-        DiagnosticSeverity.ERROR,
-        line,
-        column,
-        startOffset,
-        endOffset,
-        effectiveCause,
-        Optional.ofNullable(errorCode)
-    ));
   }
 
   /**
@@ -296,16 +534,31 @@ public final class DiagnosticBag {
       int column,
       @Nullable String errorCode
   ) {
-    add(new StvnDiagnostic(
-        message,
-        DiagnosticSeverity.WARNING,
-        line,
-        column,
-        startOffset,
-        endOffset,
-        null,
-        Optional.ofNullable(errorCode)
-    ));
+    Optional<String> canonical = resolveCanonicalCode(errorCode);
+    if (canonical.isPresent() && errorCode != null) {
+      add(new StvnDiagnostic(
+          message,
+          DiagnosticSeverity.WARNING,
+          line,
+          column,
+          startOffset,
+          endOffset,
+          null,
+          canonical,
+          Optional.of(errorCode)
+      ));
+    } else {
+      add(new StvnDiagnostic(
+          message,
+          DiagnosticSeverity.WARNING,
+          line,
+          column,
+          startOffset,
+          endOffset,
+          null,
+          Optional.ofNullable(errorCode)
+      ));
+    }
   }
 
   /**
@@ -325,6 +578,30 @@ public final class DiagnosticBag {
     addWarning(message, startOffset, endOffset, -1, -1, errorCode);
   }
 
+  private static Throwable buildEffectiveCause(
+      String message,
+      int startOffset,
+      int endOffset,
+      @Nullable Throwable cause,
+      @Nullable String errorCode
+  ) {
+    if (cause == null) {
+      if (ERR_DUPLICATE_DEF.equals(errorCode)) {
+        return new IllegalStateException(message);
+      } else if (ERR_CIRCULAR_TYPE.equals(errorCode)) {
+        return new StvnTypeResolver.CircularReferenceException(message);
+      } else if ("CYCLIC_MODULE_INCLUDE".equals(errorCode)) {
+        return new CyclicDependencyException(message, List.of(), List.of());
+      } else if (ERR_NAMESPACE_COLLISION.equals(errorCode)) {
+        return new NamespaceCollisionException(message);
+      }
+      return new MalformedSchemaException(message, startOffset, endOffset);
+    } else if (cause instanceof java.util.regex.PatternSyntaxException) {
+      return new MalformedSchemaException(message, startOffset, endOffset, cause);
+    }
+    return cause;
+  }
+
   /**
    * Checks if any accumulated diagnostic has {@link DiagnosticSeverity#ERROR}.
    *
@@ -332,6 +609,15 @@ public final class DiagnosticBag {
    */
   public boolean hasErrors() {
     return diagnostics.stream().anyMatch(d -> d.severity() == DiagnosticSeverity.ERROR);
+  }
+
+  /**
+   * Returns the count of accumulated {@link DiagnosticSeverity#ERROR} diagnostics.
+   *
+   * @return total error diagnostic count
+   */
+  public int errorCount() {
+    return (int) diagnostics.stream().filter(d -> d.severity() == DiagnosticSeverity.ERROR).count();
   }
 
   /**

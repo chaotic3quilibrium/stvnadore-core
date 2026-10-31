@@ -424,22 +424,14 @@ public final class StvnSchemaFlattener {
         StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_OPTION) ||
         StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_EITHER) ||
         StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_UNION) ||
-        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_ENUM) ||
-        type.equals(StvnVocabulary.TYPE_MAP_ENTRY)) {
+        StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_ENUM)) {
       return true;
     }
     return false;
   }
 
-  private static final Set<String> DYNAMIC_PRELUDE_TYPES = Collections.synchronizedSet(new HashSet<>());
-
   private static boolean isPreludeType(String type) {
-    if (DYNAMIC_PRELUDE_TYPES.isEmpty()) {
-      var pDoc = StvnPrelude.getPreludeDocument();
-      var defs = org.stvnadore.core.validation.StvnTypeResolver.getDocumentDefinitions(pDoc);
-      DYNAMIC_PRELUDE_TYPES.addAll(defs.keySet());
-    }
-    return DYNAMIC_PRELUDE_TYPES.contains(type);
+    return StvnPrelude.preludeCatalog().findType(type).isPresent();
   }
 
   private static ParsedDocument parseFile(

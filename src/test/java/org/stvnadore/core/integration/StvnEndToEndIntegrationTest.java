@@ -95,7 +95,7 @@ public class StvnEndToEndIntegrationTest {
         var encoded = encoder.encode(ir);
 
         var rootPointer = StvnBinaryDecoder.openStrict(encoded, new SchemaIdentityStrategy.UniversalDefault());
-        var decodedIr = StvnBinaryDecoder.unpack(rootPointer, Optional.of(ir.schema()));
+        var decodedIr = StvnBinaryDecoder.unpackIr(rootPointer, Optional.of(ir.schema()));
         org.junit.jupiter.api.Assertions.assertEquals(ir, decodedIr);
       }
     } catch (RuntimeException runtimeException) {
@@ -2118,7 +2118,7 @@ public class StvnEndToEndIntegrationTest {
 
       // Decode passing null registry/fallback/universalFallback
       var root = org.stvnadore.core.binary.StvnBinaryDecoder.open(encoded, null, null, null);
-      var decodedIr = org.stvnadore.core.binary.StvnBinaryDecoder.unpack(root, Optional.empty());
+      var decodedIr = org.stvnadore.core.binary.StvnBinaryDecoder.unpackIr(root, Optional.empty());
 
       org.junit.jupiter.api.Assertions.assertEquals(ir, decodedIr);
   }

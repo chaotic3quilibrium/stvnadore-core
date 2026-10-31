@@ -7,7 +7,7 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
-import org.stvnadore.core.ast.StvnValue.*;
+import org.stvnadore.core.ir.StvnValue.*;
 import org.stvnadore.core.validation.MalformedPayloadException;
 import org.stvnadore.core.validation.MalformedSchemaException;
 import org.stvnadore.core.validation.StvnTypeResolver.CircularReferenceException;
@@ -41,16 +41,16 @@ public class StvnTypedConstantsTest {
     Assertions.assertInstanceOf(StvnTuple.class, ir);
     var tuple = (StvnTuple) ir;
     Assertions.assertEquals(4, tuple.elements().size());
-    Assertions.assertEquals(3L, ((StvnInteger) tuple.elements().get(0)).value().longValue());
+    Assertions.assertEquals(3L, ((StvnInt) tuple.elements().get(0)).value().longValue());
     Assertions.assertEquals("STVN Core", ((StvnString) tuple.elements().get(1)).value());
-    Assertions.assertEquals(3.14, ((StvnFloat) tuple.elements().get(2)).value().doubleValue(), 0.001);
+    Assertions.assertEquals(3.14, ((StvnFloat) tuple.elements().get(2)).decimalValue().doubleValue(), 0.001);
     Assertions.assertTrue(((StvnBoolean) tuple.elements().get(3)).value());
 
     // Round-trip binary encoding verification
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     var encoded = encoder.encode(ir);
     var rootPointer = StvnBinaryDecoder.openStrict(encoded, new SchemaIdentityStrategy.UniversalDefault());
-    var decodedIr = StvnBinaryDecoder.unpack(rootPointer, Optional.of(ir.schema()));
+    var decodedIr = StvnBinaryDecoder.unpackIr(rootPointer, Optional.of(ir.schema()));
     Assertions.assertEquals(ir, decodedIr);
   }
 
@@ -89,8 +89,8 @@ public class StvnTypedConstantsTest {
     var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
     var ir = irOpt.get();
-    Assertions.assertInstanceOf(StvnInteger.class, ir);
-    Assertions.assertEquals(8000L, ((StvnInteger) ir).value().longValue());
+    Assertions.assertInstanceOf(StvnInt.class, ir);
+    Assertions.assertEquals(8000L, ((StvnInt) ir).value().longValue());
   }
 
   @Test
@@ -107,7 +107,7 @@ public class StvnTypedConstantsTest {
 
     var irOpt = StvnCompiler.compilePayload(payload);
     Assertions.assertTrue(irOpt.isPresent());
-    Assertions.assertEquals(8080L, ((StvnInteger) irOpt.get()).value().longValue());
+    Assertions.assertEquals(8080L, ((StvnInt) irOpt.get()).value().longValue());
   }
 
   @Test
@@ -189,7 +189,8 @@ public class StvnTypedConstantsTest {
         """;
 
     var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(payload));
-    Assertions.assertTrue(ex.getMessage().contains("STVN Syntax Error") || ex.getMessage().contains("mismatched input"));
+    Assertions.assertTrue(ex.getMessage().contains("STVN Syntax Error"));
+    Assertions.assertFalse(ex.getMessage().toLowerCase().contains("mismatched input"));
   }
 
   @Test
@@ -205,7 +206,8 @@ public class StvnTypedConstantsTest {
         """;
 
     var ex = Assertions.assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(payload));
-    Assertions.assertTrue(ex.getMessage().contains("STVN Syntax Error") || ex.getMessage().contains("mismatched input"));
+    Assertions.assertTrue(ex.getMessage().contains("STVN Syntax Error"));
+    Assertions.assertFalse(ex.getMessage().toLowerCase().contains("mismatched input"));
   }
 
   @Test

@@ -14,6 +14,7 @@ module org.stvnadore.core {
     exports org.stvnadore.core.stdlib;
     exports org.stvnadore.core.validation;
     exports org.stvnadore.core.ir;
+    exports org.stvnadore.core.lowering;
     exports org.stvnadore.core.parser;
     exports org.stvnadore.core.io;
     exports org.stvnadore.core.printer;

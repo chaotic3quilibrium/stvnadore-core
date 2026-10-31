@@ -5,7 +5,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.ast.StvnValue.*;
+import org.stvnadore.core.ir.StvnValue.*;
 import org.stvnadore.core.validation.MalformedPayloadException;
 
 import java.math.BigInteger;
@@ -29,8 +29,8 @@ class StvnStrictProductTypingTest {
       Assertions.assertInstanceOf(StvnOption.class, val);
       var opt = (StvnOption) val;
       Assertions.assertTrue(opt.value().isPresent());
-      Assertions.assertInstanceOf(StvnInteger.class, opt.value().get());
-      Assertions.assertEquals(BigInteger.valueOf(42), ((StvnInteger) opt.value().get()).value());
+      Assertions.assertInstanceOf(StvnInt.class, opt.value().get());
+      Assertions.assertEquals(BigInteger.valueOf(42), ((StvnInt) opt.value().get()).value());
     }
 
     @Test
@@ -49,7 +49,7 @@ class StvnStrictProductTypingTest {
       Assertions.assertInstanceOf(StvnTuple.class, opt.value().get());
       var tuple = (StvnTuple) opt.value().get();
       Assertions.assertEquals(1, tuple.elements().size());
-      Assertions.assertEquals(BigInteger.valueOf(42), ((StvnInteger) tuple.elements().get(0)).value());
+      Assertions.assertEquals(BigInteger.valueOf(42), ((StvnInt) tuple.elements().get(0)).value());
     }
 
     @Test
@@ -68,8 +68,8 @@ class StvnStrictProductTypingTest {
       Assertions.assertInstanceOf(StvnTuple.class, opt.value().get());
       var tuple = (StvnTuple) opt.value().get();
       Assertions.assertEquals(2, tuple.elements().size());
-      Assertions.assertEquals(BigInteger.valueOf(10), ((StvnInteger) tuple.elements().get(0)).value());
-      Assertions.assertEquals(BigInteger.valueOf(20), ((StvnInteger) tuple.elements().get(1)).value());
+      Assertions.assertEquals(BigInteger.valueOf(10), ((StvnInt) tuple.elements().get(0)).value());
+      Assertions.assertEquals(BigInteger.valueOf(20), ((StvnInt) tuple.elements().get(1)).value());
     }
 
     @Test
@@ -84,7 +84,7 @@ class StvnStrictProductTypingTest {
       var val = StvnCompiler.compilePayload(input).orElseThrow();
       Assertions.assertInstanceOf(StvnEither.class, val);
       var either = (StvnEither) val;
-      Assertions.assertTrue(either.isRight());
+      Assertions.assertEquals(EitherBranch.RIGHT, either.branch());
       Assertions.assertInstanceOf(StvnString.class, either.value());
       Assertions.assertEquals("OK", ((StvnString) either.value()).value());
     }
@@ -101,7 +101,7 @@ class StvnStrictProductTypingTest {
       var val = StvnCompiler.compilePayload(input).orElseThrow();
       Assertions.assertInstanceOf(StvnEither.class, val);
       var either = (StvnEither) val;
-      Assertions.assertTrue(either.isRight());
+      Assertions.assertEquals(EitherBranch.RIGHT, either.branch());
       Assertions.assertInstanceOf(StvnTuple.class, either.value());
       var tuple = (StvnTuple) either.value();
       Assertions.assertEquals(1, tuple.elements().size());
@@ -120,9 +120,9 @@ class StvnStrictProductTypingTest {
       var val = StvnCompiler.compilePayload(input).orElseThrow();
       Assertions.assertInstanceOf(StvnUnion.class, val);
       var union = (StvnUnion) val;
-      Assertions.assertEquals(0, union.tagIndex());
-      Assertions.assertInstanceOf(StvnInteger.class, union.value());
-      Assertions.assertEquals(BigInteger.valueOf(1024), ((StvnInteger) union.value()).value());
+      Assertions.assertEquals(BigInteger.ONE, union.oneBasedBranchIndex());
+      Assertions.assertInstanceOf(StvnInt.class, union.value());
+      Assertions.assertEquals(BigInteger.valueOf(1024), ((StvnInt) union.value()).value());
     }
   }
 

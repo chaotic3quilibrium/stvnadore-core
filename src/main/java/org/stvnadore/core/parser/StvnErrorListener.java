@@ -1,27 +1,23 @@
 package org.stvnadore.core.parser;
 
 import org.antlr.v4.runtime.BaseErrorListener;
-import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
-import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.Token;
-import org.antlr.v4.runtime.misc.IntervalSet;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
-import org.stvnadore.core.StvnDiagnostic;
-import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.StvnSyntaxCancellationException;
-import org.stvnadore.core.validation.StvnTypeResolver;
 
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 
 /**
- * High-precision, sanitizing ANTLR error listener for STVN grammar recognition.
- * Eliminates raw DFA vocabulary dumps and provides concise, human-readable structural diagnostics.
+ * Pass 1 ANTLR error listener integrating {@link StvnSyntaxErrorSanitizer}.
+ * <p>
+ * Translates all lexer and parser recognition errors into STE-compliant STVN 2.0.0
+ * {@link org.stvnadore.core.StvnDiagnostic} records with dual specification codes and
+ * zero raw ANTLR generator jargon.
  *
  * @since 1.4.0
  */
@@ -72,207 +68,60 @@ public final class StvnErrorListener extends BaseErrorListener {
       String rawMsg,
       @Nullable RecognitionException e
   ) {
-    int startOffset = -1;
-    int endOffset = -1;
-    Token offendingToken = null;
-    boolean isBareColon = false;
-    boolean isBareHash = false;
-
-    if (offendingSymbol instanceof Token token) {
-      offendingToken = token;
-      startOffset = token.getStartIndex();
-      endOffset = token.getType() == Token.EOF
-          ? startOffset
-          : Math.max(startOffset + 1, token.getStopIndex() + 1);
-      if (":".equals(token.getText())) {
-        isBareColon = true;
-      } else if ("#".equals(token.getText())) {
-        isBareHash = true;
+    if (this.hasClauseStructureError && offendingSymbol instanceof Token offendingToken) {
+      if (offendingToken.getType() == Token.EOF && rawMsg != null && rawMsg.contains("'}'")) {
+        return;
       }
-
-      if (recognizer instanceof Parser parser) {
-        var stream = parser.getTokenStream();
-        if (stream != null) {
-          int idx = token.getTokenIndex();
-          if (idx > 0 && stream.get(idx - 1).getType() == StvnLexer.KW_PRESERVE_INDENT) {
-            Token prev = stream.get(idx - 1);
-            startOffset = prev.getStartIndex();
-            endOffset = prev.getStopIndex() + 1;
-            line = prev.getLine();
-            charPositionInLine = prev.getCharPositionInLine();
-          } else if (idx > 0 && token.getType() != StvnLexer.KW_DEFS
-                             && token.getType() != StvnLexer.KW_TYPE
-                             && token.getType() != StvnLexer.KW_BODY
-                             && token.getType() != StvnLexer.KW_META) {
-            Token prev = stream.get(idx - 1);
-            int prevType = prev.getType();
-            if (prevType == StvnLexer.KW_DEFS && token.getType() != StvnLexer.LBRACE) {
-              offendingToken = prev;
-              startOffset = prev.getStartIndex();
-              endOffset = prev.getStopIndex() + 1;
-              line = prev.getLine();
-              charPositionInLine = prev.getCharPositionInLine();
-              rawMsg = "clause ':defs' requires definition block '{ ... }'";
-            } else if (prevType == StvnLexer.KW_META && token.getType() != StvnLexer.LBRACE) {
-              offendingToken = prev;
-              startOffset = prev.getStartIndex();
-              endOffset = prev.getStopIndex() + 1;
-              line = prev.getLine();
-              charPositionInLine = prev.getCharPositionInLine();
-              rawMsg = "clause ':meta' requires a metadata block '{ ... }'";
-            } else if (prevType == StvnLexer.KW_TYPE && !StvnErrorStrategy.isValidSchemaTypeStarter(token)) {
-              offendingToken = prev;
-              startOffset = prev.getStartIndex();
-              endOffset = prev.getStopIndex() + 1;
-              line = prev.getLine();
-              charPositionInLine = prev.getCharPositionInLine();
-              rawMsg = "clause ':type' requires a schema type";
-            } else if (prevType == StvnLexer.KW_BODY && (token.getType() == StvnLexer.RBRACE || token.getType() == Token.EOF || StvnErrorStrategy.isTopLevelKeyword(token))) {
-              offendingToken = prev;
-              startOffset = prev.getStartIndex();
-              endOffset = prev.getStopIndex() + 1;
-              line = prev.getLine();
-              charPositionInLine = prev.getCharPositionInLine();
-              rawMsg = "clause ':body' requires a value payload";
-            }
-          }
-        }
-      }
-
-      // Boundary Cascade Suppression: When a clause structure error has already been recorded,
-      // suppress trailing secondary mismatched '}' and '<EOF>' errors that reflect unclosed state
-      if (this.hasClauseStructureError && offendingToken != null) {
-        if (offendingToken.getType() == Token.EOF && rawMsg != null && rawMsg.contains("expecting '}'")) {
-          return;
-        }
-        if (offendingToken.getType() == StvnLexer.RBRACE && rawMsg != null && (rawMsg.contains("expecting <value>") || rawMsg.contains("expecting <schema type>"))) {
-          return;
-        }
-      }
-    } else if (recognizer instanceof org.antlr.v4.runtime.Lexer lexerRec) {
-      if (e instanceof org.antlr.v4.runtime.LexerNoViableAltException lnvae && lnvae.getStartIndex() >= 0) {
-        startOffset = lnvae.getStartIndex();
-      } else if (lexerRec._tokenStartCharIndex >= 0) {
-        startOffset = lexerRec._tokenStartCharIndex;
-      } else {
-        startOffset = lexerRec.getCharIndex();
-      }
-
-      var input = lexerRec.getInputStream();
-      String source = input != null ? input.getText(org.antlr.v4.runtime.misc.Interval.of(0, input.size())) : "";
-
-      int matchedEnd = lexerRec.getCharIndex();
-      if (matchedEnd <= startOffset) {
-        matchedEnd = startOffset + 1;
-      }
-
-      // Clamp strictly within the current line boundary (never cross \r or \n)
-      int eol = source.length();
-      for (int i = startOffset; i < source.length(); i++) {
-        char c = source.charAt(i);
-        if (c == '\r' || c == '\n') {
-          eol = i;
-          break;
-        }
-      }
-
-      // Strip trailing line terminators from the matched character sequence
-      while (matchedEnd > startOffset && matchedEnd <= source.length()
-          && (source.charAt(matchedEnd - 1) == '\n' || source.charAt(matchedEnd - 1) == '\r')) {
-        matchedEnd--;
-      }
-
-      endOffset = Math.min(matchedEnd, eol);
-
-      // Specifically clamp bare '#' and bare ':' to exactly 1 character
-      if (startOffset >= 0 && startOffset < source.length()) {
-        char c = source.charAt(startOffset);
-        if (c == '#') {
-          endOffset = startOffset + 1;
-          isBareHash = true;
-        } else if (c == ':') {
-          endOffset = startOffset + 1;
-          isBareColon = true;
-        }
-      }
-
-      if (endOffset <= startOffset) {
-        endOffset = Math.min(startOffset + 1, source.length());
+      if (offendingToken.getType() == StvnLexer.RBRACE
+          && rawMsg != null
+          && (rawMsg.contains("<value>") || rawMsg.contains("<schema type>"))) {
+        return;
       }
     }
 
-    String sanitizedMessage = formatSanitizedMessage(recognizer, offendingToken, rawMsg, e);
+    var sanitized = StvnSyntaxErrorSanitizer.sanitize(
+        recognizer,
+        offendingSymbol,
+        line,
+        charPositionInLine,
+        rawMsg,
+        e
+    );
 
-    // Deduplicate diagnostics sharing identical startOffset coordinates
-    String coordKey = line + ":" + charPositionInLine + ":" + startOffset;
+    String coordKey = sanitized.line() + ":" + sanitized.column() + ":" + sanitized.startOffset();
     if (this.recordedCoordinates.contains(coordKey)) {
       return;
     }
     this.recordedCoordinates.add(coordKey);
 
-    if (sanitizedMessage.contains("clause ':defs' requires")
-        || sanitizedMessage.contains("clause ':type' requires")
-        || sanitizedMessage.contains("clause ':body' requires")
-        || sanitizedMessage.contains("clause ':meta' requires")) {
+    if (sanitized.clauseStructureError()) {
       this.hasClauseStructureError = true;
-    }
-
-    Optional<String> errorCode = sanitizedMessage.contains("ERR_TAB_CHARACTER_FORBIDDEN")
-        ? Optional.of(DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN)
-        : Optional.of("STVN_SYNTAX_ERROR");
-    if (offendingToken != null && offendingToken.getType() == StvnLexer.TAB_CHARACTER) {
-      errorCode = Optional.of(DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN);
-    } else if (isBareColon || sanitizedMessage.contains("': '")) {
-      errorCode = Optional.of(DiagnosticBag.ERR_BARE_COLON_PROHIBITED);
-    } else if (isBareHash || sanitizedMessage.contains("'# '")) {
-      errorCode = Optional.of(DiagnosticBag.ERR_BARE_HASH_PROHIBITED);
-    } else if (sanitizedMessage.contains("requires a scale facet")) {
-      errorCode = Optional.of(DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING);
-    } else if (sanitizedMessage.contains("requires exactly one mode facet")) {
-      errorCode = Optional.of(DiagnosticBag.ERR_DATETIME_MODE_INVALID);
-    } else if (sanitizedMessage.contains("Metadata facet #preserveIndent requires an explicit boolean value")) {
-      errorCode = Optional.of(DiagnosticBag.ERR_INVALID_METADATA_FACET);
-    } else if (sanitizedMessage.contains("delimiter arrow '->' is prohibited")
-        || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().startsWith("\"\"\"->["))) {
-      errorCode = Optional.of(DiagnosticBag.ERR_PROHIBITED_FENCE_ARROW);
-    } else if (sanitizedMessage.contains("clause ':meta' requires a metadata block") || sanitizedMessage.contains("ERR_EMPTY_META_BLOCK")) {
-      errorCode = Optional.of(DiagnosticBag.ERR_EMPTY_META_BLOCK);
-    } else if (sanitizedMessage.contains("':meta'")
-        || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().equals(StvnVocabulary.KEYWORD_META))) {
-      errorCode = Optional.of(DiagnosticBag.ERR_META_POSITION_INVALID);
     }
 
     if (this.strict) {
       throw new StvnSyntaxCancellationException(
-          "STVN Syntax Error: " + sanitizedMessage,
-          line,
-          charPositionInLine,
-          startOffset,
-          endOffset,
-          e
+          sanitized.message(),
+          sanitized.line(),
+          sanitized.column(),
+          sanitized.startOffset(),
+          sanitized.endOffset(),
+          e,
+          sanitized.canonicalCode(),
+          sanitized.symbolicId()
       );
     } else if (this.diagnosticBag != null) {
-      this.diagnosticBag.add(new StvnDiagnostic(
-          "STVN Syntax Error: " + sanitizedMessage,
-          StvnDiagnostic.DiagnosticSeverity.ERROR,
-          line,
-          charPositionInLine,
-          startOffset,
-          endOffset,
-          e,
-          errorCode
-      ));
+      this.diagnosticBag.add(sanitized.toDiagnostic(e));
     }
   }
 
   /**
-   * Sanitizes ANTLR raw error messages, recognizing empty composites and simplifying expected token sets.
+   * Sanitizes ANTLR raw error messages via {@link StvnSyntaxErrorSanitizer}.
    *
    * @param recognizer     the ANTLR parser or lexer instance
    * @param offendingToken the offending token, or {@code null}
    * @param rawMsg         the raw message from ANTLR
    * @param e              the underlying recognition exception, or {@code null}
-   * @return a clean, human-readable diagnostic message
+   * @return a clean, STE-compliant diagnostic message
    */
   public static String formatSanitizedMessage(
       Recognizer<?, ?> recognizer,
@@ -280,433 +129,6 @@ public final class StvnErrorListener extends BaseErrorListener {
       String rawMsg,
       @Nullable RecognitionException e
   ) {
-    if (recognizer instanceof org.antlr.v4.runtime.Lexer) {
-      if (rawMsg != null && (rawMsg.contains("\t") || rawMsg.contains("\\t"))) {
-        return "Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead (ERR_TAB_CHARACTER_FORBIDDEN)";
-      }
-    }
-    if (recognizer instanceof Parser parser) {
-      RuleContext ctx = e != null && e.getCtx() != null ? e.getCtx() : parser.getContext();
-      String tokenText = offendingToken != null ? offendingToken.getText() : "";
-      int tokenType = offendingToken != null ? offendingToken.getType() : Token.INVALID_TYPE;
-
-      // Intercept forbidden TAB_CHARACTER tokens citing Zero-Tab Invariant
-      if (offendingToken != null && offendingToken.getType() == StvnLexer.TAB_CHARACTER) {
-        return "Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead (ERR_TAB_CHARACTER_FORBIDDEN)";
-      }
-
-      // 0a. Intercept MALFORMED_FENCE_OPEN token citing Rule STR-04
-      if (offendingToken != null && offendingToken.getType() == StvnLexer.MALFORMED_FENCE_OPEN) {
-        return formatMalformedFenceMessage(tokenText);
-      }
-
-      // 0b. Intercept MALFORMED_FENCE_CLOSE token in DEFAULT_MODE citing Rule STR-04
-      if (offendingToken != null && offendingToken.getType() == StvnLexer.MALFORMED_FENCE_CLOSE) {
-        return "Rule STR-04 violation: Orphan or unexpected closing fence delimiter " + escapeWsAndQuote(tokenText);
-      }
-
-      // 0c. Intercept unclosed fenced string / asymmetric closing tag at EOF
-      if (offendingToken != null && offendingToken.getType() == Token.EOF) {
-        IntervalSet expected = e != null ? e.getExpectedTokens() : parser.getExpectedTokens();
-        if (expected != null && expected.contains(StvnLexer.FENCE_END)) {
-          return formatUnclosedFenceMessage(parser);
-        }
-      }
-
-      // Fast-path: already formatted clause requirement message from StvnErrorStrategy
-      if (rawMsg != null && rawMsg.startsWith("clause '")) {
-        return rawMsg;
-      }
-
-      // 1. Check if we are inside a collection literal where unexpected tokens should be flagged as extraneous
-      boolean inCollectionLiteral = isInCollectionLiteral(ctx);
-
-      // 2. Structural Pattern: Empty Composite Argument Detection (Context & Token Stream Inspection)
-      if (offendingToken != null) {
-        var stream = parser.getTokenStream();
-        int idx = offendingToken.getTokenIndex();
-
-        // Intercept incomplete clauses
-        Token prevToken = (idx > 0 && stream != null) ? stream.get(idx - 1) : null;
-        if (prevToken != null && prevToken.getType() == StvnLexer.KW_DEFS && isClauseOrBoundary(offendingToken)) {
-          return "clause ':defs' requires definition block '{ ... }'";
-        }
-        if (prevToken != null && prevToken.getType() == StvnLexer.KW_TYPE && isClauseOrBoundary(offendingToken)) {
-          return "clause ':type' requires a schema type";
-        }
-        if (prevToken != null && prevToken.getType() == StvnLexer.KW_BODY && isClauseOrBoundary(offendingToken)) {
-          return "clause ':body' requires a value payload";
-        }
-        if (prevToken != null && prevToken.getType() == StvnLexer.KW_META && isClauseOrBoundary(offendingToken)) {
-          return "clause ':meta' requires a metadata block '{ ... }'";
-        }
-
-        // Intercept bare #preserveIndent or non-boolean argument following KW_PRESERVE_INDENT
-        if (idx > 0 && stream != null && stream.get(idx - 1).getType() == StvnLexer.KW_PRESERVE_INDENT) {
-          return "Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)";
-        }
-
-        // Check if offending token is '(' preceded by :Tuple, :Union, etc. and followed by ')'
-        if ("(".equals(tokenText) && idx > 0 && idx + 1 < stream.size()) {
-          Token prev = stream.get(idx - 1);
-          Token next = stream.get(idx + 1);
-          if (")".equals(next.getText())) {
-            if (":Tuple".equals(prev.getText())) {
-              return "empty composite argument list: :Tuple() requires at least one schema type";
-            }
-            if (":Union".equals(prev.getText())) {
-              return "empty composite argument list: :Union() requires at least one schema type";
-            }
-            if (isSingleArgCollectionKeyword(prev.getText())) {
-              return "empty composite argument list: collection requires schema type argument";
-            }
-            if (isTwoArgCollectionKeyword(prev.getText())) {
-              return "insufficient composite arguments: expected 2 schema type arguments";
-            }
-          }
-        }
-
-
-        // Check if offending token is '[' preceded by :Enum and followed by ']'
-        if ("[".equals(tokenText) && idx > 0 && idx + 1 < stream.size()) {
-          Token prev = stream.get(idx - 1);
-          Token next = stream.get(idx + 1);
-          if (":Enum".equals(prev.getText()) && "]".equals(next.getText())) {
-            return "empty enum variant list: :Enum[] requires at least one value keyword variant";
-          }
-        }
-
-        // Check if offending token is ')' preceded by '(' preceded by :Tuple, :Union, etc.
-        if (")".equals(tokenText) && idx >= 2) {
-          Token prev = stream.get(idx - 1);
-          Token prev2 = stream.get(idx - 2);
-          if ("(".equals(prev.getText())) {
-            if (":Tuple".equals(prev2.getText())) {
-              return "empty composite argument list: :Tuple() requires at least one schema type";
-            }
-            if (":Union".equals(prev2.getText())) {
-              return "empty composite argument list: :Union() requires at least one schema type";
-            }
-            if (isSingleArgCollectionKeyword(prev2.getText())) {
-              return "empty composite argument list: collection requires schema type argument";
-            }
-            if (isTwoArgCollectionKeyword(prev2.getText())) {
-              return "insufficient composite arguments: expected 2 schema type arguments";
-            }
-          }
-        }
-
-        // Check if offending token is ']' preceded by '[' preceded by :Enum
-        if ("]".equals(tokenText) && idx >= 2) {
-          Token prev = stream.get(idx - 1);
-          Token prev2 = stream.get(idx - 2);
-          if ("[".equals(prev.getText()) && ":Enum".equals(prev2.getText())) {
-            return "empty enum variant list: :Enum[] requires at least one value keyword variant";
-          }
-        }
-      }
-
-      if (")".equals(tokenText)) {
-        if (isProductTypeContext(ctx)) {
-          return "empty composite argument list: :Tuple() requires at least one schema type";
-        }
-        if (isUnionContext(ctx)) {
-          return "empty composite argument list: :Union() requires at least one schema type";
-        }
-        if (isSingleArgumentCollection(ctx)) {
-          return "empty composite argument list: collection requires schema type argument";
-        }
-        if (isTwoArgumentCollection(ctx)) {
-          return "insufficient composite arguments: expected 2 schema type arguments";
-        }
-      }
-
-      // 3. Structural Pattern: Empty Enum Definition Detection
-      if ("]".equals(tokenText)) {
-        if (isEnumDefContext(ctx)) {
-          return "empty enum variant list: :Enum[] requires at least one value keyword variant";
-        }
-      }
-
-      String offendingText = tokenType == Token.EOF ? "<EOF>" : tokenText;
-      String displayToken = escapeWsAndQuote(offendingText);
-
-      // 4. Expected Token Set Simplification
-      IntervalSet expectedTokens = e != null ? e.getExpectedTokens() : parser.getExpectedTokens();
-      if (expectedTokens != null && !expectedTokens.isNil()) {
-        String simplifiedExpected = simplifyExpectedTokenSet(expectedTokens, parser);
-        if (offendingToken != null) {
-          if (inCollectionLiteral) {
-            return "extraneous input " + displayToken;
-          } else {
-            return "mismatched input " + displayToken + " expecting " + simplifiedExpected;
-          }
-        }
-      }
-
-      if (offendingToken != null) {
-        if (inCollectionLiteral) {
-          return "extraneous input " + displayToken;
-        } else {
-          return "mismatched input " + displayToken;
-        }
-      }
-    }
-
-    // Fallback: Strip existing verbose vocabulary sets if present in rawMsg
-    return sanitizeRawFallback(rawMsg);
-  }
-
-  private static String formatMalformedFenceMessage(String tokenText) {
-    if (tokenText.startsWith("\"\"\"->[")) {
-      return "Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited";
-    }
-    if (!tokenText.contains("[")) {
-      return "Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax \"\"\"[TAG]";
-    }
-    int start = tokenText.indexOf('[');
-    int end = tokenText.indexOf(']', start >= 0 ? start : 0);
-    String tag = (start >= 0 && end > start) ? tokenText.substring(start + 1, end) : "";
-
-    if (tag.isEmpty()) {
-      return "Rule STR-04 violation: Fenced string delimiter tag must not be empty";
-    }
-    if (tag.contains(" ") || tag.contains("\t") || tag.contains("\r") || tag.contains("\n")) {
-      return "Rule STR-04 violation: Fenced string delimiter tag must not contain whitespace, got '" + tag + "'";
-    }
-    if (tag.length() > 256) {
-      return "Rule STR-04 violation: Fenced string delimiter tag length exceeds maximum of 256 characters, got " + tag.length();
-    }
-    return "Rule STR-04 violation: Fenced string delimiter tag '" + tag + "' contains invalid characters; must match positive character class ^[a-zA-Z0-9_-]{1,256}$";
-  }
-
-  private static String formatUnclosedFenceMessage(Parser parser) {
-    String expectedTag = "";
-    var stream = parser.getTokenStream();
-    for (int i = 0; i < stream.size(); i++) {
-      Token t = stream.get(i);
-      if (t.getType() == StvnLexer.FENCE_START) {
-        String txt = t.getText();
-        int open = txt.indexOf('[');
-        int close = txt.indexOf(']', open);
-        if (open >= 0 && close > open) {
-          expectedTag = txt.substring(open + 1, close);
-        }
-      }
-    }
-
-    String fullInput = stream.getText();
-    java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[([a-zA-Z0-9_-]+)\\]\"\"\"").matcher(fullInput);
-    String foundClosingTag = null;
-    while (m.find()) {
-      String tag = m.group(1);
-      if (!tag.equals(expectedTag)) {
-        foundClosingTag = tag;
-      }
-    }
-
-    if (foundClosingTag != null && !expectedTag.isEmpty()) {
-      return "Rule STR-04 violation: Mismatched closing fence tag '[" + foundClosingTag + "]', expected '[" + expectedTag + "]'";
-    }
-    if (!expectedTag.isEmpty()) {
-      return "Rule STR-04 violation: Unclosed fenced string block; expected closing delimiter '[" + expectedTag + "]\"\"\"'";
-    }
-    return "Rule STR-04 violation: Unclosed fenced string block; expected closing delimiter '[TAG]\"\"\"'";
-  }
-
-  private static boolean isInCollectionLiteral(@Nullable RuleContext ctx) {
-    RuleContext cur = ctx;
-    while (cur != null) {
-      String name = cur.getClass().getSimpleName();
-      if (name.equals("ListLiteralContext") ||
-          name.equals("CollectionValueContext") ||
-          name.equals("MapLiteralContext") ||
-          name.equals("TupleLiteralContext")) {
-        return true;
-      }
-      cur = cur.parent;
-    }
-    return false;
-  }
-
-  private static boolean isProductTypeContext(@Nullable RuleContext ctx) {
-    RuleContext cur = ctx;
-    while (cur != null) {
-      String name = cur.getClass().getSimpleName();
-      if (name.equals("ProductTypeContext") || name.equals("TupleTypeContext")) {
-        return true;
-      }
-      if (StvnVocabulary.isConstructorMatch(cur.getText(), StvnVocabulary.TYPE_TUPLE)) {
-        return true;
-      }
-      cur = cur.parent;
-    }
-    return false;
-  }
-
-  private static boolean isUnionContext(@Nullable RuleContext ctx) {
-    RuleContext cur = ctx;
-    while (cur != null) {
-      String name = cur.getClass().getSimpleName();
-      if (name.equals("SumTypeContext") && StvnVocabulary.isConstructorMatch(cur.getText(), StvnVocabulary.TYPE_UNION)) {
-        return true;
-      }
-      cur = cur.parent;
-    }
-    return false;
-  }
-
-  private static boolean isEnumDefContext(@Nullable RuleContext ctx) {
-    RuleContext cur = ctx;
-    while (cur != null) {
-      String name = cur.getClass().getSimpleName();
-      if (name.equals("EnumDefContext") || cur.getText().startsWith("[") || StvnVocabulary.isConstructorMatch(cur.getText(), StvnVocabulary.TYPE_ENUM)) {
-        return true;
-      }
-      cur = cur.parent;
-    }
-    return false;
-  }
-
-  private static boolean isSingleArgCollectionKeyword(String text) {
-    return StvnVocabulary.TYPE_SEQ.equals(text) ||
-           StvnVocabulary.TYPE_SET.equals(text) ||
-           StvnVocabulary.TYPE_OPTION.equals(text);
-  }
-
-  private static boolean isTwoArgCollectionKeyword(String text) {
-    return StvnVocabulary.TYPE_MAP.equals(text) ||
-           StvnVocabulary.TYPE_EITHER.equals(text);
-  }
-
-  private static boolean isSingleArgumentCollection(@Nullable RuleContext ctx) {
-    RuleContext cur = ctx;
-    while (cur != null) {
-      String text = cur.getText();
-      if (StvnVocabulary.isConstructorMatch(text, StvnVocabulary.TYPE_SEQ) ||
-          StvnVocabulary.isConstructorMatch(text, StvnVocabulary.TYPE_SET) ||
-          StvnVocabulary.isConstructorMatch(text, StvnVocabulary.TYPE_OPTION)) {
-        return true;
-      }
-      cur = cur.parent;
-    }
-    return false;
-  }
-
-  private static boolean isTwoArgumentCollection(@Nullable RuleContext ctx) {
-    RuleContext cur = ctx;
-    while (cur != null) {
-      String text = cur.getText();
-      if (StvnVocabulary.isConstructorMatch(text, StvnVocabulary.TYPE_MAP) ||
-          StvnVocabulary.isConstructorMatch(text, StvnVocabulary.TYPE_EITHER)) {
-        return true;
-      }
-      cur = cur.parent;
-    }
-    return false;
-  }
-
-  private static String simplifyExpectedTokenSet(IntervalSet tokens, Parser parser) {
-    // Check if token set contains major schema constructors
-    boolean hasAtomic = tokens.contains(StvnParser.ATOM_INT) ||
-                        tokens.contains(StvnParser.ATOM_STRING) ||
-                        tokens.contains(StvnParser.ATOM_BOOLEAN) ||
-                        tokens.contains(StvnParser.ATOM_FLOAT);
-    boolean hasCollection = tokens.contains(StvnParser.COLL_SEQ) ||
-                            tokens.contains(StvnParser.COLL_SET) ||
-                            tokens.contains(StvnParser.COLL_MAP);
-    boolean hasTypeKw = tokens.contains(StvnParser.TYPE_KEYWORD_BASE);
-    boolean hasValueKw = tokens.contains(StvnParser.VALUE_KEYWORD_BASE) ||
-                         tokens.contains(StvnParser.KW_TRUE) ||
-                         tokens.contains(StvnParser.UNION_TAG_PREFIX);
-
-    if (hasAtomic || hasCollection || hasTypeKw) {
-      return "<schema type>";
-    }
-    if (tokens.contains(StvnParser.KW_PACKAGE) || tokens.contains(StvnParser.KW_USE)) {
-      return "<definition keyword>";
-    }
-    if (tokens.contains(StvnParser.LITERAL_INTEGER) && tokens.contains(StvnParser.LITERAL_STRING_SIMPLE)) {
-      return "<value>";
-    }
-    if (hasValueKw && tokens.size() > 5) {
-      return "<value keyword>";
-    }
-    if (tokens.contains(StvnParser.KW_EQUATABLE) || tokens.contains(StvnParser.KW_MIN_INCL) || tokens.contains(StvnParser.KW_REGEX)) {
-      return "<metadata keyword>";
-    }
-
-    // Single token exact representation
-    if (tokens.size() == 1) {
-      return parser.getVocabulary().getDisplayName(tokens.getMinElement());
-    }
-
-    if (tokens.size() <= 3) {
-      return tokens.toString(parser.getVocabulary());
-    }
-
-    // Truncate large fallback sets
-    var list = tokens.toList();
-    var voc = parser.getVocabulary();
-    return "{" + voc.getDisplayName(list.get(0)) + ", " +
-                 voc.getDisplayName(list.get(1)) + ", " +
-                 voc.getDisplayName(list.get(2)) + ", ... (" + list.size() + " options)}";
-  }
-
-  private static String sanitizeRawFallback(String rawMsg) {
-    if (rawMsg == null) return "syntax error";
-    if (rawMsg.contains("token recognition error at:")) {
-      return sanitizeTokenRecognitionMessage(rawMsg);
-    }
-    if (rawMsg.contains("expecting {")) {
-      int idx = rawMsg.indexOf("expecting {");
-      String prefix = rawMsg.substring(0, idx).trim();
-      String setPart = rawMsg.substring(idx + "expecting {".length());
-      String[] elements = setPart.split("[,}]");
-      if (elements.length > 4) {
-        return prefix + " expecting <valid token>";
-      }
-    }
-    if (rawMsg.contains("no viable alternative at input")) {
-      return rawMsg.replace("no viable alternative at input", "mismatched input");
-    }
-    return rawMsg;
-  }
-
-  private static String sanitizeTokenRecognitionMessage(String rawMsg) {
-    int quoteStart = rawMsg.indexOf('\'');
-    int quoteEnd = rawMsg.lastIndexOf('\'');
-    if (quoteStart >= 0 && quoteEnd > quoteStart) {
-      String prefix = rawMsg.substring(0, quoteStart + 1);
-      String inner = rawMsg.substring(quoteStart + 1, quoteEnd);
-      String suffix = rawMsg.substring(quoteEnd);
-      while (inner.endsWith("\\n") || inner.endsWith("\\r") || inner.endsWith("\n") || inner.endsWith("\r")) {
-        if (inner.endsWith("\\n") || inner.endsWith("\\r")) {
-          inner = inner.substring(0, inner.length() - 2);
-        } else {
-          inner = inner.substring(0, inner.length() - 1);
-        }
-      }
-      return prefix + inner + suffix;
-    }
-    return rawMsg;
-  }
-
-  private static String escapeWsAndQuote(String s) {
-    if (s == null) return "null";
-    s = s.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
-    return "'" + s + "'";
-  }
-
-  private static boolean isClauseOrBoundary(@Nullable Token token) {
-    if (token == null) return false;
-    int type = token.getType();
-    return type == StvnLexer.KW_META
-        || type == StvnLexer.KW_DEFS
-        || type == StvnLexer.KW_TYPE
-        || type == StvnLexer.KW_BODY
-        || type == StvnLexer.RBRACE
-        || type == Token.EOF;
+    return StvnSyntaxErrorSanitizer.formatSanitizedMessage(recognizer, offendingToken, rawMsg, e);
   }
 }
-

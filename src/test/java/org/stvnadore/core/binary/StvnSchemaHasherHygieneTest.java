@@ -80,7 +80,7 @@ class StvnSchemaHasherHygieneTest {
     for (String source : testSources) {
       var ir = StvnCompiler.compilePayload(source).orElseThrow();
       byte[] actualSha256 = StvnSchemaHasher.computeSha256(ir.schema());
-      byte[] legacySha256 = legacyComputeSha256(ir.schema());
+      byte[] legacySha256 = legacyComputeSha256(org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(ir.schema()));
 
       assertArrayEquals(legacySha256, actualSha256,
           "Static prefix byte arrays must produce bit-for-bit identical hashes to legacy concatenation for: " + source);

@@ -4,7 +4,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.lowering.LegacyAstBridge;
 
 import java.io.StringWriter;
 
@@ -117,7 +118,9 @@ class AstPrinterTest {
     ));
 
     // Poisoned sentinel schema lacking valid context
-    var validValue = StvnCompiler.compilePayload("{ :type :Boolean :body #TRUE }").orElseThrow();
+    var validValue = LegacyAstBridge.toLegacyValue(
+        StvnCompiler.compilePayload("{ :type :Boolean :body #TRUE }").orElseThrow()
+    );
     var poisonedSchema = new org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema(
         validValue.schema().node(),
         validValue.schema().constraints(),

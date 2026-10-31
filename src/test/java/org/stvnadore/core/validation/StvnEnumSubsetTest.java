@@ -2,14 +2,15 @@ package org.stvnadore.core.validation;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.stvnadore.core.StvnCompilationResult;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.binary.StvnSchemaHasher;
-import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ir.StvnSchema.EnumSubsetSchema;
+import org.stvnadore.core.ir.StvnValue;
 
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
@@ -36,17 +37,16 @@ public class StvnEnumSubsetTest {
     var ir = result.orElseThrow().requirePayload();
     assertInstanceOf(StvnValue.StvnEnum.class, ir);
     var e = (StvnValue.StvnEnum) ir;
-    assertEquals("#Active", e.keyword());
-    assertEquals(1, e.sequentialIndex()); // Root ordinal index preserved!
-    assertEquals(4, e.variantCount());    // Root variant count preserved!
-    assertTrue(ir.schema().enumSubset().isPresent());
-    var subset = ir.schema().enumSubset().get();
-    assertEquals(":ActiveStatus", subset.name());
-    assertEquals(":Status", subset.parentType());
-    assertEquals(":Status", subset.rootEnum());
-    assertEquals(List.of("#Active", "#Suspended"), subset.allowedVariants());
-    assertEquals(List.of("#Pending", "#Active", "#Suspended", "#Deleted"), subset.rootVariants());
-    assertTrue(subset.isInclusive());
+    assertEquals("#Active", e.variantTag());
+    assertEquals(BigInteger.ONE, e.rootOrdinal()); // Root ordinal index preserved!
+    var subset = assertInstanceOf(EnumSubsetSchema.class, ir.schema());
+    assertEquals(4, subset.rootEnum().rootVariants().size()); // Root variant count preserved!
+    assertEquals(":ActiveStatus", subset.aliasName().orElseThrow());
+    assertEquals(":Status", subset.parentEnum().aliasName().orElseThrow());
+    assertEquals(":Status", subset.rootEnum().aliasName().orElseThrow());
+    assertEquals(List.of("#Active", "#Suspended"), subset.activeVariants());
+    assertEquals(List.of("#Pending", "#Active", "#Suspended", "#Deleted"), subset.rootEnum().rootVariants());
+    assertTrue(subset.inclusiveFilter());
   }
 
   @Test
@@ -65,10 +65,10 @@ public class StvnEnumSubsetTest {
     var result = StvnCompiler.compileToResult(stvn);
     assertTrue(result.isSuccess(), "Compilation failed: " + result.diagnostics());
     var ir = result.orElseThrow().requirePayload();
-    var subset = ir.schema().enumSubset().orElseThrow();
-    assertEquals(List.of("#Pending", "#Active", "#Suspended"), subset.allowedVariants());
-    assertEquals(List.of("#Pending", "#Active", "#Suspended", "#Deleted"), subset.rootVariants());
-    assertFalse(subset.isInclusive());
+    var subset = assertInstanceOf(EnumSubsetSchema.class, ir.schema());
+    assertEquals(List.of("#Pending", "#Active", "#Suspended"), subset.activeVariants());
+    assertEquals(List.of("#Pending", "#Active", "#Suspended", "#Deleted"), subset.rootEnum().rootVariants());
+    assertFalse(subset.inclusiveFilter());
   }
 
   @Test
@@ -88,12 +88,12 @@ public class StvnEnumSubsetTest {
     var result = StvnCompiler.compileToResult(stvn);
     assertTrue(result.isSuccess(), "Compilation failed: " + result.diagnostics());
     var ir = result.orElseThrow().requirePayload();
-    var subset = ir.schema().enumSubset().orElseThrow();
-    assertEquals(":ImmediateStatus", subset.name());
-    assertEquals(":WorkingStatus", subset.parentType());
-    assertEquals(":Status", subset.rootEnum());
-    assertEquals(List.of("#Pending", "#Active"), subset.allowedVariants());
-    assertEquals(List.of("#Pending", "#Active", "#Suspended", "#Deleted"), subset.rootVariants());
+    var subset = assertInstanceOf(EnumSubsetSchema.class, ir.schema());
+    assertEquals(":ImmediateStatus", subset.aliasName().orElseThrow());
+    assertEquals(":WorkingStatus", subset.parentEnum().aliasName().orElseThrow());
+    assertEquals(":Status", subset.rootEnum().aliasName().orElseThrow());
+    assertEquals(List.of("#Pending", "#Active"), subset.activeVariants());
+    assertEquals(List.of("#Pending", "#Active", "#Suspended", "#Deleted"), subset.rootEnum().rootVariants());
   }
 
   @Test

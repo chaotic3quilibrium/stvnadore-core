@@ -4,7 +4,7 @@ import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
-import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ir.StvnValue;
 
 @NullMarked
 class StvnTextPrinterTest {

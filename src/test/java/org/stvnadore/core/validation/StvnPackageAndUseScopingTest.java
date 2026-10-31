@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
-import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.ir.StvnValue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,8 +37,8 @@ public class StvnPackageAndUseScopingTest {
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.isSuccess(), "LHS expansion to FQNI must compile cleanly: " + result.diagnostics());
     StvnValue val = result.orElseThrow().requirePayload();
-    Assertions.assertInstanceOf(StvnValue.StvnInteger.class, val);
-    Assertions.assertEquals(8080L, ((StvnValue.StvnInteger) val).value().longValue());
+    Assertions.assertInstanceOf(StvnValue.StvnInt.class, val);
+    Assertions.assertEquals(8080L, ((StvnValue.StvnInt) val).value().longValue());
   }
 
   @Test
@@ -163,8 +163,8 @@ public class StvnPackageAndUseScopingTest {
     var result = StvnCompiler.compileToResult(source);
     Assertions.assertTrue(result.isSuccess(), "Constant stripping must preserve '#' sigil and resolve: " + result.diagnostics());
     StvnValue val = result.orElseThrow().requirePayload();
-    Assertions.assertInstanceOf(StvnValue.StvnInteger.class, val);
-    Assertions.assertEquals(5000L, ((StvnValue.StvnInteger) val).value().longValue());
+    Assertions.assertInstanceOf(StvnValue.StvnInt.class, val);
+    Assertions.assertEquals(5000L, ((StvnValue.StvnInt) val).value().longValue());
   }
 
   @Test

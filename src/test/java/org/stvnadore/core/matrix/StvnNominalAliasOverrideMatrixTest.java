@@ -63,14 +63,22 @@ public class StvnNominalAliasOverrideMatrixTest {
     };
   }
 
+  private static String parentFacetSyntax(MetadataMatrixRow row) {
+    if ("maxSize".equals(row.tagName()) && "exact".equals(row.domainQualifier())) {
+      return "#exact #maxSize 10";
+    }
+    return facetSyntax(row);
+  }
+
   static Stream<Arguments> provideNonOverridableRows() {
     List<MetadataMatrixRow> rows = MetadataMatrixReader.readDefaultMatrix();
     List<Arguments> testCases = new ArrayList<>();
     for (MetadataMatrixRow row : rows) {
       if (!row.overridable() && !"Directive".equalsIgnoreCase(row.category())) {
-        String facet = facetSyntax(row);
+        String parentFacet = parentFacetSyntax(row);
+        String childFacet = facetSyntax(row);
         String targetType = targetTypeSyntax(row);
-        testCases.add(Arguments.of(row.position(), row.modifying(), row.tagName(), facet, targetType));
+        testCases.add(Arguments.of(row.position(), row.modifying(), row.tagName(), parentFacet, childFacet, targetType));
       }
     }
     return testCases.stream();
@@ -79,7 +87,8 @@ public class StvnNominalAliasOverrideMatrixTest {
   @ParameterizedTest(name = "[{index}] Row {0} ({1} #{2}): 2-hop re-specification fails closed with ERR_NON_OVERRIDABLE_FACET")
   @MethodSource("provideNonOverridableRows")
   @DisplayName("NOM-OVERRIDE-01: Re-declaring non-overridable facets across nominal alias hops fails closed")
-  void testNonOverridableFacetReDeclaration(String position, String modifying, String tagName, String facetSyntax, String targetType) {
+  void testNonOverridableFacetReDeclaration(
+      String position, String modifying, String tagName, String parentFacetSyntax, String childFacetSyntax, String targetType) {
     String source = """
         {
           :defs {
@@ -89,10 +98,10 @@ public class StvnNominalAliasOverrideMatrixTest {
           :type :Int
           :body 0
         }
-        """.formatted(facetSyntax, targetType, facetSyntax);
+        """.formatted(parentFacetSyntax, targetType, childFacetSyntax);
 
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Re-declaration of non-overridable facet " + facetSyntax + " on " + modifying + " must fail");
+    assertTrue(result.hasErrors(), "Re-declaration of non-overridable facet " + childFacetSyntax + " on " + modifying + " must fail");
 
     boolean matched = result.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_NON_OVERRIDABLE_FACET.equals(d.errorCode().orElse(null)));

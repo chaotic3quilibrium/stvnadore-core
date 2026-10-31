@@ -8,9 +8,10 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
-import org.stvnadore.core.ast.StvnValue.*;
-import org.stvnadore.core.validation.MalformedPayloadException;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.ir.StvnValue.*;
 
+import java.math.BigInteger;
 import java.util.Optional;
 
 /**
@@ -48,8 +49,8 @@ public class StvnSchemaDirectedKeywordsTest {
       var elem = tuple.elements().get(i);
       Assertions.assertInstanceOf(StvnEnum.class, elem);
       var enumVal = (StvnEnum) elem;
-      Assertions.assertEquals(expectedKeywords[i], enumVal.keyword());
-      Assertions.assertEquals(i, enumVal.sequentialIndex());
+      Assertions.assertEquals(expectedKeywords[i], enumVal.variantTag());
+      Assertions.assertEquals(BigInteger.valueOf(i), enumVal.rootOrdinal());
     }
 
     assertBinaryRoundTrip(ir);
@@ -76,11 +77,11 @@ public class StvnSchemaDirectedKeywordsTest {
     var tuple = (StvnTuple) ir;
 
     Assertions.assertEquals(2, tuple.elements().size());
-    Assertions.assertInstanceOf(StvnInteger.class, tuple.elements().get(0));
-    Assertions.assertInstanceOf(StvnInteger.class, tuple.elements().get(1));
+    Assertions.assertInstanceOf(StvnInt.class, tuple.elements().get(0));
+    Assertions.assertInstanceOf(StvnInt.class, tuple.elements().get(1));
 
-    Assertions.assertEquals(10L, ((StvnInteger) tuple.elements().get(0)).value().longValue());
-    Assertions.assertEquals(20L, ((StvnInteger) tuple.elements().get(1)).value().longValue());
+    Assertions.assertEquals(10L, ((StvnInt) tuple.elements().get(0)).value().longValue());
+    Assertions.assertEquals(20L, ((StvnInt) tuple.elements().get(1)).value().longValue());
 
     assertBinaryRoundTrip(ir);
   }
@@ -110,12 +111,12 @@ public class StvnSchemaDirectedKeywordsTest {
     // Element 0: Dimension 1 (Target :Mode -> StvnEnum)
     Assertions.assertInstanceOf(StvnEnum.class, tuple.elements().get(0));
     var enumVal = (StvnEnum) tuple.elements().get(0);
-    Assertions.assertEquals("#Left", enumVal.keyword());
-    Assertions.assertEquals(0, enumVal.sequentialIndex());
+    Assertions.assertEquals("#Left", enumVal.variantTag());
+    Assertions.assertEquals(BigInteger.ZERO, enumVal.rootOrdinal());
 
-    // Element 1: Dimension 2 (Target :Int -> StvnInteger constant substitution)
-    Assertions.assertInstanceOf(StvnInteger.class, tuple.elements().get(1));
-    var intVal = (StvnInteger) tuple.elements().get(1);
+    // Element 1: Dimension 2 (Target :Int -> StvnInt constant substitution)
+    Assertions.assertInstanceOf(StvnInt.class, tuple.elements().get(1));
+    var intVal = (StvnInt) tuple.elements().get(1);
     Assertions.assertEquals(99L, intVal.value().longValue());
 
     assertBinaryRoundTrip(ir);
@@ -163,8 +164,8 @@ public class StvnSchemaDirectedKeywordsTest {
     Assertions.assertInstanceOf(StvnOption.class, ir);
     var opt = (StvnOption) ir;
     Assertions.assertTrue(opt.value().isPresent(), "Expected Some variant of Option");
-    Assertions.assertInstanceOf(StvnInteger.class, opt.value().get());
-    Assertions.assertEquals(0L, ((StvnInteger) opt.value().get()).value().longValue());
+    Assertions.assertInstanceOf(StvnInt.class, opt.value().get());
+    Assertions.assertEquals(0L, ((StvnInt) opt.value().get()).value().longValue());
 
     assertBinaryRoundTrip(ir);
   }
@@ -188,8 +189,8 @@ public class StvnSchemaDirectedKeywordsTest {
     Assertions.assertInstanceOf(StvnOption.class, ir);
     var opt = (StvnOption) ir;
     Assertions.assertTrue(opt.value().isPresent(), "Expected Implied Some on Constant");
-    Assertions.assertInstanceOf(StvnInteger.class, opt.value().get());
-    Assertions.assertEquals(5L, ((StvnInteger) opt.value().get()).value().longValue());
+    Assertions.assertInstanceOf(StvnInt.class, opt.value().get());
+    Assertions.assertEquals(5L, ((StvnInt) opt.value().get()).value().longValue());
 
     assertBinaryRoundTrip(ir);
   }
@@ -212,9 +213,9 @@ public class StvnSchemaDirectedKeywordsTest {
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnEither.class, ir);
     var either = (StvnEither) ir;
-    Assertions.assertFalse(either.isRight(), "Expected Left branch of Either");
-    Assertions.assertInstanceOf(StvnInteger.class, either.value());
-    Assertions.assertEquals(404L, ((StvnInteger) either.value()).value().longValue());
+    Assertions.assertEquals(EitherBranch.LEFT, either.branch(), "Expected Left branch of Either");
+    Assertions.assertInstanceOf(StvnInt.class, either.value());
+    Assertions.assertEquals(404L, ((StvnInt) either.value()).value().longValue());
 
     assertBinaryRoundTrip(ir);
   }
@@ -257,9 +258,9 @@ public class StvnSchemaDirectedKeywordsTest {
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnEither.class, ir);
     var either = (StvnEither) ir;
-    Assertions.assertFalse(either.isRight(), "Expected Left branch of Either for #Left #ERR");
-    Assertions.assertInstanceOf(StvnInteger.class, either.value());
-    Assertions.assertEquals(404L, ((StvnInteger) either.value()).value().longValue());
+    Assertions.assertEquals(EitherBranch.LEFT, either.branch(), "Expected Left branch of Either for #Left #ERR");
+    Assertions.assertInstanceOf(StvnInt.class, either.value());
+    Assertions.assertEquals(404L, ((StvnInt) either.value()).value().longValue());
 
     assertBinaryRoundTrip(ir);
   }
@@ -282,7 +283,7 @@ public class StvnSchemaDirectedKeywordsTest {
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnEither.class, ir);
     var either = (StvnEither) ir;
-    Assertions.assertTrue(either.isRight(), "Expected Right branch of Either");
+    Assertions.assertEquals(EitherBranch.RIGHT, either.branch(), "Expected Right branch of Either");
     Assertions.assertInstanceOf(StvnString.class, either.value());
     Assertions.assertEquals("OK", ((StvnString) either.value()).value());
 
@@ -307,7 +308,7 @@ public class StvnSchemaDirectedKeywordsTest {
     var ir = irOpt.get();
     Assertions.assertInstanceOf(StvnUnion.class, ir);
     var union = (StvnUnion) ir;
-    Assertions.assertEquals(2, union.tagIndex(), "Expected branch index 2 (:Boolean)");
+    Assertions.assertEquals(BigInteger.valueOf(3), union.oneBasedBranchIndex(), "Expected 1-based branch index 3 (:Boolean)");
     Assertions.assertInstanceOf(StvnBoolean.class, union.value());
     Assertions.assertTrue(((StvnBoolean) union.value()).value());
 
@@ -343,18 +344,18 @@ public class StvnSchemaDirectedKeywordsTest {
     Assertions.assertEquals(8, tuple.elements().size());
     for (int i = 0; i < 8; i++) {
       var elem = tuple.elements().get(i);
-      Assertions.assertInstanceOf(StvnInteger.class, elem);
-      Assertions.assertEquals((long) (i + 1), ((StvnInteger) elem).value().longValue());
+      Assertions.assertInstanceOf(StvnInt.class, elem);
+      Assertions.assertEquals((long) (i + 1), ((StvnInt) elem).value().longValue());
     }
 
     assertBinaryRoundTrip(ir);
   }
 
-  private void assertBinaryRoundTrip(org.stvnadore.core.ast.StvnValue ir) {
+  private void assertBinaryRoundTrip(StvnValue ir) {
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault());
     var encoded = encoder.encode(ir);
     var rootPointer = StvnBinaryDecoder.openStrict(encoded, new SchemaIdentityStrategy.UniversalDefault());
-    var decodedIr = StvnBinaryDecoder.unpack(rootPointer, Optional.of(ir.schema()));
+    var decodedIr = StvnBinaryDecoder.unpackIr(rootPointer, Optional.of(ir.schema()));
     Assertions.assertEquals(ir, decodedIr);
   }
 }

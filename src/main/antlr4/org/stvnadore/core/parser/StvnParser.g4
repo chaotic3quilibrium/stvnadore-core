@@ -47,7 +47,8 @@ nestedPackageIllegal : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
 useStmt : KW_USE LBRACK useTarget useOptionsBlock? useAliasBlock? RBRACK ;
 useTarget : typeKeyword | useTargetIllegal ;
 useTargetIllegal : typeKeyword FSLASH+ ;
-useOptionsBlock : LBRACE KW_STRIP* RBRACE ;
+useOptionsBlock : LBRACE useOption* RBRACE ;
+useOption       : KW_STRIP standaloneFacetIllegalArg? ;
 useAliasBlock   : LBRACE useMapAlias* RBRACE ;
 useMapAlias     : typeKeyword typeKeyword | valueKeyword valueKeyword ;
 
@@ -57,7 +58,7 @@ includeElement      : stringLiteral includeOptionsBlock? includeAliasBlock? ;
 
 includeOptionsBlock : LBRACE includeOption* RBRACE ;
 
-includeOption       : KW_STRIP ;
+includeOption       : KW_STRIP standaloneFacetIllegalArg? ;
 
 includeAliasBlock   : LBRACE includeMapAlias* RBRACE ;
 
@@ -73,18 +74,35 @@ constantDefinition : valueKeyword schemaType value ;
 metadataMap    : LBRACE metadataEntry* RBRACE ;
 
 // Enforced structural type verification branches
-metadataEntry     : metadataBool | metadataTrait | metadataRange | metadataString | metadataFilter | metadataDirective
-                  | metadataSize | metadataFlag
+metadataEntry     : metadataBool | metadataTrait | metadataRange | metadataString | metadataFilter | facetDirective
+                  | metadataSize | facetUnsigned | facetExact | facetInvertible | facetTemporalScale | facetTemporalMode
                   | metadataUnknownEntry ;
-metadataDirective : KW_STRIP ;
-metadataBool      : (KW_EQUATABLE | KW_COMPARABLE) metadataValue ;
-metadataTrait     : KW_PRESERVE_INDENT (booleanLiteral | valueKeyword) ;
-metadataRange     : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
-metadataString : KW_REGEX metadataValue ;
-metadataFilter : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
-metadataSize   : (KW_SIZE | KW_MIN_SIZE | KW_MAX_SIZE) metadataValue ;
-metadataFlag   : (KW_UNSIGNED | KW_EXACT | KW_INVERTIBLE | KW_OFFSET | KW_ZONED | KW_AUDITED
-                 | KW_SCALE_S | KW_SCALE_MS | KW_SCALE_US | KW_SCALE_NS) booleanLiteral? ;
+facetDirective     : KW_STRIP standaloneFacetIllegalArg? ;
+metadataBool       : (KW_EQUATABLE | KW_COMPARABLE) metadataValue ;
+metadataTrait      : KW_PRESERVE_INDENT (booleanLiteral | valueKeyword) ;
+metadataRange      : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
+metadataString     : KW_REGEX metadataValue ;
+metadataFilter     : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
+metadataSize       : (KW_SIZE | KW_MIN_SIZE | KW_MAX_SIZE) metadataValue ;
+facetUnsigned      : KW_UNSIGNED standaloneFacetIllegalArg? ;
+facetExact         : KW_EXACT standaloneFacetIllegalArg? ;
+facetInvertible    : KW_INVERTIBLE standaloneFacetIllegalArg? ;
+facetTemporalScale : (KW_SCALE_NS | KW_SCALE_US | KW_SCALE_MS | KW_SCALE_S) standaloneFacetIllegalArg? ;
+facetTemporalMode  : (KW_OFFSET | KW_ZONED | KW_AUDITED) standaloneFacetIllegalArg? ;
+standaloneFacetIllegalArg : booleanLiteral
+                          | integerLiteral
+                          | floatLiteral
+                          | stringLiteral
+                          | collectionValue
+                          | UNION_TAG_PREFIX
+                          | KW_NONE | KW_NONE_SHORT
+                          | KW_SOME | KW_SOME_SHORT
+                          | KW_LEFT | KW_LEFT_SHORT
+                          | KW_RIGHT | KW_RIGHT_SHORT
+                          | KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_INCLUDE | KW_KIND_DEFS_INCLUDE
+                          | typeKeyword
+                          | reservedKeyword
+                          ;
 metadataUnknownEntry : unknownFacetKeyword (value | schemaType)?? ;
 
 unknownFacetKeyword : unknownFacetKeywordStart ( FSLASH IDENTIFIER )* ;
@@ -155,7 +173,7 @@ collectionValue : listLiteral | mapLiteral | tupleLiteral ;
 listLiteral     : LBRACK value* RBRACK ;
 mapLiteral      : LBRACE mapEntry* RBRACE ;
 mapEntry        : LBRACK value value RBRACK ;
-tupleLiteral    : LPAREN value+ RPAREN ;
+tupleLiteral    : LPAREN value* RPAREN ;
 
 booleanLiteral : KW_TRUE | KW_FALSE | KW_TRUE_SHORT | KW_FALSE_SHORT ;
 integerLiteral : LITERAL_INTEGER ;

@@ -150,7 +150,7 @@ class StvnRecordMapperTest {
       StvnMapper.toValue(pojo, schema);
     });
 
-    var dummyValue = new StvnValue.StvnString(schema, "val", StvnValue.StringStyle.SIMPLE, Optional.empty(), new StvnValue.StringTrait(0, false));
+    var dummyValue = new org.stvnadore.core.ir.StvnValue.StvnString(schema, "val");
     assertThrows(IllegalArgumentException.class, () -> {
       StvnMapper.fromValue(dummyValue, SimplePOJO.class, schema);
     });

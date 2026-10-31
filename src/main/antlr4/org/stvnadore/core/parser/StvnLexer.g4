@@ -73,7 +73,6 @@ KW_ENUM      : ':Enum' ;
 KW_OPTION    : ':Option' ;
 KW_EITHER    : ':Either' ;
 KW_UNION     : ':Union' ;
-KW_MAP_ENTRY : ':MapEntry' ;
 
 KW_TRUE        : '#TRUE' ;
 KW_FALSE       : '#FALSE' ;

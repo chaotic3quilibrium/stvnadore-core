@@ -69,15 +69,21 @@ import java.util.*;
 @SuppressWarnings({"ConstantConditions", "DataFlowIssue"})
 public class StvnTypeResolver {
 
+  private static final StvnDocumentContext LEGACY_PRELUDE_AST_CONTEXT =
+      new org.stvnadore.core.parser.StvnParser(
+          new CommonTokenStream(
+              new org.stvnadore.core.parser.StvnLexer(CharStreams.fromString(StvnPrelude.PRELUDE_STVN_D))))
+          .stvnDocument();
+
   /**
-   * A mapping of document context instances to their corresponding file paths.
-   * <p>
-   * This map is designed as a {@link Collections#synchronizedMap(Map)} wrapping a {@link WeakHashMap}.
-   * This configuration prevents memory leaks of {@link StvnDocumentContext} AST instances by allowing
-   * them to be garbage collected when they are no longer referenced elsewhere, while preserving
-   * concurrent thread safety.
+   * Transitional Stage 3 bridge returning a parsed ANTLR context for {@link StvnPrelude#PRELUDE_STVN_D}
+   * strictly for legacy AST callers until Stage 3 deletes {@code org.stvnadore.core.ast}.
+   *
+   * @return parsed prelude ANTLR context
    */
-  public static final Map<StvnDocumentContext, String> documentPaths = Collections.synchronizedMap(new WeakHashMap<>());
+  public static StvnDocumentContext legacyPreludeAstContext() {
+    return LEGACY_PRELUDE_AST_CONTEXT;
+  }
   private static final Map<StvnDocumentContext, Map<String, DefSource>> documentDefinitionsCache = Collections.synchronizedMap(new WeakHashMap<>());
   private static final Map<StvnDocumentContext, Map<String, ConstantDefSource>> documentConstantDefinitionsCache = Collections.synchronizedMap(new WeakHashMap<>());
   private static final Map<StvnDocumentContext, Set<String>> documentPoisonedTypes = Collections.synchronizedMap(new WeakHashMap<>());
@@ -112,7 +118,7 @@ public class StvnTypeResolver {
   }
 
   private static boolean isSystemAuthority(@Nullable StvnDocumentContext doc) {
-    if (doc == null || doc == StvnPrelude.getPreludeDocument()) {
+    if (doc == null || doc == legacyPreludeAstContext()) {
       return true;
     }
     var config = documentConfigs.get(doc);
@@ -214,7 +220,7 @@ public class StvnTypeResolver {
       }
       List<String> activePaths = new ArrayList<>();
       List<String> activeRawPaths = new ArrayList<>();
-      String currentDocPath = documentPaths.get(doc);
+      String currentDocPath = null;
       if (currentDocPath != null && !currentDocPath.isEmpty()) {
         activePaths.add(Paths.get(currentDocPath).toAbsolutePath().toString());
         activeRawPaths.add(currentDocPath);
@@ -399,7 +405,7 @@ public class StvnTypeResolver {
     if (findDefInDocument(doc, kw).isPresent()) {
       return kw;
     }
-    var preludeDoc = StvnPrelude.getPreludeDocument();
+    var preludeDoc = legacyPreludeAstContext();
     if (preludeDoc != null && findDefInDocument(preludeDoc, kw).isPresent()) {
       return kw;
     }
@@ -440,7 +446,7 @@ public class StvnTypeResolver {
     if (findConstantDefInDocument(doc, kw).isPresent()) {
       return kw;
     }
-    var preludeDoc = StvnPrelude.getPreludeDocument();
+    var preludeDoc = legacyPreludeAstContext();
     if (preludeDoc != null) {
       if (findConstantDefInDocument(preludeDoc, kw).isPresent()) {
         return kw;
@@ -478,8 +484,8 @@ public class StvnTypeResolver {
     var constAccumulator = new LinkedHashMap<String, List<NamespaceClaim<ConstantDefinitionContext>>>();
 
     // Pass 1: Implicit ingestion of standard library prelude under :org/stvnadore/prelude/
-    if (doc != org.stvnadore.core.stdlib.StvnPrelude.getPreludeDocument()) {
-      var preludeDoc = org.stvnadore.core.stdlib.StvnPrelude.getPreludeDocument();
+    if (doc != legacyPreludeAstContext()) {
+      var preludeDoc = legacyPreludeAstContext();
       var preludeDefs = getDocumentDefinitions(preludeDoc);
       for (var entry : preludeDefs.entrySet()) {
         var pName = entry.getKey();
@@ -498,7 +504,7 @@ public class StvnTypeResolver {
 
     if (doc.documentBody() != null && doc.documentBody().defsEntry() != null) {
       var defsEntry = doc.documentBody().defsEntry();
-      var currentDocPath = documentPaths.get(doc);
+      String currentDocPath = null;
 
       // Iterate over the elements of defsEntry in sorted source order
       var elements = new ArrayList<ParserRuleContext>();
@@ -578,7 +584,7 @@ public class StvnTypeResolver {
           constAccumulator.computeIfAbsent(constName, k -> new ArrayList<>())
               .add(new NamespaceClaim<>(constName, constDef, "Inline Document", ClaimType.LOCAL));
         } else if (child instanceof StvnParser.IncludeStmtContext includeStmt) {
-          if (currentDocPath != null && ((currentDocPath.endsWith(".stvn") && !currentDocPath.endsWith(".contract.stvn"))
+          if (currentDocPath != null && (currentDocPath.endsWith(".stvn")
               || currentDocPath.endsWith(".stvn_d") || currentDocPath.endsWith(".stvn_b") || currentDocPath.endsWith(".stvn_bd"))) {
             String msg = "Hermetic document or schema (.stvn / .stvn_d) cannot contain include statements: " + currentDocPath;
             diagnosticBag.addError(
@@ -697,7 +703,6 @@ public class StvnTypeResolver {
                 continue;
               }
 
-              documentPaths.put(importedDoc, resolvedPath.toString());
               var parentConfig = documentConfigs.get(doc);
               if (parentConfig != null) {
                 documentConfigs.put(importedDoc, parentConfig);
@@ -959,7 +964,7 @@ public class StvnTypeResolver {
     var doc = findEnclosingDocument(useStmt);
     if (doc != null && useStmt.useTarget() != null && useStmt.useTarget().useTargetIllegal() == null) {
       var target = useStmt.useTarget().getText();
-      var currentDocPath = documentPaths.get(doc);
+      String currentDocPath = null;
       if (currentDocPath != null && (currentDocPath.endsWith(".stvn") || currentDocPath.endsWith(".stvn_d")
           || currentDocPath.endsWith(".stvn_b") || currentDocPath.endsWith(".stvn_bd"))) {
         boolean isPrelude = target.equals(":org/stvnadore/prelude") || target.startsWith(":org/stvnadore/prelude/");
@@ -989,7 +994,7 @@ public class StvnTypeResolver {
           DiagnosticBag.ERR_TRAILING_SLASH_PROHIBITED
       );
     }
-    if (useStmt.useOptionsBlock() != null && useStmt.useOptionsBlock().KW_STRIP().isEmpty()) {
+    if (useStmt.useOptionsBlock() != null && useStmt.useOptionsBlock().useOption().isEmpty()) {
       diagnosticBag.addError(
           "Empty directive block in :use or :include statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
           useStmt.useOptionsBlock().getStart().getStartIndex(),
@@ -1049,7 +1054,8 @@ public class StvnTypeResolver {
         continue;
       }
       var target = useStmt.useTarget().getText();
-      boolean hasStrip = useStmt.useOptionsBlock() != null && !useStmt.useOptionsBlock().KW_STRIP().isEmpty();
+      boolean hasStrip = useStmt.useOptionsBlock() != null
+          && useStmt.useOptionsBlock().useOption().stream().anyMatch(o -> o.KW_STRIP() != null);
       var typeAliasMap = new LinkedHashMap<String, String>();
       var constAliasMap = new LinkedHashMap<String, String>();
       if (useStmt.useAliasBlock() != null && useStmt.useAliasBlock().useMapAlias() != null) {
@@ -1068,7 +1074,7 @@ public class StvnTypeResolver {
         boolean hasPreludeInTypes = allTypes.keySet().stream().anyMatch(k -> k.startsWith(":org/stvnadore/prelude"));
         boolean hasPreludeInConsts = allConstants.keySet().stream().anyMatch(k -> k.startsWith(StvnVocabulary.SIGIL_VALUE + "org/stvnadore/prelude"));
         if (!hasPreludeInTypes || !hasPreludeInConsts) {
-          var preludeDoc = StvnPrelude.getPreludeDocument();
+          var preludeDoc = legacyPreludeAstContext();
           if (preludeDoc != null && preludeDoc.documentBody() != null && preludeDoc.documentBody().defsEntry() != null) {
             if (preludeDoc.documentBody().defsEntry().defsElement() != null) {
               for (var de : preludeDoc.documentBody().defsEntry().defsElement()) {
@@ -1379,7 +1385,7 @@ public class StvnTypeResolver {
   }
 
   private static boolean isMapType(@Nullable String type) {
-    return StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_MAP) || StvnVocabulary.TYPE_MAP_ENTRY.equals(type);
+    return StvnVocabulary.isConstructorMatch(type, StvnVocabulary.TYPE_MAP);
   }
 
   private static final Set<String> TYPES_TIME = Set.of(
@@ -2226,41 +2232,39 @@ public class StvnTypeResolver {
             explicitOverrides.add(StvnVocabulary.FACET_NAME_PRESERVE_INDENT);
           }
         }
-      } else if (entry.metadataFlag() != null) {
-        var flagCtx = entry.metadataFlag();
-        boolean flagVal = true;
-        if (flagCtx.booleanLiteral() != null) {
-          var bLit = flagCtx.booleanLiteral();
-          flagVal = bLit.KW_TRUE() != null || bLit.KW_TRUE_SHORT() != null;
-        }
-        if (flagCtx.KW_UNSIGNED() != null) {
-          unsigned = flagVal;
-          explicitOverrides.add("unsigned");
-        } else if (flagCtx.KW_EXACT() != null) {
-          exact = flagVal;
-          explicitOverrides.add("exact");
-        } else if (flagCtx.KW_INVERTIBLE() != null) {
-          invertible = flagVal;
-          explicitOverrides.add("invertible");
-        } else if (flagCtx.KW_OFFSET() != null) {
-          offset = flagVal;
+      } else if (entry.facetUnsigned() != null) {
+        unsigned = true;
+        explicitOverrides.add("unsigned");
+      } else if (entry.facetExact() != null) {
+        exact = true;
+        explicitOverrides.add("exact");
+      } else if (entry.facetInvertible() != null) {
+        invertible = true;
+        explicitOverrides.add("invertible");
+      } else if (entry.facetTemporalMode() != null) {
+        var modeCtx = entry.facetTemporalMode();
+        if (modeCtx.KW_OFFSET() != null) {
+          offset = true;
           explicitOverrides.add("offset");
-        } else if (flagCtx.KW_ZONED() != null) {
-          zoned = flagVal;
+        } else if (modeCtx.KW_ZONED() != null) {
+          zoned = true;
           explicitOverrides.add("zoned");
-        } else if (flagCtx.KW_AUDITED() != null) {
-          audited = flagVal;
+        } else if (modeCtx.KW_AUDITED() != null) {
+          audited = true;
           explicitOverrides.add("audited");
-        } else if (flagCtx.KW_SCALE_S() != null) {
+        }
+      } else if (entry.facetTemporalScale() != null) {
+        var scaleCtx = entry.facetTemporalScale();
+        if (scaleCtx.KW_SCALE_S() != null) {
           scale = "s";
           explicitOverrides.add("scale");
-        } else if (flagCtx.KW_SCALE_MS() != null) {
+        } else if (scaleCtx.KW_SCALE_MS() != null) {
           scale = "ms";
           explicitOverrides.add("scale");
-        } else if (flagCtx.KW_SCALE_US() != null) {
+        } else if (scaleCtx.KW_SCALE_US() != null) {
           scale = "us";
           explicitOverrides.add("scale");
-        } else if (flagCtx.KW_SCALE_NS() != null) {
+        } else if (scaleCtx.KW_SCALE_NS() != null) {
           scale = "ns";
           explicitOverrides.add("scale");
         }
@@ -2463,7 +2467,7 @@ public class StvnTypeResolver {
 
     // Fallback to Prelude
     if (results.isEmpty()) {
-      var preludeDoc = StvnPrelude.getPreludeDocument();
+      var preludeDoc = legacyPreludeAstContext();
       findDefInDocument(preludeDoc, targetName).ifPresent(s -> results.add(new DefSource(s.defNode(), "Prelude")));
     }
 
@@ -2530,7 +2534,7 @@ public class StvnTypeResolver {
 
     // Fallback to Prelude
     if (results.isEmpty()) {
-      var preludeDoc = StvnPrelude.getPreludeDocument();
+      var preludeDoc = legacyPreludeAstContext();
       findConstantDefInDocument(preludeDoc, targetName).ifPresent(s -> results.add(new ConstantDefSource(s.defNode(), "Prelude")));
       if (results.isEmpty() && preludeDoc != null) {
         String preludeFqni = StvnVocabulary.SIGIL_VALUE + "org/stvnadore/prelude/" + (targetName.startsWith(StvnVocabulary.SIGIL_VALUE) ? targetName.substring(1) : targetName);
@@ -3749,7 +3753,7 @@ public class StvnTypeResolver {
       case BOOLEAN_LITERAL -> baseType.equals(StvnVocabulary.TYPE_BOOLEAN);
       case TUPLE_LITERAL -> baseType.equals(StvnVocabulary.TYPE_TUPLE);
       case LIST_LITERAL -> isSeqType(baseType) || isSetType(baseType);
-      case MAP_LITERAL -> isMapType(baseType) || baseType.equals(StvnVocabulary.TYPE_MAP_ENTRY);
+      case MAP_LITERAL -> isMapType(baseType);
       case KEYWORD_LITERAL -> {
         if (baseType.equals(StvnVocabulary.TYPE_ENUM)) {
           if (literalText != null) {
@@ -4075,7 +4079,7 @@ public class StvnTypeResolver {
         }
         validateMetadataMapConstraints(base != null ? base : child.getText(), child.metadataMap(), resolvedOpt.orElse(null), diagnosticBag);
       }
-      if (doc != StvnPrelude.getPreludeDocument()) {
+      if (doc != legacyPreludeAstContext()) {
         var base = getPrimitiveBaseType(child);
         var normBase = normalizeBaseType(base);
         if (StvnVocabulary.TYPE_TIME_EPOCH.equals(normBase) || StvnVocabulary.TYPE_DATE_TIME.equals(normBase)) {
@@ -4121,7 +4125,7 @@ public class StvnTypeResolver {
       @Nullable String docPath,
       DiagnosticBag diagnosticBag
   ) {
-    if (doc == null || doc == StvnPrelude.getPreludeDocument()) {
+    if (doc == null || doc == legacyPreludeAstContext()) {
       return;
     }
 
@@ -4442,7 +4446,7 @@ public class StvnTypeResolver {
       @Nullable String docPath,
       DiagnosticBag diagnosticBag
   ) {
-    if (doc == null || doc == StvnPrelude.getPreludeDocument() || doc.documentBody() == null) {
+    if (doc == null || doc == legacyPreludeAstContext() || doc.documentBody() == null) {
       return true;
     }
 
@@ -4697,7 +4701,7 @@ public class StvnTypeResolver {
     if (doc == null || doc.documentBody() == null) {
       return;
     }
-    String currentDocPath = documentPaths.get(doc);
+    String currentDocPath = null;
     validateDocumentIdentity(doc, currentDocPath, diagnosticBag);
     boolean sectionsEligible = validateDocumentSectionEligibility(doc, currentDocPath, diagnosticBag);
     if (!sectionsEligible) {
@@ -4748,7 +4752,7 @@ public class StvnTypeResolver {
     if (doc.documentBody().typeEntry() != null) {
       var rootSchema = doc.documentBody().typeEntry().schemaType();
       if (rootSchema != null) {
-        if (doc != StvnPrelude.getPreludeDocument()) {
+        if (doc != legacyPreludeAstContext()) {
           validateTemporalTypeConstraints(rootSchema, rootSchema.metadataMap(), null, diagnosticBag);
         }
         Optional<ResolvedSchema> resolvedOpt = Optional.empty();
@@ -4964,7 +4968,7 @@ public class StvnTypeResolver {
         }
       }
     }
-    if (doc != StvnPrelude.getPreludeDocument()) {
+    if (doc != legacyPreludeAstContext()) {
       validateTemporalTypeConstraints(typeDef.schemaType(), metaMap, resolvedOpt.orElse(null), diagnosticBag);
     }
   }
@@ -5070,7 +5074,7 @@ public class StvnTypeResolver {
       }
       validateMetadataMapConstraints(constName, constMetaMap, resolvedOpt.orElse(null), diagnosticBag);
     }
-    if (doc != StvnPrelude.getPreludeDocument()) {
+    if (doc != legacyPreludeAstContext()) {
       validateTemporalTypeConstraints(constDef.schemaType(), constMetaMap, resolvedOpt.orElse(null), diagnosticBag);
     }
 
@@ -5353,18 +5357,21 @@ public class StvnTypeResolver {
       var traitCtx = entry.metadataTrait();
       if (traitCtx.KW_PRESERVE_INDENT() != null) return StvnVocabulary.FACET_NAME_PRESERVE_INDENT;
     }
-    if (entry.metadataFlag() != null) {
-      var flagCtx = entry.metadataFlag();
-      if (flagCtx.KW_UNSIGNED() != null) return StvnVocabulary.FACET_NAME_UNSIGNED;
-      if (flagCtx.KW_EXACT() != null) return StvnVocabulary.FACET_NAME_EXACT;
-      if (flagCtx.KW_INVERTIBLE() != null) return StvnVocabulary.FACET_NAME_INVERTIBLE;
-      if (flagCtx.KW_OFFSET() != null) return StvnVocabulary.FACET_NAME_OFFSET;
-      if (flagCtx.KW_ZONED() != null) return StvnVocabulary.FACET_NAME_ZONED;
-      if (flagCtx.KW_AUDITED() != null) return StvnVocabulary.FACET_NAME_AUDITED;
-      if (flagCtx.KW_SCALE_S() != null) return StvnVocabulary.SCALE_S;
-      if (flagCtx.KW_SCALE_MS() != null) return StvnVocabulary.SCALE_MS;
-      if (flagCtx.KW_SCALE_US() != null) return StvnVocabulary.SCALE_US;
-      if (flagCtx.KW_SCALE_NS() != null) return StvnVocabulary.SCALE_NS;
+    if (entry.facetUnsigned() != null) return StvnVocabulary.FACET_NAME_UNSIGNED;
+    if (entry.facetExact() != null) return StvnVocabulary.FACET_NAME_EXACT;
+    if (entry.facetInvertible() != null) return StvnVocabulary.FACET_NAME_INVERTIBLE;
+    if (entry.facetTemporalMode() != null) {
+      var modeCtx = entry.facetTemporalMode();
+      if (modeCtx.KW_OFFSET() != null) return StvnVocabulary.FACET_NAME_OFFSET;
+      if (modeCtx.KW_ZONED() != null) return StvnVocabulary.FACET_NAME_ZONED;
+      if (modeCtx.KW_AUDITED() != null) return StvnVocabulary.FACET_NAME_AUDITED;
+    }
+    if (entry.facetTemporalScale() != null) {
+      var scaleCtx = entry.facetTemporalScale();
+      if (scaleCtx.KW_SCALE_S() != null) return StvnVocabulary.SCALE_S;
+      if (scaleCtx.KW_SCALE_MS() != null) return StvnVocabulary.SCALE_MS;
+      if (scaleCtx.KW_SCALE_US() != null) return StvnVocabulary.SCALE_US;
+      if (scaleCtx.KW_SCALE_NS() != null) return StvnVocabulary.SCALE_NS;
     }
     if (entry.metadataBool() != null) {
       var boolCtx = entry.metadataBool();
@@ -5393,7 +5400,7 @@ public class StvnTypeResolver {
       if (filterCtx.KW_FILTER_INCL() != null) return StvnVocabulary.FACET_NAME_FILTER_INCL;
       if (filterCtx.KW_FILTER_EXCL() != null) return StvnVocabulary.FACET_NAME_FILTER_EXCL;
     }
-    if (entry.metadataDirective() != null) {
+    if (entry.facetDirective() != null) {
       return StvnVocabulary.FACET_NAME_STRIP;
     }
     return null;
@@ -6109,7 +6116,7 @@ public class StvnTypeResolver {
     boolean hasLocalExact = false;
     StvnParser.MetadataEntryContext sizeEntryCtx = null;
     for (var entry : metadataMap.metadataEntry()) {
-      if (entry.metadataFlag() != null && entry.metadataFlag().KW_EXACT() != null) {
+      if (entry.facetExact() != null) {
         hasLocalExact = true;
       }
       if (entry.metadataSize() != null && entry.metadataSize().KW_SIZE() != null) {
@@ -6144,48 +6151,44 @@ public class StvnTypeResolver {
     var isNumeric = isIntegerType || isFloatType || isTimeEpoch;
 
     if (isDateTime) {
-      StvnParser.MetadataFlagContext firstModeCtx = null;
+      StvnParser.FacetTemporalModeContext firstModeCtx = null;
       for (var entry : metadataMap.metadataEntry()) {
-        if (entry.metadataFlag() != null) {
-          var flag = entry.metadataFlag();
-          if (flag.KW_OFFSET() != null || flag.KW_ZONED() != null || flag.KW_AUDITED() != null) {
-            if (firstModeCtx == null) {
-              firstModeCtx = flag;
-            } else {
-              diagnosticBag.addError(
-                  "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive",
-                  flag.getStart().getStartIndex(),
-                  flag.getStop().getStopIndex() + 1,
-                  flag.getStart().getLine(),
-                  flag.getStart().getCharPositionInLine(),
-                  null,
-                  DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
-              );
-            }
+        if (entry.facetTemporalMode() != null) {
+          var flag = entry.facetTemporalMode();
+          if (firstModeCtx == null) {
+            firstModeCtx = flag;
+          } else {
+            diagnosticBag.addError(
+                "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive",
+                flag.getStart().getStartIndex(),
+                flag.getStop().getStopIndex() + 1,
+                flag.getStart().getLine(),
+                flag.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
           }
         }
       }
     }
 
     if (isTimeEpoch) {
-      StvnParser.MetadataFlagContext firstScaleCtx = null;
+      StvnParser.FacetTemporalScaleContext firstScaleCtx = null;
       for (var entry : metadataMap.metadataEntry()) {
-        if (entry.metadataFlag() != null) {
-          var flag = entry.metadataFlag();
-          if (flag.KW_SCALE_S() != null || flag.KW_SCALE_MS() != null || flag.KW_SCALE_US() != null || flag.KW_SCALE_NS() != null) {
-            if (firstScaleCtx == null) {
-              firstScaleCtx = flag;
-            } else {
-              diagnosticBag.addError(
-                  "Temporal scale facets (#s, #ms, #us, #ns) are mutually exclusive",
-                  flag.getStart().getStartIndex(),
-                  flag.getStop().getStopIndex() + 1,
-                  flag.getStart().getLine(),
-                  flag.getStart().getCharPositionInLine(),
-                  null,
-                  DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
-              );
-            }
+        if (entry.facetTemporalScale() != null) {
+          var flag = entry.facetTemporalScale();
+          if (firstScaleCtx == null) {
+            firstScaleCtx = flag;
+          } else {
+            diagnosticBag.addError(
+                "Temporal scale facets (#s, #ms, #us, #ns) are mutually exclusive",
+                flag.getStart().getStartIndex(),
+                flag.getStop().getStopIndex() + 1,
+                flag.getStart().getLine(),
+                flag.getStart().getCharPositionInLine(),
+                null,
+                DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
           }
         }
       }
@@ -6964,7 +6967,7 @@ public class StvnTypeResolver {
         }
       }
     }
-    var preludeDoc = StvnPrelude.getPreludeDocument();
+    var preludeDoc = legacyPreludeAstContext();
     if (preludeDoc != null && preludeDoc.documentBody() != null && preludeDoc.documentBody().defsEntry() != null) {
       for (var de : preludeDoc.documentBody().defsEntry().defsElement()) {
         if (de.typeDefinition() != null && de.typeDefinition().schemaType() == schemaType) {
@@ -7061,7 +7064,7 @@ public class StvnTypeResolver {
     if (name.equals(StvnVocabulary.TYPE_BOOLEAN) || name.equals(StvnVocabulary.TYPE_INT) || name.equals(StvnVocabulary.TYPE_FLOAT) || name.equals(StvnVocabulary.TYPE_STRING) ||
         name.equals(StvnVocabulary.TYPE_TIME_EPOCH) || name.equals(StvnVocabulary.TYPE_DATE_TIME) ||
         name.equals(StvnVocabulary.TYPE_TUPLE) || name.equals(StvnVocabulary.TYPE_ENUM) || name.equals(StvnVocabulary.TYPE_OPTION) ||
-        name.equals(StvnVocabulary.TYPE_EITHER) || name.equals(StvnVocabulary.TYPE_UNION) || name.equals(StvnVocabulary.TYPE_MAP_ENTRY) ||
+        name.equals(StvnVocabulary.TYPE_EITHER) || name.equals(StvnVocabulary.TYPE_UNION) ||
         name.equals(StvnVocabulary.TYPE_SEQ) || name.equals(StvnVocabulary.TYPE_SET) || name.equals(StvnVocabulary.TYPE_MAP) ||
         name.equals(StvnVocabulary.KEYWORD_DEFS) || name.equals(StvnVocabulary.KEYWORD_TYPE) || name.equals(StvnVocabulary.KEYWORD_BODY) || name.equals(StvnVocabulary.KEYWORD_INCLUDE) ||
         name.equals(StvnVocabulary.KEYWORD_PACKAGE) || name.equals(StvnVocabulary.KEYWORD_USE)) {

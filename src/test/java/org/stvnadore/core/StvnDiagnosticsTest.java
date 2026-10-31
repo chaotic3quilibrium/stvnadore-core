@@ -5,14 +5,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.stvnadore.core.ast.StvnValue;
-import org.stvnadore.core.ast.StvnValue.StvnEither;
-import org.stvnadore.core.ast.StvnValue.StvnFloat;
-import org.stvnadore.core.ast.StvnValue.StvnInteger;
-import org.stvnadore.core.ast.StvnValue.StvnOption;
-import org.stvnadore.core.ast.StvnValue.StvnSeq;
-import org.stvnadore.core.ast.StvnValue.StvnString;
-import org.stvnadore.core.ast.StvnValue.StvnTuple;
+import org.stvnadore.core.ir.StvnValue.EitherBranch;
+import org.stvnadore.core.ir.StvnValue.StvnEither;
+import org.stvnadore.core.ir.StvnValue.StvnFloat;
+import org.stvnadore.core.ir.StvnValue.StvnInt;
+import org.stvnadore.core.ir.StvnValue.StvnOption;
+import org.stvnadore.core.ir.StvnValue.StvnSeq;
+import org.stvnadore.core.ir.StvnValue.StvnString;
+import org.stvnadore.core.ir.StvnValue.StvnTuple;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.MalformedPayloadException;
 import org.stvnadore.core.validation.StvnSyntaxCancellationException;
@@ -379,9 +379,9 @@ public class StvnDiagnosticsTest {
     Assertions.assertTrue(leftValOpt.isPresent());
     Assertions.assertInstanceOf(StvnEither.class, leftValOpt.get());
     var leftEither = (StvnEither) leftValOpt.get();
-    Assertions.assertFalse(leftEither.isRight(), "Expected Left branch for #Left 1");
-    Assertions.assertInstanceOf(StvnInteger.class, leftEither.value());
-    Assertions.assertEquals(1L, ((StvnInteger) leftEither.value()).value().longValue());
+    Assertions.assertEquals(EitherBranch.LEFT, leftEither.branch(), "Expected Left branch for #Left 1");
+    Assertions.assertInstanceOf(StvnInt.class, leftEither.value());
+    Assertions.assertEquals(1L, ((StvnInt) leftEither.value()).value().longValue());
 
     String rightInput = """
         {
@@ -398,9 +398,9 @@ public class StvnDiagnosticsTest {
     Assertions.assertTrue(rightValOpt.isPresent());
     Assertions.assertInstanceOf(StvnEither.class, rightValOpt.get());
     var rightEither = (StvnEither) rightValOpt.get();
-    Assertions.assertTrue(rightEither.isRight(), "Expected Right branch for #Right 1");
-    Assertions.assertInstanceOf(StvnInteger.class, rightEither.value());
-    Assertions.assertEquals(1L, ((StvnInteger) rightEither.value()).value().longValue());
+    Assertions.assertEquals(EitherBranch.RIGHT, rightEither.branch(), "Expected Right branch for #Right 1");
+    Assertions.assertInstanceOf(StvnInt.class, rightEither.value());
+    Assertions.assertEquals(1L, ((StvnInt) rightEither.value()).value().longValue());
   }
 
   @Test
@@ -455,7 +455,7 @@ public class StvnDiagnosticsTest {
     var optLeft = (StvnOption) seqLeft.elements().getFirst();
     Assertions.assertTrue(optLeft.value().isPresent());
     var eitherLeft = (StvnEither) optLeft.value().get();
-    Assertions.assertFalse(eitherLeft.isRight(), "Expected #Left for explicitly tagged variant");
+    Assertions.assertEquals(EitherBranch.LEFT, eitherLeft.branch(), "Expected #Left for explicitly tagged variant");
     Assertions.assertEquals("test", ((StvnString) eitherLeft.value()).value());
 
     // 2. Inferred #Right and #Some in sequence
@@ -471,8 +471,8 @@ public class StvnDiagnosticsTest {
     var optRight = (StvnOption) seqRight.elements().getFirst();
     Assertions.assertTrue(optRight.value().isPresent());
     var eitherRight = (StvnEither) optRight.value().get();
-    Assertions.assertTrue(eitherRight.isRight(), "Expected implied #Right via Rule B");
-    Assertions.assertEquals(42.5, ((StvnFloat) eitherRight.value()).value().doubleValue(), 0.001);
+    Assertions.assertEquals(EitherBranch.RIGHT, eitherRight.branch(), "Expected implied #Right via Rule B");
+    Assertions.assertEquals(42.5, ((StvnFloat) eitherRight.value()).decimalValue().doubleValue(), 0.001);
   }
 
   @Test
@@ -507,9 +507,9 @@ public class StvnDiagnosticsTest {
     var tuple = (StvnTuple) res.get();
     var el0 = (StvnEither) tuple.elements().get(0);
     var el1 = (StvnEither) tuple.elements().get(1);
-    Assertions.assertFalse(el0.isRight());
-    Assertions.assertEquals(1L, ((StvnInteger) el0.value()).value().longValue());
-    Assertions.assertTrue(el1.isRight());
+    Assertions.assertEquals(EitherBranch.LEFT, el0.branch());
+    Assertions.assertEquals(1L, ((StvnInt) el0.value()).value().longValue());
+    Assertions.assertEquals(EitherBranch.RIGHT, el1.branch());
     Assertions.assertEquals("a", ((StvnString) el1.value()).value());
   }
 
@@ -582,7 +582,25 @@ public class StvnDiagnosticsTest {
   @Test
   @DisplayName("TC-EITHER-AMBIG-CONST: Untagged constant matching overlapping Either branches fails compilation")
   void testEitherAmbiguityUntaggedConstant() {
-    String input = """
+    String anonymousInput = """
+        {
+          :defs {
+            #CONST_VAL :Int 100
+          }
+          :type :Either( :Int { #unsigned } :Int )
+          :body #CONST_VAL
+        }
+        """;
+    var anonResult = StvnCompiler.compileToResult(anonymousInput);
+    Assertions.assertTrue(anonResult.hasErrors());
+    var anonDiag = anonResult.diagnostics().getFirst();
+    Assertions.assertEquals(java.util.Optional.of("E024"), anonDiag.canonicalCode());
+    Assertions.assertTrue(
+        anonDiag.message().contains("Ambiguous implicit resolution: Value matches both Left and Right branches of :Either"),
+        "Expected ambiguity message for anonymous constant matching overlapping Either, got: " + anonDiag.message()
+    );
+
+    String brandedInput = """
         {
           :defs {
             :I32 :Int
@@ -593,13 +611,11 @@ public class StvnDiagnosticsTest {
           :body #CONST_VAL
         }
         """;
-    var result = StvnCompiler.compileToResult(input);
-    Assertions.assertTrue(result.hasErrors());
-    var diag = result.diagnostics().getFirst();
-    Assertions.assertTrue(
-        diag.message().contains("Ambiguous implicit resolution: Value matches both Left and Right branches of :Either"),
-        "Expected ambiguity message for constant matching overlapping Either, got: " + diag.message()
-    );
+    var brandedResult = StvnCompiler.compileToResult(brandedInput);
+    Assertions.assertTrue(brandedResult.hasErrors());
+    var brandedDiag = brandedResult.diagnostics().getFirst();
+    Assertions.assertEquals(java.util.Optional.of("E023"), brandedDiag.canonicalCode());
+    Assertions.assertEquals(java.util.Optional.of(DiagnosticBag.ERR_EITHER_LEFT_MISSING_TAG), brandedDiag.symbolicId());
   }
 
   @Test
@@ -1369,5 +1385,65 @@ public class StvnDiagnosticsTest {
         """;
     var result = StvnCompiler.compileToResult(input);
     Assertions.assertTrue(result.isSuccess(), "Large cardinality size must parse successfully without overflow: " + result.diagnostics());
+  }
+
+  @Test
+  @DisplayName("Stage 2D User Presentation Gate: Zero raw ANTLR recognition jargon across syntax and grammar error vectors")
+  void testUserPresentationGateZeroRawAntlrJargonAcrossSyntaxErrorVectors() {
+    java.util.List<String> errorVectors = java.util.List.of(
+        "{ @ :type :Int :body 1 }",
+        "{ :type :Int :body $42 }",
+        "{ :type :Tuple() :body () }",
+        "{ :type :Map(:Int) :body {} }",
+        "{ :type :Union(:Int) :body 1 }",
+        "{ :type :Either(:Int) :body 1 }",
+        "{ :type :Seq() :body [] }",
+        "{ :type { #unsigned #TRUE } :Int :body 1 }",
+        "{ :type { #exact #TRUE } :Float :body 1.0 }",
+        "{ :defs { :M { #invertible #TRUE } :Map(:Int :Int) } :type :M :body {} }",
+        "{ :type { #ns 1 } :TimeEpoch :body 0 }",
+        "{ :type { #offset \"Z\" } :DateTime :body \"2026-01-01T00:00:00Z\" }",
+        "{ :meta {} :type :Int :body 1 }",
+        "{ :type :Int :meta { #domain \"app\" } :body 1 }",
+        "{ :type :MapEntry :body 1 }",
+        "{ :unknown 1 :type :Int :body 1 }",
+        "{ :type :Int :body [1 2 }",
+        "{ :type :Int } extra"
+    );
+
+    java.util.List<String> forbiddenPhrases = java.util.List.of(
+        "token recognition error",
+        "no viable alternative",
+        "mismatched input",
+        "extraneous input"
+    );
+
+    for (String vector : errorVectors) {
+      var result = StvnCompiler.compileToResult(vector);
+      Assertions.assertTrue(result.hasErrors(), "Expected syntax/semantic error for vector: " + vector);
+      for (var diag : result.diagnostics()) {
+        String lower = diag.message().toLowerCase(java.util.Locale.ROOT);
+        for (String forbidden : forbiddenPhrases) {
+          Assertions.assertFalse(
+              lower.contains(forbidden),
+              "Forbidden raw ANTLR phrase '" + forbidden + "' leaked in diagnostic: " + diag.message()
+                  + " for input: " + vector
+          );
+        }
+        Assertions.assertFalse(
+            lower.matches(".*\\bmissing\\s+.+\\s+at\\s+.*"),
+            "Forbidden raw ANTLR 'missing ... at' phrase leaked in diagnostic: " + diag.message()
+                + " for input: " + vector
+        );
+        Assertions.assertTrue(
+            diag.canonicalCode().isPresent(),
+            "Every diagnostic must carry a canonical code (E001-E040 / W001-W003): " + diag
+        );
+        Assertions.assertTrue(
+            diag.symbolicId().isPresent(),
+            "Every diagnostic must carry a symbolic ID: " + diag
+        );
+      }
+    }
   }
 }

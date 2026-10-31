@@ -74,6 +74,28 @@ public class StvnSchemaHasher {
       ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
 
   /**
+   * Generates a deterministic RFC-compliant Version 8 UUID for a pure-IR {@link org.stvnadore.core.ir.StvnSchema}.
+   *
+   * @param schema the pure-IR schema to hash
+   * @return a deterministic Version 8 UUID representing the schema's identity
+   * @since 2.0.0
+   */
+  public static UUID hashSchema(org.stvnadore.core.ir.StvnSchema schema) {
+    return hashSchema(org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(schema));
+  }
+
+  /**
+   * Computes a deterministic SHA-256 structural identity fingerprint for a pure-IR {@link org.stvnadore.core.ir.StvnSchema}.
+   *
+   * @param schema the pure-IR schema to digest
+   * @return a 32-byte array containing the SHA-256 hash representation
+   * @since 2.0.0
+   */
+  public static byte[] computeSha256(org.stvnadore.core.ir.StvnSchema schema) {
+    return computeSha256(org.stvnadore.core.lowering.LegacyAstBridge.toLegacySchema(schema));
+  }
+
+  /**
    * Generates a deterministic RFC-compliant Version 8 (Custom) UUID based on the structural constraints of the schema.
    * <p>
    * This is computed by wrapping the first 16 bytes of the structural SHA-256 fingerprint

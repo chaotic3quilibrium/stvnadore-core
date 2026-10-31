@@ -56,6 +56,29 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
    */
   protected abstract LayoutWriter createLayoutWriter(Writer target);
 
+  /**
+   * Serializes a pure-IR {@link org.stvnadore.core.ir.StvnDocument} to the destination writer.
+   *
+   * @param document the pure-IR document to serialize
+   * @param target   the target writer destination
+   * @throws IOException if an I/O error occurs during serialization
+   * @since 2.0.0
+   */
+  public void print(org.stvnadore.core.ir.StvnDocument document, Writer target) throws IOException {
+    print(org.stvnadore.core.lowering.LegacyAstBridge.toLegacyDocument(document), target);
+  }
+
+  /**
+   * Serializes a pure-IR {@link org.stvnadore.core.ir.StvnDocument} and returns its formatted string.
+   *
+   * @param document the pure-IR document to serialize
+   * @return the formatted STVN string
+   * @since 2.0.0
+   */
+  public String printToString(org.stvnadore.core.ir.StvnDocument document) {
+    return printToString(org.stvnadore.core.lowering.LegacyAstBridge.toLegacyDocument(document));
+  }
+
   @Override
   public void print(StvnValue value, Writer target) throws IOException {
     print(value, (ResolvedSchema) null, target);

@@ -1,35 +1,57 @@
 package org.stvnadore.core;
 
+import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
-import org.stvnadore.core.ast.StvnDocument;
-import org.stvnadore.core.ast.StvnDocumentMeta;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryDecoder.RootPointer;
-import org.stvnadore.core.ast.StvnIrVisitor;
-import org.stvnadore.core.ast.StvnValue;
+import org.stvnadore.core.io.CanonicalStvnWriter;
+import org.stvnadore.core.ir.StvnDefsCatalog;
+import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.ir.StvnDocumentMeta;
+import org.stvnadore.core.ir.StvnSchema;
+import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.lowering.LegacyAstBridge;
+import org.stvnadore.core.lowering.StvnDefsLowerer;
+import org.stvnadore.core.lowering.StvnPayloadLowerer;
+import org.stvnadore.core.lowering.StvnReachabilityAndCasVerifier;
 import org.stvnadore.core.parser.StvnErrorListener;
+import org.stvnadore.core.parser.StvnErrorStrategy;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
+import org.stvnadore.core.parser.StvnSyntaxErrorSanitizer;
+import org.stvnadore.core.printer.AstCompactPrinter;
+import org.stvnadore.core.printer.PrinterOptions;
+import org.stvnadore.core.validation.DiagnosticBag;
+import org.stvnadore.core.validation.StvnSyntaxCancellationException;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The primary entry-point facade for compilation, canonical serialization,
+ * Primary stateless entry-point facade for compilation, canonical serialization,
  * and content-addressable storage (CAS) fingerprinting of Strongly Typed Value Notation (STVN) documents.
  * <p>
- * This class coordinates the lexer and parser stages with semantic verification, exposing a stateless,
- * thread-safe interface for working with STVN payload text and AST records.
+ * Coordinates the STVN 2.0.0 4-pass stateless lowering pipeline:
+ * <ol>
+ *   <li>Pass 1: Lexing, parsing, and deterministic syntax error sanitization ({@link StvnSyntaxErrorSanitizer})</li>
+ *   <li>Pass 2: Metadata, definitions catalog, and tautology-purged schema lowering ({@link StvnDefsLowerer})</li>
+ *   <li>Pass 3: CPU-bias-free payload lowering with container fault isolation ({@link StvnPayloadLowerer})</li>
+ *   <li>Pass 4: Transitive reachability, alias desugaring, and topological catalog ordering ({@link StvnReachabilityAndCasVerifier})</li>
+ * </ol>
  *
  * @since 1.0.0
  */
@@ -37,14 +59,14 @@ import java.util.Optional;
 public final class StvnCompiler {
 
   private StvnCompiler() {
-    // Utility/Facade class
+    // Non-instantiable facade class
   }
 
   /**
-   * Compiles a raw STVN text document into a monadic {@link StvnCompilationResult} containing an AST {@link StvnDocument}.
+   * Compiles a raw STVN text document into a monadic {@link StvnCompilationResult} containing a pure-IR {@link StvnDocument}.
    *
    * @param input the raw STVN document text to compile
-   * @return the monadic compilation result enclosing the AST document and/or accumulated diagnostics
+   * @return the monadic compilation result enclosing the lowered IR document and accumulated diagnostics
    * @throws NullPointerException if {@code input} is {@code null}
    * @since 2.0.0
    */
@@ -56,8 +78,8 @@ public final class StvnCompiler {
    * Compiles a raw STVN text document into a monadic {@link StvnCompilationResult} with an optional document path.
    *
    * @param input   the raw STVN document text to compile
-   * @param docPath the optional URI or file path identifier for relative include resolution, or {@code null}
-   * @return the monadic compilation result enclosing the AST document and/or accumulated diagnostics
+   * @param docPath the optional URI or file path identifier for document identity and relative include resolution, or {@code null}
+   * @return the monadic compilation result enclosing the lowered IR document and accumulated diagnostics
    * @throws NullPointerException if {@code input} is {@code null}
    * @since 2.0.0
    */
@@ -66,12 +88,13 @@ public final class StvnCompiler {
   }
 
   /**
-   * Compiles a raw STVN text document with a document path and custom parser configuration into a monadic result.
+   * Compiles a raw STVN text document with an optional document path and custom parser configuration
+   * through the 4-pass stateless STVN 2.0.0 lowering pipeline.
    *
    * @param input   the raw STVN document text to compile
-   * @param docPath the optional URI or file path identifier for relative include resolution, or {@code null}
+   * @param docPath the optional URI or file path identifier for document identity and relative include resolution, or {@code null}
    * @param config  the parser configuration specifying diagnostics threshold and strictness
-   * @return the monadic compilation result enclosing the AST document and/or accumulated diagnostics
+   * @return the monadic compilation result enclosing the lowered IR document and accumulated diagnostics
    * @throws NullPointerException if {@code input} or {@code config} is {@code null}
    * @since 2.0.0
    */
@@ -83,8 +106,9 @@ public final class StvnCompiler {
     Objects.requireNonNull(input, "input must not be null");
     Objects.requireNonNull(config, "config must not be null");
 
-    var diagnosticBag = new org.stvnadore.core.validation.DiagnosticBag(config.maxDiagnostics());
+    var diagnosticBag = new DiagnosticBag(config.maxDiagnostics());
 
+    // Pass 1: Lexing, parsing, and deterministic syntax error sanitization
     var lexer = new StvnLexer(CharStreams.fromString(input));
     lexer.removeErrorListeners();
 
@@ -92,7 +116,7 @@ public final class StvnCompiler {
     parser.removeErrorListeners();
 
     if (config.strict()) {
-      parser.setErrorHandler(new org.antlr.v4.runtime.BailErrorStrategy());
+      parser.setErrorHandler(new BailErrorStrategy());
       var errorListener = StvnErrorListener.strict();
       lexer.addErrorListener(errorListener);
       parser.addErrorListener(errorListener);
@@ -100,57 +124,83 @@ public final class StvnCompiler {
       var listener = StvnErrorListener.accumulating(diagnosticBag);
       lexer.addErrorListener(listener);
       parser.addErrorListener(listener);
-      parser.setErrorHandler(new org.stvnadore.core.parser.StvnErrorStrategy());
+      parser.setErrorHandler(new StvnErrorStrategy());
     }
 
     try {
       var docCtx = parser.stvnDocument();
+      var docBody = docCtx.documentBody();
+      boolean hasNoClauses = docBody == null
+          || (docBody.metaEntry() == null
+              && docBody.defsEntry() == null
+              && docBody.typeEntry() == null
+              && docBody.bodyEntry() == null);
 
-      if (docPath != null) {
-        org.stvnadore.core.validation.StvnTypeResolver.documentPaths.put(docCtx, docPath);
+      if (hasNoClauses && parser.getNumberOfSyntaxErrors() > 0) {
+        return StvnCompilationResult.failure(diagnosticBag.toList());
       }
-      org.stvnadore.core.validation.StvnTypeResolver.registerDocumentConfig(docCtx, config);
 
+      // Pass 2: Stateless metadata, definitions catalog, and root schema lowering
+      StvnDefsLowerer.DefsLoweringResult defsRes;
       try {
-        org.stvnadore.core.validation.StvnTypeResolver.validateDocumentConstraints(docCtx, diagnosticBag);
+        defsRes = StvnDefsLowerer.lowerDocumentHeaderAndDefs(docCtx, docPath, config, diagnosticBag);
       } catch (Throwable t) {
-        mapSemanticException(t, input, diagnosticBag);
+        mapUnexpectedLoweringException(t, input, diagnosticBag);
+        return StvnCompilationResult.failure(diagnosticBag.toList());
       }
 
-      if (docCtx.documentBody() == null || (docCtx.documentBody().metaEntry() == null && docCtx.documentBody().defsEntry() == null && docCtx.documentBody().bodyEntry() == null)) {
+      if (hasNoClauses) {
         return diagnosticBag.hasErrors()
             ? StvnCompilationResult.failure(diagnosticBag.toList())
             : StvnCompilationResult.empty(diagnosticBag.toList());
       }
 
-      // Build StvnDocument AST
-      Optional<StvnDocumentMeta> meta = StvnIrVisitor.extractMeta(docCtx.documentBody().metaEntry());
+      boolean hasBodyClause = docBody != null && docBody.bodyEntry() != null;
+      if (!hasBodyClause) {
+        if (diagnosticBag.hasErrors()) {
+          return StvnCompilationResult.failure(diagnosticBag.toList());
+        }
+        var rawDefsDoc = new StvnDocument(
+            defsRes.meta(),
+            defsRes.defs(),
+            defsRes.rootType(),
+            Optional.empty(),
+            defsRes.hasDefsSection(),
+            defsRes.hasIncludes()
+        );
+        var verifiedDefsDoc = StvnReachabilityAndCasVerifier.verifyAndOrder(rawDefsDoc, diagnosticBag);
+        return StvnCompilationResult.success(verifiedDefsDoc, diagnosticBag.toList());
+      }
 
-      // If document constraints encountered errors, only allow deferred body validation if errors
-      // are strictly confined to :defs / includes and the document has valid syntax, valid structure,
-      // and a valid root :type.
-      boolean canValidateBody = docCtx.documentBody() != null
-          && docCtx.documentBody().bodyEntry() != null
-          && parser.getNumberOfSyntaxErrors() == 0;
+      // Determine whether Pass 3 payload lowering is eligible under fault-containment rules
+      boolean canValidateBody = parser.getNumberOfSyntaxErrors() == 0
+          && defsRes.sectionsEligible()
+          && defsRes.rootType().isPresent()
+          && docBody.bodyEntry().value() != null;
 
       if (canValidateBody && diagnosticBag.hasErrors()) {
         int docStart = docCtx.getStart() != null ? docCtx.getStart().getStartIndex() : 0;
         int docStop = docCtx.getStop() != null ? docCtx.getStop().getStopIndex() + 1 : Integer.MAX_VALUE;
 
-        var defsCtx = docCtx.documentBody().defsEntry();
-        int defsStart = defsCtx != null ? defsCtx.getStart().getStartIndex() : -1;
-        int defsStop = defsCtx != null ? defsCtx.getStop().getStopIndex() + 1 : -1;
+        var defsCtx = docBody.defsEntry();
+        int defsStart = defsCtx != null && defsCtx.getStart() != null ? defsCtx.getStart().getStartIndex() : -1;
+        int defsStop = defsCtx != null && defsCtx.getStop() != null ? defsCtx.getStop().getStopIndex() + 1 : -1;
 
         for (var diag : diagnosticBag.toList()) {
           if (diag.severity() != StvnDiagnostic.DiagnosticSeverity.ERROR) {
             continue;
           }
-          var code = diag.errorCode().orElse("");
-          if (code.startsWith("ERR_DOCUMENT_") || code.startsWith("ERR_SECTION_") || code.equals("ERR_EMPTY_DEFS_BLOCK")) {
-            canValidateBody = false;
-            break;
-          }
-          if (diag.message().contains("Rule STR-04") || code.equals("STVN_SYNTAX_CANCELLATION") || code.startsWith("SYNTAX_")) {
+          String sym = diag.symbolicId().or(() -> diag.errorCode()).orElse("");
+          if (sym.startsWith("ERR_DOCUMENT_")
+              || sym.startsWith("ERR_SECTION_")
+              || sym.equals(DiagnosticBag.ERR_EMPTY_DEFS_BLOCK)
+              || sym.equals(DiagnosticBag.ERR_EMPTY_META_BLOCK)
+              || sym.equals(DiagnosticBag.ERR_INVALID_FILENAME_STEM)
+              || sym.equals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED)
+              || sym.equals(DiagnosticBag.ERR_META_POSITION_INVALID)
+              || sym.equals(DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED)
+              || sym.equals("STVN_SYNTAX_ERROR")
+              || sym.startsWith("SYNTAX_")) {
             canValidateBody = false;
             break;
           }
@@ -165,34 +215,54 @@ public final class StvnCompiler {
         }
       }
 
-      if (!canValidateBody && diagnosticBag.hasErrors()) {
+      if (!canValidateBody) {
         return StvnCompilationResult.failure(diagnosticBag.toList());
       }
 
+      // Pass 3: Stateless payload lowering with container cardinality fault isolation
       Optional<StvnValue> payload = Optional.empty();
-      if (canValidateBody) {
-        try {
-          var visitor = new StvnIrVisitor(docCtx, diagnosticBag);
-          StvnValue astValue = visitor.visit(docCtx.documentBody().bodyEntry().value());
-          payload = Optional.ofNullable(astValue);
-        } catch (Throwable t) {
-          mapSemanticException(t, input, diagnosticBag);
-        }
+      try {
+        StvnValue loweredValue = StvnPayloadLowerer.lowerValue(
+            docBody.bodyEntry().value(),
+            defsRes.rootType().get(),
+            defsRes.rootConstantResolver(),
+            defsRes.nominalTypeLookup(),
+            diagnosticBag
+        );
+        payload = Optional.of(loweredValue);
+      } catch (Throwable t) {
+        mapUnexpectedLoweringException(t, input, diagnosticBag);
       }
 
-      var document = new StvnDocument(meta, payload, Optional.of(docCtx));
+      // Pass 4: Reachability verification, alias desugaring check, and topological DFS post-order catalog ordering
+      var rawDocument = new StvnDocument(
+          defsRes.meta(),
+          defsRes.defs(),
+          defsRes.rootType(),
+          payload,
+          defsRes.hasDefsSection(),
+          defsRes.hasIncludes()
+      );
+      var verifiedDocument = StvnReachabilityAndCasVerifier.verifyAndOrder(rawDocument, diagnosticBag);
 
-      boolean hasErrors = diagnosticBag.hasErrors() || (payload.isPresent() && hasErrorNodes(payload.get()));
+      boolean hasErrors = diagnosticBag.hasErrors()
+          || (payload.isPresent() && hasErrorNodes(payload.get()));
       if (hasErrors) {
-        return StvnCompilationResult.partial(document, diagnosticBag.toList());
-      } else {
-        return StvnCompilationResult.success(document, diagnosticBag.toList());
+        return StvnCompilationResult.partial(verifiedDocument, diagnosticBag.toList());
       }
-    } catch (org.stvnadore.core.validation.StvnSyntaxCancellationException e) {
-      String msg = e.getMessage() != null ? e.getMessage() : "STVN Syntax Error";
-      String errCode = "STVN_SYNTAX_CANCELLATION";
-      if (msg.contains("':meta'")) {
-        errCode = org.stvnadore.core.validation.DiagnosticBag.ERR_META_POSITION_INVALID;
+      return StvnCompilationResult.success(verifiedDocument, diagnosticBag.toList());
+    } catch (StvnSyntaxCancellationException e) {
+      String raw = e.getMessage() != null ? e.getMessage() : "STVN Syntax Error";
+      String msg = StvnSyntaxErrorSanitizer.purgeResidualAntlrJargon(raw);
+      String symbolicId = e.getSymbolicId();
+      if (symbolicId == null) {
+        symbolicId = msg.contains(StvnVocabulary.KEYWORD_META)
+            ? DiagnosticBag.ERR_META_POSITION_INVALID
+            : "STVN_SYNTAX_ERROR";
+      }
+      String canonicalCode = e.getCanonicalCode();
+      if (canonicalCode == null) {
+        canonicalCode = DiagnosticBag.resolveCanonicalCode(symbolicId).orElse("E002");
       }
       diagnosticBag.add(new StvnDiagnostic(
           msg,
@@ -202,100 +272,76 @@ public final class StvnCompiler {
           e.getStartOffset(),
           e.getEndOffset(),
           e.getCause(),
-          Optional.of(errCode)
+          Optional.of(canonicalCode),
+          Optional.of(symbolicId)
       ));
       return StvnCompilationResult.failure(diagnosticBag.toList());
-    } catch (org.antlr.v4.runtime.misc.ParseCancellationException e) {
-      int line = -1;
-      int column = -1;
-      int startOffset = -1;
-      int endOffset = -1;
-      String msg = "STVN Syntax Error";
-      String errCode = "STVN_PARSE_CANCELLATION";
+    } catch (ParseCancellationException e) {
       Throwable cause = e.getCause();
       if (cause instanceof RecognitionException re) {
-        msg = "STVN Syntax Error: " + getErrorMessage(parser, re);
-        var token = re.getOffendingToken();
-        var stream = parser.getTokenStream();
-        if (stream != null && token != null) {
-          int idx = token.getTokenIndex();
-          if (idx > 0 && token.getType() != StvnLexer.KW_DEFS
-                      && token.getType() != StvnLexer.KW_TYPE
-                      && token.getType() != StvnLexer.KW_BODY
-                      && token.getType() != StvnLexer.KW_META) {
-            Token prev = stream.get(idx - 1);
-            int prevType = prev.getType();
-            if (prevType == StvnLexer.KW_DEFS && token.getType() != StvnLexer.LBRACE) {
-              token = prev;
-              msg = "STVN Syntax Error: clause ':defs' requires definition block '{ ... }'";
-            } else if (prevType == StvnLexer.KW_META && token.getType() != StvnLexer.LBRACE) {
-              token = prev;
-              msg = "STVN Syntax Error: clause ':meta' requires a metadata block '{ ... }'";
-            } else if (prevType == StvnLexer.KW_TYPE && !org.stvnadore.core.parser.StvnErrorStrategy.isValidSchemaTypeStarter(token)) {
-              token = prev;
-              msg = "STVN Syntax Error: clause ':type' requires a schema type";
-            } else if (prevType == StvnLexer.KW_BODY && (token.getType() == StvnLexer.RBRACE || token.getType() == Token.EOF || org.stvnadore.core.parser.StvnErrorStrategy.isTopLevelKeyword(token))) {
-              token = prev;
-              msg = "STVN Syntax Error: clause ':body' requires a value payload";
-            }
-          }
-        }
-        if (token != null) {
-          line = token.getLine();
-          column = token.getCharPositionInLine();
-          startOffset = token.getStartIndex();
-          endOffset = token.getType() == Token.EOF
-              ? startOffset
-              : Math.max(startOffset + 1, token.getStopIndex() + 1);
-          if (token.getText() != null && token.getText().equals(StvnVocabulary.KEYWORD_META)) {
-            errCode = org.stvnadore.core.validation.DiagnosticBag.ERR_META_POSITION_INVALID;
-          }
-        }
-      } else if (e.getMessage() != null) {
-        msg = e.getMessage();
-        if (msg.contains("':meta'")) {
-          errCode = org.stvnadore.core.validation.DiagnosticBag.ERR_META_POSITION_INVALID;
-        }
+        Token token = re.getOffendingToken();
+        int line = token != null ? token.getLine() : 1;
+        int column = token != null ? token.getCharPositionInLine() : 0;
+        var sanitized = StvnSyntaxErrorSanitizer.sanitize(
+            parser,
+            token,
+            line,
+            column,
+            re.getMessage() != null ? re.getMessage() : "",
+            re
+        );
+        diagnosticBag.add(sanitized.toDiagnostic(re));
+      } else {
+        String raw = e.getMessage() != null ? e.getMessage() : "STVN Syntax Error";
+        String msg = StvnSyntaxErrorSanitizer.purgeResidualAntlrJargon(raw);
+        String symbolicId = msg.contains(StvnVocabulary.KEYWORD_META)
+            ? DiagnosticBag.ERR_META_POSITION_INVALID
+            : "STVN_SYNTAX_ERROR";
+        String canonicalCode = DiagnosticBag.resolveCanonicalCode(symbolicId).orElse("E002");
+        diagnosticBag.add(new StvnDiagnostic(
+            msg,
+            StvnDiagnostic.DiagnosticSeverity.ERROR,
+            -1,
+            -1,
+            -1,
+            -1,
+            cause != null ? cause : e,
+            Optional.of(canonicalCode),
+            Optional.of(symbolicId)
+        ));
       }
-      diagnosticBag.add(new StvnDiagnostic(
-          msg,
-          StvnDiagnostic.DiagnosticSeverity.ERROR,
-          line,
-          column,
-          startOffset,
-          endOffset,
-          cause != null ? cause : e,
-          Optional.of(errCode)
-      ));
       return StvnCompilationResult.failure(diagnosticBag.toList());
     }
   }
 
   /**
-   * Compiles an STVN document located at the given filesystem path.
+   * Compiles an STVN document located at the given filesystem path using {@link StvnParserConfig#DEFAULT}.
    *
-   * @param path the filesystem path of the STVN source file
-   * @return the monadic compilation result enclosing the AST document
+   * @param path the filesystem path of the STVN source or binary file
+   * @return the monadic compilation result enclosing the lowered IR document
    * @throws IOException          if an I/O error occurs reading the file
    * @throws NullPointerException if {@code path} is {@code null}
    * @since 2.0.0
    */
   public static StvnCompilationResult<StvnDocument> compile(Path path) throws IOException {
-    return compile(Files.readString(path), path.toString(), StvnParserConfig.DEFAULT);
+    return compile(path, StvnParserConfig.DEFAULT);
   }
 
   /**
    * Compiles an STVN document located at the given filesystem path with custom parser configuration.
    *
-   * @param path   the filesystem path of the STVN source file
+   * @param path   the filesystem path of the STVN source or binary file
    * @param config the parser configuration
-   * @return the monadic compilation result enclosing the AST document
+   * @return the monadic compilation result enclosing the lowered IR document
    * @throws IOException          if an I/O error occurs reading the file
    * @throws NullPointerException if {@code path} or {@code config} is {@code null}
    * @since 2.0.0
    */
   public static StvnCompilationResult<StvnDocument> compile(Path path, StvnParserConfig config) throws IOException {
-    String fileName = path.getFileName().toString();
+    Objects.requireNonNull(path, "path must not be null");
+    Objects.requireNonNull(config, "config must not be null");
+    Path fileNamePath = path.getFileName();
+    String fileName = fileNamePath != null ? fileNamePath.toString() : path.toString();
     if (fileName.endsWith(".stvn_b") || fileName.endsWith(".stvn_bd")) {
       byte[] bytes = Files.readAllBytes(path);
       return compile(bytes, path.toString(), config);
@@ -309,7 +355,7 @@ public final class StvnCompiler {
    * @param bytes   the raw STVN binary bytes
    * @param docPath the optional URI or file path identifier
    * @param config  the parser configuration
-   * @return the monadic compilation result enclosing the AST document and diagnostics
+   * @return the monadic compilation result enclosing the lowered IR document and diagnostics
    */
   public static StvnCompilationResult<StvnDocument> compile(
       byte[] bytes,
@@ -318,42 +364,16 @@ public final class StvnCompiler {
   ) {
     Objects.requireNonNull(bytes, "bytes must not be null");
     Objects.requireNonNull(config, "config must not be null");
-
-    var diagnosticBag = new org.stvnadore.core.validation.DiagnosticBag(config.maxDiagnostics());
-    try {
-      var buffer = ByteBuffer.wrap(bytes);
-      RootPointer root = StvnBinaryDecoder.open(buffer);
-      Optional<StvnDocumentMeta> meta = root.meta();
-
-      // Execute document identity validation against docPath
-      org.stvnadore.core.validation.StvnTypeResolver.validateBinaryDocumentIdentity(
-          meta.orElse(null), docPath, diagnosticBag);
-
-      Optional<StvnValue> payload = Optional.empty();
-      try {
-        StvnValue unpacked = StvnBinaryDecoder.unpack(root, Optional.empty());
-        payload = Optional.ofNullable(unpacked);
-      } catch (Throwable t) {
-        diagnosticBag.addError("Failed to unpack binary payload: " + t.getMessage(), 0, bytes.length, 1, 0, null, "MALFORMED_PAYLOAD");
-      }
-
-      var document = new StvnDocument(meta, payload, Optional.empty());
-      return diagnosticBag.hasErrors()
-          ? StvnCompilationResult.partial(document, diagnosticBag.toList())
-          : StvnCompilationResult.success(document, diagnosticBag.toList());
-    } catch (Throwable t) {
-      diagnosticBag.addError(t.getMessage() != null ? t.getMessage() : t.toString(), 0, bytes.length, 1, 0, t, "STVN_BINARY_INGRESS_ERROR");
-      return StvnCompilationResult.failure(diagnosticBag.toList());
-    }
+    return compile(ByteBuffer.wrap(bytes), docPath, config);
   }
 
   /**
-   * Compiles an STVN binary ByteBuffer payload into a monadic compilation result.
+   * Compiles an STVN binary {@link ByteBuffer} payload into a monadic compilation result.
    *
-   * @param buffer  the raw STVN binary ByteBuffer
+   * @param buffer  the raw STVN binary byte buffer
    * @param docPath the optional URI or file path identifier
    * @param config  the parser configuration
-   * @return the monadic compilation result enclosing the AST document and diagnostics
+   * @return the monadic compilation result enclosing the lowered IR document and diagnostics
    */
   public static StvnCompilationResult<StvnDocument> compile(
       ByteBuffer buffer,
@@ -363,38 +383,53 @@ public final class StvnCompiler {
     Objects.requireNonNull(buffer, "buffer must not be null");
     Objects.requireNonNull(config, "config must not be null");
 
-    var diagnosticBag = new org.stvnadore.core.validation.DiagnosticBag(config.maxDiagnostics());
+    int byteLength = buffer.remaining();
+    var diagnosticBag = new DiagnosticBag(config.maxDiagnostics());
     try {
       RootPointer root = StvnBinaryDecoder.open(buffer);
-      Optional<StvnDocumentMeta> meta = root.meta();
+      Optional<StvnDocumentMeta> irMeta = root.meta().map(LegacyAstBridge::fromLegacyMeta);
 
-      // Execute document identity validation against docPath
-      org.stvnadore.core.validation.StvnTypeResolver.validateBinaryDocumentIdentity(
-          meta.orElse(null), docPath, diagnosticBag);
+      StvnDefsLowerer.validateBinaryDocumentIdentity(irMeta.orElse(null), docPath, diagnosticBag);
 
       Optional<StvnValue> payload = Optional.empty();
       try {
-        StvnValue unpacked = StvnBinaryDecoder.unpack(root, Optional.empty());
-        payload = Optional.ofNullable(unpacked);
+        org.stvnadore.core.ast.StvnValue unpacked = StvnBinaryDecoder.unpack(root, Optional.empty());
+        payload = Optional.of(LegacyAstBridge.fromLegacyValue(unpacked));
       } catch (Throwable t) {
-        diagnosticBag.addError("Failed to unpack binary payload: " + t.getMessage(), 0, buffer.remaining(), 1, 0, null, "MALFORMED_PAYLOAD");
+        diagnosticBag.addError(
+            "Failed to unpack binary payload: " + t.getMessage(),
+            0, byteLength, 1, 0, t,
+            "MALFORMED_PAYLOAD"
+        );
       }
 
-      var document = new StvnDocument(meta, payload, Optional.empty());
+      Optional<StvnSchema> rootType = payload.map(StvnValue::schema);
+      var document = new StvnDocument(
+          irMeta,
+          StvnDefsCatalog.EMPTY,
+          rootType,
+          payload,
+          false,
+          false
+      );
       return diagnosticBag.hasErrors()
           ? StvnCompilationResult.partial(document, diagnosticBag.toList())
           : StvnCompilationResult.success(document, diagnosticBag.toList());
     } catch (Throwable t) {
-      diagnosticBag.addError(t.getMessage() != null ? t.getMessage() : t.toString(), 0, buffer.remaining(), 1, 0, t, "STVN_BINARY_INGRESS_ERROR");
+      diagnosticBag.addError(
+          t.getMessage() != null ? t.getMessage() : t.toString(),
+          0, byteLength, 1, 0, t,
+          "MALFORMED_PAYLOAD"
+      );
       return StvnCompilationResult.failure(diagnosticBag.toList());
     }
   }
 
   /**
-   * Compiles a raw STVN text document into its corresponding {@link StvnValue} payload Intermediate Representation.
+   * Compiles a raw STVN text document into its corresponding pure-IR {@link StvnValue} payload.
    *
    * @param input the raw STVN document text to compile
-   * @return an {@link Optional} enclosing the root {@link StvnValue} payload node, or empty if body is empty
+   * @return an {@link Optional} enclosing the root {@link StvnValue} payload node, or empty if no payload is present
    * @throws NullPointerException if {@code input} is {@code null}
    * @throws RuntimeException     if a syntax error or semantic validation error occurs during compilation
    * @since 2.0.0
@@ -404,11 +439,11 @@ public final class StvnCompiler {
   }
 
   /**
-   * Compiles a raw STVN text document into its corresponding {@link StvnValue} payload with an optional document path.
+   * Compiles a raw STVN text document into its corresponding pure-IR {@link StvnValue} payload with an optional document path.
    *
    * @param input   the raw STVN document text to compile
    * @param docPath the optional URI or file path identifier, or {@code null}
-   * @return an {@link Optional} enclosing the root {@link StvnValue} payload node, or empty if body is empty
+   * @return an {@link Optional} enclosing the root {@link StvnValue} payload node, or empty if no payload is present
    * @throws NullPointerException if {@code input} is {@code null}
    * @throws RuntimeException     if a syntax error or semantic validation error occurs during compilation
    * @since 2.0.0
@@ -418,12 +453,12 @@ public final class StvnCompiler {
   }
 
   /**
-   * Compiles a raw STVN text document into its corresponding {@link StvnValue} payload with custom configuration.
+   * Compiles a raw STVN text document into its corresponding pure-IR {@link StvnValue} payload with custom configuration.
    *
    * @param input   the raw STVN document text to compile
    * @param docPath the optional URI or file path identifier, or {@code null}
    * @param config  the parser configuration defining error handling and strictness
-   * @return an {@link Optional} enclosing the root {@link StvnValue} payload node, or empty if body is empty
+   * @return an {@link Optional} enclosing the root {@link StvnValue} payload node, or empty if no payload is present
    * @throws NullPointerException if {@code input} or {@code config} is {@code null}
    * @throws RuntimeException     if a syntax error or semantic validation error occurs during compilation
    * @since 2.0.0
@@ -439,10 +474,12 @@ public final class StvnCompiler {
           .filter(d -> d.severity() == StvnDiagnostic.DiagnosticSeverity.ERROR)
           .findFirst()
           .orElseGet(() -> result.diagnostics().getFirst());
-      if (first.cause() instanceof org.stvnadore.core.validation.StvnSyntaxCancellationException sce) {
+      if (first.cause() instanceof StvnSyntaxCancellationException sce) {
         throw new RuntimeException(sce.getMessage(), sce);
       }
-      if (first.cause() instanceof RuntimeException re && !(re instanceof org.antlr.v4.runtime.RecognitionException) && !(re instanceof org.antlr.v4.runtime.misc.ParseCancellationException)) {
+      if (first.cause() instanceof RuntimeException re
+          && !(re instanceof RecognitionException)
+          && !(re instanceof ParseCancellationException)) {
         throw re;
       }
       throw new RuntimeException(first.message(), first.cause());
@@ -451,21 +488,18 @@ public final class StvnCompiler {
   }
 
   /**
-   * Compiles an STVN document located at the given filesystem path into its {@link StvnValue} payload.
+   * Compiles an STVN document located at the given filesystem path into its pure-IR {@link StvnValue} payload.
    *
    * @param path the filesystem path of the STVN source file
-   * @return an {@link Optional} enclosing the root {@link StvnValue} payload node, or empty if body is empty
+   * @return an {@link Optional} enclosing the root {@link StvnValue} payload node, or empty if no payload is present
    * @throws IOException          if an I/O error occurs reading the file
    * @throws NullPointerException if {@code path} is {@code null}
    * @throws RuntimeException     if compilation fails
    * @since 2.0.0
    */
   public static Optional<StvnValue> compilePayload(Path path) throws IOException {
+    Objects.requireNonNull(path, "path must not be null");
     return compilePayload(Files.readString(path), path.toString(), StvnParserConfig.STRICT);
-  }
-
-  private static String getErrorMessage(org.antlr.v4.runtime.Parser parser, RecognitionException re) {
-    return StvnErrorListener.formatSanitizedMessage(parser, re.getOffendingToken(), re.getMessage(), re);
   }
 
   /**
@@ -475,11 +509,12 @@ public final class StvnCompiler {
    * @param config the parser configuration defining error handling and strictness
    * @return the parsed {@link StvnParser.StvnDocumentContext} parse tree root
    * @throws NullPointerException if {@code input} or {@code config} is {@code null}
-   * @throws org.stvnadore.core.validation.StvnSyntaxCancellationException if {@code config.strict()} is true
-   *         and a syntax error is encountered
-   * @throws RuntimeException if a parsing error occurs during document recognition
+   * @throws StvnSyntaxCancellationException if {@code config.strict()} is true and a syntax error is encountered
    */
   public static StvnParser.StvnDocumentContext parse(String input, StvnParserConfig config) {
+    Objects.requireNonNull(input, "input must not be null");
+    Objects.requireNonNull(config, "config must not be null");
+
     var lexer = new StvnLexer(CharStreams.fromString(input));
     lexer.removeErrorListeners();
 
@@ -487,105 +522,204 @@ public final class StvnCompiler {
     parser.removeErrorListeners();
 
     if (config.strict()) {
-      parser.setErrorHandler(new org.antlr.v4.runtime.BailErrorStrategy());
+      parser.setErrorHandler(new BailErrorStrategy());
       var errorListener = StvnErrorListener.strict();
       lexer.addErrorListener(errorListener);
       parser.addErrorListener(errorListener);
+    } else {
+      parser.setErrorHandler(new StvnErrorStrategy());
     }
 
     return parser.stvnDocument();
   }
 
   /**
-   * Serializes the given {@link StvnValue} AST node into its canonical, whitespace-stripped text representation.
+   * Serializes the given pure-IR {@link StvnValue} into its canonical, whitespace-normalized STVN text representation.
    *
-   * @param value the {@link StvnValue} AST node to serialize
-   * @return the canonical, whitespace-stripped STVN string representation of the value
+   * @param value the pure-IR {@link StvnValue} node to serialize
+   * @return the canonical STVN string representation of the value
    * @throws NullPointerException if {@code value} is {@code null}
+   * @since 2.0.0
    */
   public static String toCanonicalString(StvnValue value) {
-    var writer = new org.stvnadore.core.io.CanonicalStvnWriter();
-    return writer.printToString(value);
+    return new CanonicalStvnWriter().printToString(value);
   }
 
   /**
-   * Serializes the given {@link org.stvnadore.core.ast.StvnDocument} to compact STVN text using custom options.
+   * Serializes the given pure-IR {@link StvnDocument} into its canonical, whitespace-normalized STVN text representation.
    *
-   * @param document the document to serialize
+   * @param document the pure-IR {@link StvnDocument} to serialize
+   * @return the canonical STVN string representation of the document
+   * @throws NullPointerException if {@code document} is {@code null}
+   * @since 2.0.0
+   */
+  public static String toCanonicalString(StvnDocument document) {
+    return new CanonicalStvnWriter().printToString(document);
+  }
+
+  /**
+   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue} node into its canonical STVN text representation.
+   *
+   * @param value the legacy AST value node to serialize
+   * @return the canonical STVN string representation of the value
+   */
+  public static String toCanonicalString(org.stvnadore.core.ast.StvnValue value) {
+    return new CanonicalStvnWriter().printToString(value);
+  }
+
+  /**
+   * Serializes the given pure-IR {@link StvnDocument} to compact STVN text using custom options.
+   *
+   * @param document the pure-IR document to serialize
+   * @param options  the printer options to apply
+   * @return the compact STVN string representation
+   * @since 2.0.0
+   */
+  public static String compactPrint(StvnDocument document, PrinterOptions options) {
+    return AstCompactPrinter.print(document, options);
+  }
+
+  /**
+   * Serializes the given pure-IR {@link StvnDocument} to compact STVN text using default compact options.
+   *
+   * @param document the pure-IR document to serialize
+   * @return the compact STVN string representation
+   * @since 2.0.0
+   */
+  public static String compactPrint(StvnDocument document) {
+    return AstCompactPrinter.print(document);
+  }
+
+  /**
+   * Serializes the given pure-IR {@link StvnValue} payload to compact STVN text using custom options.
+   *
+   * @param payload the pure-IR value payload to serialize
+   * @param options the printer options to apply
+   * @return the compact STVN string representation
+   * @since 2.0.0
+   */
+  public static String compactPrint(StvnValue payload, PrinterOptions options) {
+    return AstCompactPrinter.print(payload, options);
+  }
+
+  /**
+   * Serializes the given pure-IR {@link StvnValue} payload to compact STVN text using default compact options.
+   *
+   * @param payload the pure-IR value payload to serialize
+   * @return the compact STVN string representation
+   * @since 2.0.0
+   */
+  public static String compactPrint(StvnValue payload) {
+    return AstCompactPrinter.print(payload);
+  }
+
+  /**
+   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnDocument} to compact STVN text using custom options.
+   *
+   * @param document the legacy AST document to serialize
    * @param options  the printer options to apply
    * @return the compact STVN string representation
    */
-  public static String compactPrint(org.stvnadore.core.ast.StvnDocument document, org.stvnadore.core.printer.PrinterOptions options) {
-    return org.stvnadore.core.printer.AstCompactPrinter.print(document, options);
+  public static String compactPrint(org.stvnadore.core.ast.StvnDocument document, PrinterOptions options) {
+    return AstCompactPrinter.print(document, options);
   }
 
   /**
-   * Serializes the given {@link org.stvnadore.core.ast.StvnDocument} to compact STVN text using default compact options.
+   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnDocument} to compact STVN text using default options.
    *
-   * @param document the document to serialize
+   * @param document the legacy AST document to serialize
    * @return the compact STVN string representation
    */
   public static String compactPrint(org.stvnadore.core.ast.StvnDocument document) {
-    return org.stvnadore.core.printer.AstCompactPrinter.print(document);
+    return AstCompactPrinter.print(document);
   }
 
   /**
-   * Serializes the given {@link StvnValue} payload with explicit schema to compact STVN text using custom options.
+   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue} payload with explicit schema to compact STVN text.
    *
-   * @param payload the value payload to serialize
+   * @param payload the legacy AST value payload to serialize
    * @param schema  the explicit target schema
    * @param options the printer options to apply
    * @return the compact STVN string representation
    */
-  public static String compactPrint(StvnValue payload, org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema schema, org.stvnadore.core.printer.PrinterOptions options) {
-    return org.stvnadore.core.printer.AstCompactPrinter.print(payload, schema, options);
+  public static String compactPrint(
+      org.stvnadore.core.ast.StvnValue payload,
+      org.stvnadore.core.validation.StvnTypeResolver.ResolvedSchema schema,
+      PrinterOptions options
+  ) {
+    return AstCompactPrinter.print(payload, schema, options);
   }
 
   /**
-   * Serializes the given {@link StvnValue} payload to compact STVN text using custom options.
+   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue} payload to compact STVN text using custom options.
    *
-   * @param payload the value payload to serialize
+   * @param payload the legacy AST value payload to serialize
    * @param options the printer options to apply
    * @return the compact STVN string representation
    */
-  public static String compactPrint(StvnValue payload, org.stvnadore.core.printer.PrinterOptions options) {
-    return org.stvnadore.core.printer.AstCompactPrinter.print(payload, options);
+  public static String compactPrint(org.stvnadore.core.ast.StvnValue payload, PrinterOptions options) {
+    return AstCompactPrinter.print(payload, options);
   }
 
   /**
-   * Serializes the given {@link StvnValue} payload to compact STVN text using default compact options.
+   * Serializes a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue} payload to compact STVN text using default options.
    *
-   * @param payload the value payload to serialize
+   * @param payload the legacy AST value payload to serialize
    * @return the compact STVN string representation
    */
-  public static String compactPrint(StvnValue payload) {
-    return org.stvnadore.core.printer.AstCompactPrinter.print(payload);
+  public static String compactPrint(org.stvnadore.core.ast.StvnValue payload) {
+    return AstCompactPrinter.print(payload);
   }
 
   /**
-   * Generates a stable SHA-256 content-addressable storage (CAS) fingerprint of the given {@link StvnValue} AST node.
+   * Generates a stable SHA-256 content-addressable storage (CAS) fingerprint of the given pure-IR {@link StvnValue}.
    *
-   * @param value the {@link StvnValue} AST node to fingerprint
-   * @return a 32-byte cryptographic SHA-256 hash array of the canonical representation
+   * @param value the pure-IR {@link StvnValue} node to fingerprint
+   * @return a 32-byte cryptographic SHA-256 hash array of the canonical text preimage
    * @throws NullPointerException if {@code value} is {@code null}
-   * @throws RuntimeException     if the SHA-256 hashing algorithm is missing from the host environment
+   * @since 2.0.0
    */
   public static byte[] computeCasFingerprint(StvnValue value) {
-    var canonical = toCanonicalString(value);
+    return sha256Utf8(toCanonicalString(value));
+  }
+
+  /**
+   * Generates a stable SHA-256 content-addressable storage (CAS) fingerprint of the given pure-IR {@link StvnDocument}.
+   *
+   * @param document the pure-IR {@link StvnDocument} to fingerprint
+   * @return a 32-byte cryptographic SHA-256 hash array of the canonical text preimage
+   * @throws NullPointerException if {@code document} is {@code null}
+   * @since 2.0.0
+   */
+  public static byte[] computeCasFingerprint(StvnDocument document) {
+    return sha256Utf8(toCanonicalString(document));
+  }
+
+  /**
+   * Generates a stable SHA-256 content-addressable storage (CAS) fingerprint of a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue}.
+   *
+   * @param value the legacy AST value node to fingerprint
+   * @return a 32-byte cryptographic SHA-256 hash array of the canonical text preimage
+   */
+  public static byte[] computeCasFingerprint(org.stvnadore.core.ast.StvnValue value) {
+    return sha256Utf8(toCanonicalString(value));
+  }
+
+  private static byte[] sha256Utf8(String canonical) {
     try {
-      var digest = java.security.MessageDigest.getInstance("SHA-256");
-      return digest.digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-    } catch (java.security.NoSuchAlgorithmException e) {
-      throw new RuntimeException("SHA-256 algorithm missing from environment", e);
+      var digest = MessageDigest.getInstance("SHA-256");
+      return digest.digest(canonical.getBytes(StandardCharsets.UTF_8));
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 algorithm missing from environment", e);
     }
   }
 
   /**
    * Compiles an STVN document into a monadic {@link StvnCompilationResult}, accumulating all
-   * syntax and semantic diagnostics while constructing AST representations.
+   * syntax and semantic diagnostics while constructing pure-IR representations.
    *
    * @param source the raw STVN source string
-   * @return the monadic compilation result containing the AST and/or accumulated diagnostics
+   * @return the monadic compilation result containing the lowered IR document and accumulated diagnostics
    * @throws NullPointerException if {@code source} is {@code null}
    * @since 1.3.0
    */
@@ -656,21 +790,56 @@ public final class StvnCompiler {
   }
 
   /**
-   * Checks if an AST node or any of its descendant nodes contains an unrecovered {@link StvnValue.StvnError}.
+   * Checks whether a pure-IR {@link StvnValue} node or any of its descendants contains an {@link StvnValue.StvnErrorValue}.
    *
-   * @param val the AST value node to inspect
-   * @return {@code true} if an error node is present in the subtree
+   * @param val the pure-IR value node to inspect
+   * @return {@code true} if an error sentinel node is present anywhere in the subtree
+   * @since 2.0.0
    */
   public static boolean hasErrorNodes(StvnValue val) {
-    if (val instanceof StvnValue.StvnError) return true;
+    Objects.requireNonNull(val, "val must not be null");
     return switch (val) {
+      case StvnValue.StvnErrorValue ignored -> true;
       case StvnValue.StvnSeq seq -> seq.elements().stream().anyMatch(StvnCompiler::hasErrorNodes);
       case StvnValue.StvnSet set -> set.elements().stream().anyMatch(StvnCompiler::hasErrorNodes);
       case StvnValue.StvnTuple tuple -> tuple.elements().stream().anyMatch(StvnCompiler::hasErrorNodes);
-      case StvnValue.StvnMap map -> map.entries().entrySet().stream().anyMatch(e -> hasErrorNodes(e.getKey()) || hasErrorNodes(e.getValue()));
+      case StvnValue.StvnMap map -> map.entries().stream()
+          .anyMatch(e -> hasErrorNodes(e.key()) || hasErrorNodes(e.value()));
       case StvnValue.StvnOption opt -> opt.value().map(StvnCompiler::hasErrorNodes).orElse(false);
       case StvnValue.StvnEither either -> hasErrorNodes(either.value());
       case StvnValue.StvnUnion union -> hasErrorNodes(union.value());
+      default -> false;
+    };
+  }
+
+  /**
+   * Checks whether a legacy Stage 3 {@link org.stvnadore.core.ast.StvnValue} node or any of its descendants
+   * contains an {@link org.stvnadore.core.ast.StvnValue.StvnError}.
+   *
+   * @param val the legacy AST value node to inspect
+   * @return {@code true} if an error sentinel node is present anywhere in the subtree
+   */
+  public static boolean hasErrorNodes(org.stvnadore.core.ast.StvnValue val) {
+    Objects.requireNonNull(val, "val must not be null");
+    if (val instanceof org.stvnadore.core.ast.StvnValue.StvnError) {
+      return true;
+    }
+    return switch (val) {
+      case org.stvnadore.core.ast.StvnValue.StvnSeq seq ->
+          seq.elements().stream().anyMatch(StvnCompiler::hasErrorNodes);
+      case org.stvnadore.core.ast.StvnValue.StvnSet set ->
+          set.elements().stream().anyMatch(StvnCompiler::hasErrorNodes);
+      case org.stvnadore.core.ast.StvnValue.StvnTuple tuple ->
+          tuple.elements().stream().anyMatch(StvnCompiler::hasErrorNodes);
+      case org.stvnadore.core.ast.StvnValue.StvnMap map ->
+          map.entries().entrySet().stream()
+              .anyMatch(e -> hasErrorNodes(e.getKey()) || hasErrorNodes(e.getValue()));
+      case org.stvnadore.core.ast.StvnValue.StvnOption opt ->
+          opt.value().map(StvnCompiler::hasErrorNodes).orElse(false);
+      case org.stvnadore.core.ast.StvnValue.StvnEither either ->
+          hasErrorNodes(either.value());
+      case org.stvnadore.core.ast.StvnValue.StvnUnion union ->
+          hasErrorNodes(union.value());
       default -> false;
     };
   }
@@ -693,7 +862,10 @@ public final class StvnCompiler {
    * @return a {@link StvnAnalysisResult} containing either the compiled {@link StvnDocument} or a list of diagnostics
    * @throws NullPointerException if {@code source} is {@code null}
    */
-  public static StvnAnalysisResult<Optional<StvnDocument>, List<StvnDiagnostic>> analyze(String source, @Nullable String docPath) {
+  public static StvnAnalysisResult<Optional<StvnDocument>, List<StvnDiagnostic>> analyze(
+      String source,
+      @Nullable String docPath
+  ) {
     return analyze(source, docPath, StvnParserConfig.STRICT);
   }
 
@@ -722,67 +894,34 @@ public final class StvnCompiler {
     return new StvnAnalysisResult<>(result.document(), List.of());
   }
 
-  private static void mapSemanticException(Throwable t, String source, org.stvnadore.core.validation.DiagnosticBag diagnosticBag) {
+  private static void mapUnexpectedLoweringException(
+      Throwable t,
+      String source,
+      DiagnosticBag diagnosticBag
+  ) {
     int startOffset = -1;
     int endOffset = -1;
-    String errorCode = null;
+    String symbolicId = DiagnosticBag.ERR_MALFORMED_SCHEMA;
     if (t instanceof org.stvnadore.core.validation.MalformedSchemaException e) {
       startOffset = e.startOffset();
       endOffset = e.endOffset();
-      String msg = e.getMessage() != null ? e.getMessage() : "";
-      if (msg.contains("requires a scale facet")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_TEMPORAL_SCALE_MISSING;
-      } else if (msg.contains("requires exactly one mode facet")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_DATETIME_MODE_INVALID;
-      } else if (msg.contains("prelude") && msg.contains("purged")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_PRELUDE_ALIAS_PURGED;
-      } else if (msg.contains("Undefined type") || msg.contains("Unknown or undefined type")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_UNDEFINED_TYPE;
-      } else if (msg.contains("filter facets") || msg.contains("is not permitted on") || msg.contains("requires an explicit boolean value")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_INVALID_METADATA_FACET;
-      } else if (msg.contains("Facet '#size' is prohibited on :String") || msg.contains("#size' is prohibited on :String")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED;
-      } else if (msg.contains("violates canonical 5-tier order") || msg.contains("violates canonical 7-tier order")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_FACET_ORDER_VIOLATION;
-      } else if (msg.contains("defines an empty domain")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN;
-      } else if (msg.contains("require types to be #equatable #TRUE")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_TRAIT_VIOLATION;
-      } else if (msg.contains("Root ordering violation")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_ENUM_SUBSET_ORDER_VIOLATION;
-      }
+      symbolicId = DiagnosticBag.ERR_MALFORMED_SCHEMA;
     } else if (t instanceof org.stvnadore.core.validation.StvnMalformedLiteralException e) {
       startOffset = e.startOffset();
       endOffset = e.endOffset();
+      symbolicId = DiagnosticBag.ERR_INVALID_NUMERIC_LITERAL;
     } else if (t instanceof org.stvnadore.core.validation.StvnCollectionCollisionException e) {
       startOffset = e.startOffset();
       endOffset = e.endOffset();
-      if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
-      } else if (e.getMessage() != null && e.getMessage().contains("Duplicate inverted map value detected")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_DUPLICATE_INVERTED_MAP_VALUE;
-      } else if (e.getMessage() != null && e.getMessage().contains("Duplicate map key detected")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_DUPLICATE_MAP_KEY;
-      }
+      symbolicId = DiagnosticBag.ERR_DUPLICATE_SET_ELEMENT;
     } else if (t instanceof org.stvnadore.core.validation.StvnIntegerOverflowException e) {
       startOffset = e.startOffset();
       endOffset = e.endOffset();
-      errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_INTEGER_OVERFLOW;
+      symbolicId = DiagnosticBag.ERR_INTEGER_OVERFLOW;
     } else if (t instanceof org.stvnadore.core.validation.MalformedPayloadException e) {
       startOffset = e.startOffset();
       endOffset = e.endOffset();
-      if (e.getMessage() != null && (e.getMessage().contains("Ambiguous implicit resolution") || e.getMessage().contains("Ambiguous implicit either"))) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE;
-      } else if (e.getMessage() != null && e.getMessage().startsWith("Type mismatch")) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_TYPE_MISMATCH;
-      } else if (e.getMessage() != null && (e.getMessage().contains("outside allowable range")
-          || e.getMessage().contains("violates #minSize constraint")
-          || e.getMessage().contains("exceeds maximum length of")
-          || e.getMessage().contains("Fixed string must be"))) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_CONSTRAINT_VIOLATION;
-      } else if (e.getMessage() != null && (e.getMessage().contains("Mantissa precision") || e.getMessage().contains("exceeds maximum allowable significant digits"))) {
-        errorCode = org.stvnadore.core.validation.DiagnosticBag.ERR_CAPACITY_OVERFLOW;
-      }
+      symbolicId = DiagnosticBag.ERR_CONSTRAINT_VIOLATION;
     }
     int line = -1;
     int column = -1;
@@ -791,16 +930,9 @@ public final class StvnCompiler {
       line = resolved[0];
       column = resolved[1];
     }
-    diagnosticBag.add(new StvnDiagnostic(
-        t.getMessage() != null ? t.getMessage() : t.toString(),
-        StvnDiagnostic.DiagnosticSeverity.ERROR,
-        line,
-        column,
-        startOffset,
-        endOffset,
-        t,
-        Optional.ofNullable(errorCode)
-    ));
+    String rawMsg = t.getMessage() != null ? t.getMessage() : t.toString();
+    String sanitizedMsg = StvnSyntaxErrorSanitizer.purgeResidualAntlrJargon(rawMsg);
+    diagnosticBag.addError(sanitizedMsg, startOffset, endOffset, line, column, t, symbolicId);
   }
 
   private static int[] resolveLineColumn(String source, int offset) {
