@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E022 #TEMPORAL_DST_GAP_LITERAL #ERROR 12 5 208 246 "Invalid civil time: '2026-03-08T02:30' falls into a DST spring-forward gap in zone 'America/Chicago' (Transition[Gap at 2026-03-08T02:00-06:00 to -05:00])." )
+    ( #E022 #TEMPORAL_DST_GAP_LITERAL #ERROR 12 5 208 246 "Invalid { #zoned } :DateTime literal: local timestamp '2026-03-08T02:30' falls within a Daylight Saving Time gap in zone '[America/Chicago]'; expected \"YYYY-MM-DDTHH:mm:ss[.fraction][Region/City]\"" )
   ]
 }

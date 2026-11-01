@@ -1,0 +1,8 @@
+{:defs{:PreservedTsv{#preserveIndent #T}:String :TrimmedQuery :String}:type :Tuple(:TrimmedQuery :PreservedTsv):body("""[RAW]
+SELECT id, status
+  FROM audit_log
+ WHERE active = TRUE;
+[RAW]""" """[RAW]
+col1	col2
+  10	20
+[RAW]""")}

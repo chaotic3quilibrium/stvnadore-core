@@ -1,0 +1,1 @@
+{:defs{:Host{#minSize 1 #maxSize 253}:String :Port{#unsigned #size 16 #minIncl 1}:Int :EndpointSummary :Tuple(:Host :Port :Boolean):FacetedTelemetry :Tuple({#minSize 1 #maxSize 64}:String{#unsigned #size 16 #minIncl 1}:Int{#s #minIncl 0}:TimeEpoch)}:type :Tuple(:EndpointSummary :FacetedTelemetry):body(("edge.internal" 8080 #T)("ingress-01" 443 1773561600))}

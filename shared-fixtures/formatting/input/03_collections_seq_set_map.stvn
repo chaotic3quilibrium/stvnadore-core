@@ -1,0 +1,12 @@
+{
+  :defs {
+    :TagSet { #minSize 1 #maxSize 8 } :Set ( :String )
+    :RouteTable { #invertible #minSize 1 #maxSize 16 } :Map ( :String :TagSet )
+    :IntMatrix :Seq ( :Seq ( :Int ) )
+  }
+  :type :Tuple( :IntMatrix :RouteTable )
+  :body (
+    [ [ 1 2 3 ] [ 4 5 6 ] ]
+    { [ "primary" [ "tls" "http2" ] ] [ "fallback" [ "http1" ] ] }
+  )
+}

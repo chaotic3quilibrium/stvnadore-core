@@ -691,7 +691,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "2026-03-15 08:00:00" ]
                 }
                 """,
-            "Invalid {#offset} :DateTime format"),
+            "Invalid { #offset } :DateTime literal: malformed ISO-8601 date-time syntax; expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)\""),
 
         TestProfile.createError(
             "Temporal Validation - DateTimeOffset Rejects Zone",
@@ -704,7 +704,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "2026-03-15T08:00:00[America/Chicago]" ]
                 }
                 """,
-            "Time zone brackets [...] are prohibited in {#offset} :DateTime"),
+            "Invalid { #offset } :DateTime literal: IANA time zone brackets '[...]' are prohibited and missing required UTC offset ('Z' or '±HH:mm'); expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)\""),
 
         TestProfile.create(
             "Temporal Validation - DateTimeZoned Success",
@@ -729,7 +729,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "2026-03-06T15:53:08-06:00" ]
                 }
                 """,
-            "Explicit UTC offsets (+/-HH:mm or Z) are prohibited in {#zoned} :DateTime"),
+            "Invalid { #zoned } :DateTime literal: UTC offset ('Z' or '±HH:mm') is prohibited and missing required IANA time zone '[Region/City]'; expected \"YYYY-MM-DDTHH:mm:ss[.fraction][Region/City]\""),
 
         TestProfile.createError(
             "Temporal Validation - DateTimeZoned Rejects Offset",
@@ -742,7 +742,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "2026-03-15T08:00:00-05:00[America/Chicago]" ]
                 }
                 """,
-            "Explicit UTC offsets (+/-HH:mm or Z) are prohibited in {#zoned} :DateTime"),
+            "Invalid { #zoned } :DateTime literal: UTC offset ('Z' or '±HH:mm') is prohibited; expected \"YYYY-MM-DDTHH:mm:ss[.fraction][Region/City]\""),
 
         TestProfile.create(
             "Temporal Validation - DateTimeAudited Success",
@@ -767,7 +767,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "2026-03-15T08:00:00-05:00" ]
                 }
                 """,
-            "Invalid {#audited} :DateTime format"),
+            "Invalid { #audited } :DateTime literal: missing required IANA time zone '[Region/City]'; expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)[Region/City]\""),
 
         TestProfile.create(
             "Temporal Validation - TimeEpochNs BigInteger Storage Success",

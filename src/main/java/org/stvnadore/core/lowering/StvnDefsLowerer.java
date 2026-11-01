@@ -5201,11 +5201,23 @@ public final class StvnDefsLowerer {
         if (lbIdx > 0 && rbIdx > lbIdx) {
           String prefix = decodedText.substring(0, lbIdx);
           String zoneStr = decodedText.substring(lbIdx + 1, rbIdx);
+          if (!java.time.zone.ZoneRulesProvider.getAvailableZoneIds().contains(zoneStr)) {
+            return Optional.empty();
+          }
           java.time.ZoneId zoneId = java.time.ZoneId.of(zoneStr);
           if (hasExplicitOffsetSuffix(prefix)) {
-            inst = java.time.OffsetDateTime.parse(prefix).toInstant();
+            java.time.OffsetDateTime odt = java.time.OffsetDateTime.parse(prefix);
+            List<java.time.ZoneOffset> validOffsets = zoneId.getRules().getValidOffsets(odt.toLocalDateTime());
+            if (validOffsets.isEmpty() || !validOffsets.contains(odt.getOffset())) {
+              return Optional.empty();
+            }
+            inst = odt.toInstant();
           } else {
-            inst = java.time.LocalDateTime.parse(prefix).atZone(zoneId).toInstant();
+            java.time.LocalDateTime ldt = java.time.LocalDateTime.parse(prefix);
+            if (zoneId.getRules().getValidOffsets(ldt).isEmpty()) {
+              return Optional.empty();
+            }
+            inst = ldt.atZone(zoneId).toInstant();
           }
         } else {
           inst = java.time.OffsetDateTime.parse(decodedText).toInstant();
@@ -5231,12 +5243,30 @@ public final class StvnDefsLowerer {
         if (lbIdx > 0 && rbIdx > lbIdx) {
           String prefix = decodedText.substring(0, lbIdx);
           String zoneStr = decodedText.substring(lbIdx + 1, rbIdx);
+          if (!java.time.zone.ZoneRulesProvider.getAvailableZoneIds().contains(zoneStr)) {
+            diagnosticBag.addError(
+                "Constraint violation (" + ownerLabel + "): unknown IANA time zone '[" + zoneStr
+                    + "]' in datetime bound " + boundFacet + ": " + decodedText,
+                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+                DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+            );
+            return null;
+          }
           java.time.ZoneId zoneId = java.time.ZoneId.of(zoneStr);
           if (hasExplicitOffsetSuffix(prefix)) {
             java.time.OffsetDateTime odt = java.time.OffsetDateTime.parse(prefix);
-            inst = odt.toInstant();
-            java.time.ZoneOffset expected = zoneId.getRules().getOffset(inst);
-            if (!odt.getOffset().equals(expected)) {
+            java.time.LocalDateTime ldt = odt.toLocalDateTime();
+            List<java.time.ZoneOffset> validOffsets = zoneId.getRules().getValidOffsets(ldt);
+            if (validOffsets.isEmpty()) {
+              diagnosticBag.addError(
+                  "Constraint violation (" + ownerLabel + "): datetime bound " + boundFacet
+                      + " falls in DST spring-forward gap: " + decodedText,
+                  bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+                  DiagnosticBag.ERR_TEMPORAL_DST_GAP_LITERAL
+              );
+              return null;
+            }
+            if (!validOffsets.contains(odt.getOffset())) {
               diagnosticBag.addError(
                   "Constraint violation (" + ownerLabel + "): contradictory offset in audited datetime bound "
                       + boundFacet + ": " + decodedText,
@@ -5245,6 +5275,7 @@ public final class StvnDefsLowerer {
               );
               return null;
             }
+            inst = odt.toInstant();
           } else {
             java.time.LocalDateTime ldt = java.time.LocalDateTime.parse(prefix);
             List<java.time.ZoneOffset> validOffsets = zoneId.getRules().getValidOffsets(ldt);

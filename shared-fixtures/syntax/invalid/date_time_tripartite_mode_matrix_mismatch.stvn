@@ -1,0 +1,27 @@
+{
+  :defs {
+    :DateTimes :Tuple (
+      {#offset} :DateTime
+      {#zoned} :DateTime
+      {#audited} :DateTime
+    )
+  }
+  :type { #maxSize 4096 } :Seq(:DateTimes)
+  :body [
+    (
+      "2026-09-12T15:30:00.001-04:00"
+      "2026-09-12T15:30:00.002[America/New_York]"
+      "2026-09-12T15:30:00.003-04:00[America/New_York]"
+    )
+    (
+      "2026-09-12T15:30:00.004-04:00[America/New_York]"
+      "2026-09-12T15:30:00.005-04:00"
+      "2026-09-12T15:30:00.006[America/New_York]"
+    )
+    (
+      "2026-09-12T15:30:00.007[America/New_York]"
+      "2026-09-12T15:30:00.008-04:00[America/New_York]"
+      "2026-09-12T15:30:00.009-04:00"
+    )
+  ]
+}

@@ -550,10 +550,7 @@ class StvnTextPrinterTest {
         """
             {
                 :defs {
-                    :age {
-                        #minIncl 0
-                        #maxExcl 121
-                    } :Int
+                    :age { #minIncl 0 #maxExcl 121 } :Int
                 }
                 :type :age
                 :body 42
@@ -594,7 +591,7 @@ class StvnTextPrinterTest {
         """
             {
                 :defs {
-                    :preservedBlock {#preserveIndent #TRUE} :String
+                    :preservedBlock { #preserveIndent #TRUE } :String
                 }
                 :type :preservedBlock
                 :body ""\"[RAW]
@@ -631,7 +628,7 @@ class StvnTextPrinterTest {
         """
             {
                 :defs {
-                    :myFloat {#equatable #TRUE} :Float
+                    :myFloat { #equatable #TRUE } :Float
                 }
                 :type :myFloat
                 :body 3.14
@@ -654,7 +651,7 @@ class StvnTextPrinterTest {
         """
             {
                 :defs {
-                    :mySeq {#comparable #FALSE} :Seq(:Float)
+                    :mySeq { #comparable #FALSE } :Seq(:Float)
                 }
                 :type :mySeq
                 :body [1.0 2.0]
@@ -687,7 +684,7 @@ class StvnTextPrinterTest {
         """
             {
                 :defs {
-                    :code {#regex "^[A-Z]{3}$"} :String
+                    :code { #regex "^[A-Z]{3}$" } :String
                 }
                 :type :code
                 :body "STV"
@@ -722,10 +719,7 @@ class StvnTextPrinterTest {
         """
             {
                 :defs {
-                    :finalInt {
-                        #minIncl 10
-                        #maxExcl 101
-                    } :Int
+                    :finalInt { #minIncl 10 #maxExcl 101 } :Int
                 }
                 :type :finalInt
                 :body 42
@@ -831,10 +825,7 @@ class StvnTextPrinterTest {
         """
         {
             :defs {
-                :myFloat {
-                    #equatable #T
-                    #comparable #F
-                } :Float
+                :myFloat { #equatable #T #comparable #F } :Float
             }
             :type :myFloat
             :body 3.14
@@ -959,9 +950,9 @@ class StvnTextPrinterTest {
         """
         {
             :defs {
-                :AuditedDateTime {#audited} :DateTime
-                :OffsetDateTime {#offset} :DateTime
-                :ZonedDateTime {#zoned} :DateTime
+                :AuditedDateTime { #audited } :DateTime
+                :OffsetDateTime { #offset } :DateTime
+                :ZonedDateTime { #zoned } :DateTime
             }
             :type :Tuple(:OffsetDateTime :ZonedDateTime :AuditedDateTime)
             :body ("2026-03-15T08:00:00-05:00" "2026-03-15T08:00:00[America/Chicago]" "2026-03-15T08:00:00-05:00[America/Chicago]")

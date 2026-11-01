@@ -941,6 +941,55 @@ public final class StvnCompiler {
   }
 
   /**
+   * Structured result describing a tripartite {@code :DateTime} literal validation failure,
+   * returned by {@link #validateDateTimeLiteral(String, StvnSchema.DateTimeMode)} for IDE hover
+   * inspection and external literal verification.
+   *
+   * @param canonicalCode canonical STVN 2.0.0 diagnostic code ({@code E019}, {@code E021}, {@code E022}, or {@code E028})
+   * @param symbolicId    normative symbolic diagnostic identifier from {@link DiagnosticBag}
+   * @param message       unified three-part diagnostic message
+   * @since 2.0.0
+   */
+  public record DateTimeValidationFailure(
+      String canonicalCode,
+      String symbolicId,
+      String message
+  ) {
+    /**
+     * Validates non-null record components for a tripartite {@code :DateTime} validation failure.
+     *
+     * @param canonicalCode canonical STVN 2.0.0 diagnostic code
+     * @param symbolicId    normative symbolic diagnostic identifier
+     * @param message       unified three-part diagnostic message
+     * @throws NullPointerException if any component is {@code null}
+     */
+    public DateTimeValidationFailure {
+      Objects.requireNonNull(canonicalCode, "canonicalCode must not be null");
+      Objects.requireNonNull(symbolicId, "symbolicId must not be null");
+      Objects.requireNonNull(message, "message must not be null");
+    }
+  }
+
+  /**
+   * Validates a raw STVN string literal token (simple quoted or fenced) against the specified
+   * tripartite {@link StvnSchema.DateTimeMode}, returning empty when valid or a unified
+   * {@link DateTimeValidationFailure} when invalid.
+   *
+   * @param rawLiteralText raw STVN string literal text including enclosing quotes or fences
+   * @param mode           governing {@link StvnSchema.DateTimeMode}
+   * @return empty if the literal satisfies the mode contract; a {@link DateTimeValidationFailure} otherwise
+   * @throws NullPointerException if {@code rawLiteralText} or {@code mode} is {@code null}
+   * @since 2.0.0
+   */
+  public static Optional<DateTimeValidationFailure> validateDateTimeLiteral(
+      String rawLiteralText,
+      StvnSchema.DateTimeMode mode
+  ) {
+    return StvnPayloadLowerer.validateDateTimeLiteral(rawLiteralText, mode)
+        .map(f -> new DateTimeValidationFailure(f.canonicalCode(), f.symbolicId(), f.message()));
+  }
+
+  /**
    * Analyzes a raw STVN text document deterministically, collecting any syntax or semantic diagnostics.
    *
    * @param source the raw STVN document text to analyze

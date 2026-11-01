@@ -146,6 +146,20 @@ public final class DiagnosticBag {
   public static final String ERR_TEMPORAL_AUDITED_MISMATCH = "TEMPORAL_AUDITED_MISMATCH";
   /** Error code emitted when a civil wall-clock literal falls inside a DST spring-forward gap (E022). */
   public static final String ERR_TEMPORAL_DST_GAP_LITERAL = "TEMPORAL_DST_GAP_LITERAL";
+  /** Error code emitted when an offset {@code :DateTime} literal contains prohibited IANA time zone brackets (E028). */
+  public static final String ERR_TEMPORAL_ZONE_IN_OFFSET = "TEMPORAL_ZONE_IN_OFFSET";
+  /** Error code emitted when a {@code :DateTime} literal uses a prohibited fenced multi-line string (E028). */
+  public static final String ERR_DATETIME_FENCED_STRING_PROHIBITED = "DATETIME_FENCED_STRING_PROHIBITED";
+  /** Error code emitted when an offset or audited {@code :DateTime} literal omits a required UTC offset (E028). */
+  public static final String ERR_DATETIME_MISSING_OFFSET = "DATETIME_MISSING_OFFSET";
+  /** Error code emitted when a zoned or audited {@code :DateTime} literal omits a required IANA time zone bracket (E028). */
+  public static final String ERR_DATETIME_MISSING_ZONE = "DATETIME_MISSING_ZONE";
+  /** Error code emitted when a {@code :DateTime} literal fails ISO-8601 lexical format syntax (E028). */
+  public static final String ERR_DATETIME_INVALID_FORMAT = "DATETIME_INVALID_FORMAT";
+  /** Error code emitted when a {@code :DateTime} literal contains an out-of-range calendar or clock component (E028). */
+  public static final String ERR_DATETIME_INVALID_CALENDAR = "DATETIME_INVALID_CALENDAR";
+  /** Error code emitted when a {@code :DateTime} literal specifies a malformed or unknown IANA time zone identifier (E028). */
+  public static final String ERR_DATETIME_INVALID_ZONE = "DATETIME_INVALID_ZONE";
   /** Error code emitted when an untagged payload matches only the Left branch of {@code :Either} (E023). */
   public static final String ERR_EITHER_LEFT_MISSING_TAG = "EITHER_LEFT_MISSING_TAG";
   /** Error code emitted when unreachable definitions appear in strict canonical verification (E029). */
@@ -273,6 +287,13 @@ public final class DiagnosticBag {
       Map.entry("CONSTANT_TYPE_MISMATCH", "E028"),
       Map.entry(ERR_TUPLE_ARITY_MISMATCH, "E028"),
       Map.entry(ERR_UNION_BRANCH_OVERFLOW, "E028"),
+      Map.entry(ERR_TEMPORAL_ZONE_IN_OFFSET, "E028"),
+      Map.entry(ERR_DATETIME_FENCED_STRING_PROHIBITED, "E028"),
+      Map.entry(ERR_DATETIME_MISSING_OFFSET, "E028"),
+      Map.entry(ERR_DATETIME_MISSING_ZONE, "E028"),
+      Map.entry(ERR_DATETIME_INVALID_FORMAT, "E028"),
+      Map.entry(ERR_DATETIME_INVALID_CALENDAR, "E028"),
+      Map.entry(ERR_DATETIME_INVALID_ZONE, "E028"),
       Map.entry("MALFORMED_PAYLOAD", "E028"),
       Map.entry(ERR_DEAD_CODE_CANONICAL_FAIL, "E029"),
       Map.entry(ERR_UNDEFINED_TYPE, "E030"),

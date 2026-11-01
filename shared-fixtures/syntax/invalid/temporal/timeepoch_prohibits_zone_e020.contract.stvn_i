@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E020 #TEMPORAL_ZONE_IN_EPOCH #ERROR 10 22 167 184 "IANA time zone bracket is prohibited in :TimeEpoch payload: \"1773561600[UTC]\"" )
+    ( #E020 #TEMPORAL_ZONE_IN_EPOCH #ERROR 10 22 167 184 "Invalid { #s } :TimeEpoch literal: IANA time zone brackets '[...]' are prohibited; expected integer epoch tick literal" )
   ]
 }

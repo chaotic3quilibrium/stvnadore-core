@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E019 #TEMPORAL_OFFSET_IN_ZONED #ERROR 12 5 221 265 "Explicit UTC offsets (+/-HH:mm or Z) are prohibited in {#zoned} :DateTime" )
+    ( #E019 #TEMPORAL_OFFSET_IN_ZONED #ERROR 12 5 221 265 "Invalid { #zoned } :DateTime literal: UTC offset ('Z' or '±HH:mm') is prohibited; expected \"YYYY-MM-DDTHH:mm:ss[.fraction][Region/City]\"" )
   ]
 }

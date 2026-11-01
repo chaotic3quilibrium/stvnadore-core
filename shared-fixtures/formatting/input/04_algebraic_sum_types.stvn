@@ -1,0 +1,13 @@
+{
+  :defs {
+    :AmbiguousEnum :Enum [ #None #Left #OK ]
+    :ResultCode :Either ( :Int :String )
+    :BoundedUnion :Union (
+      { #unsigned #size 8 } :Int
+      { #minSize 1 #maxSize 32 } :String
+    )
+    :OverlappingUnion :Union ( :Int { #minIncl 0 #maxExcl 1000 } :Int )
+  }
+  :type :Tuple( :Option(:Int) :Option(:Int) :Option(:AmbiguousEnum) :ResultCode :ResultCode :ResultCode :BoundedUnion :OverlappingUnion )
+  :body ( #Some 42 #N #S #None #L 404 #Right "accepted" #R "#Left" #2 "token" #1 100 )
+}

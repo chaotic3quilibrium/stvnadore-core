@@ -224,15 +224,23 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
       layout.writeLiteral(StvnVocabulary.KEYWORD_META);
       layout.appendSeparator();
       layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+      if (pretty) {
+        layout.indent();
+      }
       boolean firstMeta = true;
       if (meta.name().isPresent()) {
+        if (pretty) {
+          layout.newline();
+        }
         firstMeta = false;
         layout.writeLiteral(StvnVocabulary.FACET_KW_META_NAME);
         layout.appendSeparator();
         layout.writeSimpleString(meta.name().get());
       }
       if (meta.domain().isPresent()) {
-        if (!firstMeta) {
+        if (pretty) {
+          layout.newline();
+        } else if (!firstMeta) {
           layout.appendSeparator();
         }
         firstMeta = false;
@@ -241,12 +249,18 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
         layout.writeSimpleString(meta.domain().get());
       }
       if (meta.kind().isPresent()) {
-        if (!firstMeta) {
+        if (pretty) {
+          layout.newline();
+        } else if (!firstMeta) {
           layout.appendSeparator();
         }
         layout.writeLiteral(StvnVocabulary.FACET_KW_META_KIND);
         layout.appendSeparator();
         layout.writeLiteral(meta.kind().get().keyword());
+      }
+      if (pretty) {
+        layout.outdent();
+        layout.newline();
       }
       layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
     }
@@ -417,16 +431,7 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
       }
       case StvnSchema.TupleSchema tup -> {
         layout.writeLiteral(StvnVocabulary.TYPE_TUPLE);
-        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
-        boolean first = true;
-        for (StvnSchema field : tup.fieldSchemas()) {
-          if (!first) {
-            layout.appendSeparator();
-          }
-          first = false;
-          writeSchemaReferenceOrInline(field, layout);
-        }
-        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
+        writeMultiElementSchemaGroup(tup.fieldSchemas(), layout);
       }
       case StvnSchema.OptionSchema opt -> {
         layout.writeLiteral(StvnVocabulary.TYPE_OPTION);
@@ -444,16 +449,7 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
       }
       case StvnSchema.UnionSchema un -> {
         layout.writeLiteral(StvnVocabulary.TYPE_UNION);
-        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
-        boolean first = true;
-        for (StvnSchema branch : un.branchSchemas()) {
-          if (!first) {
-            layout.appendSeparator();
-          }
-          first = false;
-          writeSchemaReferenceOrInline(branch, layout);
-        }
-        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
+        writeMultiElementSchemaGroup(un.branchSchemas(), layout);
       }
       case StvnSchema.SeqSchema seq -> {
         layout.writeLiteral(StvnVocabulary.TYPE_SEQ);
@@ -485,31 +481,79 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
     }
   }
 
+  private void writeMultiElementSchemaGroup(List<StvnSchema> children, LayoutWriter layout) throws IOException {
+    boolean multiLine = (layout instanceof PrettyLayoutWriter) && requiresMultiLineSchemaGroup(children);
+    layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
+    if (multiLine) {
+      layout.indent();
+    }
+    boolean first = true;
+    for (StvnSchema child : children) {
+      if (multiLine) {
+        layout.newline();
+      } else if (!first) {
+        layout.appendSeparator();
+      }
+      first = false;
+      writeSchemaReferenceOrInline(child, layout);
+    }
+    if (multiLine) {
+      layout.outdent();
+      layout.newline();
+    }
+    layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
+  }
+
+  private boolean requiresMultiLineSchemaGroup(List<StvnSchema> children) {
+    for (StvnSchema child : children) {
+      if (isInlineFacetedOrMultiLineSchema(child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean isInlineFacetedOrMultiLineSchema(StvnSchema schema) {
+    if (schema instanceof StvnSchema.PoisonedSchema p) {
+      if (StvnPayloadLowerer.RECURSIVE_BACK_EDGE_SENTINEL.equals(p.primaryDiagnosticCode())
+          && p.aliasName().isPresent()) {
+        return false;
+      }
+      return p.bestEffortFallback().map(this::isInlineFacetedOrMultiLineSchema).orElse(false);
+    }
+    if (schema.aliasName().isPresent()) {
+      return false;
+    }
+    if (!collectFiveTierFacets(schema).isEmpty()) {
+      return true;
+    }
+    if (schema instanceof StvnSchema.TupleSchema tup) {
+      return requiresMultiLineSchemaGroup(tup.fieldSchemas());
+    }
+    if (schema instanceof StvnSchema.UnionSchema un) {
+      return requiresMultiLineSchemaGroup(un.branchSchemas());
+    }
+    return false;
+  }
+
   private static void emitFacetBlock(List<FacetEmitter> facets, LayoutWriter layout) throws IOException {
     boolean pretty = layout instanceof PrettyLayoutWriter;
-    boolean inline = (facets.size() <= 1) || !pretty;
-
     layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
-    if (!inline) {
-      layout.indent();
+    if (pretty) {
+      layout.appendSeparator();
     }
 
     boolean first = true;
     for (FacetEmitter emitter : facets) {
-      if (inline) {
-        if (!first) {
-          layout.appendSeparator();
-        }
-      } else {
-        layout.newline();
+      if (!first) {
+        layout.appendSeparator();
       }
       first = false;
       emitter.emit(layout);
     }
 
-    if (!inline) {
-      layout.outdent();
-      layout.newline();
+    if (pretty) {
+      layout.appendSeparator();
     }
     layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
   }

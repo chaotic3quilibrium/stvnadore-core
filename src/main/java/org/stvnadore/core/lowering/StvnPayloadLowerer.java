@@ -28,11 +28,13 @@ import org.stvnadore.core.validation.StvnMalformedLiteralException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.zone.ZoneRulesProvider;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -82,9 +84,52 @@ public final class StvnPayloadLowerer {
       "^\"([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?)(Z|[+-][0-9]{2}:[0-9]{2})\\[([A-Za-z0-9_\\-+]+(/[A-Za-z0-9_\\-+]+)*)\\]\"$"
   );
 
-  private static final Pattern ZONED_WITH_ILLEGAL_OFFSET_PATTERN = Pattern.compile(
-      "^\"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})\\[.+\\]\"$"
+  private static final Pattern LOCAL_ISO_PREFIX_PATTERN = Pattern.compile(
+      "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?$"
   );
+
+  private static final Pattern OFFSET_SUFFIX_EXTRACT_PATTERN = Pattern.compile(
+      "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?)(Z|[+-][0-9]{2}:[0-9]{2})$"
+  );
+
+  private static final Pattern IANA_ZONE_SYNTAX_PATTERN = Pattern.compile(
+      "^[A-Za-z0-9_\\-+]+(?:/[A-Za-z0-9_\\-+]+)*$"
+  );
+
+  /**
+   * Structured result describing a tripartite {@code :DateTime} literal validation failure,
+   * shared across payload lowering, schema bound validation, and IDE hover inspection.
+   *
+   * @param canonicalCode canonical STVN 2.0.0 diagnostic code ({@code E019}, {@code E021}, {@code E022}, or {@code E028})
+   * @param symbolicId    normative symbolic diagnostic identifier from {@link DiagnosticBag}
+   * @param message       unified three-part diagnostic message
+   * @since 2.0.0
+   */
+  public record DateTimeValidationFailure(
+      String canonicalCode,
+      String symbolicId,
+      String message
+  ) {}
+
+  /**
+   * Validated tripartite {@code :DateTime} components verified against {@link #validateDateTimeLiteral(String, DateTimeMode)}.
+   *
+   * @param mode             governing {@link DateTimeMode}
+   * @param localWallClock   parsed {@link LocalDateTime}
+   * @param offset           validated {@link ZoneOffset} when {@code OFFSET} or {@code AUDITED}
+   * @param zone             validated IANA {@link ZoneId} when {@code ZONED} or {@code AUDITED}
+   * @param instant          physical {@link Instant} for half-open bound comparison
+   * @param canonicalIsoText canonical formatted ISO-8601 text
+   * @since 2.0.0
+   */
+  public record ValidatedDateTimeLiteral(
+      DateTimeMode mode,
+      LocalDateTime localWallClock,
+      Optional<ZoneOffset> offset,
+      Optional<ZoneId> zone,
+      Instant instant,
+      String canonicalIsoText
+  ) {}
 
   /**
    * Internal sentinel code marking a guarded recursive nominal schema back-edge inside an immutable
@@ -638,57 +683,302 @@ public final class StvnPayloadLowerer {
    * @return the resolved physical {@link Instant}
    */
   public static Instant parseDateTimeBoundInstant(String rawQuotedLiteral, DateTimeMode mode) {
+    EitherDateTimeResult parsed = evaluateDateTimeLiteral(rawQuotedLiteral, mode);
+    if (parsed.failure != null) {
+      throw new IllegalArgumentException(parsed.failure.message());
+    }
+    return Objects.requireNonNull(parsed.success).instant();
+  }
+
+  /**
+   * Validates a raw STVN string literal token (simple quoted or fenced) against the specified
+   * tripartite {@link DateTimeMode}, returning empty when valid or a unified
+   * {@link DateTimeValidationFailure} when invalid.
+   *
+   * @param rawLiteralText raw STVN string literal text including enclosing quotes or fences
+   * @param mode           governing {@link DateTimeMode}
+   * @return empty if valid; structured {@link DateTimeValidationFailure} otherwise
+   * @throws NullPointerException if {@code rawLiteralText} or {@code mode} is {@code null}
+   * @since 2.0.0
+   */
+  public static Optional<DateTimeValidationFailure> validateDateTimeLiteral(
+      String rawLiteralText,
+      DateTimeMode mode
+  ) {
+    Objects.requireNonNull(rawLiteralText, "rawLiteralText must not be null");
+    Objects.requireNonNull(mode, "mode must not be null");
+    return Optional.ofNullable(evaluateDateTimeLiteral(rawLiteralText, mode).failure);
+  }
+
+  private record EitherDateTimeResult(
+      @Nullable ValidatedDateTimeLiteral success,
+      @Nullable DateTimeValidationFailure failure
+  ) {
+    static EitherDateTimeResult ok(ValidatedDateTimeLiteral val) {
+      return new EitherDateTimeResult(val, null);
+    }
+
+    static EitherDateTimeResult fail(DateTimeMode mode, String canonicalCode, String symbolicId, String violation) {
+      String msg = "Invalid " + canonicalModeLabel(mode) + " " + StvnVocabulary.TYPE_DATE_TIME
+          + " literal: " + violation + "; expected \"" + expectedFormatForMode(mode) + "\"";
+      return new EitherDateTimeResult(null, new DateTimeValidationFailure(canonicalCode, symbolicId, msg));
+    }
+  }
+
+  private static String canonicalModeLabel(DateTimeMode mode) {
+    return switch (mode) {
+      case OFFSET -> "{ #offset }";
+      case ZONED -> "{ #zoned }";
+      case AUDITED -> "{ #audited }";
+    };
+  }
+
+  private static String expectedFormatForMode(DateTimeMode mode) {
+    return switch (mode) {
+      case OFFSET -> "YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)";
+      case ZONED -> "YYYY-MM-DDTHH:mm:ss[.fraction][Region/City]";
+      case AUDITED -> "YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)[Region/City]";
+    };
+  }
+
+  private static EitherDateTimeResult evaluateDateTimeLiteral(String rawText, DateTimeMode mode) {
+    if (rawText.startsWith("\"\"\"")) {
+      return EitherDateTimeResult.fail(
+          mode, "E028", DiagnosticBag.ERR_DATETIME_FENCED_STRING_PROHIBITED,
+          "fenced multi-line strings are prohibited"
+      );
+    }
+    if (rawText.length() < 2 || rawText.charAt(0) != '"' || rawText.charAt(rawText.length() - 1) != '"') {
+      return EitherDateTimeResult.fail(
+          mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_FORMAT,
+          "malformed ISO-8601 date-time syntax"
+      );
+    }
+
+    String inner = rawText.substring(1, rawText.length() - 1);
+    int lb = inner.indexOf('[');
+    int rb = inner.lastIndexOf(']');
+    boolean hasBracketChars = lb >= 0 || rb >= 0;
+    boolean wellFormedTailBracket = lb > 0 && rb == inner.length() - 1
+        && inner.indexOf('[', lb + 1) < 0 && inner.indexOf(']') == rb;
+
+    String preBracket = hasBracketChars ? (lb >= 0 ? inner.substring(0, lb) : inner) : inner;
+    var offsetMatcher = OFFSET_SUFFIX_EXTRACT_PATTERN.matcher(preBracket);
+    boolean hasValidLexicalOffset = offsetMatcher.matches();
+    boolean hasBareLocalIso = !hasValidLexicalOffset && LOCAL_ISO_PREFIX_PATTERN.matcher(preBracket).matches();
+    boolean hasSuspectedOffset = hasValidLexicalOffset || hasExplicitOffsetAfterT(preBracket);
+
     return switch (mode) {
       case OFFSET -> {
-        var matcher = DATETIME_OFFSET_PATTERN.matcher(rawQuotedLiteral);
-        if (!matcher.matches()) {
-          throw new IllegalArgumentException(
-              "Invalid {#offset} " + StvnVocabulary.TYPE_DATE_TIME + " bound literal: " + rawQuotedLiteral);
+        if (hasBracketChars) {
+          String violation = hasSuspectedOffset
+              ? "IANA time zone brackets '[...]' are prohibited"
+              : "IANA time zone brackets '[...]' are prohibited and missing required UTC offset ('Z' or '±HH:mm')";
+          yield EitherDateTimeResult.fail(mode, "E028", DiagnosticBag.ERR_TEMPORAL_ZONE_IN_OFFSET, violation);
         }
-        String iso = rawQuotedLiteral.substring(1, rawQuotedLiteral.length() - 1);
-        yield OffsetDateTime.parse(iso).toInstant();
+        if (hasBareLocalIso) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_MISSING_OFFSET,
+              "missing required UTC offset ('Z' or '±HH:mm')"
+          );
+        }
+        if (!hasValidLexicalOffset) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_FORMAT,
+              "malformed ISO-8601 date-time syntax"
+          );
+        }
+        OffsetDateTime odt;
+        try {
+          odt = OffsetDateTime.parse(inner);
+        } catch (DateTimeException e) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_CALENDAR,
+              "invalid ISO-8601 calendar or clock value"
+          );
+        }
+        String canonicalIso = StvnLiteralParser.formatCanonicalDateTime(
+            DateTimeMode.OFFSET, odt.toLocalDateTime(), Optional.of(odt.getOffset()), Optional.empty()
+        );
+        yield EitherDateTimeResult.ok(new ValidatedDateTimeLiteral(
+            DateTimeMode.OFFSET, odt.toLocalDateTime(), Optional.of(odt.getOffset()), Optional.empty(),
+            odt.toInstant(), canonicalIso
+        ));
       }
+
       case ZONED -> {
-        if (ZONED_WITH_ILLEGAL_OFFSET_PATTERN.matcher(rawQuotedLiteral).matches()) {
-          throw new IllegalArgumentException(
-              "Explicit UTC offset is prohibited in {#zoned} " + StvnVocabulary.TYPE_DATE_TIME + " bound: "
-                  + rawQuotedLiteral);
+        if (hasSuspectedOffset) {
+          String violation = hasBracketChars
+              ? "UTC offset ('Z' or '±HH:mm') is prohibited"
+              : "UTC offset ('Z' or '±HH:mm') is prohibited and missing required IANA time zone '[Region/City]'";
+          yield EitherDateTimeResult.fail(mode, "E019", DiagnosticBag.ERR_TEMPORAL_OFFSET_IN_ZONED, violation);
         }
-        var matcher = DATETIME_ZONED_PATTERN.matcher(rawQuotedLiteral);
-        if (!matcher.matches()) {
-          throw new IllegalArgumentException(
-              "Invalid {#zoned} " + StvnVocabulary.TYPE_DATE_TIME + " bound literal: " + rawQuotedLiteral);
+        if (!hasBracketChars) {
+          if (hasBareLocalIso) {
+            yield EitherDateTimeResult.fail(
+                mode, "E028", DiagnosticBag.ERR_DATETIME_MISSING_ZONE,
+                "missing required IANA time zone '[Region/City]'"
+            );
+          }
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_FORMAT,
+              "malformed ISO-8601 date-time syntax"
+          );
         }
-        LocalDateTime ldt = LocalDateTime.parse(matcher.group(1));
-        ZoneId zoneId = ZoneId.of(matcher.group(2));
+        if (!wellFormedTailBracket) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_ZONE,
+              "malformed IANA time zone bracket '[...]'"
+          );
+        }
+        String zoneStr = inner.substring(lb + 1, rb);
+        if (!IANA_ZONE_SYNTAX_PATTERN.matcher(zoneStr).matches()) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_ZONE,
+              "malformed IANA time zone bracket '[...]'"
+          );
+        }
+        if (!hasBareLocalIso) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_FORMAT,
+              "malformed ISO-8601 date-time syntax"
+          );
+        }
+        LocalDateTime ldt;
+        try {
+          ldt = LocalDateTime.parse(preBracket);
+        } catch (DateTimeException e) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_CALENDAR,
+              "invalid ISO-8601 calendar or clock value"
+          );
+        }
+        if (!ZoneRulesProvider.getAvailableZoneIds().contains(zoneStr)) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_ZONE,
+              "unknown IANA time zone '[" + zoneStr + "]'"
+          );
+        }
+        ZoneId zoneId = ZoneId.of(zoneStr);
         if (zoneId.getRules().getValidOffsets(ldt).isEmpty()) {
-          throw new IllegalArgumentException(
-              "Civil time '" + ldt + "' falls in a DST spring-forward gap in zone '" + zoneId + "'");
+          yield EitherDateTimeResult.fail(
+              mode, "E022", DiagnosticBag.ERR_TEMPORAL_DST_GAP_LITERAL,
+              "local timestamp '" + ldt + "' falls within a Daylight Saving Time gap in zone '[" + zoneId + "]'"
+          );
         }
-        yield ldt.atZone(zoneId).toInstant();
+        String canonicalIso = StvnLiteralParser.formatCanonicalDateTime(
+            DateTimeMode.ZONED, ldt, Optional.empty(), Optional.of(zoneId)
+        );
+        yield EitherDateTimeResult.ok(new ValidatedDateTimeLiteral(
+            DateTimeMode.ZONED, ldt, Optional.empty(), Optional.of(zoneId),
+            ldt.atZone(zoneId).toInstant(), canonicalIso
+        ));
       }
+
       case AUDITED -> {
-        var matcher = DATETIME_AUDITED_PATTERN.matcher(rawQuotedLiteral);
-        if (!matcher.matches()) {
-          throw new IllegalArgumentException(
-              "Invalid {#audited} " + StvnVocabulary.TYPE_DATE_TIME + " bound literal: " + rawQuotedLiteral);
+        if (!hasBracketChars) {
+          if (hasValidLexicalOffset) {
+            yield EitherDateTimeResult.fail(
+                mode, "E028", DiagnosticBag.ERR_DATETIME_MISSING_ZONE,
+                "missing required IANA time zone '[Region/City]'"
+            );
+          }
+          if (hasBareLocalIso) {
+            yield EitherDateTimeResult.fail(
+                mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_FORMAT,
+                "missing required UTC offset ('Z' or '±HH:mm') and IANA time zone '[Region/City]'"
+            );
+          }
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_FORMAT,
+              "malformed ISO-8601 date-time syntax"
+          );
         }
-        OffsetDateTime odt = OffsetDateTime.parse(matcher.group(1) + matcher.group(2));
-        ZoneId zoneId = ZoneId.of(matcher.group(3));
+        if (!wellFormedTailBracket) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_ZONE,
+              "malformed IANA time zone bracket '[...]'"
+          );
+        }
+        String zoneStr = inner.substring(lb + 1, rb);
+        if (!IANA_ZONE_SYNTAX_PATTERN.matcher(zoneStr).matches()) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_ZONE,
+              "malformed IANA time zone bracket '[...]'"
+          );
+        }
+        if (hasBareLocalIso) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_MISSING_OFFSET,
+              "missing required UTC offset ('Z' or '±HH:mm')"
+          );
+        }
+        if (!hasValidLexicalOffset) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_FORMAT,
+              "malformed ISO-8601 date-time syntax"
+          );
+        }
+        OffsetDateTime odt;
+        try {
+          odt = OffsetDateTime.parse(preBracket);
+        } catch (DateTimeException e) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_CALENDAR,
+              "invalid ISO-8601 calendar or clock value"
+          );
+        }
+        if (!ZoneRulesProvider.getAvailableZoneIds().contains(zoneStr)) {
+          yield EitherDateTimeResult.fail(
+              mode, "E028", DiagnosticBag.ERR_DATETIME_INVALID_ZONE,
+              "unknown IANA time zone '[" + zoneStr + "]'"
+          );
+        }
+        ZoneId zoneId = ZoneId.of(zoneStr);
         LocalDateTime ldt = odt.toLocalDateTime();
-        var validOffsets = zoneId.getRules().getValidOffsets(ldt);
+        List<ZoneOffset> validOffsets = zoneId.getRules().getValidOffsets(ldt);
         if (validOffsets.isEmpty()) {
-          throw new IllegalArgumentException(
-              "Civil time '" + ldt + "' falls in a DST spring-forward gap in zone '" + zoneId + "'");
+          yield EitherDateTimeResult.fail(
+              mode, "E022", DiagnosticBag.ERR_TEMPORAL_DST_GAP_LITERAL,
+              "local timestamp '" + ldt + "' falls within a Daylight Saving Time gap in zone '[" + zoneId + "]'"
+          );
         }
         if (!validOffsets.contains(odt.getOffset())) {
-          throw new IllegalArgumentException(
-              "Audited offset '" + odt.getOffset() + "' disagrees with IANA rules " + validOffsets
-                  + " for '" + ldt + "' in zone '" + zoneId + "'");
+          String expectedOffsetDesc = validOffsets.size() == 1
+              ? "rule offset '" + validOffsets.getFirst() + "'"
+              : "rule offsets " + validOffsets;
+          yield EitherDateTimeResult.fail(
+              mode, "E021", DiagnosticBag.ERR_TEMPORAL_AUDITED_MISMATCH,
+              "audited UTC offset '" + odt.getOffset() + "' does not match IANA zone '[" + zoneId + "]' "
+                  + expectedOffsetDesc + " at instant '" + ldt + "'"
+          );
         }
-        yield odt.toInstant();
+        String canonicalIso = StvnLiteralParser.formatCanonicalDateTime(
+            DateTimeMode.AUDITED, ldt, Optional.of(odt.getOffset()), Optional.of(zoneId)
+        );
+        yield EitherDateTimeResult.ok(new ValidatedDateTimeLiteral(
+            DateTimeMode.AUDITED, ldt, Optional.of(odt.getOffset()), Optional.of(zoneId),
+            odt.toInstant(), canonicalIso
+        ));
       }
     };
+  }
+
+  private static boolean hasExplicitOffsetAfterT(String isoPrefix) {
+    int tIdx = isoPrefix.indexOf('T');
+    if (tIdx < 0) {
+      return false;
+    }
+    if (isoPrefix.endsWith("Z")) {
+      return true;
+    }
+    for (int i = tIdx + 1; i < isoPrefix.length(); i++) {
+      char c = isoPrefix.charAt(i);
+      if (c == '+' || c == '-') {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -2174,10 +2464,11 @@ public final class StvnPayloadLowerer {
 
       if (ctx.stringLiteral() != null) {
         String raw = ctx.stringLiteral().getText();
-        if (schema instanceof StvnSchema.TimeEpochSchema) {
+        if (schema instanceof StvnSchema.TimeEpochSchema epochSchema) {
           if (raw.contains("[")) {
-            String msg = "IANA time zone bracket is prohibited in " + StvnVocabulary.TYPE_TIME_EPOCH
-                + " payload: " + raw;
+            String scaleKw = org.stvnadore.core.io.CanonicalStvnWriter.temporalScaleFacetKeyword(epochSchema.scale());
+            String msg = "Invalid { " + scaleKw + " } " + StvnVocabulary.TYPE_TIME_EPOCH
+                + " literal: IANA time zone brackets '[...]' are prohibited; expected integer epoch tick literal";
             throw abort(
                 msg, span,
                 new MalformedPayloadException(msg, span.start(), span.end()),
@@ -2480,176 +2771,25 @@ public final class StvnPayloadLowerer {
         String label,
         Span span
     ) {
-      if (rawText.startsWith("\"\"\"")) {
-        String msg = "Fenced multi-line strings are prohibited for " + StvnVocabulary.TYPE_DATE_TIME + " literals";
+      EitherDateTimeResult evaluated = evaluateDateTimeLiteral(rawText, dtSchema.mode());
+      if (evaluated.failure != null) {
+        DateTimeValidationFailure f = evaluated.failure;
         throw abort(
-            msg, span,
-            new MalformedPayloadException(msg, span.start(), span.end()),
-            "E028", DiagnosticBag.ERR_TYPE_MISMATCH);
+            f.message(), span,
+            new MalformedPayloadException(f.message(), span.start(), span.end()),
+            f.canonicalCode(), f.symbolicId()
+        );
       }
-
-      return switch (dtSchema.mode()) {
-        case OFFSET -> {
-          if (rawText.contains("[")) {
-            String msg = "Time zone brackets [...] are prohibited in {#offset} " + StvnVocabulary.TYPE_DATE_TIME;
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end()),
-                "E028", DiagnosticBag.ERR_TYPE_MISMATCH);
-          }
-          var matcher = DATETIME_OFFSET_PATTERN.matcher(rawText);
-          if (!matcher.matches()) {
-            String msg = "Invalid {#offset} " + StvnVocabulary.TYPE_DATE_TIME
-                + " format; expected \"YYYY-MM-DDTHH:mm:ss(Z|±HH:mm)\"";
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end()),
-                "E028", DiagnosticBag.ERR_TYPE_MISMATCH);
-          }
-          String isoText = rawText.substring(1, rawText.length() - 1);
-          OffsetDateTime odt;
-          try {
-            odt = OffsetDateTime.parse(isoText);
-          } catch (Exception e) {
-            String msg = "Invalid {#offset} " + StvnVocabulary.TYPE_DATE_TIME + " calendar value: " + e.getMessage();
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end(), e),
-                "E028", DiagnosticBag.ERR_TYPE_MISMATCH);
-          }
-          String canonicalIso = StvnLiteralParser.formatCanonicalDateTime(
-              DateTimeMode.OFFSET,
-              odt.toLocalDateTime(),
-              Optional.of(odt.getOffset()),
-              Optional.empty()
-          );
-          validateDateTimeBounds(odt.toInstant(), canonicalIso, dtSchema, label, span);
-          yield new StvnValue.StvnDateTime(
-              dtSchema,
-              DateTimeMode.OFFSET,
-              odt.toLocalDateTime(),
-              Optional.of(odt.getOffset()),
-              Optional.empty(),
-              canonicalIso
-          );
-        }
-        case ZONED -> {
-          if (ZONED_WITH_ILLEGAL_OFFSET_PATTERN.matcher(rawText).matches()
-              || DATETIME_OFFSET_PATTERN.matcher(rawText).matches()) {
-            String msg = "Explicit UTC offsets (+/-HH:mm or Z) are prohibited in {#zoned} "
-                + StvnVocabulary.TYPE_DATE_TIME;
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end()),
-                "E019", DiagnosticBag.ERR_TEMPORAL_OFFSET_IN_ZONED);
-          }
-          var matcher = DATETIME_ZONED_PATTERN.matcher(rawText);
-          if (!matcher.matches()) {
-            String msg = "Invalid {#zoned} " + StvnVocabulary.TYPE_DATE_TIME
-                + " format; expected \"YYYY-MM-DDTHH:mm:ss[Region/City]\"";
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end()),
-                "E028", DiagnosticBag.ERR_TYPE_MISMATCH);
-          }
-          LocalDateTime ldt;
-          ZoneId zoneId;
-          try {
-            ldt = LocalDateTime.parse(matcher.group(1));
-            zoneId = ZoneId.of(matcher.group(2));
-          } catch (Exception e) {
-            String msg = "Invalid {#zoned} " + StvnVocabulary.TYPE_DATE_TIME + " value: " + e.getMessage();
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end(), e),
-                "E028", DiagnosticBag.ERR_TYPE_MISMATCH);
-          }
-          var rules = zoneId.getRules();
-          if (rules.getValidOffsets(ldt).isEmpty()) {
-            var transition = rules.getTransition(ldt);
-            String msg = "Invalid civil time: '" + ldt + "' falls into a DST spring-forward gap in zone '"
-                + zoneId + "' (" + transition + ").";
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end()),
-                "E022", DiagnosticBag.ERR_TEMPORAL_DST_GAP_LITERAL);
-          }
-          String canonicalIso = StvnLiteralParser.formatCanonicalDateTime(
-              DateTimeMode.ZONED,
-              ldt,
-              Optional.empty(),
-              Optional.of(zoneId)
-          );
-          validateDateTimeBounds(ldt.atZone(zoneId).toInstant(), canonicalIso, dtSchema, label, span);
-          yield new StvnValue.StvnDateTime(
-              dtSchema,
-              DateTimeMode.ZONED,
-              ldt,
-              Optional.empty(),
-              Optional.of(zoneId),
-              canonicalIso
-          );
-        }
-        case AUDITED -> {
-          var matcher = DATETIME_AUDITED_PATTERN.matcher(rawText);
-          if (!matcher.matches()) {
-            String msg = "Invalid {#audited} " + StvnVocabulary.TYPE_DATE_TIME
-                + " format; expected \"YYYY-MM-DDTHH:mm:ss(Z|±HH:mm)[Region/City]\"";
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end()),
-                "E028", DiagnosticBag.ERR_TYPE_MISMATCH);
-          }
-          OffsetDateTime odt;
-          ZoneId zoneId;
-          try {
-            odt = OffsetDateTime.parse(matcher.group(1) + matcher.group(2));
-            zoneId = ZoneId.of(matcher.group(3));
-          } catch (Exception e) {
-            String msg = "Invalid {#audited} " + StvnVocabulary.TYPE_DATE_TIME + " value: " + e.getMessage();
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end(), e),
-                "E028", DiagnosticBag.ERR_TYPE_MISMATCH);
-          }
-          LocalDateTime ldt = odt.toLocalDateTime();
-          var rules = zoneId.getRules();
-          var validOffsets = rules.getValidOffsets(ldt);
-          if (validOffsets.isEmpty()) {
-            var transition = rules.getTransition(ldt);
-            String msg = "Invalid civil time: '" + ldt + "' falls into a DST spring-forward gap in zone '"
-                + zoneId + "' (" + transition + ").";
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end()),
-                "E022", DiagnosticBag.ERR_TEMPORAL_DST_GAP_LITERAL);
-          }
-          if (!validOffsets.contains(odt.getOffset())) {
-            String msg = "Contradictory offset in {#audited} " + StvnVocabulary.TYPE_DATE_TIME
-                + " literal: declared offset '" + odt.getOffset() + "' disagrees with valid IANA offset(s) "
-                + validOffsets + " for '" + ldt + "' in zone '" + zoneId + "'.";
-            throw abort(
-                msg, span,
-                new MalformedPayloadException(msg, span.start(), span.end()),
-                "E021", DiagnosticBag.ERR_TEMPORAL_AUDITED_MISMATCH);
-          }
-          String canonicalIso = StvnLiteralParser.formatCanonicalDateTime(
-              DateTimeMode.AUDITED,
-              ldt,
-              Optional.of(odt.getOffset()),
-              Optional.of(zoneId)
-          );
-          validateDateTimeBounds(odt.toInstant(), canonicalIso, dtSchema, label, span);
-          yield new StvnValue.StvnDateTime(
-              dtSchema,
-              DateTimeMode.AUDITED,
-              ldt,
-              Optional.of(odt.getOffset()),
-              Optional.of(zoneId),
-              canonicalIso
-          );
-        }
-      };
+      ValidatedDateTimeLiteral valid = Objects.requireNonNull(evaluated.success);
+      validateDateTimeBounds(valid.instant(), valid.canonicalIsoText(), dtSchema, label, span);
+      return new StvnValue.StvnDateTime(
+          dtSchema,
+          valid.mode(),
+          valid.localWallClock(),
+          valid.offset(),
+          valid.zone(),
+          valid.canonicalIsoText()
+      );
     }
 
     private static Instant resolveValidatedBoundInstant(String iso, DateTimeMode mode) {

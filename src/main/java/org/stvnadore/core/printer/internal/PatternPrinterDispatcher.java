@@ -76,11 +76,7 @@ public final class PatternPrinterDispatcher {
 
       case StvnValue.StvnString s -> {
         String text = s.value();
-        boolean preserveIndent = s.schema() instanceof StvnSchema.StringSchema ss && ss.preserveIndent();
-        boolean shouldEmitFenced = text.indexOf('\r') < 0
-            && ((text.indexOf('\n') >= 0
-                && (preserveIndent || text.equals(StvnPayloadLowerer.trimCommonIndent(text))))
-                || (preserveIndent && text.indexOf('\t') >= 0));
+        boolean shouldEmitFenced = shouldEmitFencedString(s);
         if (shouldEmitFenced) {
           String tag = StvnLiteralParser.chooseSafeFenceTag(text);
           layout.writeLiteral("\"\"\"[" + tag + "]\n" + text + "[" + tag + "]\"\"\"");
@@ -100,44 +96,20 @@ public final class PatternPrinterDispatcher {
       case StvnValue.StvnEnum en ->
           layout.writeEnumKeyword(en.variantTag());
 
-      case StvnValue.StvnSeq seq -> {
-        layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
-        boolean first = true;
-        for (StvnValue el : seq.elements()) {
-          if (!first) {
-            layout.appendSeparator();
-          }
-          first = false;
-          dispatch(el, layout, options);
-        }
-        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
-      }
+      case StvnValue.StvnSeq seq ->
+          writeLinearContainer(
+              seq.elements(), StvnVocabulary.DELIM_OPEN_BRACKET, StvnVocabulary.DELIM_CLOSE_BRACKET, layout, options
+          );
 
-      case StvnValue.StvnSet set -> {
-        layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
-        boolean first = true;
-        for (StvnValue el : set.elements()) {
-          if (!first) {
-            layout.appendSeparator();
-          }
-          first = false;
-          dispatch(el, layout, options);
-        }
-        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
-      }
+      case StvnValue.StvnSet set ->
+          writeLinearContainer(
+              List.copyOf(set.elements()), StvnVocabulary.DELIM_OPEN_BRACKET, StvnVocabulary.DELIM_CLOSE_BRACKET, layout, options
+          );
 
-      case StvnValue.StvnTuple tup -> {
-        layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
-        boolean first = true;
-        for (StvnValue el : tup.elements()) {
-          if (!first) {
-            layout.appendSeparator();
-          }
-          first = false;
-          dispatch(el, layout, options);
-        }
-        layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
-      }
+      case StvnValue.StvnTuple tup ->
+          writeLinearContainer(
+              tup.elements(), StvnVocabulary.DELIM_OPEN_PAREN, StvnVocabulary.DELIM_CLOSE_PAREN, layout, options
+          );
 
       case StvnValue.StvnMap map -> {
         layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
@@ -224,6 +196,67 @@ public final class PatternPrinterDispatcher {
       case StvnValue.StvnErrorValue err ->
           layout.writeSimpleString(err.diagnostic().message());
     }
+  }
+
+  private static void writeLinearContainer(
+      List<StvnValue> elements,
+      String openDelim,
+      String closeDelim,
+      LayoutWriter layout,
+      PrinterOptions options
+  ) throws IOException {
+    boolean multiLine = (layout instanceof PrettyLayoutWriter) && requiresMultiLinePayloadContainer(elements);
+    layout.openGroup(openDelim);
+    if (multiLine) {
+      layout.indent();
+    }
+    boolean first = true;
+    for (StvnValue el : elements) {
+      if (multiLine) {
+        layout.newline();
+      } else if (!first) {
+        layout.appendSeparator();
+      }
+      first = false;
+      dispatch(el, layout, options);
+    }
+    if (multiLine) {
+      layout.outdent();
+      layout.newline();
+    }
+    layout.closeGroup(closeDelim);
+  }
+
+  private static boolean requiresMultiLinePayloadContainer(List<StvnValue> elements) {
+    for (StvnValue el : elements) {
+      if (isStructuredOrFencedPayload(el)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isStructuredOrFencedPayload(StvnValue val) {
+    return switch (val) {
+      case StvnValue.StvnMap ignored -> true;
+      case StvnValue.StvnTuple ignored -> true;
+      case StvnValue.StvnSeq ignored -> true;
+      case StvnValue.StvnSet ignored -> true;
+      case StvnValue.StvnString s -> shouldEmitFencedString(s);
+      case StvnValue.StvnOption opt -> opt.value().map(PatternPrinterDispatcher::isStructuredOrFencedPayload).orElse(false);
+      case StvnValue.StvnEither eith -> isStructuredOrFencedPayload(eith.value());
+      case StvnValue.StvnUnion un -> isStructuredOrFencedPayload(un.value());
+      default -> false;
+    };
+  }
+
+  private static boolean shouldEmitFencedString(StvnValue.StvnString s) {
+    String text = s.value();
+    boolean preserveIndent = s.schema() instanceof StvnSchema.StringSchema ss && ss.preserveIndent();
+    return text.indexOf('\r') < 0
+        && ((text.indexOf('\n') >= 0
+            && (preserveIndent || text.equals(StvnPayloadLowerer.trimCommonIndent(text))))
+            || (preserveIndent && text.indexOf('\t') >= 0));
   }
 
   /**

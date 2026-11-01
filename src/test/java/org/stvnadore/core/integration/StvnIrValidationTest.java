@@ -61,9 +61,10 @@ public class StvnIrValidationTest {
   private static final Path SYNTAX_INVALID_ROOT = SHARED_FIXTURES_ROOT.resolve("syntax/invalid");
   private static final Path METADATA_VALID_ROOT = SHARED_FIXTURES_ROOT.resolve("metadata/valid");
   private static final Path METADATA_INVALID_ROOT = SHARED_FIXTURES_ROOT.resolve("metadata/invalid");
+  private static final Path FORMATTING_ROOT = SHARED_FIXTURES_ROOT.resolve("formatting");
   private static final Path ERROR_CONTRACT_SCHEMA_PATH = SYNTAX_INVALID_ROOT.resolve("error_contract.stvn_d");
 
-  private static final List<Path> POSITIVE_ROOTS = List.of(SYNTAX_VALID_ROOT, METADATA_VALID_ROOT);
+  private static final List<Path> POSITIVE_ROOTS = List.of(SYNTAX_VALID_ROOT, METADATA_VALID_ROOT, FORMATTING_ROOT);
   private static final List<Path> NEGATIVE_ROOTS = List.of(SYNTAX_INVALID_ROOT, METADATA_INVALID_ROOT);
 
   private static final Pattern FORBIDDEN_ANTLR_JARGON = Pattern.compile(
@@ -154,7 +155,7 @@ public class StvnIrValidationTest {
           .map(p -> p.getFileName().toString())
           .collect(Collectors.toSet());
       Assertions.assertEquals(
-          Set.of("syntax", "metadata"),
+          Set.of("syntax", "metadata", "formatting"),
           topNames,
           "Every top-level directory under shared-fixtures/ must be visited by StvnIrValidationTest"
       );
@@ -172,6 +173,13 @@ public class StvnIrValidationTest {
           .map(p -> p.getFileName().toString())
           .collect(Collectors.toSet());
       Assertions.assertEquals(Set.of("valid", "invalid"), metadataSubNames);
+    }
+
+    try (Stream<Path> formattingDirs = Files.list(SHARED_FIXTURES_ROOT.resolve("formatting"))) {
+      Set<String> formattingSubNames = formattingDirs.filter(Files::isDirectory)
+          .map(p -> p.getFileName().toString())
+          .collect(Collectors.toSet());
+      Assertions.assertEquals(Set.of("input", "pretty", "compact"), formattingSubNames);
     }
 
     // Verify error_contract.stvn_d itself compiles cleanly with 0 errors and 0 warnings
@@ -250,7 +258,7 @@ public class StvnIrValidationTest {
     );
     Assertions.assertTrue(res.document().isPresent(), "Positive fixture must produce StvnDocument: " + normalizedRel);
 
-    if (isSystemDomain || normalizedRel.startsWith("metadata/valid/")) {
+    if (isSystemDomain || normalizedRel.startsWith("metadata/valid/") || normalizedRel.startsWith("formatting/")) {
       Assertions.assertTrue(
           res.diagnostics().isEmpty(),
           () -> "Fixture in " + normalizedRel + " must produce 0 errors and 0 warnings, got: " + res.diagnostics()

@@ -1,0 +1,1 @@
+{:defs{:LifecycleState :Enum[#PENDING #ACTIVE #SUSPENDED #ARCHIVED]:OperationalState{#filterExcl[#ARCHIVED]}:LifecycleState :ActiveState{#filterIncl[#PENDING #ACTIVE]}:OperationalState}:type :Tuple(:LifecycleState :OperationalState :ActiveState):body(#ARCHIVED #SUSPENDED #ACTIVE)}

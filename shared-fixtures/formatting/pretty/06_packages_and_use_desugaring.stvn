@@ -1,0 +1,9 @@
+{
+  :defs {
+    :com/acme/net/Host { #minSize 1 #maxSize 253 } :String
+    :com/acme/net/Port { #unsigned #size 16 #minIncl 1 } :Int
+    :com/acme/app/ServiceEndpoint :Tuple(:com/acme/net/Host :com/acme/net/Port)
+  }
+  :type :com/acme/app/ServiceEndpoint
+  :body ("api.acme.internal" 8443)
+}

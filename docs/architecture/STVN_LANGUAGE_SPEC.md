@@ -430,10 +430,16 @@ STVN enforces strict lexical whitespace discipline to eliminate formatting ambig
     - *Delimiter Whitespace:* Zero bracket padding and collapsed outer `:meta` enclosure (`{:meta{#name "x"#domain "y"#kind #DEFS}:defs{...}}`).
   - **`AstCompactPrinter` & `PrinterOptions` (Configurable Presentation Serializer):** Serializes documents and payloads for network transfer, caching, and IDE buffer actions across three orthogonal dimensions:
     - *Coverage:* `ALL_SECTIONS` vs. `BODY_ONLY`.
-    - *SymbolStyle:* `LONG_FORM` vs. `SHORT_FORM`.
+    - *SymbolStyle:* `LONG_FORM` vs. `SHORT_FORM` (defaulting to `SHORT_FORM`: `#T`, `#F`, `#S`, `#N`, `#L`, `#R`).
     - *SumTypePolicy:* `FORCE_EXPLICIT` vs. `HAPPY_PATH_INFERRED`. Under `HAPPY_PATH_INFERRED`, Option C Smart Schema Sourcing resolves schema metadata from an explicit argument, `document.defs()`, or `value.schema()`, failing closed with `IllegalStateException` on unannotated values lacking schema context.
-    - *Delimiter Whitespace:* Zero bracket padding.
-  - **`AstPrettyPrinter`:** Emits long-form keywords (`#TRUE`, `#FALSE`, `#Some`, `#None`) with a configurable 2-space indented hierarchy.
+    - *Delimiter Whitespace:* Zero bracket padding across all delimiters (`{}`, `[]`, `()`), including prefix metadata facet blocks (`{#offset}:DateTime`, `{#unsigned #size 16 #minIncl 1}:Int`), emitting a single-line token-minimized stream while preserving verbatim newlines and tabs strictly inside Rule STR-04 fenced string bodies.
+  - **`AstPrettyPrinter` (Normative Cross-Language Pretty Print Projection):** Emits long-form keywords (`#TRUE`, `#FALSE`, `#Some`, `#None`, `#Left`, `#Right`) with `HAPPY_PATH_INFERRED` sum tag elision and deterministic `2`-space structural indentation (`indentWidth = 2`):
+    - *Root, `:meta`, and `:defs` Enclosures:* Always format multi-line (`{\n  ...\n}`), indenting direct children by `+2` spaces. In `:meta`, each declared entry (`#name`, `#domain`, `#kind`) occupies its own `+2`-space indented line.
+    - *Prefix Metadata Facet Blocks:* Always format inline on a single line in 5-tier canonical order with single interior space padding after `{` and before `}` (`{ #offset } :DateTime`, `{ #unsigned #size 16 #minIncl 1 } :Int`).
+    - *Zero Bracket & Paren Padding:* Type constructors (`:Tuple(...)`, `:Seq(...)`, `:Set(...)`, `:Map(...)`, `:Option(...)`, `:Either(...)`, `:Union(...)`), enumerations (`:Enum[#A #B]`, `#filterIncl [#A #B]`), and inline payload collections (`[1 2 3]`, `("host" 8080)`, `["k" 1]`) emit zero whitespace before `(` / `[` and zero interior padding adjacent to `(`, `)`, `[`, `]`.
+    - *Structural Multi-Line Schema Wrapping (`:Tuple(...)` & `:Union(...)`):* Emit multi-line (newline after `(`, each child schema on its own `+2`-space indented line, newline before `)`) if and only if at least one direct child is an inline anonymous schema carrying non-empty prefix metadata facets (`{ ... }`) or is itself a multi-line `:Tuple(...)` or `:Union(...)` schema; otherwise emit inline (`:Tuple(:Host :Port :Boolean)`).
+    - *Structural Multi-Line Payload Container Wrapping:* Empty containers emit `{}`, `[]`, `()`. Non-empty `:Map` payloads always emit multi-line (`{\n  [k v]\n}`). Non-empty `:Seq`, `:Set`, and `:Tuple` payloads emit multi-line if and only if at least one element (unwrapping `:Option`, `:Either`, and `:Union` variant wrappers) is a structured container (`:Map`, `:Tuple`, `:Seq`, `:Set`) or a multi-line Rule STR-04 fenced string; scalar-only collections and tuples emit inline.
+    - *Golden Conformance Suite:* All language toolchains and IDE formatters verify Pretty Print and Compact Print compliance (including idempotency) against the authoritative golden triplets in `shared-fixtures/formatting/{input,pretty,compact}/`.
   - **Transitive Reachability Invariant:** Serializers compute the reachability closure of nominal type and constant definitions reachable from the root `:type` and `:body`. All reachable definitions are emitted in `:defs`.
   - **Universal Alias Desugaring:** Scoped aliases declared via `:use` desugar directly into Fully Qualified Nominal Identifiers (FQNIs). Canonical output contains zero `:package` or `:use` wrappers.
   - **Dead-Code Elimination:** Definitions unreferenced by the root `:type` or `:body` payload are strictly pruned.
@@ -1187,11 +1193,19 @@ flowchart TD
 
 #### 5.6.2 Calendar Date-Time: `:DateTime`
 
-`:DateTime` represents human calendar civil time and wall-clock timestamps. It requires exactly one mutually exclusive mode facet:
+`:DateTime` represents human calendar civil time and wall-clock timestamps. It accepts single-line double-quoted ISO-8601 strings only (Rule STR-04 fenced multi-line strings are prohibited with `DATETIME_FENCED_STRING_PROHIBITED`) and requires exactly one mutually exclusive mode facet:
 
-1. **`#offset` (Physical Instant):** ISO-8601 string with UTC offset (`"2026-03-15T08:00:00-05:00"` or `"2026-03-15T13:00:00Z"`).
-2. **`#zoned` (Civil Schedule):** ISO-8601 civil timestamp with IANA jurisdiction name (`"2026-03-15T08:00:00[America/Chicago]"`).
-3. **`#audited` (Audit & Compliance Record):** ISO-8601 timestamp with both explicit numerical offset and IANA jurisdiction name (`"2026-03-15T08:00:00-05:00[America/Chicago]"`).
+1. **`#offset` (Physical Instant):** ISO-8601 string with mandatory UTC offset (`Z` or `±HH:mm`) and optional fractional seconds (`"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)"`, e.g., `"2026-03-15T08:00:00-05:00"` or `"2026-03-15T13:00:00.125Z"`). IANA time zone brackets `[...]` are prohibited (`TEMPORAL_ZONE_IN_OFFSET`).
+2. **`#zoned` (Civil Schedule):** ISO-8601 civil timestamp with mandatory registered IANA TZDB jurisdiction bracket and optional fractional seconds (`"YYYY-MM-DDTHH:mm:ss[.fraction][Region/City]"`, e.g., `"2026-03-15T08:00:00[America/Chicago]"`). Explicit UTC offsets (`Z` or `±HH:mm`) are prohibited (`E019` / `TEMPORAL_OFFSET_IN_ZONED`), and timestamps falling inside a Daylight Saving Time spring-forward civil gap are rejected (`E022` / `TEMPORAL_DST_GAP_LITERAL`).
+3. **`#audited` (Audit & Compliance Record):** ISO-8601 timestamp with both explicit numerical UTC offset and registered IANA TZDB jurisdiction bracket (`"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)[Region/City]"`, e.g., `"2026-03-15T08:00:00-05:00[America/Chicago]"`). Compilers reject DST spring-forward civil gaps (`E022` / `TEMPORAL_DST_GAP_LITERAL`) and verify that the explicit UTC offset matches the valid IANA TZDB rule offset(s) at that local instant (`E021` / `TEMPORAL_AUDITED_MISMATCH`).
+
+Every `:DateTime` string literal format or mode violation **must** emit a deterministic three-part diagnostic message using canonical single-space `{ #<mode> }` facet formatting:
+
+```text
+Invalid { #<mode> } :DateTime literal: <exact violation>; expected "<expected format>"
+```
+
+Domain-specific symbolic identifiers (`TEMPORAL_OFFSET_IN_ZONED`, `TEMPORAL_ZONE_IN_OFFSET`, `TEMPORAL_AUDITED_MISMATCH`, `TEMPORAL_DST_GAP_LITERAL`, `DATETIME_FENCED_STRING_PROHIBITED`, `DATETIME_MISSING_OFFSET`, `DATETIME_MISSING_ZONE`, `DATETIME_INVALID_FORMAT`, `DATETIME_INVALID_CALENDAR`, and `DATETIME_INVALID_ZONE`) classify every `:DateTime` literal failure without falling back to generic `ERR_TYPE_MISMATCH`.
 
 #### 5.6.3 Mutually Exclusive Mode Enforcement
 
@@ -2848,6 +2862,17 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_TEMPORAL_SCALE_MISSING`                  | `"ERR_TEMPORAL_SCALE_MISSING"`                  | Fatal    | `:TimeEpoch` type declaration lacks mandatory scale facet (`#s`, `#ms`, `#us`, `#ns`).                                                                                         |
 | `ERR_LEGACY_UNIT_FACET_PURGED`                | `"ERR_LEGACY_UNIT_FACET_PURGED"`                | Fatal    | Legacy `#unit` facet used instead of bare scale flags.                                                                                                                         |
 | `ERR_DATETIME_MODE_INVALID`                   | `"ERR_DATETIME_MODE_INVALID"`                   | Fatal    | `:DateTime` declaration lacks or specifies invalid mode facet.                                                                                                                 |
+| `ERR_TEMPORAL_OFFSET_IN_ZONED`                | `"TEMPORAL_OFFSET_IN_ZONED"`                    | Fatal    | `{ #zoned } :DateTime` literal contains prohibited explicit UTC offset (`Z` or `±HH:mm`) (`E019`).                                                                             |
+| `ERR_TEMPORAL_ZONE_IN_EPOCH`                  | `"TEMPORAL_ZONE_IN_EPOCH"`                      | Fatal    | `:TimeEpoch` payload contains prohibited quoted IANA time zone bracket `[...]` (`E020`).                                                                                       |
+| `ERR_TEMPORAL_AUDITED_MISMATCH`               | `"TEMPORAL_AUDITED_MISMATCH"`                   | Fatal    | `{ #audited } :DateTime` explicit UTC offset contradicts valid IANA TZDB rule offset(s) at the local timestamp (`E021`).                                                       |
+| `ERR_TEMPORAL_DST_GAP_LITERAL`                | `"TEMPORAL_DST_GAP_LITERAL"`                    | Fatal    | `{ #zoned }` or `{ #audited }` `:DateTime` local timestamp falls inside a Daylight Saving Time spring-forward civil gap (`E022`).                                              |
+| `ERR_TEMPORAL_ZONE_IN_OFFSET`                 | `"TEMPORAL_ZONE_IN_OFFSET"`                     | Fatal    | `{ #offset } :DateTime` literal contains prohibited IANA time zone brackets `[...]` (`E028`).                                                                                  |
+| `ERR_DATETIME_FENCED_STRING_PROHIBITED`       | `"DATETIME_FENCED_STRING_PROHIBITED"`           | Fatal    | `:DateTime` literal uses a prohibited Rule STR-04 fenced multi-line string (`E028`).                                                                                           |
+| `ERR_DATETIME_MISSING_OFFSET`                 | `"DATETIME_MISSING_OFFSET"`                     | Fatal    | `{ #offset }` or `{ #audited }` `:DateTime` literal omits required UTC offset (`Z` or `±HH:mm`) (`E028`).                                                                      |
+| `ERR_DATETIME_MISSING_ZONE`                   | `"DATETIME_MISSING_ZONE"`                       | Fatal    | `{ #zoned }` or `{ #audited }` `:DateTime` literal omits required IANA time zone bracket `[Region/City]` (`E028`).                                                             |
+| `ERR_DATETIME_INVALID_FORMAT`                 | `"DATETIME_INVALID_FORMAT"`                     | Fatal    | `:DateTime` literal fails ISO-8601 lexical format syntax (`E028`).                                                                                                             |
+| `ERR_DATETIME_INVALID_CALENDAR`               | `"DATETIME_INVALID_CALENDAR"`                   | Fatal    | `:DateTime` literal specifies an out-of-range calendar date, clock field, or UTC offset (`E028`).                                                                              |
+| `ERR_DATETIME_INVALID_ZONE`                   | `"DATETIME_INVALID_ZONE"`                       | Fatal    | `:DateTime` literal specifies a malformed or unregistered IANA time zone identifier (`E028`).                                                                                  |
 | `ERR_PRELUDE_ALIAS_PURGED`                    | `"ERR_PRELUDE_ALIAS_PURGED"`                    | Fatal    | Purged prelude nominal aliases referenced (e.g. `:DateTimeOffset`).                                                                                                            |
 | `ERR_STRING_CARDINALITY_PROHIBITED`           | `"ERR_STRING_CARDINALITY_PROHIBITED"`           | Fatal    | Storage sizing `#size` declared on `:String` (use `#minSize` / `#maxSize`).                                                                                                    |
 | `ERR_FACET_ORDER_VIOLATION`                   | `"ERR_FACET_ORDER_VIOLATION"`                   | Fatal    | Metadata facets violate the 5-tier canonical sequence.                                                                                                                         |

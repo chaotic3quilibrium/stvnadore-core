@@ -1,0 +1,19 @@
+{
+  :meta {
+    #name "date_time_tripartite_mode_matrix_mismatch"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E028 #TEMPORAL_ZONE_IN_OFFSET #ERROR 17 7 345 394 "Invalid { #offset } :DateTime literal: IANA time zone brackets '[...]' are prohibited; expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)\"" )
+    ( #E019 #TEMPORAL_OFFSET_IN_ZONED #ERROR 18 7 401 432 "Invalid { #zoned } :DateTime literal: UTC offset ('Z' or '±HH:mm') is prohibited and missing required IANA time zone '[Region/City]'; expected \"YYYY-MM-DDTHH:mm:ss[.fraction][Region/City]\"" )
+    ( #E028 #DATETIME_MISSING_OFFSET #ERROR 19 7 439 482 "Invalid { #audited } :DateTime literal: missing required UTC offset ('Z' or '±HH:mm'); expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)[Region/City]\"" )
+    ( #E028 #TEMPORAL_ZONE_IN_OFFSET #ERROR 22 7 501 544 "Invalid { #offset } :DateTime literal: IANA time zone brackets '[...]' are prohibited and missing required UTC offset ('Z' or '±HH:mm'); expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)\"" )
+    ( #E019 #TEMPORAL_OFFSET_IN_ZONED #ERROR 23 7 551 600 "Invalid { #zoned } :DateTime literal: UTC offset ('Z' or '±HH:mm') is prohibited; expected \"YYYY-MM-DDTHH:mm:ss[.fraction][Region/City]\"" )
+    ( #E028 #DATETIME_MISSING_ZONE #ERROR 24 7 607 638 "Invalid { #audited } :DateTime literal: missing required IANA time zone '[Region/City]'; expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)[Region/City]\"" )
+  ]
+}

@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E021 #TEMPORAL_AUDITED_MISMATCH #ERROR 12 5 226 270 "Contradictory offset in {#audited} :DateTime literal: declared offset '-07:00' disagrees with valid IANA offset(s) [-05:00] for '2026-03-15T08:00' in zone 'America/Chicago'." )
+    ( #E021 #TEMPORAL_AUDITED_MISMATCH #ERROR 12 5 226 270 "Invalid { #audited } :DateTime literal: audited UTC offset '-07:00' does not match IANA zone '[America/Chicago]' rule offset '-05:00' at instant '2026-03-15T08:00'; expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)[Region/City]\"" )
   ]
 }
