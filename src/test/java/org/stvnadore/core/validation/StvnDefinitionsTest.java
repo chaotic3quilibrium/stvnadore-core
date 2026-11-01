@@ -107,7 +107,7 @@ public class StvnDefinitionsTest {
     Assertions.assertTrue(result.hasErrors());
 
     var diag = result.diagnostics().getFirst();
-    Assertions.assertTrue(diag.message().contains("Hermetic document or schema (.stvn / .stvn_d) cannot contain include statements"));
+    Assertions.assertTrue(diag.message().contains("Hermetic document or schema (.stvn, .stvn_d, .stvn_b, .stvn_bd) cannot contain include statements"));
     Assertions.assertEquals(DiagnosticBag.ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT, diag.errorCode().orElse(null));
   }
 

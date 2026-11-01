@@ -270,7 +270,7 @@ public final class StvnDefsLowerer {
     Objects.requireNonNull(doc, "doc must not be null");
     Objects.requireNonNull(diagnosticBag, "diagnosticBag must not be null");
     ModuleCompilationContext moduleCtx = new ModuleCompilationContext(StvnParserConfig.SYSTEM_STRICT, true);
-    return lowerDocumentUnit(doc, null, moduleCtx, diagnosticBag, false, false).toPublicResult();
+    return lowerDocumentUnit(doc, null, moduleCtx, diagnosticBag, false, false, false).toPublicResult();
   }
 
   /**
@@ -310,16 +310,18 @@ public final class StvnDefsLowerer {
       DiagnosticBag diagnosticBag,
       boolean unitHasPass1SyntaxError
   ) {
-    return lowerDocumentHeaderAndDefsInternal(doc, docPath, config, diagnosticBag, false, unitHasPass1SyntaxError);
+    return lowerDocumentHeaderAndDefsInternal(doc, docPath, config, diagnosticBag, false, false, unitHasPass1SyntaxError);
   }
 
   /**
-   * Lowers the embedded textual STVN definitions payload of a {@code .stvn_bd} binary frame.
+   * Lowers the embedded textual STVN definitions payload of a {@code .stvn_bd} binary frame
+   * strictly as a flat hermetic {@code #DEFS} compilation unit.
    * <p>
    * Skips duplicate outer filename-vs-{@code :meta} checks on the top-level embedded payload
    * (because {@link #validateBinaryDocumentIdentity(StvnDocumentMeta, StvnBinaryDecoder.BinaryHeaderSpans, String, StvnParserConfig, DiagnosticBag)}
-   * already binds {@code docPath} to Byte 5+ header byte slices), while preserving {@code docPath}
-   * for relative {@code :include} resolution and section-eligibility diagnostics.
+   * already binds {@code docPath} to Byte 5+ header byte slices), and enforces the Hermetic Binary Invariant
+   * by rejecting {@code :include} directives ({@code E005}) and external non-prelude {@code :use} targets ({@code E035})
+   * even when {@code docPath} is {@code null}.
    *
    * @param doc           the parsed ANTLR document context of the embedded definitions text
    * @param docPath       the optional physical file path or URI of the enclosing {@code .stvn_bd} container
@@ -339,6 +341,7 @@ public final class StvnDefsLowerer {
 
   /**
    * Lowers the embedded textual STVN definitions payload of a {@code .stvn_bd} binary frame
+   * strictly as a flat hermetic {@code #DEFS} compilation unit
    * with explicit Pass 1 syntax-truncation anti-cascade awareness.
    *
    * @param doc                     the parsed ANTLR document context of the embedded definitions text
@@ -356,7 +359,7 @@ public final class StvnDefsLowerer {
       DiagnosticBag diagnosticBag,
       boolean unitHasPass1SyntaxError
   ) {
-    return lowerDocumentHeaderAndDefsInternal(doc, docPath, config, diagnosticBag, true, unitHasPass1SyntaxError);
+    return lowerDocumentHeaderAndDefsInternal(doc, docPath, config, diagnosticBag, true, true, unitHasPass1SyntaxError);
   }
 
   private static DefsLoweringResult lowerDocumentHeaderAndDefsInternal(
@@ -365,6 +368,7 @@ public final class StvnDefsLowerer {
       StvnParserConfig config,
       DiagnosticBag diagnosticBag,
       boolean skipTopLevelPathIdentityChecks,
+      boolean embeddedBinaryDefsMode,
       boolean unitHasPass1SyntaxError
   ) {
     Objects.requireNonNull(doc, "doc must not be null");
@@ -381,7 +385,7 @@ public final class StvnDefsLowerer {
       }
     }
     return lowerDocumentUnit(
-        doc, docPath, moduleCtx, diagnosticBag, skipTopLevelPathIdentityChecks, unitHasPass1SyntaxError
+        doc, docPath, moduleCtx, diagnosticBag, skipTopLevelPathIdentityChecks, embeddedBinaryDefsMode, unitHasPass1SyntaxError
     ).toPublicResult();
   }
 
@@ -411,7 +415,7 @@ public final class StvnDefsLowerer {
     );
     moduleCtx.activeVirtualPaths.add(rootVirtualPath);
     moduleCtx.activeRawPaths.add(rootVirtualPath);
-    return lowerDocumentUnit(doc, rootVirtualPath, moduleCtx, diagnosticBag, false, false).toPublicResult();
+    return lowerDocumentUnit(doc, rootVirtualPath, moduleCtx, diagnosticBag, false, false, false).toPublicResult();
   }
 
   /**
@@ -560,7 +564,14 @@ public final class StvnDefsLowerer {
     }
 
     StvnDocumentKind declaredKind = meta.kind().orElse(null);
-    if (declaredKind != null && expectedKindOpt.isPresent() && declaredKind != expectedKindOpt.get()) {
+    if (declaredKind == StvnDocumentKind.BODY_INCLUDE || declaredKind == StvnDocumentKind.DEFS_INCLUDE) {
+      diagnosticBag.addError(
+          "Binary document header cannot declare modular kind '" + declaredKind.keyword()
+              + "'; binary frames (.stvn_b, .stvn_bd) are strictly hermetic (#BODY or #DEFS)",
+          ctrlSpan.startOffset(), ctrlSpan.endOffset(), ctrlSpan.line(), ctrlSpan.column(), null,
+          DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+      );
+    } else if (declaredKind != null && expectedKindOpt.isPresent() && declaredKind != expectedKindOpt.get()) {
       diagnosticBag.addError(
           "Document kind '" + declaredKind.keyword() + "' does not match file extension '" + ext
               + "' (expected '" + expectedKindOpt.get().keyword() + "')",
@@ -813,6 +824,7 @@ public final class StvnDefsLowerer {
       ModuleCompilationContext moduleCtx,
       DiagnosticBag diagnosticBag,
       boolean skipPathIdentityChecks,
+      boolean embeddedBinaryDefsMode,
       boolean unitHasPass1SyntaxError
   ) {
     IdentityOutcome identity = lowerAndValidateDocumentIdentity(doc, docPath, moduleCtx, diagnosticBag, skipPathIdentityChecks);
@@ -836,7 +848,7 @@ public final class StvnDefsLowerer {
     }
 
     boolean sectionsEligible = validateDocumentSectionEligibility(
-        doc, docPath, identity, moduleCtx, diagnosticBag, unitHasPass1SyntaxError
+        doc, docPath, identity, moduleCtx, diagnosticBag, embeddedBinaryDefsMode, unitHasPass1SyntaxError
     );
     if (!sectionsEligible) {
       return new CompiledUnit(
@@ -855,7 +867,7 @@ public final class StvnDefsLowerer {
       );
     }
 
-    UnitEnvironment env = new UnitEnvironment(doc, docPath, identity, moduleCtx, diagnosticBag);
+    UnitEnvironment env = new UnitEnvironment(doc, docPath, identity, moduleCtx, diagnosticBag, embeddedBinaryDefsMode);
     env.collectAndResolveDefs();
 
     Optional<StvnSchema> rootType = Optional.empty();
@@ -1187,6 +1199,7 @@ public final class StvnDefsLowerer {
       IdentityOutcome identity,
       ModuleCompilationContext moduleCtx,
       DiagnosticBag diagnosticBag,
+      boolean embeddedBinaryDefsMode,
       boolean unitHasPass1SyntaxError
   ) {
     var body = doc.documentBody();
@@ -1199,7 +1212,8 @@ public final class StvnDefsLowerer {
     String fileName = identity.fileName();
     String targetDesc = fileName != null ? "'" + fileName + "'" : (ext != null ? ext : "<in-memory>");
 
-    boolean isDefsSchema = effectiveKind == StvnDocumentKind.DEFS
+    boolean isDefsSchema = embeddedBinaryDefsMode
+        || effectiveKind == StvnDocumentKind.DEFS
         || effectiveKind == StvnDocumentKind.DEFS_INCLUDE
         || (ext != null && (ext.equals(".stvn_d") || ext.equals(".stvn_di") || ext.equals(".stvn_bd")));
 
@@ -1336,6 +1350,7 @@ public final class StvnDefsLowerer {
     private final IdentityOutcome identity;
     private final ModuleCompilationContext moduleCtx;
     private final DiagnosticBag diagnosticBag;
+    private final boolean embeddedBinaryDefsMode;
 
     boolean hasDefsSection = false;
     boolean hasIncludes = false;
@@ -1371,13 +1386,15 @@ public final class StvnDefsLowerer {
         @Nullable String docPath,
         IdentityOutcome identity,
         ModuleCompilationContext moduleCtx,
-        DiagnosticBag diagnosticBag
+        DiagnosticBag diagnosticBag,
+        boolean embeddedBinaryDefsMode
     ) {
       this.doc = doc;
       this.docPath = docPath;
       this.identity = identity;
       this.moduleCtx = moduleCtx;
       this.diagnosticBag = diagnosticBag;
+      this.embeddedBinaryDefsMode = embeddedBinaryDefsMode;
     }
 
     static UnitEnvironment fromStandaloneCatalog(
@@ -1386,7 +1403,7 @@ public final class StvnDefsLowerer {
         DiagnosticBag diagnosticBag
     ) {
       IdentityOutcome emptyId = new IdentityOutcome(Optional.empty(), Optional.empty(), null, null);
-      UnitEnvironment env = new UnitEnvironment(null, null, emptyId, moduleCtx, diagnosticBag);
+      UnitEnvironment env = new UnitEnvironment(null, null, emptyId, moduleCtx, diagnosticBag, false);
       for (var entry : catalog.nominalTypes().entrySet()) {
         LoweredSchemaBundle bundle = new LoweredSchemaBundle(entry.getValue(), inferLedgerFromSchema(entry.getValue()));
         env.loweredTypes.put(entry.getKey(), bundle);
@@ -1832,7 +1849,8 @@ public final class StvnDefsLowerer {
           if (!isPrelude && !isLocal) {
             Span sp = Span.ofContext(useStmt.useTarget());
             diagnosticBag.addError(
-                "Scoped " + StvnVocabulary.KEYWORD_USE + " in hermetic document (.stvn / .stvn_d) cannot target external package: " + target,
+                "Scoped " + StvnVocabulary.KEYWORD_USE
+                    + " in hermetic document (.stvn, .stvn_d, .stvn_b, .stvn_bd) cannot target external package: " + target,
                 sp.start(), sp.end(), sp.line(), sp.column(), null,
                 DiagnosticBag.ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT
             );
@@ -1869,6 +1887,9 @@ public final class StvnDefsLowerer {
     }
 
     private boolean isHermeticUnit() {
+      if (embeddedBinaryDefsMode) {
+        return true;
+      }
       StvnDocumentKind kind = identity.effectiveKind().orElse(null);
       if (kind == StvnDocumentKind.BODY || kind == StvnDocumentKind.DEFS) {
         return true;
@@ -1884,6 +1905,9 @@ public final class StvnDefsLowerer {
     }
 
     private boolean prohibitsIncludeStatements() {
+      if (embeddedBinaryDefsMode) {
+        return true;
+      }
       StvnDocumentKind kind = identity.effectiveKind().orElse(null);
       if (kind == StvnDocumentKind.BODY || kind == StvnDocumentKind.DEFS) {
         return true;
@@ -1903,8 +1927,9 @@ public final class StvnDefsLowerer {
       boolean hermeticBlocked = prohibitsIncludeStatements();
       if (hermeticBlocked) {
         Span sp = Span.ofContext(includeStmt);
-        String msg = "Hermetic document or schema (.stvn / .stvn_d) cannot contain include statements: "
-            + (docPath != null ? docPath : "<in-memory>");
+        String unitName = identity.fileName() != null ? identity.fileName() : "<in-memory>";
+        String msg = "Hermetic document or schema (.stvn, .stvn_d, .stvn_b, .stvn_bd) cannot contain include statements: "
+            + unitName;
         diagnosticBag.addError(
             msg,
             sp.start(), sp.end(), sp.line(), sp.column(), null,
@@ -2026,6 +2051,17 @@ public final class StvnDefsLowerer {
             );
             continue;
           }
+          if (incFileName.endsWith(".stvn_bd")) {
+            String msg = "Invalid " + StvnVocabulary.KEYWORD_INCLUDE + " target '" + pathVal
+                + "': binary definitions containers (.stvn_bd) are hermetic wire artifacts and cannot be imported via textual :include; target must be a textual definitions module (.stvn_d or .stvn_di)";
+            diagnosticBag.addError(
+                msg,
+                pathLitSpan.start(), pathLitSpan.end(), pathLitSpan.line(), pathLitSpan.column(),
+                null,
+                DiagnosticBag.ERR_MODULE_IMPORT
+            );
+            continue;
+          }
 
           importedUnit = moduleCtx.compiledVirtualModuleCache.get(resolvedVirtual);
           if (importedUnit == null) {
@@ -2066,7 +2102,7 @@ public final class StvnDefsLowerer {
             moduleCtx.activeVirtualPaths.add(resolvedVirtual);
             moduleCtx.activeRawPaths.add(pathVal);
             try {
-              importedUnit = lowerDocumentUnit(importedDocCtx, resolvedVirtual, moduleCtx, childBag, false, childHasPass1SyntaxError);
+              importedUnit = lowerDocumentUnit(importedDocCtx, resolvedVirtual, moduleCtx, childBag, false, false, childHasPass1SyntaxError);
             } finally {
               moduleCtx.activeVirtualPaths.removeLast();
               moduleCtx.activeRawPaths.removeLast();
@@ -2132,6 +2168,17 @@ public final class StvnDefsLowerer {
             );
             continue;
           }
+          if (incFileName.endsWith(".stvn_bd")) {
+            String msg = "Invalid " + StvnVocabulary.KEYWORD_INCLUDE + " target '" + pathVal
+                + "': binary definitions containers (.stvn_bd) are hermetic wire artifacts and cannot be imported via textual :include; target must be a textual definitions module (.stvn_d or .stvn_di)";
+            diagnosticBag.addError(
+                msg,
+                pathLitSpan.start(), pathLitSpan.end(), pathLitSpan.line(), pathLitSpan.column(),
+                null,
+                DiagnosticBag.ERR_MODULE_IMPORT
+            );
+            continue;
+          }
 
           importedUnit = moduleCtx.compiledModuleCache.get(canonicalPath);
           if (importedUnit == null) {
@@ -2171,7 +2218,7 @@ public final class StvnDefsLowerer {
             moduleCtx.activeCanonicalPaths.add(canonicalPath);
             moduleCtx.activeRawPaths.add(pathVal);
             try {
-              importedUnit = lowerDocumentUnit(importedDocCtx, resolvedPath.toString(), moduleCtx, childBag, false, childHasPass1SyntaxError);
+              importedUnit = lowerDocumentUnit(importedDocCtx, resolvedPath.toString(), moduleCtx, childBag, false, false, childHasPass1SyntaxError);
             } finally {
               moduleCtx.activeCanonicalPaths.removeLast();
               moduleCtx.activeRawPaths.removeLast();

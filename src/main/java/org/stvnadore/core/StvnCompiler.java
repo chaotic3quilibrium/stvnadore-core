@@ -455,7 +455,11 @@ public final class StvnCompiler {
       );
 
       StvnDocumentKind kind = irMeta.flatMap(StvnDocumentMeta::kind).orElse(StvnDocumentKind.BODY);
-      if (kind == StvnDocumentKind.DEFS || kind == StvnDocumentKind.DEFS_INCLUDE) {
+      if (kind == StvnDocumentKind.BODY_INCLUDE || kind == StvnDocumentKind.DEFS_INCLUDE) {
+        return StvnCompilationResult.failure(diagnosticBag.toList());
+      }
+
+      if (kind == StvnDocumentKind.DEFS) {
         String defsSource;
         try {
           defsSource = StvnBinaryDecoder.extractDefinitionsSource(root);
@@ -491,7 +495,7 @@ public final class StvnCompiler {
               defsDoc.rootType(),
               Optional.empty(),
               defsDoc.hasDefsSection(),
-              kind == StvnDocumentKind.DEFS_INCLUDE || defsDoc.hasIncludes()
+              defsDoc.hasIncludes()
           );
           return diagnosticBag.hasErrors()
               ? StvnCompilationResult.partial(decodedDefsDoc, diagnosticBag.toList())
@@ -519,7 +523,7 @@ public final class StvnCompiler {
           rootType,
           payload,
           false,
-          kind == StvnDocumentKind.BODY_INCLUDE
+          false
       );
       return diagnosticBag.hasErrors()
           ? StvnCompilationResult.partial(document, diagnosticBag.toList())

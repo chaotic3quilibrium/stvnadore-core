@@ -886,9 +886,14 @@ public class StvnBinaryCodecSecurityTest {
       assertFalse(bodySpoofRes.isSuccess());
       assertTrue(bodySpoofRes.hasErrors());
       assertEquals("E031", bodySpoofRes.diagnostics().getFirst().canonicalCode().orElse(null));
-      // Decoded partial document must NOT hardcode hasDefsSection = true when inner unit had no :defs section
-      assertFalse(bodySpoofRes.document().orElseThrow().hasDefsSection(),
-          "Decoded .stvn_bd document must preserve inner hasDefsSection == false rather than hardcoding true");
+      assertTrue(
+          bodySpoofRes.diagnostics().stream().anyMatch(d -> "E031".equals(d.canonicalCode().orElse(null))
+              && d.message().contains("contradicts embedded ':meta' block")),
+          "Must emit E031 header vs embedded :meta contradiction: " + bodySpoofRes.diagnostics()
+      );
+      // Embedded .stvn_bd lowering rejects :type/:body sections even when docPath == null, yielding no document
+      assertTrue(bodySpoofRes.document().isEmpty(),
+          "Spoofed #BODY unit inside .stvn_bd must fail Pass 2 section eligibility even when docPath == null");
 
       // Attack 3: Outer Byte 5 declares ("no_meta", "crm", DEFS), inner document omits :meta altogether (in-memory docPath = null)
       String omittedMetaUnit = "{ :defs { :OnlyType :Int } }";

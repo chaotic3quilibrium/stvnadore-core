@@ -1424,7 +1424,7 @@ public class StvnDocumentIdentityValidationTest {
       var bdFiles = paths.filter(java.nio.file.Files::isRegularFile)
           .filter(p -> p.toString().endsWith(".stvn_bd"))
           .toList();
-      assertTrue(bdFiles.size() >= 3, "Expected >= 3 invalid .stvn_bd shared fixtures, found: " + bdFiles.size());
+      assertTrue(bdFiles.size() >= 5, "Expected >= 5 invalid .stvn_bd shared fixtures, found: " + bdFiles.size());
       for (var bdPath : bdFiles) {
         int byteLength = (int) java.nio.file.Files.size(bdPath);
         var res = StvnCompiler.compile(bdPath, StvnParserConfig.DEFAULT);
@@ -1437,4 +1437,118 @@ public class StvnDocumentIdentityValidationTest {
       }
     }
   }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0b10, 0b11})
+  @DisplayName("TC-BIN-ID-17: Binary Byte 5 modular kinds (#BODY_INCLUDE 0b10, #DEFS_INCLUDE 0b11) emit E031 pinned to [5, 6) even when docPath is null")
+  void testBinaryModularKindsRejectedAtByte5WithOrWithoutDocPath(int rawKindBits) {
+    String embeddedDefs = "{\n  :meta {\n    #name \"hermetic_probe\"\n    #kind #DEFS\n  }\n  :defs {\n    :ValidPort { #unsigned #size 16 } :Int\n  }\n}\n";
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(embeddedDefs), true);
+    ByteBuffer validBuf = encoder.encodeDefinitionsText(
+        embeddedDefs,
+        StvnDocumentMeta.ofNameAndKind("hermetic_probe", StvnDocumentKind.DEFS)
+    );
+    byte[] patched = new byte[validBuf.remaining()];
+    validBuf.get(patched);
+    org.stvnadore.core.utils.IrGeneratorUtility.patchByte5KindAndRecomputeCrc32c(patched, rawKindBits);
+
+    for (String docPath : new String[]{null, "hermetic_probe.stvn_bd", "hermetic_probe.stvn_di", "hermetic_probe.stvn_i"}) {
+      var res = StvnCompiler.compile(ByteBuffer.wrap(patched), docPath, StvnParserConfig.DEFAULT);
+      assertFalse(res.isSuccess(), "Expected failure for Byte 5 kindBits=" + rawKindBits + " with docPath=" + docPath);
+      assertEquals(1, res.diagnostics().size(), () -> "Expected single Byte 5 E031 without cascade: " + res.diagnostics());
+      var diag = res.diagnostics().getFirst();
+      assertEquals("E031", diag.canonicalCode().orElse(null));
+      assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, diag.symbolicId().orElse(null));
+      assertEquals(1, diag.line());
+      assertEquals(5, diag.column());
+      assertEquals(5, diag.startOffset());
+      assertEquals(6, diag.endOffset());
+    }
+
+    assertThrows(
+        org.stvnadore.core.validation.MalformedPayloadException.class,
+        () -> StvnBinaryDecoder.decodeDocument(ByteBuffer.wrap(patched), null, StvnParserConfig.DEFAULT)
+    );
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-18: Embedded .stvn_bd :include and external :use fail closed (E005, E035) even with null docPath while sibling :ValidPort lowers cleanly")
+  void testEmbeddedBinaryDefsRejectsIncludeAndExternalUseWithSiblingIsolation() {
+    String embeddedWithIncludeAndUse = """
+        {
+          :meta {
+            #name "hermetic_unit"
+            #kind #DEFS
+          }
+          :defs {
+            :include [ "other.stvn_d" ]
+            :use [ :external/pkg ]
+            :ValidPort { #unsigned #size 16 } :Int
+          }
+        }
+        """.replace("\r\n", "\n");
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(embeddedWithIncludeAndUse), true);
+    ByteBuffer buf = encoder.encodeDefinitionsText(
+        embeddedWithIncludeAndUse,
+        StvnDocumentMeta.ofNameAndKind("hermetic_unit", StvnDocumentKind.DEFS)
+    );
+
+    var inMemoryRes = StvnCompiler.compile(buf.duplicate(), null, StvnParserConfig.DEFAULT);
+    assertFalse(inMemoryRes.isSuccess());
+    assertEquals(2, inMemoryRes.diagnostics().size(), () -> "Expected exactly E005 and E035 with 0 errors on :ValidPort: " + inMemoryRes.diagnostics());
+    assertEquals("E005", inMemoryRes.diagnostics().get(0).canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT, inMemoryRes.diagnostics().get(0).symbolicId().orElse(null));
+    assertEquals("E035", inMemoryRes.diagnostics().get(1).canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT, inMemoryRes.diagnostics().get(1).symbolicId().orElse(null));
+
+    var lexer = new org.stvnadore.core.parser.StvnLexer(org.antlr.v4.runtime.CharStreams.fromString(embeddedWithIncludeAndUse));
+    var parser = new org.stvnadore.core.parser.StvnParser(new org.antlr.v4.runtime.CommonTokenStream(lexer));
+    var bag = new DiagnosticBag(100, null);
+    var lowered = org.stvnadore.core.lowering.StvnDefsLowerer.lowerEmbeddedBinaryDefs(
+        parser.stvnDocument(), null, StvnParserConfig.DEFAULT, bag
+    );
+    var validPort = lowered.defs().nominalTypes().get(":ValidPort");
+    assertTrue(validPort instanceof org.stvnadore.core.ir.StvnSchema.IntSchema intSchema
+        && intSchema.unsigned()
+        && intSchema.bitWidth().intValueExact() == 16,
+        "Valid sibling :ValidPort must lower cleanly without PoisonedSchema contamination");
+
+    assertThrows(
+        org.stvnadore.core.validation.MalformedPayloadException.class,
+        () -> StvnBinaryDecoder.decodeDocument(buf.duplicate(), null, StvnParserConfig.DEFAULT)
+    );
+  }
+
+  @Test
+  @DisplayName("TC-BIN-ID-19: StvnBinaryEncoder rejects #BODY_INCLUDE, #DEFS_INCLUDE, and modular StvnDocument with StvnSerializationException")
+  void testBinaryEncoderRejectsModularKindsAndIncludeDocuments() {
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), true);
+
+    assertThrows(
+        org.stvnadore.core.binary.exceptions.StvnSerializationException.class,
+        () -> encoder.encode(ir, StvnDocumentMeta.ofKind(StvnDocumentKind.BODY_INCLUDE))
+    );
+    assertThrows(
+        org.stvnadore.core.binary.exceptions.StvnSerializationException.class,
+        () -> encoder.encode(ir, StvnDocumentMeta.ofKind(StvnDocumentKind.DEFS_INCLUDE))
+    );
+    assertThrows(
+        org.stvnadore.core.binary.exceptions.StvnSerializationException.class,
+        () -> encoder.encodeDefinitionsText(
+            "{ :meta { #name \"m\" #kind #DEFS_INCLUDE } :defs { :T :Int } }",
+            StvnDocumentMeta.ofNameAndKind("m", StvnDocumentKind.DEFS_INCLUDE)
+        )
+    );
+    var modularDefsDoc = new org.stvnadore.core.ir.StvnDocument(
+        Optional.of(StvnDocumentMeta.ofNameAndKind("m", StvnDocumentKind.DEFS)),
+        org.stvnadore.core.ir.StvnDefsCatalog.EMPTY,
+        Optional.empty(),
+        Optional.empty(),
+        true,
+        true
+    );
+    assertThrows(org.stvnadore.core.binary.exceptions.StvnSerializationException.class, () -> encoder.encode(modularDefsDoc));
+  }
 }
+

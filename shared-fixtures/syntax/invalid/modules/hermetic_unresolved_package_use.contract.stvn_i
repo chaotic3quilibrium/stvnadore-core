@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E035 #ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT #ERROR 7 12 97 121 "Scoped :use in hermetic document (.stvn / .stvn_d) cannot target external package: :com/external/undeclared" )
+    ( #E035 #ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT #ERROR 7 12 97 121 "Scoped :use in hermetic document (.stvn, .stvn_d, .stvn_b, .stvn_bd) cannot target external package: :com/external/undeclared" )
   ]
 }

@@ -20,6 +20,7 @@ import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.zip.CRC32C;
 import java.util.stream.Stream;
 
 /**
@@ -122,8 +124,17 @@ public final class IrGeneratorUtility {
   private record NegativeBinaryDefsSpec(
       String fileName,
       StvnDocumentMeta headerMeta,
-      String embeddedDefsText
-  ) {}
+      String embeddedDefsText,
+      Optional<Integer> rawByte5KindBitsOverride
+  ) {
+    NegativeBinaryDefsSpec(
+        String fileName,
+        StvnDocumentMeta headerMeta,
+        String embeddedDefsText
+    ) {
+      this(fileName, headerMeta, embeddedDefsText, Optional.empty());
+    }
+  }
 
   private static List<NegativeBinaryDefsSpec> negativeBinaryDefsSpecs() {
     return List.of(
@@ -184,6 +195,38 @@ public final class IrGeneratorUtility {
               }
             }
             """
+        ),
+        new NegativeBinaryDefsSpec(
+            "binary_bd_include_directive_prohibited.stvn_bd",
+            StvnDocumentMeta.ofNameAndKind("binary_bd_include_directive_prohibited", StvnDocumentKind.DEFS),
+            """
+            {
+              :meta {
+                #name "binary_bd_include_directive_prohibited"
+                #kind #DEFS
+              }
+              :defs {
+                :include [ "other.stvn_d" ]
+                :ValidPort { #unsigned #size 16 } :Int
+              }
+            }
+            """
+        ),
+        new NegativeBinaryDefsSpec(
+            "binary_bd_defs_include_kind_prohibited.stvn_bd",
+            StvnDocumentMeta.ofNameAndKind("binary_bd_defs_include_kind_prohibited", StvnDocumentKind.DEFS),
+            """
+            {
+              :meta {
+                #name "binary_bd_defs_include_kind_prohibited"
+                #kind #DEFS
+              }
+              :defs {
+                :ValidPort { #unsigned #size 16 } :Int
+              }
+            }
+            """,
+            Optional.of(0b11)
         )
     );
   }
@@ -200,6 +243,9 @@ public final class IrGeneratorUtility {
       ByteBuffer buf = encoder.encodeDefinitionsText(lfText, spec.headerMeta());
       byte[] expectedBytes = new byte[buf.remaining()];
       buf.get(expectedBytes);
+      if (spec.rawByte5KindBitsOverride().isPresent()) {
+        patchByte5KindAndRecomputeCrc32c(expectedBytes, spec.rawByte5KindBitsOverride().get());
+      }
       Path targetPath = INVALID_METADATA_DIR.resolve(spec.fileName());
       if (writeToDisk) {
         Files.write(targetPath, expectedBytes);
@@ -213,6 +259,19 @@ public final class IrGeneratorUtility {
           throw new IllegalStateException("Binary drift detected in negative .stvn_bd fixture: " + targetPath);
         }
       }
+    }
+  }
+
+  public static void patchByte5KindAndRecomputeCrc32c(byte[] frame, int rawKindBits) {
+    frame[5] = (byte) ((frame[5] & ~0x03) | (rawKindBits & 0x03));
+    boolean hasTrailerCrc32c = (frame[4] & 0x80) != 0;
+    if (hasTrailerCrc32c) {
+      int payloadLimit = frame.length - 4;
+      CRC32C crc = new CRC32C();
+      crc.update(frame, 0, payloadLimit);
+      ByteBuffer.wrap(frame, payloadLimit, 4)
+          .order(ByteOrder.LITTLE_ENDIAN)
+          .putInt((int) crc.getValue());
     }
   }
 
@@ -249,7 +308,10 @@ public final class IrGeneratorUtility {
 
       boolean isCrc = stvnFile.getFileName().toString().contains("crc32c");
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), isCrc);
-      ByteBuffer buf = encoder.encode(irNode, meta);
+      StvnDocumentMeta binaryMeta = (meta != null && meta.kind().orElse(null) == StvnDocumentKind.BODY_INCLUDE)
+          ? new StvnDocumentMeta(meta.name(), meta.domain(), Optional.of(StvnDocumentKind.BODY))
+          : meta;
+      ByteBuffer buf = encoder.encode(irNode, binaryMeta);
       byte[] encoded = new byte[buf.remaining()];
       buf.get(encoded);
       Files.write(binSnapshotPath, encoded);

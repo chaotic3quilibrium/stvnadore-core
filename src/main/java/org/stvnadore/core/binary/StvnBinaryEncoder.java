@@ -166,21 +166,27 @@ public class StvnBinaryEncoder {
    */
   public ByteBuffer encode(StvnDocument document) {
     Objects.requireNonNull(document, "document must not be null");
+    if (document.hasIncludes()) {
+      throw new StvnSerializationException(
+          "Cannot encode modular StvnDocument containing :include directives into binary format; binary frames (.stvn_b, .stvn_bd) are strictly hermetic"
+      );
+    }
     if (document.payload().isPresent()) {
       StvnDocumentMeta effectiveMeta = document.meta()
           .map(m -> m.kind().isPresent()
               ? m
               : new StvnDocumentMeta(m.name(), m.domain(), Optional.of(StvnDocumentKind.BODY)))
           .orElseGet(() -> StvnDocumentMeta.ofKind(StvnDocumentKind.BODY));
+      rejectModularBinaryKind(effectiveMeta);
       return encode(document.payload().get(), effectiveMeta);
     }
 
-    StvnDocumentKind defsKind = document.hasIncludes() ? StvnDocumentKind.DEFS_INCLUDE : StvnDocumentKind.DEFS;
     StvnDocumentMeta effectiveMeta = document.meta()
         .map(m -> m.kind().isPresent()
             ? m
-            : new StvnDocumentMeta(m.name(), m.domain(), Optional.of(defsKind)))
-        .orElseGet(() -> StvnDocumentMeta.ofKind(defsKind));
+            : new StvnDocumentMeta(m.name(), m.domain(), Optional.of(StvnDocumentKind.DEFS)))
+        .orElseGet(() -> StvnDocumentMeta.ofKind(StvnDocumentKind.DEFS));
+    rejectModularBinaryKind(effectiveMeta);
 
     StvnDocument effectiveDefsDoc = new StvnDocument(
         Optional.of(effectiveMeta),
@@ -188,7 +194,7 @@ public class StvnBinaryEncoder {
         document.rootType(),
         Optional.empty(),
         document.hasDefsSection(),
-        document.hasIncludes()
+        false
     );
     String canonicalDefsText = new CanonicalStvnWriter().printToString(effectiveDefsDoc);
     return encodeDefinitionsText(canonicalDefsText, effectiveMeta);
@@ -205,7 +211,7 @@ public class StvnBinaryEncoder {
    * @param meta                  the Byte 5+ document identity metadata header
    * @return a little-endian {@link ByteBuffer} containing the framed {@code .stvn_bd} binary stream
    * @throws NullPointerException       if {@code definitionsSourceText} or {@code meta} is {@code null}
-   * @throws StvnSerializationException if {@code meta} violates binary header POSIX identifier bounds
+   * @throws StvnSerializationException if {@code meta} declares a prohibited modular kind ({@code #BODY_INCLUDE}, {@code #DEFS_INCLUDE}) or violates POSIX identifier bounds
    * @since 2.0.0
    */
   public ByteBuffer encodeDefinitionsText(String definitionsSourceText, StvnDocumentMeta meta) {
@@ -215,6 +221,7 @@ public class StvnBinaryEncoder {
     StvnDocumentMeta effectiveMeta = meta.kind().isPresent()
         ? meta
         : new StvnDocumentMeta(meta.name(), meta.domain(), Optional.of(StvnDocumentKind.DEFS), meta.sourceSpan());
+    rejectModularBinaryKind(effectiveMeta);
     byte[] defsUtf8 = definitionsSourceText.getBytes(StandardCharsets.UTF_8);
     int totalStringLength = 1 + defsUtf8.length;
     int prefixLen = getDerivedLengthPrefixSize(totalStringLength);
@@ -256,6 +263,7 @@ public class StvnBinaryEncoder {
 
     this.stringCache.clear();
     StvnDocumentMeta effectiveMeta = meta != null ? meta : StvnDocumentMeta.ofKind(StvnDocumentKind.BODY);
+    rejectModularBinaryKind(effectiveMeta);
 
     if (identityStrategy != null) {
       StvnBinaryDecoder.validateSchemaHash(root.schema(), identityStrategy);
@@ -263,6 +271,16 @@ public class StvnBinaryEncoder {
 
     Footprint fp = calculateFootprint(root).add(new Footprint(0, 1));
     return encodeEnvelope(effectiveMeta, fp, () -> writeValuePostOrder(root));
+  }
+
+  private static void rejectModularBinaryKind(StvnDocumentMeta meta) {
+    StvnDocumentKind kind = meta.kind().orElse(null);
+    if (kind == StvnDocumentKind.BODY_INCLUDE || kind == StvnDocumentKind.DEFS_INCLUDE) {
+      throw new StvnSerializationException(
+          "Binary document header cannot declare modular kind '" + kind.keyword()
+              + "'; binary frames (.stvn_b, .stvn_bd) are strictly hermetic (#BODY or #DEFS)"
+      );
+    }
   }
 
   @FunctionalInterface
@@ -942,8 +960,11 @@ public class StvnBinaryEncoder {
     int kindBits = switch (meta.kind().orElse(StvnDocumentKind.BODY)) {
       case BODY -> 0b00;
       case DEFS -> 0b01;
-      case BODY_INCLUDE -> 0b10;
-      case DEFS_INCLUDE -> 0b11;
+      case BODY_INCLUDE, DEFS_INCLUDE -> throw new StvnSerializationException(
+          "Binary document header cannot declare modular kind '"
+              + meta.kind().orElseThrow().keyword()
+              + "'; binary frames (.stvn_b, .stvn_bd) are strictly hermetic (#BODY or #DEFS)"
+      );
     };
     int hasNameBit = (nameBytes != null) ? StvnBinaryUtils.META_MASK_HAS_NAME : 0x00;
     int hasDomainBit = (domainBytes != null) ? StvnBinaryUtils.META_MASK_HAS_DOMAIN : 0x00;

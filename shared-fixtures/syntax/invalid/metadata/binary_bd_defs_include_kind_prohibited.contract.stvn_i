@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "binary_bd_defs_include_kind_prohibited"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E031 #ERR_DOCUMENT_KIND_MISMATCH #ERROR 1 6 5 6 "Binary document header cannot declare modular kind '#DEFS_INCLUDE'; binary frames (.stvn_b, .stvn_bd) are strictly hermetic (#BODY or #DEFS)" )
+  ]
+}

@@ -21,6 +21,7 @@ import org.stvnadore.core.binary.SchemaIdentityStrategy;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.binary.StvnBinaryEncoder;
 import org.stvnadore.core.ir.StvnDocumentKind;
+import org.stvnadore.core.ir.StvnDocumentMeta;
 import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.utils.IrGeneratorUtility;
@@ -49,6 +50,9 @@ public class StvnIrSnapshotTest {
     var liveIr = liveDoc.payload()
         .orElseThrow(() -> new AssertionError("Failed to extract payload from fixture: " + stvnFile));
     var meta = liveDoc.meta().orElse(null);
+    StvnDocumentMeta binaryMeta = (meta != null && meta.kind().orElse(null) == StvnDocumentKind.BODY_INCLUDE)
+        ? new StvnDocumentMeta(meta.name(), meta.domain(), Optional.of(StvnDocumentKind.BODY))
+        : meta;
 
     var baseName = stvnFile.getFileName().toString().replaceAll("\\.stvn(_i)?$", "");
     var snapshotPath = stvnFile.resolveSibling(baseName + ".stvn_ir.stvn_i");
@@ -63,7 +67,7 @@ public class StvnIrSnapshotTest {
     if (Boolean.getBoolean("updateSnapshots")) {
       Files.writeString(snapshotPath, cleanLive, StandardCharsets.UTF_8);
       var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), isChecksummed);
-      var buf = encoder.encode(liveIr, meta);
+      var buf = encoder.encode(liveIr, binaryMeta);
       var liveBin = new byte[buf.remaining()];
       buf.get(liveBin);
       Files.write(binSnapshotPath, liveBin);
@@ -95,7 +99,7 @@ public class StvnIrSnapshotTest {
     var expectedBin = Files.readAllBytes(binSnapshotPath);
 
     var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.UniversalDefault(), isChecksummed);
-    var buf = encoder.encode(liveIr, meta);
+    var buf = encoder.encode(liveIr, binaryMeta);
     var liveBin = new byte[buf.remaining()];
     buf.get(liveBin);
 

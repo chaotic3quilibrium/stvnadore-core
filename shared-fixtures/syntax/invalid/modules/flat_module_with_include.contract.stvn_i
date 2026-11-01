@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E005 #ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT #ERROR 7 5 83 123 "Hermetic document or schema (.stvn / .stvn_d) cannot contain include statements: shared-fixtures\\syntax\\invalid\\modules\\flat_module_with_include.stvn_d" )
+    ( #E005 #ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT #ERROR 7 5 83 123 "Hermetic document or schema (.stvn, .stvn_d, .stvn_b, .stvn_bd) cannot contain include statements: flat_module_with_include.stvn_d" )
   ]
 }

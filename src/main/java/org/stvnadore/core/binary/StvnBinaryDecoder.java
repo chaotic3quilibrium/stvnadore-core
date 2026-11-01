@@ -604,7 +604,7 @@ public final class StvnBinaryDecoder {
     if (resolved == null
         && header.identityStrategy() instanceof SchemaIdentityStrategy.SelfDescribingSchema self) {
       StvnDocumentKind kind = header.documentMeta().kind().orElse(StvnDocumentKind.BODY);
-      if (kind == StvnDocumentKind.BODY || kind == StvnDocumentKind.BODY_INCLUDE) {
+      if (kind == StvnDocumentKind.BODY) {
         resolved = compileInlineSchema(self.schemaSourceText());
       }
     }
@@ -685,13 +685,15 @@ public final class StvnBinaryDecoder {
   /**
    * Decodes a {@code .stvn_b} or {@code .stvn_bd} binary buffer directly into a pure-IR {@link StvnDocument}.
    * <p>
-   * When Byte 5 declares {@code #kind == #DEFS} ({@code 0b01}) or {@code #DEFS_INCLUDE} ({@code 0b11}),
-   * unpacks and compiles the canonical definitions schema into a payload-free {@link StvnDocument}.
-   * When Byte 5 declares {@code #kind == #BODY} ({@code 0b00}) or {@code #BODY_INCLUDE} ({@code 0b10}),
-   * unpacks the payload using the discovered schema.
+   * When Byte 5 declares {@code #kind == #DEFS} ({@code 0b01}), unpacks and compiles the hermetic
+   * definitions schema into a payload-free {@link StvnDocument}.
+   * When Byte 5 declares {@code #kind == #BODY} ({@code 0b00}), unpacks the payload using the discovered schema.
+   * Modular kinds ({@code 0b10 #BODY_INCLUDE} and {@code 0b11 #DEFS_INCLUDE}) violate the Hermetic Binary Invariant
+   * and throw {@link MalformedPayloadException}.
    *
    * @param buffer the raw little-endian binary buffer
    * @return the decoded pure-IR {@link StvnDocument}
+   * @throws MalformedPayloadException if Byte 5 declares a modular kind or {@code .stvn_bd} validation fails
    * @since 2.0.0
    */
   public static StvnDocument decodeDocument(ByteBuffer buffer) {
@@ -740,38 +742,22 @@ public final class StvnBinaryDecoder {
       }
     }
     StvnDocumentKind kind = root.meta().flatMap(StvnDocumentMeta::kind).orElse(StvnDocumentKind.BODY);
+    if (kind == StvnDocumentKind.BODY_INCLUDE || kind == StvnDocumentKind.DEFS_INCLUDE) {
+      throw new MalformedPayloadException(
+          "Binary document header cannot declare modular kind '" + kind.keyword()
+              + "'; binary frames (.stvn_b, .stvn_bd) are strictly hermetic (#BODY or #DEFS)"
+      );
+    }
 
-    if (kind == StvnDocumentKind.DEFS || kind == StvnDocumentKind.DEFS_INCLUDE) {
-      String defsSource = extractDefinitionsSource(root);
-      StvnCompilationResult<StvnDocument> compiled = StvnCompiler.compile(defsSource, null, config);
+    if (kind == StvnDocumentKind.DEFS) {
+      StvnCompilationResult<StvnDocument> compiled = StvnCompiler.compile(buffer.duplicate(), null, config);
       if (!compiled.isSuccess() || compiled.document().isEmpty()) {
         String errSummary = compiled.diagnostics().isEmpty()
             ? "Empty definitions payload"
             : compiled.diagnostics().getFirst().message();
         throw new MalformedPayloadException("Invalid .stvn_bd binary definitions payload: " + errSummary);
       }
-      StvnDocument defsDoc = compiled.document().get();
-      StvnDocumentMeta outerMeta = root.meta().orElseGet(() -> StvnDocumentMeta.ofKind(kind));
-      if (defsDoc.meta().isEmpty()) {
-        throw new MalformedPayloadException(
-            "Invalid .stvn_bd binary definitions payload: Embedded definitions payload omits mandatory ':meta' block required by binary Byte 5 header ("
-                + describeMetaSummary(outerMeta) + ")");
-      }
-      StvnDocumentMeta innerMeta = defsDoc.meta().get();
-      if (!outerMeta.equals(innerMeta)) {
-        throw new MalformedPayloadException(
-            "Invalid .stvn_bd binary definitions payload: Binary Byte 5 metadata header ("
-                + describeMetaSummary(outerMeta) + ") contradicts embedded ':meta' block ("
-                + describeMetaSummary(innerMeta) + ")");
-      }
-      return new StvnDocument(
-          root.meta(),
-          defsDoc.defs(),
-          defsDoc.rootType(),
-          Optional.empty(),
-          defsDoc.hasDefsSection(),
-          kind == StvnDocumentKind.DEFS_INCLUDE || defsDoc.hasIncludes()
-      );
+      return compiled.document().get();
     }
 
     StvnDefsCatalog defsCatalog = StvnDefsCatalog.EMPTY;
@@ -793,7 +779,7 @@ public final class StvnBinaryDecoder {
         Optional.of(payload.schema()),
         Optional.of(payload),
         !defsCatalog.nominalTypes().isEmpty() || !defsCatalog.constants().isEmpty(),
-        kind == StvnDocumentKind.BODY_INCLUDE
+        false
     );
   }
 
