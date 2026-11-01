@@ -5,7 +5,7 @@ import org.jspecify.annotations.NullMarked;
  * Provides compilation, validation, printing, binary encoding/decoding, and mapping capabilities
  * for STVN 2.0.0 documents.
  */
-@SuppressWarnings({"requires-automatic", "requires-transitive-automatic"})
+@SuppressWarnings("requires-automatic")
 @NullMarked
 module org.stvnadore.core {
     requires transitive static org.jspecify;
@@ -14,11 +14,8 @@ module org.stvnadore.core {
     exports org.stvnadore.core.stdlib;
     exports org.stvnadore.core.validation;
     exports org.stvnadore.core.ir;
-    exports org.stvnadore.core.lowering;
-    exports org.stvnadore.core.parser;
     exports org.stvnadore.core.io;
     exports org.stvnadore.core.printer;
-    exports org.stvnadore.core.printer.internal;
     exports org.stvnadore.core.annotations;
     exports org.stvnadore.core.utils;
     exports org.stvnadore.core.mapper;
@@ -26,5 +23,5 @@ module org.stvnadore.core {
     exports org.stvnadore.core.binary.readers;
     exports org.stvnadore.core.binary.exceptions;
 
-    requires transitive org.antlr.antlr4.runtime;
+    requires org.antlr.antlr4.runtime;
 }

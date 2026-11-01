@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
+import java.math.BigInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -316,7 +317,9 @@ class StvnVocabularyTest {
   @Test
   @DisplayName("TC-VOCAB-14: Assert architectural limits and capacity constants match specifications")
   void testArchitecturalLimitsConstants() {
+    assertEquals(BigInteger.valueOf(16_777_216L), StvnVocabulary.DEFAULT_MAX_SIZE);
     assertEquals(16_777_216, StvnVocabulary.DEFAULT_UNBOUNDED_STRING_CAPACITY);
+    assertEquals(16_777_216, StvnVocabulary.DEFAULT_EXACT_FLOAT_MAX_SIZE);
     assertEquals(4096, StvnVocabulary.DEFAULT_INSPECTION_THRESHOLD);
     assertEquals(2, StvnVocabulary.DEFAULT_INDENT_WIDTH);
   }

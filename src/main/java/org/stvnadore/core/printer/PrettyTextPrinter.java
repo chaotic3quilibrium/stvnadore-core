@@ -32,7 +32,7 @@ public final class PrettyTextPrinter extends AbstractStvnPrinter {
   }
 
   @Override
-  protected LayoutWriter createLayoutWriter(Writer target) {
+  LayoutWriter createLayoutWriter(Writer target) {
     return new PrettyLayoutWriter(target, options.indentStep());
   }
 }

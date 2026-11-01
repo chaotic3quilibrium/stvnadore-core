@@ -95,7 +95,7 @@
                         <failOnError>true</failOnError>
                         <failOnWarnings>true</failOnWarnings>
                         <doclint>all</doclint>
-                        <excludePackageNames>org.stvnadore.core.parser</excludePackageNames>
+                        <excludePackageNames>org.stvnadore.core.parser:org.stvnadore.core.lowering:org.stvnadore.core.printer.internal</excludePackageNames>
                     </configuration>
                 </plugin>
             </plugins>
@@ -267,7 +267,7 @@
                             <failOnError>true</failOnError>
                             <failOnWarnings>true</failOnWarnings>
                             <doclint>all</doclint>
-                            <excludePackageNames>org.stvnadore.core.parser</excludePackageNames>
+                            <excludePackageNames>org.stvnadore.core.parser:org.stvnadore.core.lowering:org.stvnadore.core.printer.internal</excludePackageNames>
                         </configuration>
                         <executions>
                             <execution>

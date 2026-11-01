@@ -156,7 +156,7 @@ class StvnIncludeProvenanceAndCascadeGuardTest {
         }
         """);
 
-    var docCtx = StvnCompiler.parse(workspace.get(rootPath), StvnParserConfig.DEFAULT);
+    var docCtx = StvnDefsLowerer.parseDocument(workspace.get(rootPath), StvnParserConfig.DEFAULT);
     DiagnosticBag bag = new DiagnosticBag(32, rootPath);
     StvnDefsLowerer.lowerForFlattener(docCtx, rootPath, workspace, bag);
 

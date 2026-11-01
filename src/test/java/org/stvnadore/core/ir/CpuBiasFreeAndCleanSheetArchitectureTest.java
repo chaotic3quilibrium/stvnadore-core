@@ -3,22 +3,27 @@ package org.stvnadore.core.ir;
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 import org.stvnadore.core.StvnVocabulary;
 
 import java.io.IOException;
+import java.lang.module.ModuleDescriptor;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.RecordComponent;
 import java.lang.reflect.Type;
+import java.lang.reflect.WildcardType;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -28,6 +33,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -608,6 +615,164 @@ class CpuBiasFreeAndCleanSheetArchitectureTest {
           () -> Class.forName(className, false, cl),
           "Excised legacy class must not exist on compiled runtime classpath: " + className
       );
+    }
+  }
+
+  @Test
+  @DisplayName("TC-IR-ARCH-08: Verify JPMS module-info hard encapsulation and non-transitive ANTLR dependency (GATE-08)")
+  void testJpmsModuleHardEncapsulationAndExportedApiHygiene() throws Exception {
+    Module coreModule = StvnCompiler.class.getModule();
+    assertTrue(coreModule.isNamed(), "StvnCompiler must execute inside named JPMS module org.stvnadore.core");
+    ModuleDescriptor descriptor = coreModule.getDescriptor();
+    assertNotNull(descriptor, "ModuleDescriptor must be present on org.stvnadore.core");
+    assertEquals("org.stvnadore.core", descriptor.name());
+
+    Set<String> exportedPackages = descriptor.exports().stream()
+        .map(ModuleDescriptor.Exports::source)
+        .collect(Collectors.toCollection(LinkedHashSet::new));
+
+    Set<String> forbiddenExportedPackages = Set.of(
+        "org.stvnadore.core.parser",
+        "org.stvnadore.core.lowering",
+        "org.stvnadore.core.printer.internal",
+        "org.stvnadore.core.ast"
+    );
+    for (String forbiddenPkg : forbiddenExportedPackages) {
+      assertFalse(
+          exportedPackages.contains(forbiddenPkg),
+          "Internal package must NOT be exported by module-info.java: " + forbiddenPkg
+      );
+    }
+
+    Set<String> expectedExportedPackages = Set.of(
+        "org.stvnadore.core",
+        "org.stvnadore.core.stdlib",
+        "org.stvnadore.core.validation",
+        "org.stvnadore.core.ir",
+        "org.stvnadore.core.io",
+        "org.stvnadore.core.printer",
+        "org.stvnadore.core.annotations",
+        "org.stvnadore.core.utils",
+        "org.stvnadore.core.mapper",
+        "org.stvnadore.core.binary",
+        "org.stvnadore.core.binary.readers",
+        "org.stvnadore.core.binary.exceptions"
+    );
+    assertEquals(expectedExportedPackages, exportedPackages, "Exported JPMS package set must match the 12-package public API contract");
+
+    Optional<ModuleDescriptor.Requires> antlrRequires = descriptor.requires().stream()
+        .filter(req -> req.name().equals("org.antlr.antlr4.runtime"))
+        .findFirst();
+    assertTrue(antlrRequires.isPresent(), "org.stvnadore.core must declare requires org.antlr.antlr4.runtime");
+    assertFalse(
+        antlrRequires.get().modifiers().contains(ModuleDescriptor.Requires.Modifier.TRANSITIVE),
+        "org.antlr.antlr4.runtime must NOT carry Requires.Modifier.TRANSITIVE"
+    );
+
+    // Scan every public/protected class and member in all 12 exported packages for leaked internal or ANTLR types
+    List<String> signatureLeaks = new ArrayList<>();
+    int scannedExportedClasses = 0;
+    Path mainJavaRoot = Paths.get("src", "main", "java");
+    for (String exportedPkg : exportedPackages) {
+      Path pkgDir = mainJavaRoot.resolve(exportedPkg.replace('.', '/'));
+      assertTrue(Files.isDirectory(pkgDir), "Exported package source directory must exist: " + pkgDir);
+      try (Stream<Path> files = Files.list(pkgDir)) {
+        List<Path> javaFiles = files
+            .filter(p -> p.getFileName().toString().endsWith(".java"))
+            .filter(p -> !p.getFileName().toString().equals("package-info.java"))
+            .toList();
+        for (Path javaFile : javaFiles) {
+          String simpleName = javaFile.getFileName().toString().replace(".java", "");
+          Class<?> clazz = Class.forName(exportedPkg + "." + simpleName);
+          inspectExportedClassSurface(clazz, signatureLeaks);
+          scannedExportedClasses++;
+        }
+      }
+    }
+    assertTrue(scannedExportedClasses > 0, "Reflective exported API scan must inspect exported classes");
+    assertTrue(
+        signatureLeaks.isEmpty(),
+        () -> "Exported public/protected API leaked internal or ANTLR types:\n" + String.join("\n", signatureLeaks)
+    );
+  }
+
+  private static void inspectExportedClassSurface(Class<?> clazz, List<String> violations) {
+    int classMods = clazz.getModifiers();
+    if (!Modifier.isPublic(classMods) && !Modifier.isProtected(classMods)) {
+      return;
+    }
+    String loc = clazz.getName();
+    inspectTypeForExportSurfaceLeaks(clazz.getGenericSuperclass(), loc + " extends", violations);
+    for (Type iface : clazz.getGenericInterfaces()) {
+      inspectTypeForExportSurfaceLeaks(iface, loc + " implements", violations);
+    }
+    if (clazz.isRecord()) {
+      for (RecordComponent rc : clazz.getRecordComponents()) {
+        inspectTypeForExportSurfaceLeaks(rc.getGenericType(), loc + "#" + rc.getName() + "(component)", violations);
+      }
+    }
+    for (Field field : clazz.getDeclaredFields()) {
+      if (Modifier.isPublic(field.getModifiers()) || Modifier.isProtected(field.getModifiers())) {
+        inspectTypeForExportSurfaceLeaks(field.getGenericType(), loc + "#" + field.getName(), violations);
+      }
+    }
+    for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
+      if (Modifier.isPublic(ctor.getModifiers()) || Modifier.isProtected(ctor.getModifiers())) {
+        for (Type param : ctor.getGenericParameterTypes()) {
+          inspectTypeForExportSurfaceLeaks(param, loc + "#<init>(param)", violations);
+        }
+        for (Type ex : ctor.getGenericExceptionTypes()) {
+          inspectTypeForExportSurfaceLeaks(ex, loc + "#<init>(throws)", violations);
+        }
+      }
+    }
+    for (Method method : clazz.getDeclaredMethods()) {
+      if (Modifier.isPublic(method.getModifiers()) || Modifier.isProtected(method.getModifiers())) {
+        String mLoc = loc + "#" + method.getName();
+        inspectTypeForExportSurfaceLeaks(method.getGenericReturnType(), mLoc + "(return)", violations);
+        for (Type param : method.getGenericParameterTypes()) {
+          inspectTypeForExportSurfaceLeaks(param, mLoc + "(param)", violations);
+        }
+        for (Type ex : method.getGenericExceptionTypes()) {
+          inspectTypeForExportSurfaceLeaks(ex, mLoc + "(throws)", violations);
+        }
+      }
+    }
+    for (Class<?> nested : clazz.getDeclaredClasses()) {
+      inspectExportedClassSurface(nested, violations);
+    }
+  }
+
+  private static void inspectTypeForExportSurfaceLeaks(Type type, String location, List<String> violations) {
+    if (type == null) {
+      return;
+    }
+    if (type instanceof Class<?> raw) {
+      String name = raw.getName();
+      if (name.startsWith("org.antlr.")
+          || name.startsWith("org.stvnadore.core.parser.")
+          || name.startsWith("org.stvnadore.core.lowering.")
+          || name.startsWith("org.stvnadore.core.printer.internal.")
+          || name.startsWith("org.stvnadore.core.ast.")) {
+        violations.add(location + " exposes unexported/non-transitive type " + name);
+      }
+      if (raw.isArray()) {
+        inspectTypeForExportSurfaceLeaks(raw.getComponentType(), location + "[]", violations);
+      }
+    } else if (type instanceof ParameterizedType pt) {
+      inspectTypeForExportSurfaceLeaks(pt.getRawType(), location, violations);
+      for (Type arg : pt.getActualTypeArguments()) {
+        inspectTypeForExportSurfaceLeaks(arg, location + "<>", violations);
+      }
+    } else if (type instanceof GenericArrayType gat) {
+      inspectTypeForExportSurfaceLeaks(gat.getGenericComponentType(), location + "[]", violations);
+    } else if (type instanceof WildcardType wt) {
+      for (Type upper : wt.getUpperBounds()) {
+        inspectTypeForExportSurfaceLeaks(upper, location + "?extends", violations);
+      }
+      for (Type lower : wt.getLowerBounds()) {
+        inspectTypeForExportSurfaceLeaks(lower, location + "?super", violations);
+      }
     }
   }
 

@@ -37,7 +37,7 @@ import java.util.TreeMap;
  * dependency graphs into a single self-contained, canonical {@code #DEFS} schema document.
  * <p>
  * This class delegates module graph resolution, Section 4.2 eviction cascade evaluation,
- * package/use FQNI desugaring, and 5-tier facet normalization directly to {@link StvnDefsLowerer},
+ * package/use FQNI desugaring, and 5-tier facet normalization directly to {@code StvnDefsLowerer},
  * then serializes all resolved definitions in canonical 5-tier decimal order ({@code 1.1.1}
  * through {@code 5.0}, § 6.1) with zero {@code W003} tautologies and zero {@code ERR_FACET_ORDER_VIOLATION}
  * errors on recompilation.

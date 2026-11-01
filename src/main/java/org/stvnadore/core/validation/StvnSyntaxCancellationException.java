@@ -1,6 +1,5 @@
 package org.stvnadore.core.validation;
 
-import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -11,7 +10,7 @@ import org.jspecify.annotations.Nullable;
  * @since 1.2.0
  */
 @NullMarked
-public final class StvnSyntaxCancellationException extends ParseCancellationException {
+public final class StvnSyntaxCancellationException extends RuntimeException {
   private static final long serialVersionUID = 1L;
 
   /** The 1-based line number of the syntax error. */

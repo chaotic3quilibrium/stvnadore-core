@@ -113,6 +113,8 @@ public record UserProfile(
 
 ```java
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.mapper.StvnMapper;
 
@@ -128,7 +130,7 @@ public class Demonstration {
           :body {}
         }
         """).orElseThrow();
-    var schema = schemaDoc.schema();
+    var schema = schemaDoc.requireRootType();
 
     // 2. Instantiate Java 21 Record
     var profile = new UserProfile(
@@ -141,18 +143,26 @@ public class Demonstration {
     // 3. Serialize Record to STVN IR
     StvnValue stvnValue = StvnMapper.toValue(profile, schema).orElseThrow();
 
-    // 4. Generate deterministic, canonical STVN text output
-    String canonicalStvn = StvnCompiler.toCanonicalString(stvnValue);
+    // 4. Assemble pure-IR StvnDocument and generate deterministic canonical STVN text
+    var outputDoc = new StvnDocument(
+        Optional.empty(),
+        schemaDoc.defs(),
+        Optional.of(schema),
+        Optional.of(stvnValue),
+        false,
+        false
+    );
+    String canonicalStvn = StvnCompiler.toCanonicalString(outputDoc);
     System.out.println("Canonical STVN Output:");
     System.out.println(canonicalStvn);
 
     // 5. Compute cryptographic SHA-256 CAS fingerprint
-    byte[] casFingerprint = StvnCompiler.computeCasFingerprint(stvnValue);
+    byte[] casFingerprint = StvnCompiler.computeCasFingerprint(outputDoc);
     System.out.printf("CAS SHA-256: %s%n", java.util.HexFormat.of().formatHex(casFingerprint));
 
-    // 6. Deserialize STVN AST back into a strongly typed Java 21 Record
-    StvnValue parsedValue = StvnCompiler.compile(canonicalStvn).orElseThrow();
-    UserProfile restored = StvnMapper.fromValue(parsedValue, UserProfile.class, schema).orElseThrow();
+    // 6. Deserialize STVN IR back into a strongly typed Java 21 Record
+    StvnDocument parsedDoc = StvnCompiler.compile(canonicalStvn).orElseThrow();
+    UserProfile restored = StvnMapper.fromValue(parsedDoc.requirePayload(), UserProfile.class, schema).orElseThrow();
 
     assert restored.username().equals("stvn_engineer");
     assert restored.age() == 28;
@@ -170,9 +180,9 @@ public class Demonstration {
           :body #Active
         }
         """).orElseThrow();
-    var subset = subsetDoc.schema().enumSubset().orElseThrow();
-    assert subset.containsVariant("#Active");
-    assert !subset.containsVariant("#Deleted");
+    var subset = (StvnSchema.EnumSubsetSchema) subsetDoc.requireRootType();
+    assert subset.activeVariants().contains("#Active");
+    assert !subset.activeVariants().contains("#Deleted");
   }
 }
 ```
@@ -184,8 +194,8 @@ For language servers, tooling, and batch pipelines, `StvnCompiler.compileToResul
 ```java
 var result = StvnCompiler.compileToResult(sourceCode);
 if (result.isSuccess()) {
-  StvnValue doc = result.orElseThrow();
-  // Process verified AST...
+  StvnDocument doc = result.orElseThrow();
+  // Process verified Canonical IR document...
 } else {
   for (var diagnostic : result.diagnostics()) {
       System.err.printf(

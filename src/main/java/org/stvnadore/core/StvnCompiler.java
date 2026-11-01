@@ -47,10 +47,10 @@ import java.util.Optional;
  * <p>
  * Coordinates the STVN 2.0.0 4-pass stateless lowering pipeline:
  * <ol>
- *   <li>Pass 1: Lexing, parsing, and deterministic syntax error sanitization ({@link StvnSyntaxErrorSanitizer})</li>
- *   <li>Pass 2: Metadata, definitions catalog, and tautology-purged schema lowering ({@link StvnDefsLowerer})</li>
- *   <li>Pass 3: CPU-bias-free payload lowering with container fault isolation ({@link StvnPayloadLowerer})</li>
- *   <li>Pass 4: Transitive reachability, alias desugaring, and topological catalog ordering ({@link StvnReachabilityAndCasVerifier})</li>
+ *   <li>Pass 1: Lexing, parsing, and deterministic syntax error sanitization ({@code StvnSyntaxErrorSanitizer})</li>
+ *   <li>Pass 2: Metadata, definitions catalog, and tautology-purged schema lowering ({@code StvnDefsLowerer})</li>
+ *   <li>Pass 3: CPU-bias-free payload lowering with container fault isolation ({@code StvnPayloadLowerer})</li>
+ *   <li>Pass 4: Transitive reachability, alias desugaring, and topological catalog ordering ({@code StvnReachabilityAndCasVerifier})</li>
  * </ol>
  *
  * @since 1.0.0
@@ -718,30 +718,12 @@ public final class StvnCompiler {
    *
    * @param input  the raw STVN document text to parse
    * @param config the parser configuration defining error handling and strictness
-   * @return the parsed {@link StvnParser.StvnDocumentContext} parse tree root
+   * @return the parsed {@code StvnParser.StvnDocumentContext} parse tree root
    * @throws NullPointerException            if {@code input} or {@code config} is {@code null}
    * @throws StvnSyntaxCancellationException if {@code config.strict()} is true and a syntax error is encountered
    */
-  public static StvnParser.StvnDocumentContext parse(String input, StvnParserConfig config) {
-    Objects.requireNonNull(input, "input must not be null");
-    Objects.requireNonNull(config, "config must not be null");
-
-    var lexer = new StvnLexer(CharStreams.fromString(input));
-    lexer.removeErrorListeners();
-
-    var parser = new StvnParser(new CommonTokenStream(lexer));
-    parser.removeErrorListeners();
-
-    if (config.strict()) {
-      parser.setErrorHandler(new BailErrorStrategy());
-      var errorListener = StvnErrorListener.strict();
-      lexer.addErrorListener(errorListener);
-      parser.addErrorListener(errorListener);
-    } else {
-      parser.setErrorHandler(new StvnErrorStrategy());
-    }
-
-    return parser.stvnDocument();
+  static StvnParser.StvnDocumentContext parse(String input, StvnParserConfig config) {
+    return StvnDefsLowerer.parseDocument(input, config);
   }
 
   /**

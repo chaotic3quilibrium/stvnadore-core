@@ -1,5 +1,6 @@
 package org.stvnadore.core.lowering;
 
+import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -165,6 +166,41 @@ public final class StvnDefsLowerer {
 
   private StvnDefsLowerer() {
     // Non-instantiable stateless pass
+  }
+
+  /**
+   * Parses raw STVN text into an ANTLR {@link StvnParser.StvnDocumentContext} root node using the
+   * specified parser configuration.
+   * <p>
+   * Encapsulated inside {@code org.stvnadore.core.lowering} for intra-module lowering callers and
+   * whitebox unit tests without exposing ANTLR types on exported public API surfaces.
+   *
+   * @param input  the raw STVN document text to parse
+   * @param config the parser configuration defining error handling and strictness
+   * @return the parsed {@link StvnParser.StvnDocumentContext} parse tree root
+   * @throws NullPointerException                                            if {@code input} or {@code config} is {@code null}
+   * @throws org.stvnadore.core.validation.StvnSyntaxCancellationException if {@code config.strict()} is {@code true} and a syntax error occurs
+   */
+  public static StvnParser.StvnDocumentContext parseDocument(String input, StvnParserConfig config) {
+    Objects.requireNonNull(input, "input must not be null");
+    Objects.requireNonNull(config, "config must not be null");
+
+    var lexer = new StvnLexer(CharStreams.fromString(input));
+    lexer.removeErrorListeners();
+
+    var parser = new StvnParser(new CommonTokenStream(lexer));
+    parser.removeErrorListeners();
+
+    if (config.strict()) {
+      parser.setErrorHandler(new BailErrorStrategy());
+      var errorListener = StvnErrorListener.strict();
+      lexer.addErrorListener(errorListener);
+      parser.addErrorListener(errorListener);
+    } else {
+      parser.setErrorHandler(new StvnErrorStrategy());
+    }
+
+    return parser.stvnDocument();
   }
 
   /**

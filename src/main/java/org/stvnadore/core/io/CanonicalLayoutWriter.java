@@ -4,7 +4,6 @@ import org.jspecify.annotations.NullMarked;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
 import org.stvnadore.core.printer.PrinterOptions;
-import org.stvnadore.core.printer.internal.LayoutWriter;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -21,7 +20,7 @@ import java.math.BigInteger;
  * </p>
  */
 @NullMarked
-public final class CanonicalLayoutWriter implements LayoutWriter {
+public final class CanonicalLayoutWriter {
   private final Writer writer;
   private String lastToken = "";
 
@@ -58,12 +57,23 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
     return (token.length() == 1) && PUNCTUATION.contains(token);
   }
 
-  @Override
+  /**
+   * Writes a raw literal token using canonical spacing rules.
+   *
+   * @param val the literal token text
+   * @throws IOException if an I/O error occurs
+   */
   public void writeLiteral(String val) throws IOException {
     writeToken(val);
   }
 
-  @Override
+  /**
+   * Writes a boolean literal forced to canonical short form ({@code #T} or {@code #F}).
+   *
+   * @param val   the boolean value
+   * @param style the requested symbol style (ignored in favor of canonical short form)
+   * @throws IOException if an I/O error occurs
+   */
   public void writeBoolean(boolean val, PrinterOptions.SymbolStyle style) throws IOException {
     // Enforce Frozen Canonical CAS Normalizer Profile: SHORT_FORM (#T / #F)
     writeToken(val
@@ -71,49 +81,120 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
         : StvnVocabulary.VAL_FALSE_SHORT);
   }
 
-  @Override
+  /**
+   * Writes an arbitrary-precision integer token in base-10 canonical form.
+   *
+   * @param val the integer value
+   * @throws IOException if an I/O error occurs
+   */
   public void writeInteger(BigInteger val) throws IOException {
     writeToken(val.toString());
   }
 
-  @Override
+  /**
+   * Writes a floating-point or exact decimal token guaranteed to include a decimal point.
+   *
+   * @param val            the decimal value
+   * @param representation the schema float representation mode
+   * @throws IOException if an I/O error occurs
+   */
   public void writeFloat(BigDecimal val, FloatRepresentation representation) throws IOException {
     writeToken(formatFloat(val, representation));
   }
 
-  @Override
+  /**
+   * Formats a {@link BigDecimal} value into a valid STVN floating-point literal guaranteed to
+   * include a decimal point.
+   *
+   * @param value          the {@link BigDecimal} value to format
+   * @param representation the schema float representation mode
+   * @return a string representation guaranteed to contain a decimal point
+   */
+  public String formatFloat(BigDecimal value, FloatRepresentation representation) {
+    var s = (representation == FloatRepresentation.EXACT_DECIMAL)
+        ? value.toPlainString()
+        : value.toString();
+    if (!s.contains(".")) {
+      var eIdx = s.indexOf('e');
+      if (eIdx == -1) {
+        eIdx = s.indexOf('E');
+      }
+      return (eIdx == -1)
+          ? s + ".0"
+          : s.substring(0, eIdx) + ".0" + s.substring(eIdx);
+    }
+    return s;
+  }
+
+  /**
+   * Writes an enum variant tag token.
+   *
+   * @param keyword the enum variant keyword
+   * @throws IOException if an I/O error occurs
+   */
   public void writeEnumKeyword(String keyword) throws IOException {
     writeToken(keyword);
   }
 
-  @Override
+  /**
+   * Writes a double-quoted, canonically escaped UTF-8 string literal.
+   *
+   * @param s the raw string content
+   * @throws IOException if an I/O error occurs
+   */
   public void writeSimpleString(String s) throws IOException {
     writeToken("\"" + escapeString(s) + "\"");
   }
 
-  @Override
+  /**
+   * Writes an opening structural delimiter ({@code (}, {@code [}, or {@code &#123;}).
+   *
+   * @param delimiter the opening delimiter
+   * @throws IOException if an I/O error occurs
+   */
   public void openGroup(String delimiter) throws IOException {
     writeToken(delimiter);
   }
 
-  @Override
+  /**
+   * Writes a closing structural delimiter ({@code )}, {@code ]}, or {@code &#125;}).
+   *
+   * @param delimiter the closing delimiter
+   * @throws IOException if an I/O error occurs
+   */
   public void closeGroup(String delimiter) throws IOException {
     writeToken(delimiter);
   }
 
-  @Override
+  /**
+   * Writes the canonical short-form {@code :Option} present tag ({@code #S}).
+   *
+   * @param style the requested symbol style (ignored in favor of canonical short form)
+   * @throws IOException if an I/O error occurs
+   */
   public void openOptionSomeTag(PrinterOptions.SymbolStyle style) throws IOException {
     // Enforce Frozen Canonical CAS Normalizer Profile: SHORT_FORM (#S)
     writeToken(StvnVocabulary.VAL_SOME_SHORT);
   }
 
-  @Override
+  /**
+   * Writes the canonical short-form {@code :Option} absent tag ({@code #N}).
+   *
+   * @param style the requested symbol style (ignored in favor of canonical short form)
+   * @throws IOException if an I/O error occurs
+   */
   public void writeOptionNone(PrinterOptions.SymbolStyle style) throws IOException {
     // Enforce Frozen Canonical CAS Normalizer Profile: SHORT_FORM (#N)
     writeToken(StvnVocabulary.VAL_NONE_SHORT);
   }
 
-  @Override
+  /**
+   * Writes the canonical short-form {@code :Either} branch tag ({@code #L} or {@code #R}).
+   *
+   * @param isRight {@code true} for right branch ({@code #R}); {@code false} for left branch ({@code #L})
+   * @param style   the requested symbol style (ignored in favor of canonical short form)
+   * @throws IOException if an I/O error occurs
+   */
   public void openEitherTag(boolean isRight, PrinterOptions.SymbolStyle style) throws IOException {
     // Enforce Frozen Canonical CAS Normalizer Profile: SHORT_FORM (#R / #L)
     writeToken(isRight
@@ -121,7 +202,12 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
         : StvnVocabulary.VAL_LEFT_SHORT);
   }
 
-  @Override
+  /**
+   * Writes an algebraic tag coerced to canonical short form when applicable.
+   *
+   * @param tag the algebraic or structural tag
+   * @throws IOException if an I/O error occurs
+   */
   public void openTag(String tag) throws IOException {
     // Defensively coerce any long-form tags to their canonical short-form counterparts.
     String canonicalTag;
@@ -137,35 +223,51 @@ public final class CanonicalLayoutWriter implements LayoutWriter {
     writeToken(canonicalTag);
   }
 
+  /**
+   * Closes an algebraic tag scope (no-op in canonical single-space layout).
+   *
+   * @throws IOException if an I/O error occurs
+   */
   @SuppressWarnings("RedundantThrows")
-  @Override
   public void closeTag() throws IOException {
     // no-op
   }
 
+  /**
+   * Appends an element separator (no-op; spacing is governed by {@code writeToken}).
+   *
+   * @throws IOException if an I/O error occurs
+   */
   @SuppressWarnings("RedundantThrows")
-  @Override
   public void appendSeparator() throws IOException {
     // no-op, handled by writeToken delimiter checking
   }
 
+  /**
+   * Emits a line break (no-op in single-line canonical layout).
+   *
+   * @throws IOException if an I/O error occurs
+   */
   @SuppressWarnings("RedundantThrows")
-  @Override
   public void newline() throws IOException {
     // no-op
   }
 
-  @Override
+  /** Increases indentation depth (no-op in single-line canonical layout). */
   public void indent() {
     // no-op
   }
 
-  @Override
+  /** Decreases indentation depth (no-op in single-line canonical layout). */
   public void outdent() {
     // no-op
   }
 
-  @Override
+  /**
+   * Flushes the underlying target character stream.
+   *
+   * @throws IOException if an I/O error occurs
+   */
   public void flush() throws IOException {
     writer.flush();
   }

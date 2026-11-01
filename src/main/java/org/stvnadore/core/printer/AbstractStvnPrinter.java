@@ -44,7 +44,7 @@ import java.util.Optional;
  * @since 1.0.0
  */
 @NullMarked
-public abstract class AbstractStvnPrinter implements StvnTextPrinter {
+public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter permits CompactTextPrinter, PrettyTextPrinter {
 
   private static final BigInteger THIRTY_TWO = BigInteger.valueOf(32L);
 
@@ -70,12 +70,12 @@ public abstract class AbstractStvnPrinter implements StvnTextPrinter {
   }
 
   /**
-   * Factory method to create a concrete {@link LayoutWriter} instance.
+   * Factory method to create a concrete {@code LayoutWriter} instance.
    *
    * @param target the target writer stream
    * @return the resolved layout writer for the target stream
    */
-  protected abstract LayoutWriter createLayoutWriter(Writer target);
+  abstract LayoutWriter createLayoutWriter(Writer target);
 
   @Override
   public void print(StvnValue value, Writer target) throws IOException {

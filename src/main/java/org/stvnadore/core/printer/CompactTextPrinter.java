@@ -36,7 +36,7 @@ public final class CompactTextPrinter extends AbstractStvnPrinter {
   }
 
   @Override
-  protected LayoutWriter createLayoutWriter(Writer target) {
+  LayoutWriter createLayoutWriter(Writer target) {
     return new CompactLayoutWriter(target);
   }
 }
