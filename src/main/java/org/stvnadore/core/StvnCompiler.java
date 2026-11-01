@@ -130,7 +130,7 @@ public final class StvnCompiler {
     Objects.requireNonNull(input, "input must not be null");
     Objects.requireNonNull(config, "config must not be null");
 
-    var diagnosticBag = new DiagnosticBag(config.maxDiagnostics());
+    var diagnosticBag = new DiagnosticBag(config.maxDiagnostics(), docPath);
 
     // Pass 1: Lexing, parsing, and deterministic syntax error sanitization
     var lexer = new StvnLexer(CharStreams.fromString(input));
@@ -152,7 +152,10 @@ public final class StvnCompiler {
     }
 
     try {
+      int errorsBeforePass1 = diagnosticBag.errorCount();
       var docCtx = parser.stvnDocument();
+      boolean unitHasPass1SyntaxError =
+          parser.getNumberOfSyntaxErrors() > 0 || diagnosticBag.errorCount() > errorsBeforePass1;
       var docBody = docCtx.documentBody();
       boolean hasNoClauses = docBody == null
           || (docBody.metaEntry() == null
@@ -160,7 +163,7 @@ public final class StvnCompiler {
               && docBody.typeEntry() == null
               && docBody.bodyEntry() == null);
 
-      if (hasNoClauses && parser.getNumberOfSyntaxErrors() > 0) {
+      if (hasNoClauses && unitHasPass1SyntaxError) {
         return new TextCompilationOutcome(StvnCompilationResult.failure(diagnosticBag.toList()), Optional.empty(), false);
       }
 
@@ -168,8 +171,8 @@ public final class StvnCompiler {
       StvnDefsLowerer.DefsLoweringResult defsRes;
       try {
         defsRes = embeddedBinaryDefsMode
-            ? StvnDefsLowerer.lowerEmbeddedBinaryDefs(docCtx, docPath, config, diagnosticBag)
-            : StvnDefsLowerer.lowerDocumentHeaderAndDefs(docCtx, docPath, config, diagnosticBag);
+            ? StvnDefsLowerer.lowerEmbeddedBinaryDefs(docCtx, docPath, config, diagnosticBag, unitHasPass1SyntaxError)
+            : StvnDefsLowerer.lowerDocumentHeaderAndDefs(docCtx, docPath, config, diagnosticBag, unitHasPass1SyntaxError);
       } catch (Throwable t) {
         mapUnexpectedLoweringException(t, input, diagnosticBag);
         return new TextCompilationOutcome(StvnCompilationResult.failure(diagnosticBag.toList()), Optional.empty(), false);
@@ -208,7 +211,7 @@ public final class StvnCompiler {
       }
 
       // Determine whether Pass 3 payload lowering is eligible under fault-containment rules
-      boolean canValidateBody = parser.getNumberOfSyntaxErrors() == 0
+      boolean canValidateBody = !unitHasPass1SyntaxError
           && defsRes.sectionsEligible()
           && defsRes.rootType().isPresent()
           && docBody.bodyEntry().value() != null;
@@ -221,8 +224,12 @@ public final class StvnCompiler {
         int defsStart = defsCtx != null && defsCtx.getStart() != null ? defsCtx.getStart().getStartIndex() : -1;
         int defsStop = defsCtx != null && defsCtx.getStop() != null ? defsCtx.getStop().getStopIndex() + 1 : -1;
 
+        Optional<String> rootSourcePath = diagnosticBag.defaultSourcePath();
         for (var diag : diagnosticBag.toList()) {
           if (diag.severity() != StvnDiagnostic.DiagnosticSeverity.ERROR) {
+            continue;
+          }
+          if (!Objects.equals(diag.sourcePath(), rootSourcePath)) {
             continue;
           }
           String sym = diag.symbolicId().or(() -> diag.errorCode()).orElse("");
@@ -434,7 +441,7 @@ public final class StvnCompiler {
     Objects.requireNonNull(config, "config must not be null");
 
     int byteLength = buffer.remaining();
-    var diagnosticBag = new DiagnosticBag(config.maxDiagnostics());
+    var diagnosticBag = new DiagnosticBag(config.maxDiagnostics(), docPath);
     try {
       RootPointer root = StvnBinaryDecoder.open(buffer.duplicate());
       Optional<StvnDocumentMeta> irMeta = root.meta();
@@ -582,10 +589,12 @@ public final class StvnCompiler {
 
     StvnDocumentMeta innerMeta = embeddedMetaOpt.get();
     if (!outerMeta.equals(innerMeta)) {
+      Optional<String> containerSourcePath = diagnosticBag.defaultSourcePath();
       boolean innerMetaHasFacetParseError = innerMeta.sourceSpan().isPresent()
           && diagnosticBag.toList().stream().anyMatch(d -> {
             StvnDocumentMeta.SourceSpan ms = innerMeta.sourceSpan().get();
             return d.severity() == StvnDiagnostic.DiagnosticSeverity.ERROR
+                && Objects.equals(d.sourcePath(), containerSourcePath)
                 && d.startOffset() >= ms.startOffset()
                 && d.endOffset() <= ms.endOffset()
                 && !d.symbolicId().filter(DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED::equals).isPresent();

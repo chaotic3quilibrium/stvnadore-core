@@ -1,0 +1,10 @@
+{
+  :meta {
+    #name "include_child_offset_collision_child"
+    #kind #DEFS_INCLUDE
+  }
+  :defs {
+    :ValidPort { #unsigned #size 16 } :Int
+    :BadChildInt { #minIncl 1 #unsigned #size 16 } :Int
+  }
+}

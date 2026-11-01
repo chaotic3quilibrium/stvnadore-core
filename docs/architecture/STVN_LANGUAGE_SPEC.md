@@ -710,6 +710,15 @@ flowchart TD
     L -- " No " --> N["Scope Validated: Lower Type and Body"]
 ```
 
+### 4.3 Cross-Module Diagnostic Provenance Attribution
+
+When a modular compilation unit (`.stvn_i`, `.stvn_di`, or a `.stvn_bd` container declaring `#kind #DEFS_INCLUDE`) ingests external definitions modules via `:include`, every emitted diagnostic MUST record its authoritative originating compilation unit path (`sourcePath`) normalized to POSIX forward-slash segments:
+
+1. **Child-Unit Provenance Binding:** Every Pass 1 lexical/syntactic diagnostic and Pass 2 metadata/schema/constant diagnostic emitted while parsing or lowering an imported `.stvn_d` or `.stvn_di` module binds `sourcePath` to that imported module's normalized path and retains the imported module's unshifted 0-based character offsets `[startOffset, endOffset)` and `(line, column)` coordinates.
+2. **Parent-Directive Provenance Binding:** Diagnostics that reject the `:include` directive itself — including hermetic include prohibition (`E035`), empty directive blocks (`E004`), excised legacy file extensions (`E034`), duplicate module imports (`E005`), missing or unreadable target files (`E005`), payload-kind import targets (`E005`), and `#strip` namespace collisions (`E006`) — bind `sourcePath` to the importing parent unit's normalized path and pin to the offending `:include` token or element span in the parent buffer.
+3. **Transitive Cycle Provenance (`E007`):** When module `B` closes an include cycle (`A -> B -> A`), `CYCLIC_MODULE_INCLUDE` (`E007`) pins to the cycle-closing `:include` element inside `B` and binds `B`'s normalized `sourcePath`.
+4. **Cross-Unit Fault Containment:** Child-unit diagnostics carrying a `sourcePath` distinct from the root document's `sourcePath` MUST NOT disable Pass 3 `:body` lowering of the root document when the root document's `:type` schema resolves validly.
+
 ---
 
 ### 4.8 Enum Subset Filtering & Transitive Chaining
@@ -1459,6 +1468,13 @@ All compiler and PSI diagnostics must pin their text spans strictly to the exact
 
 During document scaffolding, incomplete top-level clauses (`:defs`, `:type`, `:body`, `:meta`) must attribute diagnostic blame strictly to the clause keyword that broke the structural contract. Compilers must not shift blame to subsequent clause tokens. Secondary cascade diagnostics at enclosing boundary tokens (`}`, `<EOF>`) caused by unclosed interior clauses must be suppressed.
 
+#### 7.3.2 Cross-File Include Provenance & Pass 1 Syntax-Truncation Anti-Cascade
+
+1. **Zero Cross-File Coordinate Clamping:** Compilers and IDE integrations MUST NOT clamp, shift, or reinterpret an imported module's `[startOffset, endOffset)` span against the importing parent document's text buffer. Consumers disambiguate diagnostic ownership strictly via `StvnDiagnostic.sourcePath()`.
+2. **Pass 1 Syntax-Truncation Anti-Cascade Guard:** When Pass 1 lexical or syntactic analysis records one or more syntax errors (`E001`, `E002`, `E004`, `E025`, `E026`, `E033`) on a compilation unit, error recovery may truncate `documentBody` before trailing mandatory sections (`:defs`, `:type`, or `:body`) attach to the Concrete Syntax Tree. Under this condition:
+   * Pass 2 MUST suppress secondary **missing-mandatory-section** `E031` (`ERR_DOCUMENT_KIND_MISMATCH`) cascades on that truncated unit.
+   * Pass 2 MUST continue to emit `E031` (`ERR_DOCUMENT_KIND_MISMATCH`) for **explicitly present prohibited sections** (such as `:type` or `:body` authored inside a `#DEFS` or `#DEFS_INCLUDE` definitions schema) and explicit `:meta` `#kind`-versus-extension contradictions.
+
 ### 7.4 Interactive DX Guards & Caret Resolution Boundaries
 
 During interactive editing in IDE plugins:
@@ -1524,6 +1540,11 @@ Every compliant STVN 2.0.0 compiler lowers Concrete Syntax Trees (CSTs) into an 
 
 3. **Sealed Value Algebra (`StvnValue`):**
    `StvnValue` is a closed 15-variant algebraic sum comprising `StvnBoolean`, `StvnInt`, `StvnFloat`, `StvnString`, `StvnTimeEpoch`, `StvnDateTime`, `StvnEnum`, `StvnTuple`, `StvnOption`, `StvnEither`, `StvnUnion`, `StvnSeq`, `StvnSet`, `StvnMap`, and `StvnErrorValue` (container fault-isolation sentinel preserving $M == N$ cardinality per § 7.2). Every `StvnValue` holds a non-null reference to its governing `StvnSchema`.
+
+4. **Diagnostic Envelope & Unit-Origin Provenance (`StvnDiagnostic`):**
+   Every syntax or semantic diagnostic emitted across Passes 1–4 is materialized as an immutable `StvnDiagnostic` value carrying `(message, severity, line, column, startOffset, endOffset, cause, errorCode, canonicalCode, symbolicId, sourcePath)`:
+   * `Optional<String> sourcePath` holds the POSIX-normalized file or virtual-workspace path of the compilation unit that emitted the diagnostic, or `Optional.empty()` when compiling an anonymous in-memory buffer without a document path.
+   * `[startOffset, endOffset)` and `(line, column)` are always local to the buffer identified by `sourcePath`.
 
 ### 8.3 CPU-Bias-Free Expression Space Invariant
 

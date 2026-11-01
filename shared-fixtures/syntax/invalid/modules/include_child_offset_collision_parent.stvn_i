@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "include_child_offset_collision_parent"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "include_child_offset_collision_child.stvn_di" ]
+  }
+  :type :ValidPort
+  :body 8080
+}

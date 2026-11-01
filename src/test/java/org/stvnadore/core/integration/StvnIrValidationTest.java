@@ -13,6 +13,7 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.StvnSchemaFlattener;
 import org.stvnadore.core.binary.StvnBinaryDecoder;
 import org.stvnadore.core.ir.StvnDocument;
 import org.stvnadore.core.ir.StvnSchema;
@@ -400,6 +401,50 @@ public class StvnIrValidationTest {
           () -> "messageSubstring '" + exp.messageSubstring() + "' not found in actual message '"
               + act.message() + "' at diagnostic[" + idx + "] in " + fixturePath
       );
+
+      // Verify ESC-CORE-01 unit-origin diagnostic provenance on all file-backed fixtures
+      Assertions.assertTrue(
+          act.sourcePath().isPresent(),
+          () -> "Expected populated sourcePath() on file-backed fixture diagnostic[" + idx + "] in "
+              + fixturePath + ": " + act
+      );
+      String actualSourcePath = act.sourcePath().get();
+      Assertions.assertEquals(
+          StvnSchemaFlattener.normalizePath(actualSourcePath),
+          actualSourcePath,
+          () -> "Diagnostic sourcePath() must be POSIX-normalized in " + fixturePath + ": " + actualSourcePath
+      );
+      Assertions.assertFalse(
+          actualSourcePath.contains("\\"),
+          () -> "Diagnostic sourcePath() must not contain raw backslashes: " + actualSourcePath
+      );
+
+      if (fileName.equals("include_child_offset_collision_parent.stvn_i")) {
+        Assertions.assertTrue(
+            actualSourcePath.endsWith("include_child_offset_collision_child.stvn_di"),
+            () -> "Child-origin diagnostic must carry child module sourcePath, got: " + actualSourcePath
+        );
+        Assertions.assertFalse(
+            actualSourcePath.endsWith("include_child_offset_collision_parent.stvn_i"),
+            () -> "Child-origin diagnostic must not masquerade as parent path: " + actualSourcePath
+        );
+      } else if (!fileName.endsWith(".stvn_i") && !fileName.endsWith(".stvn_di") && !fileName.endsWith(".stvn_bd")) {
+        Assertions.assertEquals(
+            StvnSchemaFlattener.normalizePath(fixturePath.toString()),
+            actualSourcePath,
+            () -> "Hermetic fixture diagnostic sourcePath() must equal normalized root fixture path in " + fixturePath
+        );
+      }
+    }
+
+    if (fileName.equals("include_child_offset_collision_parent.stvn_i")) {
+      Assertions.assertTrue(
+          targetRes.document().flatMap(StvnDocument::payload).isPresent(),
+          "Valid parent :body referencing valid sibling :ValidPort must lower cleanly despite child offset collision"
+      );
+      StvnValue loweredBody = targetRes.document().flatMap(StvnDocument::payload).orElseThrow();
+      Assertions.assertInstanceOf(StvnInt.class, loweredBody);
+      Assertions.assertEquals(BigInteger.valueOf(8080), ((StvnInt) loweredBody).value());
     }
 
     // Preserve CyclicDependencyException cycle-path integrity verification for cyclic include fixtures

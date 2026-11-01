@@ -289,7 +289,7 @@ public final class StvnPayloadLowerer {
   ) {
     StvnSchema effectiveTarget = unwrapRecursiveBackEdge(targetSchema, nominalSchemaResolver);
     if (effectiveTarget instanceof StvnSchema.PoisonedSchema poisoned) {
-      return silentPoisonErrorValue(ctx, poisoned);
+      return silentPoisonErrorValue(ctx, poisoned, diagnosticBag);
     }
     if (isMalformedSyntaxContext(ctx)) {
       Span span = Span.ofContext(ctx);
@@ -1022,7 +1022,11 @@ public final class StvnPayloadLowerer {
     return false;
   }
 
-  private static StvnErrorValue silentPoisonErrorValue(ParserRuleContext ctx, StvnSchema.PoisonedSchema poisoned) {
+  private static StvnErrorValue silentPoisonErrorValue(
+      ParserRuleContext ctx,
+      StvnSchema.PoisonedSchema poisoned,
+      DiagnosticBag bag
+  ) {
     Span span = Span.ofContext(ctx);
     String code = poisoned.primaryDiagnosticCode();
     Optional<String> canonical = code.startsWith("E") ? Optional.of(code) : DiagnosticBag.resolveCanonicalCode(code);
@@ -1037,7 +1041,7 @@ public final class StvnPayloadLowerer {
         null,
         canonical,
         symbolic
-    );
+    ).withSourcePath(bag.defaultSourcePath().orElse(null));
     return new StvnErrorValue(poisoned, synthetic);
   }
 
@@ -1067,7 +1071,7 @@ public final class StvnPayloadLowerer {
         effectiveCause,
         Optional.of(canonicalCode),
         Optional.of(symbolicId)
-    );
+    ).withSourcePath(bag.defaultSourcePath().orElse(null));
     bag.add(diag);
     return diag;
   }
@@ -1234,9 +1238,9 @@ public final class StvnPayloadLowerer {
       if (schema instanceof StvnSchema.PoisonedSchema poisoned) {
         if (!queue.isEmpty()) {
           StreamItem item = queue.removeFirst();
-          return silentPoisonErrorValue(item.sourceCtx() != null ? item.sourceCtx() : new ParserRuleContext(), poisoned);
+          return silentPoisonErrorValue(item.sourceCtx() != null ? item.sourceCtx() : new ParserRuleContext(), poisoned, diagnosticBag);
         }
-        return silentPoisonErrorValue(new ParserRuleContext(), poisoned);
+        return silentPoisonErrorValue(new ParserRuleContext(), poisoned, diagnosticBag);
       }
 
       if (queue.isEmpty()) {
@@ -1898,7 +1902,7 @@ public final class StvnPayloadLowerer {
     ) {
       StvnSchema sourceSchema = constant.schema();
       if (sourceSchema instanceof StvnSchema.PoisonedSchema poisoned) {
-        return silentPoisonErrorValue(new ParserRuleContext(), poisoned);
+        return silentPoisonErrorValue(new ParserRuleContext(), poisoned, diagnosticBag);
       }
       if (constant.value() instanceof StvnErrorValue errVal) {
         return new StvnErrorValue(targetSchema, errVal.diagnostic());
@@ -2090,7 +2094,7 @@ public final class StvnPayloadLowerer {
           }
           throw typeMismatch(targetSchema, value, span);
         }
-        case StvnSchema.PoisonedSchema poisoned -> silentPoisonErrorValue(new ParserRuleContext(), poisoned);
+        case StvnSchema.PoisonedSchema poisoned -> silentPoisonErrorValue(new ParserRuleContext(), poisoned, diagnosticBag);
       };
     }
 

@@ -4,11 +4,13 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
+import org.stvnadore.core.StvnSchemaFlattener;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -295,9 +297,18 @@ public final class DiagnosticBag {
       Map.entry(WARN_REDUNDANT_METADATA_FACET, "W003")
   );
 
-  private final int maxDiagnostics;
-  private final List<StvnDiagnostic> diagnostics;
-  private boolean thresholdExceeded = false;
+  private static final class AccumulatorState {
+    final int maxDiagnostics;
+    final List<StvnDiagnostic> diagnostics = new ArrayList<>();
+    boolean thresholdExceeded = false;
+
+    AccumulatorState(int maxDiagnostics) {
+      this.maxDiagnostics = Math.max(1, maxDiagnostics);
+    }
+  }
+
+  private final AccumulatorState state;
+  private final Optional<String> defaultSourcePath;
 
   /**
    * Constructs a DiagnosticBag with a custom maximum diagnostic threshold capacity.
@@ -305,8 +316,24 @@ public final class DiagnosticBag {
    * @param maxDiagnostics the maximum number of diagnostics to accumulate before suppression
    */
   public DiagnosticBag(int maxDiagnostics) {
-    this.maxDiagnostics = Math.max(1, maxDiagnostics);
-    this.diagnostics = new ArrayList<>();
+    this(maxDiagnostics, null);
+  }
+
+  /**
+   * Constructs a DiagnosticBag with a custom maximum diagnostic threshold capacity and an optional
+   * default originating compilation unit path.
+   *
+   * @param maxDiagnostics    the maximum number of diagnostics to accumulate before suppression
+   * @param defaultSourcePath the raw or POSIX-normalized path of the originating compilation unit, or {@code null}
+   * @since 2.0.0
+   */
+  public DiagnosticBag(int maxDiagnostics, @Nullable String defaultSourcePath) {
+    this(new AccumulatorState(maxDiagnostics), normalizeOptionalPath(defaultSourcePath));
+  }
+
+  private DiagnosticBag(AccumulatorState state, Optional<String> defaultSourcePath) {
+    this.state = state;
+    this.defaultSourcePath = defaultSourcePath;
   }
 
   /**
@@ -314,6 +341,43 @@ public final class DiagnosticBag {
    */
   public DiagnosticBag() {
     this(100);
+  }
+
+  /**
+   * Returns a scoped view over this bag's shared diagnostic accumulator that stamps
+   * {@code unitSourcePath} onto all newly added diagnostics lacking an explicit {@code sourcePath}.
+   * <p>
+   * All diagnostics recorded through the returned scoped bag accumulate into the same underlying
+   * list and share the global {@link #getMaxDiagnostics()} ceiling.
+   *
+   * @param unitSourcePath the raw or POSIX-normalized path of the child compilation unit, or {@code null}
+   * @return a unit-scoped {@link DiagnosticBag} view backed by this bag's accumulator state
+   * @since 2.0.0
+   */
+  public DiagnosticBag withSourcePath(@Nullable String unitSourcePath) {
+    Optional<String> normalized = normalizeOptionalPath(unitSourcePath);
+    if (Objects.equals(this.defaultSourcePath, normalized)) {
+      return this;
+    }
+    return new DiagnosticBag(this.state, normalized);
+  }
+
+  /**
+   * Returns the optional POSIX-normalized default compilation unit path bound to this bag scope.
+   *
+   * @return the optional normalized compilation unit path
+   * @since 2.0.0
+   */
+  public Optional<String> defaultSourcePath() {
+    return defaultSourcePath;
+  }
+
+  private static Optional<String> normalizeOptionalPath(@Nullable String rawPath) {
+    if (rawPath == null || rawPath.isEmpty()) {
+      return Optional.empty();
+    }
+    String normalized = StvnSchemaFlattener.normalizePath(rawPath);
+    return normalized.isEmpty() ? Optional.empty() : Optional.of(normalized);
   }
 
   /**
@@ -341,11 +405,14 @@ public final class DiagnosticBag {
    * @return {@code true} if the diagnostic was accepted, {@code false} if suppressed due to threshold
    */
   public boolean add(StvnDiagnostic diagnostic) {
-    if (diagnostics.size() >= maxDiagnostics) {
-      if (!thresholdExceeded) {
-        thresholdExceeded = true;
-        diagnostics.add(new StvnDiagnostic(
-            "Diagnostic threshold limit (" + maxDiagnostics + ") reached. Further diagnostics suppressed.",
+    Optional<String> effectivePath = diagnostic.sourcePath().isPresent()
+        ? diagnostic.sourcePath()
+        : this.defaultSourcePath;
+    if (state.diagnostics.size() >= state.maxDiagnostics) {
+      if (!state.thresholdExceeded) {
+        state.thresholdExceeded = true;
+        state.diagnostics.add(new StvnDiagnostic(
+            "Diagnostic threshold limit (" + state.maxDiagnostics + ") reached. Further diagnostics suppressed.",
             DiagnosticSeverity.WARNING,
             diagnostic.line(),
             diagnostic.column(),
@@ -353,7 +420,7 @@ public final class DiagnosticBag {
             diagnostic.endOffset(),
             null,
             Optional.of("STVN_DIAG_LIMIT_EXCEEDED")
-        ));
+        ).withSourcePath(effectivePath.orElse(null)));
       }
       return false;
     }
@@ -371,10 +438,13 @@ public final class DiagnosticBag {
             diagnostic.cause(),
             mapped,
             diagnostic.symbolicId()
-        );
+        ).withSourcePath(effectivePath.orElse(null));
       }
     }
-    diagnostics.add(enriched);
+    if (enriched.sourcePath().isEmpty() && effectivePath.isPresent()) {
+      enriched = enriched.withSourcePath(effectivePath.get());
+    }
+    state.diagnostics.add(enriched);
     return true;
   }
 
@@ -608,7 +678,7 @@ public final class DiagnosticBag {
    * @return {@code true} if any error diagnostic is present
    */
   public boolean hasErrors() {
-    return diagnostics.stream().anyMatch(d -> d.severity() == DiagnosticSeverity.ERROR);
+    return state.diagnostics.stream().anyMatch(d -> d.severity() == DiagnosticSeverity.ERROR);
   }
 
   /**
@@ -617,7 +687,7 @@ public final class DiagnosticBag {
    * @return total error diagnostic count
    */
   public int errorCount() {
-    return (int) diagnostics.stream().filter(d -> d.severity() == DiagnosticSeverity.ERROR).count();
+    return (int) state.diagnostics.stream().filter(d -> d.severity() == DiagnosticSeverity.ERROR).count();
   }
 
   /**
@@ -626,7 +696,7 @@ public final class DiagnosticBag {
    * @return {@code true} if any warning diagnostic is present
    */
   public boolean hasWarnings() {
-    return diagnostics.stream().anyMatch(d -> d.severity() == DiagnosticSeverity.WARNING);
+    return state.diagnostics.stream().anyMatch(d -> d.severity() == DiagnosticSeverity.WARNING);
   }
 
   /**
@@ -635,7 +705,7 @@ public final class DiagnosticBag {
    * @return the list of diagnostics; empty list if none were recorded
    */
   public List<StvnDiagnostic> toList() {
-    return diagnostics.isEmpty() ? Collections.emptyList() : List.copyOf(diagnostics);
+    return state.diagnostics.isEmpty() ? Collections.emptyList() : List.copyOf(state.diagnostics);
   }
 
   /**
@@ -644,7 +714,7 @@ public final class DiagnosticBag {
    * @return total diagnostics count
    */
   public int size() {
-    return diagnostics.size();
+    return state.diagnostics.size();
   }
 
   /**
@@ -653,7 +723,7 @@ public final class DiagnosticBag {
    * @return {@code true} if empty
    */
   public boolean isEmpty() {
-    return diagnostics.isEmpty();
+    return state.diagnostics.isEmpty();
   }
 
   /**
@@ -662,7 +732,7 @@ public final class DiagnosticBag {
    * @return {@code true} if threshold was breached
    */
   public boolean isThresholdExceeded() {
-    return thresholdExceeded;
+    return state.thresholdExceeded;
   }
 
   /**
@@ -671,6 +741,6 @@ public final class DiagnosticBag {
    * @return the maximum diagnostics threshold
    */
   public int getMaxDiagnostics() {
-    return maxDiagnostics;
+    return state.maxDiagnostics;
   }
 }

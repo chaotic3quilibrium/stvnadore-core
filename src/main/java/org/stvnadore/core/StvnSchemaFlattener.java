@@ -163,7 +163,7 @@ public final class StvnSchemaFlattener {
     parser.addErrorListener(errorListener);
     var docCtx = parser.stvnDocument();
 
-    DiagnosticBag bag = new DiagnosticBag(32);
+    DiagnosticBag bag = new DiagnosticBag(32, normEntryPoint);
     StvnDefsLowerer.DefsLoweringResult lowered = StvnDefsLowerer.lowerForFlattener(
         docCtx,
         normEntryPoint,
