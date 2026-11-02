@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.TokenStream;
 import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.misc.IntervalSet;
 import org.jspecify.annotations.NullMarked;
@@ -137,25 +138,25 @@ public final class StvnSyntaxErrorSanitizer {
         var stream = parser.getTokenStream();
         if (stream != null) {
           int idx = token.getTokenIndex();
-          if (idx == 0
+          if (isFirstDefaultChannelToken(stream, idx)
               && token.getType() != StvnLexer.LBRACE
               && token.getType() != StvnLexer.TAB_CHARACTER
               && token.getType() != StvnLexer.MALFORMED_FENCE_OPEN
               && token.getType() != StvnLexer.MALFORMED_FENCE_CLOSE) {
             isRootMissing = true;
           }
-          if (idx > 0 && stream.get(idx - 1).getType() == StvnLexer.KW_PRESERVE_INDENT) {
-            Token prev = stream.get(idx - 1);
-            startOffset = prev.getStartIndex();
-            endOffset = prev.getStopIndex() + 1;
-            line = prev.getLine();
-            charPositionInLine = prev.getCharPositionInLine();
-          } else if (idx > 0
+          Token prevDefault = previousDefaultChannelToken(stream, idx);
+          if (prevDefault != null && prevDefault.getType() == StvnLexer.KW_PRESERVE_INDENT) {
+            startOffset = prevDefault.getStartIndex();
+            endOffset = prevDefault.getStopIndex() + 1;
+            line = prevDefault.getLine();
+            charPositionInLine = prevDefault.getCharPositionInLine();
+          } else if (prevDefault != null
               && token.getType() != StvnLexer.KW_DEFS
               && token.getType() != StvnLexer.KW_TYPE
               && token.getType() != StvnLexer.KW_BODY
               && token.getType() != StvnLexer.KW_META) {
-            Token prev = stream.get(idx - 1);
+            Token prev = prevDefault;
             int prevType = prev.getType();
             if (prevType == StvnLexer.KW_DEFS && token.getType() != StvnLexer.LBRACE) {
               offendingToken = prev;
@@ -317,7 +318,7 @@ public final class StvnSyntaxErrorSanitizer {
     boolean isBareHash = offendingToken != null && "#".equals(offendingToken.getText());
     boolean isRootMissing = false;
     if (recognizer instanceof Parser parser && offendingToken != null) {
-      if (offendingToken.getTokenIndex() == 0
+      if (isFirstDefaultChannelToken(parser.getTokenStream(), offendingToken.getTokenIndex())
           && offendingToken.getType() != StvnLexer.LBRACE
           && offendingToken.getType() != StvnLexer.TAB_CHARACTER
           && offendingToken.getType() != StvnLexer.MALFORMED_FENCE_OPEN
@@ -404,7 +405,7 @@ public final class StvnSyntaxErrorSanitizer {
       if (offendingToken != null) {
         var stream = parser.getTokenStream();
         int idx = offendingToken.getTokenIndex();
-        Token prevToken = (idx > 0 && stream != null) ? stream.get(idx - 1) : null;
+        Token prevToken = previousDefaultChannelToken(stream, idx);
 
         if (prevToken != null && prevToken.getType() == StvnLexer.KW_DEFS && isClauseOrBoundary(offendingToken)) {
           return "clause '" + StvnVocabulary.KEYWORD_DEFS + "' requires definition block '{ ... }'";
@@ -423,10 +424,10 @@ public final class StvnSyntaxErrorSanitizer {
           return "Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)";
         }
 
-        if (stream != null && "(".equals(tokenText) && idx > 0 && idx + 1 < stream.size()) {
-          Token prev = stream.get(idx - 1);
-          Token next = stream.get(idx + 1);
-          if (")".equals(next.getText())) {
+        if (stream != null && "(".equals(tokenText)) {
+          Token prev = previousDefaultChannelToken(stream, idx);
+          Token next = nextDefaultChannelToken(stream, idx);
+          if (prev != null && next != null && ")".equals(next.getText())) {
             if (StvnVocabulary.TYPE_TUPLE.equals(prev.getText())) {
               return "empty composite argument list: " + StvnVocabulary.TYPE_TUPLE + "() requires at least one schema type";
             }
@@ -442,22 +443,24 @@ public final class StvnSyntaxErrorSanitizer {
           }
         }
 
-        if (stream != null && "[".equals(tokenText) && idx > 0 && idx + 1 < stream.size()) {
-          Token prev = stream.get(idx - 1);
-          Token next = stream.get(idx + 1);
-          if (StvnVocabulary.TYPE_ENUM.equals(prev.getText()) && "]".equals(next.getText())) {
-            return "empty enum variant list: " + StvnVocabulary.TYPE_ENUM + "[] requires at least one value keyword variant";
-          }
-          if ((StvnVocabulary.KEYWORD_INCLUDE.equals(prev.getText()) || StvnVocabulary.KEYWORD_USE.equals(prev.getText()))
-              && "]".equals(next.getText())) {
-            return "Empty directive '" + prev.getText() + " []' is prohibited";
+        if (stream != null && "[".equals(tokenText)) {
+          Token prev = previousDefaultChannelToken(stream, idx);
+          Token next = nextDefaultChannelToken(stream, idx);
+          if (prev != null && next != null) {
+            if (StvnVocabulary.TYPE_ENUM.equals(prev.getText()) && "]".equals(next.getText())) {
+              return "empty enum variant list: " + StvnVocabulary.TYPE_ENUM + "[] requires at least one value keyword variant";
+            }
+            if ((StvnVocabulary.KEYWORD_INCLUDE.equals(prev.getText()) || StvnVocabulary.KEYWORD_USE.equals(prev.getText()))
+                && "]".equals(next.getText())) {
+              return "Empty directive '" + prev.getText() + " []' is prohibited";
+            }
           }
         }
 
-        if (stream != null && ")".equals(tokenText) && idx >= 2) {
-          Token prev = stream.get(idx - 1);
-          Token prev2 = stream.get(idx - 2);
-          if ("(".equals(prev.getText())) {
+        if (stream != null && ")".equals(tokenText)) {
+          Token prev = previousDefaultChannelToken(stream, idx);
+          Token prev2 = prev != null ? previousDefaultChannelToken(stream, prev.getTokenIndex()) : null;
+          if (prev != null && prev2 != null && "(".equals(prev.getText())) {
             if (StvnVocabulary.TYPE_TUPLE.equals(prev2.getText())) {
               return "empty composite argument list: " + StvnVocabulary.TYPE_TUPLE + "() requires at least one schema type";
             }
@@ -473,15 +476,17 @@ public final class StvnSyntaxErrorSanitizer {
           }
         }
 
-        if (stream != null && "]".equals(tokenText) && idx >= 2) {
-          Token prev = stream.get(idx - 1);
-          Token prev2 = stream.get(idx - 2);
-          if ("[".equals(prev.getText()) && StvnVocabulary.TYPE_ENUM.equals(prev2.getText())) {
-            return "empty enum variant list: " + StvnVocabulary.TYPE_ENUM + "[] requires at least one value keyword variant";
-          }
-          if ("[".equals(prev.getText())
-              && (StvnVocabulary.KEYWORD_INCLUDE.equals(prev2.getText()) || StvnVocabulary.KEYWORD_USE.equals(prev2.getText()))) {
-            return "Empty directive '" + prev2.getText() + " []' is prohibited";
+        if (stream != null && "]".equals(tokenText)) {
+          Token prev = previousDefaultChannelToken(stream, idx);
+          Token prev2 = prev != null ? previousDefaultChannelToken(stream, prev.getTokenIndex()) : null;
+          if (prev != null && prev2 != null) {
+            if ("[".equals(prev.getText()) && StvnVocabulary.TYPE_ENUM.equals(prev2.getText())) {
+              return "empty enum variant list: " + StvnVocabulary.TYPE_ENUM + "[] requires at least one value keyword variant";
+            }
+            if ("[".equals(prev.getText())
+                && (StvnVocabulary.KEYWORD_INCLUDE.equals(prev2.getText()) || StvnVocabulary.KEYWORD_USE.equals(prev2.getText()))) {
+              return "Empty directive '" + prev2.getText() + " []' is prohibited";
+            }
           }
         }
       }
@@ -849,5 +854,44 @@ public final class StvnSyntaxErrorSanitizer {
         || type == StvnLexer.KW_BODY
         || type == StvnLexer.RBRACE
         || type == Token.EOF;
+  }
+
+  private static boolean isFirstDefaultChannelToken(@Nullable TokenStream stream, int idx) {
+    if (stream == null || idx <= 0) {
+      return true;
+    }
+    return previousDefaultChannelToken(stream, idx) == null;
+  }
+
+  private static @Nullable Token previousDefaultChannelToken(
+      @Nullable TokenStream stream,
+      int idx
+  ) {
+    if (stream == null || idx <= 0) {
+      return null;
+    }
+    for (int i = idx - 1; i >= 0; i--) {
+      Token candidate = stream.get(i);
+      if (candidate.getChannel() == Token.DEFAULT_CHANNEL) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  private static @Nullable Token nextDefaultChannelToken(
+      @Nullable TokenStream stream,
+      int idx
+  ) {
+    if (stream == null || idx < 0) {
+      return null;
+    }
+    for (int i = idx + 1; i < stream.size(); i++) {
+      Token candidate = stream.get(i);
+      if (candidate.getChannel() == Token.DEFAULT_CHANNEL) {
+        return candidate;
+      }
+    }
+    return null;
   }
 }

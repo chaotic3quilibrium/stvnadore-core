@@ -1,0 +1,23 @@
+{
+  :meta {
+    #name "09_multiline_use_and_comments"
+    #domain "core_fmt"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :RetryCount { #unsigned #size 16 #minIncl 1 #maxExcl 1000 } :Int
+    :com/acme/net/EndpointTag { #minSize 1 #maxSize 32 } :String
+    :Values :Tuple(
+      :org/stvnadore/prelude/meta/StvnPosixId64
+      :org/stvnadore/prelude/Port
+      :com/acme/net/EndpointTag
+      :RetryCount
+      { #maxSize 128 } :String
+      :Boolean
+    )
+  }
+  :type { #maxSize 16 } :Seq(:Values)
+  :body [
+    ("node_alpha_01" 8080 "edge" 3 "^[0-9a-f]{64}$" #TRUE)
+  ]
+}

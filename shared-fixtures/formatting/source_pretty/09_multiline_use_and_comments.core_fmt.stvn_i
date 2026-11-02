@@ -1,0 +1,56 @@
+// Leading header comment before root brace
+{
+  // Out-of-order :meta entries normalized to #name -> #domain -> #kind
+  :meta {
+    #name "09_multiline_use_and_comments"
+    #domain "core_fmt"
+    #kind #BODY_INCLUDE
+  }
+
+  // Multiple blank lines above collapse to a single blank line
+  :defs {
+    :package :com/acme/net {
+      // Out-of-order facets inside user package :com/acme/net
+      :EndpointTag { #minSize 1 #maxSize 32 } :String
+    }
+
+    :use [ :com/acme/net { #strip } ]
+
+    // Layout 1 multi-line :use (target and opening brace on header line)
+    :use [ :org/stvnadore/prelude/meta {
+        // Standalone comment inside Layout 1 :use alias block
+        :StvnPosixId64 :StvnPosixId64 // Trailing comment on alias pair
+      }
+    ]
+
+    // Layout 2 multi-line :use (target and opening brace on new line)
+    :use [
+      :org/stvnadore/prelude {
+        :Port :Port
+        #SHA256_LOWER_CASE_REGEX #SHA256_LOWER_CASE_REGEX
+      }
+    ]
+
+    // Constant definition preserved in source_pretty but inlined in pretty/compact
+    #DEFAULT_PORT :Port 8080
+
+    // Out-of-order 5-tier metadata facets on :RetryCount
+    :RetryCount { #unsigned #size 16 #minIncl 1 #maxExcl 1000 } :Int
+
+    :Values :Tuple(
+      :StvnPosixId64
+      :Port
+      :EndpointTag
+      :RetryCount
+      { #maxSize 128 } :String
+      :Boolean
+    )
+  }
+
+  :type { #maxSize 16 } :Seq(:Values)
+
+  :body [
+    // Standalone comment inside :Seq payload
+    ("node_alpha_01" #DEFAULT_PORT "edge" 3 #SHA256_LOWER_CASE_REGEX #T) // Trailing comment on tuple element
+  ]
+}

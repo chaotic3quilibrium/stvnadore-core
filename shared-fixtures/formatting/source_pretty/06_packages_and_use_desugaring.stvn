@@ -1,0 +1,17 @@
+{
+  // Authorial package and use sugar plus dead definition pruned by canonical IR printers
+  :defs {
+    :package :com/acme/net {
+      :Host { #minSize 1 #maxSize 253 } :String
+      :Port { #unsigned #size 16 #minIncl 1 } :Int
+      #DEFAULT_PORT :Port 8443
+      :UnusedDecoy :Int
+    }
+    :package :com/acme/app {
+      :use [ :com/acme/net { #strip } ]
+      :ServiceEndpoint :Tuple(:Host :Port)
+    }
+  }
+  :type :com/acme/app/ServiceEndpoint
+  :body ("api.acme.internal" #com/acme/net/DEFAULT_PORT)
+}

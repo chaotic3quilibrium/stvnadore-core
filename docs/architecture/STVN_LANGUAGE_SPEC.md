@@ -414,37 +414,55 @@ The colon character (`:`) is the canonical prefix sigil for the Typic Track in S
 
 ---
 
-### 3.3 Whitespace Discipline and the Strict Zero-Tab Invariant
+### 3.3 Whitespace Discipline & Canonical Formatting Rules
 
-STVN enforces strict lexical whitespace discipline to eliminate formatting ambiguity and layout drift across platforms and editors:
+`ij_stvnadore_core` is the **Single Formatting Authority and Reference Implementation Standard** for the STVN 2.0.0 ecosystem across all language implementations (Java, IDE plugins, Rust, and TypeScript).
+
+STVN enforces strict lexical whitespace discipline and defines two distinct formatting operations (**Operation 1: Non-Destructive Authoring Source Formatting** and **Operation 2: Canonical IR Projections**) alongside the frozen Content-Addressable Storage (CAS) normalizer:
 
 1. **Permissible Whitespace:** The only valid structural and indentation whitespace characters are standard ASCII spaces (`U+0020`), carriage returns (`\r`, `U+000D`), and line feeds (`\n`, `U+000A`).
 2. **Strict Zero-Tab Invariant:** Tab characters (`\t`, `U+0009`) are **completely prohibited** as structural or indentation whitespace throughout STVN documents, in comments, and unescaped in single-line strings. The presence of a raw tab character outside the verbatim body of a fenced string is a fatal syntax violation (`ERR_TAB_CHARACTER_FORBIDDEN`). Tab characters inside single-line strings must be escaped (`\t`). Raw, unescaped tab characters are permitted exclusively within the verbatim body content of fenced multi-line strings governed by Rule STR-04 (§ 5.3).
 3. **Canonical Indentation Standard:** Canonical STVN formatting dictates a strict 2-space indentation standard (`indentWidth = 2`). All nested blocks (inside `{ ... }`, `( ... )`, `[ ... ]`) indent by 2 spaces per hierarchy level.
-4. **Zero Bracket Padding:** Both compact serialization and canonical CAS normalizers strip all optional whitespace adjacent to structural delimiters (`(`, `)`, `[`, `]`, `{`, `}`). Sibling tokens inside collections and compounds separate by a single ASCII space only when neither adjacent token is a structural delimiter (e.g., `[1 2 3]`, `("host" 8080)`, `{["k" "v"]}`).
-5. **Decoupled AST Printers & Normalization Profiles:**
+4. **Zero Bracket Padding:** Both source formatting and canonical IR projections strip optional whitespace adjacent to collection, tuple, and constructor delimiters (`(`, `)`, `[`, `]`). Sibling tokens inside collections and compounds separate by a single ASCII space only when neither adjacent token is a structural delimiter (e.g., `[1 2 3]`, `("host" 8080)`, `{["k" "v"]}`).
+5. **Operation 1 — Non-Destructive Authoring Source Formatting (`StvnSourceFormatter` -> `shared-fixtures/formatting/source_pretty/`):**
+  - **Input Domain:** Operates directly on the Pass 1 Concrete Syntax Tree (`StvnParser.stvnDocument()`) and hidden-channel `//` line comment tokens (`CommonTokenStream`), succeeding on any Pass 1 syntactically valid STVN 2.0.0 document even when Pass 2–4 semantic errors exist in `:defs`, `:type`, or `:body`.
+  - **Non-Destructive Preservation Invariant:** Preserves 100% of authoring constructs:
+    - Standalone and trailing end-of-line `//` comments (`COMMENT` tokens routed to ANTLR `channel(HIDDEN)`).
+    - Authored blank lines inside blocks (collapsing 2 or more consecutive blank lines to at most 1 blank line).
+    - `:package` blocks, `:use` directives, and `:include` directives.
+    - `#CONST` constant definitions and references, plus unreferenced `:defs` entries.
+    - User-authored short vs. long keywords (`#T` vs. `#TRUE`, `#F` vs. `#FALSE`, `#S` vs. `#Some`, `#N` vs. `#None`, `#L` vs. `#Left`, `#R` vs. `#Right`), fenced string tags (`"""[SQL]..."""`), and explicit vs. inferred sum tags.
+  - **Normalizations Performed by `StvnSourceFormatter`:**
+    - *2-Space Indentation Hierarchy (`indentWidth = 2`):* Document root `{` and `}` sit at column 0; top-level sections (`:meta`, `:defs`, `:type`, `:body`) sit at column 2; `:meta` entries and `:defs` top-level elements sit at column 4; elements inside `:package :path { ... }` sit at column 6.
+    - *Multi-Line `:use` and `:include` Indentation Layouts (at `:defs` base column 4; add `+2` when nested inside `:package`):*
+      - **Layout 1 (Same-Line Target and `{`):** `:use [ :pkg {` (or `:use [ :pkg { #strip } {`) starts at column 4, alias pairs (`:Type :Alias` or `#CONST #ALIAS`) and interior standalone comments indent to **column 8**, closing `}` indents to **column 6**, and closing `]` indents to **column 4** (or `} ]` at column 6 when authored on the same line without comments).
+      - **Layout 2 (New-Line Target and `{`):** `:use [` starts at column 4, `:pkg {` (or `:pkg { #strip } {`) sits on a new line at **column 6**, alias pairs and interior standalone comments indent to **column 8**, closing `}` indents to **column 6**, and closing `]` indents to **column 4**.
+    - *Canonical Horizontal Spacing:* Single interior space inside non-empty metadata maps (`{ #facet1 ... #facetN }`) and single-line `:use` / `:include` brackets (`:use [ :pkg { #strip } ]`); zero interior space inside `:Enum[#A #B]`, `#filterIncl [#A #B]`, `:Tuple(...)`, `:Seq(...)`, `[1 2 3]`, `["k" v]`, `("a" 1)`, and empty delimiters `{}`, `[]`, `()`; single space before `{` in `:meta {`, `:defs {`, `:package :path {`, and `:use [ :path {`.
+    - *Automatic `:meta` Key Sorting & § 6.1 5-Tier Decimal Metadata Facet Sorting:* Sorts `:meta` entries into `#name` -> `#domain` -> `#kind` order and sorts `metadataEntry` nodes inside every `{ ... }` `metadataMap` block into canonical § 6.1 5-tier decimal order (`1.1.1` through `5.0`).
+6. **Operation 2 — Canonical IR Projections (`AstPrettyPrinter` -> `shared-fixtures/formatting/pretty/` & `AstCompactPrinter` -> `shared-fixtures/formatting/compact/`):**
+  - Operates on the lowered Pass 4 `StvnDocument` Intermediate Representation (IR), desugaring `:package` and `:use` into FQNIs, inlining `#CONST` definitions into `:type` and `:body`, pruning unreferenced `:defs` (`W002`), purging redundant metadata facets (`W003`), normalizing boolean and sum forms (`#T` -> `#TRUE`) and fenced tags to `[RAW]`, and stripping `//` comments:
   - **`CanonicalStvnWriter` & `StvnSchemaFlattener` (Frozen CAS Normalizer):** Emits immutable, deterministic preimages strictly for SHA-256 Content-Addressable Storage (CAS) hashing ($f: \text{Schema} \longleftrightarrow \text{CAS Hash}$). The CAS normalizer is architecturally decoupled from presentation printers and cannot be reconfigured at runtime. Its profile is permanently frozen:
     - *Coverage:* `ALL_SECTIONS`.
     - *SymbolStyle:* `SHORT_FORM` (`#T`, `#F`, `#S`, `#N`, `#L`, `#R`).
     - *SumTypePolicy:* `FORCE_EXPLICIT` (context-free; every sum variant constructor explicitly emitted without elision).
     - *Delimiter Whitespace:* Zero bracket padding and collapsed outer `:meta` enclosure (`{:meta{#name "x"#domain "y"#kind #DEFS}:defs{...}}`).
-  - **`AstCompactPrinter` & `PrinterOptions` (Configurable Presentation Serializer):** Serializes documents and payloads for network transfer, caching, and IDE buffer actions across three orthogonal dimensions:
+  - **`AstCompactPrinter` & `PrinterOptions` (Configurable Presentation Serializer -> `shared-fixtures/formatting/compact/`):** Serializes documents and payloads for network transfer, caching, and IDE buffer actions across three orthogonal dimensions:
     - *Coverage:* `ALL_SECTIONS` vs. `BODY_ONLY`.
     - *SymbolStyle:* `LONG_FORM` vs. `SHORT_FORM` (defaulting to `SHORT_FORM`: `#T`, `#F`, `#S`, `#N`, `#L`, `#R`).
     - *SumTypePolicy:* `FORCE_EXPLICIT` vs. `HAPPY_PATH_INFERRED`. Under `HAPPY_PATH_INFERRED`, Option C Smart Schema Sourcing resolves schema metadata from an explicit argument, `document.defs()`, or `value.schema()`, failing closed with `IllegalStateException` on unannotated values lacking schema context.
     - *Delimiter Whitespace:* Zero bracket padding across all delimiters (`{}`, `[]`, `()`), including prefix metadata facet blocks (`{#offset}:DateTime`, `{#unsigned #size 16 #minIncl 1}:Int`), emitting a single-line token-minimized stream while preserving verbatim newlines and tabs strictly inside Rule STR-04 fenced string bodies.
-  - **`AstPrettyPrinter` (Normative Cross-Language Pretty Print Projection):** Emits long-form keywords (`#TRUE`, `#FALSE`, `#Some`, `#None`, `#Left`, `#Right`) with `HAPPY_PATH_INFERRED` sum tag elision and deterministic `2`-space structural indentation (`indentWidth = 2`):
+  - **`AstPrettyPrinter` (Normative Cross-Language Pretty IR Projection -> `shared-fixtures/formatting/pretty/`):** Emits long-form keywords (`#TRUE`, `#FALSE`, `#Some`, `#None`, `#Left`, `#Right`) with `HAPPY_PATH_INFERRED` sum tag elision and deterministic `2`-space structural indentation (`indentWidth = 2`). Every `AstPrettyPrinter` output is a strict fixed point of `StvnSourceFormatter` (`StvnSourceFormatter.format(pretty).equals(pretty)`):
     - *Root, `:meta`, and `:defs` Enclosures:* Always format multi-line (`{\n  ...\n}`), indenting direct children by `+2` spaces. In `:meta`, each declared entry (`#name`, `#domain`, `#kind`) occupies its own `+2`-space indented line.
     - *Prefix Metadata Facet Blocks:* Always format inline on a single line in 5-tier canonical order with single interior space padding after `{` and before `}` (`{ #offset } :DateTime`, `{ #unsigned #size 16 #minIncl 1 } :Int`).
     - *Zero Bracket & Paren Padding:* Type constructors (`:Tuple(...)`, `:Seq(...)`, `:Set(...)`, `:Map(...)`, `:Option(...)`, `:Either(...)`, `:Union(...)`), enumerations (`:Enum[#A #B]`, `#filterIncl [#A #B]`), and inline payload collections (`[1 2 3]`, `("host" 8080)`, `["k" 1]`) emit zero whitespace before `(` / `[` and zero interior padding adjacent to `(`, `)`, `[`, `]`.
     - *Structural Multi-Line Schema Wrapping (`:Tuple(...)` & `:Union(...)`):* Emit multi-line (newline after `(`, each child schema on its own `+2`-space indented line, newline before `)`) if and only if at least one direct child is an inline anonymous schema carrying non-empty prefix metadata facets (`{ ... }`) or is itself a multi-line `:Tuple(...)` or `:Union(...)` schema; otherwise emit inline (`:Tuple(:Host :Port :Boolean)`).
     - *Structural Multi-Line Payload Container Wrapping:* Empty containers emit `{}`, `[]`, `()`. Non-empty `:Map` payloads always emit multi-line (`{\n  [k v]\n}`). Non-empty `:Seq`, `:Set`, and `:Tuple` payloads emit multi-line if and only if at least one element (unwrapping `:Option`, `:Either`, and `:Union` variant wrappers) is a structured container (`:Map`, `:Tuple`, `:Seq`, `:Set`) or a multi-line Rule STR-04 fenced string; scalar-only collections and tuples emit inline.
-    - *Golden Conformance Suite:* All language toolchains and IDE formatters verify Pretty Print and Compact Print compliance (including idempotency) against the authoritative golden triplets in `shared-fixtures/formatting/{input,pretty,compact}/`.
-  - **Transitive Reachability Invariant:** Serializers compute the reachability closure of nominal type and constant definitions reachable from the root `:type` and `:body`. All reachable definitions are emitted in `:defs`.
-  - **Universal Alias Desugaring:** Scoped aliases declared via `:use` desugar directly into Fully Qualified Nominal Identifiers (FQNIs). Canonical output contains zero `:package` or `:use` wrappers.
-  - **Dead-Code Elimination:** Definitions unreferenced by the root `:type` or `:body` payload are strictly pruned.
-  - **Topological Ordering:** Retained definitions in `:defs` emit in topological dependency order (dependencies precede dependents).
-6. **String Capacity Governance (MCT § 3.1.3):**
+    - *Golden Conformance Quartets:* All language toolchains and IDE formatters verify Operation 1 (`StvnSourceFormatter`) and Operation 2 (`AstPrettyPrinter` and `AstCompactPrinter`) compliance, idempotency, fixed-point convergence, and semantic IR equivalence against the authoritative golden quartets in `shared-fixtures/formatting/{input,source_pretty,pretty,compact}/`.
+  - **Transitive Reachability Invariant:** IR serializers compute the reachability closure of nominal type and constant definitions reachable from the root `:type` and `:body`. All reachable definitions are emitted in `:defs`.
+  - **Universal Alias Desugaring:** Scoped aliases declared via `:use` desugar directly into Fully Qualified Nominal Identifiers (FQNIs). Canonical IR output contains zero `:package` or `:use` wrappers.
+  - **Dead-Code Elimination:** Definitions unreferenced by the root `:type` or `:body` payload are strictly pruned in Pass 4 IR projections.
+  - **Topological Ordering:** Retained definitions in `:defs` emit in topological dependency order (dependencies precede dependents) in Pass 4 IR projections.
+7. **String Capacity Governance (MCT § 3.1.3):**
   - **Concrete Default Allocation Limit:** Unadorned `:String` instances default to character bounds `{ #minSize 0 #maxSize 16777216 }` (16 MiB allocation ceiling). Explicit `{ #minSize 0 }` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization.
   - **Default Inspection Threshold:** 4,096 characters.
   - **Logical Character Cardinality:** Bounded strings declare `{ #maxSize N } :String` or `{ #minSize 1 #maxSize N } :String`. The `#maxSize` facet itself accepts unbounded integer values ($N \in \mathbb{N}^+$, e.g. `#maxSize 16777216000000`). Machine bit-width facet `#size` is prohibited on `:String`.
@@ -453,7 +471,7 @@ STVN enforces strict lexical whitespace discipline to eliminate formatting ambig
 
 ### 3.4 Comment Tokens
 
-1. **Single-Line Comments (`//`)**: The scanner discards all characters from the double-slash token (`//`) through the end-of-line boundary before AST construction.
+1. **Single-Line Comments (`//`)**: The lexer routes all characters from the double-slash token (`//`) through the end-of-line boundary to the `HIDDEN` token channel (`channel(HIDDEN)`), hiding comments from `StvnParser` during AST and IR construction while retaining them in `CommonTokenStream` for non-destructive preservation by `StvnSourceFormatter`.
 2. **Block Comments Prohibited**: STVN does not support multi-line block comments (`/* ... */`). Documentation spanning multiple lines **must** use contiguous single-line `//` tokens.
 3. **Comment Token Isolation**: The hash character (`#`) **must not** be used for documentation or prose. Using `#` for freeform text causes a fatal lexical error.
 

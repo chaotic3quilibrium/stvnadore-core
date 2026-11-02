@@ -27,6 +27,7 @@ import org.stvnadore.core.ir.StvnValue.StvnSeq;
 import org.stvnadore.core.ir.StvnValue.StvnString;
 import org.stvnadore.core.ir.StvnValue.StvnTuple;
 import org.stvnadore.core.matrix.MetadataFixtureGenerator;
+import org.stvnadore.core.printer.StvnSourceFormatter;
 import org.stvnadore.core.validation.CyclicDependencyException;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.MalformedPayloadException;
@@ -179,7 +180,7 @@ public class StvnIrValidationTest {
       Set<String> formattingSubNames = formattingDirs.filter(Files::isDirectory)
           .map(p -> p.getFileName().toString())
           .collect(Collectors.toSet());
-      Assertions.assertEquals(Set.of("input", "pretty", "compact"), formattingSubNames);
+      Assertions.assertEquals(Set.of("input", "source_pretty", "pretty", "compact"), formattingSubNames);
     }
 
     // Verify error_contract.stvn_d itself compiles cleanly with 0 errors and 0 warnings
@@ -245,6 +246,9 @@ public class StvnIrValidationTest {
     }
 
     String source = Files.readString(fixturePath, StandardCharsets.UTF_8).replace("\r\n", "\n");
+    if (normalizedRel.startsWith("formatting/input/")) {
+      source = StvnSourceFormatter.format(source);
+    }
     boolean isSystemDomain = fileName.endsWith(".stvn_ir.stvn_i")
         || fileName.endsWith(".stvn_ir.stvn_d")
         || fileName.endsWith(".stvn_core.stvn_d");
