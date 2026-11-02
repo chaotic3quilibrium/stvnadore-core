@@ -77,17 +77,18 @@ public class SpecificationMarkdownSnippetTest {
       boolean isNeg = NEGATIVE_MARKER_PATTERN.matcher(trimmed).find();
 
       Matcher fnMatcher = FILENAME_HINT_PATTERN.matcher(trimmed);
+      String domainStem = (!isRoot || trimmed.contains("#domain")) ? ".spec" : "";
       String virtualFilename;
       if (fnMatcher.find()) {
         virtualFilename = fnMatcher.group(1);
       } else if (trimmed.contains("#kind #DEFS_INCLUDE")) {
-        virtualFilename = "snippet_" + idx + ".spec.stvn_di";
+        virtualFilename = "snippet_" + idx + domainStem + ".stvn_di";
       } else if (trimmed.contains("#kind #DEFS")) {
-        virtualFilename = "snippet_" + idx + ".spec.stvn_d";
+        virtualFilename = "snippet_" + idx + domainStem + ".stvn_d";
       } else if (trimmed.contains("#kind #BODY_INCLUDE")) {
-        virtualFilename = "snippet_" + idx + ".spec.stvn_i";
+        virtualFilename = "snippet_" + idx + domainStem + ".stvn_i";
       } else if (trimmed.contains("#kind #BODY")) {
-        virtualFilename = "snippet_" + idx + ".stvn";
+        virtualFilename = "snippet_" + idx + domainStem + ".stvn";
       } else if (trimmed.startsWith(":defs") || (trimmed.contains(":defs") && !trimmed.contains(":body"))) {
         virtualFilename = "snippet_" + idx + ".spec.stvn_di";
       } else if (!isRoot && (trimmed.startsWith(":") || trimmed.startsWith("#") || trimmed.startsWith("//"))) {

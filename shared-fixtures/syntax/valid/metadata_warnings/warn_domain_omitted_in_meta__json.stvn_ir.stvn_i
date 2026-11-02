@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "warn_domain_omitted_in_meta__json"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ "<:type>" ( "{#unsigned #size 16 #minIncl 1}:Int" ":org/stvnadore/prelude/Port" ( #TRUE #TRUE ) ) ]
+    }
+    #2 ( 8080 16 #TRUE )
+  )
+}

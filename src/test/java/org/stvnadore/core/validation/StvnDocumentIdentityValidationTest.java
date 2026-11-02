@@ -308,7 +308,7 @@ public class StvnDocumentIdentityValidationTest {
   }
 
   @Test
-  @DisplayName("TC-ID-15: Omitting #name and #domain represents an unconstrained wildcard")
+  @DisplayName("TC-ID-15: Omitting #name and #domain on a 1-stem filename represents an unconstrained wildcard")
   void testStemWildcardOmissionPassesCleanly() {
     String source = """
         {
@@ -320,13 +320,156 @@ public class StvnDocumentIdentityValidationTest {
           }
         }
         """;
-    var result = StvnCompiler.compileToResult(source, "arbitrary_stem_name.corp.stvn_d");
+    var result = StvnCompiler.compileToResult(source, "arbitrary_stem_name.stvn_d");
     assertTrue(result.isSuccess(), "Wildcard metadata compiles cleanly without warnings");
     assertFalse(result.hasWarnings());
     var doc = result.document().orElseThrow();
     assertTrue(doc.requireMeta().name().isEmpty());
     assertTrue(doc.requireMeta().domain().isEmpty());
     assertEquals(StvnDocumentKind.DEFS, doc.requireMeta().kind().orElseThrow());
+  }
+
+  @Test
+  @DisplayName("TC-ID-15a: Two-stem user filename omitting #domain in :meta emits W002 WARN_DOCUMENT_DOMAIN_OMITTED_IN_META pinned to :meta")
+  void testTwoStemFilenameOmittingDomainInMetaEmitsW002() {
+    String source = """
+        {
+          :meta {
+            #name "use_nested"
+            #kind #BODY_INCLUDE
+          }
+          :defs {
+            :use [ :org/stvnadore/prelude { :Port :Port } ]
+          }
+          :type :Port
+          :body 8080
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "use_nested.json.stvn_i");
+    assertTrue(result.isSuccess());
+    assertFalse(result.hasErrors());
+    assertTrue(result.hasWarnings());
+    assertEquals(1, result.diagnostics().size());
+    var diag = result.diagnostics().getFirst();
+    assertEquals("W002", diag.canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META, diag.symbolicId().orElse(null));
+    assertEquals(
+        "Filename stem slot 1 declares domain 'json', but :meta omits #domain \"json\"",
+        diag.message()
+    );
+    int expectedStart = source.indexOf(":meta {");
+    int expectedEnd = source.indexOf("}", expectedStart) + 1;
+    assertEquals(expectedStart, diag.startOffset());
+    assertEquals(expectedEnd, diag.endOffset());
+  }
+
+  @Test
+  @DisplayName("TC-ID-15b: Two-stem binary .stvn_b and .stvn_bd frames with Byte 5 HAS_DOMAIN == 0 emit W002 pinned to Byte 5 [5, 6)")
+  void testTwoStemBinaryFramesOmittingDomainEmitW002AtByte5() {
+    String payloadSchema = "{ :type :Int :body 0 }";
+    var ir = StvnCompiler.compilePayload("{ :type :Int :body 42 }").orElseThrow();
+    var meta = new StvnDocumentMeta(Optional.of("use_nested"), Optional.empty(), Optional.of(StvnDocumentKind.BODY));
+    var encoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(payloadSchema));
+    var buf = encoder.encode(ir, meta);
+    byte[] binBytes = new byte[buf.remaining()];
+    buf.get(binBytes);
+
+    var binResult = StvnCompiler.compileToResult(binBytes, "use_nested.json.stvn_b");
+    assertFalse(binResult.hasErrors());
+    assertEquals(1, binResult.diagnostics().size());
+    var binDiag = binResult.diagnostics().getFirst();
+    assertEquals("W002", binDiag.canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META, binDiag.symbolicId().orElse(null));
+    assertEquals(5, binDiag.startOffset());
+    assertEquals(6, binDiag.endOffset());
+    assertEquals(1, binDiag.line());
+    assertEquals(5, binDiag.column());
+
+    String defsSource = "{ :meta { #name \"schema\" #kind #DEFS } :defs { :Token { #minSize 1 #maxSize 32 } :String } }";
+    var defsDoc = StvnCompiler.compile(defsSource, "schema.stvn_d", StvnParserConfig.DEFAULT).document().orElseThrow();
+    var bdEncoder = new StvnBinaryEncoder(true, new SchemaIdentityStrategy.SelfDescribingSchema(defsSource));
+    var bdBuf = bdEncoder.encode(defsDoc);
+    byte[] bdBytes = new byte[bdBuf.remaining()];
+    bdBuf.get(bdBytes);
+
+    var bdResult = StvnCompiler.compileToResult(bdBytes, "schema.json.stvn_bd");
+    assertFalse(bdResult.hasErrors());
+    assertEquals(1, bdResult.diagnostics().size(), "Must emit exactly one outer Byte 5 W002 warning without duplicate inner warning");
+    var bdDiag = bdResult.diagnostics().getFirst();
+    assertEquals("W002", bdDiag.canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META, bdDiag.symbolicId().orElse(null));
+    assertEquals(5, bdDiag.startOffset());
+    assertEquals(6, bdDiag.endOffset());
+    assertEquals(1, bdDiag.line());
+    assertEquals(5, bdDiag.column());
+  }
+
+  @Test
+  @DisplayName("TC-ID-15c: Malformed or invalid #domain in a 2-stem file does not cascade WARN_DOCUMENT_DOMAIN_OMITTED_IN_META")
+  void testMalformedOrInvalidDomainInTwoStemFileDoesNotCascadeW002() {
+    String badEscapeSource = """
+        {
+          :meta {
+            #name "use_nested"
+            #domain "\\q"
+            #kind #BODY_INCLUDE
+          }
+          :defs {
+            :use [ :org/stvnadore/prelude { :Port :Port } ]
+          }
+          :type :Port
+          :body 8080
+        }
+        """;
+    var resEscape = StvnCompiler.compileToResult(badEscapeSource, "use_nested.json.stvn_i");
+    assertTrue(resEscape.hasErrors());
+    assertFalse(
+        resEscape.diagnostics().stream()
+            .anyMatch(d -> DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META.equals(d.symbolicId().orElse(null))),
+        "Syntax/escape error in #domain literal must not cascade WARN_DOCUMENT_DOMAIN_OMITTED_IN_META"
+    );
+
+    String badPosixSource = """
+        {
+          :meta {
+            #name "use_nested"
+            #domain "bad.domain"
+            #kind #BODY_INCLUDE
+          }
+          :defs {
+            :use [ :org/stvnadore/prelude { :Port :Port } ]
+          }
+          :type :Port
+          :body 8080
+        }
+        """;
+    var resPosix = StvnCompiler.compileToResult(badPosixSource, "use_nested.json.stvn_i");
+    assertTrue(resPosix.hasErrors());
+    assertFalse(
+        resPosix.diagnostics().stream()
+            .anyMatch(d -> DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META.equals(d.symbolicId().orElse(null))),
+        "Invalid POSIX #domain must not emit WARN_DOCUMENT_DOMAIN_OMITTED_IN_META"
+    );
+  }
+
+  @Test
+  @DisplayName("TC-ID-15d: Reserved system substrate 2-stem filename (.stvn_ir.) omitting #domain emits zero W002 warnings")
+  void testReservedSubstrateTwoStemFilenameOmittingDomainEmitsZeroWarnings() {
+    String source = """
+        {
+          :meta {
+            #name "snap"
+            #kind #DEFS
+          }
+          :defs {
+            :IrNode :Int
+          }
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "snap.stvn_ir.stvn_d", StvnParserConfig.SYSTEM);
+    assertTrue(result.isSuccess());
+    assertFalse(result.hasErrors());
+    assertFalse(result.hasWarnings(), "Reserved stvn_* stem slot 1 must not trigger WARN_DOCUMENT_DOMAIN_OMITTED_IN_META");
   }
 
   @Test

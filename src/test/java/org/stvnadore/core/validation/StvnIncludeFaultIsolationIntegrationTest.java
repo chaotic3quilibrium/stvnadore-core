@@ -114,6 +114,7 @@ public class StvnIncludeFaultIsolationIntegrationTest {
         {
           :meta {
             #name "root_definitions"
+            #domain "trading"
             #kind #DEFS
           }
           :defs {
@@ -127,6 +128,7 @@ public class StvnIncludeFaultIsolationIntegrationTest {
         {
           :meta {
             #name "branch_a"
+            #domain "trading"
             #kind #DEFS_INCLUDE
           }
           :defs {
@@ -141,6 +143,7 @@ public class StvnIncludeFaultIsolationIntegrationTest {
         {
           :meta {
             #name "branch_b"
+            #domain "trading"
             #kind #DEFS_INCLUDE
           }
           :defs {
@@ -155,6 +158,7 @@ public class StvnIncludeFaultIsolationIntegrationTest {
         {
           :meta {
             #name "diamond_consumer"
+            #domain "trading"
             #kind #BODY_INCLUDE
           }
           :defs {

@@ -1,0 +1,24 @@
+{
+  :meta {
+    #name "use_nested__json"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":Values" ( ":Tuple(:org/stvnadore/prelude/meta/StvnPosixId64 :org/stvnadore/prelude/Port :String)" ":Values" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( "{#maxSize 4096}:Seq(:Values)" "" ( #TRUE #TRUE ) ) ]
+    }
+    #15 [
+      #14 [
+        #5 "stvnPosixId64"
+        #2 ( 12345 16 #TRUE )
+        #5 "^[0-9a-f]{64}$"
+      ]
+    ]
+  )
+}

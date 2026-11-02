@@ -288,12 +288,13 @@ public final class IrGeneratorUtility {
         .orElseThrow(() -> new IllegalStateException("Failed to extract payload from fixture: " + stvnFile));
     var meta = liveDoc.meta().orElse(null);
 
-    String baseName = stvnFile.getFileName().toString().replaceAll("\\.stvn(_i)?$", "");
-    Path irSnapshotPath = stvnFile.resolveSibling(baseName + ".stvn_ir.stvn_i");
-    Path binSnapshotPath = stvnFile.resolveSibling(baseName + ".stvn_b");
+    String rawBaseName = stvnFile.getFileName().toString().replaceAll("\\.stvn(_i)?$", "");
+    String irSnapshotStem = rawBaseName.replace(".", "__");
+    Path irSnapshotPath = stvnFile.resolveSibling(irSnapshotStem + ".stvn_ir.stvn_i");
+    Path binSnapshotPath = stvnFile.resolveSibling(rawBaseName + ".stvn_b");
 
     String relativeSubstratePath = stvnFile.getParent().relativize(SUBSTRATE_SCHEMA_PATH).toString().replace('\\', '/');
-    String generatedSnapshot = serializeSnapshotDocument(baseName, relativeSubstratePath, liveDoc);
+    String generatedSnapshot = serializeSnapshotDocument(irSnapshotStem, relativeSubstratePath, liveDoc);
 
     if (UPDATE_MODE) {
       Files.writeString(irSnapshotPath, generatedSnapshot, StandardCharsets.UTF_8);

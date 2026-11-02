@@ -185,6 +185,8 @@ public final class DiagnosticBag {
   public static final String WARN_DOCUMENT_NAME_MISMATCH = "WARN_DOCUMENT_NAME_MISMATCH";
   /** Warning code emitted when a declared #domain facet is omitted from filename stem slot 1. */
   public static final String WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME = "WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME";
+  /** Warning code emitted when filename stem slot 1 declares a non-reserved domain but :meta (or binary Byte 5) omits #domain. */
+  public static final String WARN_DOCUMENT_DOMAIN_OMITTED_IN_META = "WARN_DOCUMENT_DOMAIN_OMITTED_IN_META";
   /** Warning code emitted when a metadata facet declaration is tautological or redundant (SPEC § 5.1.1, § 5.5.3, § 9.2, W003). */
   public static final String WARN_REDUNDANT_METADATA_FACET = "WARN_REDUNDANT_METADATA_FACET";
   /** Error code emitted when an excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas, .stvn_bin, .stvn_f, .stvn_df, .stvn_bf, .stvn_bdf) is encountered. */
@@ -315,6 +317,7 @@ public final class DiagnosticBag {
       Map.entry(ERR_NON_OVERRIDABLE_FACET, "E040"),
       Map.entry(WARN_DOCUMENT_NAME_MISMATCH, "W001"),
       Map.entry(WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME, "W002"),
+      Map.entry(WARN_DOCUMENT_DOMAIN_OMITTED_IN_META, "W002"),
       Map.entry(WARN_REDUNDANT_METADATA_FACET, "W003")
   );
 

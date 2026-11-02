@@ -1,0 +1,32 @@
+{
+  :meta {
+    #name "use_nested"
+    #domain "json"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :use [ :org/stvnadore/prelude/meta { :StvnPosixId64 :StvnPosixId64 } ]
+    :use [
+      :org/stvnadore/prelude {
+        :Port :Port
+        #SHA256_LOWER_CASE_REGEX #SHA256_LOWER_CASE_REGEX
+      }
+    ]
+
+    :Values :Tuple(
+      :StvnPosixId64
+      :Port
+      :String
+    )
+  }
+
+  :type { #maxSize 4096 } :Seq(:Values)
+
+  :body [
+    (
+      "stvnPosixId64"
+      12345
+      #SHA256_LOWER_CASE_REGEX
+    )
+  ]
+}

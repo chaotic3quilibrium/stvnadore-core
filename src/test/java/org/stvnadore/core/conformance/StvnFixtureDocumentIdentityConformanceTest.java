@@ -44,15 +44,17 @@ public class StvnFixtureDocumentIdentityConformanceTest {
     List<String> failures = new ArrayList<>();
 
     for (Path file : fixtureFiles) {
-      boolean isSystem = file.getFileName().toString().contains(".stvn_ir.")
-          || file.getFileName().toString().contains(".stvn_core.");
+      String fileName = file.getFileName().toString();
+      boolean isIrSnapshot = fileName.endsWith(".stvn_ir.stvn_i");
+      boolean isSystem = fileName.contains(".stvn_ir.")
+          || fileName.contains(".stvn_core.");
       var config = isSystem ? StvnParserConfig.SYSTEM : StvnParserConfig.DEFAULT;
       String content = Files.readString(file);
       var result = StvnCompiler.compile(content, file.toString(), config);
       List<StvnDiagnostic> diagnostics = result.diagnostics();
 
-      boolean isWarningFixture = file.toString().contains("metadata_warnings");
-      boolean isLegacyDefaultCapacityFixture = file.getFileName().toString().equals("canonical_scalars.stvn");
+      boolean isWarningFixture = file.toString().contains("metadata_warnings") && !isIrSnapshot;
+      boolean isLegacyDefaultCapacityFixture = fileName.equals("canonical_scalars.stvn");
       List<StvnDiagnostic> unexpectedDiagnostics;
       if (isWarningFixture) {
         unexpectedDiagnostics = diagnostics.stream()
@@ -79,8 +81,7 @@ public class StvnFixtureDocumentIdentityConformanceTest {
         failures.add(sb.toString());
       }
 
-      boolean isSourceWarningFixture = isWarningFixture && file.getFileName().toString().endsWith(".stvn");
-      if (isSourceWarningFixture && diagnostics.stream().noneMatch(d -> d.severity() == StvnDiagnostic.DiagnosticSeverity.WARNING)) {
+      if (isWarningFixture && diagnostics.stream().noneMatch(d -> d.severity() == StvnDiagnostic.DiagnosticSeverity.WARNING)) {
         failures.add(file + " expected warning diagnostics but found none\n");
       }
     }

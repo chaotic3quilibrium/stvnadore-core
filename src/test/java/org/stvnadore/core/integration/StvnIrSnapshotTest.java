@@ -54,12 +54,13 @@ public class StvnIrSnapshotTest {
         ? new StvnDocumentMeta(meta.name(), meta.domain(), Optional.of(StvnDocumentKind.BODY))
         : meta;
 
-    var baseName = stvnFile.getFileName().toString().replaceAll("\\.stvn(_i)?$", "");
-    var snapshotPath = stvnFile.resolveSibling(baseName + ".stvn_ir.stvn_i");
-    var binSnapshotPath = stvnFile.resolveSibling(baseName + ".stvn_b");
+    var rawBaseName = stvnFile.getFileName().toString().replaceAll("\\.stvn(_i)?$", "");
+    var irSnapshotStem = rawBaseName.replace(".", "__");
+    var snapshotPath = stvnFile.resolveSibling(irSnapshotStem + ".stvn_ir.stvn_i");
+    var binSnapshotPath = stvnFile.resolveSibling(rawBaseName + ".stvn_b");
 
     var relativeSubstratePath = stvnFile.getParent().relativize(SUBSTRATE_SCHEMA_PATH).toString().replace('\\', '/');
-    var liveSnapshot = IrGeneratorUtility.serializeSnapshotDocument(baseName, relativeSubstratePath, liveDoc);
+    var liveSnapshot = IrGeneratorUtility.serializeSnapshotDocument(irSnapshotStem, relativeSubstratePath, liveDoc);
 
     var cleanLive = liveSnapshot.replace("\r\n", "\n");
     boolean isChecksummed = fileName.contains("crc32c");

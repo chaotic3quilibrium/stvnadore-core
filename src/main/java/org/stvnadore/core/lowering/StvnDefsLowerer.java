@@ -640,6 +640,13 @@ public final class StvnDefsLowerer {
               DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
           );
         }
+      } else if (dotParts.length == 2 && !dotParts[1].isEmpty() && !isReservedDomain(dotParts[1])) {
+        diagnosticBag.addWarning(
+            "Filename stem slot 1 declares domain '" + dotParts[1]
+                + "', but :meta omits #domain \"" + dotParts[1] + "\"",
+            ctrlSpan.startOffset(), ctrlSpan.endOffset(), ctrlSpan.line(), ctrlSpan.column(),
+            DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META
+        );
       }
     }
   }
@@ -1205,6 +1212,14 @@ public final class StvnDefsLowerer {
                 DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
             );
           }
+        } else if (!seenDomain && dotParts.length == 2 && !dotParts[1].isEmpty() && !isReservedDomain(dotParts[1])) {
+          Span sp = Span.ofContext(metaEntry);
+          diagnosticBag.addWarning(
+              "Filename stem slot 1 declares domain '" + dotParts[1]
+                  + "', but :meta omits #domain \"" + dotParts[1] + "\"",
+              sp.start(), sp.end(), sp.line(), sp.column(),
+              DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META
+          );
         }
       }
     }

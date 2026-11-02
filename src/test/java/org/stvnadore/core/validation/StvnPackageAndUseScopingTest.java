@@ -255,4 +255,47 @@ public class StvnPackageAndUseScopingTest {
     Assertions.assertEquals(DiagnosticBag.ERR_UNKNOWN_TYPE, diag.errorCode().orElse(""));
     Assertions.assertTrue(diag.message().contains("Undefined type: :Port"));
   }
+
+  @Test
+  @DisplayName("TC-USE-MIXED-01: Multi-line :use with mixed :Type and #CONST aliases and inline // comments compiles cleanly")
+  void testMultiLineUseMixedTypeAndConstWithInlineComments() {
+    String source = """
+        {
+          :meta {
+            #name "use_nested"
+            #domain "json"
+            #kind #BODY_INCLUDE
+          }
+          :defs {
+            :use [ :org/stvnadore/prelude/meta { :StvnPosixId64 :StvnPosixId64 } ]
+            // Comment before second :use
+            :use [ :org/stvnadore/prelude  {                   // <-- inline comment with '/ ' inside :use
+                :Port :Port                                    // <-- type alias entry
+              #SHA256_LOWER_CASE_REGEX #SHA256_LOWER_CASE_REGEX // <-- constant alias entry
+              }                                                // <-- closing brace comment
+            ]
+
+            :Values :Tuple(
+              :StvnPosixId64
+              :Port
+              :String
+            )
+          }
+
+          :type { #maxSize 4096 } :Seq(:Values)
+
+          :body [
+            (
+              "stvnPosixId64"
+              12345
+              #SHA256_LOWER_CASE_REGEX
+            )
+          ]
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "use_nested.json.stvn_i");
+    Assertions.assertTrue(result.isSuccess(), () -> "Expected clean compilation but got: " + result.diagnostics());
+    Assertions.assertFalse(result.hasErrors());
+    Assertions.assertFalse(result.hasWarnings());
+  }
 }

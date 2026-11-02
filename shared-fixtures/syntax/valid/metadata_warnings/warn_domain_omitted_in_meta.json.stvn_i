@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "warn_domain_omitted_in_meta"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :use [ :org/stvnadore/prelude { :Port :Port } ]
+  }
+  :type :Port
+  :body 8080
+}
