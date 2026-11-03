@@ -1,0 +1,46 @@
+{
+  :meta {
+    #name "10_deep_recursive_nesting"
+    #domain "core_fmt"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :com/acme/deep/layout1/GatewayPair :Tuple(:org/stvnadore/prelude/Port :org/stvnadore/prelude/meta/StvnPosixId64)
+    :com/acme/fmt/net/Host { #minSize 1 #maxSize 253 } :String
+    :com/acme/deep/layout2/DeepNestedSchema :Tuple(
+      :Seq(:Tuple(
+        { #unsigned #size 16 #minIncl 1 } :Int
+        { #minSize 1 #maxSize 64 } :String
+      ))
+      :Union(
+        :org/stvnadore/prelude/Port
+        :Option(:Either(:Boolean :Union(
+          :com/acme/fmt/net/Host
+          { #unsigned #size 64 } :Int
+        )))
+      )
+    )
+  }
+  :type :Seq(:Tuple(:com/acme/deep/layout1/GatewayPair :com/acme/deep/layout2/DeepNestedSchema :Map(:String :Tuple(:Seq(:Int) :Seq(:Int) :Seq(:Tuple(:Int :Boolean))))))
+  :body [
+    (
+      (8080 "edge_gateway_01")
+      (
+        [
+          (443 "tls-ingress")
+        ]
+        "edge.acme.internal"
+      )
+      {
+        ["route-alpha" (
+          [10 20 30]
+          [40 50 60]
+          [
+            (1 #TRUE)
+            (2 #FALSE)
+          ]
+        )]
+      }
+    )
+  ]
+}

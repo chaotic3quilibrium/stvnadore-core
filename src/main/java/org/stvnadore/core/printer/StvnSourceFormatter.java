@@ -1236,17 +1236,44 @@ public final class StvnSourceFormatter {
       if (ctx.metadataMap() != null && !ctx.metadataMap().metadataEntry().isEmpty()) {
         return true;
       }
+      return containsMultiLineSchemaConstruct(ctx);
+    }
+
+    private boolean containsMultiLineSchemaConstruct(StvnParser.@Nullable SchemaTypeContext ctx) {
+      if (ctx == null) {
+        return false;
+      }
       if (ctx.schemaConstructor() != null) {
         StvnParser.SchemaConstructorContext sc = ctx.schemaConstructor();
         if (sc.productType() != null) {
           StvnParser.TupleTypeContext tup = (StvnParser.TupleTypeContext) sc.productType();
-          return tup.LPAREN().getSymbol().getLine() < tup.RPAREN().getSymbol().getLine()
+          Token openParen = tup.LPAREN().getSymbol();
+          Token closeParen = tup.RPAREN().getSymbol();
+          return openParen.getLine() < closeParen.getLine()
+              || hasCommentsBetween(openParen.getTokenIndex(), closeParen.getTokenIndex())
               || requiresMultiLineSchemaGroup(tup.schemaType());
         }
-        if (sc.sumType() != null && sc.sumType().KW_UNION() != null) {
+        if (sc.sumType() != null) {
           StvnParser.SumTypeContext sum = sc.sumType();
-          return sum.LPAREN().getSymbol().getLine() < sum.RPAREN().getSymbol().getLine()
-              || requiresMultiLineSchemaGroup(sum.schemaType());
+          if (sum.KW_UNION() != null) {
+            Token openParen = sum.LPAREN().getSymbol();
+            Token closeParen = sum.RPAREN().getSymbol();
+            return openParen.getLine() < closeParen.getLine()
+                || hasCommentsBetween(openParen.getTokenIndex(), closeParen.getTokenIndex())
+                || requiresMultiLineSchemaGroup(sum.schemaType());
+          }
+          for (StvnParser.SchemaTypeContext child : sum.schemaType()) {
+            if (containsMultiLineSchemaConstruct(child)) {
+              return true;
+            }
+          }
+        }
+        if (sc.collectionType() != null) {
+          for (StvnParser.SchemaTypeContext child : sc.collectionType().schemaType()) {
+            if (containsMultiLineSchemaConstruct(child)) {
+              return true;
+            }
+          }
         }
       }
       return false;
@@ -1327,7 +1354,9 @@ public final class StvnSourceFormatter {
         return;
       }
 
-      boolean multiLine = hasInteriorComments || requiresMultiLinePayloadContainer(elements);
+      boolean multiLine = hasInteriorComments
+          || openDelim.getLine() < closeDelim.getLine()
+          || requiresMultiLinePayloadContainer(elements);
       sb.append(openText);
       lastEmittedLine = openDelim.getLine();
 

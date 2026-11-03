@@ -3148,8 +3148,18 @@ public final class StvnDefsLowerer {
           true
       );
       if (diagnosticBag.errorCount() > errBefore || isRealPoisonedSchema(rawBundle.schema())) {
-        registerPoisonedType(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA);
-        return loweredTypes.get(fqni);
+        Optional<StvnSchema> bestEffort = extractBestEffortFallback(rawBundle.schema(), Optional.of(fqni));
+        StvnSchema.PoisonedSchema poisoned = new StvnSchema.PoisonedSchema(
+            Optional.of(fqni),
+            rawBundle.schema() instanceof StvnSchema.PoisonedSchema ps
+                ? ps.primaryDiagnosticCode()
+                : DiagnosticBag.ERR_MALFORMED_SCHEMA,
+            bestEffort,
+            rawBundle.schema().traits()
+        );
+        LoweredSchemaBundle poisonedBundle = new LoweredSchemaBundle(poisoned, rawBundle.ledger());
+        loweredTypes.put(fqni, poisonedBundle);
+        return poisonedBundle;
       }
 
       StvnSchema branded = rebrandSchema(rawBundle.schema(), Optional.of(fqni));
@@ -3231,6 +3241,40 @@ public final class StvnDefsLowerer {
         LoweredSchemaBundle parentBundle = parentOpt.get();
         StvnSchema parentSchema = parentBundle.schema();
         if (isRealPoisonedSchema(parentSchema)) {
+          Optional<String> effectiveBrand = targetNominalAlias.isPresent()
+              ? targetNominalAlias
+              : parentSchema.aliasName();
+          if (parentSchema instanceof StvnSchema.PoisonedSchema ps && ps.bestEffortFallback().isPresent()) {
+            StvnSchema fallbackBase = ps.bestEffortFallback().get();
+            if (metaMap != null && metaMap.metadataEntry() != null && !metaMap.metadataEntry().isEmpty()) {
+              String parentName = parentSchema.aliasName().orElse(rawKw);
+              LoweredSchemaBundle validatedFallback = applyFacetsToBaseSchema(
+                  ownerLabel,
+                  effectiveBrand,
+                  baseTypeKeywordOf(fallbackBase),
+                  fallbackBase,
+                  parentName,
+                  parentBundle.ledger(),
+                  true,
+                  metaMap,
+                  schemaCtx,
+                  scope,
+                  errBefore
+              );
+              Optional<StvnSchema> nextFallback = extractBestEffortFallback(validatedFallback.schema(), effectiveBrand);
+              StvnSchema.PoisonedSchema nextPoisoned = new StvnSchema.PoisonedSchema(
+                  effectiveBrand,
+                  ps.primaryDiagnosticCode(),
+                  nextFallback,
+                  validatedFallback.schema().traits()
+              );
+              return new LoweredSchemaBundle(nextPoisoned, validatedFallback.ledger());
+            }
+            StvnSchema rebrandedParent = targetNominalAlias.isPresent()
+                ? rebrandSchema(parentSchema, targetNominalAlias)
+                : parentSchema;
+            return new LoweredSchemaBundle(rebrandedParent, parentBundle.ledger());
+          }
           // Suppress downstream E030 / secondary cascades when referencing a poisoned nominal type
           return new LoweredSchemaBundle(
               targetNominalAlias.isPresent() ? rebrandSchema(parentSchema, targetNominalAlias) : parentSchema,
@@ -4391,9 +4435,26 @@ public final class StvnDefsLowerer {
       };
 
       if (diagnosticBag.errorCount() > errBefore) {
-        return poisonedBundle(effectiveBrand, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+        Optional<StvnSchema> bestEffort = extractBestEffortFallback(loweredSchema, effectiveBrand);
+        StvnSchema.PoisonedSchema poisoned = new StvnSchema.PoisonedSchema(
+            effectiveBrand,
+            DiagnosticBag.ERR_MALFORMED_SCHEMA,
+            bestEffort,
+            loweredSchema.traits()
+        );
+        return new LoweredSchemaBundle(poisoned, mergedLedger);
       }
       return new LoweredSchemaBundle(loweredSchema, mergedLedger);
+    }
+
+    private static Optional<StvnSchema> extractBestEffortFallback(
+        StvnSchema schema,
+        Optional<String> effectiveBrand
+    ) {
+      if (schema instanceof StvnSchema.PoisonedSchema ps) {
+        return ps.bestEffortFallback().map(fb -> effectiveBrand.isPresent() ? rebrandSchema(fb, effectiveBrand) : fb);
+      }
+      return Optional.of(effectiveBrand.isPresent() ? rebrandSchema(schema, effectiveBrand) : schema);
     }
 
     private record CardinalityPair(BigInteger min, BigInteger max) {}

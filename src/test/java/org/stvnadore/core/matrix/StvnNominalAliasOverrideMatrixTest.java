@@ -313,4 +313,54 @@ public class StvnNominalAliasOverrideMatrixTest {
     assertTrue(snippet.contains(targetToken.split(" ")[0]),
         "Offending diagnostic coordinate must span '" + targetToken + "', got: '" + snippet + "'");
   }
+
+  @Test
+  @DisplayName("TC-E040-CONST-AND-DEEP: Emits exact per-facet E040 and W003 on #CONST, forward-referenced :defs, 3-hop poisoned nominal chain, and depth-3+ inline composite slots without secondary :body cascade")
+  void testE040AndW003OnConstForwardRefDeepChainAndCompositeSlots() {
+    String source = """
+        {
+          :defs {
+            :ForwardDerivedPort { #unsigned #size 16 } :ServicePort
+            :ServicePort { #unsigned #size 16 #minIncl 1 } :Int
+            :MidPort { #unsigned #minIncl 1024 } :ServicePort
+            :LeafPort { #unsigned #size 8 } :MidPort
+            :DeepCompositeOverride :Tuple(
+              :Seq(:Option({ #unsigned #size 16 } :ServicePort))
+              :Map(:String :Either(:Boolean { #unsigned #size 8 } :LeafPort))
+            )
+            #FORWARD_PORT { #unsigned #size 16 } :ServicePort 8080
+            #DEFAULT_PORT { #unsigned #size 16 #minIncl 1 } :ServicePort 8080
+          }
+          :type :LeafPort
+          :body #DEFAULT_PORT
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Must fail compilation due to E040 non-overridable facet violations");
+
+    List<StvnDiagnostic> e040s = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_NON_OVERRIDABLE_FACET.equals(d.symbolicId().orElse(null)))
+        .toList();
+    List<StvnDiagnostic> w003s = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.symbolicId().orElse(null)))
+        .toList();
+
+    assertEquals(13, e040s.size(), () -> "Expected 13 E040 diagnostics across forward ref, 3-hop chain, depth-3+ composite slots, and #CONST definitions, got: " + result.diagnostics());
+    assertEquals(1, w003s.size(), () -> "Expected 1 W003 warning (#DEFAULT_PORT #minIncl 1), got: " + result.diagnostics());
+    assertEquals(14, result.diagnostics().size(), () -> "Must not emit secondary :body cascade diagnostics when :type is poisoned, got: " + result.diagnostics());
+
+    // Verify exact individual facet coordinate pinning on #DEFAULT_PORT (line 12)
+    List<StvnDiagnostic> line12E040s = e040s.stream()
+        .filter(d -> d.line() == 12)
+        .toList();
+    assertEquals(2, line12E040s.size(), "Line 12 (#DEFAULT_PORT) must emit 2 individual E040 diagnostics");
+    assertEquals("#unsigned", source.substring(line12E040s.get(0).startOffset(), line12E040s.get(0).endOffset()));
+    assertEquals("#size 16", source.substring(line12E040s.get(1).startOffset(), line12E040s.get(1).endOffset()));
+
+    // Verify W003 coordinate on #DEFAULT_PORT (line 12)
+    StvnDiagnostic w003 = w003s.get(0);
+    assertEquals(12, w003.line());
+    assertEquals("#minIncl 1", source.substring(w003.startOffset(), w003.endOffset()));
+  }
 }

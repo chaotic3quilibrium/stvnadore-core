@@ -527,13 +527,32 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
     if (!collectFiveTierFacets(schema).isEmpty()) {
       return true;
     }
-    if (schema instanceof StvnSchema.TupleSchema tup) {
-      return requiresMultiLineSchemaGroup(tup.fieldSchemas());
+    return containsMultiLineSchema(schema);
+  }
+
+  private boolean containsMultiLineSchema(StvnSchema schema) {
+    if (schema instanceof StvnSchema.PoisonedSchema p) {
+      if (StvnPayloadLowerer.RECURSIVE_BACK_EDGE_SENTINEL.equals(p.primaryDiagnosticCode())
+          && p.aliasName().isPresent()) {
+        return false;
+      }
+      return p.bestEffortFallback().map(this::containsMultiLineSchema).orElse(false);
     }
-    if (schema instanceof StvnSchema.UnionSchema un) {
-      return requiresMultiLineSchemaGroup(un.branchSchemas());
+    if (schema.aliasName().isPresent()) {
+      return false;
     }
-    return false;
+    return switch (schema) {
+      case StvnSchema.TupleSchema tup -> requiresMultiLineSchemaGroup(tup.fieldSchemas());
+      case StvnSchema.UnionSchema un -> requiresMultiLineSchemaGroup(un.branchSchemas());
+      case StvnSchema.OptionSchema opt -> containsMultiLineSchema(opt.valueSchema());
+      case StvnSchema.EitherSchema eith -> containsMultiLineSchema(eith.leftSchema())
+          || containsMultiLineSchema(eith.rightSchema());
+      case StvnSchema.SeqSchema seq -> containsMultiLineSchema(seq.elementSchema());
+      case StvnSchema.SetSchema set -> containsMultiLineSchema(set.elementSchema());
+      case StvnSchema.MapSchema map -> containsMultiLineSchema(map.keySchema())
+          || containsMultiLineSchema(map.valueSchema());
+      default -> false;
+    };
   }
 
   private static void emitFacetBlock(List<FacetEmitter> facets, LayoutWriter layout) throws IOException {

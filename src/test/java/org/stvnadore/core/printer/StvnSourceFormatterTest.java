@@ -279,4 +279,111 @@ class StvnSourceFormatterTest {
         res.diagnostics().get(0).symbolicId()
     );
   }
+
+  @Test
+  @DisplayName("Preserves authored multi-line :body tuples in gauntlet_seams including #Some #Right #99999999999999999999 443 while keeping single-line scalar containers inline")
+  void gauntletSeamsMultiLineBodyTuplesPreserved() {
+    String source = """
+        {
+          :meta {
+            #name "gauntlet_seams"
+            #domain "core_test"
+            #kind #BODY_INCLUDE
+          }
+
+          :defs {
+            :use [
+              :org/stvnadore/prelude {
+                :Port :Port
+                :Uint64 :Uint64
+              }
+            ]
+            :NodeState :Enum[#INIT #RUNNING #DRAINING]
+            :Outcome :Option(:Either(:String :Union(:Port :Uint64)))
+            #DEFAULT_OUTCOME :Outcome #Some #Right #1 8080
+          }
+          :type :Seq(:Tuple(:Outcome :NodeState :Uint64))
+          :body [
+            // Row 0 (100% Valid):
+            (
+              #Some #Right #1 8080
+              #RUNNING
+              18446744073709551615
+            )
+
+            // Row 1 (Fault Isolation & Constant Barrier):
+            (
+              #DEFAULT_OUTCOME
+              #DRAINING
+              1773561600000000000
+            )
+
+            // Row 2 (Union Branch Overflow):
+            (
+              #Some #Right #99999999999999999999 443
+              #INIT
+              0
+            )
+          ]
+        }""";
+
+    String formatted = StvnSourceFormatter.format(source);
+    Assertions.assertEquals(source, formatted);
+    Assertions.assertEquals(formatted, StvnSourceFormatter.format(formatted));
+  }
+
+  @Test
+  @DisplayName("Expands outer :Tuple and :Union when depth >= 3-4 descendant schema is multi-line and formats :package -> :use at 6/8/10/8/6 indentation")
+  void deepRecursiveSchemaAndPackageUseIndentation() {
+    String source = """
+        {
+          :defs {
+            :package :com/acme/fmt/deep {
+              :use [ :org/stvnadore/prelude {
+                  :Port :Port
+                }
+              ]
+              :use [
+                :org/stvnadore/prelude/meta {
+                  :StvnPosixId64 :StvnPosixId64
+                }
+              ]
+              :DeepEndpoint :Tuple(:StvnPosixId64 :Option(:Either(:String :Seq(:Tuple({ #minIncl 1024 } :Port { #maxSize 64 } :String)))))
+            }
+          }
+          :type :Int
+          :body 1
+        }
+        """;
+
+    String expected = """
+        {
+          :defs {
+            :package :com/acme/fmt/deep {
+              :use [ :org/stvnadore/prelude {
+                  :Port :Port
+                }
+              ]
+              :use [
+                :org/stvnadore/prelude/meta {
+                  :StvnPosixId64 :StvnPosixId64
+                }
+              ]
+              :DeepEndpoint :Tuple(
+                :StvnPosixId64
+                :Option(:Either(:String :Seq(:Tuple(
+                  { #minIncl 1024 } :Port
+                  { #maxSize 64 } :String
+                ))))
+              )
+            }
+          }
+          :type :Int
+          :body 1
+        }""";
+
+    String formatted = StvnSourceFormatter.format(source);
+    Assertions.assertEquals(expected, formatted);
+    Assertions.assertEquals(formatted, StvnSourceFormatter.format(formatted));
+  }
 }

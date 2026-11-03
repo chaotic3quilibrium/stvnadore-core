@@ -1,0 +1,92 @@
+{
+  :meta {
+    #name "10_deep_recursive_nesting"
+    #domain "core_fmt"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :package :com/acme/fmt/net {
+      :Host { #minSize 1 #maxSize 253 } :String
+    }
+
+    // Depth-2 package with Layout 1 multi-line :use (anchored target header)
+    :package :com/acme/deep/layout1 {
+      :use [ :org/stvnadore/prelude {
+          :Port :Port
+        }
+      ]
+      :use [ :org/stvnadore/prelude/meta {
+          :StvnPosixId64 :StvnPosixId64
+        }
+      ]
+
+      :GatewayPair :Tuple(:Port :StvnPosixId64)
+    }
+
+    // Depth-2 package with Layout 2 multi-line :use and depth-4 recursive schemas
+    :package :com/acme/deep/layout2 {
+      :use [
+        :org/stvnadore/prelude {
+          :Port :Port
+        }
+      ]
+      :use [
+        :com/acme/fmt/net {
+          :Host :Host
+        }
+      ]
+
+      // Outer :Tuple (d=1) -> :Seq (d=2) -> :Tuple (d=3) with scrambled facets
+      // and :Union (d=2) -> :Option (d=3) -> :Either (d=3) -> :Union (d=4)
+      :DeepNestedSchema :Tuple(
+        :Seq(:Tuple(
+          { #unsigned #size 16 #minIncl 1 } :Int
+          { #minSize 1 #maxSize 64 } :String
+        ))
+        :Union(
+          :Port
+          :Option(:Either(:Boolean :Union(
+            :Host
+            { #unsigned #size 64 } :Int
+          )))
+        )
+      )
+    }
+  }
+  :type :Seq(:Tuple(:com/acme/deep/layout1/GatewayPair :com/acme/deep/layout2/DeepNestedSchema :Map(:String :Tuple(:Seq(:Int) :Seq(:Int) :Seq(:Tuple(:Int :Boolean))))))
+  :body [
+    (
+      // Authored multi-line scalar tuple at depth 3 (preserved in source_pretty, inline in pretty)
+      (
+        8080
+        "edge_gateway_01"
+      )
+      (
+        [
+          (
+            443
+            "tls-ingress"
+          )
+        ]
+        #2 #S #R #1 "edge.acme.internal"
+      )
+      {
+        // Depth-3 map comment
+        ["route-alpha" ( // Depth-4 tuple comment on map entry line
+          // Depth-5 authored multi-line scalar seq
+          [
+            10
+            20
+            30
+          ]
+          // Depth-5 authored single-line scalar seq
+          [40 50 60] // Trailing comment at depth 5
+          [
+            (1 #T)
+            (2 #F)
+          ]
+        )]
+      }
+    )
+  ]
+}

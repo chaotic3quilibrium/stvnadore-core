@@ -2227,6 +2227,38 @@ public final class MetadataFixtureGenerator {
         Optional.of("#invertible")
     ));
 
+    // 4. Non-overridable facet E040 on #CONST, forward-referenced :defs, 3-hop chains, and depth-3+ inline composite slots
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "nominal_override_const_and_deep_chain.stvn"),
+        """
+        // EXPECT-DIAGNOSTIC: ERR_NON_OVERRIDABLE_FACET
+        // TARGET-TOKEN: #unsigned
+        {
+          :meta {
+            #name "nominal_override_const_and_deep_chain"
+            #kind #BODY
+          }
+          :defs {
+            :ForwardDerivedPort { #unsigned #size 16 } :ServicePort
+            :ServicePort { #unsigned #size 16 #minIncl 1 } :Int
+            :MidPort { #unsigned #minIncl 1024 } :ServicePort
+            :LeafPort { #unsigned #size 8 } :MidPort
+            :DeepCompositeOverride :Tuple(
+              :Seq(:Option({ #unsigned #size 16 } :ServicePort))
+              :Map(:String :Either(:Boolean { #unsigned #size 8 } :LeafPort))
+            )
+            #FORWARD_PORT { #unsigned #size 16 } :ServicePort 8080
+            #DEFAULT_PORT { #unsigned #size 16 #minIncl 1 } :ServicePort 8080
+          }
+          :type :Int
+          :body 0
+        }
+        """,
+        CoverageKind.DUPLICATE_FACET,
+        Optional.of("ERR_NON_OVERRIDABLE_FACET"),
+        Optional.of("#unsigned")
+    ));
+
     return list;
   }
 

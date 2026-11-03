@@ -1,0 +1,27 @@
+{
+  :meta {
+    #name "nominal_override_const_and_deep_chain"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 9 27 193 202 "Constraint violation (:ForwardDerivedPort): non-overridable definition facet '#unsigned' is already established by ancestor :ServicePort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 9 37 203 211 "Constraint violation (:ForwardDerivedPort): non-overridable definition facet '#size' is already established by ancestor :ServicePort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 11 16 298 307 "Constraint violation (:MidPort): non-overridable definition facet '#unsigned' is already established by ancestor :ServicePort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 12 17 353 362 "Constraint violation (:LeafPort): non-overridable definition facet '#unsigned' is already established by ancestor :MidPort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 12 27 363 370 "Constraint violation (:LeafPort): non-overridable definition facet '#size' is already established by ancestor :MidPort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 14 22 438 447 "Constraint violation (:DeepCompositeOverride): non-overridable definition facet '#unsigned' is already established by ancestor :ServicePort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 14 32 448 456 "Constraint violation (:DeepCompositeOverride): non-overridable definition facet '#size' is already established by ancestor :ServicePort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 15 39 512 521 "Constraint violation (:DeepCompositeOverride): non-overridable definition facet '#unsigned' is already established by ancestor :LeafPort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 15 49 522 529 "Constraint violation (:DeepCompositeOverride): non-overridable definition facet '#size' is already established by ancestor :LeafPort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 17 21 570 579 "Constraint violation (#FORWARD_PORT): non-overridable definition facet '#unsigned' is already established by ancestor :ServicePort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 17 31 580 588 "Constraint violation (#FORWARD_PORT): non-overridable definition facet '#size' is already established by ancestor :ServicePort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 18 21 629 638 "Constraint violation (#DEFAULT_PORT): non-overridable definition facet '#unsigned' is already established by ancestor :ServicePort and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 18 31 639 647 "Constraint violation (#DEFAULT_PORT): non-overridable definition facet '#size' is already established by ancestor :ServicePort and cannot be re-specified" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 18 40 648 658 "Constraint violation (#DEFAULT_PORT): facet '#minIncl 1' is redundant; ancestor ':ServicePort' already establishes '#minIncl 1'" )
+  ]
+}
