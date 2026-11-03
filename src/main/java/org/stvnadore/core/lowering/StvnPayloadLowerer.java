@@ -1950,6 +1950,23 @@ public final class StvnPayloadLowerer {
         return new StvnValue.StvnEither(eitherSchema, EitherBranch.RIGHT, rightVal);
       }
 
+      if (isPoisonedBranch(leftSchema) || isPoisonedBranch(rightSchema)) {
+        StreamItem consumed = queue.removeFirst();
+        StvnSchema.PoisonedSchema ps = extractFirstPoisonedSchema(leftSchema)
+            .or(() -> extractFirstPoisonedSchema(rightSchema))
+            .orElseGet(() -> new StvnSchema.PoisonedSchema(
+                Optional.empty(),
+                DiagnosticBag.ERR_MALFORMED_SCHEMA,
+                Optional.empty(),
+                StvnSchema.TraitProfile.ofDefault(true, true)
+            ));
+        return silentPoisonErrorValue(
+            consumed.sourceCtx() != null ? consumed.sourceCtx() : new ParserRuleContext(),
+            ps,
+            diagnosticBag
+        );
+      }
+
       queue.removeFirst();
       // Preserve specific Rule C / undefined-constant errors if raised on a branch
       StvnDiagnostic specific = pickSpecificBranchDiagnostic(rightProbe.bag(), leftProbe.bag());
@@ -2070,6 +2087,24 @@ public final class StvnPayloadLowerer {
         );
       }
 
+      if (branches.stream().anyMatch(this::isPoisonedBranch)) {
+        StreamItem consumed = queue.removeFirst();
+        StvnSchema.PoisonedSchema ps = branches.stream()
+            .flatMap(b -> extractFirstPoisonedSchema(b).stream())
+            .findFirst()
+            .orElseGet(() -> new StvnSchema.PoisonedSchema(
+                Optional.empty(),
+                DiagnosticBag.ERR_MALFORMED_SCHEMA,
+                Optional.empty(),
+                StvnSchema.TraitProfile.ofDefault(true, true)
+            ));
+        return silentPoisonErrorValue(
+            consumed.sourceCtx() != null ? consumed.sourceCtx() : new ParserRuleContext(),
+            ps,
+            diagnosticBag
+        );
+      }
+
       queue.removeFirst();
       for (DiagnosticBag fb : failedBags) {
         for (StvnDiagnostic d : fb.toList()) {
@@ -2085,6 +2120,19 @@ public final class StvnPayloadLowerer {
           msg, itemSpan,
           new MalformedPayloadException(msg, itemSpan.start(), itemSpan.end()),
           "E028", DiagnosticBag.ERR_TYPE_MISMATCH);
+    }
+
+    private boolean isPoisonedBranch(StvnSchema rawBranchSchema) {
+      StvnSchema branchSchema = unwrapRecursiveBackEdge(rawBranchSchema, nominalSchemaResolver);
+      return branchSchema instanceof StvnSchema.PoisonedSchema;
+    }
+
+    private Optional<StvnSchema.PoisonedSchema> extractFirstPoisonedSchema(StvnSchema rawBranchSchema) {
+      StvnSchema branchSchema = unwrapRecursiveBackEdge(rawBranchSchema, nominalSchemaResolver);
+      if (branchSchema instanceof StvnSchema.PoisonedSchema ps) {
+        return Optional.of(ps);
+      }
+      return Optional.empty();
     }
 
     private record BranchProbeResult(
@@ -2218,6 +2266,9 @@ public final class StvnPayloadLowerer {
     }
 
     private StvnValue revalidateAndRebrandValue(StvnValue value, StvnSchema targetSchema, Span span) {
+      if (value instanceof StvnErrorValue errVal) {
+        return new StvnErrorValue(targetSchema, errVal.diagnostic());
+      }
       String label = schemaLabel(targetSchema, overrideLabel);
       return switch (targetSchema) {
         case StvnSchema.BooleanSchema boolSchema -> {
@@ -2371,7 +2422,7 @@ public final class StvnPayloadLowerer {
             for (KeyValueEntry entry : m.entries()) {
               StvnValue k = revalidateAndRebrandValue(entry.key(), mapSchema.keySchema(), span);
               StvnValue v = revalidateAndRebrandValue(entry.value(), mapSchema.valueSchema(), span);
-              if (mapSchema.invertible() && !seenValues.add(canonicalEqualityKey(v))) {
+              if (mapSchema.invertible() && !containsErrorValue(v) && !seenValues.add(canonicalEqualityKey(v))) {
                 String msg = "Duplicate inverted map value detected";
                 throw abort(
                     msg, span,
@@ -2855,7 +2906,7 @@ public final class StvnPayloadLowerer {
         int beforeSize = queue.size();
         try {
           StvnValue val = evaluateNext(queue, elementSchema);
-          if (isSet && !(val instanceof StvnErrorValue)) {
+          if (isSet && !containsErrorValue(val)) {
             if (!seenSetKeys.add(canonicalEqualityKey(val))) {
               String msg = "Duplicate set element detected";
               StvnDiagnostic dupDiag = recordError(
@@ -3030,7 +3081,7 @@ public final class StvnPayloadLowerer {
           loweredVal = new StvnErrorValue(mapSchema.valueSchema(), e.diagnostic());
         }
 
-        if (!(loweredKey instanceof StvnErrorValue)) {
+        if (!containsErrorValue(loweredKey)) {
           if (!seenKeys.add(canonicalEqualityKey(loweredKey))) {
             Span keySpan = Span.ofContext(keyCtx);
             String msg = "Duplicate map key detected";
@@ -3041,7 +3092,7 @@ public final class StvnPayloadLowerer {
           }
         }
 
-        if (mapSchema.invertible() && !(loweredVal instanceof StvnErrorValue)) {
+        if (mapSchema.invertible() && !containsErrorValue(loweredVal)) {
           if (!seenValues.add(canonicalEqualityKey(loweredVal))) {
             Span valSpan = Span.ofContext(valCtx);
             String msg = "Duplicate inverted map value detected";

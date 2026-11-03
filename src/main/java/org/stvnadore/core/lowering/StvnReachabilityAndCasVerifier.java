@@ -329,6 +329,8 @@ public final class StvnReachabilityAndCasVerifier {
         collectChildRefOrTraverse(map.keySchema(), depsOut);
         collectChildRefOrTraverse(map.valueSchema(), depsOut);
       }
+      case StvnSchema.PoisonedSchema ps -> ps.bestEffortFallback()
+          .ifPresent(fb -> collectChildRefOrTraverse(fb, depsOut));
       default -> {
         // Leaf schema
       }
@@ -337,9 +339,8 @@ public final class StvnReachabilityAndCasVerifier {
 
   private static void collectChildRefOrTraverse(StvnSchema child, Set<String> depsOut) {
     if (child instanceof StvnSchema.PoisonedSchema p) {
-      if (StvnPayloadLowerer.RECURSIVE_BACK_EDGE_SENTINEL.equals(p.primaryDiagnosticCode())) {
-        p.aliasName().ifPresent(depsOut::add);
-      }
+      p.aliasName().ifPresent(depsOut::add);
+      p.bestEffortFallback().ifPresent(fb -> collectChildRefOrTraverse(fb, depsOut));
       return;
     }
     if (child.aliasName().isPresent()) {
@@ -415,14 +416,15 @@ public final class StvnReachabilityAndCasVerifier {
       Set<String> activeStack
   ) {
     if (schema instanceof StvnSchema.PoisonedSchema p) {
-      if (StvnPayloadLowerer.RECURSIVE_BACK_EDGE_SENTINEL.equals(p.primaryDiagnosticCode())
-          && p.aliasName().isPresent()) {
+      if (p.aliasName().isPresent()) {
         String target = p.aliasName().get();
         if (!isImplicitPreludeType(target) && !orderedOut.containsKey(target) && !activeStack.contains(target)) {
           catalog.findType(target).ifPresent(resolved ->
               visitCatalogTypePostOrder(target, resolved, catalog, orderedOut, activeStack));
         }
       }
+      p.bestEffortFallback()
+          .ifPresent(fb -> collectReachableTypesPostOrder(fb, catalog, orderedOut, activeStack));
       return;
     }
 
@@ -495,8 +497,10 @@ public final class StvnReachabilityAndCasVerifier {
         collectReachableTypesPostOrder(map.keySchema(), catalog, orderedOut, activeStack);
         collectReachableTypesPostOrder(map.valueSchema(), catalog, orderedOut, activeStack);
       }
+      case StvnSchema.PoisonedSchema ps -> ps.bestEffortFallback()
+          .ifPresent(fb -> collectReachableTypesPostOrder(fb, catalog, orderedOut, activeStack));
       default -> {
-        // Atomic, root enum, or poisoned leaf schema
+        // Atomic or root enum leaf schema
       }
     }
   }

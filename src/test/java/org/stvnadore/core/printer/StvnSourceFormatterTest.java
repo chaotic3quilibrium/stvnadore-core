@@ -386,4 +386,87 @@ class StvnSourceFormatterTest {
     Assertions.assertEquals(expected, formatted);
     Assertions.assertEquals(formatted, StvnSourceFormatter.format(formatted));
   }
+
+  @Test
+  @DisplayName("Preserves trailing same-line comments on constants and types inside :package blocks across repeated formatting")
+  void testTrailingSameLineCommentOnConstantAndTypeInPackage() {
+    String source = """
+        {
+          :defs {
+            :package :com/acme/net {
+              #DEFAULT_PORT { #minIncl 1024 } :Int 8080 // comment
+              :PortAlias { #minIncl 1024 } :Int // type comment
+            }
+          }
+          :type :Int
+          :body 8080
+        }""";
+
+    String formatted = StvnSourceFormatter.format(source);
+    Assertions.assertEquals(source, formatted);
+    Assertions.assertEquals(formatted, StvnSourceFormatter.format(formatted));
+  }
+
+  @Test
+  @DisplayName("Attaches trailing comment on a single-line :package opener + child to the child declaration rather than the opening brace")
+  void testSameLinePackageOpenerAndChildWithTrailingComment() {
+    String source = """
+        {
+          :defs {
+            :package :com/acme/net { #DEFAULT_PORT :Int 8080 // comment
+            }
+          }
+          :type :Int
+          :body 8080
+        }""";
+
+    String expected = """
+        {
+          :defs {
+            :package :com/acme/net {
+              #DEFAULT_PORT :Int 8080 // comment
+            }
+          }
+          :type :Int
+          :body 8080
+        }""";
+
+    String formatted = StvnSourceFormatter.format(source);
+    Assertions.assertEquals(expected, formatted);
+    Assertions.assertEquals(formatted, StvnSourceFormatter.format(formatted));
+  }
+
+  @Test
+  @DisplayName("Preserves per-facet trailing same-line comments across canonical 5-tier facet sorting in multi-line MetadataMap")
+  void testMultiLineMetadataMapPreservesPerFacetTrailingComments() {
+    String source = """
+        {
+          :defs {
+            :BoundedFloat {
+              #maxIncl 100.0 // upper bound comment
+              #size 32 // representation comment
+              #minIncl 0.0 // lower bound comment
+            } :Float
+          }
+          :type :BoundedFloat
+          :body 42.0
+        }""";
+
+    String expected = """
+        {
+          :defs {
+            :BoundedFloat {
+              #size 32 // representation comment
+              #minIncl 0.0 // lower bound comment
+              #maxIncl 100.0 // upper bound comment
+            } :Float
+          }
+          :type :BoundedFloat
+          :body 42.0
+        }""";
+
+    String formatted = StvnSourceFormatter.format(source);
+    Assertions.assertEquals(expected, formatted);
+    Assertions.assertEquals(formatted, StvnSourceFormatter.format(formatted));
+  }
 }

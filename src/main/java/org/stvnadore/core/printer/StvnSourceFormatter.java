@@ -181,7 +181,9 @@ public final class StvnSourceFormatter {
   private record SortedFacetItem(
       int rank,
       int originalOrder,
-      StvnParser.MetadataEntryContext ctx
+      StvnParser.MetadataEntryContext ctx,
+      List<Token> leadingComments,
+      @Nullable Token trailingComment
   ) {}
 
   private static final class FormatterCursor {
@@ -223,7 +225,6 @@ public final class StvnSourceFormatter {
       // 2. Root '{'
       sb.append(StvnVocabulary.DELIM_OPEN_BRACE);
       lastEmittedLine = openBrace.getLine();
-      appendTrailingCommentIfOnLine(openBrace.getLine(), closeBrace.getTokenIndex());
 
       StvnParser.DocumentBodyContext body = docCtx.documentBody();
       List<ParserRuleContext> sections = new ArrayList<>(4);
@@ -240,8 +241,17 @@ public final class StvnSourceFormatter {
         sections.add(body.bodyEntry());
       }
 
+      int rootOpenLimit = sections.isEmpty()
+          ? closeBrace.getTokenIndex()
+          : sections.get(0).getStart().getTokenIndex();
+      appendTrailingCommentIfOnLine(openBrace.getLine(), rootOpenLimit);
+
       boolean emittedInRoot = false;
-      for (ParserRuleContext section : sections) {
+      for (int i = 0; i < sections.size(); i++) {
+        ParserRuleContext section = sections.get(i);
+        int sectionLimit = (i + 1 < sections.size())
+            ? sections.get(i + 1).getStart().getTokenIndex()
+            : closeBrace.getTokenIndex();
         emittedInRoot = flushStandaloneCommentsBefore(
             section.getStart().getTokenIndex(),
             1,
@@ -251,13 +261,13 @@ public final class StvnSourceFormatter {
         emittedInRoot = true;
 
         if (section instanceof StvnParser.MetaEntryContext metaCtx) {
-          formatMetaEntry(metaCtx, 1);
+          formatMetaEntry(metaCtx, 1, sectionLimit);
         } else if (section instanceof StvnParser.DefsEntryContext defsCtx) {
-          formatDefsEntry(defsCtx, 1);
+          formatDefsEntry(defsCtx, 1, sectionLimit);
         } else if (section instanceof StvnParser.TypeEntryContext typeCtx) {
-          formatTypeEntry(typeCtx, 1);
+          formatTypeEntry(typeCtx, 1, sectionLimit);
         } else if (section instanceof StvnParser.BodyEntryContext bodyCtx) {
-          formatBodyEntry(bodyCtx, 1);
+          formatBodyEntry(bodyCtx, 1, sectionLimit);
         }
       }
 
@@ -275,7 +285,7 @@ public final class StvnSourceFormatter {
       return sb.toString();
     }
 
-    private void formatMetaEntry(StvnParser.MetaEntryContext ctx, int indent) {
+    private void formatMetaEntry(StvnParser.MetaEntryContext ctx, int indent, int nextSectionLimit) {
       StvnParser.MetaBlockContext block = ctx.metaBlock();
       Token openBrace = block.LBRACE().getSymbol();
       Token closeBrace = block.RBRACE().getSymbol();
@@ -284,9 +294,12 @@ public final class StvnSourceFormatter {
           .append(' ')
           .append(StvnVocabulary.DELIM_OPEN_BRACE);
       lastEmittedLine = openBrace.getLine();
-      appendTrailingCommentIfOnLine(openBrace.getLine(), closeBrace.getTokenIndex());
 
       List<StvnParser.MetaElementContext> rawElements = block.metaElement();
+      int openLimit = rawElements.isEmpty()
+          ? closeBrace.getTokenIndex()
+          : rawElements.get(0).getStart().getTokenIndex();
+      appendTrailingCommentIfOnLine(openBrace.getLine(), openLimit);
       List<SortedMetaItem> items = new ArrayList<>(rawElements.size());
       for (int i = 0; i < rawElements.size(); i++) {
         StvnParser.MetaElementContext el = rawElements.get(i);
@@ -336,7 +349,7 @@ public final class StvnSourceFormatter {
 
       sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
       lastEmittedLine = closeBrace.getLine();
-      appendTrailingCommentIfOnLine(closeBrace.getLine(), Integer.MAX_VALUE);
+      appendTrailingCommentIfOnLine(closeBrace.getLine(), nextSectionLimit);
     }
 
     private void formatMetaElementInline(StvnParser.MetaElementContext ctx) {
@@ -365,7 +378,7 @@ public final class StvnSourceFormatter {
       }
     }
 
-    private void formatDefsEntry(StvnParser.DefsEntryContext ctx, int indent) {
+    private void formatDefsEntry(StvnParser.DefsEntryContext ctx, int indent, int nextSectionLimit) {
       Token openBrace = ctx.LBRACE().getSymbol();
       Token closeBrace = ctx.RBRACE().getSymbol();
 
@@ -373,10 +386,13 @@ public final class StvnSourceFormatter {
           .append(' ')
           .append(StvnVocabulary.DELIM_OPEN_BRACE);
       lastEmittedLine = openBrace.getLine();
-      appendTrailingCommentIfOnLine(openBrace.getLine(), closeBrace.getTokenIndex());
 
       boolean emittedInDefs = false;
       List<StvnParser.DefsElementContext> elements = ctx.defsElement();
+      int openLimit = elements.isEmpty()
+          ? closeBrace.getTokenIndex()
+          : elements.get(0).getStart().getTokenIndex();
+      appendTrailingCommentIfOnLine(openBrace.getLine(), openLimit);
       for (int i = 0; i < elements.size(); i++) {
         StvnParser.DefsElementContext el = elements.get(i);
         int nextLimit = (i + 1 < elements.size())
@@ -397,7 +413,7 @@ public final class StvnSourceFormatter {
       flushStandaloneCommentsBefore(closeBrace.getTokenIndex(), indent + 1, emittedInDefs);
       sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
       lastEmittedLine = closeBrace.getLine();
-      appendTrailingCommentIfOnLine(closeBrace.getLine(), Integer.MAX_VALUE);
+      appendTrailingCommentIfOnLine(closeBrace.getLine(), nextSectionLimit);
     }
 
     private void formatDefsElement(StvnParser.DefsElementContext ctx, int indent, int nextTokenLimit) {
@@ -428,10 +444,13 @@ public final class StvnSourceFormatter {
           .append(' ')
           .append(StvnVocabulary.DELIM_OPEN_BRACE);
       lastEmittedLine = openBrace.getLine();
-      appendTrailingCommentIfOnLine(openBrace.getLine(), closeBrace.getTokenIndex());
 
       boolean emittedInPkg = false;
       List<StvnParser.PackageElementContext> elements = ctx.packageElement();
+      int openLimit = elements.isEmpty()
+          ? closeBrace.getTokenIndex()
+          : elements.get(0).getStart().getTokenIndex();
+      appendTrailingCommentIfOnLine(openBrace.getLine(), openLimit);
       for (int i = 0; i < elements.size(); i++) {
         StvnParser.PackageElementContext el = elements.get(i);
         int childLimit = (i + 1 < elements.size())
@@ -476,9 +495,12 @@ public final class StvnSourceFormatter {
             .append(' ')
             .append(StvnVocabulary.DELIM_OPEN_BRACE);
         lastEmittedLine = openBrace.getLine();
-        appendTrailingCommentIfOnLine(openBrace.getLine(), closeBrace.getTokenIndex());
         boolean emitted = false;
         List<StvnParser.PackageElementContext> children = nested.packageElement();
+        int nestedOpenLimit = children.isEmpty()
+            ? closeBrace.getTokenIndex()
+            : children.get(0).getStart().getTokenIndex();
+        appendTrailingCommentIfOnLine(openBrace.getLine(), nestedOpenLimit);
         for (int i = 0; i < children.size(); i++) {
           StvnParser.PackageElementContext child = children.get(i);
           int limit = (i + 1 < children.size())
@@ -533,10 +555,13 @@ public final class StvnSourceFormatter {
           Token aliasClose = aliasBlock.RBRACE().getSymbol();
           sb.append(" {");
           lastEmittedLine = aliasOpen.getLine();
-          appendTrailingCommentIfOnLine(aliasOpen.getLine(), aliasClose.getTokenIndex());
 
           boolean emittedAlias = false;
           List<StvnParser.UseMapAliasContext> aliases = aliasBlock.useMapAlias();
+          int aliasOpenLimit = aliases.isEmpty()
+              ? aliasClose.getTokenIndex()
+              : aliases.get(0).getStart().getTokenIndex();
+          appendTrailingCommentIfOnLine(aliasOpen.getLine(), aliasOpenLimit);
           for (int i = 0; i < aliases.size(); i++) {
             StvnParser.UseMapAliasContext alias = aliases.get(i);
             int aliasLimit = (i + 1 < aliases.size())
@@ -617,10 +642,13 @@ public final class StvnSourceFormatter {
         } else {
           sb.append(" {");
           lastEmittedLine = aliasOpen.getLine();
-          appendTrailingCommentIfOnLine(aliasOpen.getLine(), aliasClose.getTokenIndex());
 
           boolean emittedAlias = false;
           List<StvnParser.UseMapAliasContext> aliases = aliasBlock.useMapAlias();
+          int aliasOpenLimit = aliases.isEmpty()
+              ? aliasClose.getTokenIndex()
+              : aliases.get(0).getStart().getTokenIndex();
+          appendTrailingCommentIfOnLine(aliasOpen.getLine(), aliasOpenLimit);
           for (int i = 0; i < aliases.size(); i++) {
             StvnParser.UseMapAliasContext alias = aliases.get(i);
             int aliasLimit = (i + 1 < aliases.size())
@@ -703,10 +731,13 @@ public final class StvnSourceFormatter {
           Token aliasClose = aliasBlock.RBRACE().getSymbol();
           sb.append(" {");
           lastEmittedLine = aliasOpen.getLine();
-          appendTrailingCommentIfOnLine(aliasOpen.getLine(), aliasClose.getTokenIndex());
 
           boolean emittedAlias = false;
           List<StvnParser.IncludeMapAliasContext> aliases = aliasBlock.includeMapAlias();
+          int aliasOpenLimit = aliases.isEmpty()
+              ? aliasClose.getTokenIndex()
+              : aliases.get(0).getStart().getTokenIndex();
+          appendTrailingCommentIfOnLine(aliasOpen.getLine(), aliasOpenLimit);
           for (int i = 0; i < aliases.size(); i++) {
             StvnParser.IncludeMapAliasContext alias = aliases.get(i);
             int aliasLimit = (i + 1 < aliases.size())
@@ -790,10 +821,13 @@ public final class StvnSourceFormatter {
           } else {
             sb.append(" {");
             lastEmittedLine = aliasOpen.getLine();
-            appendTrailingCommentIfOnLine(aliasOpen.getLine(), aliasClose.getTokenIndex());
 
             boolean emittedAlias = false;
             List<StvnParser.IncludeMapAliasContext> aliases = aliasBlock.includeMapAlias();
+            int aliasOpenLimit = aliases.isEmpty()
+                ? aliasClose.getTokenIndex()
+                : aliases.get(0).getStart().getTokenIndex();
+            appendTrailingCommentIfOnLine(aliasOpen.getLine(), aliasOpenLimit);
             for (int i = 0; i < aliases.size(); i++) {
               StvnParser.IncludeMapAliasContext alias = aliases.get(i);
               int aliasLimit = (i + 1 < aliases.size())
@@ -948,18 +982,18 @@ public final class StvnSourceFormatter {
       appendTrailingCommentIfOnLine(ctx.getStop().getLine(), nextTokenLimit);
     }
 
-    private void formatTypeEntry(StvnParser.TypeEntryContext ctx, int indent) {
+    private void formatTypeEntry(StvnParser.TypeEntryContext ctx, int indent, int nextSectionLimit) {
       sb.append(StvnVocabulary.KEYWORD_TYPE).append(' ');
       formatSchemaType(ctx.schemaType(), indent);
       lastEmittedLine = ctx.getStop().getLine();
-      appendTrailingCommentIfOnLine(ctx.getStop().getLine(), Integer.MAX_VALUE);
+      appendTrailingCommentIfOnLine(ctx.getStop().getLine(), nextSectionLimit);
     }
 
-    private void formatBodyEntry(StvnParser.BodyEntryContext ctx, int indent) {
+    private void formatBodyEntry(StvnParser.BodyEntryContext ctx, int indent, int nextSectionLimit) {
       sb.append(StvnVocabulary.KEYWORD_BODY).append(' ');
       formatValue(ctx.value(), indent);
       lastEmittedLine = ctx.getStop().getLine();
-      appendTrailingCommentIfOnLine(ctx.getStop().getLine(), Integer.MAX_VALUE);
+      appendTrailingCommentIfOnLine(ctx.getStop().getLine(), nextSectionLimit);
     }
 
     private void formatSchemaType(StvnParser.SchemaTypeContext ctx, int indent) {
@@ -987,15 +1021,14 @@ public final class StvnSourceFormatter {
         return;
       }
 
-      List<SortedFacetItem> sorted = new ArrayList<>(rawEntries.size());
-      for (int i = 0; i < rawEntries.size(); i++) {
-        StvnParser.MetadataEntryContext entry = rawEntries.get(i);
-        sorted.add(new SortedFacetItem(metadataFacetRank(entry), i, entry));
-      }
-      sorted.sort(Comparator.comparingInt(SortedFacetItem::rank)
-          .thenComparingInt(SortedFacetItem::originalOrder));
-
       if (!hasComments) {
+        List<SortedFacetItem> sorted = new ArrayList<>(rawEntries.size());
+        for (int i = 0; i < rawEntries.size(); i++) {
+          StvnParser.MetadataEntryContext entry = rawEntries.get(i);
+          sorted.add(new SortedFacetItem(metadataFacetRank(entry), i, entry, List.of(), null));
+        }
+        sorted.sort(Comparator.comparingInt(SortedFacetItem::rank)
+            .thenComparingInt(SortedFacetItem::originalOrder));
         sb.append("{ ");
         for (int i = 0; i < sorted.size(); i++) {
           if (i > 0) {
@@ -1008,11 +1041,55 @@ public final class StvnSourceFormatter {
       } else {
         sb.append(StvnVocabulary.DELIM_OPEN_BRACE);
         lastEmittedLine = openBrace.getLine();
-        appendTrailingCommentIfOnLine(openBrace.getLine(), closeBrace.getTokenIndex());
-        flushStandaloneCommentsBefore(closeBrace.getTokenIndex(), indent + 1, false);
+        int openLimit = rawEntries.isEmpty()
+            ? closeBrace.getTokenIndex()
+            : rawEntries.get(0).getStart().getTokenIndex();
+        appendTrailingCommentIfOnLine(openBrace.getLine(), openLimit);
+
+        List<SortedFacetItem> sorted = new ArrayList<>(rawEntries.size());
+        for (int i = 0; i < rawEntries.size(); i++) {
+          StvnParser.MetadataEntryContext entry = rawEntries.get(i);
+          int nextLimit = (i + 1 < rawEntries.size())
+              ? rawEntries.get(i + 1).getStart().getTokenIndex()
+              : closeBrace.getTokenIndex();
+
+          List<Token> leading = new ArrayList<>();
+          while (nextCommentIdx < comments.size()
+              && comments.get(nextCommentIdx).getTokenIndex() < entry.getStart().getTokenIndex()) {
+            leading.add(comments.get(nextCommentIdx++));
+          }
+          Token trailing = null;
+          if (nextCommentIdx < comments.size()) {
+            Token candidate = comments.get(nextCommentIdx);
+            if (candidate.getTokenIndex() < nextLimit && candidate.getLine() == entry.getStop().getLine()) {
+              trailing = candidate;
+              nextCommentIdx++;
+            }
+          }
+          sorted.add(new SortedFacetItem(metadataFacetRank(entry), i, entry, leading, trailing));
+        }
+
+        List<Token> footerComments = new ArrayList<>();
+        while (nextCommentIdx < comments.size()
+            && comments.get(nextCommentIdx).getTokenIndex() < closeBrace.getTokenIndex()) {
+          footerComments.add(comments.get(nextCommentIdx++));
+        }
+
+        sorted.sort(Comparator.comparingInt(SortedFacetItem::rank)
+            .thenComparingInt(SortedFacetItem::originalOrder));
+
         for (SortedFacetItem item : sorted) {
+          for (Token c : item.leadingComments()) {
+            sb.append('\n').append(indentStr(indent + 1)).append(c.getText());
+          }
           sb.append('\n').append(indentStr(indent + 1));
           formatMetadataEntryInline(item.ctx());
+          if (item.trailingComment() != null) {
+            sb.append(' ').append(item.trailingComment().getText());
+          }
+        }
+        for (Token c : footerComments) {
+          sb.append('\n').append(indentStr(indent + 1)).append(c.getText());
         }
         sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
         lastEmittedLine = closeBrace.getLine();
@@ -1199,7 +1276,10 @@ public final class StvnSourceFormatter {
         return;
       }
 
-      appendTrailingCommentIfOnLine(openParen.getLine(), closeParen.getTokenIndex());
+      int openParenLimit = children.isEmpty()
+          ? closeParen.getTokenIndex()
+          : children.get(0).getStart().getTokenIndex();
+      appendTrailingCommentIfOnLine(openParen.getLine(), openParenLimit);
       boolean emittedChild = false;
       for (int i = 0; i < children.size(); i++) {
         StvnParser.SchemaTypeContext child = children.get(i);
@@ -1372,7 +1452,10 @@ public final class StvnSourceFormatter {
         return;
       }
 
-      appendTrailingCommentIfOnLine(openDelim.getLine(), closeDelim.getTokenIndex());
+      int openDelimLimit = elements.isEmpty()
+          ? closeDelim.getTokenIndex()
+          : elements.get(0).getStart().getTokenIndex();
+      appendTrailingCommentIfOnLine(openDelim.getLine(), openDelimLimit);
       boolean emittedElem = false;
       for (int i = 0; i < elements.size(); i++) {
         StvnParser.ValueContext el = elements.get(i);
@@ -1410,7 +1493,10 @@ public final class StvnSourceFormatter {
 
       sb.append(StvnVocabulary.DELIM_OPEN_BRACE);
       lastEmittedLine = openBrace.getLine();
-      appendTrailingCommentIfOnLine(openBrace.getLine(), closeBrace.getTokenIndex());
+      int openBraceLimit = entries.isEmpty()
+          ? closeBrace.getTokenIndex()
+          : entries.get(0).getStart().getTokenIndex();
+      appendTrailingCommentIfOnLine(openBrace.getLine(), openBraceLimit);
 
       boolean emittedEntry = false;
       for (int i = 0; i < entries.size(); i++) {

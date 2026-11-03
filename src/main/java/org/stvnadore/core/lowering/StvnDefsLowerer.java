@@ -3056,7 +3056,6 @@ public final class StvnDefsLowerer {
         ScopeFrame scope = decl.packageCtx() != null
             ? packageScopes.getOrDefault(decl.packageCtx(), rootScope)
             : rootScope;
-        int errBefore = diagnosticBag.errorCount();
         LoweredSchemaBundle schemaBundle = lowerSchemaNode(
             fqni,
             Optional.empty(),
@@ -3067,7 +3066,7 @@ public final class StvnDefsLowerer {
             false
         );
         StvnSchema constSchema = schemaBundle.schema();
-        if (diagnosticBag.errorCount() > errBefore || isRealPoisonedSchema(constSchema)) {
+        if (isRealPoisonedSchema(constSchema)) {
           return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
         }
         if (decl.ctx().value() == null) {
@@ -3137,7 +3136,6 @@ public final class StvnDefsLowerer {
       Set<String> nextVisited = new LinkedHashSet<>(visitedTypeStack);
       nextVisited.add(fqni);
 
-      int errBefore = diagnosticBag.errorCount();
       LoweredSchemaBundle rawBundle = lowerSchemaNode(
           fqni,
           Optional.of(fqni),
@@ -3147,7 +3145,7 @@ public final class StvnDefsLowerer {
           passedConstructor,
           true
       );
-      if (diagnosticBag.errorCount() > errBefore || isRealPoisonedSchema(rawBundle.schema())) {
+      if (isRealPoisonedSchema(rawBundle.schema())) {
         Optional<StvnSchema> bestEffort = extractBestEffortFallback(rawBundle.schema(), Optional.of(fqni));
         StvnSchema.PoisonedSchema poisoned = new StvnSchema.PoisonedSchema(
             Optional.of(fqni),
@@ -3213,6 +3211,7 @@ public final class StvnDefsLowerer {
             DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
         );
       }
+      boolean hasEmptyMetaBlockError = diagnosticBag.errorCount() > errBefore;
 
       // Case 1: Nominal reference (possibly with derivation facets)
       if (schemaCtx.typeKeyword() != null) {
@@ -3352,17 +3351,18 @@ public final class StvnDefsLowerer {
               ownerLabel, Optional.empty(), coll.schemaType(0), scope, visitedTypeStack, true, false
           );
           StvnSchema elem = elemBundle.schema();
-          TraitProfile defaultTraits = TraitProfile.ofDefault(elem.traits().equatable(), elem.traits().comparable());
+          boolean elemPoisoned = isRealPoisonedSchema(elem);
+          TraitProfile defaultTraits = TraitProfile.ofDefault(
+              elemPoisoned || elem.traits().equatable(),
+              elemPoisoned || elem.traits().comparable()
+          );
           StvnSchema baseSeq = new StvnSchema.SeqSchema(
               targetNominalAlias, BigInteger.ZERO, StvnVocabulary.DEFAULT_MAX_SIZE, elem, defaultTraits
           );
-          if (isRealPoisonedSchema(elem)) {
-            validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_SEQ, baseSeq, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
-            return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
-          }
+          int effectiveErrBefore = diagnosticBag.errorCount() - (hasEmptyMetaBlockError ? 1 : 0);
           return applyFacetsToBaseSchema(
               ownerLabel, targetNominalAlias, StvnVocabulary.TYPE_SEQ,
-              baseSeq, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, errBefore
+              baseSeq, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, effectiveErrBefore
           );
         }
         if (coll.COLL_SET() != null) {
@@ -3372,26 +3372,27 @@ public final class StvnDefsLowerer {
           );
           StvnSchema elem = elemBundle.schema();
           boolean childPoisoned = isRealPoisonedSchema(elem);
-          if (!childPoisoned && !elem.traits().equatable()) {
+          boolean traitViolation = !childPoisoned && !elem.traits().equatable();
+          if (traitViolation) {
             Span sp = Span.ofContext(elemCtx);
             diagnosticBag.addError(
                 "Set elements require types to be #equatable #TRUE",
                 sp.start(), sp.end(), sp.line(), sp.column(), null,
                 DiagnosticBag.ERR_TRAIT_VIOLATION
             );
-            childPoisoned = true;
           }
-          TraitProfile defaultTraits = TraitProfile.ofDefault(elem.traits().equatable(), false);
+          TraitProfile defaultTraits = TraitProfile.ofDefault(childPoisoned || elem.traits().equatable(), false);
           StvnSchema baseSet = new StvnSchema.SetSchema(
               targetNominalAlias, BigInteger.ZERO, StvnVocabulary.DEFAULT_MAX_SIZE, elem, defaultTraits
           );
-          if (childPoisoned) {
+          if (traitViolation) {
             validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_SET, baseSet, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
             return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_TRAIT_VIOLATION);
           }
+          int effectiveErrBefore = diagnosticBag.errorCount() - (hasEmptyMetaBlockError ? 1 : 0);
           return applyFacetsToBaseSchema(
               ownerLabel, targetNominalAlias, StvnVocabulary.TYPE_SET,
-              baseSet, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, errBefore
+              baseSet, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, effectiveErrBefore
           );
         }
         if (coll.COLL_MAP() != null) {
@@ -3407,48 +3408,50 @@ public final class StvnDefsLowerer {
           StvnSchema valSchema = valBundle.schema();
 
           boolean localInvertible = hasLocalInvertibleFlag(metaMap);
-          boolean childPoisoned = isRealPoisonedSchema(keySchema) || isRealPoisonedSchema(valSchema);
-          if (!isRealPoisonedSchema(keySchema) && !keySchema.traits().equatable()) {
+          boolean keyPoisoned = isRealPoisonedSchema(keySchema);
+          boolean valPoisoned = isRealPoisonedSchema(valSchema);
+          boolean traitViolation = false;
+          if (!keyPoisoned && !keySchema.traits().equatable()) {
             Span sp = Span.ofContext(keyCtx);
             diagnosticBag.addError(
                 "Map keys require types to be #equatable #TRUE",
                 sp.start(), sp.end(), sp.line(), sp.column(), null,
                 DiagnosticBag.ERR_TRAIT_VIOLATION
             );
-            childPoisoned = true;
+            traitViolation = true;
           }
-          if (localInvertible && !isRealPoisonedSchema(valSchema) && !valSchema.traits().equatable()) {
+          if (localInvertible && !valPoisoned && !valSchema.traits().equatable()) {
             Span sp = Span.ofContext(valCtx);
             diagnosticBag.addError(
                 "Inverted map values require types to be #equatable #TRUE",
                 sp.start(), sp.end(), sp.line(), sp.column(), null,
                 DiagnosticBag.ERR_TRAIT_VIOLATION
             );
-            childPoisoned = true;
+            traitViolation = true;
           }
 
-          boolean mapDefaultEq = localInvertible
-              ? (keySchema.traits().equatable() && valSchema.traits().equatable())
-              : keySchema.traits().equatable();
+          boolean keyEq = keyPoisoned || keySchema.traits().equatable();
+          boolean valEq = valPoisoned || valSchema.traits().equatable();
+          boolean mapDefaultEq = localInvertible ? (keyEq && valEq) : keyEq;
           TraitProfile defaultTraits = TraitProfile.ofDefault(mapDefaultEq, false);
           StvnSchema baseMap = new StvnSchema.MapSchema(
               targetNominalAlias, false,
               BigInteger.ZERO, StvnVocabulary.DEFAULT_MAX_SIZE, keySchema, valSchema, defaultTraits
           );
-          if (childPoisoned) {
+          if (traitViolation) {
             validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_MAP, baseMap, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
             return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_TRAIT_VIOLATION);
           }
+          int effectiveErrBefore = diagnosticBag.errorCount() - (hasEmptyMetaBlockError ? 1 : 0);
           return applyFacetsToBaseSchema(
               ownerLabel, targetNominalAlias, StvnVocabulary.TYPE_MAP,
-              baseMap, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, errBefore
+              baseMap, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, effectiveErrBefore
           );
         }
       }
 
       if (ctor.productType() instanceof StvnParser.TupleTypeContext tupCtx) {
         List<StvnSchema> elems = new ArrayList<>();
-        boolean anyChildPoisoned = false;
         boolean allEq = true;
         boolean allComp = true;
         for (var childCtx : tupCtx.schemaType()) {
@@ -3457,9 +3460,7 @@ public final class StvnDefsLowerer {
           );
           StvnSchema cs = cb.schema();
           elems.add(cs);
-          if (isRealPoisonedSchema(cs)) {
-            anyChildPoisoned = true;
-          } else {
+          if (!isRealPoisonedSchema(cs)) {
             allEq = allEq && cs.traits().equatable();
             allComp = allComp && cs.traits().comparable();
           }
@@ -3467,13 +3468,10 @@ public final class StvnDefsLowerer {
         StvnSchema baseTup = new StvnSchema.TupleSchema(
             targetNominalAlias, elems, TraitProfile.ofDefault(allEq, allComp)
         );
-        if (anyChildPoisoned) {
-          validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_TUPLE, baseTup, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
-          return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
-        }
+        int effectiveErrBefore = diagnosticBag.errorCount() - (hasEmptyMetaBlockError ? 1 : 0);
         return applyFacetsToBaseSchema(
             ownerLabel, targetNominalAlias, StvnVocabulary.TYPE_TUPLE,
-            baseTup, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, errBefore
+            baseTup, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, effectiveErrBefore
         );
       }
 
@@ -3484,17 +3482,18 @@ public final class StvnDefsLowerer {
               ownerLabel, Optional.empty(), sum.schemaType(0), scope, visitedTypeStack, true, false
           );
           StvnSchema inner = innerBundle.schema();
+          boolean innerPoisoned = isRealPoisonedSchema(inner);
           StvnSchema baseOpt = new StvnSchema.OptionSchema(
               targetNominalAlias, inner,
-              TraitProfile.ofDefault(inner.traits().equatable(), inner.traits().comparable())
+              TraitProfile.ofDefault(
+                  innerPoisoned || inner.traits().equatable(),
+                  innerPoisoned || inner.traits().comparable()
+              )
           );
-          if (isRealPoisonedSchema(inner)) {
-            validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_OPTION, baseOpt, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
-            return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
-          }
+          int effectiveErrBefore = diagnosticBag.errorCount() - (hasEmptyMetaBlockError ? 1 : 0);
           return applyFacetsToBaseSchema(
               ownerLabel, targetNominalAlias, StvnVocabulary.TYPE_OPTION,
-              baseOpt, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, errBefore
+              baseOpt, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, effectiveErrBefore
           );
         }
         if (sum.KW_EITHER() != null) {
@@ -3506,23 +3505,22 @@ public final class StvnDefsLowerer {
           );
           StvnSchema l = leftB.schema();
           StvnSchema r = rightB.schema();
-          boolean eq = l.traits().equatable() && r.traits().equatable();
-          boolean comp = l.traits().comparable() && r.traits().comparable();
+          boolean lPoisoned = isRealPoisonedSchema(l);
+          boolean rPoisoned = isRealPoisonedSchema(r);
+          boolean eq = (lPoisoned || l.traits().equatable()) && (rPoisoned || r.traits().equatable());
+          boolean comp = (lPoisoned || l.traits().comparable()) && (rPoisoned || r.traits().comparable());
           StvnSchema baseEither = new StvnSchema.EitherSchema(
               targetNominalAlias, l, r, TraitProfile.ofDefault(eq, comp)
           );
-          if (isRealPoisonedSchema(l) || isRealPoisonedSchema(r)) {
-            validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_EITHER, baseEither, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
-            return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
-          }
+          int effectiveErrBefore = diagnosticBag.errorCount() - (hasEmptyMetaBlockError ? 1 : 0);
           return applyFacetsToBaseSchema(
               ownerLabel, targetNominalAlias, StvnVocabulary.TYPE_EITHER,
-              baseEither, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, errBefore
+              baseEither, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, effectiveErrBefore
           );
         }
         if (sum.KW_UNION() != null) {
           List<StvnSchema> branches = new ArrayList<>();
-          boolean anyPoisoned = false;
+          boolean arityInvalid = false;
           boolean allEq = true;
           boolean allComp = true;
           for (var bCtx : sum.schemaType()) {
@@ -3531,9 +3529,7 @@ public final class StvnDefsLowerer {
             );
             StvnSchema bs = bb.schema();
             branches.add(bs);
-            if (isRealPoisonedSchema(bs)) {
-              anyPoisoned = true;
-            } else {
+            if (!isRealPoisonedSchema(bs)) {
               allEq = allEq && bs.traits().equatable();
               allComp = allComp && bs.traits().comparable();
             }
@@ -3545,7 +3541,7 @@ public final class StvnDefsLowerer {
                 sp.start(), sp.end(), sp.line(), sp.column(), null,
                 DiagnosticBag.ERR_MALFORMED_SCHEMA
             );
-            anyPoisoned = true;
+            arityInvalid = true;
           }
           StvnSchema baseUnion = new StvnSchema.UnionSchema(
               targetNominalAlias,
@@ -3557,13 +3553,14 @@ public final class StvnDefsLowerer {
                   ),
               TraitProfile.ofDefault(allEq, allComp)
           );
-          if (anyPoisoned) {
+          if (arityInvalid) {
             validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_UNION, baseUnion, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
             return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
           }
+          int effectiveErrBefore = diagnosticBag.errorCount() - (hasEmptyMetaBlockError ? 1 : 0);
           return applyFacetsToBaseSchema(
               ownerLabel, targetNominalAlias, StvnVocabulary.TYPE_UNION,
-              baseUnion, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, errBefore
+              baseUnion, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, effectiveErrBefore
           );
         }
         if (sum.KW_ENUM() != null && sum.enumDef() != null) {
@@ -4414,7 +4411,8 @@ public final class StvnDefsLowerer {
 
         case StvnSchema.MapSchema mapBase -> {
           boolean effectiveInv = mapBase.invertible() || childInvertible;
-          if (isNominalDerivation && childInvertible && !mapBase.invertible() && !mapBase.valueSchema().traits().equatable()) {
+          if (isNominalDerivation && childInvertible && !mapBase.invertible()
+              && !isRealPoisonedSchema(mapBase.valueSchema()) && !mapBase.valueSchema().traits().equatable()) {
             Span sp = Span.ofContext(metaMap);
             diagnosticBag.addError(
                 "Inverted map values require types to be #equatable #TRUE",
