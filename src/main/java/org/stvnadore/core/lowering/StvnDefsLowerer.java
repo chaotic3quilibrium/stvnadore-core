@@ -4031,10 +4031,11 @@ public final class StvnDefsLowerer {
             TemporalScale curScale = parseTemporalScale(facetName);
             if (curScale != pScale) {
               diagnosticBag.addError(
-                  "Constraint violation (" + ownerLabel + "): temporal scale facet '#" + facetName
-                      + "' is mutually exclusive with ancestor scale '" + temporalScaleKeyword(pScale) + "' from " + ancName,
+                  "Constraint violation (" + ownerLabel + "): facet '#" + facetName
+                      + "' is a non-overridable definition facet (temporal scale is already locked as '"
+                      + temporalScaleKeyword(pScale) + "' by ancestor " + ancName + " and cannot be overridden)",
                   entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
-                  DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+                  DiagnosticBag.ERR_NON_OVERRIDABLE_FACET
               );
             } else {
               diagnosticBag.addError(
@@ -4051,10 +4052,11 @@ public final class StvnDefsLowerer {
             DateTimeMode curMode = parseDateTimeMode(facetName);
             if (curMode != pMode) {
               diagnosticBag.addError(
-                  "Constraint violation (" + ownerLabel + "): temporal mode facet '#" + facetName
-                      + "' is mutually exclusive with ancestor mode '" + dateTimeModeKeyword(pMode) + "' from " + ancName,
+                  "Constraint violation (" + ownerLabel + "): facet '#" + facetName
+                      + "' is a non-overridable definition facet (temporal mode is already locked as '"
+                      + dateTimeModeKeyword(pMode) + "' by ancestor " + ancName + " and cannot be overridden)",
                   entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
-                  DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+                  DiagnosticBag.ERR_NON_OVERRIDABLE_FACET
               );
             } else {
               diagnosticBag.addError(

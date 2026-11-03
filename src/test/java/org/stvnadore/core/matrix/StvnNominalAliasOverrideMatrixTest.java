@@ -127,25 +127,67 @@ public class StvnNominalAliasOverrideMatrixTest {
         new MutexPair("Float: size 32 -> exact", "#size 32", "#exact", ":Float"),
         new MutexPair("Float: size 32 -> size 64", "#size 32", "#size 64", ":Float"),
         new MutexPair("Float: size 64 -> exact", "#size 64", "#exact", ":Float"),
-        new MutexPair("Float: size 64 -> size 32", "#size 64", "#size 32", ":Float"),
-
-        // TimeEpoch scale collisions
-        new MutexPair("TimeEpoch: s -> ms", "#s", "#ms", ":TimeEpoch"),
-        new MutexPair("TimeEpoch: s -> us", "#s", "#us", ":TimeEpoch"),
-        new MutexPair("TimeEpoch: s -> ns", "#s", "#ns", ":TimeEpoch"),
-        new MutexPair("TimeEpoch: ms -> s", "#ms", "#s", ":TimeEpoch"),
-        new MutexPair("TimeEpoch: us -> s", "#us", "#s", ":TimeEpoch"),
-        new MutexPair("TimeEpoch: ns -> s", "#ns", "#s", ":TimeEpoch"),
-
-        // DateTime mode collisions
-        new MutexPair("DateTime: offset -> zoned", "#offset", "#zoned", ":DateTime"),
-        new MutexPair("DateTime: offset -> audited", "#offset", "#audited", ":DateTime"),
-        new MutexPair("DateTime: zoned -> offset", "#zoned", "#offset", ":DateTime"),
-        new MutexPair("DateTime: zoned -> audited", "#zoned", "#audited", ":DateTime"),
-        new MutexPair("DateTime: audited -> offset", "#audited", "#offset", ":DateTime"),
-        new MutexPair("DateTime: audited -> zoned", "#audited", "#zoned", ":DateTime")
+        new MutexPair("Float: size 64 -> size 32", "#size 64", "#size 32", ":Float")
     );
     return pairs.stream().map(p -> Arguments.of(p.name(), p.parentFacet(), p.childFacet(), p.targetType()));
+  }
+
+  static Stream<Arguments> provideConflictingTemporalCrossHopPairs() {
+    return Stream.of(
+        // TimeEpoch scale vs different scale (E040)
+        Arguments.of(":TimeEpoch", "#s", "#ms", "1000"),
+        Arguments.of(":TimeEpoch", "#s", "#us", "1000"),
+        Arguments.of(":TimeEpoch", "#s", "#ns", "1000"),
+        Arguments.of(":TimeEpoch", "#ms", "#s", "1000"),
+        Arguments.of(":TimeEpoch", "#us", "#s", "1000"),
+        Arguments.of(":TimeEpoch", "#ns", "#s", "1000"),
+        // DateTime mode vs different mode (E040)
+        Arguments.of(":DateTime", "#offset", "#zoned", "\"2026-01-01T00:00:00Z\""),
+        Arguments.of(":DateTime", "#offset", "#audited", "\"2026-01-01T00:00:00Z\""),
+        Arguments.of(":DateTime", "#zoned", "#offset", "\"2026-01-01T00:00:00[UTC]\""),
+        Arguments.of(":DateTime", "#zoned", "#audited", "\"2026-01-01T00:00:00[UTC]\""),
+        Arguments.of(":DateTime", "#audited", "#offset", "\"2026-01-01T00:00:00Z[UTC]\""),
+        Arguments.of(":DateTime", "#audited", "#zoned", "\"2026-01-01T00:00:00Z[UTC]\"")
+    );
+  }
+
+  @ParameterizedTest(name = "Cross-Hop Temporal E040: {0} parent={1} child={2}")
+  @MethodSource("provideConflictingTemporalCrossHopPairs")
+  @DisplayName("TC-E040-TEMPORAL-CROSSHOP: Cross-hop conflicting temporal mode and scale overrides emit E040 (ERR_NON_OVERRIDABLE_FACET) across nominal types, #CONST, and inline slots")
+  void testCrossHopConflictingTemporalModeAndScaleEmitsE040(
+      String baseType,
+      String parentFacet,
+      String childFacet,
+      String sampleBody
+  ) {
+    String source = """
+        {
+          :defs {
+            :ParentType { %s } %s
+            :ChildType { %s } :ParentType
+            #CHILD_CONST { %s } :ParentType %s
+            :InlineHolder :Tuple( { %s } :ParentType )
+          }
+          :type :ChildType
+          :body %s
+        }
+        """.formatted(parentFacet, baseType, childFacet, childFacet, sampleBody, childFacet, sampleBody);
+
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+
+    assertTrue(result.hasErrors());
+    assertEquals(3, result.diagnostics().size(), () -> "Expected 3 E040 diagnostics (nominal, #CONST, inline) and 0 :body cascade diagnostics, got: " + result.diagnostics());
+
+    for (StvnDiagnostic d : result.diagnostics()) {
+      assertEquals(DiagnosticBag.ERR_NON_OVERRIDABLE_FACET, d.errorCode().orElse(null));
+      assertEquals("E040", d.canonicalCode().orElse(null));
+      assertTrue(
+          d.message().contains("is a non-overridable definition facet")
+              && d.message().contains("already locked as '" + parentFacet + "' by ancestor :ParentType and cannot be overridden"),
+          () -> "Expected locked ancestor message on E040 diagnostic, got: " + d.message()
+      );
+      assertEquals(childFacet, source.substring(d.startOffset(), d.endOffset()));
+    }
   }
 
   @ParameterizedTest(name = "[{index}] {0}: Cross-hop collision fails closed with ERR_MUTUALLY_EXCLUSIVE")
