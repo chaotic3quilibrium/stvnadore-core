@@ -1,0 +1,25 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mismatch_exact_float_int_literal_and_precision
+// MATRIX-POSITION:    1.1.2 vs 3.1
+// TARGET-TYPE:        :Float (exact)
+// OFFENDING-FACET:    #minIncl
+// COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+// EXPECT-DIAGNOSTIC:  INCOMPATIBLE_METADATA_TYPE
+// TARGET-TOKEN:       0
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Exact decimal float rejects integer bound literal without decimal point and enforces #maxSize digit precision
+// ==============================================================================
+{
+  :meta {
+    #name "inv_mismatch_exact_float_int_literal_and_precision"
+    #kind #BODY
+  }
+  :defs {
+    :BadIntBoundExactFloat { #exact #minIncl 0 } :Float
+    :BadDigitPrecisionExactFloat { #exact #maxSize 4 #minIncl 123.456 } :Float
+  }
+  :type :BadIntBoundExactFloat
+  :body 1.5
+}

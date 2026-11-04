@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "inv_mismatch_exact_float_int_literal_and_precision"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #INCOMPATIBLE_METADATA_TYPE #ERROR 20 46 913 914 "Constraint violation (:BadIntBoundExactFloat): minIncl for :Float requires a float literal" )
+    ( #E012 #CAPACITY_OVERFLOW #ERROR 21 63 986 993 "Constraint violation (:BadDigitPrecisionExactFloat): bound 123.456 requires 6 significant digits, exceeding #maxSize 4" )
+  ]
+}

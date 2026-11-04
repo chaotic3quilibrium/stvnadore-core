@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "inv_composite_per_slot_fault_isolation"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 20 21 844 861 "Constraint violation (:PoisonedSlot): facet '#regex' is not permitted on :Int; permitted facets: [#comparable, #equatable, #maxExcl, #minIncl, #size, #unsigned]" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 31 5 1084 1086 "Constraint violation (:HealthyPort): Value 80 is outside allowable range (must be >= 1024)" )
+  ]
+}

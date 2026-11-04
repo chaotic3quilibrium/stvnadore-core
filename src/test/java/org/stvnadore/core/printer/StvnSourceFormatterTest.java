@@ -533,4 +533,37 @@ class StvnSourceFormatterTest {
       }
     }
   }
+
+  @Test
+  @DisplayName("Preserves authored multi-line :Map, :Seq, :Set, :Option, and :Either schema constructors and trailing comments while keeping single-line wrappers inline")
+  void preservesAuthoredMultiLineParameterizedConstructorsAndTrailingComments() {
+    String source = """
+        {
+          :defs {
+            :InlineWrapper :Seq(:Tuple(
+              :Int
+              :String
+            ))
+            :MultiLineConstructors :Map( // map open comment
+              :String // key comment
+              :Seq( // seq open comment
+                :Option( // option open comment
+                  :Either( // either open comment
+                    :Boolean // left branch comment
+                    :Set( // set open comment
+                      :Int // set element comment
+                    )
+                  )
+                )
+              )
+            )
+          }
+          :type :MultiLineConstructors
+          :body {}
+        }""";
+
+    String formatted = StvnSourceFormatter.format(source);
+    Assertions.assertEquals(source, formatted);
+    Assertions.assertEquals(formatted, StvnSourceFormatter.format(formatted));
+  }
 }

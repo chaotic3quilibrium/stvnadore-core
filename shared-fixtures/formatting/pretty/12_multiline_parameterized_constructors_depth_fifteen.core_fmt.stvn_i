@@ -1,0 +1,46 @@
+{
+  :meta {
+    #name "12_multiline_parameterized_constructors_depth_fifteen"
+    #domain "core_fmt"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :DepthFifteenSchema :Map(:String :Seq(:Option(:Either(:Boolean :Tuple(
+      :Enum[#LOCK #FIRE #ABORT]
+      :Set(:Option(:Seq(:Either(:Int :Map(:String :Option(:Seq(:Set(:Option(:Tuple(
+        { #unsigned #size 16 #minIncl 1 #maxExcl 1000 } :Int
+        { #minSize 1 #maxSize 32 } :String
+      ))))))))))
+    )))))
+    :WrappedOptionEither :Option(:Either(:Boolean :Union(:Int :String)))
+    :WrappedTupleSeq :Seq(:Tuple(
+      { #unsigned #size 16 #minIncl 1 #maxExcl 1000 } :Int
+      { #minSize 1 #maxSize 32 } :String
+    ))
+  }
+  :type :Tuple(:WrappedTupleSeq :WrappedOptionEither :DepthFifteenSchema)
+  :body (
+    [
+      (42 "inline-wrapper")
+    ]
+    "branch-two"
+    {
+      ["root-key" [
+        (
+          #LOCK
+          [
+            [
+              {
+                ["leaf-key" [
+                  [
+                    (42 "deep-leaf")
+                  ]
+                ]]
+              }
+            ]
+          ]
+        )
+      ]]
+    }
+  )
+}

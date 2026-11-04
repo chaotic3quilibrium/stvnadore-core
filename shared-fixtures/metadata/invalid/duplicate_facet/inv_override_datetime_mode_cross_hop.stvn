@@ -1,0 +1,28 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_override_datetime_mode_cross_hop
+// MATRIX-POSITION:    1.2.5 vs 1.2.6 vs 1.2.7
+// TARGET-TYPE:        :DateTime
+// OFFENDING-FACET:    #offset
+// COVERAGE-KIND:      DUPLICATE_FACET
+// EXPECT-DIAGNOSTIC:  ERR_NON_OVERRIDABLE_FACET
+// TARGET-TOKEN:       #offset
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Cross-hop Tier-1 non-overridability on :DateTime temporal modes (#offset, #zoned, #audited)
+// ==============================================================================
+{
+  :meta {
+    #name "inv_override_datetime_mode_cross_hop"
+    #kind #BODY
+  }
+  :defs {
+    :UtcInstant { #offset } :DateTime
+    :RedeclaredOffset { #offset } :UtcInstant
+    :SwitchedToZoned { #zoned } :UtcInstant
+    :SwitchedToAudited { #audited } :UtcInstant
+    #EPOCH_INSTANT { #offset } :UtcInstant "1970-01-01T00:00:00Z"
+  }
+  :type :UtcInstant
+  :body "2026-01-01T00:00:00Z"
+}

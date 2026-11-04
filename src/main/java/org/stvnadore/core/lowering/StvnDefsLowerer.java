@@ -3238,6 +3238,7 @@ public final class StvnDefsLowerer {
         }
 
         LoweredSchemaBundle parentBundle = parentOpt.get();
+        int childFacetErrBefore = diagnosticBag.errorCount() - (hasEmptyMetaBlockError ? 1 : 0);
         StvnSchema parentSchema = parentBundle.schema();
         if (isRealPoisonedSchema(parentSchema)) {
           Optional<String> effectiveBrand = targetNominalAlias.isPresent()
@@ -3258,7 +3259,7 @@ public final class StvnDefsLowerer {
                   metaMap,
                   schemaCtx,
                   scope,
-                  errBefore
+                  childFacetErrBefore
               );
               Optional<StvnSchema> nextFallback = extractBestEffortFallback(validatedFallback.schema(), effectiveBrand);
               StvnSchema.PoisonedSchema nextPoisoned = new StvnSchema.PoisonedSchema(
@@ -3295,7 +3296,7 @@ public final class StvnDefsLowerer {
 
         // If no local metadata facets and anonymous reference (e.g. :type :MyAlias or field :MyAlias), preserve parent brand!
         if (metaMap == null || metaMap.metadataEntry() == null || metaMap.metadataEntry().isEmpty()) {
-          if (diagnosticBag.errorCount() > errBefore) {
+          if (hasEmptyMetaBlockError) {
             return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_EMPTY_METADATA_BLOCK);
           }
           StvnSchema outSchema = targetNominalAlias.isPresent()
@@ -3320,7 +3321,7 @@ public final class StvnDefsLowerer {
             metaMap,
             schemaCtx,
             scope,
-            errBefore
+            childFacetErrBefore
         );
       }
 
@@ -3584,9 +3585,10 @@ public final class StvnDefsLowerer {
           StvnSchema baseEnum = new StvnSchema.EnumSchema(
               targetNominalAlias, List.copyOf(variants), TraitProfile.ofDefault(true, true)
           );
+          int effectiveErrBefore = diagnosticBag.errorCount() - (hasEmptyMetaBlockError ? 1 : 0);
           return applyFacetsToBaseSchema(
               ownerLabel, targetNominalAlias, StvnVocabulary.TYPE_ENUM,
-              baseEnum, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, errBefore
+              baseEnum, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope, effectiveErrBefore
           );
         }
       }
@@ -3762,6 +3764,7 @@ public final class StvnDefsLowerer {
       int lastTier = -1;
       int lastSubTier = -1;
       String lastFacetName = null;
+      int orderViolationCount = 0;
       Set<String> seenFacetNames = new HashSet<>();
 
       // Local parsed facet slots
@@ -4000,6 +4003,7 @@ public final class StvnDefsLowerer {
               entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
               DiagnosticBag.ERR_FACET_ORDER_VIOLATION
           );
+          orderViolationCount++;
         }
         lastTier = tier;
         lastSubTier = subTier;
@@ -4434,7 +4438,7 @@ public final class StvnDefsLowerer {
         case StvnSchema.PoisonedSchema p -> rebrandSchema(p, effectiveBrand);
       };
 
-      if (diagnosticBag.errorCount() > errBefore) {
+      if (diagnosticBag.errorCount() - orderViolationCount > errBefore) {
         Optional<StvnSchema> bestEffort = extractBestEffortFallback(loweredSchema, effectiveBrand);
         StvnSchema.PoisonedSchema poisoned = new StvnSchema.PoisonedSchema(
             effectiveBrand,

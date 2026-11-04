@@ -1195,16 +1195,13 @@ public final class StvnSourceFormatter {
       } else if (ctx.collectionType() != null) {
         StvnParser.CollectionTypeContext coll = ctx.collectionType();
         String head = coll.getStart().getText();
-        sb.append(head).append(StvnVocabulary.DELIM_OPEN_PAREN);
-        List<StvnParser.SchemaTypeContext> args = coll.schemaType();
-        for (int i = 0; i < args.size(); i++) {
-          if (i > 0) {
-            sb.append(' ');
-          }
-          formatSchemaType(args.get(i), indent);
-        }
-        sb.append(StvnVocabulary.DELIM_CLOSE_PAREN);
-        lastEmittedLine = coll.getStop().getLine();
+        formatParameterizedSchemaConstructor(
+            head,
+            coll.LPAREN().getSymbol(),
+            coll.RPAREN().getSymbol(),
+            coll.schemaType(),
+            indent
+        );
       } else if (ctx.productType() != null) {
         StvnParser.TupleTypeContext tup = (StvnParser.TupleTypeContext) ctx.productType();
         sb.append(StvnVocabulary.TYPE_TUPLE);
@@ -1229,17 +1226,21 @@ public final class StvnSourceFormatter {
           sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
           lastEmittedLine = sum.getStop().getLine();
         } else if (sum.KW_OPTION() != null) {
-          sb.append(StvnVocabulary.TYPE_OPTION).append(StvnVocabulary.DELIM_OPEN_PAREN);
-          formatSchemaType(sum.schemaType(0), indent);
-          sb.append(StvnVocabulary.DELIM_CLOSE_PAREN);
-          lastEmittedLine = sum.getStop().getLine();
+          formatParameterizedSchemaConstructor(
+              StvnVocabulary.TYPE_OPTION,
+              sum.LPAREN().getSymbol(),
+              sum.RPAREN().getSymbol(),
+              sum.schemaType(),
+              indent
+          );
         } else if (sum.KW_EITHER() != null) {
-          sb.append(StvnVocabulary.TYPE_EITHER).append(StvnVocabulary.DELIM_OPEN_PAREN);
-          formatSchemaType(sum.schemaType(0), indent);
-          sb.append(' ');
-          formatSchemaType(sum.schemaType(1), indent);
-          sb.append(StvnVocabulary.DELIM_CLOSE_PAREN);
-          lastEmittedLine = sum.getStop().getLine();
+          formatParameterizedSchemaConstructor(
+              StvnVocabulary.TYPE_EITHER,
+              sum.LPAREN().getSymbol(),
+              sum.RPAREN().getSymbol(),
+              sum.schemaType(),
+              indent
+          );
         } else if (sum.KW_UNION() != null) {
           sb.append(StvnVocabulary.TYPE_UNION);
           formatSchemaGroup(
@@ -1250,6 +1251,83 @@ public final class StvnSourceFormatter {
           );
         }
       }
+    }
+
+    private void formatParameterizedSchemaConstructor(
+        String keyword,
+        Token openParen,
+        Token closeParen,
+        List<StvnParser.SchemaTypeContext> args,
+        int indent
+    ) {
+      boolean multiLine = isAuthoredMultiLineParameterizedConstructor(openParen, closeParen, args);
+      sb.append(keyword).append(StvnVocabulary.DELIM_OPEN_PAREN);
+      lastEmittedLine = openParen.getLine();
+
+      if (!multiLine) {
+        for (int i = 0; i < args.size(); i++) {
+          if (i > 0) {
+            sb.append(' ');
+          }
+          formatSchemaType(args.get(i), indent);
+        }
+        sb.append(StvnVocabulary.DELIM_CLOSE_PAREN);
+        lastEmittedLine = closeParen.getLine();
+        return;
+      }
+
+      int openParenLimit = args.isEmpty()
+          ? closeParen.getTokenIndex()
+          : args.get(0).getStart().getTokenIndex();
+      appendTrailingCommentIfOnLine(openParen.getLine(), openParenLimit);
+      boolean emittedChild = false;
+      for (int i = 0; i < args.size(); i++) {
+        StvnParser.SchemaTypeContext child = args.get(i);
+        int childLimit = (i + 1 < args.size())
+            ? args.get(i + 1).getStart().getTokenIndex()
+            : closeParen.getTokenIndex();
+        emittedChild = flushStandaloneCommentsBefore(
+            child.getStart().getTokenIndex(),
+            indent + 1,
+            emittedChild
+        );
+        startNewBlockChildLine(indent + 1, child.getStart().getLine(), emittedChild);
+        emittedChild = true;
+        formatSchemaType(child, indent + 1);
+        lastEmittedLine = child.getStop().getLine();
+        appendTrailingCommentIfOnLine(child.getStop().getLine(), childLimit);
+      }
+
+      flushStandaloneCommentsBefore(closeParen.getTokenIndex(), indent + 1, emittedChild);
+      sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_PAREN);
+      lastEmittedLine = closeParen.getLine();
+    }
+
+    private boolean isAuthoredMultiLineParameterizedConstructor(
+        Token openParen,
+        Token closeParen,
+        List<StvnParser.SchemaTypeContext> args
+    ) {
+      if (args.isEmpty()) {
+        return openParen.getLine() < closeParen.getLine()
+            || hasCommentsBetween(openParen.getTokenIndex(), closeParen.getTokenIndex());
+      }
+      StvnParser.SchemaTypeContext first = args.get(0);
+      if (openParen.getLine() < first.getStart().getLine()
+          || hasCommentsBetween(openParen.getTokenIndex(), first.getStart().getTokenIndex())) {
+        return true;
+      }
+      for (int i = 1; i < args.size(); i++) {
+        StvnParser.SchemaTypeContext prev = args.get(i - 1);
+        StvnParser.SchemaTypeContext curr = args.get(i);
+        if (prev.getStop().getLine() < curr.getStart().getLine()
+            || hasCommentsBetween(prev.getStop().getTokenIndex(), curr.getStart().getTokenIndex())) {
+          return true;
+        }
+      }
+      StvnParser.SchemaTypeContext last = args.get(args.size() - 1);
+      return last.getStop().getLine() < closeParen.getLine()
+          || hasCommentsBetween(last.getStop().getTokenIndex(), closeParen.getTokenIndex());
     }
 
     private void formatSchemaGroup(
@@ -1344,6 +1422,13 @@ public final class StvnSourceFormatter {
                 || hasCommentsBetween(openParen.getTokenIndex(), closeParen.getTokenIndex())
                 || requiresMultiLineSchemaGroup(sum.schemaType());
           }
+          if ((sum.KW_OPTION() != null || sum.KW_EITHER() != null)
+              && isAuthoredMultiLineParameterizedConstructor(
+                  sum.LPAREN().getSymbol(),
+                  sum.RPAREN().getSymbol(),
+                  sum.schemaType())) {
+            return true;
+          }
           for (StvnParser.SchemaTypeContext child : sum.schemaType()) {
             if (containsMultiLineSchemaConstruct(child)) {
               return true;
@@ -1351,7 +1436,14 @@ public final class StvnSourceFormatter {
           }
         }
         if (sc.collectionType() != null) {
-          for (StvnParser.SchemaTypeContext child : sc.collectionType().schemaType()) {
+          StvnParser.CollectionTypeContext coll = sc.collectionType();
+          if (isAuthoredMultiLineParameterizedConstructor(
+              coll.LPAREN().getSymbol(),
+              coll.RPAREN().getSymbol(),
+              coll.schemaType())) {
+            return true;
+          }
+          for (StvnParser.SchemaTypeContext child : coll.schemaType()) {
             if (containsMultiLineSchemaConstruct(child)) {
               return true;
             }

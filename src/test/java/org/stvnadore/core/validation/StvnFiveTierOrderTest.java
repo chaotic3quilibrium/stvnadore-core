@@ -126,4 +126,42 @@ public class StvnFiveTierOrderTest {
     assertTrue(diag.message().contains("violates canonical 5-tier order after '#regex'"),
         "Message must specify 5-tier order violation after #regex: " + diag.message());
   }
+
+  @Test
+  @DisplayName("TC-5TIER-06: Disordered facets on nominal type do not poison downstream #CONST or :body payload validation")
+  void disorderedFacetsOnNominalTypeDoNotPoisonDownstreamConstOrPayloadValidation() {
+    String stvn = """
+        {
+          :defs {
+            :LedgerChannel { #maxExcl 4096 #minIncl 1024 #size 16 #unsigned } :Int
+            #FALLBACK_CHANNEL :LedgerChannel 500
+          }
+          :type :Tuple(
+            :LedgerChannel
+            :LedgerChannel
+          )
+          :body (
+            5000
+            -1
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(stvn);
+    assertFalse(result.isSuccess());
+
+    long orderViolations = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_FACET_ORDER_VIOLATION.equals(d.errorCode().orElse(null)))
+        .count();
+    assertEquals(3, orderViolations, "Expected 3 ERR_FACET_ORDER_VIOLATION diagnostics on :LedgerChannel: " + result.diagnostics());
+
+    var outOfBoundsDiags = result.diagnostics().stream()
+        .filter(d -> d.message().contains("500") || d.message().contains("5000") || d.message().contains("-1"))
+        .toList();
+    assertEquals(
+        3,
+        outOfBoundsDiags.size(),
+        "Expected downstream #FALLBACK_CHANNEL (500) and :body (5000, -1) to be validated in the same pass without PoisonedSchema suppression: "
+            + result.diagnostics()
+    );
+  }
 }

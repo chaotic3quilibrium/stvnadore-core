@@ -1,0 +1,13 @@
+{
+  :meta {
+    #name "11_trailing_comment_alignment_and_facet_sorting"
+    #domain "core_fmt"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :BoundedChannel { #unsigned #size 16 #minIncl 1 #maxExcl 60000 } :Int
+    :ChannelLabel { #minSize 1 #maxSize 128 #regex "^[0-9a-f]{64}$" } :String
+  }
+  :type :Tuple(:Int :org/stvnadore/prelude/Port :BoundedChannel :ChannelLabel)
+  :body (8080 8080 4096 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+}

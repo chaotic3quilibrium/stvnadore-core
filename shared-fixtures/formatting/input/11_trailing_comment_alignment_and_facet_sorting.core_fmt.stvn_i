@@ -1,0 +1,40 @@
+{
+  :meta {
+    #kind #BODY_INCLUDE          // aligned meta kind comment
+    #domain "core_fmt"           // aligned meta domain comment
+    #name "11_trailing_comment_alignment_and_facet_sorting" // meta name comment
+  }
+  :defs {
+    :package :com/acme/align { #DEFAULT_PORT :Int 8080 // trailing comment on inline package child
+    }
+
+    :use [ :com/acme/align { #strip } ]
+
+    :use [ :org/stvnadore/prelude  {                  // <-- Aligned trailing comment
+        :Port :Port                                   // <-- Aligned trailing comment
+        #SHA256_LOWER_CASE_REGEX #SHA256_LOWER_CASE_REGEX // <-- Aligned trailing comment
+      }                                               // <-- Aligned trailing comment
+    ]
+
+    :BoundedChannel {
+      #maxExcl 60000             // upper bound facet comment
+      #size 16                   // bit-width facet comment
+      #minIncl 1                 // lower bound facet comment
+      #unsigned                  // representation facet comment
+    } :Int
+
+    :ChannelLabel { #regex #SHA256_LOWER_CASE_REGEX #maxSize 128 #minSize 1 } :String
+  }
+  :type :Tuple(
+    :Int
+    :Port
+    :BoundedChannel // single-space comment
+    :ChannelLabel
+  )
+  :body (
+    #DEFAULT_PORT
+    8080// zero-space comment
+    4096
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  )
+}

@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "inv_override_datetime_mode_cross_hop"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 21 25 887 894 "Constraint violation (:RedeclaredOffset): non-overridable definition facet '#offset' is already established by ancestor :UtcInstant and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 22 24 932 938 "Constraint violation (:SwitchedToZoned): facet '#zoned' is a non-overridable definition facet (temporal mode is already locked as '#offset' by ancestor :UtcInstant and cannot be overridden)" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 23 26 978 986 "Constraint violation (:SwitchedToAudited): facet '#audited' is a non-overridable definition facet (temporal mode is already locked as '#offset' by ancestor :UtcInstant and cannot be overridden)" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 24 22 1022 1029 "Constraint violation (#EPOCH_INSTANT): non-overridable definition facet '#offset' is already established by ancestor :UtcInstant and cannot be re-specified" )
+  ]
+}

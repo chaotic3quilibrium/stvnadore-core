@@ -1,0 +1,87 @@
+{
+  :meta {
+    #name "12_multiline_parameterized_constructors_depth_fifteen"
+    #domain "core_fmt"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    // Single-line wrapper preservation when '(' and child constructor share a line
+    :WrappedTupleSeq :Seq(:Tuple(
+      { #unsigned #size 16 #minIncl 1 #maxExcl 1000 } :Int
+      { #minSize 1 #maxSize 32 } :String
+    ))
+
+    :WrappedOptionEither :Option(:Either(:Boolean :Union(
+      :Int
+      :String
+    )))
+
+    // Authored multi-line parameterized constructors up to depth 15 with comments
+    :DepthFifteenSchema :Map( // d1 map open
+      :String // d1 map key
+      :Seq( // d2 seq open
+        :Option( // d3 option open
+          :Either( // d4 either open
+            :Boolean // d4 either left
+            :Tuple( // d5 tuple open
+              :Enum[#LOCK #FIRE #ABORT] // d5 enum
+              :Set( // d6 set open
+                :Option( // d7 option open
+                  :Seq( // d8 seq open
+                    :Either( // d9 either open
+                      :Int // d9 either left
+                      :Map( // d10 map open
+                        :String // d10 map key
+                        :Option( // d11 option open
+                          :Seq( // d12 seq open
+                            :Set( // d13 set open
+                              :Option( // d14 option open
+                                :Tuple( // d15 tuple open
+                                  { #unsigned #size 16 #minIncl 1 #maxExcl 1000 } :Int // d15 int
+                                  { #minSize 1 #maxSize 32 } :String // d15 string
+                                )
+                              )
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  }
+  :type :Tuple(
+    :WrappedTupleSeq
+    :WrappedOptionEither
+    :DepthFifteenSchema
+  )
+  :body (
+    [
+      (42 "inline-wrapper")
+    ]
+    #Some #Right #2 "branch-two"
+    {
+      ["root-key" [
+        #Some #Right (
+          #LOCK
+          [
+            #Some [
+              #Right {
+                ["leaf-key" #Some [
+                  [
+                    #Some (42 "deep-leaf")
+                  ]
+                ]]
+              }
+            ]
+          ]
+        )
+      ]]
+    }
+  )
+}

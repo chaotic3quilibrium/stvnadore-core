@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "inv_override_time_epoch_scale_cross_hop"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 21 26 885 887 "Constraint violation (:RedeclaredSeconds): non-overridable definition facet '#s' is already established by ancestor :UnixSeconds and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 22 25 927 930 "Constraint violation (:SwitchedToMillis): facet '#ms' is a non-overridable definition facet (temporal scale is already locked as '#s' by ancestor :UnixSeconds and cannot be overridden)" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 23 24 969 972 "Constraint violation (:SwitchedToNanos): facet '#ns' is a non-overridable definition facet (temporal scale is already locked as '#s' by ancestor :UnixSeconds and cannot be overridden)" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 24 22 1009 1011 "Constraint violation (#GENESIS_EPOCH): non-overridable definition facet '#s' is already established by ancestor :UnixSeconds and cannot be re-specified" )
+  ]
+}

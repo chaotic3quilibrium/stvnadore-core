@@ -1,0 +1,34 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_composite_per_slot_fault_isolation
+// MATRIX-POSITION:    4.4
+// TARGET-TYPE:        :Int
+// OFFENDING-FACET:    #regex
+// COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+// EXPECT-DIAGNOSTIC:  ERR_INVALID_METADATA_FACET
+// TARGET-TOKEN:       #regex
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Poisoned composite slot does not suppress validation of sibling healthy slots in :Tuple and :Map payloads
+// ==============================================================================
+{
+  :meta {
+    #name "inv_composite_per_slot_fault_isolation"
+    #kind #BODY
+  }
+  :defs {
+    :PoisonedSlot { #regex "^[0-9]+$" } :Int
+    :HealthyPort { #unsigned #size 16 #minIncl 1024 #maxExcl 60000 } :Int
+    :CommandMode :Enum[#LOCK #FIRE #ABORT]
+  }
+  :type :Tuple(
+    :PoisonedSlot
+    :HealthyPort
+    :CommandMode
+  )
+  :body (
+    999
+    80
+    #ABORT
+  )
+}

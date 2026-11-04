@@ -1,0 +1,28 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_override_time_epoch_scale_cross_hop
+// MATRIX-POSITION:    1.2.1 vs 1.2.2 vs 1.2.3 vs 1.2.4
+// TARGET-TYPE:        :TimeEpoch
+// OFFENDING-FACET:    #s
+// COVERAGE-KIND:      DUPLICATE_FACET
+// EXPECT-DIAGNOSTIC:  ERR_NON_OVERRIDABLE_FACET
+// TARGET-TOKEN:       #s
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Cross-hop Tier-1 non-overridability on :TimeEpoch temporal scales (#s, #ms, #us, #ns)
+// ==============================================================================
+{
+  :meta {
+    #name "inv_override_time_epoch_scale_cross_hop"
+    #kind #BODY
+  }
+  :defs {
+    :UnixSeconds { #s } :TimeEpoch
+    :RedeclaredSeconds { #s } :UnixSeconds
+    :SwitchedToMillis { #ms } :UnixSeconds
+    :SwitchedToNanos { #ns } :UnixSeconds
+    #GENESIS_EPOCH { #s } :UnixSeconds 0
+  }
+  :type :UnixSeconds
+  :body 1700000000
+}

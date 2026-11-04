@@ -1,0 +1,23 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_interval_inverted_string_lexicographical
+// MATRIX-POSITION:    3.1 vs 3.3
+// TARGET-TYPE:        :String
+// COVERAGE-KIND:      INTERVAL_SOUNDNESS
+// EXPECT-DIAGNOSTIC:  INVALID_NUMERIC_RANGE
+// TARGET-TOKEN:       #maxIncl
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Effective UTF-8 lexicographical string range is inverted (#minIncl "omega" > #maxIncl "alpha")
+// ==============================================================================
+{
+  :meta {
+    #name "inv_interval_inverted_string_lexicographical"
+    #kind #BODY
+  }
+  :defs {
+    :InvertedLexString { #minIncl "omega" #maxIncl "alpha" } :String
+  }
+  :type :InvertedLexString
+  :body "gamma"
+}

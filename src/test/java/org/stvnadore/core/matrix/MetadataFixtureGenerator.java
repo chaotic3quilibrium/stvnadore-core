@@ -1494,6 +1494,85 @@ public final class MetadataFixtureGenerator {
         Optional.of("-0")
     ));
 
+    // 7. Composite per-slot fault isolation on :Tuple and :Map with poisoned and healthy sibling slots
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "domain_mismatch", "inv_composite_per_slot_fault_isolation.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_composite_per_slot_fault_isolation
+        // MATRIX-POSITION:    4.4
+        // TARGET-TYPE:        :Int
+        // OFFENDING-FACET:    #regex
+        // COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+        // EXPECT-DIAGNOSTIC:  ERR_INVALID_METADATA_FACET
+        // TARGET-TOKEN:       #regex
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Poisoned composite slot does not suppress validation of sibling healthy slots in :Tuple and :Map payloads
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_composite_per_slot_fault_isolation"
+            #kind #BODY
+          }
+          :defs {
+            :PoisonedSlot { #regex "^[0-9]+$" } :Int
+            :HealthyPort { #unsigned #size 16 #minIncl 1024 #maxExcl 60000 } :Int
+            :CommandMode :Enum[#LOCK #FIRE #ABORT]
+          }
+          :type :Tuple(
+            :PoisonedSlot
+            :HealthyPort
+            :CommandMode
+          )
+          :body (
+            999
+            80
+            #ABORT
+          )
+        }
+        """,
+        CoverageKind.TARGET_DOMAIN_MISMATCH,
+        Optional.of("ERR_INVALID_METADATA_FACET"),
+        Optional.of("#regex")
+    ));
+
+    // 8. Exact float rejecting integer bound literal and digit capacity overflow
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "domain_mismatch", "inv_mismatch_exact_float_int_literal_and_precision.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_mismatch_exact_float_int_literal_and_precision
+        // MATRIX-POSITION:    1.1.2 vs 3.1
+        // TARGET-TYPE:        :Float (exact)
+        // OFFENDING-FACET:    #minIncl
+        // COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+        // EXPECT-DIAGNOSTIC:  INCOMPATIBLE_METADATA_TYPE
+        // TARGET-TOKEN:       0
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Exact decimal float rejects integer bound literal without decimal point and enforces #maxSize digit precision
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_mismatch_exact_float_int_literal_and_precision"
+            #kind #BODY
+          }
+          :defs {
+            :BadIntBoundExactFloat { #exact #minIncl 0 } :Float
+            :BadDigitPrecisionExactFloat { #exact #maxSize 4 #minIncl 123.456 } :Float
+          }
+          :type :BadIntBoundExactFloat
+          :body 1.5
+        }
+        """,
+        CoverageKind.TARGET_DOMAIN_MISMATCH,
+        Optional.of("INCOMPATIBLE_METADATA_TYPE"),
+        Optional.of("0")
+    ));
+
     return list;
   }
 
@@ -1618,6 +1697,47 @@ public final class MetadataFixtureGenerator {
         CoverageKind.ORDER_VIOLATION,
         Optional.of("ERR_FACET_ORDER_VIOLATION"),
         Optional.of("#minSize")
+    ));
+
+    // 5. Non-poisoning disordered metadata facets validating downstream #CONST and :body bounds in the same pass
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "order_violation", "inv_order_005_non_poisoning_const_and_body_bounds.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_order_005_non_poisoning_const_and_body_bounds
+        // MATRIX-POSITION:    3.4 before 3.1 before 1.3.1 before 1.1.1
+        // TARGET-TYPE:        :Int
+        // OFFENDING-FACET:    #minIncl
+        // COVERAGE-KIND:      ORDER_VIOLATION
+        // EXPECT-DIAGNOSTIC:  ERR_FACET_ORDER_VIOLATION
+        // TARGET-TOKEN:       #minIncl
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Disordered metadata facets do not poison schema; downstream #CONST and :body bounds are validated in the same pass
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_order_005_non_poisoning_const_and_body_bounds"
+            #kind #BODY
+          }
+          :defs {
+            :LedgerChannel { #maxExcl 4096 #minIncl 1024 #size 16 #unsigned } :Int
+            #FALLBACK_CHANNEL :LedgerChannel 500
+          }
+          :type :Tuple(
+            :LedgerChannel
+            :LedgerChannel
+          )
+          :body (
+            5000
+            -1
+          )
+        }
+        """,
+        CoverageKind.ORDER_VIOLATION,
+        Optional.of("ERR_FACET_ORDER_VIOLATION"),
+        Optional.of("#minIncl")
     ));
 
     return list;
@@ -2118,6 +2238,73 @@ public final class MetadataFixtureGenerator {
         Optional.of("#maxExcl")
     ));
 
+    // 6. Inverted UTF-8 lexicographical string bounds on :String
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "interval_soundness", "inv_interval_inverted_string_lexicographical.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_interval_inverted_string_lexicographical
+        // MATRIX-POSITION:    3.1 vs 3.3
+        // TARGET-TYPE:        :String
+        // COVERAGE-KIND:      INTERVAL_SOUNDNESS
+        // EXPECT-DIAGNOSTIC:  INVALID_NUMERIC_RANGE
+        // TARGET-TOKEN:       #maxIncl
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Effective UTF-8 lexicographical string range is inverted (#minIncl "omega" > #maxIncl "alpha")
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_interval_inverted_string_lexicographical"
+            #kind #BODY
+          }
+          :defs {
+            :InvertedLexString { #minIncl "omega" #maxIncl "alpha" } :String
+          }
+          :type :InvertedLexString
+          :body "gamma"
+        }
+        """,
+        CoverageKind.INTERVAL_SOUNDNESS,
+        Optional.of("INVALID_NUMERIC_RANGE"),
+        Optional.of("#maxIncl")
+    ));
+
+    // 7. 128-bit BigInteger physical capacity overflow on :Int
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "interval_soundness", "inv_interval_bigint_128_capacity_overflow.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_interval_bigint_128_capacity_overflow
+        // MATRIX-POSITION:    1.3.1 vs 3.4
+        // TARGET-TYPE:        :Int (128-bit)
+        // COVERAGE-KIND:      INTERVAL_SOUNDNESS
+        // EXPECT-DIAGNOSTIC:  ERR_INTEGER_OVERFLOW
+        // TARGET-TOKEN:       #maxExcl
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        128-bit unsigned and signed integer bounds exceeding 2^128 and -2^127 architectural capacity
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_interval_bigint_128_capacity_overflow"
+            #kind #BODY
+          }
+          :defs {
+            :OverflowU128 { #unsigned #size 128 #maxExcl 340282366920938463463374607431768211457 } :Int
+            :OverflowI128 { #size 128 #minIncl -170141183460469231731687303715884105729 } :Int
+          }
+          :type :OverflowU128
+          :body 1
+        }
+        """,
+        CoverageKind.INTERVAL_SOUNDNESS,
+        Optional.of("ERR_INTEGER_OVERFLOW"),
+        Optional.of("#maxExcl")
+    ));
+
     return list;
   }
 
@@ -2257,6 +2444,82 @@ public final class MetadataFixtureGenerator {
         CoverageKind.DUPLICATE_FACET,
         Optional.of("ERR_NON_OVERRIDABLE_FACET"),
         Optional.of("#unsigned")
+    ));
+
+    // 5. Cross-hop Tier-1 non-overridability on :DateTime temporal modes (#offset, #zoned, #audited)
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "duplicate_facet", "inv_override_datetime_mode_cross_hop.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_override_datetime_mode_cross_hop
+        // MATRIX-POSITION:    1.2.5 vs 1.2.6 vs 1.2.7
+        // TARGET-TYPE:        :DateTime
+        // OFFENDING-FACET:    #offset
+        // COVERAGE-KIND:      DUPLICATE_FACET
+        // EXPECT-DIAGNOSTIC:  ERR_NON_OVERRIDABLE_FACET
+        // TARGET-TOKEN:       #offset
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Cross-hop Tier-1 non-overridability on :DateTime temporal modes (#offset, #zoned, #audited)
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_override_datetime_mode_cross_hop"
+            #kind #BODY
+          }
+          :defs {
+            :UtcInstant { #offset } :DateTime
+            :RedeclaredOffset { #offset } :UtcInstant
+            :SwitchedToZoned { #zoned } :UtcInstant
+            :SwitchedToAudited { #audited } :UtcInstant
+            #EPOCH_INSTANT { #offset } :UtcInstant "1970-01-01T00:00:00Z"
+          }
+          :type :UtcInstant
+          :body "2026-01-01T00:00:00Z"
+        }
+        """,
+        CoverageKind.DUPLICATE_FACET,
+        Optional.of("ERR_NON_OVERRIDABLE_FACET"),
+        Optional.of("#offset")
+    ));
+
+    // 6. Cross-hop Tier-1 non-overridability on :TimeEpoch temporal scales (#s, #ms, #us, #ns)
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "duplicate_facet", "inv_override_time_epoch_scale_cross_hop.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_override_time_epoch_scale_cross_hop
+        // MATRIX-POSITION:    1.2.1 vs 1.2.2 vs 1.2.3 vs 1.2.4
+        // TARGET-TYPE:        :TimeEpoch
+        // OFFENDING-FACET:    #s
+        // COVERAGE-KIND:      DUPLICATE_FACET
+        // EXPECT-DIAGNOSTIC:  ERR_NON_OVERRIDABLE_FACET
+        // TARGET-TOKEN:       #s
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Cross-hop Tier-1 non-overridability on :TimeEpoch temporal scales (#s, #ms, #us, #ns)
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_override_time_epoch_scale_cross_hop"
+            #kind #BODY
+          }
+          :defs {
+            :UnixSeconds { #s } :TimeEpoch
+            :RedeclaredSeconds { #s } :UnixSeconds
+            :SwitchedToMillis { #ms } :UnixSeconds
+            :SwitchedToNanos { #ns } :UnixSeconds
+            #GENESIS_EPOCH { #s } :UnixSeconds 0
+          }
+          :type :UnixSeconds
+          :body 1700000000
+        }
+        """,
+        CoverageKind.DUPLICATE_FACET,
+        Optional.of("ERR_NON_OVERRIDABLE_FACET"),
+        Optional.of("#s")
     ));
 
     return list;
