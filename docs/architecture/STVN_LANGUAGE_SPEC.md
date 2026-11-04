@@ -29,7 +29,8 @@
   * [3. Lexical and Syntactic Enclosure Rules](#3-lexical-and-syntactic-enclosure-rules)
     * [3.1 Dual-Track Sigils: Hash Symbol (`#`) Bound Value Sigil](#31-dual-track-sigils-hash-symbol--bound-value-sigil)
     * [3.2 Dual-Track Sigils: Colon Symbol (`:`) Bound Typic Sigil](#32-dual-track-sigils-colon-symbol--bound-typic-sigil)
-    * [3.3 Whitespace Discipline and the Strict Zero-Tab Invariant](#33-whitespace-discipline-and-the-strict-zero-tab-invariant)
+    * [3.3 Whitespace Discipline & Canonical Formatting Rules](#33-whitespace-discipline--canonical-formatting-rules)
+      * [3.3.1 Trailing End-of-Line Comment Padding & Alignment Preservation](#331-trailing-end-of-line-comment-padding--alignment-preservation)
     * [3.4 Comment Tokens](#34-comment-tokens)
     * [3.5 Metadata Annotation Placement Rules](#35-metadata-annotation-placement-rules)
       * [3.5.1 Empty Metadata Block Prohibition](#351-empty-metadata-block-prohibition)
@@ -427,7 +428,7 @@ STVN enforces strict lexical whitespace discipline and defines two distinct form
 5. **Operation 1 — Non-Destructive Authoring Source Formatting (`StvnSourceFormatter` -> `shared-fixtures/formatting/source_pretty/`):**
   - **Input Domain:** Operates directly on the Pass 1 Concrete Syntax Tree (`StvnParser.stvnDocument()`) and hidden-channel `//` line comment tokens (`CommonTokenStream`), succeeding on any Pass 1 syntactically valid STVN 2.0.0 document even when Pass 2–4 semantic errors exist in `:defs`, `:type`, or `:body`.
   - **Non-Destructive Preservation Invariant:** Preserves 100% of authoring constructs:
-    - Standalone and trailing end-of-line `//` comments (`COMMENT` tokens routed to ANTLR `channel(HIDDEN)`).
+    - Standalone and trailing end-of-line `//` comments (`COMMENT` tokens routed to ANTLR `channel(HIDDEN)`), including authored horizontal padding spaces and target-column alignment (`>= 1` spaces) before trailing same-line `//` comments (§ 3.3.1).
     - Authored blank lines inside blocks (collapsing 2 or more consecutive blank lines to at most 1 blank line).
     - `:package` blocks, `:use` directives, and `:include` directives.
     - `#CONST` constant definitions and references, plus unreferenced `:defs` entries.
@@ -437,7 +438,7 @@ STVN enforces strict lexical whitespace discipline and defines two distinct form
     - *Multi-Line `:use` and `:include` Indentation Layouts (at `:defs` base column 4; add `+2` when nested inside `:package`):*
       - **Layout 1 (Same-Line Target and `{`):** `:use [ :pkg {` (or `:use [ :pkg { #strip } {`) starts at column 4, alias pairs (`:Type :Alias` or `#CONST #ALIAS`) and interior standalone comments indent to **column 8**, closing `}` indents to **column 6**, and closing `]` indents to **column 4** (or `} ]` at column 6 when authored on the same line without comments).
       - **Layout 2 (New-Line Target and `{`):** `:use [` starts at column 4, `:pkg {` (or `:pkg { #strip } {`) sits on a new line at **column 6**, alias pairs and interior standalone comments indent to **column 8**, closing `}` indents to **column 6**, and closing `]` indents to **column 4**.
-    - *Canonical Horizontal Spacing:* Single interior space inside non-empty metadata maps (`{ #facet1 ... #facetN }`) and single-line `:use` / `:include` brackets (`:use [ :pkg { #strip } ]`); zero interior space inside `:Enum[#A #B]`, `#filterIncl [#A #B]`, `:Tuple(...)`, `:Seq(...)`, `[1 2 3]`, `["k" v]`, `("a" 1)`, and empty delimiters `{}`, `[]`, `()`; single space before `{` in `:meta {`, `:defs {`, `:package :path {`, and `:use [ :path {`.
+    - *Canonical Horizontal Spacing:* Single interior space inside non-empty metadata maps (`{ #facet1 ... #facetN }`) and single-line `:use` / `:include` brackets (`:use [ :pkg { #strip } ]`); zero interior space inside `:Enum[#A #B]`, `#filterIncl [#A #B]`, `:Tuple(...)`, `:Seq(...)`, `[1 2 3]`, `["k" v]`, `("a" 1)`, and empty delimiters `{}`, `[]`, `()`; single space before `{` in `:meta {`, `:defs {`, `:package :path {`, and `:use [ :path {`; at least one space (`>= 1` spaces, preserving authored multi-space horizontal padding and target-column alignment) between any syntax token and a trailing same-line `//` comment (§ 3.3.1).
     - *Automatic `:meta` Key Sorting & § 6.1 5-Tier Decimal Metadata Facet Sorting:* Sorts `:meta` entries into `#name` -> `#domain` -> `#kind` order and sorts `metadataEntry` nodes inside every `{ ... }` `metadataMap` block into canonical § 6.1 5-tier decimal order (`1.1.1` through `5.0`).
     - *Authored Multi-Line Schema & Payload Container Preservation:* Preserves authored multi-line `:Tuple(...)` and `:Union(...)` schema groups (`openParen.line < closeParen.line`) and authored multi-line non-empty payload `tupleLiteral` `( ... )` and `listLiteral` `[ ... ]` containers (`openDelim.line < closeDelim.line`), emitting each element on its own `+2`-space indented line and the closing delimiter at the container's base indentation. Single-line non-empty payload `tupleLiteral` `(1 2 3)` and `listLiteral` `[1 2 3]` containers without interior comments or nested composite/fenced elements format inline on a single line; empty containers without interior comments always format inline as `()` and `[]`. Automatically expands any `:Tuple(...)` or `:Union(...)` schema group whose member schemas carry inline metadata facets or recursively contain a multi-line schema construct through any chain of intermediate constructors (`:Tuple`, `:Union`, `:Option`, `:Either`, `:Seq`, `:Set`, `:Map`).
 6. **Operation 2 — Canonical IR Projections (`AstPrettyPrinter` -> `shared-fixtures/formatting/pretty/` & `AstCompactPrinter` -> `shared-fixtures/formatting/compact/`):**
@@ -467,6 +468,39 @@ STVN enforces strict lexical whitespace discipline and defines two distinct form
   - **Concrete Default Allocation Limit:** Unadorned `:String` instances default to character bounds `{ #minSize 0 #maxSize 16777216 }` (16 MiB allocation ceiling). Explicit `{ #minSize 0 }` is a redundant tautology triggering warning `W003` (`WARN_REDUNDANT_METADATA_FACET`) and purged during IR normalization.
   - **Default Inspection Threshold:** 4,096 characters.
   - **Logical Character Cardinality:** Bounded strings declare `{ #maxSize N } :String` or `{ #minSize 1 #maxSize N } :String`. The `#maxSize` facet itself accepts unbounded integer values ($N \in \mathbb{N}^+$, e.g. `#maxSize 16777216000000`). Machine bit-width facet `#size` is prohibited on `:String`.
+
+#### 3.3.1 Trailing End-of-Line Comment Padding & Alignment Preservation
+
+When a single-line comment (`//`) appears on the same line after a syntax token (a trailing end-of-line comment), Operation 1 source formatters (`StvnSourceFormatter` and IDE PSI formatters) enforce a minimum separation of **one ASCII space (`0x20`)** while preserving authored multi-space horizontal alignment padding and target-column alignment:
+
+$$\text{authoredSpaces} = \text{commentToken.startIndex} - \text{prevDefaultToken.stopIndex} - 1$$
+
+$$\text{emittedSpacesBeforeComment} = \begin{cases} 1 & \text{if } \text{authoredSpaces} \le 1 \\ \max(\text{authoredSpaces},\; \text{commentToken.charPositionInLine} - \text{currentLineCol}) & \text{if } \text{authoredSpaces} \ge 2 \end{cases}$$
+
+1. **Zero-Space Normalization (`0` -> `1`):** A trailing comment authored immediately adjacent to a preceding token without whitespace (e.g., `8080// port`) normalizes to a single space (`8080 // port`).
+2. **Single-Space Stability (`1` -> `1`):** A trailing comment separated by a single space (`8080 // port`) retains a single space.
+3. **Multi-Space Alignment & Target-Column Preservation (`N >= 2`):** A trailing comment padded with $N \ge 2$ ASCII spaces to align comments across adjacent lines retains its horizontal padding and compensates when interior spacing earlier on the same line collapses (for example, normalizing `:prelude  {` to `:prelude {` while keeping `//` anchored at its original column).
+
+```stvn
+{
+  // aligned_trailing_comments.spec.stvn_i
+  :meta {
+    #name "aligned_trailing_comments"
+    #domain "spec"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :use [ :org/stvnadore/prelude {                   // <-- Aligned trailing comment
+        :Port :Port                                   // <-- Aligned trailing comment
+        #SHA256_LOWER_CASE_REGEX #SHA256_LOWER_CASE_REGEX // <-- Aligned trailing comment
+      }                                               // <-- Aligned trailing comment
+    ]
+    :CheckmarkedPort :Tuple(:Port { #maxSize 128 #regex #SHA256_LOWER_CASE_REGEX } :String)
+  }
+  :type :CheckmarkedPort
+  :body (8080 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+}
+```
 
 ---
 

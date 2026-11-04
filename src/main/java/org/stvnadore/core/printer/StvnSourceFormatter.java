@@ -189,6 +189,7 @@ public final class StvnSourceFormatter {
   private static final class FormatterCursor {
 
     private final String source;
+    private final List<Token> allTokens;
     private final List<Token> comments;
     private final StringBuilder sb = new StringBuilder();
     private int nextCommentIdx = 0;
@@ -196,6 +197,7 @@ public final class StvnSourceFormatter {
 
     FormatterCursor(String source, List<Token> allTokens) {
       this.source = source;
+      this.allTokens = List.copyOf(allTokens);
       List<Token> commentList = new ArrayList<>();
       for (Token token : allTokens) {
         if (token.getType() == StvnLexer.COMMENT) {
@@ -339,7 +341,7 @@ public final class StvnSourceFormatter {
         sb.append('\n').append(indentStr(indent + 1));
         formatMetaElementInline(item.ctx());
         if (item.trailingComment() != null) {
-          sb.append(' ').append(item.trailingComment().getText());
+          sb.append(trailingCommentPadding(item.trailingComment())).append(item.trailingComment().getText());
         }
       }
 
@@ -1085,7 +1087,7 @@ public final class StvnSourceFormatter {
           sb.append('\n').append(indentStr(indent + 1));
           formatMetadataEntryInline(item.ctx());
           if (item.trailingComment() != null) {
-            sb.append(' ').append(item.trailingComment().getText());
+            sb.append(trailingCommentPadding(item.trailingComment())).append(item.trailingComment().getText());
           }
         }
         for (Token c : footerComments) {
@@ -1600,11 +1602,32 @@ public final class StvnSourceFormatter {
       if (nextCommentIdx < comments.size()) {
         Token candidate = comments.get(nextCommentIdx);
         if (candidate.getLine() == line && candidate.getTokenIndex() < maxTokenIndexExclusive) {
-          sb.append(' ').append(candidate.getText());
+          sb.append(trailingCommentPadding(candidate)).append(candidate.getText());
           lastEmittedLine = candidate.getLine();
           nextCommentIdx++;
         }
       }
+    }
+
+    private String trailingCommentPadding(Token commentToken) {
+      int tokIdx = commentToken.getTokenIndex();
+      for (int i = tokIdx - 1; i >= 0 && i < allTokens.size(); i--) {
+        Token prev = allTokens.get(i);
+        if (prev.getChannel() == Token.DEFAULT_CHANNEL) {
+          if (prev.getLine() == commentToken.getLine()) {
+            int authoredSpaces = commentToken.getStartIndex() - prev.getStopIndex() - 1;
+            if (authoredSpaces <= 1) {
+              return " ";
+            }
+            int currentLineCol = sb.length() - (sb.lastIndexOf("\n") + 1);
+            int targetCol = commentToken.getCharPositionInLine();
+            int spaces = Math.max(authoredSpaces, targetCol - currentLineCol);
+            return " ".repeat(spaces);
+          }
+          break;
+        }
+      }
+      return " ";
     }
 
     private boolean flushStandaloneCommentsBefore(

@@ -469,4 +469,68 @@ class StvnSourceFormatterTest {
     Assertions.assertEquals(expected, formatted);
     Assertions.assertEquals(formatted, StvnSourceFormatter.format(formatted));
   }
+
+  @Test
+  @DisplayName("Preserves authored horizontal padding and target-column alignment before trailing // comments (§ 3.3.1)")
+  void testPreservesAuthoredHorizontalPaddingBeforeTrailingComments() {
+    String useNested = """
+        {
+          :meta {
+            #kind #BODY_INCLUDE          // aligned meta comment
+            #domain "json"               // aligned meta comment
+            #name "use_nested"           // aligned meta comment
+          }
+          :defs {
+            :use [ :org/stvnadore/prelude/meta { :StvnPosixId64 :StvnPosixId64 } ]
+            :use [ :org/stvnadore/prelude  {                  // <-- Aligned trailing comment
+                :Port :Port                                   // <-- Aligned trailing comment
+                #SHA256_LOWER_CASE_REGEX #SHA256_LOWER_CASE_REGEX // <-- Aligned trailing comment
+              }                                               // <-- Aligned trailing comment
+            ]
+            :BoundedPort {
+              #maxIncl 65535             // aligned facet comment
+              #minIncl 1                 // aligned facet comment
+            } :Port
+          }
+          :type :BoundedPort // single-space comment
+          :body 8080// zero-space comment
+        }""";
+
+    String expected = """
+        {
+          :meta {
+            #name "use_nested"           // aligned meta comment
+            #domain "json"               // aligned meta comment
+            #kind #BODY_INCLUDE          // aligned meta comment
+          }
+          :defs {
+            :use [ :org/stvnadore/prelude/meta { :StvnPosixId64 :StvnPosixId64 } ]
+            :use [ :org/stvnadore/prelude {                   // <-- Aligned trailing comment
+                :Port :Port                                   // <-- Aligned trailing comment
+                #SHA256_LOWER_CASE_REGEX #SHA256_LOWER_CASE_REGEX // <-- Aligned trailing comment
+              }                                               // <-- Aligned trailing comment
+            ]
+            :BoundedPort {
+              #minIncl 1                 // aligned facet comment
+              #maxIncl 65535             // aligned facet comment
+            } :Port
+          }
+          :type :BoundedPort // single-space comment
+          :body 8080 // zero-space comment
+        }""";
+
+    String formatted = StvnSourceFormatter.format(useNested);
+    Assertions.assertEquals(expected, formatted);
+    Assertions.assertEquals(expected, StvnSourceFormatter.format(formatted), "Idempotency check failed");
+
+    for (String line : formatted.lines().toList()) {
+      if (line.contains("Aligned trailing comment") && !line.contains("#SHA256_LOWER_CASE_REGEX")) {
+        Assertions.assertEquals(
+            54,
+            line.indexOf("//"),
+            "Expected trailing comment anchored at 0-based column 54 on line: " + line
+        );
+      }
+    }
+  }
 }
