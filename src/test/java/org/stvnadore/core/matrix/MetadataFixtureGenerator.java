@@ -2305,6 +2305,111 @@ public final class MetadataFixtureGenerator {
         Optional.of("#maxExcl")
     ));
 
+    // 8. Stage 4 duplicate :Map key, duplicate :Set element, and :Seq #maxSize cardinality overflow
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "map_constraints", "inv_map_duplicate_key_and_set_cardinality_stage4.stvn_i"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_map_duplicate_key_and_set_cardinality_stage4
+        // MATRIX-POSITION:    1.5.1 vs 1.5.2
+        // TARGET-TYPE:        :Map / :Set / :Seq
+        // COVERAGE-KIND:      INTERVAL_SOUNDNESS
+        // EXPECT-DIAGNOSTIC:  DUPLICATE_MAP_KEY
+        // TARGET-TOKEN:       "route-primary"
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Stage 4 duplicate :Set element, duplicate :Map key, and :Seq #maxSize cardinality overflow
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_map_duplicate_key_and_set_cardinality_stage4"
+            #kind #BODY_INCLUDE
+          }
+          :defs {
+            :StrictTagSet { #minSize 1 #maxSize 4 } :Set(
+              :Tuple(
+                { #maxSize 32 } :String
+                { #exact #maxSize 6 } :Float
+              )
+            )
+            :StrictRoutingMap { #minSize 2 #maxSize 2 } :Map(
+              { #maxSize 32 } :String
+              { #unsigned #size 16 } :Int
+            )
+            :BoundedBatchSeq { #minSize 2 #maxSize 3 } :Seq({ #unsigned #size 8 } :Int)
+            :Stage4Envelope :Tuple(
+              :StrictTagSet
+              :StrictRoutingMap
+              :BoundedBatchSeq
+            )
+          }
+          :type :Stage4Envelope
+          :body (
+            [
+              ("sensor-a" 12.5)
+              ("sensor-a" 12.5)
+            ]
+            {
+              ["route-primary" 8080]
+              ["route-primary" 9090]
+            }
+            [10 20 30 40]
+          )
+        }
+        """,
+        CoverageKind.INTERVAL_SOUNDNESS,
+        Optional.of("DUPLICATE_MAP_KEY"),
+        Optional.of("\"route-primary\"")
+    ));
+
+    // 9. Stage 5 direct and derived { #exact #maxSize 5 } :Float significand precision overflow and integer-in-float
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "precision_and_overflow", "inv_exact_float_precision_and_derived_maxsize_stage5.stvn_i"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_exact_float_precision_and_derived_maxsize_stage5
+        // MATRIX-POSITION:    1.1.2 vs 1.5.2
+        // TARGET-TYPE:        :Float (exact)
+        // COVERAGE-KIND:      INTERVAL_SOUNDNESS
+        // EXPECT-DIAGNOSTIC:  CAPACITY_OVERFLOW
+        // TARGET-TOKEN:       123.456
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Stage 5 direct and derived { #exact #maxSize 5 } :Float significand precision overflow and integer-in-float type mismatch
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_exact_float_precision_and_derived_maxsize_stage5"
+            #kind #BODY_INCLUDE
+          }
+          :defs {
+            :Uint128Token { #unsigned #size 128 #minIncl 1 #maxExcl 100 } :Int
+            :ExactPrice5Digits { #exact #maxSize 5 #minIncl 0.0 #maxExcl 1000.0 } :Float
+            :DerivedExactPrice5Digits { #minIncl 10.0 #maxExcl 900.0 } :ExactPrice5Digits
+            :Stage5PrecisionEnvelope :Tuple(
+              :Uint128Token
+              :Tuple(
+                :ExactPrice5Digits
+                :DerivedExactPrice5Digits
+              )
+              :ExactPrice5Digits
+            )
+          }
+          :type :Stage5PrecisionEnvelope
+          :body (
+            500
+            (123.456 789.012)
+            250
+          )
+        }
+        """,
+        CoverageKind.INTERVAL_SOUNDNESS,
+        Optional.of("CAPACITY_OVERFLOW"),
+        Optional.of("123.456")
+    ));
+
     return list;
   }
 

@@ -1,0 +1,37 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_exact_float_precision_and_derived_maxsize_stage5
+// MATRIX-POSITION:    1.1.2 vs 1.5.2
+// TARGET-TYPE:        :Float (exact)
+// COVERAGE-KIND:      INTERVAL_SOUNDNESS
+// EXPECT-DIAGNOSTIC:  CAPACITY_OVERFLOW
+// TARGET-TOKEN:       123.456
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Stage 5 direct and derived { #exact #maxSize 5 } :Float significand precision overflow and integer-in-float type mismatch
+// ==============================================================================
+{
+  :meta {
+    #name "inv_exact_float_precision_and_derived_maxsize_stage5"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :Uint128Token { #unsigned #size 128 #minIncl 1 #maxExcl 100 } :Int
+    :ExactPrice5Digits { #exact #maxSize 5 #minIncl 0.0 #maxExcl 1000.0 } :Float
+    :DerivedExactPrice5Digits { #minIncl 10.0 #maxExcl 900.0 } :ExactPrice5Digits
+    :Stage5PrecisionEnvelope :Tuple(
+      :Uint128Token
+      :Tuple(
+        :ExactPrice5Digits
+        :DerivedExactPrice5Digits
+      )
+      :ExactPrice5Digits
+    )
+  }
+  :type :Stage5PrecisionEnvelope
+  :body (
+    500
+    (123.456 789.012)
+    250
+  )
+}

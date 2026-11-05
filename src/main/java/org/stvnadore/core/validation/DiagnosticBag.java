@@ -189,6 +189,8 @@ public final class DiagnosticBag {
   public static final String WARN_DOCUMENT_DOMAIN_OMITTED_IN_META = "WARN_DOCUMENT_DOMAIN_OMITTED_IN_META";
   /** Warning code emitted when a metadata facet declaration is tautological or redundant (SPEC § 5.1.1, § 5.5.3, § 9.2, W003). */
   public static final String WARN_REDUNDANT_METADATA_FACET = "WARN_REDUNDANT_METADATA_FACET";
+  /** Warning code emitted when the diagnostic accumulator reaches its configured maximum threshold capacity (W003). */
+  public static final String WARN_DIAG_LIMIT_EXCEEDED = "STVN_DIAG_LIMIT_EXCEEDED";
   /** Error code emitted when an excised legacy file extension (.stvn_incl, .stvn_inclf, .stvn_cas, .stvn_bin, .stvn_f, .stvn_df, .stvn_bf, .stvn_bdf) is encountered. */
   public static final String ERR_LEGACY_FILE_EXTENSION_PURGED = "ERR_LEGACY_FILE_EXTENSION_PURGED";
 
@@ -218,10 +220,12 @@ public final class DiagnosticBag {
       Map.entry(ERR_TAB_CHARACTER_FORBIDDEN, "E001"),
       Map.entry("TAB_DISCIPLINE_VIOLATION", "E001"),
       Map.entry(ERR_ROOT_ENCLOSURE_MISSING, "E002"),
+      Map.entry("SYNTAX_ERROR", "E002"),
       Map.entry("STVN_SYNTAX_ERROR", "E002"),
       Map.entry("STVN_SYNTAX_CANCELLATION", "E002"),
       Map.entry("STVN_PARSE_CANCELLATION", "E002"),
       Map.entry(ERR_MALFORMED_SCHEMA, "E002"),
+      Map.entry("ERR_MALFORMED_SCHEMA", "E002"),
       Map.entry(ERR_BARE_COLON_PROHIBITED, "E002"),
       Map.entry(ERR_BARE_HASH_PROHIBITED, "E002"),
       Map.entry(ERR_RESERVED_KEYWORD_ON_LHS, "E002"),
@@ -232,13 +236,21 @@ public final class DiagnosticBag {
       Map.entry("EMPTY_METADATA_BLOCK", "E003"),
       Map.entry(ERR_EMPTY_DIRECTIVE_BLOCK, "E004"),
       Map.entry("EMPTY_DIRECTIVE_BLOCK", "E004"),
+      Map.entry("DUPLICATE_IMPORT", "E005"),
       Map.entry(ERR_DUPLICATE_MODULE_IMPORT, "E005"),
       Map.entry(ERR_MODULE_IMPORT, "E005"),
       Map.entry(ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT, "E005"),
       Map.entry(ERR_NAMESPACE_COLLISION, "E006"),
+      Map.entry("ERR_NAMESPACE_COLLISION", "E006"),
       Map.entry(ERR_DUPLICATE_DEF, "E006"),
+      Map.entry("ERR_DUPLICATE_DEF", "E006"),
+      Map.entry("SUM_TYPE_TAG_COLLISION", "E006"),
+      Map.entry("ERR_CAS_PREIMAGE_AMBIGUITY", "E006"),
+      Map.entry("CYCLIC_DEPENDENCY", "E007"),
       Map.entry("CYCLIC_MODULE_INCLUDE", "E007"),
+      Map.entry("ERR_CYCLIC_MODULE", "E007"),
       Map.entry("CIRCULAR_DEPENDENCY", "E007"),
+      Map.entry("CIRCULAR_REFERENCE", "E007"),
       Map.entry(ERR_CIRCULAR_TYPE, "E007"),
       Map.entry(ERR_INVALID_METADATA_FACET, "E008"),
       Map.entry("INVALID_FACET_TARGET", "E008"),
@@ -248,26 +260,36 @@ public final class DiagnosticBag {
       Map.entry(ERR_INCOMPATIBLE_TYPE, "E008"),
       Map.entry(ERR_MUTUALLY_EXCLUSIVE, "E008"),
       Map.entry(ERR_TRAIT_VIOLATION, "E008"),
+      Map.entry("ERR_TRAIT_VIOLATION", "E008"),
       Map.entry(ERR_MISSING_TEMPORAL_FACET, "E008"),
       Map.entry(ERR_TEMPORAL_SCALE_MISSING, "E008"),
       Map.entry(ERR_DATETIME_MODE_INVALID, "E008"),
       Map.entry("ERR_LEGACY_UNIT_FACET_PURGED", "E008"),
       Map.entry(ERR_INTEGER_OVERFLOW, "E009"),
       Map.entry("INT_OVERFLOW", "E009"),
+      Map.entry("MALFORMED_LITERAL", "E009"),
       Map.entry(ERR_INVALID_NUMERIC_LITERAL, "E009"),
       Map.entry(ERR_INVERTED_RANGE, "E009"),
+      Map.entry("ERR_INVERTED_RANGE", "E009"),
       Map.entry(ERR_EMPTY_INTERVAL_DOMAIN, "E009"),
       Map.entry(ERR_FLOAT_INVALID_SIZE, "E010"),
       Map.entry(ERR_DISCRETE_BOUND_KIND_PROHIBITED, "E011"),
       Map.entry("FLOAT_EXACT_RANGE_CONFLICT", "E011"),
       Map.entry(ERR_CAPACITY_OVERFLOW, "E012"),
+      Map.entry("ERR_CAPACITY_OVERFLOW", "E012"),
       Map.entry("STRING_BOUND_VIOLATION", "E012"),
+      Map.entry("CONSTRAINT_VIOLATION", "E012"),
       Map.entry(ERR_CONSTRAINT_VIOLATION, "E012"),
       Map.entry(ERR_INVALID_REGEX, "E013"),
       Map.entry(ERR_REGEX_MISMATCH, "E013"),
       Map.entry(ERR_ENUM_SUBSET_NOT_SUBSET, "E014"),
+      Map.entry("ERR_ENUM_SUBSET_NOT_SUBSET", "E014"),
       Map.entry(ERR_ENUM_SUBSET_ORDER_VIOLATION, "E015"),
+      Map.entry("ERR_ENUM_SUBSET_ORDER_VIOLATION", "E015"),
+      Map.entry("ERR_ORDER_MISMATCH", "E015"),
       Map.entry(ERR_ENUM_SUBSET_EMPTY, "E016"),
+      Map.entry("ERR_ENUM_SUBSET_EMPTY", "E016"),
+      Map.entry("COLLECTION_COLLISION", "E017"),
       Map.entry(ERR_COLLECTION_EMPTY_VIOLATION, "E017"),
       Map.entry(ERR_DUPLICATE_SET_ELEMENT, "E017"),
       Map.entry(ERR_DUPLICATE_MAP_KEY, "E017"),
@@ -285,6 +307,7 @@ public final class DiagnosticBag {
       Map.entry("FENCE_PROHIBITED_ARROW", "E026"),
       Map.entry(ERR_INCOMPATIBLE_NOMINAL_TYPE, "E027"),
       Map.entry("OPAQUE_TYPE_BRAND_MISMATCH", "E027"),
+      Map.entry("TYPE_MISMATCH", "E028"),
       Map.entry(ERR_TYPE_MISMATCH, "E028"),
       Map.entry("CONSTANT_TYPE_MISMATCH", "E028"),
       Map.entry(ERR_TUPLE_ARITY_MISMATCH, "E028"),
@@ -299,6 +322,7 @@ public final class DiagnosticBag {
       Map.entry("MALFORMED_PAYLOAD", "E028"),
       Map.entry(ERR_DEAD_CODE_CANONICAL_FAIL, "E029"),
       Map.entry(ERR_UNDEFINED_TYPE, "E030"),
+      Map.entry("ERR_UNDEFINED_TYPE", "E030"),
       Map.entry("ERR_UNKNOWN_TYPE", "E030"),
       Map.entry(ERR_UNDEFINED_CONSTANT, "E030"),
       Map.entry(ERR_PRELUDE_ALIAS_PURGED, "E030"),
@@ -318,7 +342,8 @@ public final class DiagnosticBag {
       Map.entry(WARN_DOCUMENT_NAME_MISMATCH, "W001"),
       Map.entry(WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME, "W002"),
       Map.entry(WARN_DOCUMENT_DOMAIN_OMITTED_IN_META, "W002"),
-      Map.entry(WARN_REDUNDANT_METADATA_FACET, "W003")
+      Map.entry(WARN_REDUNDANT_METADATA_FACET, "W003"),
+      Map.entry(WARN_DIAG_LIMIT_EXCEEDED, "W003")
   );
 
   private static final class AccumulatorState {
@@ -443,8 +468,11 @@ public final class DiagnosticBag {
             diagnostic.startOffset(),
             diagnostic.endOffset(),
             null,
-            Optional.of("STVN_DIAG_LIMIT_EXCEEDED")
-        ).withSourcePath(effectivePath.orElse(null)));
+            Optional.of(WARN_DIAG_LIMIT_EXCEEDED),
+            Optional.of("W003"),
+            Optional.of(WARN_DIAG_LIMIT_EXCEEDED),
+            effectivePath
+        ));
       }
       return false;
     }

@@ -1,0 +1,48 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_map_duplicate_key_and_set_cardinality_stage4
+// MATRIX-POSITION:    1.5.1 vs 1.5.2
+// TARGET-TYPE:        :Map / :Set / :Seq
+// COVERAGE-KIND:      INTERVAL_SOUNDNESS
+// EXPECT-DIAGNOSTIC:  DUPLICATE_MAP_KEY
+// TARGET-TOKEN:       "route-primary"
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Stage 4 duplicate :Set element, duplicate :Map key, and :Seq #maxSize cardinality overflow
+// ==============================================================================
+{
+  :meta {
+    #name "inv_map_duplicate_key_and_set_cardinality_stage4"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :StrictTagSet { #minSize 1 #maxSize 4 } :Set(
+      :Tuple(
+        { #maxSize 32 } :String
+        { #exact #maxSize 6 } :Float
+      )
+    )
+    :StrictRoutingMap { #minSize 2 #maxSize 2 } :Map(
+      { #maxSize 32 } :String
+      { #unsigned #size 16 } :Int
+    )
+    :BoundedBatchSeq { #minSize 2 #maxSize 3 } :Seq({ #unsigned #size 8 } :Int)
+    :Stage4Envelope :Tuple(
+      :StrictTagSet
+      :StrictRoutingMap
+      :BoundedBatchSeq
+    )
+  }
+  :type :Stage4Envelope
+  :body (
+    [
+      ("sensor-a" 12.5)
+      ("sensor-a" 12.5)
+    ]
+    {
+      ["route-primary" 8080]
+      ["route-primary" 9090]
+    }
+    [10 20 30 40]
+  )
+}

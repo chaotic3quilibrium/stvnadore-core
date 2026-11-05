@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 6 34 192 221 "Constraint violation (:UInt64): #maxExcl value 18446744073709551617 is out of bounds for physical capacity of :Int (unsigned 64-bit)" )
+    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 6 34 192 221 "Constraint violation (:UInt64): #maxExcl value 18446744073709551617 is out of bounds for physical capacity of :Int (unsigned 64-bit); valid #maxExcl range is [1, 18446744073709551616]" )
   ]
 }

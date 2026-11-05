@@ -11,7 +11,14 @@ import org.antlr.v4.runtime.TokenStream;
 import org.antlr.v4.runtime.misc.IntervalSet;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.validation.DiagnosticBag;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Custom error strategy implementing STVN Section 7.3 Coordinate Pinning Invariants.
@@ -23,9 +30,37 @@ import org.stvnadore.core.StvnVocabulary;
 @NullMarked
 public final class StvnErrorStrategy extends DefaultErrorStrategy {
 
+  private final @Nullable DiagnosticBag diagnosticBag;
+  private final List<StvnDiagnostic> coalescedNumericDiagnostics = new ArrayList<>();
+
   /** Constructs a new coordinate-pinning parser error strategy. */
   public StvnErrorStrategy() {
+    this(null);
+  }
+
+  /**
+   * Constructs a new coordinate-pinning parser error strategy bound to the specified diagnostic accumulator.
+   *
+   * @param diagnosticBag the diagnostic accumulator, or {@code null}
+   */
+  public StvnErrorStrategy(@Nullable DiagnosticBag diagnosticBag) {
     super();
+    this.diagnosticBag = diagnosticBag;
+  }
+
+  /**
+   * Returns an unmodifiable view of Pass 1 numeric-literal underscore diagnostics coalesced during parsing.
+   *
+   * @return the list of coalesced numeric syntax diagnostics
+   */
+  public List<StvnDiagnostic> getCoalescedNumericDiagnostics() {
+    return Collections.unmodifiableList(coalescedNumericDiagnostics);
+  }
+
+  @Override
+  public void sync(Parser recognizer) throws RecognitionException {
+    tryCoalesceContiguousNumericUnderscore(recognizer);
+    super.sync(recognizer);
   }
 
   @Override
@@ -147,6 +182,13 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
 
   @Override
   public Token recoverInline(Parser recognizer) throws RecognitionException {
+    if (tryCoalesceContiguousNumericUnderscore(recognizer)) {
+      if (recognizer.getExpectedTokens().contains(recognizer.getTokenStream().LA(1))) {
+        Token matchedSymbol = recognizer.getCurrentToken();
+        recognizer.consume();
+        return matchedSymbol;
+      }
+    }
     TokenStream stream = recognizer.getTokenStream();
     Token offendingToken = stream.LT(1);
     Token prevToken = stream.LT(-1);
@@ -166,6 +208,74 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
     }
 
     return super.recoverInline(recognizer);
+  }
+
+  private boolean tryCoalesceContiguousNumericUnderscore(Parser recognizer) {
+    TokenStream tokens = recognizer.getInputStream();
+    if (tokens == null) {
+      return false;
+    }
+    Token prev = tokens.LT(-1);
+    Token curr = tokens.LT(1);
+    if (prev == null
+        || curr == null
+        || (prev.getType() != StvnParser.LITERAL_INTEGER && prev.getType() != StvnParser.LITERAL_FLOAT)
+        || curr.getType() != StvnParser.IDENTIFIER
+        || curr.getText() == null
+        || !curr.getText().startsWith("_")
+        || prev.getStopIndex() + 1 != curr.getStartIndex()) {
+      return false;
+    }
+
+    StringBuilder combined = new StringBuilder(prev.getText());
+    Token endTok = prev;
+    while (tokens.LA(1) != Token.EOF) {
+      Token next = tokens.LT(1);
+      if (next == null
+          || next.getStartIndex() != endTok.getStopIndex() + 1
+          || isStructuralDelimiterToken(next.getType())) {
+        break;
+      }
+      endTok = next;
+      combined.append(next.getText());
+      recognizer.consume();
+    }
+
+    int startOffset = prev.getStartIndex();
+    int endOffset = endTok.getStopIndex() + 1;
+    int line = prev.getLine();
+    int col = prev.getCharPositionInLine();
+    String msg = "STVN Syntax Error: Underscore separators are prohibited in numeric literals: '" + combined + "'";
+
+    StvnDiagnostic diag = new StvnDiagnostic(
+        msg,
+        StvnDiagnostic.DiagnosticSeverity.ERROR,
+        line,
+        col,
+        startOffset,
+        endOffset,
+        null,
+        Optional.of(DiagnosticBag.ERR_INVALID_NUMERIC_LITERAL),
+        Optional.of("E002"),
+        Optional.of(DiagnosticBag.ERR_INVALID_NUMERIC_LITERAL),
+        diagnosticBag != null ? diagnosticBag.defaultSourcePath() : Optional.empty()
+    );
+    coalescedNumericDiagnostics.add(diag);
+    if (diagnosticBag != null) {
+      diagnosticBag.add(diag);
+    } else {
+      recognizer.notifyErrorListeners(prev, msg, null);
+    }
+    return true;
+  }
+
+  private static boolean isStructuralDelimiterToken(int tokenType) {
+    return tokenType == StvnParser.LPAREN
+        || tokenType == StvnParser.RPAREN
+        || tokenType == StvnParser.LBRACK
+        || tokenType == StvnParser.RBRACK
+        || tokenType == StvnParser.LBRACE
+        || tokenType == StvnParser.RBRACE;
   }
 
   private static boolean isDefsContext(@Nullable RuleContext ctx, @Nullable Token prevToken) {

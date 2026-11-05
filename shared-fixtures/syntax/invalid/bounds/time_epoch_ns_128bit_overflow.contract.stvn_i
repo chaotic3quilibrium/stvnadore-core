@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 6 22 164 212 "Constraint violation (:NanoEpoch): #maxExcl value 170141183460469231731687303715884105728 is out of bounds for physical capacity of :TimeEpoch (signed 128-bit)" )
+    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 6 22 164 212 "Constraint violation (:NanoEpoch): #maxExcl value 170141183460469231731687303715884105728 is out of bounds for physical capacity of :TimeEpoch (signed 128-bit); valid #maxExcl range is [-170141183460469231731687303715884105728, 170141183460469231731687303715884105727]" )
   ]
 }

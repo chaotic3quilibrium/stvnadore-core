@@ -1,0 +1,26 @@
+{
+  :meta {
+    #name "inv_numeric_underscore_resilient_body_stage5"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :Uint128Token { #unsigned #size 128 #minIncl 1 #maxExcl 100 } :Int
+    :ExactPrice5Digits { #exact #maxSize 5 #minIncl 0.0 #maxExcl 1000.0 } :Float
+    :Stage5Envelope :Tuple(
+      :Uint128Token
+      :Uint128Token
+      :Tuple(
+        :ExactPrice5Digits
+        :ExactPrice5Digits
+      )
+      :ExactPrice5Digits
+    )
+  }
+  :type :Stage5Envelope
+  :body (
+    0x1000_0000_0000_0000_0001
+    500
+    (123.456 99.95)
+    250
+  )
+}

@@ -9,7 +9,7 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 19 41 838 886 "Constraint violation (:OverflowU128): #maxExcl value 340282366920938463463374607431768211457 is out of bounds for physical capacity of :Int (unsigned 128-bit)" )
-    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 20 31 924 973 "Constraint violation (:OverflowI128): #minIncl value -170141183460469231731687303715884105729 is out of bounds for physical capacity of :Int (signed 128-bit)" )
+    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 19 41 838 886 "Constraint violation (:OverflowU128): #maxExcl value 340282366920938463463374607431768211457 is out of bounds for physical capacity of :Int (unsigned 128-bit); valid #maxExcl range is [1, 340282366920938463463374607431768211456]" )
+    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 20 31 924 973 "Constraint violation (:OverflowI128): #minIncl value -170141183460469231731687303715884105729 is out of bounds for physical capacity of :Int (signed 128-bit); valid #minIncl range is [-170141183460469231731687303715884105728, 170141183460469231731687303715884105727]" )
   ]
 }

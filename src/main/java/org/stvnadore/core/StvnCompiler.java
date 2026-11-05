@@ -139,6 +139,7 @@ public final class StvnCompiler {
     var parser = new StvnParser(new CommonTokenStream(lexer));
     parser.removeErrorListeners();
 
+    StvnErrorStrategy errorStrategy = null;
     if (config.strict()) {
       parser.setErrorHandler(new BailErrorStrategy());
       var errorListener = StvnErrorListener.strict();
@@ -148,15 +149,27 @@ public final class StvnCompiler {
       var listener = StvnErrorListener.accumulating(diagnosticBag);
       lexer.addErrorListener(listener);
       parser.addErrorListener(listener);
-      parser.setErrorHandler(new StvnErrorStrategy());
+      errorStrategy = new StvnErrorStrategy(diagnosticBag);
+      parser.setErrorHandler(errorStrategy);
     }
 
     try {
       int errorsBeforePass1 = diagnosticBag.errorCount();
       var docCtx = parser.stvnDocument();
+      List<StvnDiagnostic> coalescedNumericDiags = errorStrategy != null
+          ? errorStrategy.getCoalescedNumericDiagnostics()
+          : List.of();
+      int pass1Errors = diagnosticBag.errorCount() - errorsBeforePass1;
       boolean unitHasPass1SyntaxError =
-          parser.getNumberOfSyntaxErrors() > 0 || diagnosticBag.errorCount() > errorsBeforePass1;
+          parser.getNumberOfSyntaxErrors() > 0 || pass1Errors > 0;
       var docBody = docCtx.documentBody();
+      boolean onlyBodyCoalescedNumericErrors = parser.getNumberOfSyntaxErrors() == 0
+          && !coalescedNumericDiags.isEmpty()
+          && pass1Errors == coalescedNumericDiags.size()
+          && docBody != null
+          && docBody.bodyEntry() != null
+          && allDiagnosticsInsideContext(coalescedNumericDiags, docBody.bodyEntry());
+      boolean unitHasHeaderOrDefsSyntaxError = unitHasPass1SyntaxError && !onlyBodyCoalescedNumericErrors;
       boolean hasNoClauses = docBody == null
           || (docBody.metaEntry() == null
               && docBody.defsEntry() == null
@@ -171,8 +184,8 @@ public final class StvnCompiler {
       StvnDefsLowerer.DefsLoweringResult defsRes;
       try {
         defsRes = embeddedBinaryDefsMode
-            ? StvnDefsLowerer.lowerEmbeddedBinaryDefs(docCtx, docPath, config, diagnosticBag, unitHasPass1SyntaxError)
-            : StvnDefsLowerer.lowerDocumentHeaderAndDefs(docCtx, docPath, config, diagnosticBag, unitHasPass1SyntaxError);
+            ? StvnDefsLowerer.lowerEmbeddedBinaryDefs(docCtx, docPath, config, diagnosticBag, unitHasHeaderOrDefsSyntaxError)
+            : StvnDefsLowerer.lowerDocumentHeaderAndDefs(docCtx, docPath, config, diagnosticBag, unitHasHeaderOrDefsSyntaxError);
       } catch (Throwable t) {
         mapUnexpectedLoweringException(t, input, diagnosticBag);
         return new TextCompilationOutcome(StvnCompilationResult.failure(diagnosticBag.toList()), Optional.empty(), false);
@@ -211,7 +224,7 @@ public final class StvnCompiler {
       }
 
       // Determine whether Pass 3 payload lowering is eligible under fault-containment rules
-      boolean canValidateBody = !unitHasPass1SyntaxError
+      boolean canValidateBody = !unitHasHeaderOrDefsSyntaxError
           && defsRes.sectionsEligible()
           && defsRes.rootType().isPresent()
           && docBody.bodyEntry().value() != null;
@@ -230,6 +243,9 @@ public final class StvnCompiler {
             continue;
           }
           if (!Objects.equals(diag.sourcePath(), rootSourcePath)) {
+            continue;
+          }
+          if (isCoalescedBodyDiagnostic(diag, coalescedNumericDiags)) {
             continue;
           }
           String sym = diag.symbolicId().or(() -> diag.errorCode()).orElse("");
@@ -273,7 +289,8 @@ public final class StvnCompiler {
             defsRes.rootType().get(),
             defsRes.rootConstantResolver(),
             defsRes.nominalTypeLookup(),
-            diagnosticBag
+            diagnosticBag,
+            coalescedNumericDiags
         );
         payload = Optional.of(loweredValue);
       } catch (Throwable t) {
@@ -368,6 +385,37 @@ public final class StvnCompiler {
       }
       return new TextCompilationOutcome(StvnCompilationResult.failure(diagnosticBag.toList()), Optional.empty(), false);
     }
+  }
+
+  private static boolean allDiagnosticsInsideContext(
+      List<StvnDiagnostic> diagnostics,
+      org.antlr.v4.runtime.ParserRuleContext ctx
+  ) {
+    if (ctx.getStart() == null || ctx.getStop() == null) {
+      return false;
+    }
+    int start = ctx.getStart().getStartIndex();
+    int stop = ctx.getStop().getStopIndex() + 1;
+    for (StvnDiagnostic d : diagnostics) {
+      if (d.startOffset() < start || d.startOffset() > stop) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean isCoalescedBodyDiagnostic(
+      StvnDiagnostic diag,
+      List<StvnDiagnostic> coalescedNumericDiags
+  ) {
+    for (StvnDiagnostic c : coalescedNumericDiags) {
+      if (diag.startOffset() == c.startOffset()
+          && diag.endOffset() == c.endOffset()
+          && Objects.equals(diag.symbolicId(), c.symbolicId())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

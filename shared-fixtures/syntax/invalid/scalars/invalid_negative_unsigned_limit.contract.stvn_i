@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 6 30 161 172 "Constraint violation (:UnsignedType): #minIncl value -5 is out of bounds for physical capacity of :Int (unsigned 32-bit)" )
+    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 6 30 161 172 "Constraint violation (:UnsignedType): #minIncl value -5 is out of bounds for physical capacity of :Int (unsigned 32-bit); valid #minIncl range is [0, 4294967295]" )
   ]
 }

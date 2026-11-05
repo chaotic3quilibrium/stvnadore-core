@@ -2944,6 +2944,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_RESERVED_DOMAIN_PROHIBITED`              | `"ERR_RESERVED_DOMAIN_PROHIBITED"`              | Fatal    | User document declares reserved system domain beginning with prefix `"stvn_"` in `:meta` (§ 3.10.1 Rule 6).                                                                    |
 | `ERR_UNRECOGNIZED_METADATA_FACET`             | `"ERR_UNRECOGNIZED_METADATA_FACET"`             | Fatal    | Unrecognized metadata facet tag encountered in `{ ... }` metadata block (`E036`).                                                                                              |
 | `ERR_NON_OVERRIDABLE_FACET`                   | `"ERR_NON_OVERRIDABLE_FACET"`                   | Fatal    | Nominal alias derivation attempted to override or re-specify an immutable Tier 1 Definition facet (`E040`, § 6.1 & § 9.1.1).                                                   |
+| `WARN_DIAG_LIMIT_EXCEEDED`                    | `"STVN_DIAG_LIMIT_EXCEEDED"`                    | Warning  | Diagnostic accumulator reached its configured maximum threshold capacity (`W003`); further diagnostics are suppressed.                                                         |
 
 ### C.4 Discrete Half-Open Interval Semantics ($[minIncl, maxExcl)$)
 

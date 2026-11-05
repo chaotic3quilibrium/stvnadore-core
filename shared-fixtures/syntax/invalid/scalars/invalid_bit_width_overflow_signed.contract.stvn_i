@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 6 26 159 171 "Constraint violation (:SignedType): #maxExcl value 129 is out of bounds for physical capacity of :Int (signed 8-bit)" )
+    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 6 26 159 171 "Constraint violation (:SignedType): #maxExcl value 129 is out of bounds for physical capacity of :Int (signed 8-bit); valid #maxExcl range is [-127, 128]" )
   ]
 }

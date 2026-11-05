@@ -4600,7 +4600,8 @@ public final class StvnDefsLowerer {
             diagnosticBag.addError(
                 "Constraint violation (" + ownerLabel + "): #minIncl value " + minVal
                     + " is out of bounds for physical capacity of " + StvnVocabulary.TYPE_INT
-                    + " (" + (effectiveUnsigned ? "unsigned " : "signed ") + effectiveBitWidth + "-bit)",
+                    + " (" + (effectiveUnsigned ? "unsigned " : "signed ") + effectiveBitWidth + "-bit)"
+                    + "; valid #minIncl range is " + formatPhysicalIntRange(effectiveBitWidth, effectiveUnsigned, false),
                 bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
                 DiagnosticBag.ERR_INTEGER_OVERFLOW
             );
@@ -4679,7 +4680,8 @@ public final class StvnDefsLowerer {
             diagnosticBag.addError(
                 "Constraint violation (" + ownerLabel + "): #maxExcl value " + maxVal
                     + " is out of bounds for physical capacity of " + StvnVocabulary.TYPE_INT
-                    + " (" + (effectiveUnsigned ? "unsigned " : "signed ") + effectiveBitWidth + "-bit)",
+                    + " (" + (effectiveUnsigned ? "unsigned " : "signed ") + effectiveBitWidth + "-bit)"
+                    + "; valid #maxExcl range is " + formatPhysicalIntRange(effectiveBitWidth, effectiveUnsigned, true),
                 bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
                 DiagnosticBag.ERR_INTEGER_OVERFLOW
             );
@@ -5121,7 +5123,8 @@ public final class StvnDefsLowerer {
             diagnosticBag.addError(
                 "Constraint violation (" + ownerLabel + "): #minIncl value " + v
                     + " is out of bounds for physical capacity of " + StvnVocabulary.TYPE_TIME_EPOCH
-                    + " (signed " + bitWidth + "-bit)",
+                    + " (signed " + bitWidth + "-bit)"
+                    + "; valid #minIncl range is " + formatPhysicalIntRange(bitWidth, false, false),
                 bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
                 DiagnosticBag.ERR_INTEGER_OVERFLOW
             );
@@ -5145,7 +5148,8 @@ public final class StvnDefsLowerer {
             diagnosticBag.addError(
                 "Constraint violation (" + ownerLabel + "): #maxExcl value " + v
                     + " is out of bounds for physical capacity of " + StvnVocabulary.TYPE_TIME_EPOCH
-                    + " (signed " + bitWidth + "-bit)",
+                    + " (signed " + bitWidth + "-bit)"
+                    + "; valid #maxExcl range is " + formatPhysicalIntRange(bitWidth, false, false),
                 bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
                 DiagnosticBag.ERR_INTEGER_OVERFLOW
             );
@@ -5717,7 +5721,8 @@ public final class StvnDefsLowerer {
         if (bd.abs().compareTo(IEEE_32_MAX_FINITE) > 0) {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): bound " + bd + " in '" + facetLabel
-                  + "' overflows 32-bit IEEE-754 finite range",
+                  + "' overflows 32-bit IEEE-754 finite range; valid value range is ["
+                  + StvnVocabulary.FLOAT32_MIN + ", " + StvnVocabulary.FLOAT32_MAX + "]",
               sp.start(), sp.end(), sp.line(), sp.column(), null,
               DiagnosticBag.ERR_FLOAT_OVERFLOW
           );
@@ -5728,7 +5733,8 @@ public final class StvnDefsLowerer {
         if (Double.isInfinite(d) || Double.isNaN(d)) {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): bound " + bd + " in '" + facetLabel
-                  + "' overflows 64-bit IEEE-754 finite range",
+                  + "' overflows 64-bit IEEE-754 finite range; valid value range is ["
+                  + StvnVocabulary.FLOAT64_MIN + ", " + StvnVocabulary.FLOAT64_MAX + "]",
               sp.start(), sp.end(), sp.line(), sp.column(), null,
               DiagnosticBag.ERR_FLOAT_OVERFLOW
           );
@@ -6268,5 +6274,40 @@ public final class StvnDefsLowerer {
       case "strip" -> 5000;
       default -> 9900;
     };
+  }
+
+  /**
+   * Formats the valid physical integer range for a declared bit-width and signedness.
+   * <p>
+   * For bit-widths {@code s <= 128}, outputs the exact decimal interval {@code [min, max]}.
+   * For bit-widths {@code s > 128}, outputs the symbolic power-of-two interval.
+   *
+   * @param bitWidth              the declared integer bit-width
+   * @param unsigned              {@code true} if unsigned, {@code false} if signed two's-complement
+   * @param isExclusiveUpperBound {@code true} when formatting the valid range for {@code #maxExcl} on {@code :Int},
+   *                              which shifts the inclusive member range by {@code +1}
+   * @return the formatted valid physical range string
+   */
+  public static String formatPhysicalIntRange(BigInteger bitWidth, boolean unsigned, boolean isExclusiveUpperBound) {
+    if (bitWidth.compareTo(BigInteger.valueOf(128)) <= 0) {
+      int s = bitWidth.intValue();
+      BigInteger minAllowed = unsigned ? BigInteger.ZERO : BigInteger.ONE.shiftLeft(s - 1).negate();
+      BigInteger maxAllowed = unsigned
+          ? BigInteger.ONE.shiftLeft(s).subtract(BigInteger.ONE)
+          : BigInteger.ONE.shiftLeft(s - 1).subtract(BigInteger.ONE);
+      if (isExclusiveUpperBound) {
+        return "[" + minAllowed.add(BigInteger.ONE) + ", " + maxAllowed.add(BigInteger.ONE) + "]";
+      }
+      return "[" + minAllowed + ", " + maxAllowed + "]";
+    }
+    if (unsigned) {
+      return isExclusiveUpperBound
+          ? "[1, 2^" + bitWidth + "]"
+          : "[0, 2^" + bitWidth + " - 1]";
+    }
+    BigInteger exp = bitWidth.subtract(BigInteger.ONE);
+    return isExclusiveUpperBound
+        ? "[-2^" + exp + " + 1, 2^" + exp + "]"
+        : "[-2^" + exp + ", 2^" + exp + " - 1]";
   }
 }

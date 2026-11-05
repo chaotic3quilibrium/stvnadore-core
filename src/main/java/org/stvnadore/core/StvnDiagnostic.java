@@ -2,6 +2,7 @@ package org.stvnadore.core;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.validation.DiagnosticBag;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -88,6 +89,20 @@ public record StvnDiagnostic(
     Objects.requireNonNull(canonicalCode, "canonicalCode must not be null");
     Objects.requireNonNull(symbolicId, "symbolicId must not be null");
     Objects.requireNonNull(sourcePath, "sourcePath must not be null");
+    if (canonicalCode.isEmpty() && symbolicId.isPresent()) {
+      canonicalCode = DiagnosticBag.resolveCanonicalCode(symbolicId.get());
+    }
+    if (canonicalCode.isEmpty() && errorCode.isPresent()) {
+      canonicalCode = isCanonicalDiagnosticCode(errorCode)
+          ? errorCode
+          : DiagnosticBag.resolveCanonicalCode(errorCode.get());
+    }
+    if (symbolicId.isEmpty() && errorCode.isPresent() && !isCanonicalDiagnosticCode(errorCode)) {
+      symbolicId = errorCode;
+    }
+    if (errorCode.isEmpty() && symbolicId.isPresent()) {
+      errorCode = symbolicId;
+    }
     sourcePath = sourcePath
         .filter(p -> !p.isEmpty())
         .map(StvnSchemaFlattener::normalizePath)
@@ -238,7 +253,9 @@ public record StvnDiagnostic(
         endOffset,
         cause,
         Objects.requireNonNull(errorCode, "errorCode must not be null"),
-        isCanonicalDiagnosticCode(errorCode) ? errorCode : Optional.empty(),
+        isCanonicalDiagnosticCode(errorCode)
+            ? errorCode
+            : errorCode.flatMap(DiagnosticBag::resolveCanonicalCode),
         isCanonicalDiagnosticCode(errorCode) ? Optional.empty() : errorCode,
         Optional.empty()
     );

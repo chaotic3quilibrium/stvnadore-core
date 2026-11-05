@@ -545,4 +545,113 @@ public class StvnDiagnosticAccumulationTest {
     Assertions.assertEquals("TRAIT_VIOLATION", diag2.errorCode().orElse(""));
     Assertions.assertEquals(":SensorSample", input.substring(diag2.startOffset(), diag2.endOffset()));
   }
+
+  @Test
+  @DisplayName("Stage 4 Target 1: Duplicate :Map key and duplicate #invertible :Map value wrap in StvnErrorValue and preserve partial AST")
+  void testDuplicateMapKeyAndInvertedValueWrapInStvnErrorValue() {
+    String input = """
+        {
+          :defs {
+            :StrictRoutingMap { #minSize 2 #maxSize 2 } :Map(
+              { #maxSize 32 } :String
+              { #unsigned #size 16 } :Int
+            )
+            :BiMap { #invertible } :Map( :String :Int )
+            :Envelope :Tuple( :StrictRoutingMap :BiMap )
+          }
+          :type :Envelope
+          :body (
+            {
+              ["route-primary" 8080]
+              ["route-primary" 9090]
+            }
+            {
+              ["a" 10]
+              ["b" 10]
+            }
+          )
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertTrue(result.isRecoveredPartialAst(), "Duplicate map key/value must produce a recovered partial AST with StvnErrorValue");
+    Assertions.assertTrue(result.document().isPresent());
+
+    var diags = result.diagnostics();
+    Assertions.assertEquals(2, diags.size());
+
+    var dupKeyDiag = diags.get(0);
+    Assertions.assertEquals("E017", dupKeyDiag.canonicalCode().orElse(""));
+    Assertions.assertEquals("DUPLICATE_MAP_KEY", dupKeyDiag.symbolicId().orElse(""));
+    Assertions.assertEquals("\"route-primary\"", input.substring(dupKeyDiag.startOffset(), dupKeyDiag.endOffset()));
+
+    var dupValDiag = diags.get(1);
+    Assertions.assertEquals("E018", dupValDiag.canonicalCode().orElse(""));
+    Assertions.assertEquals("DUPLICATE_INVERTED_MAP_VALUE", dupValDiag.symbolicId().orElse(""));
+    Assertions.assertEquals("10", input.substring(dupValDiag.startOffset(), dupValDiag.endOffset()));
+
+    StvnTuple rootTuple = (StvnTuple) result.document().get().payload().orElseThrow();
+    StvnMap routingMap = (StvnMap) rootTuple.elements().get(0);
+    Assertions.assertInstanceOf(StvnErrorValue.class, routingMap.entries().get(1).key());
+
+    StvnMap biMap = (StvnMap) rootTuple.elements().get(1);
+    Assertions.assertInstanceOf(StvnErrorValue.class, biMap.entries().get(1).value());
+  }
+
+  @Test
+  @DisplayName("Stage 5 Target 3: Localized :body numeric underscore syntax error recovery preserves Pass 3 sibling validation and derived #exact :Float #maxSize")
+  void testStage5LocalizedBodyNumericUnderscoreRecoveryAndExactFloatMaxSize() {
+    String input = """
+        {
+          :defs {
+            :Uint8 { #unsigned #size 8 } :Int
+            :Uint64 { #unsigned #size 64 } :Int
+            :ExactPrice5Digits { #exact #maxSize 5 } :Float
+            :DerivedPriceRange { #minIncl 10.0 #maxExcl 900.0 } :ExactPrice5Digits
+            :Stage5Envelope :Tuple(
+              :Uint64
+              :Uint8
+              :ExactPrice5Digits
+              :DerivedPriceRange
+              :ExactPrice5Digits
+            )
+          }
+          :type :Stage5Envelope
+          :body (
+            0x1000_0000_0000_0000_0001
+            500
+            123.456
+            123.456
+            250
+          )
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertTrue(result.isRecoveredPartialAst(), "Localized :body numeric underscore error must still yield recovered partial AST");
+
+    var diags = result.diagnostics();
+    Assertions.assertEquals(5, diags.size(), "Expected 1 syntax error + 4 sibling semantic errors: " + diags);
+
+    Assertions.assertEquals("E002", diags.get(0).canonicalCode().orElse(""));
+    Assertions.assertEquals("ERR_INVALID_NUMERIC_LITERAL", diags.get(0).symbolicId().orElse(""));
+    Assertions.assertEquals("0x1000_0000_0000_0000_0001", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
+
+    Assertions.assertEquals("E009", diags.get(1).canonicalCode().orElse(""));
+    Assertions.assertEquals("ERR_INTEGER_OVERFLOW", diags.get(1).symbolicId().orElse(""));
+    Assertions.assertTrue(diags.get(1).message().contains("valid value range is [0, 255]"));
+
+    Assertions.assertEquals("E012", diags.get(2).canonicalCode().orElse(""));
+    Assertions.assertEquals("CAPACITY_OVERFLOW", diags.get(2).symbolicId().orElse(""));
+
+    Assertions.assertEquals("E012", diags.get(3).canonicalCode().orElse(""));
+    Assertions.assertEquals("CAPACITY_OVERFLOW", diags.get(3).symbolicId().orElse(""));
+
+    Assertions.assertEquals("E028", diags.get(4).canonicalCode().orElse(""));
+    Assertions.assertEquals("ERR_TYPE_MISMATCH", diags.get(4).symbolicId().orElse(""));
+  }
 }

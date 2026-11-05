@@ -232,12 +232,38 @@ public final class StvnPayloadLowerer {
       NominalSchemaResolver nominalSchemaResolver,
       DiagnosticBag diagnosticBag
   ) {
+    return lowerValue(ctx, targetSchema, constantResolver, nominalSchemaResolver, diagnosticBag, List.of());
+  }
+
+  /**
+   * Lowers a root or standalone payload {@link StvnParser.ValueContext} against {@code targetSchema}
+   * using custom {@link ConstantResolver} and {@link NominalSchemaResolver} hooks and pre-recorded
+   * Pass 1 syntax error spans.
+   *
+   * @param ctx                     the parsed ANTLR value context
+   * @param targetSchema            the governing normalized {@link StvnSchema}
+   * @param constantResolver        the scoped constant lookup callback
+   * @param nominalSchemaResolver   the nominal schema lookup callback for guarded recursive types
+   * @param diagnosticBag           the accumulator bag for semantic diagnostics
+   * @param preRecordedSyntaxErrors Pass 1 syntax diagnostics inside {@code :body} to wrap into {@link StvnErrorValue}
+   * @return the lowered {@link StvnValue} tree (or {@link StvnErrorValue} on root failure)
+   */
+  public static StvnValue lowerValue(
+      StvnParser.ValueContext ctx,
+      StvnSchema targetSchema,
+      ConstantResolver constantResolver,
+      NominalSchemaResolver nominalSchemaResolver,
+      DiagnosticBag diagnosticBag,
+      List<StvnDiagnostic> preRecordedSyntaxErrors
+  ) {
     Objects.requireNonNull(ctx, "ctx must not be null");
     Objects.requireNonNull(targetSchema, "targetSchema must not be null");
     Objects.requireNonNull(constantResolver, "constantResolver must not be null");
     Objects.requireNonNull(nominalSchemaResolver, "nominalSchemaResolver must not be null");
     Objects.requireNonNull(diagnosticBag, "diagnosticBag must not be null");
-    return lowerInternal(ctx, targetSchema, constantResolver, nominalSchemaResolver, diagnosticBag, null, false);
+    Objects.requireNonNull(preRecordedSyntaxErrors, "preRecordedSyntaxErrors must not be null");
+    return lowerInternal(
+        ctx, targetSchema, constantResolver, nominalSchemaResolver, diagnosticBag, null, false, preRecordedSyntaxErrors);
   }
 
   /**
@@ -332,6 +358,20 @@ public final class StvnPayloadLowerer {
       @Nullable String overrideLabel,
       boolean schemaContextMode
   ) {
+    return lowerInternal(
+        ctx, targetSchema, constantResolver, nominalSchemaResolver, diagnosticBag, overrideLabel, schemaContextMode, List.of());
+  }
+
+  private static StvnValue lowerInternal(
+      StvnParser.ValueContext ctx,
+      StvnSchema targetSchema,
+      ConstantResolver constantResolver,
+      NominalSchemaResolver nominalSchemaResolver,
+      DiagnosticBag diagnosticBag,
+      @Nullable String overrideLabel,
+      boolean schemaContextMode,
+      List<StvnDiagnostic> preRecordedSyntaxErrors
+  ) {
     StvnSchema effectiveTarget = unwrapRecursiveBackEdge(targetSchema, nominalSchemaResolver);
     if (effectiveTarget instanceof StvnSchema.PoisonedSchema poisoned) {
       return silentPoisonErrorValue(ctx, poisoned, diagnosticBag);
@@ -346,7 +386,7 @@ public final class StvnPayloadLowerer {
     }
 
     LoweringSession session = new LoweringSession(
-        constantResolver, nominalSchemaResolver, diagnosticBag, overrideLabel, schemaContextMode);
+        constantResolver, nominalSchemaResolver, diagnosticBag, overrideLabel, schemaContextMode, preRecordedSyntaxErrors);
     Deque<StreamItem> queue = new ArrayDeque<>();
     queue.addLast(toStreamItem(ctx));
     try {
@@ -1492,23 +1532,27 @@ public final class StvnPayloadLowerer {
     private final DiagnosticBag diagnosticBag;
     private final @Nullable String overrideLabel;
     private final boolean schemaContextMode;
+    private final List<StvnDiagnostic> preRecordedSyntaxErrors;
 
     LoweringSession(
         ConstantResolver constantResolver,
         NominalSchemaResolver nominalSchemaResolver,
         DiagnosticBag diagnosticBag,
         @Nullable String overrideLabel,
-        boolean schemaContextMode
+        boolean schemaContextMode,
+        List<StvnDiagnostic> preRecordedSyntaxErrors
     ) {
       this.constantResolver = constantResolver;
       this.nominalSchemaResolver = nominalSchemaResolver;
       this.diagnosticBag = diagnosticBag;
       this.overrideLabel = overrideLabel;
       this.schemaContextMode = schemaContextMode;
+      this.preRecordedSyntaxErrors = preRecordedSyntaxErrors;
     }
 
     LoweringSession withBag(DiagnosticBag probeBag) {
-      return new LoweringSession(constantResolver, nominalSchemaResolver, probeBag, overrideLabel, schemaContextMode);
+      return new LoweringSession(
+          constantResolver, nominalSchemaResolver, probeBag, overrideLabel, schemaContextMode, preRecordedSyntaxErrors);
     }
 
     LoweringAbortException abort(
@@ -1544,6 +1588,16 @@ public final class StvnPayloadLowerer {
       }
 
       StreamItem peek = queue.getFirst();
+      if (peek instanceof AtomicValueItem atom
+          && atom.ctx().collectionValue() == null) {
+        Span atomSpan = atom.itemSpan();
+        for (StvnDiagnostic preDiag : preRecordedSyntaxErrors) {
+          if (atomSpan.start() >= preDiag.startOffset() && atomSpan.start() < preDiag.endOffset()) {
+            queue.removeFirst();
+            throw new LoweringAbortException(preDiag);
+          }
+        }
+      }
       if (peek instanceof AtomicValueItem atom && isMalformedSyntaxContext(atom.ctx())) {
         queue.removeFirst();
         Span span = atom.itemSpan();
@@ -2612,7 +2666,9 @@ public final class StvnPayloadLowerer {
       if (!intSchema.acceptsWidth(value)) {
         String signedness = intSchema.unsigned() ? "unsigned " : "signed ";
         String msg = "Integer literal '" + rawText + "' overflows " + signedness
-            + intSchema.bitWidth() + "-bit capacity for " + label;
+            + intSchema.bitWidth() + "-bit capacity for " + label
+            + "; valid value range is "
+            + StvnDefsLowerer.formatPhysicalIntRange(intSchema.bitWidth(), intSchema.unsigned(), false);
         throw abort(
             msg, span,
             new StvnIntegerOverflowException(msg, span.start(), span.end()),
@@ -2646,7 +2702,9 @@ public final class StvnPayloadLowerer {
       BigInteger bitWidth = epochSchema.scale().bitWidth();
       if (!fitsSignedBitWidth(ticks, bitWidth)) {
         String msg = "Epoch tick literal '" + rawText + "' overflows signed "
-            + bitWidth + "-bit capacity for " + label;
+            + bitWidth + "-bit capacity for " + label
+            + "; valid value range is "
+            + StvnDefsLowerer.formatPhysicalIntRange(bitWidth, false, false);
         throw abort(
             msg, span,
             new StvnIntegerOverflowException(msg, span.start(), span.end()),
@@ -2690,7 +2748,8 @@ public final class StvnPayloadLowerer {
         if (rawVal.compareTo(StvnVocabulary.FLOAT32_MAX) > 0
             || rawVal.compareTo(StvnVocabulary.FLOAT32_MIN) < 0) {
           String msg = "Value [" + rawVal + "] is out of bounds for " + label + " ("
-              + StvnVocabulary.FLOAT32_MIN + " to " + StvnVocabulary.FLOAT32_MAX + ")";
+              + StvnVocabulary.FLOAT32_MIN + " to " + StvnVocabulary.FLOAT32_MAX + ")"
+              + "; valid value range is [" + StvnVocabulary.FLOAT32_MIN + ", " + StvnVocabulary.FLOAT32_MAX + "]";
           throw abort(
               msg, span,
               new MalformedPayloadException(msg, span.start(), span.end()),
@@ -2700,7 +2759,8 @@ public final class StvnPayloadLowerer {
         if (rawVal.compareTo(StvnVocabulary.FLOAT64_MAX) > 0
             || rawVal.compareTo(StvnVocabulary.FLOAT64_MIN) < 0) {
           String msg = "Value [" + rawVal + "] is out of bounds for " + label + " ("
-              + StvnVocabulary.FLOAT64_MIN + " to " + StvnVocabulary.FLOAT64_MAX + ")";
+              + StvnVocabulary.FLOAT64_MIN + " to " + StvnVocabulary.FLOAT64_MAX + ")"
+              + "; valid value range is [" + StvnVocabulary.FLOAT64_MIN + ", " + StvnVocabulary.FLOAT64_MAX + "]";
           throw abort(
               msg, span,
               new MalformedPayloadException(msg, span.start(), span.end()),
@@ -3085,10 +3145,11 @@ public final class StvnPayloadLowerer {
           if (!seenKeys.add(canonicalEqualityKey(loweredKey))) {
             Span keySpan = Span.ofContext(keyCtx);
             String msg = "Duplicate map key detected";
-            recordError(
+            StvnDiagnostic dupKeyDiag = recordError(
                 diagnosticBag, msg, keySpan,
                 new StvnCollectionCollisionException(msg, keySpan.start(), keySpan.end()),
                 "E017", DiagnosticBag.ERR_DUPLICATE_MAP_KEY, schemaContextMode);
+            loweredKey = new StvnErrorValue(mapSchema.keySchema(), dupKeyDiag);
           }
         }
 
@@ -3096,10 +3157,11 @@ public final class StvnPayloadLowerer {
           if (!seenValues.add(canonicalEqualityKey(loweredVal))) {
             Span valSpan = Span.ofContext(valCtx);
             String msg = "Duplicate inverted map value detected";
-            recordError(
+            StvnDiagnostic dupValDiag = recordError(
                 diagnosticBag, msg, valSpan,
                 new StvnCollectionCollisionException(msg, valSpan.start(), valSpan.end()),
                 "E018", DiagnosticBag.ERR_DUPLICATE_INVERTED_MAP_VALUE, schemaContextMode);
+            loweredVal = new StvnErrorValue(mapSchema.valueSchema(), dupValDiag);
           }
         }
 

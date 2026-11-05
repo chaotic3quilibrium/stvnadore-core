@@ -1446,4 +1446,54 @@ public class StvnDiagnosticsTest {
       }
     }
   }
+
+  @Test
+  @DisplayName("Stage 4/5 Target 2 & Target 4: Physical integer range formatting (exact <= 128 bits, symbolic > 128 bits) and W003 canonical code resolution")
+  void testPhysicalIntRangeFormattingAndW003Resolution() {
+    Assertions.assertEquals(
+        "[-128, 127]",
+        org.stvnadore.core.lowering.StvnDefsLowerer.formatPhysicalIntRange(java.math.BigInteger.valueOf(8), false, false)
+    );
+    Assertions.assertEquals(
+        "[-127, 128]",
+        org.stvnadore.core.lowering.StvnDefsLowerer.formatPhysicalIntRange(java.math.BigInteger.valueOf(8), false, true)
+    );
+    Assertions.assertEquals(
+        "[0, 255]",
+        org.stvnadore.core.lowering.StvnDefsLowerer.formatPhysicalIntRange(java.math.BigInteger.valueOf(8), true, false)
+    );
+    Assertions.assertEquals(
+        "[-2^255, 2^255 - 1]",
+        org.stvnadore.core.lowering.StvnDefsLowerer.formatPhysicalIntRange(java.math.BigInteger.valueOf(256), false, false)
+    );
+    Assertions.assertEquals(
+        "[-2^255 + 1, 2^255]",
+        org.stvnadore.core.lowering.StvnDefsLowerer.formatPhysicalIntRange(java.math.BigInteger.valueOf(256), false, true)
+    );
+    Assertions.assertEquals(
+        "[0, 2^256 - 1]",
+        org.stvnadore.core.lowering.StvnDefsLowerer.formatPhysicalIntRange(java.math.BigInteger.valueOf(256), true, false)
+    );
+    Assertions.assertEquals(
+        "[1, 2^256]",
+        org.stvnadore.core.lowering.StvnDefsLowerer.formatPhysicalIntRange(java.math.BigInteger.valueOf(256), true, true)
+    );
+
+    DiagnosticBag bag = new DiagnosticBag(1);
+    bag.addError("First error", 0, 1, 1, 1, null, DiagnosticBag.ERR_TYPE_MISMATCH);
+    bag.addError("Second error triggers limit warning", 2, 3, 2, 1, null, DiagnosticBag.ERR_TYPE_MISMATCH);
+
+    var diags = bag.toList();
+    Assertions.assertEquals(2, diags.size());
+    var limitWarn = diags.get(1);
+    Assertions.assertEquals("W003", limitWarn.canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.WARN_DIAG_LIMIT_EXCEEDED, limitWarn.symbolicId().orElse(""));
+
+    StvnDiagnostic eightArgDiag = new StvnDiagnostic(
+        "Test message", StvnDiagnostic.DiagnosticSeverity.ERROR, 1, 1, 0, 1,
+        null, java.util.Optional.of(DiagnosticBag.ERR_DUPLICATE_MAP_KEY)
+    );
+    Assertions.assertEquals("E017", eightArgDiag.canonicalCode().orElse(""));
+    Assertions.assertEquals("DUPLICATE_MAP_KEY", eightArgDiag.symbolicId().orElse(""));
+  }
 }

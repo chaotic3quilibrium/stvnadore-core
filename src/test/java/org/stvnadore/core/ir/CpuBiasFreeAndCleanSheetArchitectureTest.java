@@ -539,7 +539,7 @@ class CpuBiasFreeAndCleanSheetArchitectureTest {
         null,
         Optional.of("ERR_UNKNOWN_TYPE")
     );
-    assertEquals(Optional.empty(), symbolicSingleDiag.canonicalCode());
+    assertEquals(Optional.of("E030"), symbolicSingleDiag.canonicalCode());
     assertEquals(Optional.of("ERR_UNKNOWN_TYPE"), symbolicSingleDiag.symbolicId());
     assertEquals(Optional.of("ERR_UNKNOWN_TYPE"), symbolicSingleDiag.errorCode());
   }

@@ -1,0 +1,16 @@
+{
+  :meta {
+    #name "inv_map_duplicate_key_and_set_cardinality_stage4"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E017 #DUPLICATE_SET_ELEMENT #ERROR 40 7 1354 1371 "Duplicate set element detected" )
+    ( #E017 #DUPLICATE_MAP_KEY #ERROR 44 8 1420 1435 "Duplicate map key detected" )
+    ( #E012 #CAPACITY_OVERFLOW #ERROR 46 15 1462 1464 "Constraint violation (:BoundedBatchSeq): Size 4 outside allowable range [2, 3]" )
+  ]
+}

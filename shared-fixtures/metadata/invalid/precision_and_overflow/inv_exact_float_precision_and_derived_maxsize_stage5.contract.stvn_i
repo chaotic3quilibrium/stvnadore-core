@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "inv_exact_float_precision_and_derived_maxsize_stage5"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 33 5 1311 1314 "Constraint violation (:Uint128Token): Value 500 is outside allowable range (must be < 100)" )
+    ( #E012 #CAPACITY_OVERFLOW #ERROR 34 6 1320 1327 "Constraint violation (:ExactPrice5Digits): Mantissa precision 6 exceeds maximum allowable significant digits (5)" )
+    ( #E012 #CAPACITY_OVERFLOW #ERROR 34 14 1328 1335 "Constraint violation (:DerivedExactPrice5Digits): Mantissa precision 6 exceeds maximum allowable significant digits (5)" )
+    ( #E028 #ERR_TYPE_MISMATCH #ERROR 35 5 1341 1344 "Type mismatch: expected scalar :Float, found scalar :Int literal '250'" )
+  ]
+}
