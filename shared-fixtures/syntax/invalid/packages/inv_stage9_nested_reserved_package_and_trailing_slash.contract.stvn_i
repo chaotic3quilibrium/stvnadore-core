@@ -1,0 +1,22 @@
+{
+  :meta {
+    #name "inv_stage9_nested_reserved_package_and_trailing_slash"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ERR_NESTED_PACKAGE_PROHIBITED #ERROR 12 7 306 382 "Nested packages are prohibited: :com/acme/identity/nested" )
+    ( #E037 #ERR_RESERVED_PACKAGE_PROHIBITED #ERROR 17 14 403 429 "Reserved package namespace prohibited: ':org/stvnadore/custom_hack' is reserved for runtime and standard library definitions" )
+    ( #E002 #ERR_TRAILING_SLASH_PROHIBITED #ERROR 21 12 475 494 "Trailing slash prohibited in :use target: :com/acme/identity/" )
+    ( #E027 #ERR_INCOMPATIBLE_NOMINAL_TYPE #ERROR 24 35 575 589 "Incompatible nominal type: constant '#ADMIN_USER_ID' of nominal type ':com/acme/identity/UserId' cannot be assigned to target nominal type ':com/acme/identity/AccountId'" )
+    ( #E027 #ERR_INCOMPATIBLE_NOMINAL_TYPE #ERROR 43 5 1168 1182 "Incompatible nominal type: constant '#ADMIN_USER_ID' of nominal type ':com/acme/identity/UserId' cannot be assigned to target nominal type ':com/acme/identity/AccountId'" )
+    ( #E028 #ERR_TYPE_MISMATCH #ERROR 44 11 1193 1197 "Type mismatch: expected scalar :Int, found product constructor :Tuple" )
+    ( #E023 #EITHER_LEFT_MISSING_TAG #ERROR 45 5 1202 1205 "Rule E Violation: Untagged value matching Left branch of :Either is non-inferable; explicit #Left tag is required" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 46 5 1210 1216 "Constraint violation (:BoundedLexCode): String value exceeds UTF-8 lexicographical upper bound" )
+    ( #E018 #DUPLICATE_INVERTED_MAP_VALUE #ERROR 47 32 1248 1251 "Duplicate inverted map value detected" )
+  ]
+}

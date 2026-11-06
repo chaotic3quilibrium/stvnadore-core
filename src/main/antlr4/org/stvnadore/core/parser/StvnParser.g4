@@ -37,10 +37,10 @@ defsElement : includeStmt
 
 packageEnclosure : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
 packagePath      : typeKeyword ;
-packageElement   : useStmt
+packageElement   : nestedPackageIllegal
+                 | useStmt
                  | typeDefinition
                  | constantDefinition
-                 | nestedPackageIllegal
                  ;
 nestedPackageIllegal : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
 

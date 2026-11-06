@@ -1,0 +1,49 @@
+{
+  :meta {
+    #name "inv_stage9_nested_reserved_package_and_trailing_slash"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :package :com/acme/identity {
+      :UserId { #unsigned #size 64 #minIncl 1000 } :Int
+      :AccountId { #unsigned #size 64 #minIncl 1000 } :Int
+      #ADMIN_USER_ID :UserId 9001
+
+      :package :com/acme/identity/nested {
+        :IllegalNestedType :Int
+      }
+    }
+
+    :package :org/stvnadore/custom_hack {
+      :HijackedPort :Int
+    }
+
+    :use [ :com/acme/identity/ ]
+    :use [ :com/acme/identity { #strip } ]
+
+    #WRONG_BRAND_CONST :AccountId #ADMIN_USER_ID
+
+    :OptionalCount :Option({ #unsigned #size 16 } :Int)
+    :ErrorCode { #unsigned #size 16 #minIncl 400 #maxExcl 600 } :Int
+    :SuccessMsg { #minSize 1 #maxSize 64 } :String
+    :RpcOutcome :Either(:ErrorCode :SuccessMsg)
+    :BoundedLexCode { #minSize 4 #maxSize 4 #minIncl "B000" #maxIncl "M999" } :String
+    :InvertibleLookup { #invertible #maxSize 8 } :Map({ #maxSize 16 } :String :Int)
+
+    :Stage789Envelope :Tuple(
+      :AccountId
+      :OptionalCount
+      :RpcOutcome
+      :BoundedLexCode
+      :InvertibleLookup
+    )
+  }
+  :type :Stage789Envelope
+  :body (
+    #ADMIN_USER_ID
+    #Some (42)
+    404
+    "Z999"
+    { [ "alpha" 100 ] [ "beta" 100 ] }
+  )
+}
