@@ -405,4 +405,92 @@ public class StvnNominalAliasOverrideMatrixTest {
     assertEquals(12, w003.line());
     assertEquals("#minIncl 1", source.substring(w003.startOffset(), w003.endOffset()));
   }
+
+  @Test
+  @DisplayName("TC-UHOH-USER-REPRO: Rejects :Int16b { #size 16 } :Int32 with E040 when :Int32 relies on intrinsic default #size 32")
+  void userReportedUhohReproductionRejectsInt16bWithE040() {
+    String source = """
+        {
+          :meta {
+            #name "uhoh"
+            #kind #BODY
+          }
+          :defs {
+            :Int32 :Int
+            :Int16a { #size 16 } :Int
+            :Int16b { #size 16 } :Int32
+            :Values :Tuple(
+              :Int32
+              :Int16a
+              :Int16b
+            )
+          }
+          :type :Values
+          :body (
+            1
+            2
+            3
+          )
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Document must fail compilation when derived nominal type :Int16b overrides intrinsic #size 32 on :Int32");
+
+    List<StvnDiagnostic> e040s = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_NON_OVERRIDABLE_FACET.equals(d.symbolicId().orElse(null)))
+        .toList();
+    assertEquals(1, e040s.size(), () -> "Expected exactly 1 E040 diagnostic, got: " + result.diagnostics());
+
+    StvnDiagnostic diag = e040s.get(0);
+    assertEquals("E040", diag.canonicalCode().orElse(null));
+    assertEquals(9, diag.line());
+    assertEquals("#size 16", source.substring(diag.startOffset(), diag.endOffset()));
+    assertTrue(diag.message().contains("non-overridable definition facet '#size' is already established by ancestor :Int32"));
+  }
+
+  @Test
+  @DisplayName("NOM-INTRINSIC-LOCK-01: Locks all Tier-1 Overridable: No representation/identity facets at root nominal definition even when omitted")
+  void intrinsicDefaultLockingAcrossAllRootTypes() {
+    String source = """
+        {
+          :defs {
+            :Int32 :Int
+            :Int16b { #size 16 } :Int32
+            :Int32b { #size 32 } :Int32
+            :Uint32b { #unsigned } :Int32
+
+            :Uint32a { #unsigned } :Int
+            :Uint16b { #size 16 } :Uint32a
+
+            :Int16a { #size 16 } :Int
+            :Uint16c { #unsigned } :Int16a
+
+            :Float64 :Float
+            :Float32b { #size 32 } :Float64
+            :Float64b { #size 64 } :Float64
+            :ExactFloatB { #exact } :Float64
+
+            :PlainMap :Map( { #maxSize 16 } :String :Int )
+            :InvMapB { #invertible } :PlainMap
+          }
+          :type :Int32
+          :body 1
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Derived nominal types overriding locked intrinsic defaults must fail compilation");
+
+    List<StvnDiagnostic> e040s = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_NON_OVERRIDABLE_FACET.equals(d.symbolicId().orElse(null)))
+        .toList();
+    List<StvnDiagnostic> e008s = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE.equals(d.symbolicId().orElse(null)))
+        .toList();
+
+    assertEquals(7, e040s.size(), () -> "Expected 7 E040 diagnostics (:Int16b, :Int32b, :Uint32b, :Uint16b, :Uint16c, :Float64b, :InvMapB), got: " + result.diagnostics());
+    assertEquals(2, e008s.size(), () -> "Expected 2 E008 diagnostics (:Float32b, :ExactFloatB), got: " + result.diagnostics());
+    assertEquals(9, result.diagnostics().size(), () -> "Expected zero spurious W003 or cascade diagnostics, got: " + result.diagnostics());
+  }
 }

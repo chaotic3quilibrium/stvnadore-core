@@ -1,0 +1,21 @@
+{
+  :meta {
+    #name "inv_tier1_intrinsic_default_nominal_locking"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 8 15 136 144 "Constraint violation (:Int16b): non-overridable definition facet '#size' is already established by ancestor :Int32 and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 9 16 169 178 "Constraint violation (:Uint32b): non-overridable definition facet '#unsigned' is already established by ancestor :Int32 and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 11 16 235 243 "Constraint violation (:Uint16b): non-overridable definition facet '#size' is already established by ancestor :Uint32a and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 13 16 300 309 "Constraint violation (:Uint16c): non-overridable definition facet '#unsigned' is already established by ancestor :Int16a and cannot be re-specified" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 15 17 356 364 "Constraint violation (:Float32b): facet '#size 32' is mutually exclusive with ancestor storage size '#size 64' from :Float64" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 16 17 392 400 "Constraint violation (:Float64b): non-overridable definition facet '#size' is already established by ancestor :Float64 and cannot be re-specified" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 17 20 431 437 "Constraint violation (:ExactFloatB): facet '#exact' is mutually exclusive with ancestor storage size '#size 64' from :Float64" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 19 16 515 526 "Constraint violation (:InvMapB): non-overridable definition facet '#invertible' is already established by ancestor :PlainMap and cannot be re-specified" )
+  ]
+}

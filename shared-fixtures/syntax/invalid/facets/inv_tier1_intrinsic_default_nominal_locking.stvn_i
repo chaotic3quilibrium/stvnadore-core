@@ -1,0 +1,23 @@
+{
+  :meta {
+    #name "inv_tier1_intrinsic_default_nominal_locking"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :Int32 :Int
+    :Int16b { #size 16 } :Int32
+    :Uint32b { #unsigned } :Int32
+    :Uint32a { #unsigned } :Int
+    :Uint16b { #size 16 } :Uint32a
+    :Int16a { #size 16 } :Int
+    :Uint16c { #unsigned } :Int16a
+    :Float64 :Float
+    :Float32b { #size 32 } :Float64
+    :Float64b { #size 64 } :Float64
+    :ExactFloatB { #exact } :Float64
+    :PlainMap :Map( { #maxSize 16 } :String :Int )
+    :InvMapB { #invertible } :PlainMap
+  }
+  :type :Int32
+  :body 1
+}

@@ -711,32 +711,32 @@ public final class StvnDefsLowerer {
   }
 
   /**
-   * Ledger of Tier-1 Definition facets explicitly authored anywhere along a nominal derivation chain
+   * Ledger of Tier-1 Definition facets locked along a nominal derivation chain
    * prior to {@code W003} tautology stripping. Used to enforce {@code E040} ({@code ERR_NON_OVERRIDABLE_FACET})
-   * and cross-hop mutual exclusivity ({@code E008}).
+   * and cross-hop mutual exclusivity ({@code E008}), including when a parent nominal alias relies on intrinsic defaults.
    */
   record AncestorFacetLedger(
-      boolean explicitUnsigned,
-      boolean explicitExact,
-      boolean explicitInvertible,
-      Optional<BigInteger> explicitSize,
+      Optional<Boolean> lockedUnsigned,
+      Optional<Boolean> lockedExact,
+      Optional<Boolean> lockedInvertible,
+      Optional<BigInteger> lockedSize,
       Optional<BigInteger> explicitMinSize,
       Optional<BigInteger> explicitMaxSize,
       Optional<TemporalScale> explicitScale,
       Optional<DateTimeMode> explicitMode
   ) {
     static final AncestorFacetLedger EMPTY = new AncestorFacetLedger(
-        false, false, false,
+        Optional.empty(), Optional.empty(), Optional.empty(),
         Optional.empty(), Optional.empty(), Optional.empty(),
         Optional.empty(), Optional.empty()
     );
 
     AncestorFacetLedger mergeChild(AncestorFacetLedger child) {
       return new AncestorFacetLedger(
-          this.explicitUnsigned || child.explicitUnsigned,
-          this.explicitExact || child.explicitExact,
-          this.explicitInvertible || child.explicitInvertible,
-          child.explicitSize.isPresent() ? child.explicitSize : this.explicitSize,
+          child.lockedUnsigned.isPresent() ? child.lockedUnsigned : this.lockedUnsigned,
+          child.lockedExact.isPresent() ? child.lockedExact : this.lockedExact,
+          child.lockedInvertible.isPresent() ? child.lockedInvertible : this.lockedInvertible,
+          child.lockedSize.isPresent() ? child.lockedSize : this.lockedSize,
           child.explicitMinSize.isPresent() ? child.explicitMinSize : this.explicitMinSize,
           child.explicitMaxSize.isPresent() ? child.explicitMaxSize : this.explicitMaxSize,
           child.explicitScale.isPresent() ? child.explicitScale : this.explicitScale,
@@ -1478,15 +1478,19 @@ public final class StvnDefsLowerer {
     private static AncestorFacetLedger inferLedgerFromSchema(StvnSchema schema) {
       return switch (schema) {
         case StvnSchema.IntSchema i -> new AncestorFacetLedger(
-            i.unsigned(), false, false,
-            i.bitWidth().equals(StvnVocabulary.DEFAULT_INT_BIT_WIDTH) ? Optional.empty() : Optional.of(i.bitWidth()),
+            Optional.of(i.unsigned()), Optional.empty(), Optional.empty(),
+            Optional.of(i.bitWidth()),
             Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()
         );
         case StvnSchema.FloatSchema f -> new AncestorFacetLedger(
-            false,
-            f.representation() == FloatRepresentation.EXACT_DECIMAL,
-            false,
-            f.representation() == FloatRepresentation.IEEE_32 ? Optional.of(new BigInteger("32")) : Optional.empty(),
+            Optional.empty(),
+            Optional.of(f.representation() == FloatRepresentation.EXACT_DECIMAL),
+            Optional.empty(),
+            f.representation() == FloatRepresentation.EXACT_DECIMAL
+                ? Optional.empty()
+                : Optional.of(f.representation() == FloatRepresentation.IEEE_32
+                    ? new BigInteger("32")
+                    : StvnVocabulary.DEFAULT_FLOAT_BIT_WIDTH),
             Optional.empty(),
             f.representation() == FloatRepresentation.EXACT_DECIMAL
                 && !f.exactMaxDigits().equals(StvnVocabulary.DEFAULT_MAX_SIZE)
@@ -1494,39 +1498,98 @@ public final class StvnDefsLowerer {
             Optional.empty(), Optional.empty()
         );
         case StvnSchema.StringSchema s -> new AncestorFacetLedger(
-            false, false, false, Optional.empty(),
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
             s.minSize().signum() == 0 ? Optional.empty() : Optional.of(s.minSize()),
             s.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE) ? Optional.empty() : Optional.of(s.maxSize()),
             Optional.empty(), Optional.empty()
         );
         case StvnSchema.TimeEpochSchema te -> new AncestorFacetLedger(
-            false, false, false, Optional.empty(), Optional.empty(), Optional.empty(),
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
             Optional.of(te.scale()), Optional.empty()
         );
         case StvnSchema.DateTimeSchema dt -> new AncestorFacetLedger(
-            false, false, false, Optional.empty(), Optional.empty(), Optional.empty(),
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
             Optional.empty(), Optional.of(dt.mode())
         );
         case StvnSchema.SeqSchema sq -> new AncestorFacetLedger(
-            false, false, false, Optional.empty(),
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
             sq.minSize().signum() == 0 ? Optional.empty() : Optional.of(sq.minSize()),
             sq.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE) ? Optional.empty() : Optional.of(sq.maxSize()),
             Optional.empty(), Optional.empty()
         );
         case StvnSchema.SetSchema st -> new AncestorFacetLedger(
-            false, false, false, Optional.empty(),
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
             st.minSize().signum() == 0 ? Optional.empty() : Optional.of(st.minSize()),
             st.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE) ? Optional.empty() : Optional.of(st.maxSize()),
             Optional.empty(), Optional.empty()
         );
         case StvnSchema.MapSchema mp -> new AncestorFacetLedger(
-            false, false, mp.invertible(), Optional.empty(),
+            Optional.empty(), Optional.empty(), Optional.of(mp.invertible()), Optional.empty(),
             mp.minSize().signum() == 0 ? Optional.empty() : Optional.of(mp.minSize()),
             mp.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE) ? Optional.empty() : Optional.of(mp.maxSize()),
             Optional.empty(), Optional.empty()
         );
         default -> AncestorFacetLedger.EMPTY;
       };
+    }
+
+    private static AncestorFacetLedger lockIntrinsicDefaults(StvnSchema schema, AncestorFacetLedger ledger) {
+      StvnSchema target = schema;
+      if (target instanceof StvnSchema.PoisonedSchema ps && ps.bestEffortFallback().isPresent()) {
+        target = ps.bestEffortFallback().get();
+      }
+      Optional<Boolean> lockedUnsigned = ledger.lockedUnsigned();
+      Optional<Boolean> lockedExact = ledger.lockedExact();
+      Optional<Boolean> lockedInvertible = ledger.lockedInvertible();
+      Optional<BigInteger> lockedSize = ledger.lockedSize();
+      Optional<TemporalScale> explicitScale = ledger.explicitScale();
+      Optional<DateTimeMode> explicitMode = ledger.explicitMode();
+
+      if (target instanceof StvnSchema.IntSchema intSchema) {
+        if (lockedUnsigned.isEmpty()) {
+          lockedUnsigned = Optional.of(intSchema.unsigned());
+        }
+        if (lockedSize.isEmpty()) {
+          lockedSize = Optional.of(intSchema.bitWidth());
+        }
+      } else if (target instanceof StvnSchema.FloatSchema floatSchema) {
+        boolean isExact = floatSchema.representation() == FloatRepresentation.EXACT_DECIMAL;
+        if (lockedExact.isEmpty()) {
+          lockedExact = Optional.of(isExact);
+        }
+        if (isExact) {
+          lockedSize = Optional.empty();
+        } else if (lockedSize.isEmpty()) {
+          lockedSize = Optional.of(
+              floatSchema.representation() == FloatRepresentation.IEEE_32
+                  ? new BigInteger("32")
+                  : StvnVocabulary.DEFAULT_FLOAT_BIT_WIDTH
+          );
+        }
+      } else if (target instanceof StvnSchema.MapSchema mapSchema) {
+        if (lockedInvertible.isEmpty()) {
+          lockedInvertible = Optional.of(mapSchema.invertible());
+        }
+      } else if (target instanceof StvnSchema.TimeEpochSchema teSchema) {
+        if (explicitScale.isEmpty()) {
+          explicitScale = Optional.of(teSchema.scale());
+        }
+      } else if (target instanceof StvnSchema.DateTimeSchema dtSchema) {
+        if (explicitMode.isEmpty()) {
+          explicitMode = Optional.of(dtSchema.mode());
+        }
+      }
+
+      return new AncestorFacetLedger(
+          lockedUnsigned,
+          lockedExact,
+          lockedInvertible,
+          lockedSize,
+          ledger.explicitMinSize(),
+          ledger.explicitMaxSize(),
+          explicitScale,
+          explicitMode
+      );
     }
 
     void collectAndResolveDefs() {
@@ -3770,6 +3833,7 @@ public final class StvnDefsLowerer {
           );
           return poisonedBundle(effectiveBrand, DiagnosticBag.ERR_MISSING_TEMPORAL_FACET);
         }
+        AncestorFacetLedger lockedParentLedger = lockIntrinsicDefaults(baseSchema, parentLedger);
         if (diagnosticBag.errorCount() > errBefore) {
           Optional<StvnSchema> bestEffort = extractBestEffortFallback(baseSchema, effectiveBrand);
           return new LoweredSchemaBundle(
@@ -3779,10 +3843,14 @@ public final class StvnDefsLowerer {
                   bestEffort,
                   baseSchema.traits()
               ),
-              parentLedger
+              lockedParentLedger
           );
         }
-        return new LoweredSchemaBundle(rebrandSchema(baseSchema, effectiveBrand), parentLedger);
+        return new LoweredSchemaBundle(rebrandSchema(baseSchema, effectiveBrand), lockedParentLedger);
+      }
+
+      if (isNominalDerivation) {
+        parentLedger = lockIntrinsicDefaults(baseSchema, parentLedger);
       }
 
       Set<String> permitted = permittedFacetsFor(baseKw, isNominalDerivation);
@@ -3799,7 +3867,7 @@ public final class StvnDefsLowerer {
         }
       }
       boolean effectiveExactFloat = baseKw.equals(StvnVocabulary.TYPE_FLOAT)
-          && (parentLedger.explicitExact() || localHasExact);
+          && (parentLedger.lockedExact().orElse(false) || localHasExact);
 
       int lastTier = -1;
       int lastSubTier = -1;
@@ -4052,16 +4120,16 @@ public final class StvnDefsLowerer {
         // 6. Cross-hop Mutual Exclusivity & Tier-1 Non-Overridability (E040) against AncestorFacetLedger
         if (isNominalDerivation) {
           String ancName = parentName != null ? parentName : "ancestor";
-          if ("exact".equals(facetName) && parentLedger.explicitSize().isPresent()) {
+          if ("exact".equals(facetName) && parentLedger.lockedSize().isPresent()) {
             diagnosticBag.addError(
                 "Constraint violation (" + ownerLabel + "): facet '#exact' is mutually exclusive with ancestor storage size '#size "
-                    + parentLedger.explicitSize().get() + "' from " + ancName,
+                    + parentLedger.lockedSize().get() + "' from " + ancName,
                 entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
                 DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
             );
             continue;
           }
-          if ("size".equals(facetName) && parentLedger.explicitExact()) {
+          if ("size".equals(facetName) && parentLedger.lockedExact().orElse(false)) {
             diagnosticBag.addError(
                 "Constraint violation (" + ownerLabel + "): facet '#size' is mutually exclusive with ancestor facet '#exact' from "
                     + ancName,
@@ -4112,9 +4180,9 @@ public final class StvnDefsLowerer {
             }
             continue;
           }
-          if (("unsigned".equals(facetName) && parentLedger.explicitUnsigned())
-              || ("exact".equals(facetName) && parentLedger.explicitExact())
-              || ("invertible".equals(facetName) && parentLedger.explicitInvertible())
+          if (("unsigned".equals(facetName) && parentLedger.lockedUnsigned().isPresent())
+              || ("exact".equals(facetName) && parentLedger.lockedExact().orElse(false))
+              || ("invertible".equals(facetName) && parentLedger.lockedInvertible().isPresent())
               || ("minSize".equals(facetName) && parentLedger.explicitMinSize().isPresent())
               || ("maxSize".equals(facetName) && parentLedger.explicitMaxSize().isPresent())) {
             diagnosticBag.addError(
@@ -4137,9 +4205,9 @@ public final class StvnDefsLowerer {
           case "size" -> {
             BigInteger sz = resolveIntegerMetadataArg(ownerLabel, "#size", entry.metadataSize().metadataValue(), scope);
             if (sz != null) {
-              if (isNominalDerivation && parentLedger.explicitSize().isPresent()) {
+              if (isNominalDerivation && parentLedger.lockedSize().isPresent()) {
                 String ancName = parentName != null ? parentName : "ancestor";
-                BigInteger ancSize = parentLedger.explicitSize().get();
+                BigInteger ancSize = parentLedger.lockedSize().get();
                 if (baseKw.equals(StvnVocabulary.TYPE_FLOAT) && !sz.equals(ancSize)) {
                   diagnosticBag.addError(
                       "Constraint violation (" + ownerLabel + "): facet '#size " + sz
@@ -4213,9 +4281,9 @@ public final class StvnDefsLowerer {
 
       // Build merged AncestorFacetLedger BEFORE W003 tautology stripping!
       AncestorFacetLedger childExplicitLedger = new AncestorFacetLedger(
-          childUnsigned,
-          childExact,
-          childInvertible,
+          childUnsigned ? Optional.of(true) : Optional.empty(),
+          childExact ? Optional.of(true) : Optional.empty(),
+          childInvertible ? Optional.of(true) : Optional.empty(),
           Optional.ofNullable(childSize),
           Optional.ofNullable(childMinSize),
           Optional.ofNullable(childMaxSize),
@@ -4478,6 +4546,7 @@ public final class StvnDefsLowerer {
         case StvnSchema.PoisonedSchema p -> rebrandSchema(p, effectiveBrand);
       };
 
+      AncestorFacetLedger finalLedger = lockIntrinsicDefaults(loweredSchema, mergedLedger);
       if (diagnosticBag.errorCount() - orderViolationCount > errBefore) {
         Optional<StvnSchema> bestEffort = extractBestEffortFallback(loweredSchema, effectiveBrand);
         StvnSchema.PoisonedSchema poisoned = new StvnSchema.PoisonedSchema(
@@ -4486,9 +4555,9 @@ public final class StvnDefsLowerer {
             bestEffort,
             loweredSchema.traits()
         );
-        return new LoweredSchemaBundle(poisoned, mergedLedger);
+        return new LoweredSchemaBundle(poisoned, finalLedger);
       }
-      return new LoweredSchemaBundle(loweredSchema, mergedLedger);
+      return new LoweredSchemaBundle(loweredSchema, finalLedger);
     }
 
     private static Optional<StvnSchema> extractBestEffortFallback(
@@ -4646,7 +4715,7 @@ public final class StvnDefsLowerer {
                 DiagnosticBag.ERR_INTEGER_OVERFLOW
             );
           } else if (effectiveUnsigned && minVal.signum() == 0) {
-            boolean ancestorEstablishesUnsigned = isNominalDerivation && parentLedger.explicitUnsigned() && !childUnsigned;
+            boolean ancestorEstablishesUnsigned = isNominalDerivation && parentLedger.lockedUnsigned().orElse(false) && !childUnsigned;
             String ancName = parentName != null ? parentName : "ancestor";
             String msg = ancestorEstablishesUnsigned
                 ? "Constraint violation (" + ownerLabel + "): facet '#minIncl 0' is redundant; ancestor '"

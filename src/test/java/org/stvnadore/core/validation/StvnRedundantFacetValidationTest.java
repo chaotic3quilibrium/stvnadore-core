@@ -779,7 +779,7 @@ public class StvnRedundantFacetValidationTest {
   }
 
   @Test
-  @DisplayName("TC-SIZE-RED-05D: Prohibits #size 32 on subtype deriving from unsigned parent (Transitive unsigned sizing tautology)")
+  @DisplayName("TC-SIZE-RED-05D: Prohibits #size 32 on subtype deriving from unsigned parent with E040 (Intrinsic default #size 32 locked on :ParentUInt)")
   void testRejectTransitiveUnsignedIntSizeThirtyTwo() {
     String source = """
         {
@@ -792,12 +792,11 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertFalse(result.hasErrors(), "Expected compilation failure for #size 32 on child of unsigned parent");
-    assertTrue(result.hasWarnings());
-    assertTrue(result.isSuccess());
+    assertTrue(result.hasErrors(), "Expected E040 compilation failure for #size 32 on child of unsigned nominal parent");
+    assertFalse(result.hasWarnings(), "Must not emit W003 when E040 fires on non-overridable #size");
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.ERR_NON_OVERRIDABLE_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -806,7 +805,7 @@ public class StvnRedundantFacetValidationTest {
     int expectedEnd = expectedStart + targetToken.length();
     assertEquals(expectedStart, diag.startOffset());
     assertEquals(expectedEnd, diag.endOffset());
-    assertTrue(diag.message().contains("facet '#size 32' is redundant; unsigned integer '{ #unsigned } :Int' intrinsically defaults to 32-bit storage"));
+    assertTrue(diag.message().contains("non-overridable definition facet '#size' is already established by ancestor :ParentUInt and cannot be re-specified"));
   }
 
   @Test
@@ -874,7 +873,7 @@ public class StvnRedundantFacetValidationTest {
   }
 
   @Test
-  @DisplayName("TC-SIZE-RED-09: Prohibits #size 32 on subtype deriving from bare :Int (Transitive sizing tautology)")
+  @DisplayName("TC-SIZE-RED-09: Prohibits #size 32 on subtype deriving from bare :Int nominal alias with E040 (Intrinsic default #size 32 locked on :Parent)")
   void testRejectTransitiveSignedIntSizeThirtyTwo() {
     String source = """
         {
@@ -887,12 +886,11 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertFalse(result.hasErrors(), "Expected compilation failure for #size 32 on child of bare :Int");
-    assertTrue(result.hasWarnings());
-    assertTrue(result.isSuccess());
+    assertTrue(result.hasErrors(), "Expected E040 compilation failure for #size 32 on child of bare :Int nominal alias");
+    assertFalse(result.hasWarnings(), "Must not emit W003 when E040 fires on non-overridable #size");
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.ERR_NON_OVERRIDABLE_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -901,11 +899,11 @@ public class StvnRedundantFacetValidationTest {
     int expectedEnd = expectedStart + targetToken.length();
     assertEquals(expectedStart, diag.startOffset());
     assertEquals(expectedEnd, diag.endOffset());
-    assertTrue(diag.message().contains("facet '#size 32' is redundant; signed integer ':Int' intrinsically defaults to 32-bit storage"));
+    assertTrue(diag.message().contains("non-overridable definition facet '#size' is already established by ancestor :Parent and cannot be re-specified"));
   }
 
   @Test
-  @DisplayName("TC-SIZE-RED-10: Prohibits #size 64 on subtype deriving from bare :Float (Transitive float sizing tautology)")
+  @DisplayName("TC-SIZE-RED-10: Prohibits #size 64 on subtype deriving from bare :Float nominal alias with E040 (Intrinsic default #size 64 locked on :ParentFloat)")
   void testRejectTransitiveFloatSizeSixtyFour() {
     String source = """
         {
@@ -918,12 +916,11 @@ public class StvnRedundantFacetValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertFalse(result.hasErrors(), "Expected compilation failure for #size 64 on child of bare :Float");
-    assertTrue(result.hasWarnings());
-    assertTrue(result.isSuccess());
+    assertTrue(result.hasErrors(), "Expected E040 compilation failure for #size 64 on child of bare :Float nominal alias");
+    assertFalse(result.hasWarnings(), "Must not emit W003 when E040 fires on non-overridable #size");
 
     var diag = result.diagnostics().stream()
-        .filter(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null)))
+        .filter(d -> DiagnosticBag.ERR_NON_OVERRIDABLE_FACET.equals(d.errorCode().orElse(null)))
         .findFirst()
         .orElseThrow();
 
@@ -932,7 +929,7 @@ public class StvnRedundantFacetValidationTest {
     int expectedEnd = expectedStart + targetToken.length();
     assertEquals(expectedStart, diag.startOffset());
     assertEquals(expectedEnd, diag.endOffset());
-    assertTrue(diag.message().contains("facet '#size 64' is redundant; continuous ':Float' intrinsically defaults to 64-bit IEEE-754 double precision"));
+    assertTrue(diag.message().contains("non-overridable definition facet '#size' is already established by ancestor :ParentFloat and cannot be re-specified"));
   }
 
   @Test
