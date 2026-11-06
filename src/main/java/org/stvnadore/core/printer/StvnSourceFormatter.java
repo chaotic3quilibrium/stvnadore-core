@@ -11,6 +11,7 @@ import org.stvnadore.core.parser.StvnErrorListener;
 import org.stvnadore.core.parser.StvnErrorStrategy;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
+import org.stvnadore.core.parser.StvnSyntaxErrorSanitizer;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.StvnSyntaxCancellationException;
 
@@ -65,6 +66,8 @@ public final class StvnSourceFormatter {
   public static String format(String source) {
     Objects.requireNonNull(source, "source must not be null");
 
+    StvnSyntaxErrorSanitizer.sanitizeNonFencedTabs(source, null, true);
+
     StvnLexer lexer = new StvnLexer(CharStreams.fromString(source));
     lexer.removeErrorListeners();
     StvnErrorListener strictListener = StvnErrorListener.strict();
@@ -88,7 +91,7 @@ public final class StvnSourceFormatter {
             token.getStartIndex(),
             Math.max(token.getStartIndex() + 1, token.getStopIndex() + 1),
             null,
-            "E035",
+            "E001",
             DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN
         );
       }

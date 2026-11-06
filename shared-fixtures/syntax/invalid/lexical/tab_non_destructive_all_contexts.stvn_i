@@ -1,0 +1,13 @@
+	{
+  :meta {
+    #name "tab_non_destructive_all_contexts"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    //	Tab inside comment must not split comment words into code tokens
+    :Stage3Port { #unsigned #size 16 #minIncl 1 #maxExcl 1000 } :Int
+    :Stage3Envelope :Tuple( :Stage3Port :Stage3Port )
+  }
+  :type	:Stage3Envelope
+  :body	( 3	1500 )
+}

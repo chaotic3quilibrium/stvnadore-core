@@ -1,0 +1,36 @@
+{
+  :meta {
+    #name "gauntlet_v3_tautologies_empty_blocks_and_const_chains"
+    #kind #DEFS_INCLUDE
+  }
+  :defs {
+    // 2A: Empty metadata block {} is prohibited (Trap 11 -> E003)
+    :EmptyMetaTrap {} :Int
+
+    // 2B: Duplicate #size facet -> E008
+    :DuplicateFacetTrap { #unsigned #size 16 #size 32 } :Int
+
+    // 2C: Unrecognized facet '#bogusFacet 42' -> E036
+    :UnknownFacetTrap { #unsigned #bogusFacet 42 #size 16 } :Int
+
+    // 3A: Empty interval [500, 500) -> E009
+    :EmptyIntervalTrap { #unsigned #size 16 #minIncl 500 #maxExcl 500 } :Int
+
+    // 3B: Inverted bounds [2000, 1000) -> E009
+    :InvertedBoundsTrap { #unsigned #size 16 #minIncl 2000 #maxExcl 1000 } :Int
+
+    // 4. Compile-Time #CONST Bound References & Chained #CONST Validation
+    #MIN_DYNAMIC_PORT { #unsigned #size 16 } :Int 1024
+    #MAX_DYNAMIC_PORT { #unsigned #size 16 } :Int 4096
+
+    :DynamicPortChannel {
+      #unsigned
+      #size 16
+      #minIncl #MIN_DYNAMIC_PORT
+      #maxExcl #MAX_DYNAMIC_PORT
+    } :Int
+
+    #DEFAULT_DYNAMIC_PORT :DynamicPortChannel #MIN_DYNAMIC_PORT
+    #ILLEGAL_DYNAMIC_PORT :DynamicPortChannel 512
+  }
+}

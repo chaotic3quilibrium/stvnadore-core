@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.validation.DiagnosticBag;
+import org.stvnadore.core.validation.StvnSyntaxCancellationException;
 
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -47,6 +48,228 @@ public final class StvnSyntaxErrorSanitizer {
       Pattern.compile("(?i)extraneous input\\s*");
 
   private StvnSyntaxErrorSanitizer() {
+  }
+
+  /**
+   * Scans the raw STVN source text for horizontal tab characters ({@code '\t'}, {@code U+0009})
+   * outside the verbatim body of Rule STR-04 fenced string literals ({@code """[TAG]\n...[TAG]"""}),
+   * records {@code E001} ({@link DiagnosticBag#ERR_TAB_CHARACTER_FORBIDDEN}) for each contiguous
+   * non-fenced tab span at its exact {@code [startOffset, endOffset)} and {@code (line, column)}
+   * coordinates, and replaces each non-fenced {@code '\t'} 1:1 with an ASCII space ({@code ' '}).
+   *
+   * @param source        the raw STVN document source text
+   * @param diagnosticBag the optional diagnostic accumulator bag
+   * @param strict        {@code true} to throw {@link StvnSyntaxCancellationException} on the first non-fenced tab
+   * @return the 1:1 offset-preserving sanitized source string with non-fenced tabs replaced by spaces
+   */
+  public static String sanitizeNonFencedTabs(
+      String source,
+      @Nullable DiagnosticBag diagnosticBag,
+      boolean strict
+  ) {
+    if (source.indexOf('\t') < 0) {
+      return source;
+    }
+
+    char[] chars = source.toCharArray();
+    int len = chars.length;
+    int i = 0;
+    int line = 1;
+    int col = 0;
+
+    while (i < len) {
+      char c = chars[i];
+
+      // 1. Single-line '//' comment: scan to end of line, sanitizing any tabs inside the comment
+      if (c == '/' && i + 1 < len && chars[i + 1] == '/') {
+        i += 2;
+        col += 2;
+        while (i < len && chars[i] != '\n') {
+          if (chars[i] == '\t') {
+            int tabStart = i;
+            int tabStartCol = col;
+            while (i < len && chars[i] == '\t') {
+              chars[i] = ' ';
+              i++;
+              col++;
+            }
+            recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
+          } else if (chars[i] == '\r') {
+            i++;
+          } else {
+            i++;
+            col++;
+          }
+        }
+        continue;
+      }
+
+      // 2. Triple-quoted string: check for Rule STR-04 opening fence '"""[TAG]' followed by [ \t\r]* '\n'
+      if (c == '"' && i + 2 < len && chars[i + 1] == '"' && chars[i + 2] == '"') {
+        int tagOpen = i + 3;
+        if (tagOpen < len && chars[tagOpen] == '[') {
+          int p = tagOpen + 1;
+          while (p < len && isFenceTagChar(chars[p])) {
+            p++;
+          }
+          int tagLen = p - (tagOpen + 1);
+          if (tagLen >= 1 && tagLen <= 256 && p < len && chars[p] == ']') {
+            int afterBracket = p + 1;
+            int scan = afterBracket;
+            while (scan < len && (chars[scan] == ' ' || chars[scan] == '\t' || chars[scan] == '\r')) {
+              scan++;
+            }
+            if (scan < len && chars[scan] == '\n') {
+              String fenceTag = source.substring(tagOpen + 1, p);
+              // Advance to after ']', sanitizing any forbidden tabs on the opening fence delimiter line
+              int openPrefixLen = afterBracket - i;
+              i = afterBracket;
+              col += openPrefixLen;
+              while (i < scan) {
+                if (chars[i] == '\t') {
+                  int tabStart = i;
+                  int tabStartCol = col;
+                  while (i < scan && chars[i] == '\t') {
+                    chars[i] = ' ';
+                    i++;
+                    col++;
+                  }
+                  recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
+                } else if (chars[i] == '\r') {
+                  i++;
+                } else {
+                  i++;
+                  col++;
+                }
+              }
+              // Consume '\n' at end of opening fence delimiter line
+              i++;
+              line++;
+              col = 0;
+
+              // Inside Rule STR-04 fenced string verbatim body: preserve all '\t' until '[TAG]"""'
+              String closeSeq = "[" + fenceTag + "]\"\"\"";
+              int closeLen = closeSeq.length();
+              while (i < len) {
+                if (chars[i] == '[' && source.startsWith(closeSeq, i)) {
+                  i += closeLen;
+                  col += closeLen;
+                  break;
+                }
+                char bodyChar = chars[i];
+                if (bodyChar == '\n') {
+                  i++;
+                  line++;
+                  col = 0;
+                } else if (bodyChar == '\r') {
+                  i++;
+                } else {
+                  i++;
+                  col++;
+                }
+              }
+              continue;
+            }
+          }
+        }
+      }
+
+      // 3. Simple single-line double-quoted string '"..."' (not starting with '"""')
+      if (c == '"' && !(i + 2 < len && chars[i + 1] == '"' && chars[i + 2] == '"')) {
+        i++;
+        col++;
+        while (i < len && chars[i] != '"' && chars[i] != '\n' && chars[i] != '\r') {
+          if (chars[i] == '\\' && i + 1 < len && chars[i + 1] != '\n' && chars[i + 1] != '\r') {
+            i += 2;
+            col += 2;
+          } else if (chars[i] == '\t') {
+            int tabStart = i;
+            int tabStartCol = col;
+            while (i < len && chars[i] == '\t') {
+              chars[i] = ' ';
+              i++;
+              col++;
+            }
+            recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
+          } else {
+            i++;
+            col++;
+          }
+        }
+        if (i < len && chars[i] == '"') {
+          i++;
+          col++;
+        }
+        continue;
+      }
+
+      // 4. Normal structural context
+      if (c == '\t') {
+        int tabStart = i;
+        int tabStartCol = col;
+        while (i < len && chars[i] == '\t') {
+          chars[i] = ' ';
+          i++;
+          col++;
+        }
+        recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
+      } else if (c == '\n') {
+        i++;
+        line++;
+        col = 0;
+      } else if (c == '\r') {
+        i++;
+      } else {
+        i++;
+        col++;
+      }
+    }
+
+    return new String(chars);
+  }
+
+  private static boolean isFenceTagChar(char c) {
+    return (c >= 'a' && c <= 'z')
+        || (c >= 'A' && c <= 'Z')
+        || (c >= '0' && c <= '9')
+        || c == '_'
+        || c == '-';
+  }
+
+  private static void recordTabDiagnostic(
+      @Nullable DiagnosticBag diagnosticBag,
+      boolean strict,
+      int line,
+      int column,
+      int startOffset,
+      int endOffset
+  ) {
+    String msg = "STVN Syntax Error: Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead ("
+        + DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN + ")";
+    if (strict) {
+      throw new StvnSyntaxCancellationException(
+          msg,
+          line,
+          column,
+          startOffset,
+          endOffset,
+          null,
+          "E001",
+          DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN
+      );
+    }
+    if (diagnosticBag != null) {
+      diagnosticBag.addErrorDual(
+          msg,
+          startOffset,
+          endOffset,
+          line,
+          column,
+          null,
+          "E001",
+          DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN
+      );
+    }
   }
 
   /**

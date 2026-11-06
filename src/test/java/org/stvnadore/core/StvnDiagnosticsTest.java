@@ -1496,4 +1496,90 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals("E017", eightArgDiag.canonicalCode().orElse(""));
     Assertions.assertEquals("DUPLICATE_MAP_KEY", eightArgDiag.symbolicId().orElse(""));
   }
+
+  @Test
+  @DisplayName("TC-STAGE1-01: Gauntlet v3 Stage 1 empty metadata blocks, tautologies, and unbranded #CONST chain revalidation")
+  void testGauntletV3Stage1EmptyBlocksAndConstChains() {
+    String input = """
+        {
+          :meta {
+            #name "gauntlet_v3_tautologies_empty_blocks_and_const_chains"
+            #kind #DEFS_INCLUDE
+          }
+          :defs {
+            // 2A: Empty metadata block {} is prohibited (Trap 11 -> E003)
+            :EmptyMetaTrap {} :Int
+
+            // 2B: Duplicate #size facet -> E008
+            :DuplicateFacetTrap { #unsigned #size 16 #size 32 } :Int
+
+            // 2C: Unrecognized facet '#bogusFacet 42' -> E036
+            :UnknownFacetTrap { #unsigned #bogusFacet 42 #size 16 } :Int
+
+            // 3A: Empty interval [500, 500) -> E009
+            :EmptyIntervalTrap { #unsigned #size 16 #minIncl 500 #maxExcl 500 } :Int
+
+            // 3B: Inverted bounds [2000, 1000) -> E009
+            :InvertedBoundsTrap { #unsigned #size 16 #minIncl 2000 #maxExcl 1000 } :Int
+
+            // 4. Compile-Time #CONST Bound References & Chained #CONST Validation
+            #MIN_DYNAMIC_PORT { #unsigned #size 16 } :Int 1024
+            #MAX_DYNAMIC_PORT { #unsigned #size 16 } :Int 4096
+
+            :DynamicPortChannel {
+              #unsigned
+              #size 16
+              #minIncl #MIN_DYNAMIC_PORT
+              #maxExcl #MAX_DYNAMIC_PORT
+            } :Int
+
+            #DEFAULT_DYNAMIC_PORT :DynamicPortChannel #MIN_DYNAMIC_PORT
+            #ILLEGAL_DYNAMIC_PORT :DynamicPortChannel 512
+          }
+        }
+        """;
+    var result = StvnCompiler.compile(
+        input,
+        "gauntlet_v3_tautologies_empty_blocks_and_const_chains.stvn_di",
+        StvnParserConfig.DEFAULT
+    );
+    Assertions.assertTrue(result.hasErrors());
+    var diags = result.diagnostics();
+    Assertions.assertEquals(6, diags.size(), "Expected exactly 6 diagnostics (E003, E008, E036, E009, E009, E012): " + diags);
+    Assertions.assertEquals("E003", diags.get(0).canonicalCode().orElse(""));
+    Assertions.assertEquals("E008", diags.get(1).canonicalCode().orElse(""));
+    Assertions.assertEquals("E036", diags.get(2).canonicalCode().orElse(""));
+    Assertions.assertEquals("E009", diags.get(3).canonicalCode().orElse(""));
+    Assertions.assertEquals("E009", diags.get(4).canonicalCode().orElse(""));
+    Assertions.assertEquals("E012", diags.get(5).canonicalCode().orElse(""));
+    int idx512 = input.indexOf("512");
+    Assertions.assertEquals(idx512, diags.get(5).startOffset());
+    Assertions.assertEquals(idx512 + 3, diags.get(5).endOffset());
+  }
+
+  @Test
+  @DisplayName("TC-STAGE1-02: Empty metadata block {} preserves bestEffortFallback for child schemas and constants")
+  void testEmptyMetadataBlockPreservesBestEffortFallback() {
+    String input = """
+        {
+          :defs {
+            :EmptyMetaTrap {} :Int
+            :ChildFromEmpty { #minIncl 10 #maxExcl 5 } :EmptyMetaTrap
+            #BAD_CONST {} :Int "not_an_int"
+          }
+          :type :Int
+          :body 1
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    var codes = result.diagnostics().stream()
+        .map(d -> d.canonicalCode().orElse(""))
+        .toList();
+    Assertions.assertEquals(
+        java.util.List.of("E003", "E009", "E003", "E028"),
+        codes,
+        "Expected E003 + E009 (from child fallback) + E003 + E028 (from constant fallback): " + result.diagnostics()
+    );
+  }
 }

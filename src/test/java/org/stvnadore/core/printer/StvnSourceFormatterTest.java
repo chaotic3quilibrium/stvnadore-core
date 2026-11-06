@@ -248,14 +248,17 @@ class StvnSourceFormatterTest {
         StvnSyntaxCancellationException.class,
         () -> StvnSourceFormatter.format(tabInIndentation)
     );
+    Assertions.assertEquals("E001", tabEx.getCanonicalCode());
     Assertions.assertEquals(DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN, tabEx.getSymbolicId());
     Assertions.assertEquals(Optional.empty(), StvnSourceFormatter.tryFormat(tabInIndentation));
 
     String tabInComment = "// Comment with\ttab\n{\n  :type :Int\n  :body 42\n}";
-    Assertions.assertThrows(
+    StvnSyntaxCancellationException commentTabEx = Assertions.assertThrows(
         StvnSyntaxCancellationException.class,
         () -> StvnSourceFormatter.format(tabInComment)
     );
+    Assertions.assertEquals("E001", commentTabEx.getCanonicalCode());
+    Assertions.assertEquals(DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN, commentTabEx.getSymbolicId());
     Assertions.assertEquals(Optional.empty(), StvnSourceFormatter.tryFormat(tabInComment));
 
     Assertions.assertEquals(Optional.empty(), StvnSourceFormatter.tryFormat(null));

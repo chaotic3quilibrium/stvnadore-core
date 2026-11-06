@@ -14,8 +14,8 @@ lexer grammar StvnLexer;
 // ============================================================================
 
 SPACE         : [ \r\n]+ -> skip ;
-TAB_CHARACTER : '\t'+ ;
-COMMENT : '//' ~[\r\n\t]* -> channel(HIDDEN) ;
+TAB_CHARACTER : '\t'+ -> channel(HIDDEN) ;
+COMMENT       : '//' ~[\r\n]* -> channel(HIDDEN) ;
 
 LBRACK : '[' ;
 RBRACK : ']' ;

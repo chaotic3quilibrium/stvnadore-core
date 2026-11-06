@@ -131,29 +131,31 @@ public final class StvnCompiler {
     Objects.requireNonNull(config, "config must not be null");
 
     var diagnosticBag = new DiagnosticBag(config.maxDiagnostics(), docPath);
-
-    // Pass 1: Lexing, parsing, and deterministic syntax error sanitization
-    var lexer = new StvnLexer(CharStreams.fromString(input));
-    lexer.removeErrorListeners();
-
-    var parser = new StvnParser(new CommonTokenStream(lexer));
-    parser.removeErrorListeners();
-
-    StvnErrorStrategy errorStrategy = null;
-    if (config.strict()) {
-      parser.setErrorHandler(new BailErrorStrategy());
-      var errorListener = StvnErrorListener.strict();
-      lexer.addErrorListener(errorListener);
-      parser.addErrorListener(errorListener);
-    } else {
-      var listener = StvnErrorListener.accumulating(diagnosticBag);
-      lexer.addErrorListener(listener);
-      parser.addErrorListener(listener);
-      errorStrategy = new StvnErrorStrategy(diagnosticBag);
-      parser.setErrorHandler(errorStrategy);
-    }
+    StvnParser parser = null;
 
     try {
+      // Pass 1: Non-fenced tab sanitization (1:1 space replacement), lexing, and parsing
+      String sanitizedInput = StvnSyntaxErrorSanitizer.sanitizeNonFencedTabs(input, diagnosticBag, config.strict());
+      var lexer = new StvnLexer(CharStreams.fromString(sanitizedInput));
+      lexer.removeErrorListeners();
+
+      parser = new StvnParser(new CommonTokenStream(lexer));
+      parser.removeErrorListeners();
+
+      StvnErrorStrategy errorStrategy = null;
+      if (config.strict()) {
+        parser.setErrorHandler(new BailErrorStrategy());
+        var errorListener = StvnErrorListener.strict();
+        lexer.addErrorListener(errorListener);
+        parser.addErrorListener(errorListener);
+      } else {
+        var listener = StvnErrorListener.accumulating(diagnosticBag);
+        lexer.addErrorListener(listener);
+        parser.addErrorListener(listener);
+        errorStrategy = new StvnErrorStrategy(diagnosticBag);
+        parser.setErrorHandler(errorStrategy);
+      }
+
       int errorsBeforePass1 = diagnosticBag.errorCount();
       var docCtx = parser.stvnDocument();
       List<StvnDiagnostic> coalescedNumericDiags = errorStrategy != null
@@ -249,6 +251,9 @@ public final class StvnCompiler {
             continue;
           }
           String sym = diag.symbolicId().or(() -> diag.errorCode()).orElse("");
+          if (DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN.equals(sym)) {
+            continue;
+          }
           if (sym.startsWith("ERR_DOCUMENT_")
               || sym.startsWith("ERR_SECTION_")
               || sym.equals(DiagnosticBag.ERR_EMPTY_DEFS_BLOCK)

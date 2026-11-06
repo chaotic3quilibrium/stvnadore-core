@@ -2995,10 +2995,10 @@ lexer grammar StvnLexer;
 // ============================================================================
 
 SPACE   : [ \r\n]+ -> skip ;
-COMMENT : '//' ~[\r\n\t]* -> skip ;
+COMMENT : '//' ~[\r\n]* -> channel(HIDDEN) ;
 
 // Strict Zero-Tab Enforcement: Tab characters are prohibited outside fenced string bodies
-TAB_CHARACTER : '\t'+ ;
+TAB_CHARACTER : '\t'+ -> channel(HIDDEN) ;
 
 LBRACK : '[' ;
 RBRACK : ']' ;

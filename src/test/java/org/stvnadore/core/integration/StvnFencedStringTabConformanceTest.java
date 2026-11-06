@@ -152,4 +152,60 @@ class StvnFencedStringTabConformanceTest {
     var ex = assertThrows(RuntimeException.class, () -> StvnCompiler.compilePayload(doc));
     assertTrue(ex.getMessage().contains("ERR_TAB_CHARACTER_FORBIDDEN"));
   }
+
+  @Test
+  @DisplayName("TC-TAB-11: Non-destructive E001 tab handling across char 0, // comment, :type, :body, and tuple preserves Pass 2/3 validation")
+  void testNonDestructiveTabHandlingAcrossAllContexts() {
+    String doc = "\t{\n"
+        + "  :meta {\n"
+        + "    #name \"tab_non_destructive_all_contexts\"\n"
+        + "    #kind #BODY_INCLUDE\n"
+        + "  }\n"
+        + "  :defs {\n"
+        + "    //\tTab inside comment must not split comment words into code tokens\n"
+        + "    :Stage3Port { #unsigned #size 16 #minIncl 1 #maxExcl 1000 } :Int\n"
+        + "    :Stage3Envelope :Tuple( :Stage3Port :Stage3Port )\n"
+        + "  }\n"
+        + "  :type\t:Stage3Envelope\n"
+        + "  :body\t( 3\t1500 )\n"
+        + "}\n";
+    var res = StvnCompiler.compile(doc, "tab_non_destructive_all_contexts.stvn_i", StvnParserConfig.DEFAULT);
+    assertTrue(res.hasErrors());
+    var diags = res.diagnostics();
+    assertEquals(6, diags.size(), "Expected 5 E001 tab diagnostics + 1 E012 range violation with zero bogus syntax errors: " + diags);
+    for (int i = 0; i < 5; i++) {
+      assertEquals("E001", diags.get(i).canonicalCode().orElse(""));
+      assertEquals(DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN, diags.get(i).symbolicId().orElse(""));
+    }
+    var rangeDiag = diags.get(5);
+    assertEquals("E012", rangeDiag.canonicalCode().orElse(""));
+    assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, rangeDiag.symbolicId().orElse(""));
+    int idx1500 = doc.indexOf("1500");
+    assertEquals(idx1500, rangeDiag.startOffset());
+    assertEquals(idx1500 + 4, rangeDiag.endOffset());
+  }
+
+  @Test
+  @DisplayName("TC-TAB-12: Raw tab inside simple string emits E001 without corrupting subsequent tuple elements")
+  void testSimpleStringRawTabDoesNotCorruptSubsequentTupleElements() {
+    String doc = "{\n"
+        + "  :defs {\n"
+        + "    :Port { #unsigned #size 16 #minIncl 1 #maxExcl 1000 } :Int\n"
+        + "  }\n"
+        + "  :type :Tuple( :String :Port )\n"
+        + "  :body ( \"raw\ttab\" 9999 )\n"
+        + "}\n";
+    var res = StvnCompiler.compileToResult(doc);
+    assertTrue(res.hasErrors());
+    var diags = res.diagnostics();
+    assertEquals(2, diags.size(), "Expected E001 on raw tab in string + E012 on 9999: " + diags);
+    assertEquals("E001", diags.get(0).canonicalCode().orElse(""));
+    int tabIdx = doc.indexOf('\t');
+    assertEquals(tabIdx, diags.get(0).startOffset());
+    assertEquals(tabIdx + 1, diags.get(0).endOffset());
+    assertEquals("E012", diags.get(1).canonicalCode().orElse(""));
+    int idx9999 = doc.indexOf("9999");
+    assertEquals(idx9999, diags.get(1).startOffset());
+    assertEquals(idx9999 + 4, diags.get(1).endOffset());
+  }
 }

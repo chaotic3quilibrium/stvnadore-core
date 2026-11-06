@@ -3067,6 +3067,25 @@ public final class StvnDefsLowerer {
         );
         StvnSchema constSchema = schemaBundle.schema();
         if (isRealPoisonedSchema(constSchema)) {
+          if (constSchema instanceof StvnSchema.PoisonedSchema ps
+              && DiagnosticBag.ERR_EMPTY_METADATA_BLOCK.equals(ps.primaryDiagnosticCode())
+              && ps.bestEffortFallback().isPresent()
+              && decl.ctx().value() != null) {
+            StvnSchema fallbackSchema = ps.bestEffortFallback().get();
+            StvnValue fallbackVal = StvnPayloadLowerer.lowerConstantValue(
+                decl.displayName(),
+                decl.ctx().value(),
+                fallbackSchema,
+                this::resolveConstantAtSite,
+                this::findLoweredNominalSchema,
+                diagnosticBag
+            );
+            if (!(fallbackVal instanceof StvnValue.StvnErrorValue)) {
+              StvnDefsCatalog.StvnConstant lowered = new StvnDefsCatalog.StvnConstant(fqni, fallbackSchema, fallbackVal);
+              loweredConstants.put(fqni, lowered);
+              return Optional.of(lowered);
+            }
+          }
           return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
         }
         if (decl.ctx().value() == null) {
@@ -3297,7 +3316,19 @@ public final class StvnDefsLowerer {
         // If no local metadata facets and anonymous reference (e.g. :type :MyAlias or field :MyAlias), preserve parent brand!
         if (metaMap == null || metaMap.metadataEntry() == null || metaMap.metadataEntry().isEmpty()) {
           if (hasEmptyMetaBlockError) {
-            return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_EMPTY_METADATA_BLOCK);
+            Optional<String> effectiveBrand = targetNominalAlias.isPresent()
+                ? targetNominalAlias
+                : parentSchema.aliasName();
+            Optional<StvnSchema> bestEffort = extractBestEffortFallback(parentSchema, effectiveBrand);
+            return new LoweredSchemaBundle(
+                new StvnSchema.PoisonedSchema(
+                    effectiveBrand,
+                    DiagnosticBag.ERR_EMPTY_METADATA_BLOCK,
+                    bestEffort,
+                    parentSchema.traits()
+                ),
+                parentBundle.ledger()
+            );
           }
           StvnSchema outSchema = targetNominalAlias.isPresent()
               ? rebrandSchema(parentSchema, targetNominalAlias)
@@ -3740,7 +3771,16 @@ public final class StvnDefsLowerer {
           return poisonedBundle(effectiveBrand, DiagnosticBag.ERR_MISSING_TEMPORAL_FACET);
         }
         if (diagnosticBag.errorCount() > errBefore) {
-          return poisonedBundle(effectiveBrand, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+          Optional<StvnSchema> bestEffort = extractBestEffortFallback(baseSchema, effectiveBrand);
+          return new LoweredSchemaBundle(
+              new StvnSchema.PoisonedSchema(
+                  effectiveBrand,
+                  DiagnosticBag.ERR_EMPTY_METADATA_BLOCK,
+                  bestEffort,
+                  baseSchema.traits()
+              ),
+              parentLedger
+          );
         }
         return new LoweredSchemaBundle(rebrandSchema(baseSchema, effectiveBrand), parentLedger);
       }

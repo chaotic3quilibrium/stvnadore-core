@@ -2300,10 +2300,11 @@ public final class StvnPayloadLowerer {
         return new StvnErrorValue(targetSchema, errVal.diagnostic());
       }
 
-      // § 9.1 Opaque Nominal Branding check
-      if (sourceSchema.aliasName().isPresent() || targetSchema.aliasName().isPresent()) {
+      // § 9.1 Opaque Nominal Branding check: a constant carrying an explicit nominal brand
+      // cannot be assigned to a distinct nominal target brand. Unbranded constants revalidate and rebrand.
+      if (sourceSchema.aliasName().isPresent()) {
         if (!sourceSchema.aliasName().equals(targetSchema.aliasName())) {
-          String srcName = sourceSchema.aliasName().orElseGet(() -> baseTypeName(sourceSchema));
+          String srcName = sourceSchema.aliasName().get();
           String tgtName = targetSchema.aliasName().orElseGet(() -> baseTypeName(targetSchema));
           String msg = "Incompatible nominal type: constant '" + rawTokenText + "' of nominal type '"
               + srcName + "' cannot be assigned to target nominal type '" + tgtName + "'";

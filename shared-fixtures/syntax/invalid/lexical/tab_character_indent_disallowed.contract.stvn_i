@@ -10,5 +10,6 @@
   :type :ErrorContract
   :body [
     ( #E001 #ERR_TAB_CHARACTER_FORBIDDEN #ERROR 5 1 119 120 "STVN Syntax Error: Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead (ERR_TAB_CHARACTER_FORBIDDEN)" )
+    ( #E001 #ERR_TAB_CHARACTER_FORBIDDEN #ERROR 6 1 131 132 "STVN Syntax Error: Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead (ERR_TAB_CHARACTER_FORBIDDEN)" )
   ]
 }
