@@ -1,0 +1,28 @@
+{
+  :meta {
+    #name "inv_stage4_total_nominal_bound_override_and_body_bounds"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :BaseClusterId { #unsigned #size 16 #minIncl 100 #maxExcl 10000 } :Int
+    :RegionClusterId { #minIncl 500 #maxExcl 5000 } :BaseClusterId
+    // Valid § 9.1.1 Bound Replacement: Replaces [500, 5000) with [200, 8000) within 16-bit [0, 65536)
+    :ReplacedBoundsCluster { #minIncl 200 #maxExcl 8000 } :RegionClusterId
+    :StrictClusterId { #minIncl 1000 #maxExcl 2000 } :ReplacedBoundsCluster
+
+    // Exceeds locked Tier-1 16-bit unsigned capacity [0, 65536) -> E009 ERR_INTEGER_OVERFLOW
+    :CapacityOverflowBoundTrap { #minIncl 500 #maxExcl 70000 } :BaseClusterId
+
+    :Stage4V3Envelope :Tuple(
+      :ReplacedBoundsCluster
+      :StrictClusterId
+      :StrictClusterId
+    )
+  }
+  :type :Stage4V3Envelope
+  :body (
+    300
+    750
+    2500
+  )
+}

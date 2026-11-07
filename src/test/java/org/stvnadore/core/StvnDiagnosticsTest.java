@@ -1582,4 +1582,87 @@ public class StvnDiagnosticsTest {
         "Expected E003 + E009 (from child fallback) + E003 + E028 (from constant fallback): " + result.diagnostics()
     );
   }
+
+  @Test
+  @DisplayName("TC-STAGE4-01: Gauntlet v3 Stage 4 Total Nominal Bound Override in :defs and fault-isolated E012 validation in :body")
+  void testStage4TotalNominalBoundOverrideAndBodyBounds() {
+    String input = """
+        {
+          :meta {
+            #name "inv_stage4_total_nominal_bound_override_and_body_bounds"
+            #kind #BODY_INCLUDE
+          }
+          :defs {
+            :BaseClusterId { #unsigned #size 16 #minIncl 100 #maxExcl 10000 } :Int
+            :RegionClusterId { #minIncl 500 #maxExcl 5000 } :BaseClusterId
+            :ReplacedBoundsCluster { #minIncl 200 #maxExcl 8000 } :RegionClusterId
+            :StrictClusterId { #minIncl 1000 #maxExcl 2000 } :ReplacedBoundsCluster
+            :CapacityOverflowBoundTrap { #minIncl 500 #maxExcl 70000 } :BaseClusterId
+            :Stage4V3Envelope :Tuple(
+              :ReplacedBoundsCluster
+              :StrictClusterId
+              :StrictClusterId
+            )
+          }
+          :type :Stage4V3Envelope
+          :body (
+            300
+            750
+            2500
+          )
+        }
+        """;
+    var result = StvnCompiler.compile(
+        input,
+        "inv_stage4_total_nominal_bound_override_and_body_bounds.stvn_i",
+        StvnParserConfig.DEFAULT
+    );
+    Assertions.assertTrue(result.hasErrors());
+    var diags = result.diagnostics();
+    Assertions.assertEquals(3, diags.size(), "Expected 1 E009 (:CapacityOverflowBoundTrap) + 2 E012 (750 and 2500): " + diags);
+    Assertions.assertEquals("E009", diags.get(0).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_INTEGER_OVERFLOW, diags.get(0).symbolicId().orElse(""));
+    Assertions.assertEquals("E012", diags.get(1).canonicalCode().orElse(""));
+    Assertions.assertEquals("750", input.substring(diags.get(1).startOffset(), diags.get(1).endOffset()));
+    Assertions.assertEquals("E012", diags.get(2).canonicalCode().orElse(""));
+    Assertions.assertEquals("2500", input.substring(diags.get(2).startOffset(), diags.get(2).endOffset()));
+  }
+
+  @Test
+  @DisplayName("TC-STAGE5-01: Gauntlet v3 Stage 5 duplicate enum filter variant emits canonical E008 ERR_FILTER_DUPLICATE_VARIANT pinned strictly to second token")
+  void testStage5DuplicateFilterVariantEmitsCanonicalE008PinnedToSecondToken() {
+    String input = """
+        {
+          :defs {
+            :LifecyclePhase :Enum [
+              #ARCHIVED
+              #CREATED
+              #DEPLOYED
+              #PENDING
+              #VALIDATED
+            ]
+            :DuplicateFilterVariantTrap {
+              #filterIncl [ #CREATED #CREATED #PENDING ]
+            } :LifecyclePhase
+          }
+          :type :LifecyclePhase
+          :body #CREATED
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.hasErrors());
+    Assertions.assertEquals(1, result.diagnostics().size(), "Expected strictly 1 diagnostic on second #CREATED: " + result.diagnostics());
+    var diag = result.diagnostics().getFirst();
+    Assertions.assertEquals("E008", diag.canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_FILTER_DUPLICATE_VARIANT, diag.symbolicId().orElse(""));
+    Assertions.assertEquals(
+        "Enum subset violation (:DuplicateFilterVariantTrap): duplicate variant '#CREATED' in filter list",
+        diag.message()
+    );
+    int filterIdx = input.indexOf("#filterIncl");
+    int firstCreated = input.indexOf("#CREATED", filterIdx);
+    int secondCreated = input.indexOf("#CREATED", firstCreated + "#CREATED".length());
+    Assertions.assertEquals(secondCreated, diag.startOffset(), "Diagnostic startOffset must pin strictly to the second #CREATED");
+    Assertions.assertEquals(secondCreated + "#CREATED".length(), diag.endOffset(), "Diagnostic endOffset must pin strictly to the second #CREATED");
+  }
 }

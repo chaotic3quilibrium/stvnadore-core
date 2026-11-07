@@ -493,4 +493,130 @@ public class StvnNominalAliasOverrideMatrixTest {
     assertEquals(2, e008s.size(), () -> "Expected 2 E008 diagnostics (:Float32b, :ExactFloatB), got: " + result.diagnostics());
     assertEquals(9, result.diagnostics().size(), () -> "Expected zero spurious W003 or cascade diagnostics, got: " + result.diagnostics());
   }
+
+  @Test
+  @DisplayName("NOM-BOUND-OVERRIDE-01: SPEC § 6.1 & § 9.1.1 Total Nominal Bound Override across :Int, :Float, :String, :TimeEpoch, and :DateTime")
+  void testMultiHopTotalNominalBoundReplacementAcrossAllFiveBoundTypes() {
+    String source = """
+        {
+          :defs {
+            :BaseInt { #unsigned #size 16 #minIncl 100 #maxExcl 10000 } :Int
+            :MidInt { #minIncl 500 #maxExcl 5000 } :BaseInt
+            :WidenedInt { #minIncl 200 #maxExcl 8000 } :MidInt
+            :StrictInt { #minIncl 1000 #maxExcl 2000 } :WidenedInt
+
+            :BaseFloat { #minIncl 10.0 #maxExcl 50.0 } :Float
+            :WidenedFloat { #minExcl 0.0 #maxIncl 100.0 } :BaseFloat
+
+            :BaseStr { #minSize 1 #maxSize 16 #minIncl " d" #maxExcl "m" } :String
+            :WidenedStr { #minExcl "a" #maxIncl "z" } :BaseStr
+
+            :BaseEpoch { #s #minIncl 1000 #maxExcl 2000 } :TimeEpoch
+            :WidenedEpoch { #minIncl 500 #maxExcl 5000 } :BaseEpoch
+
+            :BaseDt { #offset #minIncl "2026-06-01T00:00:00Z" #maxExcl "2026-07-01T00:00:00Z" } :DateTime
+            :WidenedDt { #minIncl "2026-01-01T00:00:00Z" #maxExcl "2026-12-31T00:00:00Z" } :BaseDt
+
+            :AllOverriden :Tuple(
+              :WidenedInt
+              :StrictInt
+              :WidenedFloat
+              :WidenedStr
+              :WidenedEpoch
+              :WidenedDt
+            )
+          }
+          :type :AllOverriden
+          :body (
+            250
+            1500
+            100.0
+            "z"
+            4500
+            "2026-03-15T12:00:00Z"
+          )
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertFalse(result.hasErrors(), () -> "Valid § 9.1.1 Tier-3 bound replacements must compile with 0 errors: " + result.diagnostics());
+    assertTrue(result.diagnostics().isEmpty(), () -> "Expected 0 warnings and 0 errors, got: " + result.diagnostics());
+  }
+
+  @Test
+  @DisplayName("NOM-BOUND-OVERRIDE-02: Partial Tier-3 bound override conflicting with inherited opposite bound fails closed with E009")
+  void testCrossHopPartialBoundOverrideConflictingWithInheritedOppositeBoundEmitsE009() {
+    String source = """
+        {
+          :defs {
+            :BaseInt { #unsigned #size 16 #minIncl 500 #maxExcl 5000 } :Int
+            :InvertedCrossHopInt { #minIncl 6000 } :BaseInt
+            :EmptyCrossHopInt { #maxExcl 500 } :BaseInt
+
+            :BaseFloat { #minIncl 10.0 #maxExcl 50.0 } :Float
+            :InvertedCrossHopFloat { #minIncl 60.0 } :BaseFloat
+
+            :BaseStr { #minIncl "m" #maxExcl "t" } :String
+            :InvertedCrossHopStr { #minIncl "z" } :BaseStr
+
+            :BaseEpoch { #s #minIncl 1000 #maxExcl 2000 } :TimeEpoch
+            :InvertedCrossHopEpoch { #minIncl 3000 } :BaseEpoch
+
+            :BaseDt { #offset #minIncl "2026-06-01T00:00:00Z" #maxExcl "2026-07-01T00:00:00Z" } :DateTime
+            :InvertedCrossHopDt { #minIncl "2026-09-01T00:00:00Z" } :BaseDt
+          }
+          :type :BaseInt
+          :body 1000
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Cross-hop inverted or empty effective intervals must fail compilation");
+    assertEquals(6, result.diagnostics().size(), () -> "Expected 6 E009 diagnostics across all 5 scalar/temporal types, got: " + result.diagnostics());
+    for (StvnDiagnostic d : result.diagnostics()) {
+      assertEquals("E009", d.canonicalCode().orElse(null), () -> "Expected E009 canonical code, got: " + d);
+    }
+  }
+
+  @Test
+  @DisplayName("NOM-BOUND-OVERRIDE-03: Stage 4 :ReplacedBoundsCluster and :StrictClusterId validate :body ( 300 750 2500 ) with E012 on 750 and 2500")
+  void testStage4NominalRefinementChainAndBodyValidation() {
+    String source = """
+        {
+          :defs {
+            :BaseClusterId { #unsigned #size 16 #minIncl 100 #maxExcl 10000 } :Int
+            :RegionClusterId { #minIncl 500 #maxExcl 5000 } :BaseClusterId
+            :ReplacedBoundsCluster { #minIncl 200 #maxExcl 8000 } :RegionClusterId
+            :StrictClusterId { #minIncl 1000 #maxExcl 2000 } :ReplacedBoundsCluster
+            :Stage4V3Envelope :Tuple(
+              :ReplacedBoundsCluster
+              :StrictClusterId
+              :StrictClusterId
+            )
+          }
+          :type :Stage4V3Envelope
+          :body (
+            300
+            750
+            2500
+          )
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors(), "Out-of-bounds payload values 750 and 2500 must fail :StrictClusterId [1000, 2000) validation");
+    assertEquals(2, result.diagnostics().size(), () -> "Expected strictly 2 E012 payload diagnostics on 750 and 2500, got: " + result.diagnostics());
+
+    StvnDiagnostic d0 = result.diagnostics().get(0);
+    assertEquals("E012", d0.canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, d0.symbolicId().orElse(null));
+    assertEquals("750", source.substring(d0.startOffset(), d0.endOffset()));
+    assertTrue(d0.message().contains("Constraint violation (:StrictClusterId): Value 750 is outside allowable range (must be >= 1000)"));
+
+    StvnDiagnostic d1 = result.diagnostics().get(1);
+    assertEquals("E012", d1.canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, d1.symbolicId().orElse(null));
+    assertEquals("2500", source.substring(d1.startOffset(), d1.endOffset()));
+    assertTrue(d1.message().contains("Constraint violation (:StrictClusterId): Value 2500 is outside allowable range (must be < 2000)"));
+  }
 }

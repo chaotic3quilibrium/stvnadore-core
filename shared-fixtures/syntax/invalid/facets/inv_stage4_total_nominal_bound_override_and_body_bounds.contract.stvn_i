@@ -1,0 +1,16 @@
+{
+  :meta {
+    #name "inv_stage4_total_nominal_bound_override_and_body_bounds"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 14 47 655 669 "Constraint violation (:CapacityOverflowBoundTrap): #maxExcl value 70000 is out of bounds for physical capacity of :Int (unsigned 16-bit); valid #maxExcl range is [1, 65536]" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 25 5 851 854 "Constraint violation (:StrictClusterId): Value 750 is outside allowable range (must be >= 1000)" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 26 5 859 863 "Constraint violation (:StrictClusterId): Value 2500 is outside allowable range (must be < 2000)" )
+  ]
+}

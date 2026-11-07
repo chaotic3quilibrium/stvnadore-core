@@ -1,0 +1,53 @@
+{
+  :meta {
+    #name "inv_stage5_enum_filter_duplicate_and_governance_traps"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :LifecyclePhase :Enum [
+      #ARCHIVED
+      #CREATED
+      #DEPLOYED
+      #PENDING
+      #VALIDATED
+    ]
+
+    :ActiveLifecyclePhase {
+      #filterExcl [ #ARCHIVED ]
+    } :LifecyclePhase
+
+    :PreDeployPhase {
+      #filterIncl [ #CREATED #PENDING #VALIDATED ]
+    } :ActiveLifecyclePhase
+
+    // 2A: Monotonic narrowing violation (#ARCHIVED was excluded by :ActiveLifecyclePhase) -> E014
+    :WideningSubsetTrap {
+      #filterIncl [ #ARCHIVED #CREATED ]
+    } :ActiveLifecyclePhase
+
+    // 2B: Root declaration order violation (#PENDING precedes #CREATED) -> E015
+    :OutOfOrderFilterTrap {
+      #filterIncl [ #PENDING #CREATED ]
+    } :LifecyclePhase
+
+    // 2C: Duplicate variant in filter list -> E008 ERR_FILTER_DUPLICATE_VARIANT on second #CREATED only
+    :DuplicateFilterVariantTrap {
+      #filterIncl [ #CREATED #CREATED #PENDING ]
+    } :LifecyclePhase
+
+    // 2D: Complete exclusion (0 active variants remaining) -> E016
+    :CompleteExclusionTrap {
+      #filterExcl [ #CREATED #PENDING #VALIDATED ]
+    } :PreDeployPhase
+
+    :Stage5V3Envelope :Tuple(
+      :ActiveLifecyclePhase
+      :PreDeployPhase
+    )
+  }
+  :type :Stage5V3Envelope
+  :body (
+    #DEPLOYED
+    #DEPLOYED
+  )
+}

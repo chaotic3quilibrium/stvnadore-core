@@ -4733,13 +4733,6 @@ public final class StvnDefsLowerer {
                 bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(),
                 DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
-          } else if (effectiveMin.isPresent() && minVal.compareTo(effectiveMin.get()) < 0) {
-            diagnosticBag.addError(
-                "Constraint violation (" + ownerLabel + "): derived #minIncl " + minVal
-                    + " cannot widen ancestor lower bound " + effectiveMin.get(),
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
-                DiagnosticBag.ERR_INVERTED_RANGE
-            );
           } else {
             if (effectiveMin.isPresent() && minVal.equals(effectiveMin.get())) {
               String ancName = parentName != null ? parentName : "ancestor";
@@ -4816,13 +4809,6 @@ public final class StvnDefsLowerer {
                 "Constraint violation (" + ownerLabel + "): discrete integer interval [0, 0) defines an empty domain",
                 bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
                 DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN
-            );
-          } else if (effectiveMax.isPresent() && maxVal.compareTo(effectiveMax.get()) > 0) {
-            diagnosticBag.addError(
-                "Constraint violation (" + ownerLabel + "): derived #maxExcl " + maxVal
-                    + " cannot widen ancestor upper bound " + effectiveMax.get(),
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
-                DiagnosticBag.ERR_INVERTED_RANGE
             );
           } else {
             if (effectiveMax.isPresent() && maxVal.equals(effectiveMax.get())) {
@@ -4957,40 +4943,18 @@ public final class StvnDefsLowerer {
       Optional<ContinuousBound<BigDecimal>> upper = floatBase.upperBound();
 
       if (minBoundCtx != null && minBoundName != null) {
-        Span bSpan = Span.ofContext(minBoundCtx);
         BigDecimal bd = resolveDecimalMetadataArg(ownerLabel, "#" + minBoundName, minBoundCtx.metadataValue(), rep, exactMaxDigits, scope);
         if (bd != null) {
           BoundKind kind = "minIncl".equals(minBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
-          ContinuousBound<BigDecimal> cand = new ContinuousBound<>(bd, kind);
-          if (lower.isPresent() && narrowsFloatLowerViolation(lower.get(), cand)) {
-            diagnosticBag.addError(
-                "Constraint violation (" + ownerLabel + "): derived lower bound " + bd
-                    + " cannot widen ancestor lower bound " + lower.get().value(),
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
-                DiagnosticBag.ERR_INVERTED_RANGE
-            );
-          } else {
-            lower = Optional.of(cand);
-          }
+          lower = Optional.of(new ContinuousBound<>(bd, kind));
         }
       }
 
       if (maxBoundCtx != null && maxBoundName != null) {
-        Span bSpan = Span.ofContext(maxBoundCtx);
         BigDecimal bd = resolveDecimalMetadataArg(ownerLabel, "#" + maxBoundName, maxBoundCtx.metadataValue(), rep, exactMaxDigits, scope);
         if (bd != null) {
           BoundKind kind = "maxIncl".equals(maxBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
-          ContinuousBound<BigDecimal> cand = new ContinuousBound<>(bd, kind);
-          if (upper.isPresent() && narrowsFloatUpperViolation(upper.get(), cand)) {
-            diagnosticBag.addError(
-                "Constraint violation (" + ownerLabel + "): derived upper bound " + bd
-                    + " cannot widen ancestor upper bound " + upper.get().value(),
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
-                DiagnosticBag.ERR_INVERTED_RANGE
-            );
-          } else {
-            upper = Optional.of(cand);
-          }
+          upper = Optional.of(new ContinuousBound<>(bd, kind));
         }
       }
 
@@ -5026,22 +4990,6 @@ public final class StvnDefsLowerer {
       return new StvnSchema.FloatSchema(effectiveBrand, rep, exactMaxDigits, finalTraits, lower, upper);
     }
 
-    private static boolean narrowsFloatLowerViolation(ContinuousBound<BigDecimal> anc, ContinuousBound<BigDecimal> child) {
-      int cmp = child.value().compareTo(anc.value());
-      if (cmp < 0) {
-        return true;
-      }
-      return cmp == 0 && anc.kind() == BoundKind.EXCLUSIVE && child.kind() == BoundKind.INCLUSIVE;
-    }
-
-    private static boolean narrowsFloatUpperViolation(ContinuousBound<BigDecimal> anc, ContinuousBound<BigDecimal> child) {
-      int cmp = child.value().compareTo(anc.value());
-      if (cmp > 0) {
-        return true;
-      }
-      return cmp == 0 && anc.kind() == BoundKind.EXCLUSIVE && child.kind() == BoundKind.INCLUSIVE;
-    }
-
     private StvnSchema lowerStringFacets(
         String ownerLabel,
         Optional<String> effectiveBrand,
@@ -5070,40 +5018,18 @@ public final class StvnDefsLowerer {
       Optional<ContinuousBound<String>> upperBound = strBase.upperBound();
 
       if (minBoundCtx != null && minBoundName != null) {
-        Span bSpan = Span.ofContext(minBoundCtx);
         String sVal = resolveStringMetadataArg(ownerLabel, "#" + minBoundName, minBoundCtx.metadataValue(), scope);
         if (sVal != null) {
           BoundKind kind = "minIncl".equals(minBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
-          ContinuousBound<String> cand = new ContinuousBound<>(sVal, kind);
-          if (lowerBound.isPresent() && narrowsStringLowerViolation(lowerBound.get(), cand)) {
-            diagnosticBag.addError(
-                "Constraint violation (" + ownerLabel + "): derived string #" + minBoundName + " '" + sVal
-                    + "' cannot widen ancestor lower bound '" + lowerBound.get().value() + "'",
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
-                DiagnosticBag.ERR_INVERTED_RANGE
-            );
-          } else {
-            lowerBound = Optional.of(cand);
-          }
+          lowerBound = Optional.of(new ContinuousBound<>(sVal, kind));
         }
       }
 
       if (maxBoundCtx != null && maxBoundName != null) {
-        Span bSpan = Span.ofContext(maxBoundCtx);
         String sVal = resolveStringMetadataArg(ownerLabel, "#" + maxBoundName, maxBoundCtx.metadataValue(), scope);
         if (sVal != null) {
           BoundKind kind = "maxIncl".equals(maxBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
-          ContinuousBound<String> cand = new ContinuousBound<>(sVal, kind);
-          if (upperBound.isPresent() && narrowsStringUpperViolation(upperBound.get(), cand)) {
-            diagnosticBag.addError(
-                "Constraint violation (" + ownerLabel + "): derived string #" + maxBoundName + " '" + sVal
-                    + "' cannot widen ancestor upper bound '" + upperBound.get().value() + "'",
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
-                DiagnosticBag.ERR_INVERTED_RANGE
-            );
-          } else {
-            upperBound = Optional.of(cand);
-          }
+          upperBound = Optional.of(new ContinuousBound<>(sVal, kind));
         }
       }
 
@@ -5183,22 +5109,6 @@ public final class StvnDefsLowerer {
       );
     }
 
-    private static boolean narrowsStringLowerViolation(ContinuousBound<String> anc, ContinuousBound<String> child) {
-      int cmp = compareUtf8Lexicographical(child.value(), anc.value());
-      if (cmp < 0) {
-        return true;
-      }
-      return cmp == 0 && anc.kind() == BoundKind.EXCLUSIVE && child.kind() == BoundKind.INCLUSIVE;
-    }
-
-    private static boolean narrowsStringUpperViolation(ContinuousBound<String> anc, ContinuousBound<String> child) {
-      int cmp = compareUtf8Lexicographical(child.value(), anc.value());
-      if (cmp > 0) {
-        return true;
-      }
-      return cmp == 0 && anc.kind() == BoundKind.EXCLUSIVE && child.kind() == BoundKind.INCLUSIVE;
-    }
-
     private static int compareUtf8Lexicographical(String a, String b) {
       byte[] ba = a.getBytes(StandardCharsets.UTF_8);
       byte[] bb = b.getBytes(StandardCharsets.UTF_8);
@@ -5237,13 +5147,6 @@ public final class StvnDefsLowerer {
                 bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
                 DiagnosticBag.ERR_INTEGER_OVERFLOW
             );
-          } else if (minIncl.isPresent() && v.compareTo(minIncl.get()) < 0) {
-            diagnosticBag.addError(
-                "Constraint violation (" + ownerLabel + "): derived #minIncl " + v
-                    + " cannot widen ancestor lower bound " + minIncl.get(),
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
-                DiagnosticBag.ERR_INVERTED_RANGE
-            );
           } else {
             minIncl = Optional.of(v);
           }
@@ -5261,13 +5164,6 @@ public final class StvnDefsLowerer {
                     + "; valid #maxExcl range is " + formatPhysicalIntRange(bitWidth, false, false),
                 bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
                 DiagnosticBag.ERR_INTEGER_OVERFLOW
-            );
-          } else if (maxExcl.isPresent() && v.compareTo(maxExcl.get()) > 0) {
-            diagnosticBag.addError(
-                "Constraint violation (" + ownerLabel + "): derived #maxExcl " + v
-                    + " cannot widen ancestor upper bound " + maxExcl.get(),
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
-                DiagnosticBag.ERR_INVERTED_RANGE
             );
           } else {
             maxExcl = Optional.of(v);
@@ -5325,17 +5221,8 @@ public final class StvnDefsLowerer {
         if (rawStr != null) {
           BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, "#minIncl", rawStr, bSpan);
           if (epochNanos != null) {
-            if (minNanos.isPresent() && epochNanos.compareTo(minNanos.get()) < 0) {
-              diagnosticBag.addError(
-                  "Constraint violation (" + ownerLabel + "): derived datetime #minIncl '" + rawStr
-                      + "' cannot widen ancestor lower bound",
-                  bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
-                  DiagnosticBag.ERR_INVERTED_RANGE
-              );
-            } else {
-              minNanos = Optional.of(epochNanos);
-              minRaw = Optional.of(rawStr);
-            }
+            minNanos = Optional.of(epochNanos);
+            minRaw = Optional.of(rawStr);
           }
         }
       }
@@ -5346,17 +5233,8 @@ public final class StvnDefsLowerer {
         if (rawStr != null) {
           BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, "#maxExcl", rawStr, bSpan);
           if (epochNanos != null) {
-            if (maxNanos.isPresent() && epochNanos.compareTo(maxNanos.get()) > 0) {
-              diagnosticBag.addError(
-                  "Constraint violation (" + ownerLabel + "): derived datetime #maxExcl '" + rawStr
-                      + "' cannot widen ancestor upper bound",
-                  bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
-                  DiagnosticBag.ERR_INVERTED_RANGE
-              );
-            } else {
-              maxNanos = Optional.of(epochNanos);
-              maxRaw = Optional.of(rawStr);
-            }
+            maxNanos = Optional.of(epochNanos);
+            maxRaw = Optional.of(rawStr);
           }
         }
       }
@@ -5573,7 +5451,7 @@ public final class StvnDefsLowerer {
           diagnosticBag.addError(
               "Enum subset violation (" + ownerLabel + "): duplicate variant '" + vName + "' in filter list",
               vkSpan.start(), vkSpan.end(), vkSpan.line(), vkSpan.column(), null,
-              DiagnosticBag.ERR_DUPLICATE_DEF
+              DiagnosticBag.ERR_FILTER_DUPLICATE_VARIANT
           );
           continue;
         }
