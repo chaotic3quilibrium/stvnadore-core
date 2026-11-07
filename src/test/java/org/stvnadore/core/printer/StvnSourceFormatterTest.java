@@ -569,4 +569,90 @@ class StvnSourceFormatterTest {
     Assertions.assertEquals(source, formatted);
     Assertions.assertEquals(formatted, StvnSourceFormatter.format(formatted));
   }
+
+  @Test
+  @DisplayName("Preserves authored comment-free multi-line MetadataMap layout while sorting facets into canonical 5-tier order across :defs, :package, :type, and inline constructors")
+  void testPreservesCommentFreeMultiLineMetadataMapAndSortsFiveTierOrder() {
+    String source = """
+        {
+          :defs {
+            :ScrambledFacetOrderTrap {
+              #minIncl 10
+              #unsigned
+              #maxExcl 100
+              #size 16
+              #comparable #TRUE
+            } :Int
+            #BOUNDED_CONST {
+              #maxExcl 500
+              #minIncl 1
+              #unsigned
+            } :Int 42
+            :package :com/acme/pkg {
+              :PkgBoundedString {
+                #regex "^[a-z]+$"
+                #maxSize 32
+                #minSize 2
+              } :String
+            }
+            :InlineTupleWithMultiLineFacet :Tuple(
+              :ScrambledFacetOrderTrap
+              {
+                #maxSize 64
+                #minSize 1
+              } :String
+            )
+          }
+          :type {
+            #maxSize 10
+            #minSize 1
+          } :Seq(:InlineTupleWithMultiLineFacet)
+          :body [
+            (42 "ok")
+          ]
+        }""";
+
+    String expected = """
+        {
+          :defs {
+            :ScrambledFacetOrderTrap {
+              #unsigned
+              #size 16
+              #comparable #TRUE
+              #minIncl 10
+              #maxExcl 100
+            } :Int
+            #BOUNDED_CONST {
+              #unsigned
+              #minIncl 1
+              #maxExcl 500
+            } :Int 42
+            :package :com/acme/pkg {
+              :PkgBoundedString {
+                #minSize 2
+                #maxSize 32
+                #regex "^[a-z]+$"
+              } :String
+            }
+            :InlineTupleWithMultiLineFacet :Tuple(
+              :ScrambledFacetOrderTrap
+              {
+                #minSize 1
+                #maxSize 64
+              } :String
+            )
+          }
+          :type {
+            #minSize 1
+            #maxSize 10
+          } :Seq(:InlineTupleWithMultiLineFacet)
+          :body [
+            (42 "ok")
+          ]
+        }""";
+
+    String formatted = StvnSourceFormatter.format(source);
+    Assertions.assertEquals(expected, formatted);
+    Assertions.assertEquals(expected, StvnSourceFormatter.format(formatted), "Idempotency check failed");
+  }
 }

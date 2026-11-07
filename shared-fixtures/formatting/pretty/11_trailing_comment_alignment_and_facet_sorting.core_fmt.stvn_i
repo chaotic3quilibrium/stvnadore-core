@@ -7,7 +7,8 @@
   :defs {
     :BoundedChannel { #unsigned #size 16 #minIncl 1 #maxExcl 60000 } :Int
     :ChannelLabel { #minSize 1 #maxSize 128 #regex "^[0-9a-f]{64}$" } :String
+    :ScrambledFacetOrderTrap { #unsigned #size 16 #comparable #FALSE #minIncl 10 #maxExcl 100 } :Int
   }
-  :type :Tuple(:Int :org/stvnadore/prelude/Port :BoundedChannel :ChannelLabel)
-  :body (8080 8080 4096 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+  :type :Tuple(:Int :org/stvnadore/prelude/Port :BoundedChannel :ScrambledFacetOrderTrap :ChannelLabel)
+  :body (8080 8080 4096 42 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 }

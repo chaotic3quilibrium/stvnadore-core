@@ -23,18 +23,28 @@
       #unsigned                  // representation facet comment
     } :Int
 
+    :ScrambledFacetOrderTrap {
+      #minIncl 10
+      #unsigned
+      #maxExcl 100
+      #size 16
+      #comparable #FALSE
+    } :Int
+
     :ChannelLabel { #regex #SHA256_LOWER_CASE_REGEX #maxSize 128 #minSize 1 } :String
   }
   :type :Tuple(
     :Int
     :Port
     :BoundedChannel // single-space comment
+    :ScrambledFacetOrderTrap
     :ChannelLabel
   )
   :body (
     #DEFAULT_PORT
     8080// zero-space comment
     4096
+    42
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   )
 }

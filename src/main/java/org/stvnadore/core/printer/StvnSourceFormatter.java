@@ -1026,7 +1026,9 @@ public final class StvnSourceFormatter {
         return;
       }
 
-      if (!hasComments) {
+      boolean multiLine = openBrace.getLine() < closeBrace.getLine() || hasComments;
+
+      if (!multiLine) {
         List<SortedFacetItem> sorted = new ArrayList<>(rawEntries.size());
         for (int i = 0; i < rawEntries.size(); i++) {
           StvnParser.MetadataEntryContext entry = rawEntries.get(i);
@@ -1039,7 +1041,7 @@ public final class StvnSourceFormatter {
           if (i > 0) {
             sb.append(' ');
           }
-          formatMetadataEntryInline(sorted.get(i).ctx());
+          formatMetadataEntryInline(sorted.get(i).ctx(), indent);
         }
         sb.append(" }");
         lastEmittedLine = closeBrace.getLine();
@@ -1088,7 +1090,7 @@ public final class StvnSourceFormatter {
             sb.append('\n').append(indentStr(indent + 1)).append(c.getText());
           }
           sb.append('\n').append(indentStr(indent + 1));
-          formatMetadataEntryInline(item.ctx());
+          formatMetadataEntryInline(item.ctx(), indent + 1);
           if (item.trailingComment() != null) {
             sb.append(trailingCommentPadding(item.trailingComment())).append(item.trailingComment().getText());
           }
@@ -1101,7 +1103,7 @@ public final class StvnSourceFormatter {
       }
     }
 
-    private void formatMetadataEntryInline(StvnParser.MetadataEntryContext ctx) {
+    private void formatMetadataEntryInline(StvnParser.MetadataEntryContext ctx, int indent) {
       if (ctx.facetUnsigned() != null) {
         sb.append(StvnVocabulary.FACET_KW_UNSIGNED);
         if (ctx.facetUnsigned().standaloneFacetIllegalArg() != null) {
@@ -1163,10 +1165,10 @@ public final class StvnSourceFormatter {
         sb.append(unk.unknownFacetKeyword().getText());
         if (unk.value() != null) {
           sb.append(' ');
-          formatValue(unk.value(), 2);
+          formatValue(unk.value(), indent);
         } else if (unk.schemaType() != null) {
           sb.append(' ');
-          formatSchemaType(unk.schemaType(), 2);
+          formatSchemaType(unk.schemaType(), indent);
         }
       }
     }
@@ -1402,9 +1404,22 @@ public final class StvnSourceFormatter {
       return containsMultiLineSchemaConstruct(ctx);
     }
 
+    private boolean isMultiLineMetadataMap(StvnParser.@Nullable MetadataMapContext ctx) {
+      if (ctx == null) {
+        return false;
+      }
+      Token openBrace = ctx.LBRACE().getSymbol();
+      Token closeBrace = ctx.RBRACE().getSymbol();
+      return openBrace.getLine() < closeBrace.getLine()
+          || hasCommentsBetween(openBrace.getTokenIndex(), closeBrace.getTokenIndex());
+    }
+
     private boolean containsMultiLineSchemaConstruct(StvnParser.@Nullable SchemaTypeContext ctx) {
       if (ctx == null) {
         return false;
+      }
+      if (isMultiLineMetadataMap(ctx.metadataMap())) {
+        return true;
       }
       if (ctx.schemaConstructor() != null) {
         StvnParser.SchemaConstructorContext sc = ctx.schemaConstructor();
