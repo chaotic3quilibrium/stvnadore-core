@@ -1,0 +1,8 @@
+{
+  :meta {}
+  :defs {
+    :BoundedPort { #unsigned #size 16 #minIncl 1024 #maxExcl 4096 } :Int
+  }
+  :type :BoundedPort
+  :body 5000
+}

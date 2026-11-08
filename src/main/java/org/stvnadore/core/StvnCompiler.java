@@ -235,6 +235,10 @@ public final class StvnCompiler {
         int docStart = docCtx.getStart() != null ? docCtx.getStart().getStartIndex() : 0;
         int docStop = docCtx.getStop() != null ? docCtx.getStop().getStopIndex() + 1 : Integer.MAX_VALUE;
 
+        var metaCtx = docBody.metaEntry();
+        int metaStart = metaCtx != null && metaCtx.getStart() != null ? metaCtx.getStart().getStartIndex() : -1;
+        int metaStop = metaCtx != null && metaCtx.getStop() != null ? metaCtx.getStop().getStopIndex() + 1 : -1;
+
         var defsCtx = docBody.defsEntry();
         int defsStart = defsCtx != null && defsCtx.getStart() != null ? defsCtx.getStart().getStartIndex() : -1;
         int defsStop = defsCtx != null && defsCtx.getStop() != null ? defsCtx.getStop().getStopIndex() + 1 : -1;
@@ -256,12 +260,9 @@ public final class StvnCompiler {
           }
           if (sym.startsWith("ERR_DOCUMENT_")
               || sym.startsWith("ERR_SECTION_")
-              || sym.equals(DiagnosticBag.ERR_EMPTY_DEFS_BLOCK)
-              || sym.equals(DiagnosticBag.ERR_EMPTY_META_BLOCK)
               || sym.equals(DiagnosticBag.ERR_INVALID_FILENAME_STEM)
               || sym.equals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED)
               || sym.equals(DiagnosticBag.ERR_META_POSITION_INVALID)
-              || sym.equals(DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED)
               || sym.equals("STVN_SYNTAX_ERROR")
               || sym.startsWith("SYNTAX_")) {
             canValidateBody = false;
@@ -269,8 +270,9 @@ public final class StvnCompiler {
           }
           int offset = diag.startOffset();
           if (offset >= docStart && offset < docStop) {
+            boolean inMeta = metaStart >= 0 && offset >= metaStart && offset < metaStop;
             boolean inDefs = defsStart >= 0 && offset >= defsStart && offset < defsStop;
-            if (!inDefs) {
+            if (!inMeta && !inDefs) {
               canValidateBody = false;
               break;
             }

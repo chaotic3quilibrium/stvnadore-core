@@ -1,0 +1,10 @@
+{
+  :meta {
+    #name "empty_defs_block_in_payload"
+    #domain "core_test"
+    #kind #BODY_INCLUDE
+  }
+  :defs {}
+  :type { #unsigned #size 16 #minIncl 1024 #maxExcl 4096 } :Int
+  :body 5000
+}

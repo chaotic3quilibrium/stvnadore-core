@@ -626,7 +626,7 @@ constantDefinition : valueKeyword metadataMap? schemaType value ;
 
 #### 3.8.0 Empty Definition Block Invariant
 
-Definitions schemas (`.stvn_d`, `.stvn_di`, `.stvn_bd`, or any compilation unit declaring `#kind #DEFS` or `#kind #DEFS_INCLUDE`) must include a non-empty `:defs { ... }` section. Omitting the `:defs` section entirely emits fatal diagnostic `ERR_DOCUMENT_KIND_MISMATCH` (`E031`) pinned strictly to the root opening brace `{`. Empty definition blocks (`:defs {}`) are prohibited and emit diagnostic `ERR_EMPTY_DEFS_BLOCK` (`E002`) pinned strictly to the `{}` tokens with a non-zero text span. In payload documents (`.stvn`, `.stvn_i`), `:defs` is optional, and empty `:defs {}` is rejected with `ERR_EMPTY_DEFS_BLOCK` (`E002`).
+Definitions schemas (`.stvn_d`, `.stvn_di`, `.stvn_bd`, or any compilation unit declaring `#kind #DEFS` or `#kind #DEFS_INCLUDE`) must include a non-empty `:defs { ... }` section. Omitting the `:defs` section entirely emits fatal diagnostic `ERR_DOCUMENT_KIND_MISMATCH` (`E031`) pinned strictly to the root opening brace `{`. Empty definition blocks (`:defs {}`) are prohibited and emit diagnostic `ERR_EMPTY_DEFS_BLOCK` (`E002`) pinned strictly to the `{}` tokens with a non-zero text span. In payload documents (`.stvn`, `.stvn_i`), `:defs` is optional, and empty `:defs {}` is rejected with `ERR_EMPTY_DEFS_BLOCK` (`E002`) without short-circuiting Pass 3 `:body` lowering when `:type` and `:body` are present and `:type` resolves to a valid schema.
 
 #### 3.8.2 Semantics & Substitution Rules
 
@@ -718,6 +718,7 @@ Every STVN document may declare an identity block using the `:meta` root enclosu
 4. **POSIX Identifier Validation:** Values for `#name` and `#domain` must be string literals matching `^[a-zA-Z0-9_-]{1,64}$`. Path slashes and dots are prohibited.
 5. **Kind Enumeration:** The `#kind` facet must be one of `#BODY`, `#DEFS`, `#BODY_INCLUDE`, or `#DEFS_INCLUDE`.
 6. **Reserved System Domains:** User-authored documents (both textual `.stvn`/`.stvn_i`/`.stvn_d`/`.stvn_di` and binary `.stvn_b`/`.stvn_bd` frames compiled without system authority) MUST NOT declare any system domain beginning with the reserved prefix `"stvn_"`. The `"stvn_*"` domain hierarchy is strictly reserved for compiler internals, runtime substrates, Intermediate Representation snapshots (`stvn_ir`), and Content-Addressable Storage envelopes (`stvn_cas`) (§ 1.2). Declaring a domain starting with prefix `"stvn_"` without system parser authority (`StvnParserConfig.systemAuthority() == false`) is an unrecoverable semantic error (`ERR_RESERVED_DOMAIN_PROHIBITED`, diagnostic code `E038`), pinned strictly to the `#domain` string literal token in textual documents and to the exact UTF-8 `#domain` byte slice `[domainStart, domainEnd)` in binary headers.
+7. **Pass 3 `:body` Fault Containment on `:meta` Errors:** In payload documents (`.stvn` and `.stvn_i`), diagnostics confined to `:meta { ... }` (`E008`, `E038`, `E039`, `W001`, `W002`) MUST NOT short-circuit Pass 3 `:body` lowering when `:type` and `:body` are present and `:type` resolves to a valid schema.
 
 #### 3.10.2 Filename Decomposition & Binding
 

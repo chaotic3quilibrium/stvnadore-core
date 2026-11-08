@@ -1,0 +1,13 @@
+{
+  :meta {
+    #kind #BODY_INCLUDE
+    #domain "stvn_reserved_trap"
+    #name "gauntlet_v4_stage1_wrong_stem"
+    #author "rogue_architect"
+  }
+  :defs {
+    :BoundedPort { #unsigned #size 16 #minIncl 1024 #maxExcl 4096 } :Int
+  }
+  :type :BoundedPort
+  :body 5000
+}

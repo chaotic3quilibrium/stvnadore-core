@@ -1,0 +1,20 @@
+{
+  :meta {
+    #name "gauntlet_v4_stage1_meta_multi_error_and_body"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 4 5 40 68 "Metadata facet '#domain' violates 3-tier monotonic progression (#name -> #domain -> #kind)" )
+    ( #E038 #ERR_RESERVED_DOMAIN_PROHIBITED #ERROR 4 13 48 68 "Reserved system domain prohibited: User document cannot declare reserved system domain 'stvn_reserved_trap'; domains with prefix 'stvn_' are strictly reserved for system artifacts" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 5 5 73 110 "Metadata facet '#name' violates 3-tier monotonic progression (#name -> #domain -> #kind)" )
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 6 5 115 140 "Invalid metadata facet tag '#author' in ':meta' block" )
+    ( #W001 #WARN_DOCUMENT_NAME_MISMATCH #WARNING 5 11 79 110 "Declared #name 'gauntlet_v4_stage1_wrong_stem' does not match filename stem slot 0 'gauntlet_v4_stage1_meta_multi_error_and_body'" )
+    ( #W001 #WARN_DOCUMENT_NAME_MISMATCH #WARNING 4 13 48 68 "Declared #domain 'stvn_reserved_trap' does not match filename stem slot 1 'core_test'" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 12 9 261 265 "Constraint violation (:BoundedPort): Value 5000 is outside allowable range (must be < 4096)" )
+  ]
+}

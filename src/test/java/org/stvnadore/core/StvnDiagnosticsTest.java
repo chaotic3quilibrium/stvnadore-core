@@ -1665,4 +1665,86 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals(secondCreated, diag.startOffset(), "Diagnostic startOffset must pin strictly to the second #CREATED");
     Assertions.assertEquals(secondCreated + "#CREATED".length(), diag.endOffset(), "Diagnostic endOffset must pin strictly to the second #CREATED");
   }
+
+  @Test
+  @DisplayName("TC-GAUNTLET-V4-STAGE1-01: Disordered :meta facets, reserved stvn_* domain, unknown #author facet, and Pass 3 :body error accumulate in single pass")
+  void testGauntletV4Stage1MetaMultiErrorAndBodyIsolation() throws Exception {
+    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+        "shared-fixtures/syntax/invalid/metadata/gauntlet_v4_stage1_meta_multi_error_and_body.core_test.stvn_i"
+    );
+    String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
+        .replace("\r\n", "\n");
+    var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.hasErrors());
+    var diags = result.diagnostics();
+    Assertions.assertEquals(7, diags.size(), "Expected 5 errors (E008, E038, E008, E008, E012) and 2 stem warnings (W001): " + diags);
+
+    Assertions.assertEquals("E008", diags.get(0).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_FACET_ORDER_VIOLATION, diags.get(0).symbolicId().orElse(""));
+    Assertions.assertEquals("#domain \"stvn_reserved_trap\"", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
+
+    Assertions.assertEquals("E038", diags.get(1).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED, diags.get(1).symbolicId().orElse(""));
+    Assertions.assertEquals("\"stvn_reserved_trap\"", input.substring(diags.get(1).startOffset(), diags.get(1).endOffset()));
+
+    Assertions.assertEquals("E008", diags.get(2).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_FACET_ORDER_VIOLATION, diags.get(2).symbolicId().orElse(""));
+    Assertions.assertEquals("#name \"gauntlet_v4_stage1_wrong_stem\"", input.substring(diags.get(2).startOffset(), diags.get(2).endOffset()));
+
+    Assertions.assertEquals("E008", diags.get(3).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, diags.get(3).symbolicId().orElse(""));
+    Assertions.assertEquals("#author \"rogue_architect\"", input.substring(diags.get(3).startOffset(), diags.get(3).endOffset()));
+
+    Assertions.assertEquals("W001", diags.get(4).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH, diags.get(4).symbolicId().orElse(""));
+    Assertions.assertEquals("\"gauntlet_v4_stage1_wrong_stem\"", input.substring(diags.get(4).startOffset(), diags.get(4).endOffset()));
+
+    Assertions.assertEquals("W001", diags.get(5).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH, diags.get(5).symbolicId().orElse(""));
+    Assertions.assertEquals("\"stvn_reserved_trap\"", input.substring(diags.get(5).startOffset(), diags.get(5).endOffset()));
+
+    Assertions.assertEquals("E012", diags.get(6).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(6).symbolicId().orElse(""));
+    Assertions.assertEquals("5000", input.substring(diags.get(6).startOffset(), diags.get(6).endOffset()));
+  }
+
+  @Test
+  @DisplayName("TC-GAUNTLET-V4-STAGE1-02: Empty :meta {} emits E039 on {} without E031 and preserves Pass 3 :body validation")
+  void testGauntletV4Stage1EmptyMetaBlockAndBodyIsolation() throws Exception {
+    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+        "shared-fixtures/syntax/invalid/metadata/empty_meta_block_with_body_error.core_test.stvn_i"
+    );
+    String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
+        .replace("\r\n", "\n");
+    var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.hasErrors());
+    var diags = result.diagnostics();
+    Assertions.assertEquals(2, diags.size(), "Expected strictly E039 on :meta {} and E012 on :body 5000: " + diags);
+    Assertions.assertEquals("E039", diags.get(0).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_EMPTY_META_BLOCK, diags.get(0).symbolicId().orElse(""));
+    Assertions.assertEquals("{}", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
+    Assertions.assertEquals("E012", diags.get(1).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(1).symbolicId().orElse(""));
+    Assertions.assertEquals("5000", input.substring(diags.get(1).startOffset(), diags.get(1).endOffset()));
+  }
+
+  @Test
+  @DisplayName("TC-GAUNTLET-V4-STAGE1-03: Empty :defs {} in payload document emits E002 on {} and preserves Pass 3 :body validation")
+  void testGauntletV4Stage1EmptyDefsBlockInPayloadAndBodyIsolation() throws Exception {
+    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+        "shared-fixtures/syntax/invalid/metadata/empty_defs_block_in_payload.core_test.stvn_i"
+    );
+    String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
+        .replace("\r\n", "\n");
+    var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.hasErrors());
+    var diags = result.diagnostics();
+    Assertions.assertEquals(2, diags.size(), "Expected strictly E002 on :defs {} and E012 on :body 5000: " + diags);
+    Assertions.assertEquals("E002", diags.get(0).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_EMPTY_DEFS_BLOCK, diags.get(0).symbolicId().orElse(""));
+    Assertions.assertEquals("{}", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
+    Assertions.assertEquals("E012", diags.get(1).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(1).symbolicId().orElse(""));
+    Assertions.assertEquals("5000", input.substring(diags.get(1).startOffset(), diags.get(1).endOffset()));
+  }
 }
