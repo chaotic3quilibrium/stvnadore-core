@@ -1,0 +1,27 @@
+{
+  :meta {
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :RedundantUnsignedFloor { #unsigned #minIncl 0 } :Int
+    :RedundantSignedSize32 { #size 32 } :Int
+    :EmptyMetaTrap {} :Int
+    :UnknownFacetTrap { #unknownFacet 42 #minIncl 10 #maxExcl 100 } :Int
+    :HealthyPort { #unsigned #size 16 #minIncl 1024 #maxExcl 50000 } :Int
+    :Stage10Envelope :Tuple(
+      :RedundantUnsignedFloor
+      :RedundantSignedSize32
+      :EmptyMetaTrap
+      :UnknownFacetTrap
+      :HealthyPort
+    )
+  }
+  :type :Stage10Envelope
+  :body (
+    42
+    100
+    0
+    50
+    8080
+  )
+}

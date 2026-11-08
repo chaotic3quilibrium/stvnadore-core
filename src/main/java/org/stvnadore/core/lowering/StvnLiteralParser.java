@@ -363,7 +363,10 @@ public final class StvnLiteralParser {
     Objects.requireNonNull(rawLiteral, "rawLiteral must not be null");
     var matcher = DATETIME_OFFSET_PATTERN.matcher(rawLiteral);
     if (!matcher.matches()) {
-      throw new IllegalArgumentException("Literal does not match :DateTimeOffset format: " + rawLiteral);
+      throw new IllegalArgumentException(
+          "Literal does not match { " + StvnVocabulary.FACET_KW_OFFSET + " } "
+              + StvnVocabulary.TYPE_DATE_TIME + " format: " + rawLiteral
+      );
     }
     String isoText = rawLiteral.substring(1, rawLiteral.length() - 1);
     OffsetDateTime odt = OffsetDateTime.parse(isoText);
@@ -384,7 +387,10 @@ public final class StvnLiteralParser {
     Objects.requireNonNull(rawLiteral, "rawLiteral must not be null");
     var matcher = DATETIME_ZONED_PATTERN.matcher(rawLiteral);
     if (!matcher.matches()) {
-      throw new IllegalArgumentException("Literal does not match :DateTimeZoned format: " + rawLiteral);
+      throw new IllegalArgumentException(
+          "Literal does not match { " + StvnVocabulary.FACET_KW_ZONED + " } "
+              + StvnVocabulary.TYPE_DATE_TIME + " format: " + rawLiteral
+      );
     }
     LocalDateTime ldt = LocalDateTime.parse(matcher.group(1));
     ZoneId zoneId = ZoneId.of(matcher.group(2));
@@ -405,7 +411,10 @@ public final class StvnLiteralParser {
     Objects.requireNonNull(rawLiteral, "rawLiteral must not be null");
     var matcher = DATETIME_AUDITED_PATTERN.matcher(rawLiteral);
     if (!matcher.matches()) {
-      throw new IllegalArgumentException("Literal does not match :DateTimeAudited format: " + rawLiteral);
+      throw new IllegalArgumentException(
+          "Literal does not match { " + StvnVocabulary.FACET_KW_AUDITED + " } "
+              + StvnVocabulary.TYPE_DATE_TIME + " format: " + rawLiteral
+      );
     }
     OffsetDateTime odt = OffsetDateTime.parse(matcher.group(1) + matcher.group(2));
     ZoneId zoneId = ZoneId.of(matcher.group(3));

@@ -1,0 +1,28 @@
+{
+  :meta {
+    #name "inv_stage8_invertible_map_radix_collision_and_float_equatable"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :RouteLabel { #minSize 1 #maxSize 32 } :String
+    :PortNumber { #unsigned #size 16 } :Int
+    :BijectivePortMap { #invertible } :Map(
+      :RouteLabel
+      :PortNumber
+    )
+    :EquatableFloat { #equatable #TRUE } :Float
+    :FloatMetricSet :Set(:EquatableFloat)
+    :Stage8Envelope :Tuple(
+      :BijectivePortMap
+      :FloatMetricSet
+    )
+  }
+  :type :Stage8Envelope
+  :body (
+    {
+      [ "primary" 80 ]
+      [ "alias" 0x50 ]
+    }
+    [ 1.5 2.5 ]
+  )
+}

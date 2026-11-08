@@ -9,6 +9,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.validation.DiagnosticBag;
 
 import java.util.ArrayList;
@@ -618,5 +619,79 @@ public class StvnNominalAliasOverrideMatrixTest {
     assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, d1.symbolicId().orElse(null));
     assertEquals("2500", source.substring(d1.startOffset(), d1.endOffset()));
     assertTrue(d1.message().contains("Constraint violation (:StrictClusterId): Value 2500 is outside allowable range (must be < 2000)"));
+  }
+
+  @Test
+  @DisplayName("VOP-POISONED-SCHEMA-01: SPEC § 7.3.5 Grounded vs. Ungrounded PoisonedSchema predicates and per-slot :body fault isolation")
+  void testGroundedVsUngroundedPoisonedSchemaContractAndSlotFaultIsolation() {
+    String source = """
+        {
+          :defs {
+            :CycleAlpha :CycleBeta
+            :CycleBeta :CycleAlpha
+            :UnresolvedRef :NonExistentParent
+            :BaseClusterId { #unsigned #size 16 #minIncl 100 #maxExcl 10000 } :Int
+            :IllegalSizeOverride { #size 32 } :BaseClusterId
+            :InvertedBounds { #minIncl 5000 #maxExcl 100 } :Int
+            :EmptyMeta {} :Int
+            :HealthyPort { #unsigned #size 16 #minIncl 1024 } :Int
+            :TestEnvelope :Tuple(
+              :CycleAlpha
+              :UnresolvedRef
+              :IllegalSizeOverride
+              :InvertedBounds
+              :HealthyPort
+            )
+          }
+          :type :TestEnvelope
+          :body (
+            "suspended-ungrounded-cycle"
+            "suspended-ungrounded-unresolved"
+            "suspended-grounded-override"
+            "suspended-grounded-inverted"
+            80
+          )
+        }
+        """;
+
+    var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
+    assertTrue(result.hasErrors());
+    var doc = result.document().orElseThrow();
+    var catalog = doc.defs();
+
+    // Case A: Ungrounded PoisonedSchema (isUngrounded() == true, isGrounded() == false)
+    var cycleAlpha = assertInstanceOf(StvnSchema.PoisonedSchema.class, catalog.findType(":CycleAlpha").orElseThrow());
+    assertTrue(cycleAlpha.isUngrounded());
+    assertFalse(cycleAlpha.isGrounded());
+    assertTrue(cycleAlpha.bestEffortFallback().isEmpty());
+
+    var unresolvedRef = assertInstanceOf(StvnSchema.PoisonedSchema.class, catalog.findType(":UnresolvedRef").orElseThrow());
+    assertTrue(unresolvedRef.isUngrounded());
+    assertFalse(unresolvedRef.isGrounded());
+    assertTrue(unresolvedRef.bestEffortFallback().isEmpty());
+
+    // Case B: Grounded PoisonedSchema (isGrounded() == true, isUngrounded() == false)
+    var illegalSize = assertInstanceOf(StvnSchema.PoisonedSchema.class, catalog.findType(":IllegalSizeOverride").orElseThrow());
+    assertTrue(illegalSize.isGrounded());
+    assertFalse(illegalSize.isUngrounded());
+    assertInstanceOf(StvnSchema.IntSchema.class, illegalSize.bestEffortFallback().orElseThrow());
+
+    var invertedBounds = assertInstanceOf(StvnSchema.PoisonedSchema.class, catalog.findType(":InvertedBounds").orElseThrow());
+    assertTrue(invertedBounds.isGrounded());
+    assertFalse(invertedBounds.isUngrounded());
+    assertInstanceOf(StvnSchema.IntSchema.class, invertedBounds.bestEffortFallback().orElseThrow());
+
+    var emptyMeta = assertInstanceOf(StvnSchema.PoisonedSchema.class, catalog.findType(":EmptyMeta").orElseThrow());
+    assertTrue(emptyMeta.isGrounded());
+    assertFalse(emptyMeta.isUngrounded());
+    assertInstanceOf(StvnSchema.IntSchema.class, emptyMeta.bestEffortFallback().orElseThrow());
+
+    // Verify Pass 3 :body fault isolation: slots 0..3 emit 0 errors; healthy slot 4 (80) emits E012
+    List<StvnDiagnostic> bodyDiagnostics = result.diagnostics().stream()
+        .filter(d -> d.line() >= 20)
+        .toList();
+    assertEquals(1, bodyDiagnostics.size(), () -> "Expected strictly 1 :body diagnostic on healthy slot 4 (80), got: " + bodyDiagnostics);
+    assertEquals("E012", bodyDiagnostics.get(0).canonicalCode().orElse(null));
+    assertEquals("80", source.substring(bodyDiagnostics.get(0).startOffset(), bodyDiagnostics.get(0).endOffset()));
   }
 }

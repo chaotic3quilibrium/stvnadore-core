@@ -27,6 +27,7 @@ class StvnVocabularyTest {
   }
 
   @Test
+  @SuppressWarnings("removal")
   @DisplayName("TC-VOCAB-02: Assert all collection and composite type constants match grammar tokens")
   void testCompositeTypeConstants() {
     assertEquals(":Seq", StvnVocabulary.TYPE_SEQ);
@@ -221,14 +222,13 @@ class StvnVocabularyTest {
     if (!java.nio.file.Files.exists(mainJava)) return;
 
     java.util.regex.Pattern forbiddenLiterals = java.util.regex.Pattern.compile(
-        "\"(:Int|:Float|:String|:Boolean|:TimeEpoch|:DateTime|:Seq|:Set|:Map|:Tuple|:Option|:Either|:Union|:Enum|:MapEntry|:defs|:type|:body|:include|:package|:use)\""
+        "\"(:Int|:Float|:String|:Boolean|:TimeEpoch|:DateTime|:Seq|:Set|:Map|:Tuple|:Option|:Either|:Union|:Enum|:MapEntry|:meta|:defs|:type|:body|:include|:package|:use)\""
     );
 
     try (var stream = java.nio.file.Files.walk(mainJava)) {
       var violations = stream
           .filter(p -> p.toString().endsWith(".java"))
           .filter(p -> !p.endsWith("StvnVocabulary.java"))
-          .filter(p -> !p.endsWith("StvnErrorListener.java"))
           .flatMap(p -> {
             try {
               var lines = java.nio.file.Files.readAllLines(p);

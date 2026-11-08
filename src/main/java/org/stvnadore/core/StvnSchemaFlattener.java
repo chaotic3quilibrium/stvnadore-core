@@ -149,7 +149,7 @@ public final class StvnSchemaFlattener {
           @Nullable RecognitionException e
       ) {
         throw new MalformedSchemaException(
-            "STVN Syntax Error at line " + line + ":" + charPositionInLine + " - " + msg,
+            "STVN Syntax Error at line " + line + ':' + charPositionInLine + " - " + msg,
             e
         );
       }

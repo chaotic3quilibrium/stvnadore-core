@@ -250,7 +250,7 @@ public final class StvnMapper {
       StvnSchema schema = schemaOpt.orElseThrow(
           () -> new MalformedPayloadException("Cannot map Java Enum without an EnumSchema: " + runtimeClass.getName())
       );
-      String tag = "#" + enumConstant.name();
+      String tag = StvnVocabulary.SIGIL_VALUE + enumConstant.name();
       List<String> rootVariants;
       List<String> activeVariants;
       if (schema instanceof StvnSchema.EnumSchema es) {
@@ -835,7 +835,7 @@ public final class StvnMapper {
             "Expected StvnEnum for " + targetClass.getName() + ", got " + irValue.getClass().getSimpleName()
         );
       }
-      String rawName = enumVal.variantTag().startsWith("#")
+      String rawName = enumVal.variantTag().startsWith(StvnVocabulary.SIGIL_VALUE)
           ? enumVal.variantTag().substring(1)
           : enumVal.variantTag();
       return resolveJavaEnumConstant(targetClass, rawName);

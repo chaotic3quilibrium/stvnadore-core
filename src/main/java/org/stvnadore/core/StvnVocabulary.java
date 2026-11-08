@@ -72,7 +72,12 @@ public final class StvnVocabulary {
   /** Canonical type identifier for symbolic discrete enumerations ({@code :Enum}). */
   public static final String TYPE_ENUM = ":Enum";
 
-  /** Canonical type identifier for isolated key-value map entries ({@code :MapEntry}). */
+  /**
+   * Canonical type identifier for isolated key-value map entries ({@code :MapEntry}).
+   *
+   * @deprecated Not a grammar token in STVN 2.0.0; map entries use {@code [ key value ]} bracket syntax.
+   */
+  @Deprecated(since = "2.0.0", forRemoval = true)
   public static final String TYPE_MAP_ENTRY = ":MapEntry";
 
   // ============================================================================

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "inv_stage8_invertible_map_radix_collision_and_float_equatable"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E018 #DUPLICATE_INVERTED_MAP_VALUE #ERROR 24 17 558 562 "Duplicate inverted map value detected" )
+  ]
+}

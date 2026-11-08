@@ -38,7 +38,7 @@ public final class CompactLayoutWriter implements LayoutWriter {
     }
     if (!lastToken.isEmpty()) {
       boolean omitSpace = isPunctuation(lastToken) || isPunctuation(token)
-          || (token.equals(StvnVocabulary.KEYWORD_BODY) && lastToken.startsWith(":"));
+          || (token.equals(StvnVocabulary.KEYWORD_BODY) && lastToken.startsWith(StvnVocabulary.SIGIL_TYPIC));
       if (!omitSpace) {
         if (!lastToken.endsWith("\n")) {
           writer.write(' ');

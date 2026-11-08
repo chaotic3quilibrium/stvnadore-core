@@ -767,9 +767,9 @@ public final class StvnPayloadLowerer {
 
   private static String canonicalModeLabel(DateTimeMode mode) {
     return switch (mode) {
-      case OFFSET -> "{ #offset }";
-      case ZONED -> "{ #zoned }";
-      case AUDITED -> "{ #audited }";
+      case OFFSET -> "{ " + StvnVocabulary.FACET_KW_OFFSET + " }";
+      case ZONED -> "{ " + StvnVocabulary.FACET_KW_ZONED + " }";
+      case AUDITED -> "{ " + StvnVocabulary.FACET_KW_AUDITED + " }";
     };
   }
 

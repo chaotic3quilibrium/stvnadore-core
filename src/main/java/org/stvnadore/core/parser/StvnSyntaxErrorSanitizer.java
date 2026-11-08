@@ -351,9 +351,9 @@ public final class StvnSyntaxErrorSanitizer {
       endOffset = token.getType() == Token.EOF
           ? startOffset
           : Math.max(startOffset + 1, token.getStopIndex() + 1);
-      if (":".equals(token.getText())) {
+      if (StvnVocabulary.SIGIL_TYPIC.equals(token.getText())) {
         isBareColon = true;
-      } else if ("#".equals(token.getText())) {
+      } else if (StvnVocabulary.SIGIL_VALUE.equals(token.getText())) {
         isBareHash = true;
       }
 
@@ -537,8 +537,8 @@ public final class StvnSyntaxErrorSanitizer {
       @Nullable String rawMsg,
       @Nullable RecognitionException e
   ) {
-    boolean isBareColon = offendingToken != null && ":".equals(offendingToken.getText());
-    boolean isBareHash = offendingToken != null && "#".equals(offendingToken.getText());
+    boolean isBareColon = offendingToken != null && StvnVocabulary.SIGIL_TYPIC.equals(offendingToken.getText());
+    boolean isBareHash = offendingToken != null && StvnVocabulary.SIGIL_VALUE.equals(offendingToken.getText());
     boolean isRootMissing = false;
     if (recognizer instanceof Parser parser && offendingToken != null) {
       if (isFirstDefaultChannelToken(parser.getTokenStream(), offendingToken.getTokenIndex())

@@ -88,7 +88,7 @@ public final class StvnErrorListener extends BaseErrorListener {
         e
     );
 
-    String coordKey = sanitized.line() + ":" + sanitized.column() + ":" + sanitized.startOffset();
+    String coordKey = "" + sanitized.line() + ':' + sanitized.column() + ':' + sanitized.startOffset();
     if (this.recordedCoordinates.contains(coordKey)) {
       return;
     }

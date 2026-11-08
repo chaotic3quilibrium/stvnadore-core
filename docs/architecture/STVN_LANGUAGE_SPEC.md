@@ -1542,6 +1542,33 @@ During document scaffolding, incomplete top-level clauses (`:defs`, `:type`, `:b
    * Pass 2 MUST suppress secondary **missing-mandatory-section** `E031` (`ERR_DOCUMENT_KIND_MISMATCH`) cascades on that truncated unit.
    * Pass 2 MUST continue to emit `E031` (`ERR_DOCUMENT_KIND_MISMATCH`) for **explicitly present prohibited sections** (such as `:type` or `:body` authored inside a `#DEFS` or `#DEFS_INCLUDE` definitions schema) and explicit `:meta` `#kind`-versus-extension contradictions.
 
+#### 7.3.5 Grounded vs. Ungrounded `PoisonedSchema` Contract & Per-Slot `:body` Fault Isolation
+
+When a nominal type definition in `:defs` or an inline schema in `:type` fails Pass 2 validation, the compiler lowers the declaration into a `PoisonedSchema` sentinel categorized into one of two lineage states:
+
+1. **Case A — Ungrounded `PoisonedSchema` (`isUngrounded() == true`, `bestEffortFallback == Optional.empty()`):**
+   Produced when a schema has no valid terminal STVN type constructor:
+   - Non-disjunctive circular type alias chains (`:CycleAlpha :CycleBeta` / `:CycleBeta :CycleAlpha`, `E007` `ERR_CIRCULAR_TYPE`).
+   - Unresolved or unimported nominal type references (`E005` `ERR_UNKNOWN_TYPE` / `ERR_UNDEFINED_TYPE`) or purged 1.x aliases (`E030` `ERR_PRELUDE_ALIAS_PURGED`).
+   - Reserved keywords bound on the LHS of `:defs` (`E027` `ERR_RESERVED_KEYWORD_ON_LHS`) or unauthorized `:org/stvnadore/prelude` package declarations (`E035` `ERR_RESERVED_PACKAGE_PROHIBITED`).
+   - Malformed structural constructors (`:Enum []` with zero variants or `:Union(...)` with fewer than 2 branches, `E010` `ERR_MALFORMED_SCHEMA`).
+   - `:Set` element or `:Map` key/value algebraic trait violations (`E011` `ERR_TRAIT_VIOLATION`).
+   - `:TimeEpoch` or `:DateTime` declarations omitting mandatory temporal scale or mode facets (`E033` `ERR_MISSING_TEMPORAL_FACET`).
+   - Any child nominal alias `:Child :Parent` derived from an ungrounded `:Parent`.
+   Because no terminal STVN type constructor exists, Pass 2 cannot evaluate child metadata facets on derived aliases, and IDE tooling MUST NOT fabricate a synthetic base type name (such as `":Value"` or `":Any"`).
+
+2. **Case B — Grounded `PoisonedSchema` (`isGrounded() == true`, `bestEffortFallback == Optional.of(fallbackSchema)`):**
+   Produced when a schema resolves to a concrete STVN base constructor (`:Int`, `:Float`, `:String`, `:Boolean`, `:TimeEpoch`, `:DateTime`, `:Enum`, `:Seq`, `:Set`, `:Map`, `:Tuple`, `:Option`, `:Either`, `:Union`) or a grounded nominal parent, but fails one or more metadata facet validations (`E003` empty `{}` metadata block, `E008` inapplicable facet, `E009` inverted range / capacity overflow / discrete bound kind / mutual exclusion, `E011` scalar/composite trait violation, `E012` bound constraint violation, `E013` invalid `#regex`, `E014`–`E016` invalid `:Enum` subset, `E031` duplicate facet, `E036` unknown facet, or `E040` illegal nominal override):
+   - **Pass 2 Multi-Hop `:defs` Derivation Recovery:** When a child nominal alias `:Child { ... } :Parent` derives from a grounded `PoisonedSchema` `:Parent`, Pass 2 unwraps `:Parent`'s `bestEffortFallback` to validate `:Child`'s own metadata facets against the underlying base type so independent `:defs` errors in `:Child` are reported accurately, and wraps the resulting fallback in a grounded `PoisonedSchema`.
+   - **IDE Introspection Recovery:** IDE quick documentation and type resolvers MAY inspect `bestEffortFallback` on a grounded `PoisonedSchema` to display the underlying structural base type alongside a degraded-schema notice.
+
+3. **Pass 3 Per-Slot `:body` Suspension & Sibling Slot Fault Isolation:**
+   - During Pass 3 (`:body` and `#CONST` payload lowering), whenever a slot is governed by a `PoisonedSchema` (whether **Case A Ungrounded** or **Case B Grounded**), the lowerer MUST suspend value validation for that specific slot (`silentPoisonErrorValue`) and emit **zero** secondary `:body` diagnostics for that slot.
+   - **Sibling Slot Isolation:** Suspending a poisoned slot inside an enclosing `:Tuple`, `:Seq`, `:Set`, or `:Map` MUST NOT suppress validation of healthy sibling slots. Every sibling slot governed by a valid schema (including guarded recursive schemas such as `:TreeNode :Tuple( :TreeLabel :Seq(:TreeNode) )` and constrained scalars) MUST be validated normally in Pass 3.
+
+4. **Non-Poisoning Canonical Facet Ordering Exception (`E032` / `ERR_FACET_ORDER_VIOLATION`):**
+   - If a metadata block's only error is a canonical 5-tier facet ordering violation (`E032` / `ERR_FACET_ORDER_VIOLATION`) and all individual facets are otherwise semantically valid for the target domain, Pass 2 emits `E032` at the out-of-order facet and returns the concrete lowered `StvnSchema` (**not** a `PoisonedSchema`), so downstream `#CONST` definitions and `:body` payloads continue to validate against the declared bounds in the same compilation pass.
+
 ### 7.4 Interactive DX Guards & Caret Resolution Boundaries
 
 During interactive editing in IDE plugins:

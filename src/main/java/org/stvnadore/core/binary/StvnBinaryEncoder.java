@@ -3,6 +3,7 @@ package org.stvnadore.core.binary;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.binary.exceptions.StvnSerializationException;
 import org.stvnadore.core.io.CanonicalStvnWriter;
 import org.stvnadore.core.ir.StvnDocument;
@@ -626,10 +627,10 @@ public class StvnBinaryEncoder {
 
   private static String formatExactFloatWireString(StvnValue.StvnFloat f) {
     return switch (f.specialKind()) {
-      case NAN -> "NaN";
-      case POSITIVE_INFINITY -> "+Infinity";
-      case NEGATIVE_INFINITY -> "-Infinity";
-      case FINITE -> f.negativeZero() ? "-0.0" : f.decimalValue().toString();
+      case NAN -> StvnVocabulary.LITERAL_NAN;
+      case POSITIVE_INFINITY -> StvnVocabulary.LITERAL_POS_INFINITY;
+      case NEGATIVE_INFINITY -> StvnVocabulary.LITERAL_NEG_INFINITY;
+      case FINITE -> f.negativeZero() ? StvnVocabulary.LITERAL_NEG_ZERO : f.decimalValue().toString();
     };
   }
 

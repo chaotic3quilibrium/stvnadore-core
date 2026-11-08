@@ -783,6 +783,17 @@ public sealed interface StvnSchema permits
   /**
    * Degraded IDE error-recovery sentinel schema preventing cascading false-positive diagnostics
    * when a type definition fails semantic validation.
+   * <p>
+   * Under STVN 2.0.0 Value-Oriented Programming (SPEC § 7.3.5), a {@code PoisonedSchema} is classified
+   * as either:
+   * <ul>
+   *   <li><b>Grounded ({@link #isGrounded()} == {@code true}):</b> {@link #bestEffortFallback()} is present,
+   *       preserving the underlying concrete STVN constructor for Pass 2 multi-hop {@code :defs} facet
+   *       validation and IDE structural inspection while Pass 3 suspends {@code :body} evaluation for the slot.</li>
+   *   <li><b>Ungrounded ({@link #isUngrounded()} == {@code true}):</b> {@link #bestEffortFallback()} is empty
+   *       (for example, circular type aliases {@code E007} or unresolved types {@code E005}), indicating that
+   *       no terminal STVN constructor exists.</li>
+   * </ul>
    *
    * @param aliasName             optional nominal FQNI brand
    * @param primaryDiagnosticCode canonical or symbolic diagnostic code that triggered poisoning
@@ -810,6 +821,26 @@ public sealed interface StvnSchema permits
       Objects.requireNonNull(primaryDiagnosticCode, "primaryDiagnosticCode must not be null");
       Objects.requireNonNull(bestEffortFallback, "bestEffortFallback must not be null");
       Objects.requireNonNull(traits, "traits must not be null");
+    }
+
+    /**
+     * Returns {@code true} if this poisoned schema resolves to a concrete fallback STVN constructor
+     * (Case B grounded constraint failure, SPEC § 7.3.5).
+     *
+     * @return {@code true} when {@link #bestEffortFallback()} is present
+     */
+    public boolean isGrounded() {
+      return bestEffortFallback.isPresent();
+    }
+
+    /**
+     * Returns {@code true} if this poisoned schema has no terminal STVN constructor
+     * (Case A ungrounded lineage failure, such as circular or unresolved types, SPEC § 7.3.5).
+     *
+     * @return {@code true} when {@link #bestEffortFallback()} is empty
+     */
+    public boolean isUngrounded() {
+      return bestEffortFallback.isEmpty();
     }
   }
 }

@@ -676,9 +676,9 @@ public final class StvnBinaryDecoder {
   public static String describeMetaSummary(StvnDocumentMeta meta) {
     Objects.requireNonNull(meta, "meta must not be null");
     var sb = new StringBuilder();
-    meta.name().ifPresent(n -> sb.append("#name \"").append(n).append("\" "));
-    meta.domain().ifPresent(d -> sb.append("#domain \"").append(d).append("\" "));
-    meta.kind().ifPresent(k -> sb.append("#kind ").append(k.keyword()));
+    meta.name().ifPresent(n -> sb.append(StvnVocabulary.FACET_KW_META_NAME).append(" \"").append(n).append("\" "));
+    meta.domain().ifPresent(d -> sb.append(StvnVocabulary.FACET_KW_META_DOMAIN).append(" \"").append(d).append("\" "));
+    meta.kind().ifPresent(k -> sb.append(StvnVocabulary.FACET_KW_META_KIND).append(' ').append(k.keyword()));
     return sb.toString().trim();
   }
 
@@ -1351,10 +1351,10 @@ public final class StvnBinaryDecoder {
       case StvnSchema.FloatSchema floatSchema -> {
         String rawText = readStringOutlined(ctx, offset);
         yield switch (rawText) {
-          case "NaN" -> new StvnValue.StvnFloat(floatSchema, BigDecimal.ZERO, false, Ieee754SpecialKind.NAN);
-          case "+Infinity", "Infinity" ->
+          case StvnVocabulary.LITERAL_NAN -> new StvnValue.StvnFloat(floatSchema, BigDecimal.ZERO, false, Ieee754SpecialKind.NAN);
+          case StvnVocabulary.LITERAL_POS_INFINITY, "Infinity" ->
               new StvnValue.StvnFloat(floatSchema, BigDecimal.ZERO, false, Ieee754SpecialKind.POSITIVE_INFINITY);
-          case "-Infinity" ->
+          case StvnVocabulary.LITERAL_NEG_INFINITY ->
               new StvnValue.StvnFloat(floatSchema, BigDecimal.ZERO, false, Ieee754SpecialKind.NEGATIVE_INFINITY);
           default -> {
             BigDecimal dec = StvnLiteralParser.parseBigDecimal(rawText);

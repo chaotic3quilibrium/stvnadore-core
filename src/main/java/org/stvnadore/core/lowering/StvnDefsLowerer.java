@@ -4203,7 +4203,7 @@ public final class StvnDefsLowerer {
           case "ns", "us", "ms", "s" -> childScale = parseTemporalScale(facetName);
           case "offset", "zoned", "audited" -> childMode = parseDateTimeMode(facetName);
           case "size" -> {
-            BigInteger sz = resolveIntegerMetadataArg(ownerLabel, "#size", entry.metadataSize().metadataValue(), scope);
+            BigInteger sz = resolveIntegerMetadataArg(ownerLabel, StvnVocabulary.FACET_KW_SIZE, entry.metadataSize().metadataValue(), scope);
             if (sz != null) {
               if (isNominalDerivation && parentLedger.lockedSize().isPresent()) {
                 String ancName = parentName != null ? parentName : "ancestor";
@@ -4230,28 +4230,28 @@ public final class StvnDefsLowerer {
             }
           }
           case "minSize" -> {
-            BigInteger ms = resolveIntegerMetadataArg(ownerLabel, "#minSize", entry.metadataSize().metadataValue(), scope);
+            BigInteger ms = resolveIntegerMetadataArg(ownerLabel, StvnVocabulary.FACET_KW_MIN_SIZE, entry.metadataSize().metadataValue(), scope);
             if (ms != null) {
               childMinSize = ms;
               childMinSizeSpan = entrySpan;
             }
           }
           case "maxSize" -> {
-            BigInteger mx = resolveIntegerMetadataArg(ownerLabel, "#maxSize", entry.metadataSize().metadataValue(), scope);
+            BigInteger mx = resolveIntegerMetadataArg(ownerLabel, StvnVocabulary.FACET_KW_MAX_SIZE, entry.metadataSize().metadataValue(), scope);
             if (mx != null) {
               childMaxSize = mx;
               childMaxSizeSpan = entrySpan;
             }
           }
           case "equatable" -> {
-            Boolean b = resolveBooleanMetadataArg(ownerLabel, "#equatable", entry.metadataBool().metadataValue(), scope);
+            Boolean b = resolveBooleanMetadataArg(ownerLabel, StvnVocabulary.FACET_KW_EQUATABLE, entry.metadataBool().metadataValue(), scope);
             if (b != null) {
               childEquatable = b;
               childEquatableSpan = entrySpan;
             }
           }
           case "comparable" -> {
-            Boolean b = resolveBooleanMetadataArg(ownerLabel, "#comparable", entry.metadataBool().metadataValue(), scope);
+            Boolean b = resolveBooleanMetadataArg(ownerLabel, StvnVocabulary.FACET_KW_COMPARABLE, entry.metadataBool().metadataValue(), scope);
             if (b != null) {
               childComparable = b;
               childComparableSpan = entrySpan;
@@ -4703,7 +4703,7 @@ public final class StvnDefsLowerer {
 
       if (minBoundCtx != null) {
         Span bSpan = Span.ofContext(minBoundCtx);
-        BigInteger minVal = resolveIntegerMetadataArg(ownerLabel, "#minIncl", minBoundCtx.metadataValue(), scope);
+        BigInteger minVal = resolveIntegerMetadataArg(ownerLabel, StvnVocabulary.FACET_KW_MIN_INCL, minBoundCtx.metadataValue(), scope);
         if (minVal != null) {
           if (!widthCarrier.acceptsWidth(minVal)) {
             diagnosticBag.addError(
@@ -4750,7 +4750,7 @@ public final class StvnDefsLowerer {
 
       if (maxBoundCtx != null) {
         Span bSpan = Span.ofContext(maxBoundCtx);
-        BigInteger maxVal = resolveIntegerMetadataArg(ownerLabel, "#maxExcl", maxBoundCtx.metadataValue(), scope);
+        BigInteger maxVal = resolveIntegerMetadataArg(ownerLabel, StvnVocabulary.FACET_KW_MAX_EXCL, maxBoundCtx.metadataValue(), scope);
         if (maxVal != null) {
           // Note: For half-open [min, maxExcl), maxExcl == 2^s (unsigned) or 2^(s-1) (signed) is the exact architectural ceiling!
           boolean isExactUnsignedCeiling = effectiveUnsigned && isExactPowerOfTwo(maxVal, effectiveBitWidth);
@@ -4943,7 +4943,7 @@ public final class StvnDefsLowerer {
       Optional<ContinuousBound<BigDecimal>> upper = floatBase.upperBound();
 
       if (minBoundCtx != null && minBoundName != null) {
-        BigDecimal bd = resolveDecimalMetadataArg(ownerLabel, "#" + minBoundName, minBoundCtx.metadataValue(), rep, exactMaxDigits, scope);
+        BigDecimal bd = resolveDecimalMetadataArg(ownerLabel, StvnVocabulary.SIGIL_VALUE + minBoundName, minBoundCtx.metadataValue(), rep, exactMaxDigits, scope);
         if (bd != null) {
           BoundKind kind = "minIncl".equals(minBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
           lower = Optional.of(new ContinuousBound<>(bd, kind));
@@ -4951,7 +4951,7 @@ public final class StvnDefsLowerer {
       }
 
       if (maxBoundCtx != null && maxBoundName != null) {
-        BigDecimal bd = resolveDecimalMetadataArg(ownerLabel, "#" + maxBoundName, maxBoundCtx.metadataValue(), rep, exactMaxDigits, scope);
+        BigDecimal bd = resolveDecimalMetadataArg(ownerLabel, StvnVocabulary.SIGIL_VALUE + maxBoundName, maxBoundCtx.metadataValue(), rep, exactMaxDigits, scope);
         if (bd != null) {
           BoundKind kind = "maxIncl".equals(maxBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
           upper = Optional.of(new ContinuousBound<>(bd, kind));
@@ -5018,7 +5018,7 @@ public final class StvnDefsLowerer {
       Optional<ContinuousBound<String>> upperBound = strBase.upperBound();
 
       if (minBoundCtx != null && minBoundName != null) {
-        String sVal = resolveStringMetadataArg(ownerLabel, "#" + minBoundName, minBoundCtx.metadataValue(), scope);
+        String sVal = resolveStringMetadataArg(ownerLabel, StvnVocabulary.SIGIL_VALUE + minBoundName, minBoundCtx.metadataValue(), scope);
         if (sVal != null) {
           BoundKind kind = "minIncl".equals(minBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
           lowerBound = Optional.of(new ContinuousBound<>(sVal, kind));
@@ -5026,7 +5026,7 @@ public final class StvnDefsLowerer {
       }
 
       if (maxBoundCtx != null && maxBoundName != null) {
-        String sVal = resolveStringMetadataArg(ownerLabel, "#" + maxBoundName, maxBoundCtx.metadataValue(), scope);
+        String sVal = resolveStringMetadataArg(ownerLabel, StvnVocabulary.SIGIL_VALUE + maxBoundName, maxBoundCtx.metadataValue(), scope);
         if (sVal != null) {
           BoundKind kind = "maxIncl".equals(maxBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
           upperBound = Optional.of(new ContinuousBound<>(sVal, kind));
@@ -5065,7 +5065,7 @@ public final class StvnDefsLowerer {
       Optional<Pattern> compiledRegex = strBase.compiledRegex();
       if (regexCtx != null) {
         Span rSpan = Span.ofContext(regexCtx);
-        String patStr = resolveStringMetadataArg(ownerLabel, "#regex", regexCtx.metadataValue(), scope);
+        String patStr = resolveStringMetadataArg(ownerLabel, StvnVocabulary.FACET_KW_REGEX, regexCtx.metadataValue(), scope);
         if (patStr != null) {
           try {
             Pattern compiled = Pattern.compile(patStr);
@@ -5136,7 +5136,7 @@ public final class StvnDefsLowerer {
 
       if (minBoundCtx != null) {
         Span bSpan = Span.ofContext(minBoundCtx);
-        BigInteger v = resolveIntegerMetadataArg(ownerLabel, "#minIncl", minBoundCtx.metadataValue(), scope);
+        BigInteger v = resolveIntegerMetadataArg(ownerLabel, StvnVocabulary.FACET_KW_MIN_INCL, minBoundCtx.metadataValue(), scope);
         if (v != null) {
           if (!widthCarrier.acceptsWidth(v)) {
             diagnosticBag.addError(
@@ -5154,7 +5154,7 @@ public final class StvnDefsLowerer {
       }
       if (maxBoundCtx != null) {
         Span bSpan = Span.ofContext(maxBoundCtx);
-        BigInteger v = resolveIntegerMetadataArg(ownerLabel, "#maxExcl", maxBoundCtx.metadataValue(), scope);
+        BigInteger v = resolveIntegerMetadataArg(ownerLabel, StvnVocabulary.FACET_KW_MAX_EXCL, maxBoundCtx.metadataValue(), scope);
         if (v != null) {
           if (!widthCarrier.acceptsWidth(v)) {
             diagnosticBag.addError(
@@ -5217,9 +5217,9 @@ public final class StvnDefsLowerer {
 
       if (minBoundCtx != null) {
         Span bSpan = Span.ofContext(minBoundCtx);
-        String rawStr = resolveDateTimeBoundStringArg(ownerLabel, "#minIncl", minBoundCtx.metadataValue(), scope);
+        String rawStr = resolveDateTimeBoundStringArg(ownerLabel, StvnVocabulary.FACET_KW_MIN_INCL, minBoundCtx.metadataValue(), scope);
         if (rawStr != null) {
-          BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, "#minIncl", rawStr, bSpan);
+          BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, StvnVocabulary.FACET_KW_MIN_INCL, rawStr, bSpan);
           if (epochNanos != null) {
             minNanos = Optional.of(epochNanos);
             minRaw = Optional.of(rawStr);
@@ -5229,9 +5229,9 @@ public final class StvnDefsLowerer {
 
       if (maxBoundCtx != null) {
         Span bSpan = Span.ofContext(maxBoundCtx);
-        String rawStr = resolveDateTimeBoundStringArg(ownerLabel, "#maxExcl", maxBoundCtx.metadataValue(), scope);
+        String rawStr = resolveDateTimeBoundStringArg(ownerLabel, StvnVocabulary.FACET_KW_MAX_EXCL, maxBoundCtx.metadataValue(), scope);
         if (rawStr != null) {
-          BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, "#maxExcl", rawStr, bSpan);
+          BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, StvnVocabulary.FACET_KW_MAX_EXCL, rawStr, bSpan);
           if (epochNanos != null) {
             maxNanos = Optional.of(epochNanos);
             maxRaw = Optional.of(rawStr);
