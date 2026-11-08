@@ -920,7 +920,7 @@ When a payload value targets an enum subset type:
 
 * The parser constructs a standard `StvnValue.StvnEnum` node carrying the variant keyword, the root sequential index, and the root variant count.
 * The type resolver validates that the keyword exists in the active subset allowed list via `subset.containsVariant(kw)`.
-* If the keyword is valid in the root enum but absent from the subset, the compiler emits compile-time diagnostic `ERR_TYPE_MISMATCH` ("Variant not permitted in enum subset").
+* If the keyword is valid in the root enum but absent from the subset, the compiler emits compile-time diagnostic `ERR_CONSTRAINT_VIOLATION` (`E012`, "Variant not permitted in enum subset").
 
 ---
 

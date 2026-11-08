@@ -1493,14 +1493,13 @@ public final class StvnDefsLowerer {
                     : StvnVocabulary.DEFAULT_FLOAT_BIT_WIDTH),
             Optional.empty(),
             f.representation() == FloatRepresentation.EXACT_DECIMAL
-                && !f.exactMaxDigits().equals(StvnVocabulary.DEFAULT_MAX_SIZE)
                 ? Optional.of(f.exactMaxDigits()) : Optional.empty(),
             Optional.empty(), Optional.empty()
         );
         case StvnSchema.StringSchema s -> new AncestorFacetLedger(
             Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-            s.minSize().signum() == 0 ? Optional.empty() : Optional.of(s.minSize()),
-            s.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE) ? Optional.empty() : Optional.of(s.maxSize()),
+            Optional.of(s.minSize()),
+            Optional.of(s.maxSize()),
             Optional.empty(), Optional.empty()
         );
         case StvnSchema.TimeEpochSchema te -> new AncestorFacetLedger(
@@ -1513,20 +1512,20 @@ public final class StvnDefsLowerer {
         );
         case StvnSchema.SeqSchema sq -> new AncestorFacetLedger(
             Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-            sq.minSize().signum() == 0 ? Optional.empty() : Optional.of(sq.minSize()),
-            sq.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE) ? Optional.empty() : Optional.of(sq.maxSize()),
+            Optional.of(sq.minSize()),
+            Optional.of(sq.maxSize()),
             Optional.empty(), Optional.empty()
         );
         case StvnSchema.SetSchema st -> new AncestorFacetLedger(
             Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-            st.minSize().signum() == 0 ? Optional.empty() : Optional.of(st.minSize()),
-            st.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE) ? Optional.empty() : Optional.of(st.maxSize()),
+            Optional.of(st.minSize()),
+            Optional.of(st.maxSize()),
             Optional.empty(), Optional.empty()
         );
         case StvnSchema.MapSchema mp -> new AncestorFacetLedger(
             Optional.empty(), Optional.empty(), Optional.of(mp.invertible()), Optional.empty(),
-            mp.minSize().signum() == 0 ? Optional.empty() : Optional.of(mp.minSize()),
-            mp.maxSize().equals(StvnVocabulary.DEFAULT_MAX_SIZE) ? Optional.empty() : Optional.of(mp.maxSize()),
+            Optional.of(mp.minSize()),
+            Optional.of(mp.maxSize()),
             Optional.empty(), Optional.empty()
         );
         default -> AncestorFacetLedger.EMPTY;
@@ -1542,6 +1541,8 @@ public final class StvnDefsLowerer {
       Optional<Boolean> lockedExact = ledger.lockedExact();
       Optional<Boolean> lockedInvertible = ledger.lockedInvertible();
       Optional<BigInteger> lockedSize = ledger.lockedSize();
+      Optional<BigInteger> explicitMinSize = ledger.explicitMinSize();
+      Optional<BigInteger> explicitMaxSize = ledger.explicitMaxSize();
       Optional<TemporalScale> explicitScale = ledger.explicitScale();
       Optional<DateTimeMode> explicitMode = ledger.explicitMode();
 
@@ -1559,6 +1560,9 @@ public final class StvnDefsLowerer {
         }
         if (isExact) {
           lockedSize = Optional.empty();
+          if (explicitMaxSize.isEmpty()) {
+            explicitMaxSize = Optional.of(floatSchema.exactMaxDigits());
+          }
         } else if (lockedSize.isEmpty()) {
           lockedSize = Optional.of(
               floatSchema.representation() == FloatRepresentation.IEEE_32
@@ -1566,9 +1570,36 @@ public final class StvnDefsLowerer {
                   : StvnVocabulary.DEFAULT_FLOAT_BIT_WIDTH
           );
         }
+      } else if (target instanceof StvnSchema.StringSchema strSchema) {
+        if (explicitMinSize.isEmpty()) {
+          explicitMinSize = Optional.of(strSchema.minSize());
+        }
+        if (explicitMaxSize.isEmpty()) {
+          explicitMaxSize = Optional.of(strSchema.maxSize());
+        }
+      } else if (target instanceof StvnSchema.SeqSchema seqSchema) {
+        if (explicitMinSize.isEmpty()) {
+          explicitMinSize = Optional.of(seqSchema.minSize());
+        }
+        if (explicitMaxSize.isEmpty()) {
+          explicitMaxSize = Optional.of(seqSchema.maxSize());
+        }
+      } else if (target instanceof StvnSchema.SetSchema setSchema) {
+        if (explicitMinSize.isEmpty()) {
+          explicitMinSize = Optional.of(setSchema.minSize());
+        }
+        if (explicitMaxSize.isEmpty()) {
+          explicitMaxSize = Optional.of(setSchema.maxSize());
+        }
       } else if (target instanceof StvnSchema.MapSchema mapSchema) {
         if (lockedInvertible.isEmpty()) {
           lockedInvertible = Optional.of(mapSchema.invertible());
+        }
+        if (explicitMinSize.isEmpty()) {
+          explicitMinSize = Optional.of(mapSchema.minSize());
+        }
+        if (explicitMaxSize.isEmpty()) {
+          explicitMaxSize = Optional.of(mapSchema.maxSize());
         }
       } else if (target instanceof StvnSchema.TimeEpochSchema teSchema) {
         if (explicitScale.isEmpty()) {
@@ -1585,8 +1616,8 @@ public final class StvnDefsLowerer {
           lockedExact,
           lockedInvertible,
           lockedSize,
-          ledger.explicitMinSize(),
-          ledger.explicitMaxSize(),
+          explicitMinSize,
+          explicitMaxSize,
           explicitScale,
           explicitMode
       );
@@ -4207,22 +4238,12 @@ public final class StvnDefsLowerer {
             if (sz != null) {
               if (isNominalDerivation && parentLedger.lockedSize().isPresent()) {
                 String ancName = parentName != null ? parentName : "ancestor";
-                BigInteger ancSize = parentLedger.lockedSize().get();
-                if (baseKw.equals(StvnVocabulary.TYPE_FLOAT) && !sz.equals(ancSize)) {
-                  diagnosticBag.addError(
-                      "Constraint violation (" + ownerLabel + "): facet '#size " + sz
-                          + "' is mutually exclusive with ancestor storage size '#size " + ancSize + "' from " + ancName,
-                      entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
-                      DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
-                  );
-                } else {
-                  diagnosticBag.addError(
-                      "Constraint violation (" + ownerLabel + "): non-overridable definition facet '#size' is already established by ancestor "
-                          + ancName + " and cannot be re-specified",
-                      entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
-                      DiagnosticBag.ERR_NON_OVERRIDABLE_FACET
-                  );
-                }
+                diagnosticBag.addError(
+                    "Constraint violation (" + ownerLabel + "): non-overridable definition facet '#size' is already established by ancestor "
+                        + ancName + " and cannot be re-specified",
+                    entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+                    DiagnosticBag.ERR_NON_OVERRIDABLE_FACET
+                );
               } else {
                 childSize = sz;
                 childSizeSpan = entrySpan;

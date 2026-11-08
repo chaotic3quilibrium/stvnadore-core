@@ -1,0 +1,23 @@
+{
+  :meta {
+    #name "inv_override_tier1_implicit_size_and_cardinality_locks"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 21 42 975 986 "Constraint violation (:TrapOverrideImplicitStringMaxSize): non-overridable definition facet '#maxSize' is already established by ancestor :ImplicitString and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 22 42 1046 1056 "Constraint violation (:TrapOverrideImplicitStringMinSize): non-overridable definition facet '#minSize' is already established by ancestor :ImplicitString and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 24 38 1140 1148 "Constraint violation (:TrapOverrideImplicitFloatSize): non-overridable definition facet '#size' is already established by ancestor :ImplicitFloat64 and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 26 38 1246 1254 "Constraint violation (:TrapOverrideExplicitFloatSize): non-overridable definition facet '#size' is already established by ancestor :ExplicitFloat32 and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 28 46 1361 1372 "Constraint violation (:TrapOverrideImplicitExactFloatMaxSize): non-overridable definition facet '#maxSize' is already established by ancestor :ImplicitExactFloat and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 30 39 1463 1474 "Constraint violation (:TrapOverrideImplicitSeqMaxSize): non-overridable definition facet '#maxSize' is already established by ancestor :ImplicitSeq and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 32 39 1561 1571 "Constraint violation (:TrapOverrideImplicitSetMinSize): non-overridable definition facet '#minSize' is already established by ancestor :ImplicitSet and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 34 39 1663 1674 "Constraint violation (:TrapOverrideImplicitMapMaxSize): non-overridable definition facet '#maxSize' is already established by ancestor :ImplicitMap and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 36 29 1778 1789 "Constraint violation (:InlineHolder): non-overridable definition facet '#maxSize' is already established by ancestor :ImplicitString and cannot be re-specified" )
+    ( #E040 #ERR_NON_OVERRIDABLE_FACET #ERROR 35 23 1712 1723 "Constraint violation (#TRAP_CONST_STR): non-overridable definition facet '#maxSize' is already established by ancestor :ImplicitString and cannot be re-specified" )
+  ]
+}

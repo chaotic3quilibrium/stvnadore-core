@@ -2627,6 +2627,56 @@ public final class MetadataFixtureGenerator {
         Optional.of("#s")
     ));
 
+    // 7. Gauntlet v4 Stage 4A/4B Tier-1 implicit default locks across :String, :Float, :Seq, :Set, and :Map
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "duplicate_facet", "inv_override_tier1_implicit_size_and_cardinality_locks.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_override_tier1_implicit_size_and_cardinality_locks
+        // MATRIX-POSITION:    1.3.1 vs 1.5.1 vs 1.5.2
+        // TARGET-TYPE:        :String / :Float / :Seq / :Set / :Map
+        // OFFENDING-FACET:    #maxSize
+        // COVERAGE-KIND:      DUPLICATE_FACET
+        // EXPECT-DIAGNOSTIC:  ERR_NON_OVERRIDABLE_FACET
+        // TARGET-TOKEN:       #maxSize
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Tier-1 #size, #minSize, and #maxSize are locked on nominal parents even when relying on intrinsic defaults
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_override_tier1_implicit_size_and_cardinality_locks"
+            #kind #BODY
+          }
+          :defs {
+            :ImplicitString :String
+            :TrapOverrideImplicitStringMaxSize { #maxSize 64 } :ImplicitString
+            :TrapOverrideImplicitStringMinSize { #minSize 1 } :ImplicitString
+            :ImplicitFloat64 :Float
+            :TrapOverrideImplicitFloatSize { #size 32 } :ImplicitFloat64
+            :ExplicitFloat32 { #size 32 } :Float
+            :TrapOverrideExplicitFloatSize { #size 64 } :ExplicitFloat32
+            :ImplicitExactFloat { #exact } :Float
+            :TrapOverrideImplicitExactFloatMaxSize { #maxSize 18 } :ImplicitExactFloat
+            :ImplicitSeq :Seq( :Int )
+            :TrapOverrideImplicitSeqMaxSize { #maxSize 16 } :ImplicitSeq
+            :ImplicitSet :Set( :String )
+            :TrapOverrideImplicitSetMinSize { #minSize 1 } :ImplicitSet
+            :ImplicitMap :Map( :String :Int )
+            :TrapOverrideImplicitMapMaxSize { #maxSize 32 } :ImplicitMap
+            #TRAP_CONST_STR { #maxSize 64 } :ImplicitString "hello"
+            :InlineHolder :Tuple( { #maxSize 64 } :ImplicitString :Int )
+          }
+          :type :TrapOverrideImplicitStringMaxSize
+          :body "any"
+        }
+        """,
+        CoverageKind.DUPLICATE_FACET,
+        Optional.of("ERR_NON_OVERRIDABLE_FACET"),
+        Optional.of("#maxSize")
+    ));
+
     return list;
   }
 

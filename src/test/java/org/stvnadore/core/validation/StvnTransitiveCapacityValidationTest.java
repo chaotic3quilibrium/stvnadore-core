@@ -177,55 +177,54 @@ public class StvnTransitiveCapacityValidationTest {
   }
 
   @Test
-  @DisplayName("TC-TCAP-06: Transitive alias interval folding down nominal type chains")
+  @DisplayName("TC-TCAP-06: Derived nominal string aliases preserve root Tier-1 #minSize/#maxSize locks and reject re-specification with E040")
   void testTransitiveAliasIntervalFolding() {
     String validSource = """
         {
           :defs {
-            :BaseStr :String
-            :StrictStr { #maxSize 2 } :BaseStr
+            :BaseStr { #maxSize 2 } :String
+            :StrictStr :BaseStr
           }
           :type :StrictStr
           :body "ab"
         }
         """;
     var validResult = StvnCompiler.compileToResult(validSource, null, StvnParserConfig.DEFAULT);
-    assertFalse(validResult.hasErrors(), "2-character string must satisfy folded bounds [0, 2]");
+    assertFalse(validResult.hasErrors(), "2-character string must satisfy inherited bounds [0, 2]");
 
     String invalidSource = """
         {
           :defs {
-            :BaseStr :String
-            :StrictStr { #maxSize 2 } :BaseStr
+            :BaseStr { #maxSize 2 } :String
+            :StrictStr :BaseStr
           }
           :type :StrictStr
           :body "hello"
         }
         """;
     var invalidResult = StvnCompiler.compileToResult(invalidSource, null, StvnParserConfig.DEFAULT);
-    assertTrue(invalidResult.hasErrors(), "'hello' must violate folded upper bound 2");
+    assertTrue(invalidResult.hasErrors(), "'hello' must violate inherited upper bound 2");
     var error = invalidResult.diagnostics().getFirst();
     assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, error.errorCode().orElse(null));
     assertTrue(error.message().contains("Size 5 outside allowable range [0, 2]"));
 
-    // Multi-tier interval combination test: parent has minSize, child has maxSize
-    String multiTierSource = """
+    String lockedImplicitMaxSource = """
         {
           :defs {
-            :BaseMin { #minSize 5 } :String
-            :NarrowRange { #maxSize 8 } :BaseMin
+            :ImplicitString :String
+            :TrapOverrideImplicitStringMaxSize { #maxSize 64 } :ImplicitString
           }
-          :type :NarrowRange
-          :body "1234"
+          :type :TrapOverrideImplicitStringMaxSize
+          :body "ok"
         }
         """;
-    var multiResult = StvnCompiler.compileToResult(multiTierSource, null, StvnParserConfig.DEFAULT);
-    assertTrue(multiResult.hasErrors(), "Length 4 must violate narrowed minSize 5");
-    assertTrue(multiResult.diagnostics().getFirst().message().contains("violates #minSize constraint (5)"));
+    var lockedResult = StvnCompiler.compileToResult(lockedImplicitMaxSource, null, StvnParserConfig.DEFAULT);
+    assertTrue(lockedResult.hasErrors(), "Overriding intrinsic #maxSize on :ImplicitString must fail with E040");
+    assertEquals(DiagnosticBag.ERR_NON_OVERRIDABLE_FACET, lockedResult.diagnostics().getFirst().errorCode().orElse(null));
   }
 
   @Test
-  @DisplayName("TC-TCAP-07: Conflicting alias bounds rejection at definition time")
+  @DisplayName("TC-TCAP-07: Derived nominal #minSize override on bounded :String parent rejected with ERR_NON_OVERRIDABLE_FACET (E040)")
   void testConflictingAliasBoundsRejection() {
     String source = """
         {
@@ -238,10 +237,10 @@ public class StvnTransitiveCapacityValidationTest {
         }
         """;
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Inverted range in alias definition must fail at definition time");
+    assertTrue(result.hasErrors(), "Tier-1 #minSize override on nominal parent must fail at definition time with E040");
     var error = result.diagnostics().getFirst();
-    assertEquals(DiagnosticBag.ERR_INVERTED_RANGE, error.errorCode().orElse(null));
-    assertTrue(error.message().contains("#minSize (5) cannot exceed #maxSize (2)"));
+    assertEquals(DiagnosticBag.ERR_NON_OVERRIDABLE_FACET, error.errorCode().orElse(null));
+    assertTrue(error.message().contains("non-overridable definition facet '#minSize' is already established by ancestor :BaseStr"));
   }
 
   @Test

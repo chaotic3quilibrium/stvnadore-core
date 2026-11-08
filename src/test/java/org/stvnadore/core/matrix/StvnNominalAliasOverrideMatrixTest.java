@@ -126,9 +126,7 @@ public class StvnNominalAliasOverrideMatrixTest {
         new MutexPair("Float: exact -> size 32", "#exact", "#size 32", ":Float"),
         new MutexPair("Float: exact -> size 64", "#exact", "#size 64", ":Float"),
         new MutexPair("Float: size 32 -> exact", "#size 32", "#exact", ":Float"),
-        new MutexPair("Float: size 32 -> size 64", "#size 32", "#size 64", ":Float"),
-        new MutexPair("Float: size 64 -> exact", "#size 64", "#exact", ":Float"),
-        new MutexPair("Float: size 64 -> size 32", "#size 64", "#size 32", ":Float")
+        new MutexPair("Float: size 64 -> exact", "#size 64", "#exact", ":Float")
     );
     return pairs.stream().map(p -> Arguments.of(p.name(), p.parentFacet(), p.childFacet(), p.targetType()));
   }
@@ -288,7 +286,7 @@ public class StvnNominalAliasOverrideMatrixTest {
               }
               :type :Int :body 0
             }
-            """, DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE, "#size 64"),
+            """, DiagnosticBag.ERR_NON_OVERRIDABLE_FACET, "#size 64"),
 
         new UhohCase("TC-OVERRIDE-07", """
             {
@@ -308,7 +306,7 @@ public class StvnNominalAliasOverrideMatrixTest {
               }
               :type :Int :body 0
             }
-            """, DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE, "#size 32"),
+            """, DiagnosticBag.ERR_NON_OVERRIDABLE_FACET, "#size 32"),
 
         new UhohCase("TC-OVERRIDE-09", """
             {
@@ -472,8 +470,22 @@ public class StvnNominalAliasOverrideMatrixTest {
             :Float64b { #size 64 } :Float64
             :ExactFloatB { #exact } :Float64
 
+            :ExactFloatA { #exact } :Float
+            :ExactFloatMaxB { #maxSize 18 } :ExactFloatA
+
+            :ImplicitStr :String
+            :DerivedStrMin { #minSize 1 } :ImplicitStr
+            :DerivedStrMax { #maxSize 64 } :ImplicitStr
+
+            :ImplicitSeq :Seq( :Int )
+            :DerivedSeqMax { #maxSize 16 } :ImplicitSeq
+
+            :ImplicitSet :Set( :Int )
+            :DerivedSetMin { #minSize 1 } :ImplicitSet
+
             :PlainMap :Map( { #maxSize 16 } :String :Int )
             :InvMapB { #invertible } :PlainMap
+            :DerivedMapMax { #maxSize 32 } :PlainMap
           }
           :type :Int32
           :body 1
@@ -490,9 +502,9 @@ public class StvnNominalAliasOverrideMatrixTest {
         .filter(d -> DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE.equals(d.symbolicId().orElse(null)))
         .toList();
 
-    assertEquals(7, e040s.size(), () -> "Expected 7 E040 diagnostics (:Int16b, :Int32b, :Uint32b, :Uint16b, :Uint16c, :Float64b, :InvMapB), got: " + result.diagnostics());
-    assertEquals(2, e008s.size(), () -> "Expected 2 E008 diagnostics (:Float32b, :ExactFloatB), got: " + result.diagnostics());
-    assertEquals(9, result.diagnostics().size(), () -> "Expected zero spurious W003 or cascade diagnostics, got: " + result.diagnostics());
+    assertEquals(14, e040s.size(), () -> "Expected 14 E040 diagnostics across all locked Tier-1 intrinsic defaults, got: " + result.diagnostics());
+    assertEquals(1, e008s.size(), () -> "Expected 1 E008 diagnostic (:ExactFloatB), got: " + result.diagnostics());
+    assertEquals(15, result.diagnostics().size(), () -> "Expected zero spurious W003 or cascade diagnostics, got: " + result.diagnostics());
   }
 
   @Test
