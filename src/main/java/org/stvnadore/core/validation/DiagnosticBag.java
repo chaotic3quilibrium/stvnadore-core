@@ -81,7 +81,7 @@ public final class DiagnosticBag {
   public static final String ERR_AMBIGUOUS_SUM_INFERENCE = "ERR_AMBIGUOUS_SUM_INFERENCE";
   /** Error code emitted when structural trait constraints are violated. */
   public static final String ERR_TRAIT_VIOLATION = "TRAIT_VIOLATION";
-  /** Error code emitted when a schema definition syntax or structure is malformed. */
+  /** Error code emitted when a schema definition syntax or structure is malformed (E010). */
   public static final String ERR_MALFORMED_SCHEMA = "MALFORMED_SCHEMA";
   /** Error code emitted when the root document enclosure braces are missing (E002). */
   public static final String ERR_ROOT_ENCLOSURE_MISSING = "ROOT_ENCLOSURE_MISSING";
@@ -226,8 +226,8 @@ public final class DiagnosticBag {
       Map.entry("STVN_SYNTAX_ERROR", "E002"),
       Map.entry("STVN_SYNTAX_CANCELLATION", "E002"),
       Map.entry("STVN_PARSE_CANCELLATION", "E002"),
-      Map.entry(ERR_MALFORMED_SCHEMA, "E002"),
-      Map.entry("ERR_MALFORMED_SCHEMA", "E002"),
+      Map.entry(ERR_MALFORMED_SCHEMA, "E010"),
+      Map.entry("ERR_MALFORMED_SCHEMA", "E010"),
       Map.entry(ERR_BARE_COLON_PROHIBITED, "E002"),
       Map.entry(ERR_BARE_HASH_PROHIBITED, "E002"),
       Map.entry(ERR_RESERVED_KEYWORD_ON_LHS, "E002"),

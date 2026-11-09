@@ -1,0 +1,21 @@
+{
+  :meta {
+    #name "single_branch_union_poisoning"
+    #domain "core_test"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :ErrorCode { #unsigned #size 16 #minIncl 400 #maxExcl 600 } :Int
+    :TrapSingleBranchUnion :Union(:ErrorCode)
+    :BoundedPort { #unsigned #size 16 #minIncl 1024 #maxExcl 4096 } :Int
+    :Stage7PoisonEnvelope :Tuple(
+      :TrapSingleBranchUnion
+      :BoundedPort
+    )
+  }
+  :type :Stage7PoisonEnvelope
+  :body (
+    #1 404
+    5000
+  )
+}

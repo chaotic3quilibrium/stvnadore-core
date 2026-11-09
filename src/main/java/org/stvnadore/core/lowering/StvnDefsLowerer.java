@@ -3662,9 +3662,10 @@ public final class StvnDefsLowerer {
           }
           if (branches.size() < 2) {
             Span sp = Span.ofContext(sum);
-            diagnosticBag.addError(
+            diagnosticBag.addErrorDual(
                 "Union schema requires at least 2 branch types, got " + branches.size(),
                 sp.start(), sp.end(), sp.line(), sp.column(), null,
+                "E010",
                 DiagnosticBag.ERR_MALFORMED_SCHEMA
             );
             arityInvalid = true;
@@ -3705,6 +3706,14 @@ public final class StvnDefsLowerer {
             }
           }
           if (variants.isEmpty()) {
+            Span sp = Span.ofContext(sum);
+            diagnosticBag.addErrorDual(
+                "Enum schema requires at least 1 variant, got 0",
+                sp.start(), sp.end(), sp.line(), sp.column(), null,
+                "E010",
+                DiagnosticBag.ERR_MALFORMED_SCHEMA
+            );
+            validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_ENUM, new StvnSchema.BooleanSchema(Optional.empty(), TraitProfile.ofDefault(true, true)), null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
             return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
           }
           StvnSchema baseEnum = new StvnSchema.EnumSchema(

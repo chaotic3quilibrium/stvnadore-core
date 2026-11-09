@@ -1747,4 +1747,45 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(1).symbolicId().orElse(""));
     Assertions.assertEquals("5000", input.substring(diags.get(1).startOffset(), diags.get(1).endOffset()));
   }
+
+  @Test
+  @DisplayName("TC-GAUNTLET-V4-STAGE7-01: Single-branch :Union(:ErrorCode) emits E010 ERR_MALFORMED_SCHEMA, lowers to ungrounded PoisonedSchema, suspends Pass 3 on #1 404, and preserves sibling E012 validation")
+  void testSingleBranchUnionEmitsE010AndPoisonsUngroundedWithSiblingIsolation() throws Exception {
+    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+        "shared-fixtures/syntax/invalid/metadata/single_branch_union_poisoning.core_test.stvn_i"
+    );
+    String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
+        .replace("\r\n", "\n");
+    var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.hasErrors());
+    var diags = result.diagnostics();
+    Assertions.assertEquals(2, diags.size(), "Expected strictly E010 on :Union(:ErrorCode) and E012 on sibling 5000: " + diags);
+
+    Assertions.assertEquals("E010", diags.get(0).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_MALFORMED_SCHEMA, diags.get(0).symbolicId().orElse(""));
+    Assertions.assertEquals(":Union(:ErrorCode)", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
+    Assertions.assertEquals(9, diags.get(0).line());
+    Assertions.assertEquals(27, diags.get(0).column());
+    Assertions.assertEquals(212, diags.get(0).startOffset());
+    Assertions.assertEquals(230, diags.get(0).endOffset());
+
+    Assertions.assertEquals("E012", diags.get(1).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(1).symbolicId().orElse(""));
+    Assertions.assertEquals("5000", input.substring(diags.get(1).startOffset(), diags.get(1).endOffset()));
+    Assertions.assertEquals(19, diags.get(1).line());
+    Assertions.assertEquals(4, diags.get(1).column());
+    Assertions.assertEquals(451, diags.get(1).startOffset());
+    Assertions.assertEquals(455, diags.get(1).endOffset());
+
+    var doc = result.document().orElseThrow();
+    var trapSchema = doc.defs().findType(":TrapSingleBranchUnion").orElseThrow();
+    var poisoned = Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnSchema.PoisonedSchema.class, trapSchema);
+    Assertions.assertTrue(poisoned.isUngrounded(), "Single-branch :Union must lower to an ungrounded PoisonedSchema");
+    Assertions.assertTrue(poisoned.bestEffortFallback().isEmpty(), "Ungrounded PoisonedSchema must have empty bestEffortFallback");
+
+    var tupleVal = Assertions.assertInstanceOf(StvnTuple.class, doc.payload().orElseThrow());
+    Assertions.assertEquals(2, tupleVal.elements().size());
+    var slot0 = Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnErrorValue.class, tupleVal.elements().get(0));
+    Assertions.assertEquals("E010", slot0.diagnostic().canonicalCode().orElse(""));
+  }
 }

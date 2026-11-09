@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "single_branch_union_poisoning"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E010 #MALFORMED_SCHEMA #ERROR 9 28 212 230 "Union schema requires at least 2 branch types, got 1" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 19 5 451 455 "Constraint violation (:BoundedPort): Value 5000 is outside allowable range (must be < 4096)" )
+  ]
+}
