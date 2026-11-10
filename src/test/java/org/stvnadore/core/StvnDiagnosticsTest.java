@@ -1788,4 +1788,83 @@ public class StvnDiagnosticsTest {
     var slot0 = Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnErrorValue.class, tupleVal.elements().get(0));
     Assertions.assertEquals("E010", slot0.diagnostic().canonicalCode().orElse(""));
   }
+
+  @Test
+  @DisplayName("TC-DIAG-GAUNTLET-V5-S1: Duplicate :meta blocks after invalid :meta emit E033 on each duplicate :meta keyword and preserve Pass 3 :body validation")
+  void testGauntletV5Stage1DuplicateMetaAndBodyFaultIsolation() throws Exception {
+    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+        "shared-fixtures/syntax/invalid/metadata/duplicate_meta_and_body_fault_isolation.core_test.stvn_i"
+    );
+    String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
+        .replace("\r\n", "\n");
+    var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.hasErrors());
+    var diags = result.diagnostics();
+    Assertions.assertEquals(
+        9,
+        diags.size(),
+        "Expected 7 errors (E008, E038, E008, E008, E033, E033, E012) and 2 stem warnings (W001): " + diags
+    );
+
+    Assertions.assertEquals("E033", diags.get(6).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, diags.get(6).symbolicId().orElse(""));
+    Assertions.assertEquals(":meta", input.substring(diags.get(6).startOffset(), diags.get(6).endOffset()));
+    Assertions.assertEquals(8, diags.get(6).line());
+    Assertions.assertEquals(2, diags.get(6).column());
+    Assertions.assertEquals(147, diags.get(6).startOffset());
+    Assertions.assertEquals(152, diags.get(6).endOffset());
+
+    Assertions.assertEquals("E033", diags.get(7).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, diags.get(7).symbolicId().orElse(""));
+    Assertions.assertEquals(":meta", input.substring(diags.get(7).startOffset(), diags.get(7).endOffset()));
+    Assertions.assertEquals(9, diags.get(7).line());
+    Assertions.assertEquals(2, diags.get(7).column());
+    Assertions.assertEquals(158, diags.get(7).startOffset());
+    Assertions.assertEquals(163, diags.get(7).endOffset());
+
+    Assertions.assertEquals("E012", diags.get(8).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(8).symbolicId().orElse(""));
+    Assertions.assertEquals("5000", input.substring(diags.get(8).startOffset(), diags.get(8).endOffset()));
+  }
+
+  @Test
+  @DisplayName("TC-DIAG-GAUNTLET-V5-S2: Case B Grounded PoisonedSchema (:TrapIntMinExcl) unwraps in Pass 2 and suspends Pass 3 :body validation per § 7.3.5")
+  void testGauntletV5Stage2GroundedPoisonedSchemaBodySuspension() throws Exception {
+    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+        "shared-fixtures/syntax/invalid/metadata/grounded_poisoned_schema_body_suspension.core_test.stvn_i"
+    );
+    String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
+        .replace("\r\n", "\n");
+    var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.hasErrors());
+    var diags = result.diagnostics();
+    Assertions.assertEquals(
+        3,
+        diags.size(),
+        "Expected strictly E011 on :TrapIntMinExcl, E040 on :ChildUnsignedTrap, and E012 on healthy sibling 5000: " + diags
+    );
+
+    Assertions.assertEquals("E011", diags.get(0).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_DISCRETE_BOUND_KIND_PROHIBITED, diags.get(0).symbolicId().orElse(""));
+    Assertions.assertEquals("#minExcl 10", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
+
+    Assertions.assertEquals("E040", diags.get(1).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_NON_OVERRIDABLE_FACET, diags.get(1).symbolicId().orElse(""));
+    Assertions.assertEquals("#unsigned", input.substring(diags.get(1).startOffset(), diags.get(1).endOffset()));
+
+    Assertions.assertEquals("E012", diags.get(2).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(2).symbolicId().orElse(""));
+    Assertions.assertEquals("5000", input.substring(diags.get(2).startOffset(), diags.get(2).endOffset()));
+
+    var doc = result.document().orElseThrow();
+    var trapSchema = doc.defs().findType(":TrapIntMinExcl").orElseThrow();
+    var poisoned = Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnSchema.PoisonedSchema.class, trapSchema);
+    Assertions.assertTrue(poisoned.isGrounded(), "Case B PoisonedSchema must report isGrounded() == true");
+    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnSchema.IntSchema.class, poisoned.bestEffortFallback().orElseThrow());
+
+    var tupleVal = Assertions.assertInstanceOf(StvnTuple.class, doc.payload().orElseThrow());
+    Assertions.assertEquals(3, tupleVal.elements().size());
+    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnErrorValue.class, tupleVal.elements().get(0));
+    Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnErrorValue.class, tupleVal.elements().get(1));
+  }
 }

@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "grounded_poisoned_schema_body_suspension"
+    #domain "core_test"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :TrapIntMinExcl { #minExcl 10 #maxExcl 20 } :Int
+    :ChildUnsignedTrap { #unsigned } :TrapIntMinExcl
+    :BoundedPort { #unsigned #size 16 #minIncl 1024 #maxExcl 4096 } :Int
+  }
+  :type :Tuple(:TrapIntMinExcl :TrapIntMinExcl :BoundedPort)
+  :body (15 999 5000)
+}

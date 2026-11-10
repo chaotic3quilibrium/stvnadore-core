@@ -738,7 +738,7 @@ public final class StvnSyntaxErrorSanitizer {
 
       IntervalSet expectedTokens = e != null ? e.getExpectedTokens() : parser.getExpectedTokens();
       if (expectedTokens != null && !expectedTokens.isNil() && offendingToken != null) {
-        String simplifiedExpected = simplifyExpectedTokenSet(expectedTokens, parser);
+        String simplifiedExpected = simplifyExpectedTokenSet(expectedTokens, parser, ctx);
         if (inCollectionLiteral) {
           return "unexpected extraneous symbol " + displayToken;
         }
@@ -1013,7 +1013,11 @@ public final class StvnSyntaxErrorSanitizer {
     return false;
   }
 
-  private static String simplifyExpectedTokenSet(IntervalSet tokens, Parser parser) {
+  private static String simplifyExpectedTokenSet(
+      IntervalSet tokens,
+      Parser parser,
+      @Nullable RuleContext ctx
+  ) {
     boolean hasAtomic = tokens.contains(StvnParser.ATOM_INT)
         || tokens.contains(StvnParser.ATOM_STRING)
         || tokens.contains(StvnParser.ATOM_BOOLEAN)
@@ -1044,18 +1048,73 @@ public final class StvnSyntaxErrorSanitizer {
       return "<metadata keyword>";
     }
 
-    if (tokens.size() == 1) {
-      return parser.getVocabulary().getDisplayName(tokens.getMinElement());
+    IntervalSet effectiveTokens = filterTopLevelSectionFollowSet(tokens, ctx != null ? ctx : parser.getContext());
+
+    if (effectiveTokens.size() == 1) {
+      return parser.getVocabulary().getDisplayName(effectiveTokens.getMinElement());
     }
-    if (tokens.size() <= 3) {
-      return tokens.toString(parser.getVocabulary());
+    if (effectiveTokens.size() <= 3) {
+      return effectiveTokens.toString(parser.getVocabulary());
     }
 
-    var list = tokens.toList();
+    var list = effectiveTokens.toList();
     var voc = parser.getVocabulary();
     return "{" + voc.getDisplayName(list.get(0)) + ", "
         + voc.getDisplayName(list.get(1)) + ", "
         + voc.getDisplayName(list.get(2)) + ", ... (" + list.size() + " options)}";
+  }
+
+  private static IntervalSet filterTopLevelSectionFollowSet(IntervalSet tokens, @Nullable RuleContext ctx) {
+    if (tokens.size() == 5
+        && tokens.contains(StvnParser.RBRACE)
+        && tokens.contains(StvnParser.KW_META)
+        && tokens.contains(StvnParser.KW_DEFS)
+        && tokens.contains(StvnParser.KW_TYPE)
+        && tokens.contains(StvnParser.KW_BODY)) {
+      RuleContext cur = ctx;
+      StvnParser.DocumentBodyContext docBody = null;
+      boolean inBody = false;
+      boolean inType = false;
+      boolean inDefs = false;
+      boolean inMeta = false;
+      while (cur != null) {
+        if (cur instanceof StvnParser.BodyEntryContext) {
+          inBody = true;
+        } else if (cur instanceof StvnParser.TypeEntryContext) {
+          inType = true;
+        } else if (cur instanceof StvnParser.DefsEntryContext) {
+          inDefs = true;
+        } else if (cur instanceof StvnParser.MetaEntryContext) {
+          inMeta = true;
+        } else if (cur instanceof StvnParser.DocumentBodyContext db) {
+          docBody = db;
+        } else if (cur instanceof StvnParser.StvnDocumentContext stvnDoc && docBody == null) {
+          docBody = stvnDoc.documentBody();
+        }
+        cur = cur.parent;
+      }
+      if (docBody != null) {
+        boolean hasBody = inBody || !docBody.bodyEntry().isEmpty();
+        boolean hasType = inType || !docBody.typeEntry().isEmpty();
+        boolean hasDefs = inDefs || !docBody.defsEntry().isEmpty();
+        boolean hasMeta = inMeta || !docBody.metaEntry().isEmpty();
+        IntervalSet filtered = new IntervalSet(tokens);
+        if (hasMeta || hasDefs || hasType || hasBody) {
+          filtered.remove(StvnParser.KW_META);
+        }
+        if (hasDefs || hasType || hasBody) {
+          filtered.remove(StvnParser.KW_DEFS);
+        }
+        if (hasType || hasBody) {
+          filtered.remove(StvnParser.KW_TYPE);
+        }
+        if (hasBody) {
+          filtered.remove(StvnParser.KW_BODY);
+        }
+        return filtered;
+      }
+    }
+    return tokens;
   }
 
   private static String escapeWsAndQuote(@Nullable String s) {

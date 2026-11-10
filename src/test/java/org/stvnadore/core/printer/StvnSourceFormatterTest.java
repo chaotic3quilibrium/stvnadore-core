@@ -655,4 +655,33 @@ class StvnSourceFormatterTest {
     Assertions.assertEquals(expected, formatted);
     Assertions.assertEquals(expected, StvnSourceFormatter.format(formatted), "Idempotency check failed");
   }
+
+  @Test
+  @DisplayName("Rejects duplicate and out-of-order top-level sections with StvnSyntaxCancellationException (E033 / E002)")
+  void testRejectsDuplicateAndOutOfOrderTopLevelSections() {
+    String dupMeta = "{ :meta { #name \"a\" } :meta { #name \"b\" } :type :Int :body 1 }";
+    StvnSyntaxCancellationException metaEx = Assertions.assertThrows(
+        StvnSyntaxCancellationException.class,
+        () -> StvnSourceFormatter.format(dupMeta)
+    );
+    Assertions.assertEquals("E033", metaEx.getCanonicalCode());
+    Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, metaEx.getSymbolicId());
+    Assertions.assertTrue(StvnSourceFormatter.tryFormat(dupMeta).isEmpty());
+
+    String misplacedMeta = "{ :defs { :T :Int } :meta { #kind #DEFS } }";
+    StvnSyntaxCancellationException misplacedMetaEx = Assertions.assertThrows(
+        StvnSyntaxCancellationException.class,
+        () -> StvnSourceFormatter.format(misplacedMeta)
+    );
+    Assertions.assertEquals("E033", misplacedMetaEx.getCanonicalCode());
+    Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, misplacedMetaEx.getSymbolicId());
+
+    String dupDefs = "{ :defs { :A :Int } :defs { :B :Int } :type :A :body 1 }";
+    StvnSyntaxCancellationException defsEx = Assertions.assertThrows(
+        StvnSyntaxCancellationException.class,
+        () -> StvnSourceFormatter.format(dupDefs)
+    );
+    Assertions.assertEquals("E002", defsEx.getCanonicalCode());
+    Assertions.assertEquals("STVN_SYNTAX_ERROR", defsEx.getSymbolicId());
+  }
 }

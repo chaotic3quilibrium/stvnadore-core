@@ -1693,5 +1693,148 @@ public class StvnDocumentIdentityValidationTest {
     );
     assertThrows(org.stvnadore.core.binary.exceptions.StvnSerializationException.class, () -> encoder.encode(modularDefsDoc));
   }
+
+  @Test
+  @DisplayName("TC-ID-44: Valid first :meta followed by duplicate :meta {} before :defs emits E033 on second :meta without E039")
+  void testDuplicateEmptyMetaAfterValidMetaEmitsE033OnSecondMetaKeyword() {
+    String source = """
+        {
+          :meta {
+            #name "valid_doc"
+            #kind #BODY_INCLUDE
+          }
+          :meta {}
+          :defs {
+            :Port { #unsigned #size 16 } :Int
+          }
+          :type :Port
+          :body 8080
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "valid_doc.stvn_i");
+    assertTrue(result.hasErrors());
+    assertEquals(1, result.diagnostics().size(), () -> "Expected strictly 1 E033 diagnostic: " + result.diagnostics());
+    var diag = result.diagnostics().getFirst();
+    assertEquals("E033", diag.canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, diag.errorCode().orElse(null));
+    assertEquals(
+        "Duplicate ':meta' block prohibited: document may declare at most one ':meta' header block",
+        diag.message()
+    );
+    int secondMetaOffset = source.lastIndexOf(":meta");
+    assertEquals(secondMetaOffset, diag.startOffset());
+    assertEquals(secondMetaOffset + ":meta".length(), diag.endOffset());
+  }
+
+  @Test
+  @DisplayName("TC-ID-45: First :meta with facet errors followed by :meta {} and :meta { ... } before :defs emits all :meta errors, E033 on both duplicates, and validates :body")
+  void testGauntletV5Stage1DuplicateMetaBlocksWithFirstMetaErrorsAndBodyValidation() {
+    String source = """
+        {
+          :meta {
+            #kind #BODY_INCLUDE
+            #domain "stvn_reserved_sys"
+            #name "Invalid.Dot.Name"
+            #version "2.0.0"
+          }
+          :meta {}
+          :meta { #name "gauntlet_v5_stage1" #kind #BODY_INCLUDE }
+          :defs {
+            :BoundedPort { #unsigned #size 16 #minIncl 1024 #maxExcl 4096 } :Int
+          }
+          :type :BoundedPort
+          :body 5000
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "gauntlet_v5_stage1.core_test.stvn_i");
+    assertTrue(result.hasErrors());
+
+    var e033Diags = result.diagnostics().stream()
+        .filter(d -> "E033".equals(d.canonicalCode().orElse(null)))
+        .toList();
+    assertEquals(2, e033Diags.size(), () -> "Expected 2 E033 diagnostics for the two duplicate :meta blocks: " + result.diagnostics());
+
+    int firstMeta = source.indexOf(":meta");
+    int secondMeta = source.indexOf(":meta", firstMeta + 1);
+    int thirdMeta = source.indexOf(":meta", secondMeta + 1);
+
+    assertEquals(secondMeta, e033Diags.get(0).startOffset());
+    assertEquals(secondMeta + ":meta".length(), e033Diags.get(0).endOffset());
+    assertEquals(thirdMeta, e033Diags.get(1).startOffset());
+    assertEquals(thirdMeta + ":meta".length(), e033Diags.get(1).endOffset());
+
+    assertTrue(
+        result.diagnostics().stream().anyMatch(d -> "E012".equals(d.canonicalCode().orElse(null))),
+        () -> "Expected Pass 3 :body validation to remain active and report E012 on 5000: " + result.diagnostics()
+    );
+  }
+
+  @Test
+  @DisplayName("TC-ID-46: Duplicate :defs, :type, and :body sections and out-of-order sections emit deterministic E002 pinned to offending section keyword")
+  void testDuplicateAndOutOfOrderDefsTypeBodySectionsEmitE002PinnedToKeyword() {
+    String dupDefs = """
+        {
+          :defs { :A :Int }
+          :defs { :B :String }
+          :type :A
+          :body 1
+        }
+        """;
+    var dupDefsRes = StvnCompiler.compileToResult(dupDefs, "doc.stvn");
+    assertTrue(dupDefsRes.hasErrors());
+    var dupDefsDiag = dupDefsRes.diagnostics().getFirst();
+    assertEquals("E002", dupDefsDiag.canonicalCode().orElse(null));
+    assertEquals("Duplicate ':defs' section prohibited: document may declare at most one ':defs' section", dupDefsDiag.message());
+    int secondDefs = dupDefs.lastIndexOf(":defs");
+    assertEquals(secondDefs, dupDefsDiag.startOffset());
+    assertEquals(secondDefs + ":defs".length(), dupDefsDiag.endOffset());
+
+    String dupType = """
+        {
+          :type :Int
+          :type :String
+          :body 1
+        }
+        """;
+    var dupTypeRes = StvnCompiler.compileToResult(dupType, "doc.stvn");
+    assertTrue(dupTypeRes.hasErrors());
+    var dupTypeDiag = dupTypeRes.diagnostics().getFirst();
+    assertEquals("E002", dupTypeDiag.canonicalCode().orElse(null));
+    assertEquals("Duplicate ':type' section prohibited: document may declare at most one ':type' section", dupTypeDiag.message());
+    int secondType = dupType.lastIndexOf(":type");
+    assertEquals(secondType, dupTypeDiag.startOffset());
+    assertEquals(secondType + ":type".length(), dupTypeDiag.endOffset());
+
+    String dupBody = """
+        {
+          :type :Int
+          :body 1
+          :body 2
+        }
+        """;
+    var dupBodyRes = StvnCompiler.compileToResult(dupBody, "doc.stvn");
+    assertTrue(dupBodyRes.hasErrors());
+    var dupBodyDiag = dupBodyRes.diagnostics().getFirst();
+    assertEquals("E002", dupBodyDiag.canonicalCode().orElse(null));
+    assertEquals("Duplicate ':body' section prohibited: document may declare at most one ':body' section", dupBodyDiag.message());
+    int secondBody = dupBody.lastIndexOf(":body");
+    assertEquals(secondBody, dupBodyDiag.startOffset());
+    assertEquals(secondBody + ":body".length(), dupBodyDiag.endOffset());
+
+    String outOfOrderTypeAfterBody = """
+        {
+          :body 1
+          :type :Int
+        }
+        """;
+    var outOfOrderRes = StvnCompiler.compileToResult(outOfOrderTypeAfterBody, "doc.stvn");
+    assertTrue(outOfOrderRes.hasErrors());
+    var outOfOrderDiag = outOfOrderRes.diagnostics().getFirst();
+    assertEquals("E002", outOfOrderDiag.canonicalCode().orElse(null));
+    assertEquals("Document ':type' section must appear before ':body'", outOfOrderDiag.message());
+    int typeOffset = outOfOrderTypeAfterBody.indexOf(":type");
+    assertEquals(typeOffset, outOfOrderDiag.startOffset());
+    assertEquals(typeOffset + ":type".length(), outOfOrderDiag.endOffset());
+  }
 }
 

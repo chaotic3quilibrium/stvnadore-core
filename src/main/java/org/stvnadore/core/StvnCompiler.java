@@ -169,14 +169,14 @@ public final class StvnCompiler {
           && !coalescedNumericDiags.isEmpty()
           && pass1Errors == coalescedNumericDiags.size()
           && docBody != null
-          && docBody.bodyEntry() != null
-          && allDiagnosticsInsideContext(coalescedNumericDiags, docBody.bodyEntry());
+          && docBody.bodyEntry(0) != null
+          && allDiagnosticsInsideContext(coalescedNumericDiags, docBody.bodyEntry(0));
       boolean unitHasHeaderOrDefsSyntaxError = unitHasPass1SyntaxError && !onlyBodyCoalescedNumericErrors;
       boolean hasNoClauses = docBody == null
-          || (docBody.metaEntry() == null
-              && docBody.defsEntry() == null
-              && docBody.typeEntry() == null
-              && docBody.bodyEntry() == null);
+          || (docBody.metaEntry().isEmpty()
+              && docBody.defsEntry().isEmpty()
+              && docBody.typeEntry().isEmpty()
+              && docBody.bodyEntry().isEmpty());
 
       if (hasNoClauses && unitHasPass1SyntaxError) {
         return new TextCompilationOutcome(StvnCompilationResult.failure(diagnosticBag.toList()), Optional.empty(), false);
@@ -200,7 +200,7 @@ public final class StvnCompiler {
         return new TextCompilationOutcome(res, defsRes.meta(), true);
       }
 
-      boolean hasBodyClause = docBody != null && docBody.bodyEntry() != null;
+      boolean hasBodyClause = docBody != null && docBody.bodyEntry(0) != null;
       if (!hasBodyClause) {
         if (diagnosticBag.hasErrors()) {
           return new TextCompilationOutcome(
@@ -229,17 +229,13 @@ public final class StvnCompiler {
       boolean canValidateBody = !unitHasHeaderOrDefsSyntaxError
           && defsRes.sectionsEligible()
           && defsRes.rootType().isPresent()
-          && docBody.bodyEntry().value() != null;
+          && docBody.bodyEntry(0).value() != null;
 
       if (canValidateBody && diagnosticBag.hasErrors()) {
         int docStart = docCtx.getStart() != null ? docCtx.getStart().getStartIndex() : 0;
         int docStop = docCtx.getStop() != null ? docCtx.getStop().getStopIndex() + 1 : Integer.MAX_VALUE;
 
-        var metaCtx = docBody.metaEntry();
-        int metaStart = metaCtx != null && metaCtx.getStart() != null ? metaCtx.getStart().getStartIndex() : -1;
-        int metaStop = metaCtx != null && metaCtx.getStop() != null ? metaCtx.getStop().getStopIndex() + 1 : -1;
-
-        var defsCtx = docBody.defsEntry();
+        var defsCtx = docBody.defsEntry(0);
         int defsStart = defsCtx != null && defsCtx.getStart() != null ? defsCtx.getStart().getStartIndex() : -1;
         int defsStop = defsCtx != null && defsCtx.getStop() != null ? defsCtx.getStop().getStopIndex() + 1 : -1;
 
@@ -262,7 +258,6 @@ public final class StvnCompiler {
               || sym.startsWith("ERR_SECTION_")
               || sym.equals(DiagnosticBag.ERR_INVALID_FILENAME_STEM)
               || sym.equals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED)
-              || sym.equals(DiagnosticBag.ERR_META_POSITION_INVALID)
               || sym.equals("STVN_SYNTAX_ERROR")
               || sym.startsWith("SYNTAX_")) {
             canValidateBody = false;
@@ -270,7 +265,15 @@ public final class StvnCompiler {
           }
           int offset = diag.startOffset();
           if (offset >= docStart && offset < docStop) {
-            boolean inMeta = metaStart >= 0 && offset >= metaStart && offset < metaStop;
+            boolean inMeta = false;
+            for (var metaCtx : docBody.metaEntry()) {
+              int mStart = metaCtx.getStart() != null ? metaCtx.getStart().getStartIndex() : -1;
+              int mStop = metaCtx.getStop() != null ? metaCtx.getStop().getStopIndex() + 1 : -1;
+              if (mStart >= 0 && offset >= mStart && offset < mStop) {
+                inMeta = true;
+                break;
+              }
+            }
             boolean inDefs = defsStart >= 0 && offset >= defsStart && offset < defsStop;
             if (!inMeta && !inDefs) {
               canValidateBody = false;
@@ -292,7 +295,7 @@ public final class StvnCompiler {
       Optional<StvnValue> payload = Optional.empty();
       try {
         StvnValue loweredValue = StvnPayloadLowerer.lowerValue(
-            docBody.bodyEntry().value(),
+            docBody.bodyEntry(0).value(),
             defsRes.rootType().get(),
             defsRes.rootConstantResolver(),
             defsRes.nominalTypeLookup(),

@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.Token;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.lowering.StvnDefsLowerer;
 import org.stvnadore.core.parser.StvnErrorListener;
 import org.stvnadore.core.parser.StvnErrorStrategy;
 import org.stvnadore.core.parser.StvnLexer;
@@ -80,6 +81,7 @@ public final class StvnSourceFormatter {
     parser.setErrorHandler(new StvnErrorStrategy());
 
     StvnParser.StvnDocumentContext docCtx = parser.stvnDocument();
+    StvnDefsLowerer.validateDocumentBodyStructure(docCtx, null, true);
     tokenStream.fill();
 
     for (Token token : tokenStream.getTokens()) {
@@ -233,17 +235,19 @@ public final class StvnSourceFormatter {
 
       StvnParser.DocumentBodyContext body = docCtx.documentBody();
       List<ParserRuleContext> sections = new ArrayList<>(4);
-      if (body.metaEntry() != null) {
-        sections.add(body.metaEntry());
-      }
-      if (body.defsEntry() != null) {
-        sections.add(body.defsEntry());
-      }
-      if (body.typeEntry() != null) {
-        sections.add(body.typeEntry());
-      }
-      if (body.bodyEntry() != null) {
-        sections.add(body.bodyEntry());
+      if (body != null) {
+        if (body.metaEntry(0) != null) {
+          sections.add(body.metaEntry(0));
+        }
+        if (body.defsEntry(0) != null) {
+          sections.add(body.defsEntry(0));
+        }
+        if (body.typeEntry(0) != null) {
+          sections.add(body.typeEntry(0));
+        }
+        if (body.bodyEntry(0) != null) {
+          sections.add(body.bodyEntry(0));
+        }
       }
 
       int rootOpenLimit = sections.isEmpty()

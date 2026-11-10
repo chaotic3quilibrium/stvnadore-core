@@ -200,7 +200,11 @@ public final class StvnDefsLowerer {
       parser.setErrorHandler(new StvnErrorStrategy());
     }
 
-    return parser.stvnDocument();
+    StvnParser.StvnDocumentContext docCtx = parser.stvnDocument();
+    if (config.strict()) {
+      validateDocumentBodyStructure(docCtx, null, true);
+    }
+    return docCtx;
   }
 
   /**
@@ -838,10 +842,159 @@ public final class StvnDefsLowerer {
   private static boolean hasNoTopLevelClauses(StvnParser.StvnDocumentContext doc) {
     var docBody = doc.documentBody();
     return docBody == null
-        || (docBody.metaEntry() == null
-            && docBody.defsEntry() == null
-            && docBody.typeEntry() == null
-            && docBody.bodyEntry() == null);
+        || (docBody.metaEntry().isEmpty()
+            && docBody.defsEntry().isEmpty()
+            && docBody.typeEntry().isEmpty()
+            && docBody.bodyEntry().isEmpty());
+  }
+
+  /**
+   * Enforces STVN 2.0.0 § 1.1 top-level section multiplicity (at most one {@code :meta},
+   * {@code :defs}, {@code :type}, and {@code :body} section per document) and canonical
+   * progression ({@code :meta -> :defs -> :type -> :body}).
+   *
+   * @param doc           the parsed ANTLR document context
+   * @param diagnosticBag the optional diagnostic bag for accumulating mode
+   * @param strict        {@code true} to throw {@link org.stvnadore.core.validation.StvnSyntaxCancellationException} on the first violation
+   * @return {@code true} if a non-{@code :meta} section multiplicity or ordering error occurred
+   */
+  public static boolean validateDocumentBodyStructure(
+      StvnParser.StvnDocumentContext doc,
+      @Nullable DiagnosticBag diagnosticBag,
+      boolean strict
+  ) {
+    var body = doc.documentBody();
+    if (body == null || body.children == null) {
+      return false;
+    }
+
+    boolean seenMeta = false;
+    boolean seenDefs = false;
+    boolean seenType = false;
+    boolean seenBody = false;
+    int maxOrder = 0;
+    boolean hasNonMetaSectionStructuralError = false;
+
+    for (var child : body.children) {
+      if (child instanceof StvnParser.MetaEntryContext metaCtx) {
+        Token kw = metaCtx.KW_META() != null ? metaCtx.KW_META().getSymbol() : metaCtx.getStart();
+        if (seenMeta) {
+          String msg = maxOrder <= 1
+              ? "Duplicate '" + StvnVocabulary.KEYWORD_META + "' block prohibited: document may declare at most one '"
+                  + StvnVocabulary.KEYWORD_META + "' header block"
+              : "Duplicate '" + StvnVocabulary.KEYWORD_META + "' block prohibited: document may declare at most one '"
+                  + StvnVocabulary.KEYWORD_META + "' header block before '" + StvnVocabulary.KEYWORD_DEFS + "', '"
+                  + StvnVocabulary.KEYWORD_TYPE + "', and '" + StvnVocabulary.KEYWORD_BODY + "'";
+          reportTopLevelSectionViolation(kw, msg, "E033", DiagnosticBag.ERR_META_POSITION_INVALID, diagnosticBag, strict);
+        } else if (maxOrder > 1) {
+          reportTopLevelSectionViolation(
+              kw,
+              "STVN Syntax Error: Document '" + StvnVocabulary.KEYWORD_META + "' block must appear before '"
+                  + StvnVocabulary.KEYWORD_DEFS + "', '" + StvnVocabulary.KEYWORD_TYPE + "', and '"
+                  + StvnVocabulary.KEYWORD_BODY + "'",
+              "E033",
+              DiagnosticBag.ERR_META_POSITION_INVALID,
+              diagnosticBag,
+              strict
+          );
+        }
+        seenMeta = true;
+        maxOrder = Math.max(maxOrder, 1);
+      } else if (child instanceof StvnParser.DefsEntryContext defsCtx) {
+        Token kw = defsCtx.KW_DEFS() != null ? defsCtx.KW_DEFS().getSymbol() : defsCtx.getStart();
+        if (seenDefs) {
+          hasNonMetaSectionStructuralError = true;
+          reportTopLevelSectionViolation(
+              kw,
+              "Duplicate '" + StvnVocabulary.KEYWORD_DEFS + "' section prohibited: document may declare at most one '"
+                  + StvnVocabulary.KEYWORD_DEFS + "' section",
+              "E002",
+              "STVN_SYNTAX_ERROR",
+              diagnosticBag,
+              strict
+          );
+        } else if (maxOrder > 2) {
+          hasNonMetaSectionStructuralError = true;
+          reportTopLevelSectionViolation(
+              kw,
+              "Document '" + StvnVocabulary.KEYWORD_DEFS + "' section must appear before '"
+                  + StvnVocabulary.KEYWORD_TYPE + "' and '" + StvnVocabulary.KEYWORD_BODY + "'",
+              "E002",
+              "STVN_SYNTAX_ERROR",
+              diagnosticBag,
+              strict
+          );
+        }
+        seenDefs = true;
+        maxOrder = Math.max(maxOrder, 2);
+      } else if (child instanceof StvnParser.TypeEntryContext typeCtx) {
+        Token kw = typeCtx.KW_TYPE() != null ? typeCtx.KW_TYPE().getSymbol() : typeCtx.getStart();
+        if (seenType) {
+          hasNonMetaSectionStructuralError = true;
+          reportTopLevelSectionViolation(
+              kw,
+              "Duplicate '" + StvnVocabulary.KEYWORD_TYPE + "' section prohibited: document may declare at most one '"
+                  + StvnVocabulary.KEYWORD_TYPE + "' section",
+              "E002",
+              "STVN_SYNTAX_ERROR",
+              diagnosticBag,
+              strict
+          );
+        } else if (maxOrder > 3) {
+          hasNonMetaSectionStructuralError = true;
+          reportTopLevelSectionViolation(
+              kw,
+              "Document '" + StvnVocabulary.KEYWORD_TYPE + "' section must appear before '"
+                  + StvnVocabulary.KEYWORD_BODY + "'",
+              "E002",
+              "STVN_SYNTAX_ERROR",
+              diagnosticBag,
+              strict
+          );
+        }
+        seenType = true;
+        maxOrder = Math.max(maxOrder, 3);
+      } else if (child instanceof StvnParser.BodyEntryContext bodyCtx) {
+        Token kw = bodyCtx.KW_BODY() != null ? bodyCtx.KW_BODY().getSymbol() : bodyCtx.getStart();
+        if (seenBody) {
+          hasNonMetaSectionStructuralError = true;
+          reportTopLevelSectionViolation(
+              kw,
+              "Duplicate '" + StvnVocabulary.KEYWORD_BODY + "' section prohibited: document may declare at most one '"
+                  + StvnVocabulary.KEYWORD_BODY + "' section",
+              "E002",
+              "STVN_SYNTAX_ERROR",
+              diagnosticBag,
+              strict
+          );
+        }
+        seenBody = true;
+        maxOrder = Math.max(maxOrder, 4);
+      }
+    }
+    return hasNonMetaSectionStructuralError;
+  }
+
+  private static void reportTopLevelSectionViolation(
+      @Nullable Token kw,
+      String message,
+      String canonicalCode,
+      String symbolicId,
+      @Nullable DiagnosticBag diagnosticBag,
+      boolean strict
+  ) {
+    int start = kw != null ? Math.max(0, kw.getStartIndex()) : 0;
+    int stop = kw != null ? Math.max(start + 1, kw.getStopIndex() + 1) : 1;
+    int line = kw != null ? kw.getLine() : 1;
+    int col = kw != null ? kw.getCharPositionInLine() : 0;
+    if (strict) {
+      throw new org.stvnadore.core.validation.StvnSyntaxCancellationException(
+          message, line, col, start, stop, null, canonicalCode, symbolicId
+      );
+    }
+    if (diagnosticBag != null) {
+      diagnosticBag.addErrorDual(message, start, stop, line, col, null, canonicalCode, symbolicId);
+    }
   }
 
   private static CompiledUnit emptyFailedChildUnit() {
@@ -871,6 +1024,7 @@ public final class StvnDefsLowerer {
       boolean unitHasPass1SyntaxError
   ) {
     IdentityOutcome identity = lowerAndValidateDocumentIdentity(doc, docPath, moduleCtx, diagnosticBag, skipPathIdentityChecks);
+    validateDocumentBodyStructure(doc, diagnosticBag, moduleCtx.config.strict());
 
     var body = doc.documentBody();
     if (body == null) {
@@ -899,7 +1053,7 @@ public final class StvnDefsLowerer {
           identity.effectiveKind(),
           StvnDefsCatalog.EMPTY,
           Optional.empty(),
-          body.defsEntry() != null,
+          !body.defsEntry().isEmpty(),
           false,
           false,
           Map.of(),
@@ -914,9 +1068,9 @@ public final class StvnDefsLowerer {
     env.collectAndResolveDefs();
 
     Optional<StvnSchema> rootType = Optional.empty();
-    if (body.typeEntry() != null && body.typeEntry().schemaType() != null) {
+    if (body.typeEntry(0) != null && body.typeEntry(0).schemaType() != null) {
       rootType = Optional.of(
-          env.lowerAnonymousOrRootSchema(body.typeEntry().schemaType(), env.rootScope, new LinkedHashSet<>(), true).schema()
+          env.lowerAnonymousOrRootSchema(body.typeEntry(0).schemaType(), env.rootScope, new LinkedHashSet<>(), true).schema()
       );
     }
 
@@ -1005,7 +1159,7 @@ public final class StvnDefsLowerer {
     }
 
     var body = doc.documentBody();
-    var metaEntry = body != null ? body.metaEntry() : null;
+    var metaEntry = body != null ? body.metaEntry(0) : null;
     Optional<StvnDocumentKind> expectedKindOpt =
         ext != null ? StvnDocumentKind.fromExtension(ext) : Optional.empty();
 
@@ -1271,8 +1425,8 @@ public final class StvnDefsLowerer {
     if (isDefsSchema) {
       boolean hasViolations = false;
       String kindLabel = effectiveKind != null ? effectiveKind.keyword() : StvnVocabulary.KIND_KW_DEFS;
-      if (body.typeEntry() != null) {
-        Span sp = Span.ofContext(body.typeEntry());
+      if (body.typeEntry(0) != null) {
+        Span sp = Span.ofContext(body.typeEntry(0));
         diagnosticBag.addError(
             "Structural violation: Definitions schema (" + targetDesc + ") declaring #kind " + kindLabel
                 + " cannot declare '" + StvnVocabulary.KEYWORD_TYPE + "' section [stvn-core:ERR_DOCUMENT_KIND_MISMATCH]",
@@ -1281,8 +1435,8 @@ public final class StvnDefsLowerer {
         );
         hasViolations = true;
       }
-      if (body.bodyEntry() != null) {
-        Span sp = Span.ofContext(body.bodyEntry());
+      if (body.bodyEntry(0) != null) {
+        Span sp = Span.ofContext(body.bodyEntry(0));
         diagnosticBag.addError(
             "Structural violation: Definitions schema (" + targetDesc + ") declaring #kind " + kindLabel
                 + " cannot declare '" + StvnVocabulary.KEYWORD_BODY + "' section [stvn-core:ERR_DOCUMENT_KIND_MISMATCH]",
@@ -1291,7 +1445,7 @@ public final class StvnDefsLowerer {
         );
         hasViolations = true;
       }
-      if (!moduleCtx.flattenerMode && body.defsEntry() == null) {
+      if (!moduleCtx.flattenerMode && body.defsEntry(0) == null) {
         if (!unitHasPass1SyntaxError) {
           Token startTok = doc.getStart();
           int start = startTok != null ? Math.max(0, startTok.getStartIndex()) : 0;
@@ -1316,7 +1470,7 @@ public final class StvnDefsLowerer {
         && (ext == null || !ext.equals(".stvn_i"));
 
     if (!moduleCtx.flattenerMode && isHermeticBody && docPath != null && !docPath.isEmpty()) {
-      if (body.typeEntry() == null || body.bodyEntry() == null) {
+      if (body.typeEntry(0) == null || body.bodyEntry(0) == null) {
         if (!unitHasPass1SyntaxError) {
           Token startTok = doc.getStart();
           int start = startTok != null ? Math.max(0, startTok.getStartIndex()) : 0;
@@ -1626,16 +1780,16 @@ public final class StvnDefsLowerer {
     }
 
     void collectAndResolveDefs() {
-      if (doc == null || doc.documentBody() == null || doc.documentBody().defsEntry() == null) {
+      if (doc == null || doc.documentBody() == null || doc.documentBody().defsEntry(0) == null) {
         return;
       }
-      var defsEntry = doc.documentBody().defsEntry();
+      var defsEntry = doc.documentBody().defsEntry(0);
       this.hasDefsSection = true;
 
       if (defsEntry.LBRACE() != null && defsEntry.RBRACE() != null
           && (defsEntry.defsElement() == null || defsEntry.defsElement().isEmpty())) {
         boolean isSchemaDoc = identity.effectiveKind().map(k -> k == StvnDocumentKind.DEFS || k == StvnDocumentKind.DEFS_INCLUDE).orElse(false)
-            || (doc.documentBody().typeEntry() == null && doc.documentBody().bodyEntry() == null);
+            || (doc.documentBody().typeEntry(0) == null && doc.documentBody().bodyEntry(0) == null);
         int start = defsEntry.LBRACE().getSymbol().getStartIndex();
         int stop = defsEntry.RBRACE().getSymbol().getStopIndex() + 1;
         int line = defsEntry.LBRACE().getSymbol().getLine();

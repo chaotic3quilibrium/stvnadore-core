@@ -180,7 +180,7 @@ Within this root enclosure, top-level sections must strictly adhere to the follo
 
 $$\text{documentRoot} \longrightarrow \texttt{:meta}^{?} \longrightarrow \texttt{:defs}^{?} \longrightarrow (\texttt{:type} \;\; \texttt{:body})^{?}$$
 
-The `:meta` block is a first-class root enclosure entry that strictly precedes `:defs`, `:type`, and `:body`. Placing `:meta` after `:defs`, after `:type`, or after `:body` is an unrecoverable syntax error at the parser gate (`ERR_META_POSITION_INVALID`).
+Each top-level section (`:meta`, `:defs`, `:type`, `:body`) may appear at most once per document. The `:meta` block is a first-class root enclosure entry that strictly precedes `:defs`, `:type`, and `:body`. Placing `:meta` after `:defs`, after `:type`, or after `:body`—or declaring a duplicate `:meta` block—emits fatal diagnostic `E033` (`ERR_META_POSITION_INVALID`) pinned to the offending `:meta` keyword token. Similarly, duplicate or out-of-order `:defs`, `:type`, or `:body` sections emit fatal diagnostic `E002` (`STVN_SYNTAX_ERROR`) pinned to the offending section keyword token.
 
 The `:meta` block is optional strictly on canonical hermetic payload documents (`.stvn`), but mandatory across all other file types (`.stvn_i`, `.stvn_d`, `.stvn_di`, `.stvn_b`, `.stvn_bd`).
 
@@ -3187,7 +3187,7 @@ options {
 
 stvnDocument : LBRACE documentBody RBRACE EOF ;
 
-documentBody : metaEntry? defsEntry? (typeEntry bodyEntry)? ;
+documentBody : (metaEntry | defsEntry | typeEntry | bodyEntry)* ;
 
 metaEntry : KW_META metaBlock ;
 metaBlock : LBRACE metaElement* RBRACE ;
