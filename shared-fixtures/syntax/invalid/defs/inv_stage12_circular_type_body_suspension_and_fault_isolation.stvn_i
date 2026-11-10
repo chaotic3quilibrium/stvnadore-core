@@ -6,6 +6,11 @@
   :defs {
     :CycleAlpha :CycleBeta
     :CycleBeta :CycleAlpha
+    :DerivedFromCycle :CycleAlpha
+    :NodeWeight { #unsigned #size 16 } :Int
+    :UnguardedTupleCycle :Tuple(:NodeWeight :UnguardedTupleCycle)
+    :BadNonEmptySeqCycle :Tuple(:NodeWeight { #minSize 1 } :Seq(:BadNonEmptySeqCycle))
+    :BadEitherCycle :Either(:BadEitherCycle :BadEitherCycle)
     :DuplicateNode :Int
     :DuplicateNode :String
     #DUPLICATE_LIMIT :Int 100
@@ -18,6 +23,8 @@
     :BoundedPort { #unsigned #size 16 #minIncl 1024 #maxExcl 65536 } :Int
     :Stage12Envelope :Tuple(
       :CycleAlpha
+      :DerivedFromCycle
+      :UnguardedTupleCycle
       :TreeNode
       :BoundedPort
     )
@@ -25,7 +32,9 @@
   :type :Stage12Envelope
   :body (
     "ungrounded-slot-suspended"
-    ( "root" [ ( "leaf" [] ) ] )
+    999
+    ( 1 "bad" )
+    ( "root" [ ( "child-ok" [] ) ( "" [ ( "grandchild" [] ) ] ) ] )
     80
   )
 }

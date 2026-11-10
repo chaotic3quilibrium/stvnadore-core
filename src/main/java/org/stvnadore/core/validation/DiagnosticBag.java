@@ -230,7 +230,7 @@ public final class DiagnosticBag {
       Map.entry("ERR_MALFORMED_SCHEMA", "E010"),
       Map.entry(ERR_BARE_COLON_PROHIBITED, "E002"),
       Map.entry(ERR_BARE_HASH_PROHIBITED, "E002"),
-      Map.entry(ERR_RESERVED_KEYWORD_ON_LHS, "E002"),
+      Map.entry(ERR_RESERVED_KEYWORD_ON_LHS, "E027"),
       Map.entry(ERR_EMPTY_DEFS_BLOCK, "E002"),
       Map.entry(ERR_NESTED_PACKAGE_PROHIBITED, "E002"),
       Map.entry(ERR_TRAILING_SLASH_PROHIBITED, "E002"),

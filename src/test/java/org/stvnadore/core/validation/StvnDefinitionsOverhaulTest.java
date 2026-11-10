@@ -557,4 +557,103 @@ public class StvnDefinitionsOverhaulTest {
     byte[] flattenedCas = StvnCompiler.computeCasFingerprint(flattenedResult.orElseThrow().requirePayload());
     Assertions.assertArrayEquals(modularCas, flattenedCas, "CAS hashes must be identical before and after flattening");
   }
+
+  // ==========================================================================
+  // Test Group 6: Stage 12 Finite Inhabitation, Stem Cycles & E027 Parity
+  // ==========================================================================
+
+  @Test
+  @DisplayName("Guarded recursive schemas compile cleanly across Seq, Option, Either, and mutual cycles")
+  void testGuardedRecursiveSchemasCompileCleanly() {
+    String input = """
+        {
+          :defs {
+            :TreeLabel { #minSize 1 #maxSize 32 } :String
+            :NodeWeight { #minIncl 0 #maxExcl 1001 } :Int
+            :TreeNode :Tuple(:TreeLabel :NodeWeight :Seq(:TreeNode))
+            :LinkedListNode :Tuple(:TreeLabel :Option(:LinkedListNode))
+            :DecisionNode :Tuple(:TreeLabel :Either(:NodeWeight :DecisionNode))
+            :EvenForest :Tuple(:TreeLabel :Seq(:OddBranch))
+            :OddBranch :Tuple(:NodeWeight :Option(:EvenForest))
+            :Envelope :Tuple(:TreeNode :LinkedListNode :DecisionNode :EvenForest)
+          }
+          :type :Envelope
+          :body (
+            ( "root" 100 [ ( "leaf" 50 [] ) ] )
+            ( "head" #Some ( "tail" #None ) )
+            ( "branch" #Right ( "leaf" #Left 42 ) )
+            ( "forest" [ ( 10 #Some ( "sub" [] ) ) ] )
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertTrue(result.isSuccess(),
+        "Guarded recursive schemas must compile cleanly: " + result.diagnostics());
+  }
+
+  @Test
+  @DisplayName("Unguarded structural recursion and stem aliases into cycles emit E007 and suspend Pass 3 per slot")
+  void testUnguardedRecursiveSchemasAndStemAliasesEmitE007AndSuspendPass3() {
+    String input = """
+        {
+          :defs {
+            :CycleAlpha :CycleBeta
+            :CycleBeta :CycleAlpha
+            :DerivedFromCycle :CycleAlpha
+            :UnguardedTupleCycle :Tuple(:Int :UnguardedTupleCycle)
+            :BadNonEmptySeqCycle :Tuple(:Int { #minSize 1 } :Seq(:BadNonEmptySeqCycle))
+            :BadEitherCycle :Either(:BadEitherCycle :BadEitherCycle)
+            :BoundedPort { #minIncl 1 #maxExcl 1025 } :Int
+            :Envelope :Tuple(
+              :CycleAlpha
+              :DerivedFromCycle
+              :UnguardedTupleCycle
+              :BoundedPort
+            )
+          }
+          :type :Envelope
+          :body (
+            "ignored-1"
+            "ignored-2"
+            ( 1 "ignored-3" )
+            2048
+          )
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    long e007Count = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_CIRCULAR_TYPE.equals(d.errorCode().orElse(null))
+            && "E007".equals(d.canonicalCode().orElse(null)))
+        .count();
+    Assertions.assertEquals(6, e007Count,
+        "Expected 6 E007 diagnostics (CycleAlpha, CycleBeta, DerivedFromCycle, UnguardedTupleCycle, BadNonEmptySeqCycle, BadEitherCycle): "
+            + result.diagnostics());
+    long pass3Count = result.diagnostics().stream()
+        .filter(d -> DiagnosticBag.ERR_CONSTRAINT_VIOLATION.equals(d.errorCode().orElse(null)))
+        .count();
+    Assertions.assertEquals(1, pass3Count,
+        "Pass 3 must suspend on all 3 poisoned slots and fire only on healthy :BoundedPort slot: "
+            + result.diagnostics());
+  }
+
+  @Test
+  @DisplayName("Reserved keyword on LHS resolves to canonical error code E027")
+  void testReservedKeywordOnLhsResolvesToCanonicalE027() {
+    String input = """
+        {
+          :defs {
+            :Int :String
+          }
+          :type :String
+          :body "ok"
+        }
+        """;
+    var result = StvnCompiler.compileToResult(input);
+    Assertions.assertFalse(result.isSuccess());
+    Assertions.assertTrue(result.diagnostics().stream()
+        .anyMatch(d -> DiagnosticBag.ERR_RESERVED_KEYWORD_ON_LHS.equals(d.errorCode().orElse(null))
+            && "E027".equals(d.canonicalCode().orElse(null))),
+        "ERR_RESERVED_KEYWORD_ON_LHS must resolve to canonical code E027: " + result.diagnostics());
+  }
 }

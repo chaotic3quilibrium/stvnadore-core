@@ -9,10 +9,16 @@
   }
   :type :ErrorContract
   :body [
-    ( #E006 #DUPLICATE_TYPE_DEFINITION #ERROR 10 5 206 228 "Zero-Shadowing constraint violated: :DuplicateNode" )
-    ( #E006 #DUPLICATE_TYPE_DEFINITION #ERROR 12 5 263 288 "Zero-Shadowing constraint violated: #DUPLICATE_LIMIT" )
+    ( #E006 #DUPLICATE_TYPE_DEFINITION #ERROR 15 5 498 520 "Zero-Shadowing constraint violated: :DuplicateNode" )
+    ( #E006 #DUPLICATE_TYPE_DEFINITION #ERROR 17 5 555 580 "Zero-Shadowing constraint violated: #DUPLICATE_LIMIT" )
     ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 7 5 128 150 "Circular type definition detected: :CycleAlpha -> :CycleBeta -> :CycleAlpha" )
-    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 18 53 458 472 "Constraint violation (:BoundedPort): facet '#maxExcl 65536' is redundant; '#unsigned #size 16' already bounds the domain to [0, 65536)" )
-    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 29 5 676 678 "Constraint violation (:BoundedPort): Value 80 is outside allowable range (must be >= 1024)" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 8 5 155 177 "Circular type definition detected: :CycleBeta -> :CycleAlpha -> :CycleBeta" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 9 5 182 211 "Circular type definition detected: :DerivedFromCycle -> :CycleAlpha -> :CycleBeta -> :CycleAlpha" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 11 5 260 321 "Circular type definition detected: :UnguardedTupleCycle -> :UnguardedTupleCycle" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 12 5 326 408 "Circular type definition detected: :BadNonEmptySeqCycle -> :BadNonEmptySeqCycle" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 13 5 413 469 "Circular type definition detected: :BadEitherCycle -> :BadEitherCycle" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 23 53 750 764 "Constraint violation (:BoundedPort): facet '#maxExcl 65536' is redundant; '#unsigned #size 16' already bounds the domain to [0, 65536)" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 37 36 1041 1043 "Constraint violation (:TreeLabel): String cannot be empty (Size 0 outside allowable range [1, 32])" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 38 5 1078 1080 "Constraint violation (:BoundedPort): Value 80 is outside allowable range (must be >= 1024)" )
   ]
 }

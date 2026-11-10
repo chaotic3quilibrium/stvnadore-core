@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "inv_reserved_keyword_on_lhs"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :Int :String
+  }
+  :type :Int
+  :body 42
+}
