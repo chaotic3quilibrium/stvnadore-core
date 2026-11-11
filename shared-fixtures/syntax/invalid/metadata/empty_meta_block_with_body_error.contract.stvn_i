@@ -9,7 +9,7 @@
   }
   :type :ErrorContract
   :body [
-    ( #E039 #ERR_EMPTY_META_BLOCK #ERROR 2 9 10 12 "Metadata block ':meta {}' must not be empty" )
+    ( #E039 #ERR_EMPTY_META_BLOCK #ERROR 2 9 10 12 "Empty ':meta {}' section is prohibited; declare document identity facets (#name, #domain, #kind)" )
     ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 7 9 129 133 "Constraint violation (:BoundedPort): Value 5000 is outside allowable range (must be < 4096)" )
   ]
 }

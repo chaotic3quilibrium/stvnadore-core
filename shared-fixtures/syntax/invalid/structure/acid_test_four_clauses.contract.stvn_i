@@ -9,9 +9,9 @@
   }
   :type :ErrorContract
   :body [
-    ( #E002 #STVN_SYNTAX_ERROR #ERROR 5 3 135 140 "STVN Syntax Error: clause ':meta' requires a metadata block '{ ... }'" )
-    ( #E002 #STVN_SYNTAX_ERROR #ERROR 6 3 143 148 "STVN Syntax Error: clause ':defs' requires definition block '{ ... }'" )
-    ( #E002 #STVN_SYNTAX_ERROR #ERROR 7 3 151 156 "STVN Syntax Error: clause ':type' requires a schema type" )
-    ( #E002 #STVN_SYNTAX_ERROR #ERROR 8 3 159 164 "STVN Syntax Error: clause ':body' requires a value payload" )
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 5 3 135 140 "Incomplete ':meta' section: declare a metadata block '{ ... }' after ':meta'" )
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 6 3 143 148 "Incomplete ':defs' section: declare a definitions block '{ ... }' after ':defs'" )
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 7 3 151 156 "Incomplete ':type' section: declare a target schema type after ':type' (for example, ':type :Int')" )
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 8 3 159 164 "Incomplete ':body' section: declare a payload value after ':body'" )
   ]
 }

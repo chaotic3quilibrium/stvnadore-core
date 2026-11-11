@@ -863,7 +863,8 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals(expectedEnd, diag.endOffset());
     Assertions.assertEquals(2, diag.line());
     Assertions.assertEquals(2, diag.column());
-    Assertions.assertTrue(diag.message().contains("clause ':defs' requires definition block '{ ... }'"));
+    Assertions.assertEquals(DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE, diag.symbolicId().orElse(""));
+    Assertions.assertEquals("Incomplete ':defs' section: declare a definitions block '{ ... }' after ':defs'", diag.message());
   }
 
   @Test
@@ -888,7 +889,8 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals(expectedEnd, diag.endOffset());
     Assertions.assertEquals(5, diag.line());
     Assertions.assertEquals(2, diag.column());
-    Assertions.assertTrue(diag.message().contains("clause ':type' requires a schema type"));
+    Assertions.assertEquals(DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE, diag.symbolicId().orElse(""));
+    Assertions.assertEquals("Incomplete ':type' section: declare a target schema type after ':type' (for example, ':type :Int')", diag.message());
   }
 
   @Test
@@ -910,7 +912,8 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals(expectedEnd, diag.endOffset());
     Assertions.assertEquals(3, diag.line());
     Assertions.assertEquals(2, diag.column());
-    Assertions.assertTrue(diag.message().contains("clause ':body' requires a value payload"));
+    Assertions.assertEquals(DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE, diag.symbolicId().orElse(""));
+    Assertions.assertEquals("Incomplete ':body' section: declare a payload value after ':body'", diag.message());
   }
 
   @Test
@@ -931,7 +934,8 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals(expectedEnd, diag.endOffset());
     Assertions.assertEquals(2, diag.line());
     Assertions.assertEquals(2, diag.column());
-    Assertions.assertTrue(diag.message().contains("clause ':defs' requires definition block '{ ... }'"));
+    Assertions.assertEquals(DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE, diag.symbolicId().orElse(""));
+    Assertions.assertEquals("Incomplete ':defs' section: declare a definitions block '{ ... }' after ':defs'", diag.message());
   }
 
   @Test
@@ -955,7 +959,7 @@ public class StvnDiagnosticsTest {
     int expectedEnd = expectedStart + 2;
     Assertions.assertEquals(expectedStart, diag.startOffset());
     Assertions.assertEquals(expectedEnd, diag.endOffset());
-    Assertions.assertTrue(diag.message().contains("requires at least one type definition inside ':defs { ... }'"));
+    Assertions.assertEquals("Empty ':defs {}' section is prohibited; definitions schema (.stvn_d) requires at least one type or constant definition", diag.message());
   }
 
   @Test
@@ -1110,19 +1114,19 @@ public class StvnDiagnosticsTest {
     var diags = result.diagnostics();
     Assertions.assertEquals(input.indexOf(":meta"), diags.get(0).startOffset());
     Assertions.assertEquals(input.indexOf(":meta") + ":meta".length(), diags.get(0).endOffset());
-    Assertions.assertTrue(diags.get(0).message().contains("clause ':meta' requires a metadata block '{ ... }'"));
+    Assertions.assertEquals("Incomplete ':meta' section: declare a metadata block '{ ... }' after ':meta'", diags.get(0).message());
 
     Assertions.assertEquals(input.indexOf(":defs"), diags.get(1).startOffset());
     Assertions.assertEquals(input.indexOf(":defs") + ":defs".length(), diags.get(1).endOffset());
-    Assertions.assertTrue(diags.get(1).message().contains("clause ':defs' requires definition block '{ ... }'"));
+    Assertions.assertEquals("Incomplete ':defs' section: declare a definitions block '{ ... }' after ':defs'", diags.get(1).message());
 
     Assertions.assertEquals(input.indexOf(":type"), diags.get(2).startOffset());
     Assertions.assertEquals(input.indexOf(":type") + ":type".length(), diags.get(2).endOffset());
-    Assertions.assertTrue(diags.get(2).message().contains("clause ':type' requires a schema type"));
+    Assertions.assertEquals("Incomplete ':type' section: declare a target schema type after ':type' (for example, ':type :Int')", diags.get(2).message());
 
     Assertions.assertEquals(input.indexOf(":body"), diags.get(3).startOffset());
     Assertions.assertEquals(input.indexOf(":body") + ":body".length(), diags.get(3).endOffset());
-    Assertions.assertTrue(diags.get(3).message().contains("clause ':body' requires a value payload"));
+    Assertions.assertEquals("Incomplete ':body' section: declare a payload value after ':body'", diags.get(3).message());
   }
 
   @Test
@@ -1140,7 +1144,7 @@ public class StvnDiagnosticsTest {
     var firstDiag = result.diagnostics().getFirst();
     Assertions.assertEquals(input.indexOf(":meta"), firstDiag.startOffset(), "Blame must pin strictly to :meta");
     Assertions.assertEquals(input.indexOf(":meta") + ":meta".length(), firstDiag.endOffset());
-    Assertions.assertTrue(firstDiag.message().contains("clause ':meta' requires a metadata block '{ ... }'"));
+    Assertions.assertEquals("Incomplete ':meta' section: declare a metadata block '{ ... }' after ':meta'", firstDiag.message());
   }
 
   @Test
@@ -1160,7 +1164,7 @@ public class StvnDiagnosticsTest {
     var codes = result.diagnostics().stream().map(d -> d.errorCode().orElse("")).toList();
     Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_EMPTY_META_BLOCK));
     Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_EMPTY_DEFS_BLOCK));
-    Assertions.assertTrue(codes.contains("STVN_SYNTAX_ERROR"));
+    Assertions.assertTrue(codes.contains(DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE));
   }
 
   @Test
@@ -1866,5 +1870,59 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals(3, tupleVal.elements().size());
     Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnErrorValue.class, tupleVal.elements().get(0));
     Assertions.assertInstanceOf(org.stvnadore.core.ir.StvnValue.StvnErrorValue.class, tupleVal.elements().get(1));
+  }
+
+  @Test
+  @DisplayName("TC-ROOT-FLUSTER-01: Scenario A root_fluster.domain.stvn emits 16 harmonized pinned diagnostics with zero blame on :body {} and zero duplicate cascades")
+  void testRootFlusterScenarioAZeroBlameShiftAndZeroDuplicateCascades() throws Exception {
+    var fixturePath = java.nio.file.Paths.get("shared-fixtures/syntax/invalid/structure/root_fluster.domain.stvn");
+    String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
+        .replace("\r\n", "\n");
+    var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.hasErrors());
+    var diags = result.diagnostics();
+    Assertions.assertEquals(16, diags.size(), () -> "Expected strictly 16 diagnostics in root_fluster.domain.stvn: " + diags);
+
+    // Zero diagnostics on line 5 (:body {})
+    Assertions.assertTrue(
+        diags.stream().noneMatch(d -> d.line() == 5),
+        () -> "Valid ':body {}' on line 5 must never receive blame from preceding ':type {}': " + diags
+    );
+
+    // Every duplicate section line (lines 6..13, 15, 20, 23, 24) receives strictly 1 diagnostic
+    for (int dupLine : new int[]{6, 7, 8, 9, 10, 11, 12, 13, 15, 20, 23, 24}) {
+      long countOnLine = diags.stream().filter(d -> d.line() == dupLine).count();
+      Assertions.assertEquals(1L, countOnLine, "Expected strictly 1 duplicate-section diagnostic on line " + dupLine + ": " + diags);
+    }
+
+    // Zero use of 'redundant' on fatal E002 diagnostics and zero 'STVN Syntax Error: ' prefix
+    for (var d : diags) {
+      Assertions.assertFalse(d.message().contains("STVN Syntax Error:"), "Unexpected syntax prefix: " + d);
+      if ("E002".equals(d.canonicalCode().orElse(""))) {
+        Assertions.assertFalse(d.message().contains("redundant"), "Fatal E002 must not say 'redundant': " + d);
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("TC-ROOT-ORDER-01: Scenario B root_ordering.stvn emits 3 misplaced-section errors + W002 while preserving non-poisoning Pass 2 & Pass 3 lowering")
+  void testRootOrderingScenarioBNonPoisoningLowering() throws Exception {
+    var fixturePath = java.nio.file.Paths.get("shared-fixtures/syntax/invalid/structure/root_ordering.stvn");
+    String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
+        .replace("\r\n", "\n");
+    var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);
+    Assertions.assertTrue(result.hasErrors());
+    var diags = result.diagnostics();
+    Assertions.assertEquals(4, diags.size(), () -> "Expected W002 + 3 misplaced-section errors: " + diags);
+
+    Assertions.assertEquals("W002", diags.get(0).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_SECTION_ORDER_VIOLATION, diags.get(1).symbolicId().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_SECTION_ORDER_VIOLATION, diags.get(2).symbolicId().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, diags.get(3).symbolicId().orElse(""));
+
+    var doc = result.document().orElseThrow();
+    Assertions.assertTrue(doc.defs().findType(":Type").isPresent(), "Pass 2 :defs must still resolve :Type");
+    Assertions.assertTrue(doc.rootType().isPresent(), "Pass 2 :type must still resolve :Type");
+    Assertions.assertTrue(doc.payload().isPresent(), "Pass 3 :body must still lower empty string payload");
   }
 }

@@ -1,0 +1,25 @@
+{
+  :meta {}
+  :defs {}
+  :type {}
+  :body {}
+  :meta {}
+  :defs {}
+  :type {}
+  :body {}
+  :meta {}
+  :defs {}
+  :type {}
+  :body {}
+
+  :meta {
+    #name "root_fluster"
+    #domain "domain"
+    #kind #BODY
+  }
+  :defs {
+    :Type :String
+  }
+  :type :Type
+  :body ""
+}

@@ -657,8 +657,8 @@ class StvnSourceFormatterTest {
   }
 
   @Test
-  @DisplayName("Rejects duplicate and out-of-order top-level sections with StvnSyntaxCancellationException (E033 / E002)")
-  void testRejectsDuplicateAndOutOfOrderTopLevelSections() {
+  @DisplayName("Rejects duplicate and incomplete top-level sections with StvnSyntaxCancellationException (E033 / E002)")
+  void testRejectsDuplicateAndIncompleteTopLevelSections() {
     String dupMeta = "{ :meta { #name \"a\" } :meta { #name \"b\" } :type :Int :body 1 }";
     StvnSyntaxCancellationException metaEx = Assertions.assertThrows(
         StvnSyntaxCancellationException.class,
@@ -668,20 +668,199 @@ class StvnSourceFormatterTest {
     Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, metaEx.getSymbolicId());
     Assertions.assertTrue(StvnSourceFormatter.tryFormat(dupMeta).isEmpty());
 
-    String misplacedMeta = "{ :defs { :T :Int } :meta { #kind #DEFS } }";
-    StvnSyntaxCancellationException misplacedMetaEx = Assertions.assertThrows(
-        StvnSyntaxCancellationException.class,
-        () -> StvnSourceFormatter.format(misplacedMeta)
-    );
-    Assertions.assertEquals("E033", misplacedMetaEx.getCanonicalCode());
-    Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, misplacedMetaEx.getSymbolicId());
-
     String dupDefs = "{ :defs { :A :Int } :defs { :B :Int } :type :A :body 1 }";
     StvnSyntaxCancellationException defsEx = Assertions.assertThrows(
         StvnSyntaxCancellationException.class,
         () -> StvnSourceFormatter.format(dupDefs)
     );
     Assertions.assertEquals("E002", defsEx.getCanonicalCode());
-    Assertions.assertEquals("STVN_SYNTAX_ERROR", defsEx.getSymbolicId());
+    Assertions.assertEquals(DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION, defsEx.getSymbolicId());
+    Assertions.assertTrue(StvnSourceFormatter.tryFormat(dupDefs).isEmpty());
+
+    String dupType = "{ :type :Int :type :String :body 1 }";
+    StvnSyntaxCancellationException typeEx = Assertions.assertThrows(
+        StvnSyntaxCancellationException.class,
+        () -> StvnSourceFormatter.format(dupType)
+    );
+    Assertions.assertEquals("E002", typeEx.getCanonicalCode());
+    Assertions.assertEquals(DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION, typeEx.getSymbolicId());
+    Assertions.assertTrue(StvnSourceFormatter.tryFormat(dupType).isEmpty());
+
+    String dupBody = "{ :type :Int :body 1 :body 2 }";
+    StvnSyntaxCancellationException bodyEx = Assertions.assertThrows(
+        StvnSyntaxCancellationException.class,
+        () -> StvnSourceFormatter.format(dupBody)
+    );
+    Assertions.assertEquals("E002", bodyEx.getCanonicalCode());
+    Assertions.assertEquals(DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION, bodyEx.getSymbolicId());
+    Assertions.assertTrue(StvnSourceFormatter.tryFormat(dupBody).isEmpty());
+
+    for (String incomplete : new String[]{
+        "{ :meta\n  :type :Int\n  :body 1 }",
+        "{ :defs\n  :type :Int\n  :body 1 }",
+        "{ :type\n  :body 1 }",
+        "{ :type {}\n  :body {} }",
+        "{ :type :Int\n  :body }"
+    }) {
+      StvnSyntaxCancellationException incEx = Assertions.assertThrows(
+          StvnSyntaxCancellationException.class,
+          () -> StvnSourceFormatter.format(incomplete),
+          () -> "Expected StvnSyntaxCancellationException for incomplete section input: " + incomplete
+      );
+      Assertions.assertEquals("E002", incEx.getCanonicalCode());
+      Assertions.assertEquals(DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE, incEx.getSymbolicId());
+      Assertions.assertTrue(StvnSourceFormatter.tryFormat(incomplete).isEmpty());
+    }
+  }
+
+  @Test
+  @DisplayName("Reorders all 23 non-canonical permutations of (:meta, :defs, :type, :body) into canonical order idempotently")
+  void testReordersAllTwentyThreeNonCanonicalRootSectionPermutations() {
+    String[] sections = {
+        """
+          :meta {
+            #name "perm_test"
+            #domain "domain"
+            #kind #BODY
+          }""",
+        """
+          :defs {
+            :Type :String
+          }""",
+        "  :type :Type",
+        "  :body \"ok\""
+    };
+
+    String expectedCanonical = """
+        {
+          :meta {
+            #name "perm_test"
+            #domain "domain"
+            #kind #BODY
+          }
+          :defs {
+            :Type :String
+          }
+          :type :Type
+          :body "ok"
+        }""";
+
+    int nonCanonicalCount = 0;
+    for (int a = 0; a < 4; a++) {
+      for (int b = 0; b < 4; b++) {
+        if (b == a) {
+          continue;
+        }
+        for (int c = 0; c < 4; c++) {
+          if (c == a || c == b) {
+            continue;
+          }
+          for (int d = 0; d < 4; d++) {
+            if (d == a || d == b || d == c) {
+              continue;
+            }
+            if (a == 0 && b == 1 && c == 2 && d == 3) {
+              continue;
+            }
+            nonCanonicalCount++;
+            String permuted = "{\n" + sections[a] + "\n" + sections[b] + "\n" + sections[c] + "\n" + sections[d] + "\n}";
+            String formatted = StvnSourceFormatter.format(permuted);
+            Assertions.assertEquals(expectedCanonical, formatted,
+                "Permutation (" + a + "," + b + "," + c + "," + d + ") failed canonical reordering");
+            Assertions.assertEquals(expectedCanonical, StvnSourceFormatter.format(formatted),
+                "Idempotency check failed for permutation (" + a + "," + b + "," + c + "," + d + ")");
+          }
+        }
+      }
+    }
+    Assertions.assertEquals(23, nonCanonicalCount, "Must test all 4! - 1 = 23 non-canonical permutations");
+  }
+
+  @Test
+  @DisplayName("Formats root_ordering.stvn by reordering root sections, indenting :defs body to 4 spaces, and migrating section comments")
+  void testFormatsRootOrderingAndMigratesSectionComments() {
+    String rootOrdering = """
+        {
+          :body ""
+          :type :Type
+          :defs {
+          :Type :String
+          }
+          :meta {
+            #name "root_ordering"
+            #domain "domain"
+            #kind #BODY
+          }
+        }""";
+
+    String expected = """
+        {
+          :meta {
+            #name "root_ordering"
+            #domain "domain"
+            #kind #BODY
+          }
+          :defs {
+            :Type :String
+          }
+          :type :Type
+          :body ""
+        }""";
+
+    String formatted = StvnSourceFormatter.format(rootOrdering);
+    Assertions.assertEquals(expected, formatted);
+    Assertions.assertEquals(expected, StvnSourceFormatter.format(formatted));
+
+    StvnCompilationResult<StvnDocument> compileRes = StvnCompiler.compile(
+        formatted,
+        "root_ordering.domain.stvn",
+        StvnParserConfig.DEFAULT
+    );
+    Assertions.assertFalse(compileRes.hasErrors(), () -> "Formatted root_ordering must have 0 errors: " + compileRes.diagnostics());
+    Assertions.assertTrue(compileRes.diagnostics().isEmpty(), () -> "Expected 0 warnings: " + compileRes.diagnostics());
+
+    String withComments = """
+        {
+          // Leading comment on :body A
+          // Leading comment on :body B
+          :body "" // Trailing comment on :body
+          // Leading comment on :type
+          :type :Type // Trailing comment on :type
+          // Leading comment on :defs
+          :defs {
+          :Type :String // Inner defs comment
+          } // Trailing comment on :defs
+          // Leading comment on :meta
+          :meta {
+            #kind #BODY
+            #domain "domain"
+            #name "root_ordering"
+          } // Trailing comment on :meta
+          // Root footer comment before closing brace
+        }""";
+
+    String expectedWithComments = """
+        {
+          // Leading comment on :meta
+          :meta {
+            #name "root_ordering"
+            #domain "domain"
+            #kind #BODY
+          } // Trailing comment on :meta
+          // Leading comment on :defs
+          :defs {
+            :Type :String // Inner defs comment
+          } // Trailing comment on :defs
+          // Leading comment on :type
+          :type :Type // Trailing comment on :type
+          // Leading comment on :body A
+          // Leading comment on :body B
+          :body "" // Trailing comment on :body
+          // Root footer comment before closing brace
+        }""";
+
+    String formattedWithComments = StvnSourceFormatter.format(withComments);
+    Assertions.assertEquals(expectedWithComments, formattedWithComments);
+    Assertions.assertEquals(expectedWithComments, StvnSourceFormatter.format(formattedWithComments));
   }
 }

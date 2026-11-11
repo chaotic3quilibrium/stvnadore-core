@@ -15,8 +15,8 @@
     ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 6 5 115 140 "Invalid metadata facet tag '#author' in ':meta' block" )
     ( #W001 #WARN_DOCUMENT_NAME_MISMATCH #WARNING 5 11 79 110 "Declared #name 'gauntlet_v4_stage1_wrong_stem' does not match filename stem slot 0 'duplicate_meta_and_body_fault_isolation'" )
     ( #W001 #WARN_DOCUMENT_NAME_MISMATCH #WARNING 4 13 48 68 "Declared #domain 'stvn_reserved_trap' does not match filename stem slot 1 'core_test'" )
-    ( #E033 #ERR_META_POSITION_INVALID #ERROR 8 3 147 152 "Duplicate ':meta' block prohibited: document may declare at most one ':meta' header block" )
-    ( #E033 #ERR_META_POSITION_INVALID #ERROR 9 3 158 163 "Duplicate ':meta' block prohibited: document may declare at most one ':meta' header block" )
+    ( #E033 #ERR_META_POSITION_INVALID #ERROR 8 3 147 152 "Duplicate ':meta' section prohibited: document may declare at most one ':meta' section (canonical order: :meta -> :defs -> :type -> :body)" )
+    ( #E033 #ERR_META_POSITION_INVALID #ERROR 9 3 158 163 "Duplicate ':meta' section prohibited: document may declare at most one ':meta' section (canonical order: :meta -> :defs -> :type -> :body)" )
     ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 14 9 352 356 "Constraint violation (:BoundedPort): Value 5000 is outside allowable range (must be < 4096)" )
   ]
 }

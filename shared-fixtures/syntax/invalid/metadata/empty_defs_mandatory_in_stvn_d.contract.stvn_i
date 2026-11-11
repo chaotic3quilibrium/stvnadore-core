@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "empty_defs_mandatory_in_stvn_d"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 7 9 104 106 "Empty ':defs {}' section is prohibited; definitions schema (.stvn_d) requires at least one type or constant definition" )
+  ]
+}

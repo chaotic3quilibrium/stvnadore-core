@@ -39,6 +39,7 @@ import java.util.Optional;
  *   <li>2-space structural indentation hierarchy ({@code indentWidth = 2}), including Layout 1
  *       and Layout 2 multi-line {@code :use} and {@code :include} directives</li>
  *   <li>Canonical horizontal spacing (§ 3.3)</li>
+ *   <li>Canonical root-section ordering ({@code :meta} -&gt; {@code :defs} -&gt; {@code :type} -&gt; {@code :body}, § 1.1)</li>
  *   <li>{@code :meta} key ordering ({@code #name} -&gt; {@code #domain} -&gt; {@code #kind})</li>
  *   <li>Canonical 5-tier decimal metadata facet ordering ({@code 1.1.1} through {@code 5.0}, § 6.1)</li>
  * </ul>
@@ -81,7 +82,7 @@ public final class StvnSourceFormatter {
     parser.setErrorHandler(new StvnErrorStrategy());
 
     StvnParser.StvnDocumentContext docCtx = parser.stvnDocument();
-    StvnDefsLowerer.validateDocumentBodyStructure(docCtx, null, true);
+    StvnDefsLowerer.validateDocumentBodyStructureForFormatter(docCtx);
     tokenStream.fill();
 
     for (Token token : tokenStream.getTokens()) {
@@ -191,6 +192,41 @@ public final class StvnSourceFormatter {
       @Nullable Token trailingComment
   ) {}
 
+  private record RootSectionSlice(
+      int canonicalRank,
+      int authoredIndex,
+      ParserRuleContext ctx,
+      List<Token> leadingComments,
+      int interiorCommentStartIdx,
+      int interiorCommentEndIdxExclusive,
+      @Nullable Token trailingSameLineComment
+  ) {}
+
+  private static int sectionCanonicalRank(ParserRuleContext ctx) {
+    if (ctx instanceof StvnParser.MetaEntryContext) {
+      return 1;
+    }
+    if (ctx instanceof StvnParser.DefsEntryContext) {
+      return 2;
+    }
+    if (ctx instanceof StvnParser.TypeEntryContext) {
+      return 3;
+    }
+    return 4;
+  }
+
+  private static boolean isCanonicalSectionOrder(List<ParserRuleContext> authoredSections) {
+    int lastRank = 0;
+    for (ParserRuleContext section : authoredSections) {
+      int rank = sectionCanonicalRank(section);
+      if (rank <= lastRank) {
+        return false;
+      }
+      lastRank = rank;
+    }
+    return true;
+  }
+
   private static final class FormatterCursor {
 
     private final String source;
@@ -198,6 +234,7 @@ public final class StvnSourceFormatter {
     private final List<Token> comments;
     private final StringBuilder sb = new StringBuilder();
     private int nextCommentIdx = 0;
+    private int activeCommentEndIdxExclusive;
     private int lastEmittedLine = -1;
 
     FormatterCursor(String source, List<Token> allTokens) {
@@ -210,6 +247,7 @@ public final class StvnSourceFormatter {
         }
       }
       this.comments = List.copyOf(commentList);
+      this.activeCommentEndIdxExclusive = this.comments.size();
     }
 
     String formatDocument(StvnParser.StvnDocumentContext docCtx) {
@@ -218,7 +256,7 @@ public final class StvnSourceFormatter {
 
       // 1. Leading comments before root '{'
       boolean hadLeadingComment = false;
-      while (nextCommentIdx < comments.size()
+      while (nextCommentIdx < activeCommentEndIdxExclusive
           && comments.get(nextCommentIdx).getTokenIndex() < openBrace.getTokenIndex()) {
         Token c = comments.get(nextCommentIdx++);
         if (hadLeadingComment && c.getLine() - lastEmittedLine >= 2) {
@@ -234,64 +272,173 @@ public final class StvnSourceFormatter {
       lastEmittedLine = openBrace.getLine();
 
       StvnParser.DocumentBodyContext body = docCtx.documentBody();
-      List<ParserRuleContext> sections = new ArrayList<>(4);
-      if (body != null) {
-        if (body.metaEntry(0) != null) {
-          sections.add(body.metaEntry(0));
-        }
-        if (body.defsEntry(0) != null) {
-          sections.add(body.defsEntry(0));
-        }
-        if (body.typeEntry(0) != null) {
-          sections.add(body.typeEntry(0));
-        }
-        if (body.bodyEntry(0) != null) {
-          sections.add(body.bodyEntry(0));
+      List<ParserRuleContext> authoredSections = new ArrayList<>(4);
+      if (body != null && body.children != null) {
+        for (var child : body.children) {
+          if (child instanceof StvnParser.MetaEntryContext
+              || child instanceof StvnParser.DefsEntryContext
+              || child instanceof StvnParser.TypeEntryContext
+              || child instanceof StvnParser.BodyEntryContext) {
+            authoredSections.add((ParserRuleContext) child);
+          }
         }
       }
 
-      int rootOpenLimit = sections.isEmpty()
-          ? closeBrace.getTokenIndex()
-          : sections.get(0).getStart().getTokenIndex();
+      if (isCanonicalSectionOrder(authoredSections)) {
+        int rootOpenLimit = authoredSections.isEmpty()
+            ? closeBrace.getTokenIndex()
+            : authoredSections.get(0).getStart().getTokenIndex();
+        appendTrailingCommentIfOnLine(openBrace.getLine(), rootOpenLimit);
+
+        boolean emittedInRoot = false;
+        for (int i = 0; i < authoredSections.size(); i++) {
+          ParserRuleContext section = authoredSections.get(i);
+          int sectionLimit = (i + 1 < authoredSections.size())
+              ? authoredSections.get(i + 1).getStart().getTokenIndex()
+              : closeBrace.getTokenIndex();
+          emittedInRoot = flushStandaloneCommentsBefore(
+              section.getStart().getTokenIndex(),
+              1,
+              emittedInRoot
+          );
+          startNewBlockChildLine(1, section.getStart().getLine(), emittedInRoot);
+          emittedInRoot = true;
+
+          formatRootSection(section, 1, sectionLimit);
+        }
+
+        flushStandaloneCommentsBefore(closeBrace.getTokenIndex(), 1, emittedInRoot);
+        sb.append('\n').append(StvnVocabulary.DELIM_CLOSE_BRACE);
+        lastEmittedLine = closeBrace.getLine();
+        appendTrailingCommentIfOnLine(closeBrace.getLine(), Integer.MAX_VALUE);
+
+        while (nextCommentIdx < activeCommentEndIdxExclusive) {
+          Token trailingDocComment = comments.get(nextCommentIdx++);
+          sb.append('\n').append(trailingDocComment.getText());
+          lastEmittedLine = trailingDocComment.getLine();
+        }
+
+        return sb.toString();
+      }
+
+      // Non-canonical root-section order: partition slices with leading, interior, and same-line trailing comments
+      int rootOpenLimit = authoredSections.get(0).getStart().getTokenIndex();
       appendTrailingCommentIfOnLine(openBrace.getLine(), rootOpenLimit);
 
-      boolean emittedInRoot = false;
-      for (int i = 0; i < sections.size(); i++) {
-        ParserRuleContext section = sections.get(i);
-        int sectionLimit = (i + 1 < sections.size())
-            ? sections.get(i + 1).getStart().getTokenIndex()
+      List<RootSectionSlice> slices = new ArrayList<>(authoredSections.size());
+      for (int i = 0; i < authoredSections.size(); i++) {
+        ParserRuleContext section = authoredSections.get(i);
+        int secStartTok = section.getStart().getTokenIndex();
+        int secStopTok = section.getStop().getTokenIndex();
+        int nextAuthoredLimit = (i + 1 < authoredSections.size())
+            ? authoredSections.get(i + 1).getStart().getTokenIndex()
             : closeBrace.getTokenIndex();
-        emittedInRoot = flushStandaloneCommentsBefore(
-            section.getStart().getTokenIndex(),
-            1,
-            emittedInRoot
-        );
-        startNewBlockChildLine(1, section.getStart().getLine(), emittedInRoot);
-        emittedInRoot = true;
 
-        if (section instanceof StvnParser.MetaEntryContext metaCtx) {
-          formatMetaEntry(metaCtx, 1, sectionLimit);
-        } else if (section instanceof StvnParser.DefsEntryContext defsCtx) {
-          formatDefsEntry(defsCtx, 1, sectionLimit);
-        } else if (section instanceof StvnParser.TypeEntryContext typeCtx) {
-          formatTypeEntry(typeCtx, 1, sectionLimit);
-        } else if (section instanceof StvnParser.BodyEntryContext bodyCtx) {
-          formatBodyEntry(bodyCtx, 1, sectionLimit);
+        List<Token> leading = new ArrayList<>();
+        while (nextCommentIdx < comments.size()
+            && comments.get(nextCommentIdx).getTokenIndex() < secStartTok) {
+          leading.add(comments.get(nextCommentIdx++));
+        }
+
+        int interiorStart = nextCommentIdx;
+        while (nextCommentIdx < comments.size()
+            && comments.get(nextCommentIdx).getTokenIndex() <= secStopTok) {
+          nextCommentIdx++;
+        }
+        int interiorEndExclusive = nextCommentIdx;
+
+        Token trailingSameLine = null;
+        if (nextCommentIdx < comments.size()) {
+          Token candidate = comments.get(nextCommentIdx);
+          if (candidate.getTokenIndex() < nextAuthoredLimit
+              && candidate.getLine() == section.getStop().getLine()) {
+            trailingSameLine = candidate;
+            nextCommentIdx++;
+          }
+        }
+
+        slices.add(new RootSectionSlice(
+            sectionCanonicalRank(section),
+            i,
+            section,
+            List.copyOf(leading),
+            interiorStart,
+            interiorEndExclusive,
+            trailingSameLine
+        ));
+      }
+
+      List<Token> rootFooterComments = new ArrayList<>();
+      while (nextCommentIdx < comments.size()
+          && comments.get(nextCommentIdx).getTokenIndex() < closeBrace.getTokenIndex()) {
+        rootFooterComments.add(comments.get(nextCommentIdx++));
+      }
+      int postCloseBraceCommentIdx = nextCommentIdx;
+
+      slices.sort(Comparator.comparingInt(RootSectionSlice::canonicalRank)
+          .thenComparingInt(RootSectionSlice::authoredIndex));
+
+      for (RootSectionSlice slice : slices) {
+        Token prevLeading = null;
+        for (Token c : slice.leadingComments()) {
+          if (prevLeading != null && c.getLine() - prevLeading.getLine() >= 2) {
+            sb.append('\n');
+          }
+          sb.append('\n').append(indentStr(1)).append(c.getText());
+          prevLeading = c;
+        }
+        if (prevLeading != null && slice.ctx().getStart().getLine() - prevLeading.getLine() >= 2) {
+          sb.append('\n');
+        }
+        sb.append('\n').append(indentStr(1));
+
+        nextCommentIdx = slice.interiorCommentStartIdx();
+        activeCommentEndIdxExclusive = slice.interiorCommentEndIdxExclusive();
+        lastEmittedLine = slice.ctx().getStart().getLine();
+
+        formatRootSection(slice.ctx(), 1, slice.ctx().getStop().getTokenIndex() + 1);
+
+        if (slice.trailingSameLineComment() != null) {
+          Token tc = slice.trailingSameLineComment();
+          sb.append(trailingCommentPadding(tc)).append(tc.getText());
         }
       }
 
-      flushStandaloneCommentsBefore(closeBrace.getTokenIndex(), 1, emittedInRoot);
+      Token prevFooter = null;
+      for (Token c : rootFooterComments) {
+        if (prevFooter != null && c.getLine() - prevFooter.getLine() >= 2) {
+          sb.append('\n');
+        }
+        sb.append('\n').append(indentStr(1)).append(c.getText());
+        prevFooter = c;
+      }
+
+      nextCommentIdx = postCloseBraceCommentIdx;
+      activeCommentEndIdxExclusive = comments.size();
+
       sb.append('\n').append(StvnVocabulary.DELIM_CLOSE_BRACE);
       lastEmittedLine = closeBrace.getLine();
       appendTrailingCommentIfOnLine(closeBrace.getLine(), Integer.MAX_VALUE);
 
-      while (nextCommentIdx < comments.size()) {
+      while (nextCommentIdx < activeCommentEndIdxExclusive) {
         Token trailingDocComment = comments.get(nextCommentIdx++);
         sb.append('\n').append(trailingDocComment.getText());
         lastEmittedLine = trailingDocComment.getLine();
       }
 
       return sb.toString();
+    }
+
+    private void formatRootSection(ParserRuleContext section, int indent, int sectionLimit) {
+      if (section instanceof StvnParser.MetaEntryContext metaCtx) {
+        formatMetaEntry(metaCtx, indent, sectionLimit);
+      } else if (section instanceof StvnParser.DefsEntryContext defsCtx) {
+        formatDefsEntry(defsCtx, indent, sectionLimit);
+      } else if (section instanceof StvnParser.TypeEntryContext typeCtx) {
+        formatTypeEntry(typeCtx, indent, sectionLimit);
+      } else if (section instanceof StvnParser.BodyEntryContext bodyCtx) {
+        formatBodyEntry(bodyCtx, indent, sectionLimit);
+      }
     }
 
     private void formatMetaEntry(StvnParser.MetaEntryContext ctx, int indent, int nextSectionLimit) {
@@ -317,12 +464,12 @@ public final class StvnSourceFormatter {
             : closeBrace.getTokenIndex();
 
         List<Token> leading = new ArrayList<>();
-        while (nextCommentIdx < comments.size()
+        while (nextCommentIdx < activeCommentEndIdxExclusive
             && comments.get(nextCommentIdx).getTokenIndex() < el.getStart().getTokenIndex()) {
           leading.add(comments.get(nextCommentIdx++));
         }
         Token trailing = null;
-        if (nextCommentIdx < comments.size()) {
+        if (nextCommentIdx < activeCommentEndIdxExclusive) {
           Token candidate = comments.get(nextCommentIdx);
           if (candidate.getTokenIndex() < nextLimit && candidate.getLine() == el.getStop().getLine()) {
             trailing = candidate;
@@ -333,7 +480,7 @@ public final class StvnSourceFormatter {
       }
 
       List<Token> footerComments = new ArrayList<>();
-      while (nextCommentIdx < comments.size()
+      while (nextCommentIdx < activeCommentEndIdxExclusive
           && comments.get(nextCommentIdx).getTokenIndex() < closeBrace.getTokenIndex()) {
         footerComments.add(comments.get(nextCommentIdx++));
       }
@@ -1065,12 +1212,12 @@ public final class StvnSourceFormatter {
               : closeBrace.getTokenIndex();
 
           List<Token> leading = new ArrayList<>();
-          while (nextCommentIdx < comments.size()
+          while (nextCommentIdx < activeCommentEndIdxExclusive
               && comments.get(nextCommentIdx).getTokenIndex() < entry.getStart().getTokenIndex()) {
             leading.add(comments.get(nextCommentIdx++));
           }
           Token trailing = null;
-          if (nextCommentIdx < comments.size()) {
+          if (nextCommentIdx < activeCommentEndIdxExclusive) {
             Token candidate = comments.get(nextCommentIdx);
             if (candidate.getTokenIndex() < nextLimit && candidate.getLine() == entry.getStop().getLine()) {
               trailing = candidate;
@@ -1081,7 +1228,7 @@ public final class StvnSourceFormatter {
         }
 
         List<Token> footerComments = new ArrayList<>();
-        while (nextCommentIdx < comments.size()
+        while (nextCommentIdx < activeCommentEndIdxExclusive
             && comments.get(nextCommentIdx).getTokenIndex() < closeBrace.getTokenIndex()) {
           footerComments.add(comments.get(nextCommentIdx++));
         }
@@ -1702,7 +1849,7 @@ public final class StvnSourceFormatter {
     }
 
     private boolean hasCommentsBetween(int startTokenIndexExclusive, int endTokenIndexExclusive) {
-      for (int i = nextCommentIdx; i < comments.size(); i++) {
+      for (int i = nextCommentIdx; i < activeCommentEndIdxExclusive; i++) {
         int tokIdx = comments.get(i).getTokenIndex();
         if (tokIdx <= startTokenIndexExclusive) {
           continue;
@@ -1713,7 +1860,7 @@ public final class StvnSourceFormatter {
     }
 
     private void appendTrailingCommentIfOnLine(int line, int maxTokenIndexExclusive) {
-      if (nextCommentIdx < comments.size()) {
+      if (nextCommentIdx < activeCommentEndIdxExclusive) {
         Token candidate = comments.get(nextCommentIdx);
         if (candidate.getLine() == line && candidate.getTokenIndex() < maxTokenIndexExclusive) {
           sb.append(trailingCommentPadding(candidate)).append(candidate.getText());
@@ -1750,7 +1897,7 @@ public final class StvnSourceFormatter {
         boolean hasEmittedItemInBlock
     ) {
       boolean emitted = hasEmittedItemInBlock;
-      while (nextCommentIdx < comments.size()
+      while (nextCommentIdx < activeCommentEndIdxExclusive
           && comments.get(nextCommentIdx).getTokenIndex() < limitTokenIndexExclusive) {
         Token c = comments.get(nextCommentIdx++);
         if (emitted && c.getLine() - lastEmittedLine >= 2) {

@@ -9,9 +9,9 @@
   }
   :type :ErrorContract
   :body [
-    ( #E002 #STVN_SYNTAX_ERROR #ERROR 7 3 168 173 "STVN Syntax Error: clause ':type' requires a schema type" )
-    ( #E002 #STVN_SYNTAX_ERROR #ERROR 8 3 176 181 "STVN Syntax Error: clause ':body' requires a value payload" )
-    ( #E039 #ERR_EMPTY_META_BLOCK #ERROR 5 9 152 154 "Metadata block ':meta {}' must not be empty" )
-    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 6 9 163 165 "Empty definition block ':defs {}' is redundant; omit ':defs' or add definitions" )
+    ( #E039 #ERR_EMPTY_META_BLOCK #ERROR 5 9 152 154 "Empty ':meta {}' section is prohibited; omit ':meta' or declare document identity facets (#name, #domain, #kind)" )
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 7 3 168 173 "Incomplete ':type' section: declare a target schema type after ':type' (for example, ':type :Int')" )
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 8 3 176 181 "Incomplete ':body' section: declare a payload value after ':body'" )
+    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 6 9 163 165 "Empty ':defs {}' section is prohibited; omit ':defs' or declare at least one type or constant definition" )
   ]
 }

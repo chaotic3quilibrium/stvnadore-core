@@ -9,7 +9,7 @@
   }
   :type :ErrorContract
   :body [
-    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 7 9 112 114 "Empty definition block ':defs {}' is redundant; omit ':defs' or add definitions" )
+    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 7 9 112 114 "Empty ':defs {}' section is prohibited; omit ':defs' or declare at least one type or constant definition" )
     ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 9 9 187 191 "Constraint violation (:Int): Value 5000 is outside allowable range (must be < 4096)" )
   ]
 }

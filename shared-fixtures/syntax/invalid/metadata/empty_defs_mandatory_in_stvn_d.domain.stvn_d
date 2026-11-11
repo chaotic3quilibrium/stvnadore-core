@@ -1,0 +1,8 @@
+{
+  :meta {
+    #name "empty_defs_mandatory_in_stvn_d"
+    #domain "domain"
+    #kind #DEFS
+  }
+  :defs {}
+}

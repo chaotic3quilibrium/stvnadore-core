@@ -1,0 +1,12 @@
+{
+  :body ""
+  :type :Type
+  :defs {
+  :Type :String
+  }
+  :meta {
+    #name "root_ordering"
+    #domain "domain"
+    #kind #BODY
+  }
+}

@@ -1,0 +1,12 @@
+{
+  :body 5000
+  :type :Port
+  :defs {
+    :Port { #maxExcl 4096 } :Int
+  }
+  :meta {
+    #name "root_ordering_with_body_error"
+    #domain "domain"
+    #kind #BODY
+  }
+}

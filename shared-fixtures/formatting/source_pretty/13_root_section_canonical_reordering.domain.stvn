@@ -1,0 +1,16 @@
+{
+  // Leading comment on :meta section
+  :meta {
+    #name "13_root_section_canonical_reordering"
+    #domain "domain"
+    #kind #BODY
+  } // Trailing comment on :meta
+  // Leading comment on :defs section
+  :defs {
+    :Type :String
+  } // Trailing comment on :defs
+  // Leading comment on :type section
+  :type :Type // Trailing comment on :type
+  // Leading comment on :body section
+  :body "ok" // Trailing comment on :body
+}

@@ -387,31 +387,33 @@ public final class StvnSyntaxErrorSanitizer {
               endOffset = prev.getStopIndex() + 1;
               line = prev.getLine();
               charPositionInLine = prev.getCharPositionInLine();
-              effectiveRawMsg = "clause '" + StvnVocabulary.KEYWORD_DEFS + "' requires definition block '{ ... }'";
+              effectiveRawMsg = "Incomplete '" + StvnVocabulary.KEYWORD_DEFS
+                  + "' section: declare a definitions block '{ ... }' after '" + StvnVocabulary.KEYWORD_DEFS + "'";
             } else if (prevType == StvnLexer.KW_META && token.getType() != StvnLexer.LBRACE) {
               offendingToken = prev;
               startOffset = prev.getStartIndex();
               endOffset = prev.getStopIndex() + 1;
               line = prev.getLine();
               charPositionInLine = prev.getCharPositionInLine();
-              effectiveRawMsg = "clause '" + StvnVocabulary.KEYWORD_META + "' requires a metadata block '{ ... }'";
-            } else if (prevType == StvnLexer.KW_TYPE && !StvnErrorStrategy.isValidSchemaTypeStarter(token)) {
+              effectiveRawMsg = "Incomplete '" + StvnVocabulary.KEYWORD_META
+                  + "' section: declare a metadata block '{ ... }' after '" + StvnVocabulary.KEYWORD_META + "'";
+            } else if (prevType == StvnLexer.KW_TYPE && isClauseOrBoundary(token)) {
               offendingToken = prev;
               startOffset = prev.getStartIndex();
               endOffset = prev.getStopIndex() + 1;
               line = prev.getLine();
               charPositionInLine = prev.getCharPositionInLine();
-              effectiveRawMsg = "clause '" + StvnVocabulary.KEYWORD_TYPE + "' requires a schema type";
-            } else if (prevType == StvnLexer.KW_BODY
-                && (token.getType() == StvnLexer.RBRACE
-                    || token.getType() == Token.EOF
-                    || StvnErrorStrategy.isTopLevelKeyword(token))) {
+              effectiveRawMsg = "Incomplete '" + StvnVocabulary.KEYWORD_TYPE
+                  + "' section: declare a target schema type after '" + StvnVocabulary.KEYWORD_TYPE
+                  + "' (for example, '" + StvnVocabulary.KEYWORD_TYPE + " " + StvnVocabulary.TYPE_INT + "')";
+            } else if (prevType == StvnLexer.KW_BODY && isClauseOrBoundary(token)) {
               offendingToken = prev;
               startOffset = prev.getStartIndex();
               endOffset = prev.getStopIndex() + 1;
               line = prev.getLine();
               charPositionInLine = prev.getCharPositionInLine();
-              effectiveRawMsg = "clause '" + StvnVocabulary.KEYWORD_BODY + "' requires a value payload";
+              effectiveRawMsg = "Incomplete '" + StvnVocabulary.KEYWORD_BODY
+                  + "' section: declare a payload value after '" + StvnVocabulary.KEYWORD_BODY + "'";
             }
           }
 
@@ -490,10 +492,10 @@ public final class StvnSyntaxErrorSanitizer {
     );
     coreMsg = purgeResidualAntlrJargon(coreMsg);
 
-    boolean isClauseError = coreMsg.contains("clause '" + StvnVocabulary.KEYWORD_DEFS + "' requires")
-        || coreMsg.contains("clause '" + StvnVocabulary.KEYWORD_TYPE + "' requires")
-        || coreMsg.contains("clause '" + StvnVocabulary.KEYWORD_BODY + "' requires")
-        || coreMsg.contains("clause '" + StvnVocabulary.KEYWORD_META + "' requires");
+    boolean isClauseError = coreMsg.startsWith("Incomplete '" + StvnVocabulary.KEYWORD_META + "' section:")
+        || coreMsg.startsWith("Incomplete '" + StvnVocabulary.KEYWORD_DEFS + "' section:")
+        || coreMsg.startsWith("Incomplete '" + StvnVocabulary.KEYWORD_TYPE + "' section:")
+        || coreMsg.startsWith("Incomplete '" + StvnVocabulary.KEYWORD_BODY + "' section:");
 
     String symbolicId = classifySymbolicId(
         offendingToken,
@@ -505,7 +507,11 @@ public final class StvnSyntaxErrorSanitizer {
     );
     String canonicalCode = DiagnosticBag.resolveCanonicalCode(symbolicId).orElse("E002");
 
-    String prefixedMsg = coreMsg.startsWith("STVN Syntax Error:")
+    boolean omitSyntaxPrefix = isClauseError
+        || DiagnosticBag.ERR_META_POSITION_INVALID.equals(symbolicId)
+        || DiagnosticBag.ERR_SECTION_ORDER_VIOLATION.equals(symbolicId)
+        || DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION.equals(symbolicId);
+    String prefixedMsg = (omitSyntaxPrefix || coreMsg.startsWith("STVN Syntax Error:"))
         ? coreMsg
         : "STVN Syntax Error: " + coreMsg;
 
@@ -608,7 +614,7 @@ public final class StvnSyntaxErrorSanitizer {
         }
       }
 
-      if (rawMsg.startsWith("clause '")) {
+      if (rawMsg.startsWith("Incomplete '")) {
         return rawMsg;
       }
 
@@ -618,9 +624,12 @@ public final class StvnSyntaxErrorSanitizer {
       }
 
       if (tokenType == StvnLexer.KW_META) {
-        return "Document '" + StvnVocabulary.KEYWORD_META + "' block must appear before '"
+        return "Misplaced '" + StvnVocabulary.KEYWORD_META + "' section prohibited: '"
+            + StvnVocabulary.KEYWORD_META + "' must appear before '"
             + StvnVocabulary.KEYWORD_DEFS + "', '" + StvnVocabulary.KEYWORD_TYPE + "', and '"
-            + StvnVocabulary.KEYWORD_BODY + "'";
+            + StvnVocabulary.KEYWORD_BODY + "' (canonical order: "
+            + StvnVocabulary.KEYWORD_META + " -> " + StvnVocabulary.KEYWORD_DEFS + " -> "
+            + StvnVocabulary.KEYWORD_TYPE + " -> " + StvnVocabulary.KEYWORD_BODY + ")";
       }
 
       boolean inCollectionLiteral = isInCollectionLiteral(ctx);
@@ -631,16 +640,21 @@ public final class StvnSyntaxErrorSanitizer {
         Token prevToken = previousDefaultChannelToken(stream, idx);
 
         if (prevToken != null && prevToken.getType() == StvnLexer.KW_DEFS && isClauseOrBoundary(offendingToken)) {
-          return "clause '" + StvnVocabulary.KEYWORD_DEFS + "' requires definition block '{ ... }'";
+          return "Incomplete '" + StvnVocabulary.KEYWORD_DEFS
+              + "' section: declare a definitions block '{ ... }' after '" + StvnVocabulary.KEYWORD_DEFS + "'";
         }
         if (prevToken != null && prevToken.getType() == StvnLexer.KW_TYPE && isClauseOrBoundary(offendingToken)) {
-          return "clause '" + StvnVocabulary.KEYWORD_TYPE + "' requires a schema type";
+          return "Incomplete '" + StvnVocabulary.KEYWORD_TYPE
+              + "' section: declare a target schema type after '" + StvnVocabulary.KEYWORD_TYPE
+              + "' (for example, '" + StvnVocabulary.KEYWORD_TYPE + " " + StvnVocabulary.TYPE_INT + "')";
         }
         if (prevToken != null && prevToken.getType() == StvnLexer.KW_BODY && isClauseOrBoundary(offendingToken)) {
-          return "clause '" + StvnVocabulary.KEYWORD_BODY + "' requires a value payload";
+          return "Incomplete '" + StvnVocabulary.KEYWORD_BODY
+              + "' section: declare a payload value after '" + StvnVocabulary.KEYWORD_BODY + "'";
         }
         if (prevToken != null && prevToken.getType() == StvnLexer.KW_META && isClauseOrBoundary(offendingToken)) {
-          return "clause '" + StvnVocabulary.KEYWORD_META + "' requires a metadata block '{ ... }'";
+          return "Incomplete '" + StvnVocabulary.KEYWORD_META
+              + "' section: declare a metadata block '{ ... }' after '" + StvnVocabulary.KEYWORD_META + "'";
         }
 
         if (prevToken != null && prevToken.getType() == StvnLexer.KW_PRESERVE_INDENT) {
@@ -787,9 +801,12 @@ public final class StvnSyntaxErrorSanitizer {
     if (coreMsg.startsWith("Empty directive '")) {
       return DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK;
     }
-    if (!isClauseError
-        && ((offendingToken != null && offendingToken.getType() == StvnLexer.KW_META)
-            || coreMsg.contains("Document '" + StvnVocabulary.KEYWORD_META + "' block must appear before"))) {
+    if (isClauseError) {
+      return DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE;
+    }
+    if ((offendingToken != null && offendingToken.getType() == StvnLexer.KW_META)
+        || coreMsg.contains("Misplaced '" + StvnVocabulary.KEYWORD_META + "' section prohibited")
+        || coreMsg.contains("Document '" + StvnVocabulary.KEYWORD_META + "' block must appear before")) {
       return DiagnosticBag.ERR_META_POSITION_INVALID;
     }
     if (isRootMissing) {

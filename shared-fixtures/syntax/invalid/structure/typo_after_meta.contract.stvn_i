@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E002 #STVN_SYNTAX_ERROR #ERROR 5 3 128 133 "STVN Syntax Error: clause ':meta' requires a metadata block '{ ... }'" )
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 5 3 128 133 "Incomplete ':meta' section: declare a metadata block '{ ... }' after ':meta'" )
   ]
 }

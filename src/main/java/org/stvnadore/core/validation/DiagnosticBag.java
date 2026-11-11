@@ -89,10 +89,16 @@ public final class DiagnosticBag {
   public static final String ERR_TAB_CHARACTER_FORBIDDEN = "ERR_TAB_CHARACTER_FORBIDDEN";
   /** Error code emitted when an empty metadata block '{}' is encountered on a type or constant definition. */
   public static final String ERR_EMPTY_METADATA_BLOCK = "ERR_EMPTY_METADATA_BLOCK";
-  /** Error code emitted when an empty root document metadata block ':meta {}' is encountered (SPEC § 3.10.1, E039). */
+  /** Error code emitted when an empty root document ':meta {}' section is encountered (SPEC § 3.10.1, E039). */
   public static final String ERR_EMPTY_META_BLOCK = "ERR_EMPTY_META_BLOCK";
-  /** Error code emitted when an empty definition block ':defs {}' is encountered. */
+  /** Error code emitted when an empty ':defs {}' section is encountered (E002). */
   public static final String ERR_EMPTY_DEFS_BLOCK = "ERR_EMPTY_DEFS_BLOCK";
+  /** Error code emitted when a duplicate ':defs', ':type', or ':body' root section is declared (E002). */
+  public static final String ERR_DUPLICATE_ROOT_SECTION = "ERR_DUPLICATE_ROOT_SECTION";
+  /** Error code emitted when a unique ':defs' or ':type' root section violates canonical ':meta -> :defs -> :type -> :body' order (E002). */
+  public static final String ERR_SECTION_ORDER_VIOLATION = "ERR_SECTION_ORDER_VIOLATION";
+  /** Error code emitted when a ':meta', ':defs', ':type', or ':body' root section omits its required block, schema type, or payload value (E002). */
+  public static final String ERR_MALFORMED_SECTION_STRUCTURE = "ERR_MALFORMED_SECTION_STRUCTURE";
   /** Error code emitted when an empty directive block '{}' is encountered in :use or :include. */
   public static final String ERR_EMPTY_DIRECTIVE_BLOCK = "ERR_EMPTY_DIRECTIVE_BLOCK";
   /** Error code emitted when a metadata facet is applied to an incompatible target entity kind. */
@@ -232,6 +238,9 @@ public final class DiagnosticBag {
       Map.entry(ERR_BARE_HASH_PROHIBITED, "E002"),
       Map.entry(ERR_RESERVED_KEYWORD_ON_LHS, "E027"),
       Map.entry(ERR_EMPTY_DEFS_BLOCK, "E002"),
+      Map.entry(ERR_DUPLICATE_ROOT_SECTION, "E002"),
+      Map.entry(ERR_SECTION_ORDER_VIOLATION, "E002"),
+      Map.entry(ERR_MALFORMED_SECTION_STRUCTURE, "E002"),
       Map.entry(ERR_NESTED_PACKAGE_PROHIBITED, "E002"),
       Map.entry(ERR_TRAILING_SLASH_PROHIBITED, "E002"),
       Map.entry(ERR_EMPTY_METADATA_BLOCK, "E003"),

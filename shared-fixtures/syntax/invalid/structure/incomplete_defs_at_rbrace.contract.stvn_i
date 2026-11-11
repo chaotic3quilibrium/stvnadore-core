@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E002 #STVN_SYNTAX_ERROR #ERROR 5 3 137 142 "STVN Syntax Error: clause ':defs' requires definition block '{ ... }'" )
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 5 3 137 142 "Incomplete ':defs' section: declare a definitions block '{ ... }' after ':defs'" )
   ]
 }

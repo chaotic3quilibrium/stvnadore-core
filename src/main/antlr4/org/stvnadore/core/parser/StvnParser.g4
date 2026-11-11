@@ -64,8 +64,8 @@ includeAliasBlock   : LBRACE includeMapAlias* RBRACE ;
 
 includeMapAlias     : typeKeyword typeKeyword ;
 
-typeEntry : KW_TYPE schemaType ;
-bodyEntry : KW_BODY value ;
+typeEntry : KW_TYPE (schemaType | metadataMap)? ;
+bodyEntry : KW_BODY value? ;
 
 typeDefinition     : typeDefTarget schemaType ;
 typeDefTarget      : typeKeyword | reservedKeyword ;

@@ -10,6 +10,6 @@
   :type :ErrorContract
   :body [
     ( #E026 #ERR_PROHIBITED_FENCE_ARROW #ERROR 7 9 159 170 "STVN Syntax Error: Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited" )
-    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 5 9 132 134 "Empty definition block ':defs {}' is redundant; omit ':defs' or add definitions" )
+    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 5 9 132 134 "Empty ':defs {}' section is prohibited; omit ':defs' or declare at least one type or constant definition" )
   ]
 }

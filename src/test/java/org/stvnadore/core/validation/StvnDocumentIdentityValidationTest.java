@@ -555,7 +555,10 @@ public class StvnDocumentIdentityValidationTest {
     assertTrue(result.hasErrors());
     var diag = result.diagnostics().getFirst();
     assertEquals(DiagnosticBag.ERR_EMPTY_META_BLOCK, diag.errorCode().orElse(null));
-    assertTrue(diag.message().contains("must not be empty"));
+    assertEquals(
+        "Empty ':meta {}' section is prohibited; declare document identity facets (#name, #domain, #kind)",
+        diag.message()
+    );
   }
 
   @Test
@@ -1718,7 +1721,7 @@ public class StvnDocumentIdentityValidationTest {
     assertEquals("E033", diag.canonicalCode().orElse(null));
     assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, diag.errorCode().orElse(null));
     assertEquals(
-        "Duplicate ':meta' block prohibited: document may declare at most one ':meta' header block",
+        "Duplicate ':meta' section prohibited: document may declare at most one ':meta' section (canonical order: :meta -> :defs -> :type -> :body)",
         diag.message()
     );
     int secondMetaOffset = source.lastIndexOf(":meta");
@@ -1784,7 +1787,11 @@ public class StvnDocumentIdentityValidationTest {
     assertTrue(dupDefsRes.hasErrors());
     var dupDefsDiag = dupDefsRes.diagnostics().getFirst();
     assertEquals("E002", dupDefsDiag.canonicalCode().orElse(null));
-    assertEquals("Duplicate ':defs' section prohibited: document may declare at most one ':defs' section", dupDefsDiag.message());
+    assertEquals(DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION, dupDefsDiag.symbolicId().orElse(null));
+    assertEquals(
+        "Duplicate ':defs' section prohibited: document may declare at most one ':defs' section (canonical order: :meta -> :defs -> :type -> :body)",
+        dupDefsDiag.message()
+    );
     int secondDefs = dupDefs.lastIndexOf(":defs");
     assertEquals(secondDefs, dupDefsDiag.startOffset());
     assertEquals(secondDefs + ":defs".length(), dupDefsDiag.endOffset());
@@ -1800,7 +1807,11 @@ public class StvnDocumentIdentityValidationTest {
     assertTrue(dupTypeRes.hasErrors());
     var dupTypeDiag = dupTypeRes.diagnostics().getFirst();
     assertEquals("E002", dupTypeDiag.canonicalCode().orElse(null));
-    assertEquals("Duplicate ':type' section prohibited: document may declare at most one ':type' section", dupTypeDiag.message());
+    assertEquals(DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION, dupTypeDiag.symbolicId().orElse(null));
+    assertEquals(
+        "Duplicate ':type' section prohibited: document may declare at most one ':type' section (canonical order: :meta -> :defs -> :type -> :body)",
+        dupTypeDiag.message()
+    );
     int secondType = dupType.lastIndexOf(":type");
     assertEquals(secondType, dupTypeDiag.startOffset());
     assertEquals(secondType + ":type".length(), dupTypeDiag.endOffset());
@@ -1816,7 +1827,11 @@ public class StvnDocumentIdentityValidationTest {
     assertTrue(dupBodyRes.hasErrors());
     var dupBodyDiag = dupBodyRes.diagnostics().getFirst();
     assertEquals("E002", dupBodyDiag.canonicalCode().orElse(null));
-    assertEquals("Duplicate ':body' section prohibited: document may declare at most one ':body' section", dupBodyDiag.message());
+    assertEquals(DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION, dupBodyDiag.symbolicId().orElse(null));
+    assertEquals(
+        "Duplicate ':body' section prohibited: document may declare at most one ':body' section (canonical order: :meta -> :defs -> :type -> :body)",
+        dupBodyDiag.message()
+    );
     int secondBody = dupBody.lastIndexOf(":body");
     assertEquals(secondBody, dupBodyDiag.startOffset());
     assertEquals(secondBody + ":body".length(), dupBodyDiag.endOffset());
@@ -1830,11 +1845,42 @@ public class StvnDocumentIdentityValidationTest {
     var outOfOrderRes = StvnCompiler.compileToResult(outOfOrderTypeAfterBody, "doc.stvn");
     assertTrue(outOfOrderRes.hasErrors());
     var outOfOrderDiag = outOfOrderRes.diagnostics().getFirst();
-    assertEquals("E002", outOfOrderDiag.canonicalCode().orElse(null));
-    assertEquals("Document ':type' section must appear before ':body'", outOfOrderDiag.message());
+    assertEquals("E002", outOfOrderRes.diagnostics().getFirst().canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_SECTION_ORDER_VIOLATION, outOfOrderDiag.symbolicId().orElse(null));
+    assertEquals(
+        "Misplaced ':type' section prohibited: ':type' must appear before ':body' (canonical order: :meta -> :defs -> :type -> :body)",
+        outOfOrderDiag.message()
+    );
     int typeOffset = outOfOrderTypeAfterBody.indexOf(":type");
     assertEquals(typeOffset, outOfOrderDiag.startOffset());
     assertEquals(typeOffset + ":type".length(), outOfOrderDiag.endOffset());
+  }
+
+  @Test
+  @DisplayName("TC-ID-47: Empty :meta {} distinguishes 1-stem optional (.stvn) vs 2-stem mandatory (<name>.<domain>.stvn) remedy text")
+  void testEmptyMetaDistinguishesOneStemOptionalFromTwoStemMandatoryInStvn() {
+    String source = """
+        {
+          :meta {}
+          :type :Int
+          :body 42
+        }
+        """;
+    var oneStemRes = StvnCompiler.compileToResult(source, "simple_doc.stvn");
+    assertTrue(oneStemRes.hasErrors());
+    assertEquals(1, oneStemRes.diagnostics().size());
+    assertEquals(
+        "Empty ':meta {}' section is prohibited; omit ':meta' or declare document identity facets (#name, #domain, #kind)",
+        oneStemRes.diagnostics().getFirst().message()
+    );
+
+    var twoStemRes = StvnCompiler.compileToResult(source, "simple_doc.billing.stvn");
+    assertTrue(twoStemRes.hasErrors());
+    assertEquals(1, twoStemRes.diagnostics().size());
+    assertEquals(
+        "Empty ':meta {}' section is prohibited; declare document identity facets (#name, #domain, #kind)",
+        twoStemRes.diagnostics().getFirst().message()
+    );
   }
 }
 

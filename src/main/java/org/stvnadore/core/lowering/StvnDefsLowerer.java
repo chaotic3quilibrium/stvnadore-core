@@ -848,6 +848,15 @@ public final class StvnDefsLowerer {
             && docBody.bodyEntry().isEmpty());
   }
 
+  private static final String CANONICAL_SECTION_PROGRESSION =
+      StvnVocabulary.KEYWORD_META + " -> " + StvnVocabulary.KEYWORD_DEFS + " -> "
+          + StvnVocabulary.KEYWORD_TYPE + " -> " + StvnVocabulary.KEYWORD_BODY;
+
+  private static String duplicateSectionMessage(String sectionKw) {
+    return "Duplicate '" + sectionKw + "' section prohibited: document may declare at most one '"
+        + sectionKw + "' section (canonical order: " + CANONICAL_SECTION_PROGRESSION + ")";
+  }
+
   /**
    * Enforces STVN 2.0.0 § 1.1 top-level section multiplicity (at most one {@code :meta},
    * {@code :defs}, {@code :type}, and {@code :body} section per document) and canonical
@@ -856,12 +865,32 @@ public final class StvnDefsLowerer {
    * @param doc           the parsed ANTLR document context
    * @param diagnosticBag the optional diagnostic bag for accumulating mode
    * @param strict        {@code true} to throw {@link org.stvnadore.core.validation.StvnSyntaxCancellationException} on the first violation
-   * @return {@code true} if a non-{@code :meta} section multiplicity or ordering error occurred
+   * @return {@code true} if a duplicate or incomplete root section occurred
    */
   public static boolean validateDocumentBodyStructure(
       StvnParser.StvnDocumentContext doc,
       @Nullable DiagnosticBag diagnosticBag,
       boolean strict
+  ) {
+    return validateDocumentBodyStructureInternal(doc, diagnosticBag, strict, true);
+  }
+
+  /**
+   * Validates root-section multiplicity and structural completeness for {@code StvnSourceFormatter},
+   * rejecting duplicate or incomplete root sections while permitting unique complete root sections
+   * in any permuted order so the formatter can canonicalize them into {@code :meta -> :defs -> :type -> :body}.
+   *
+   * @param doc the parsed ANTLR document context
+   */
+  public static void validateDocumentBodyStructureForFormatter(StvnParser.StvnDocumentContext doc) {
+    validateDocumentBodyStructureInternal(doc, null, true, false);
+  }
+
+  private static boolean validateDocumentBodyStructureInternal(
+      StvnParser.StvnDocumentContext doc,
+      @Nullable DiagnosticBag diagnosticBag,
+      boolean strict,
+      boolean enforceCanonicalOrder
   ) {
     var body = doc.documentBody();
     if (body == null || body.children == null) {
@@ -873,106 +902,317 @@ public final class StvnDefsLowerer {
     boolean seenType = false;
     boolean seenBody = false;
     int maxOrder = 0;
-    boolean hasNonMetaSectionStructuralError = false;
+    boolean hasPoisoningSectionError = false;
 
-    for (var child : body.children) {
+    for (int childIdx = 0; childIdx < body.children.size(); childIdx++) {
+      var child = body.children.get(childIdx);
       if (child instanceof StvnParser.MetaEntryContext metaCtx) {
         Token kw = metaCtx.KW_META() != null ? metaCtx.KW_META().getSymbol() : metaCtx.getStart();
         if (seenMeta) {
-          String msg = maxOrder <= 1
-              ? "Duplicate '" + StvnVocabulary.KEYWORD_META + "' block prohibited: document may declare at most one '"
-                  + StvnVocabulary.KEYWORD_META + "' header block"
-              : "Duplicate '" + StvnVocabulary.KEYWORD_META + "' block prohibited: document may declare at most one '"
-                  + StvnVocabulary.KEYWORD_META + "' header block before '" + StvnVocabulary.KEYWORD_DEFS + "', '"
-                  + StvnVocabulary.KEYWORD_TYPE + "', and '" + StvnVocabulary.KEYWORD_BODY + "'";
-          reportTopLevelSectionViolation(kw, msg, "E033", DiagnosticBag.ERR_META_POSITION_INVALID, diagnosticBag, strict);
-        } else if (maxOrder > 1) {
           reportTopLevelSectionViolation(
               kw,
-              "STVN Syntax Error: Document '" + StvnVocabulary.KEYWORD_META + "' block must appear before '"
-                  + StvnVocabulary.KEYWORD_DEFS + "', '" + StvnVocabulary.KEYWORD_TYPE + "', and '"
-                  + StvnVocabulary.KEYWORD_BODY + "'",
+              duplicateSectionMessage(StvnVocabulary.KEYWORD_META),
               "E033",
               DiagnosticBag.ERR_META_POSITION_INVALID,
               diagnosticBag,
               strict
           );
+        } else {
+          if (enforceCanonicalOrder && maxOrder > 1) {
+            reportTopLevelSectionViolation(
+                kw,
+                "Misplaced '" + StvnVocabulary.KEYWORD_META + "' section prohibited: '"
+                    + StvnVocabulary.KEYWORD_META + "' must appear before '"
+                    + StvnVocabulary.KEYWORD_DEFS + "', '" + StvnVocabulary.KEYWORD_TYPE + "', and '"
+                    + StvnVocabulary.KEYWORD_BODY + "' (canonical order: " + CANONICAL_SECTION_PROGRESSION + ")",
+                "E033",
+                DiagnosticBag.ERR_META_POSITION_INVALID,
+                diagnosticBag,
+                strict
+            );
+          }
+          if (!enforceCanonicalOrder && (metaCtx.exception != null
+              || metaCtx.metaBlock() == null
+              || metaCtx.metaBlock().exception != null
+              || metaCtx.metaBlock().LBRACE() == null
+              || metaCtx.metaBlock().RBRACE() == null)) {
+            reportTopLevelSectionViolation(
+                kw,
+                "Incomplete '" + StvnVocabulary.KEYWORD_META + "' section: declare a metadata block '{ ... }' after '"
+                    + StvnVocabulary.KEYWORD_META + "'",
+                "E002",
+                DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE,
+                diagnosticBag,
+                strict
+            );
+          }
         }
         seenMeta = true;
         maxOrder = Math.max(maxOrder, 1);
       } else if (child instanceof StvnParser.DefsEntryContext defsCtx) {
         Token kw = defsCtx.KW_DEFS() != null ? defsCtx.KW_DEFS().getSymbol() : defsCtx.getStart();
         if (seenDefs) {
-          hasNonMetaSectionStructuralError = true;
+          hasPoisoningSectionError = true;
           reportTopLevelSectionViolation(
               kw,
-              "Duplicate '" + StvnVocabulary.KEYWORD_DEFS + "' section prohibited: document may declare at most one '"
-                  + StvnVocabulary.KEYWORD_DEFS + "' section",
+              duplicateSectionMessage(StvnVocabulary.KEYWORD_DEFS),
               "E002",
-              "STVN_SYNTAX_ERROR",
+              DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION,
               diagnosticBag,
               strict
           );
-        } else if (maxOrder > 2) {
-          hasNonMetaSectionStructuralError = true;
-          reportTopLevelSectionViolation(
-              kw,
-              "Document '" + StvnVocabulary.KEYWORD_DEFS + "' section must appear before '"
-                  + StvnVocabulary.KEYWORD_TYPE + "' and '" + StvnVocabulary.KEYWORD_BODY + "'",
-              "E002",
-              "STVN_SYNTAX_ERROR",
-              diagnosticBag,
-              strict
-          );
+        } else {
+          if (enforceCanonicalOrder && maxOrder > 2) {
+            reportTopLevelSectionViolation(
+                kw,
+                "Misplaced '" + StvnVocabulary.KEYWORD_DEFS + "' section prohibited: '"
+                    + StvnVocabulary.KEYWORD_DEFS + "' must appear before '"
+                    + StvnVocabulary.KEYWORD_TYPE + "' and '" + StvnVocabulary.KEYWORD_BODY
+                    + "' (canonical order: " + CANONICAL_SECTION_PROGRESSION + ")",
+                "E002",
+                DiagnosticBag.ERR_SECTION_ORDER_VIOLATION,
+                diagnosticBag,
+                strict
+            );
+          }
+          if (!enforceCanonicalOrder && (defsCtx.exception != null
+              || defsCtx.LBRACE() == null
+              || defsCtx.RBRACE() == null)) {
+            reportTopLevelSectionViolation(
+                kw,
+                "Incomplete '" + StvnVocabulary.KEYWORD_DEFS + "' section: declare a definitions block '{ ... }' after '"
+                    + StvnVocabulary.KEYWORD_DEFS + "'",
+                "E002",
+                DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE,
+                diagnosticBag,
+                strict
+            );
+          }
         }
         seenDefs = true;
         maxOrder = Math.max(maxOrder, 2);
       } else if (child instanceof StvnParser.TypeEntryContext typeCtx) {
         Token kw = typeCtx.KW_TYPE() != null ? typeCtx.KW_TYPE().getSymbol() : typeCtx.getStart();
         if (seenType) {
-          hasNonMetaSectionStructuralError = true;
+          hasPoisoningSectionError = true;
           reportTopLevelSectionViolation(
               kw,
-              "Duplicate '" + StvnVocabulary.KEYWORD_TYPE + "' section prohibited: document may declare at most one '"
-                  + StvnVocabulary.KEYWORD_TYPE + "' section",
+              duplicateSectionMessage(StvnVocabulary.KEYWORD_TYPE),
               "E002",
-              "STVN_SYNTAX_ERROR",
+              DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION,
               diagnosticBag,
               strict
           );
-        } else if (maxOrder > 3) {
-          hasNonMetaSectionStructuralError = true;
-          reportTopLevelSectionViolation(
-              kw,
-              "Document '" + StvnVocabulary.KEYWORD_TYPE + "' section must appear before '"
-                  + StvnVocabulary.KEYWORD_BODY + "'",
-              "E002",
-              "STVN_SYNTAX_ERROR",
-              diagnosticBag,
-              strict
-          );
+        } else {
+          if (enforceCanonicalOrder && maxOrder > 3) {
+            reportTopLevelSectionViolation(
+                kw,
+                "Misplaced '" + StvnVocabulary.KEYWORD_TYPE + "' section prohibited: '"
+                    + StvnVocabulary.KEYWORD_TYPE + "' must appear before '"
+                    + StvnVocabulary.KEYWORD_BODY + "' (canonical order: " + CANONICAL_SECTION_PROGRESSION + ")",
+                "E002",
+                DiagnosticBag.ERR_SECTION_ORDER_VIOLATION,
+                diagnosticBag,
+                strict
+            );
+          }
+          if (typeCtx.schemaType() == null && (!enforceCanonicalOrder || typeCtx.exception == null)) {
+            hasPoisoningSectionError = true;
+            if (enforceCanonicalOrder && typeCtx.metadataMap() != null) {
+              validateStandaloneOrphanMetadataMap(typeCtx.metadataMap(), diagnosticBag, strict);
+            }
+            int afterStop = typeCtx.metadataMap() != null && typeCtx.metadataMap().getStop() != null
+                ? typeCtx.metadataMap().getStop().getStopIndex() + 1
+                : (kw != null ? kw.getStopIndex() + 1 : 0);
+            int nextBoundaryStart = nextRootBoundaryStartOffset(doc, body.children, childIdx);
+            if (!enforceCanonicalOrder || !hasNonTabErrorInGap(diagnosticBag, afterStop, nextBoundaryStart)) {
+              reportTopLevelSectionViolation(
+                  kw,
+                  "Incomplete '" + StvnVocabulary.KEYWORD_TYPE
+                      + "' section: declare a target schema type after '" + StvnVocabulary.KEYWORD_TYPE
+                      + "' (for example, '" + StvnVocabulary.KEYWORD_TYPE + " " + StvnVocabulary.TYPE_INT + "')",
+                  "E002",
+                  DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE,
+                  diagnosticBag,
+                  strict
+              );
+            }
+          }
         }
         seenType = true;
         maxOrder = Math.max(maxOrder, 3);
       } else if (child instanceof StvnParser.BodyEntryContext bodyCtx) {
         Token kw = bodyCtx.KW_BODY() != null ? bodyCtx.KW_BODY().getSymbol() : bodyCtx.getStart();
         if (seenBody) {
-          hasNonMetaSectionStructuralError = true;
+          hasPoisoningSectionError = true;
           reportTopLevelSectionViolation(
               kw,
-              "Duplicate '" + StvnVocabulary.KEYWORD_BODY + "' section prohibited: document may declare at most one '"
-                  + StvnVocabulary.KEYWORD_BODY + "' section",
+              duplicateSectionMessage(StvnVocabulary.KEYWORD_BODY),
               "E002",
-              "STVN_SYNTAX_ERROR",
+              DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION,
               diagnosticBag,
               strict
           );
+        } else if (bodyCtx.value() == null && (!enforceCanonicalOrder || bodyCtx.exception == null)) {
+          hasPoisoningSectionError = true;
+          int afterStop = kw != null ? kw.getStopIndex() + 1 : 0;
+          int nextBoundaryStart = nextRootBoundaryStartOffset(doc, body.children, childIdx);
+          if (!enforceCanonicalOrder || !hasNonTabErrorInGap(diagnosticBag, afterStop, nextBoundaryStart)) {
+            reportTopLevelSectionViolation(
+                kw,
+                "Incomplete '" + StvnVocabulary.KEYWORD_BODY
+                    + "' section: declare a payload value after '" + StvnVocabulary.KEYWORD_BODY + "'",
+                "E002",
+                DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE,
+                diagnosticBag,
+                strict
+            );
+          }
         }
         seenBody = true;
         maxOrder = Math.max(maxOrder, 4);
       }
     }
-    return hasNonMetaSectionStructuralError;
+    return hasPoisoningSectionError;
+  }
+
+  private static int nextRootBoundaryStartOffset(
+      StvnParser.StvnDocumentContext doc,
+      List<org.antlr.v4.runtime.tree.ParseTree> bodyChildren,
+      int currentChildIdx
+  ) {
+    for (int j = currentChildIdx + 1; j < bodyChildren.size(); j++) {
+      var next = bodyChildren.get(j);
+      if (next instanceof ParserRuleContext nextCtx
+          && nextCtx.getStart() != null
+          && nextCtx.getStart().getStartIndex() >= 0) {
+        return nextCtx.getStart().getStartIndex();
+      }
+    }
+    if (doc.RBRACE() != null && doc.RBRACE().getSymbol().getStartIndex() >= 0) {
+      return doc.RBRACE().getSymbol().getStartIndex();
+    }
+    return Integer.MAX_VALUE;
+  }
+
+  private static boolean hasNonTabErrorInGap(
+      @Nullable DiagnosticBag diagnosticBag,
+      int startInclusive,
+      int endExclusive
+  ) {
+    if (diagnosticBag == null || startInclusive >= endExclusive) {
+      return false;
+    }
+    for (var diag : diagnosticBag.toList()) {
+      if (diag.severity() != org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity.ERROR) {
+        continue;
+      }
+      String sym = diag.symbolicId().or(diag::errorCode).orElse("");
+      if (DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN.equals(sym)) {
+        continue;
+      }
+      int off = diag.startOffset();
+      if (off >= startInclusive && off < endExclusive) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static void validateStandaloneOrphanMetadataMap(
+      StvnParser.MetadataMapContext metaMap,
+      @Nullable DiagnosticBag diagnosticBag,
+      boolean strict
+  ) {
+    if (metaMap.LBRACE() != null && metaMap.RBRACE() != null
+        && (metaMap.metadataEntry() == null || metaMap.metadataEntry().isEmpty())) {
+      int start = metaMap.LBRACE().getSymbol().getStartIndex();
+      int stop = metaMap.RBRACE().getSymbol().getStopIndex() + 1;
+      int line = metaMap.LBRACE().getSymbol().getLine();
+      int col = metaMap.LBRACE().getSymbol().getCharPositionInLine();
+      String msg = "Empty metadata block is invalid; remove '{}' or specify valid facets";
+      if (strict) {
+        throw new org.stvnadore.core.validation.StvnSyntaxCancellationException(
+            msg, line, col, start, stop, null, "E003", DiagnosticBag.ERR_EMPTY_METADATA_BLOCK
+        );
+      }
+      if (diagnosticBag != null) {
+        diagnosticBag.addError(msg, start, stop, line, col, null, DiagnosticBag.ERR_EMPTY_METADATA_BLOCK);
+      }
+      return;
+    }
+    if (diagnosticBag == null || metaMap.metadataEntry() == null) {
+      return;
+    }
+    String ownerLabel = "<" + StvnVocabulary.KEYWORD_TYPE + ">";
+    Set<String> seenFacetNames = new HashSet<>();
+    int lastTier = -1;
+    int lastSubTier = -1;
+    String lastFacetName = null;
+
+    for (var entry : metaMap.metadataEntry()) {
+      if (entry.metadataUnknownEntry() != null) {
+        var unk = entry.metadataUnknownEntry();
+        var kwNode = unk.unknownFacetKeyword();
+        Span sp = Span.ofContext(kwNode != null ? kwNode : unk);
+        String facetTag = kwNode != null ? kwNode.getText() : unk.getText();
+        diagnosticBag.addError(
+            "Metadata violation (" + ownerLabel + "): Unrecognized constraint facet '" + facetTag + "'",
+            sp.start(), sp.end(), sp.line(), sp.column(), null,
+            DiagnosticBag.ERR_UNRECOGNIZED_METADATA_FACET
+        );
+        continue;
+      }
+      StvnParser.StandaloneFacetIllegalArgContext illegalArg = extractStandaloneIllegalArg(entry);
+      String facetName = extractFacetName(entry);
+      if (facetName == null) {
+        continue;
+      }
+      if (illegalArg != null) {
+        Span argSpan = Span.ofContext(illegalArg);
+        diagnosticBag.addError(
+            "Metadata facet '" + StvnVocabulary.SIGIL_VALUE + facetName
+                + "' is a standalone flag and does not accept arguments; unexpected '" + illegalArg.getText() + "'",
+            argSpan.start(), argSpan.end(), argSpan.line(), argSpan.column(), null,
+            DiagnosticBag.ERR_INVALID_METADATA_FACET
+        );
+        continue;
+      }
+      Span entrySpan = Span.ofContext(entry);
+      if (!seenFacetNames.add(facetName)) {
+        diagnosticBag.addError(
+            "Metadata violation (" + ownerLabel + "): Duplicate facet '" + StvnVocabulary.SIGIL_VALUE + facetName
+                + "' is prohibited; each facet may appear at most once per metadata block",
+            entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+            DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
+        );
+        continue;
+      }
+      if ("strip".equals(facetName)) {
+        diagnosticBag.addError(
+            "Constraint violation (" + ownerLabel + "): directive facet '" + StvnVocabulary.FACET_KW_STRIP
+                + "' is not permitted on type declarations; directive facets are valid strictly in "
+                + StvnVocabulary.KEYWORD_USE + " and " + StvnVocabulary.KEYWORD_INCLUDE + " blocks",
+            entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+            DiagnosticBag.ERR_INVALID_METADATA_FACET
+        );
+        continue;
+      }
+      int tier = getFacetTier(facetName);
+      int subTier = getFacetSubTier(facetName);
+      if (tier < lastTier || (tier == lastTier && subTier < lastSubTier)) {
+        diagnosticBag.addError(
+            "Facet order violation (" + ownerLabel + "): facet '" + StvnVocabulary.SIGIL_VALUE + facetName
+                + "' (Tier " + tier + ") violates canonical 5-tier order after '"
+                + StvnVocabulary.SIGIL_VALUE + lastFacetName + "'",
+            entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+            DiagnosticBag.ERR_FACET_ORDER_VIOLATION
+        );
+      }
+      lastTier = tier;
+      lastSubTier = subTier;
+      lastFacetName = facetName;
+    }
   }
 
   private static void reportTopLevelSectionViolation(
@@ -1190,8 +1430,23 @@ public final class StvnDefsLowerer {
       int stop = metaBlock.RBRACE().getSymbol().getStopIndex() + 1;
       int line = metaBlock.LBRACE().getSymbol().getLine();
       int col = metaBlock.LBRACE().getSymbol().getCharPositionInLine();
+      boolean metaMandatory = (expectedKindOpt.isPresent()
+              && (expectedKindOpt.get() == StvnDocumentKind.DEFS
+                  || expectedKindOpt.get() == StvnDocumentKind.DEFS_INCLUDE
+                  || expectedKindOpt.get() == StvnDocumentKind.BODY_INCLUDE))
+          || ".stvn_b".equals(ext)
+          || ".stvn_bd".equals(ext)
+          || (dotParts != null && dotParts.length == 2 && !dotParts[1].isEmpty() && !isReservedDomain(dotParts[1]));
+      String emptyMetaMsg = metaMandatory
+          ? "Empty '" + StvnVocabulary.KEYWORD_META + " {}' section is prohibited; declare document identity facets ("
+              + StvnVocabulary.FACET_KW_META_NAME + ", " + StvnVocabulary.FACET_KW_META_DOMAIN + ", "
+              + StvnVocabulary.FACET_KW_META_KIND + ")"
+          : "Empty '" + StvnVocabulary.KEYWORD_META + " {}' section is prohibited; omit '"
+              + StvnVocabulary.KEYWORD_META + "' or declare document identity facets ("
+              + StvnVocabulary.FACET_KW_META_NAME + ", " + StvnVocabulary.FACET_KW_META_DOMAIN + ", "
+              + StvnVocabulary.FACET_KW_META_KIND + ")";
       diagnosticBag.addError(
-          "Metadata block ':meta {}' must not be empty",
+          emptyMetaMsg,
           start, stop, line, col, null,
           DiagnosticBag.ERR_EMPTY_META_BLOCK
       );
@@ -1796,10 +2051,10 @@ public final class StvnDefsLowerer {
         int col = defsEntry.LBRACE().getSymbol().getCharPositionInLine();
         String ext = identity.fileExt() != null ? identity.fileExt() : ".stvn_d";
         String msg = isSchemaDoc
-            ? "Definitions schema (" + ext + ") requires at least one type definition inside '"
-                + StvnVocabulary.KEYWORD_DEFS + " { ... }'"
-            : "Empty definition block '" + StvnVocabulary.KEYWORD_DEFS + " {}' is redundant; omit '"
-                + StvnVocabulary.KEYWORD_DEFS + "' or add definitions";
+            ? "Empty '" + StvnVocabulary.KEYWORD_DEFS + " {}' section is prohibited; definitions schema ("
+                + ext + ") requires at least one type or constant definition"
+            : "Empty '" + StvnVocabulary.KEYWORD_DEFS + " {}' section is prohibited; omit '"
+                + StvnVocabulary.KEYWORD_DEFS + "' or declare at least one type or constant definition";
         diagnosticBag.addError(msg, start, stop, line, col, null, DiagnosticBag.ERR_EMPTY_DEFS_BLOCK);
         return;
       }

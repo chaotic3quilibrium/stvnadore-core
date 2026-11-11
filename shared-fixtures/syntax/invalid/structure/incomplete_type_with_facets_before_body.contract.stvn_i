@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "incomplete_type_with_facets_before_body"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 2 3 4 9 "Incomplete ':type' section: declare a target schema type after ':type' (for example, ':type :Int')" )
+  ]
+}

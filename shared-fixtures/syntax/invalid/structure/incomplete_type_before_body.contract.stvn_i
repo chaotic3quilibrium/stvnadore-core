@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E002 #STVN_SYNTAX_ERROR #ERROR 5 3 129 134 "STVN Syntax Error: clause ':type' requires a schema type" )
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 5 3 129 134 "Incomplete ':type' section: declare a target schema type after ':type' (for example, ':type :Int')" )
   ]
 }

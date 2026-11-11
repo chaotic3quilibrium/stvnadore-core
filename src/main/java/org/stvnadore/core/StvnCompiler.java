@@ -251,11 +251,14 @@ public final class StvnCompiler {
             continue;
           }
           String sym = diag.symbolicId().or(() -> diag.errorCode()).orElse("");
-          if (DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN.equals(sym)) {
+          if (DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN.equals(sym)
+              || DiagnosticBag.ERR_SECTION_ORDER_VIOLATION.equals(sym)) {
             continue;
           }
           if (sym.startsWith("ERR_DOCUMENT_")
               || sym.startsWith("ERR_SECTION_")
+              || sym.equals(DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION)
+              || sym.equals(DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE)
               || sym.equals(DiagnosticBag.ERR_INVALID_FILENAME_STEM)
               || sym.equals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED)
               || sym.equals("STVN_SYNTAX_ERROR")

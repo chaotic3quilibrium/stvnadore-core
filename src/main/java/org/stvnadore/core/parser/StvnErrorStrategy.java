@@ -123,29 +123,30 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
     Token prevToken = stream.LT(-1);
 
     if (isDefsContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE)) {
-      String msg = "clause '" + StvnVocabulary.KEYWORD_DEFS + "' requires definition block '{ ... }'";
+      String msg = "Incomplete '" + StvnVocabulary.KEYWORD_DEFS
+          + "' section: declare a definitions block '{ ... }' after '" + StvnVocabulary.KEYWORD_DEFS + "'";
       recognizer.notifyErrorListeners(prevToken != null ? prevToken : offendingToken, msg, e);
       return true;
     }
 
     if (isMetaContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE)) {
-      String msg = "clause '" + StvnVocabulary.KEYWORD_META + "' requires a metadata block '{ ... }'";
+      String msg = "Incomplete '" + StvnVocabulary.KEYWORD_META
+          + "' section: declare a metadata block '{ ... }' after '" + StvnVocabulary.KEYWORD_META + "'";
       recognizer.notifyErrorListeners(prevToken != null ? prevToken : offendingToken, msg, e);
       return true;
     }
 
-    if (isTypeContext(ctx, prevToken) && (offendingToken == null || !isValidSchemaTypeStarter(offendingToken))) {
-      String msg = "clause '" + StvnVocabulary.KEYWORD_TYPE + "' requires a schema type";
+    if (isTypeContext(ctx, prevToken) && isClauseOrBoundary(offendingToken)) {
+      String msg = "Incomplete '" + StvnVocabulary.KEYWORD_TYPE
+          + "' section: declare a target schema type after '" + StvnVocabulary.KEYWORD_TYPE
+          + "' (for example, '" + StvnVocabulary.KEYWORD_TYPE + " " + StvnVocabulary.TYPE_INT + "')";
       recognizer.notifyErrorListeners(prevToken != null ? prevToken : offendingToken, msg, e);
       return true;
     }
 
-    if (isBodyContext(ctx, prevToken)
-        && (offendingToken == null
-            || offendingToken.getType() == StvnParser.RBRACE
-            || offendingToken.getType() == Token.EOF
-            || isTopLevelKeyword(offendingToken))) {
-      String msg = "clause '" + StvnVocabulary.KEYWORD_BODY + "' requires a value payload";
+    if (isBodyContext(ctx, prevToken) && isClauseOrBoundary(offendingToken)) {
+      String msg = "Incomplete '" + StvnVocabulary.KEYWORD_BODY
+          + "' section: declare a payload value after '" + StvnVocabulary.KEYWORD_BODY + "'";
       recognizer.notifyErrorListeners(prevToken != null ? prevToken : offendingToken, msg, e);
       return true;
     }
@@ -166,14 +167,10 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
     if (isMetaContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE)) {
       return;
     }
-    if (isTypeContext(ctx, prevToken) && (offendingToken == null || !isValidSchemaTypeStarter(offendingToken))) {
+    if (isTypeContext(ctx, prevToken) && isClauseOrBoundary(offendingToken)) {
       return;
     }
-    if (isBodyContext(ctx, prevToken)
-        && (offendingToken == null
-            || offendingToken.getType() == StvnParser.RBRACE
-            || offendingToken.getType() == Token.EOF
-            || isTopLevelKeyword(offendingToken))) {
+    if (isBodyContext(ctx, prevToken) && isClauseOrBoundary(offendingToken)) {
       return;
     }
 
@@ -196,12 +193,8 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
 
     if ((isDefsContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE))
         || (isMetaContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE))
-        || (isTypeContext(ctx, prevToken) && (offendingToken == null || !isValidSchemaTypeStarter(offendingToken)))
-        || (isBodyContext(ctx, prevToken)
-            && (offendingToken == null
-                || offendingToken.getType() == StvnParser.RBRACE
-                || offendingToken.getType() == Token.EOF
-                || isTopLevelKeyword(offendingToken)))) {
+        || (isTypeContext(ctx, prevToken) && isClauseOrBoundary(offendingToken))
+        || (isBodyContext(ctx, prevToken) && isClauseOrBoundary(offendingToken))) {
       InputMismatchException e = new InputMismatchException(recognizer);
       reportError(recognizer, e);
       throw e;
@@ -339,5 +332,12 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
         || type == StvnParser.KW_DEFS
         || type == StvnParser.KW_TYPE
         || type == StvnParser.KW_BODY;
+  }
+
+  private static boolean isClauseOrBoundary(@Nullable Token token) {
+    return token == null
+        || token.getType() == StvnParser.RBRACE
+        || token.getType() == Token.EOF
+        || isTopLevelKeyword(token);
   }
 }

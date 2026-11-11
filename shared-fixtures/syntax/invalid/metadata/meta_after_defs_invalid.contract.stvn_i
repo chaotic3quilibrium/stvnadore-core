@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E033 #ERR_META_POSITION_INVALID #ERROR 5 3 39 44 "STVN Syntax Error: Document ':meta' block must appear before ':defs', ':type', and ':body'" )
+    ( #E033 #ERR_META_POSITION_INVALID #ERROR 5 3 39 44 "Misplaced ':meta' section prohibited: ':meta' must appear before ':defs', ':type', and ':body' (canonical order: :meta -> :defs -> :type -> :body)" )
   ]
 }

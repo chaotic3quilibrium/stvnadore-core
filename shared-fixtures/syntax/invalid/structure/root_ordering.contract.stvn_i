@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "root_ordering"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #W002 #WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME #WARNING 9 13 105 113 "Declared #domain 'domain' is omitted from filename stem slot 1" )
+    ( #E002 #ERR_SECTION_ORDER_VIOLATION #ERROR 3 3 15 20 "Misplaced ':type' section prohibited: ':type' must appear before ':body' (canonical order: :meta -> :defs -> :type -> :body)" )
+    ( #E002 #ERR_SECTION_ORDER_VIOLATION #ERROR 4 3 29 34 "Misplaced ':defs' section prohibited: ':defs' must appear before ':type' and ':body' (canonical order: :meta -> :defs -> :type -> :body)" )
+    ( #E033 #ERR_META_POSITION_INVALID #ERROR 7 3 59 64 "Misplaced ':meta' section prohibited: ':meta' must appear before ':defs', ':type', and ':body' (canonical order: :meta -> :defs -> :type -> :body)" )
+  ]
+}

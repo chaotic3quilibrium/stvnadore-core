@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 9 9 205 207 "Definitions schema (.stvn_d) requires at least one type definition inside ':defs { ... }'" )
+    ( #E002 #ERR_EMPTY_DEFS_BLOCK #ERROR 9 9 205 207 "Empty ':defs {}' section is prohibited; definitions schema (.stvn_d) requires at least one type or constant definition" )
   ]
 }
