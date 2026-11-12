@@ -1408,11 +1408,7 @@ public final class StvnDefsLowerer {
           && !fatalPathRejection
           && !moduleCtx.bootstrapPreludeMode
           && !moduleCtx.flattenerMode
-          && expectedKindOpt.isPresent()
-          && (expectedKindOpt.get() == StvnDocumentKind.DEFS
-              || expectedKindOpt.get() == StvnDocumentKind.DEFS_INCLUDE
-              || expectedKindOpt.get() == StvnDocumentKind.BODY_INCLUDE
-              || ".stvn_b".equals(ext))) {
+          && isMetaMandatoryForExtension(ext, expectedKindOpt)) {
         diagnosticBag.addError(
             "Mandatory :meta block missing; document kind '" + expectedKindOpt.get().keyword()
                 + "' is required for extension '" + ext + "'",
@@ -1473,6 +1469,13 @@ public final class StvnDefsLowerer {
       if (el.metaUnknownFacet() != null) {
         var unk = el.metaUnknownFacet();
         String facetTag = unk.valueKeyword() != null ? unk.valueKeyword().getText() : unk.getText();
+        if (StvnVocabulary.FACET_KW_META_NAME.equals(facetTag)) {
+          seenName = true;
+        } else if (StvnVocabulary.FACET_KW_META_DOMAIN.equals(facetTag)) {
+          seenDomain = true;
+        } else if (StvnVocabulary.FACET_KW_META_KIND.equals(facetTag)) {
+          seenKind = true;
+        }
         Span sp = Span.ofContext(unk);
         diagnosticBag.addError(
             "Invalid metadata facet tag '" + facetTag + "' in ':meta' block",
@@ -1587,9 +1590,20 @@ public final class StvnDefsLowerer {
 
     if (!skipPathIdentityChecks && !fatalPathRejection && !moduleCtx.bootstrapPreludeMode) {
       if (declaredKind != null && expectedKindOpt.isPresent() && declaredKind != expectedKindOpt.get()) {
-        Span sp = Span.ofContext(kindNode != null ? kindNode : metaEntry);
+        Span sp = kindNode != null ? Span.ofContext(kindNode) : kwMetaSpan(metaEntry);
         diagnosticBag.addError(
             "Document kind '" + declaredKind.keyword() + "' does not match file extension '" + ext
+                + "' (expected '" + expectedKindOpt.get().keyword() + "')",
+            sp.start(), sp.end(), sp.line(), sp.column(), null,
+            DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
+        );
+      } else if (!seenKind
+          && !moduleCtx.flattenerMode
+          && isMetaMandatoryForExtension(ext, expectedKindOpt)) {
+        Span sp = kwMetaSpan(metaEntry);
+        diagnosticBag.addError(
+            "Root '" + StvnVocabulary.KEYWORD_META + "' section requires "
+                + StvnVocabulary.FACET_KW_META_KIND + " facet matching file extension '" + ext
                 + "' (expected '" + expectedKindOpt.get().keyword() + "')",
             sp.start(), sp.end(), sp.line(), sp.column(), null,
             DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
@@ -1599,33 +1613,37 @@ public final class StvnDefsLowerer {
       if (dotParts != null && dotParts.length >= 1) {
         String stemName = dotParts[0];
         if (declaredName != null && !declaredName.equals(stemName)) {
-          Span sp = Span.ofContext(nameNode != null ? nameNode : metaEntry);
+          Span sp = nameNode != null ? Span.ofContext(nameNode) : kwMetaSpan(metaEntry);
           diagnosticBag.addWarning(
-              "Declared #name '" + declaredName + "' does not match filename stem slot 0 '" + stemName + "'",
+              "Declared " + StvnVocabulary.FACET_KW_META_NAME + " '" + declaredName
+                  + "' does not match filename stem slot 0 '" + stemName + "'",
               sp.start(), sp.end(), sp.line(), sp.column(),
               DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
           );
         }
         if (declaredDomain != null) {
-          Span sp = Span.ofContext(domainNode != null ? domainNode : metaEntry);
+          Span sp = domainNode != null ? Span.ofContext(domainNode) : kwMetaSpan(metaEntry);
           if (dotParts.length == 1) {
             diagnosticBag.addWarning(
-                "Declared #domain '" + declaredDomain + "' is omitted from filename stem slot 1",
+                "Declared " + StvnVocabulary.FACET_KW_META_DOMAIN + " '" + declaredDomain
+                    + "' is omitted from filename stem slot 1",
                 sp.start(), sp.end(), sp.line(), sp.column(),
                 DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME
             );
           } else if (!declaredDomain.equals(dotParts[1])) {
             diagnosticBag.addWarning(
-                "Declared #domain '" + declaredDomain + "' does not match filename stem slot 1 '" + dotParts[1] + "'",
+                "Declared " + StvnVocabulary.FACET_KW_META_DOMAIN + " '" + declaredDomain
+                    + "' does not match filename stem slot 1 '" + dotParts[1] + "'",
                 sp.start(), sp.end(), sp.line(), sp.column(),
                 DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
             );
           }
         } else if (!seenDomain && dotParts.length == 2 && !dotParts[1].isEmpty() && !isReservedDomain(dotParts[1])) {
-          Span sp = Span.ofContext(metaEntry);
+          Span sp = kwMetaSpan(metaEntry);
           diagnosticBag.addWarning(
               "Filename stem slot 1 declares domain '" + dotParts[1]
-                  + "', but :meta omits #domain \"" + dotParts[1] + "\"",
+                  + "', but " + StvnVocabulary.KEYWORD_META + " omits "
+                  + StvnVocabulary.FACET_KW_META_DOMAIN + " \"" + dotParts[1] + "\"",
               sp.start(), sp.end(), sp.line(), sp.column(),
               DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META
           );
@@ -1651,6 +1669,24 @@ public final class StvnDefsLowerer {
         : expectedKindOpt;
 
     return new IdentityOutcome(loweredMeta, effectiveKind, fileName, ext);
+  }
+
+  private static boolean isMetaMandatoryForExtension(
+      @Nullable String ext,
+      Optional<StvnDocumentKind> expectedKindOpt
+  ) {
+    return expectedKindOpt.isPresent()
+        && (expectedKindOpt.get() == StvnDocumentKind.DEFS
+            || expectedKindOpt.get() == StvnDocumentKind.DEFS_INCLUDE
+            || expectedKindOpt.get() == StvnDocumentKind.BODY_INCLUDE
+            || ".stvn_b".equals(ext));
+  }
+
+  private static Span kwMetaSpan(StvnParser.MetaEntryContext metaEntry) {
+    if (metaEntry.KW_META() != null && metaEntry.KW_META().getSymbol() != null) {
+      return Span.ofToken(metaEntry.KW_META().getSymbol());
+    }
+    return Span.ofContext(metaEntry);
   }
 
   private static boolean validateDocumentSectionEligibility(

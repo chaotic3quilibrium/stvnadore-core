@@ -6,6 +6,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnDocumentKind;
 import org.stvnadore.core.ir.StvnDocumentMeta;
 import org.stvnadore.core.binary.BinaryEncodingStrategy;
@@ -358,7 +359,7 @@ public class StvnDocumentIdentityValidationTest {
         diag.message()
     );
     int expectedStart = source.indexOf(":meta {");
-    int expectedEnd = source.indexOf("}", expectedStart) + 1;
+    int expectedEnd = expectedStart + StvnVocabulary.KEYWORD_META.length();
     assertEquals(expectedStart, diag.startOffset());
     assertEquals(expectedEnd, diag.endOffset());
   }
@@ -1880,6 +1881,143 @@ public class StvnDocumentIdentityValidationTest {
     assertEquals(
         "Empty ':meta {}' section is prohibited; declare document identity facets (#name, #domain, #kind)",
         twoStemRes.diagnostics().getFirst().message()
+    );
+  }
+
+  @Test
+  @DisplayName("TC-ID-48a: Non-empty :meta omitting mandatory #kind emits E031 pinned strictly to 5-char ':meta' across .stvn_d, .stvn_di, .stvn_i, .stvn_b, and textual .stvn_bd")
+  void testNonEmptyMetaOmittingKindOnMandatoryExtensionsPinsE031ToKwMeta() {
+    String defsSource = """
+        {
+          :meta {
+            #name "billing_schema"
+            #domain "finance"
+          }
+          :defs {
+            :AccountId { #unsigned } :Int
+          }
+        }
+        """;
+    int defsMetaStart = defsSource.indexOf(":meta");
+    int defsMetaEnd = defsMetaStart + StvnVocabulary.KEYWORD_META.length();
+
+    var stvnDRes = StvnCompiler.compileToResult(defsSource, "billing_schema.finance.stvn_d");
+    assertTrue(stvnDRes.hasErrors());
+    assertEquals(1, stvnDRes.diagnostics().size());
+    var stvnDDiag = stvnDRes.diagnostics().getFirst();
+    assertEquals("E031", stvnDDiag.canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, stvnDDiag.symbolicId().orElse(null));
+    assertEquals(defsMetaStart, stvnDDiag.startOffset());
+    assertEquals(defsMetaEnd, stvnDDiag.endOffset());
+    assertEquals(
+        "Root ':meta' section requires #kind facet matching file extension '.stvn_d' (expected '#DEFS')",
+        stvnDDiag.message()
+    );
+
+    var stvnDiRes = StvnCompiler.compileToResult(defsSource, "billing_schema.finance.stvn_di");
+    assertTrue(stvnDiRes.hasErrors());
+    assertEquals(1, stvnDiRes.diagnostics().size());
+    var stvnDiDiag = stvnDiRes.diagnostics().getFirst();
+    assertEquals("E031", stvnDiDiag.canonicalCode().orElse(null));
+    assertEquals(defsMetaStart, stvnDiDiag.startOffset());
+    assertEquals(defsMetaEnd, stvnDiDiag.endOffset());
+    assertEquals(
+        "Root ':meta' section requires #kind facet matching file extension '.stvn_di' (expected '#DEFS_INCLUDE')",
+        stvnDiDiag.message()
+    );
+
+    var textualBdRes = StvnCompiler.compileToResult(defsSource, "billing_schema.finance.stvn_bd");
+    assertTrue(textualBdRes.hasErrors());
+    assertEquals(1, textualBdRes.diagnostics().size());
+    var textualBdDiag = textualBdRes.diagnostics().getFirst();
+    assertEquals("E031", textualBdDiag.canonicalCode().orElse(null));
+    assertEquals(defsMetaStart, textualBdDiag.startOffset());
+    assertEquals(defsMetaEnd, textualBdDiag.endOffset());
+    assertEquals(
+        "Root ':meta' section requires #kind facet matching file extension '.stvn_bd' (expected '#DEFS')",
+        textualBdDiag.message()
+    );
+
+    String payloadIncludeWithBodyError = """
+        {
+          :meta {
+            #name "orders_payload"
+            #domain "finance"
+          }
+          :defs {
+            :BoundedPort { #unsigned #size 16 #minIncl 1024 #maxExcl 4096 } :Int
+          }
+          :type :BoundedPort
+          :body 5000
+        }
+        """;
+    int payloadMetaStart = payloadIncludeWithBodyError.indexOf(":meta");
+    int payloadMetaEnd = payloadMetaStart + StvnVocabulary.KEYWORD_META.length();
+
+    var stvnIRes = StvnCompiler.compileToResult(payloadIncludeWithBodyError, "orders_payload.finance.stvn_i");
+    assertTrue(stvnIRes.hasErrors());
+    assertEquals(2, stvnIRes.diagnostics().size(), () -> "Expected E031 + Pass 3 E012 fault containment: " + stvnIRes.diagnostics());
+    var e031Diag = stvnIRes.diagnostics().get(0);
+    assertEquals("E031", e031Diag.canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH, e031Diag.symbolicId().orElse(null));
+    assertEquals(payloadMetaStart, e031Diag.startOffset());
+    assertEquals(payloadMetaEnd, e031Diag.endOffset());
+    assertEquals(
+        "Root ':meta' section requires #kind facet matching file extension '.stvn_i' (expected '#BODY_INCLUDE')",
+        e031Diag.message()
+    );
+    var e012Diag = stvnIRes.diagnostics().get(1);
+    assertEquals("E012", e012Diag.canonicalCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, e012Diag.symbolicId().orElse(null));
+
+    var textualBRes = StvnCompiler.compileToResult(payloadIncludeWithBodyError, "orders_payload.finance.stvn_b");
+    assertTrue(textualBRes.hasErrors());
+    var textualBDiag = textualBRes.diagnostics().get(0);
+    assertEquals("E031", textualBDiag.canonicalCode().orElse(null));
+    assertEquals(payloadMetaStart, textualBDiag.startOffset());
+    assertEquals(payloadMetaEnd, textualBDiag.endOffset());
+    assertEquals(
+        "Root ':meta' section requires #kind facet matching file extension '.stvn_b' (expected '#BODY')",
+        textualBDiag.message()
+    );
+  }
+
+  @Test
+  @DisplayName("TC-ID-48b: Non-empty :meta omitting #kind on .stvn or in-memory compilation or in-flight '#kind' syntax error does not emit E031")
+  void testNonEmptyMetaOmittingKindOnOptionalStvnOrInMemoryDoesNotEmitE031() {
+    String stvnSource = """
+        {
+          :meta {
+            #name "local_doc"
+            #domain "app"
+          }
+          :type :Int
+          :body 42
+        }
+        """;
+    var stvnRes = StvnCompiler.compileToResult(stvnSource, "local_doc.app.stvn");
+    assertFalse(stvnRes.hasErrors(), () -> "Unexpected errors on .stvn omitting #kind: " + stvnRes.diagnostics());
+    assertTrue(stvnRes.diagnostics().isEmpty(), () -> "Expected 0 warnings on matching 2-stem .stvn: " + stvnRes.diagnostics());
+
+    var inMemoryRes = StvnCompiler.compileToResult(stvnSource);
+    assertFalse(inMemoryRes.hasErrors(), () -> "Unexpected errors on pathless compilation omitting #kind: " + inMemoryRes.diagnostics());
+
+    String inFlightKindSource = """
+        {
+          :meta {
+            #name "inflight_doc"
+            #domain "app"
+            #kind
+          }
+          :type :Int
+          :body 42
+        }
+        """;
+    var inFlightRes = StvnCompiler.compileToResult(inFlightKindSource, "inflight_doc.app.stvn_i");
+    assertTrue(inFlightRes.hasErrors());
+    assertTrue(
+        inFlightRes.diagnostics().stream().noneMatch(d -> "E031".equals(d.canonicalCode().orElse(null))),
+        () -> "In-flight '#kind' missing value must not cascade into secondary E031: " + inFlightRes.diagnostics()
     );
   }
 }

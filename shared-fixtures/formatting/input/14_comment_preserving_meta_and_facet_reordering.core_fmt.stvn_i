@@ -1,0 +1,60 @@
+{
+  :meta {  // identity header
+    // kind paragraph 1
+
+    // kind paragraph 2
+    #kind   #BODY_INCLUDE    // modular body-include kind
+
+    // domain comment line 1
+    // domain comment line 2
+
+    #domain "core_fmt" // formatter suite domain
+
+    // canonical document stem
+    #name "14_comment_preserving_meta_and_facet_reordering"// stem slot 0
+
+    // footer note line 1
+
+    // footer note line 2
+  }
+  :defs {
+    :BoundedTag { #regex "^[a-z_]+$" #maxSize 32 #minSize 2 } :String
+    :BoundedChannel { // integer channel constraints
+      // exclusive ceiling
+      #maxExcl 5000 // upper bound
+
+      // bit-width note 1
+
+      // bit-width note 2
+      #size  16    // 16-bit width
+
+      // floor note 1
+      // floor note 2
+
+      #minIncl 10 // lower bound
+
+      // sign invariant
+      #unsigned // non-negative domain
+      // end integer channel constraints
+    } :Int
+  }
+  :type { // root map constraints
+    // maximum entries
+    #maxSize 8 // upper entry bound
+
+    // minimum entries line 1
+    // minimum entries line 2
+    #minSize 1    // non-empty map
+
+    // bijectivity paragraph 1
+
+    // bijectivity paragraph 2
+    #invertible // one-to-one value mapping
+
+    // end root map constraints
+  } :Map(:BoundedTag :BoundedChannel)
+  :body {
+    ["alpha" 42]
+    ["beta" 256]
+  }
+}

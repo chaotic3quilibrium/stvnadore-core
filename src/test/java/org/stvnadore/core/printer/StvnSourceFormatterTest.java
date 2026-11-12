@@ -863,4 +863,150 @@ class StvnSourceFormatterTest {
     Assertions.assertEquals(expectedWithComments, formattedWithComments);
     Assertions.assertEquals(expectedWithComments, StvnSourceFormatter.format(formattedWithComments));
   }
+
+  @Test
+  @DisplayName("Disordered :meta section preserves comment slices, intra-comment blank lines, pre-entry blank lines, footer comments, and index-0 blank-line suppression")
+  void testDisorderedMetaPreservesCommentAndBlankLineSlices() {
+    String input = """
+        {
+          :meta {  // identity header
+
+            // kind paragraph 1
+
+            // kind paragraph 2
+            #kind   #BODY_INCLUDE    // modular body-include kind
+
+            // domain comment line 1
+            // domain comment line 2
+
+            #domain "core_fmt" // formatter suite domain
+
+            // canonical document stem
+            #name "comment_safe_meta"// stem slot 0
+
+            // footer note line 1
+
+            // footer note line 2
+          }
+          :type :Int
+          :body 42
+        }""";
+
+    String expected = """
+        {
+          :meta {  // identity header
+            // canonical document stem
+            #name "comment_safe_meta" // stem slot 0
+
+            // domain comment line 1
+            // domain comment line 2
+
+            #domain "core_fmt" // formatter suite domain
+            // kind paragraph 1
+
+            // kind paragraph 2
+            #kind #BODY_INCLUDE      // modular body-include kind
+
+            // footer note line 1
+
+            // footer note line 2
+          }
+          :type :Int
+          :body 42
+        }""";
+
+    String formatted = StvnSourceFormatter.format(input);
+    Assertions.assertEquals(expected, formatted);
+    Assertions.assertEquals(expected, StvnSourceFormatter.format(formatted));
+  }
+
+  @Test
+  @DisplayName("Disordered multi-line MetadataMap blocks in :defs and :type preserve comment slices, blank-line boundaries, and § 3.3.1 trailing comment alignment")
+  void testDisorderedMultiLineMetadataMapsPreserveCommentAndBlankLineSlices() {
+    String input = """
+        {
+          :defs {
+            :BoundedChannel { // integer channel constraints
+              // exclusive ceiling
+              #maxExcl 5000 // upper bound
+
+              // bit-width note 1
+
+              // bit-width note 2
+              #size  16    // 16-bit width
+
+              // floor note 1
+              // floor note 2
+
+              #minIncl 10 // lower bound
+
+              // sign invariant
+              #unsigned // non-negative domain
+              // end integer channel constraints
+            } :Int
+          }
+          :type { // root map constraints
+            // maximum entries
+            #maxSize 8 // upper entry bound
+
+            // minimum entries line 1
+            // minimum entries line 2
+            #minSize 1    // non-empty map
+
+            // bijectivity paragraph 1
+
+            // bijectivity paragraph 2
+            #invertible // one-to-one value mapping
+
+            // end root map constraints
+          } :Map(:String :BoundedChannel)
+          :body {
+            ["alpha" 42]
+          }
+        }""";
+
+    String expected = """
+        {
+          :defs {
+            :BoundedChannel { // integer channel constraints
+              // sign invariant
+              #unsigned // non-negative domain
+
+              // bit-width note 1
+
+              // bit-width note 2
+              #size 16     // 16-bit width
+
+              // floor note 1
+              // floor note 2
+
+              #minIncl 10 // lower bound
+              // exclusive ceiling
+              #maxExcl 5000 // upper bound
+              // end integer channel constraints
+            } :Int
+          }
+          :type { // root map constraints
+            // bijectivity paragraph 1
+
+            // bijectivity paragraph 2
+            #invertible // one-to-one value mapping
+
+            // minimum entries line 1
+            // minimum entries line 2
+            #minSize 1    // non-empty map
+            // maximum entries
+            #maxSize 8 // upper entry bound
+
+            // end root map constraints
+          } :Map(:String :BoundedChannel)
+          :body {
+            ["alpha" 42]
+          }
+        }""";
+
+    String formatted = StvnSourceFormatter.format(input);
+    Assertions.assertEquals(expected, formatted);
+    Assertions.assertEquals(expected, StvnSourceFormatter.format(formatted));
+  }
 }

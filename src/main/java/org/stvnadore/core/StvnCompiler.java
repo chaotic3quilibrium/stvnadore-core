@@ -252,7 +252,9 @@ public final class StvnCompiler {
           }
           String sym = diag.symbolicId().or(() -> diag.errorCode()).orElse("");
           if (DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN.equals(sym)
-              || DiagnosticBag.ERR_SECTION_ORDER_VIOLATION.equals(sym)) {
+              || DiagnosticBag.ERR_SECTION_ORDER_VIOLATION.equals(sym)
+              || (DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH.equals(sym)
+                  && diag.message().contains("requires " + StvnVocabulary.FACET_KW_META_KIND))) {
             continue;
           }
           if (sym.startsWith("ERR_DOCUMENT_")

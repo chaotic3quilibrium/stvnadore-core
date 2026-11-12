@@ -21,6 +21,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.ToIntFunction;
 
 /**
  * Non-destructive authoring source formatter for STVN 2.0.0 documents (Spec § 3.3, Operation 1).
@@ -176,20 +178,25 @@ public final class StvnSourceFormatter {
     };
   }
 
-  private record SortedMetaItem(
+  private record CommentLine(
+      Token token,
+      boolean blankLineBefore
+  ) {}
+
+  private record CommentedBlockSlice<T extends ParserRuleContext>(
       int rank,
       int originalOrder,
-      StvnParser.MetaElementContext ctx,
-      List<Token> leadingComments,
+      T ctx,
+      List<CommentLine> leadingComments,
+      boolean hadBlankLineBefore,
+      boolean blankLineBeforeEntry,
       @Nullable Token trailingComment
   ) {}
 
-  private record SortedFacetItem(
-      int rank,
-      int originalOrder,
-      StvnParser.MetadataEntryContext ctx,
-      List<Token> leadingComments,
-      @Nullable Token trailingComment
+  private record PartitionedCommentedBlock<T extends ParserRuleContext>(
+      List<CommentedBlockSlice<T>> slices,
+      List<CommentLine> footerComments,
+      boolean footerHadBlankLineBefore
   ) {}
 
   private record RootSectionSlice(
@@ -452,56 +459,13 @@ public final class StvnSourceFormatter {
       lastEmittedLine = openBrace.getLine();
 
       List<StvnParser.MetaElementContext> rawElements = block.metaElement();
-      int openLimit = rawElements.isEmpty()
-          ? closeBrace.getTokenIndex()
-          : rawElements.get(0).getStart().getTokenIndex();
-      appendTrailingCommentIfOnLine(openBrace.getLine(), openLimit);
-      List<SortedMetaItem> items = new ArrayList<>(rawElements.size());
-      for (int i = 0; i < rawElements.size(); i++) {
-        StvnParser.MetaElementContext el = rawElements.get(i);
-        int nextLimit = (i + 1 < rawElements.size())
-            ? rawElements.get(i + 1).getStart().getTokenIndex()
-            : closeBrace.getTokenIndex();
-
-        List<Token> leading = new ArrayList<>();
-        while (nextCommentIdx < activeCommentEndIdxExclusive
-            && comments.get(nextCommentIdx).getTokenIndex() < el.getStart().getTokenIndex()) {
-          leading.add(comments.get(nextCommentIdx++));
-        }
-        Token trailing = null;
-        if (nextCommentIdx < activeCommentEndIdxExclusive) {
-          Token candidate = comments.get(nextCommentIdx);
-          if (candidate.getTokenIndex() < nextLimit && candidate.getLine() == el.getStop().getLine()) {
-            trailing = candidate;
-            nextCommentIdx++;
-          }
-        }
-        items.add(new SortedMetaItem(metaElementRank(el), i, el, leading, trailing));
-      }
-
-      List<Token> footerComments = new ArrayList<>();
-      while (nextCommentIdx < activeCommentEndIdxExclusive
-          && comments.get(nextCommentIdx).getTokenIndex() < closeBrace.getTokenIndex()) {
-        footerComments.add(comments.get(nextCommentIdx++));
-      }
-
-      items.sort(Comparator.comparingInt(SortedMetaItem::rank)
-          .thenComparingInt(SortedMetaItem::originalOrder));
-
-      for (SortedMetaItem item : items) {
-        for (Token c : item.leadingComments()) {
-          sb.append('\n').append(indentStr(indent + 1)).append(c.getText());
-        }
-        sb.append('\n').append(indentStr(indent + 1));
-        formatMetaElementInline(item.ctx());
-        if (item.trailingComment() != null) {
-          sb.append(trailingCommentPadding(item.trailingComment())).append(item.trailingComment().getText());
-        }
-      }
-
-      for (Token c : footerComments) {
-        sb.append('\n').append(indentStr(indent + 1)).append(c.getText());
-      }
+      PartitionedCommentedBlock<StvnParser.MetaElementContext> partitioned = partitionCommentedBlock(
+          openBrace,
+          closeBrace,
+          rawElements,
+          StvnSourceFormatter::metaElementRank
+      );
+      emitPartitionedCommentedBlock(partitioned, indent + 1, this::formatMetaElementInline);
 
       sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
       lastEmittedLine = closeBrace.getLine();
@@ -1180,13 +1144,15 @@ public final class StvnSourceFormatter {
       boolean multiLine = openBrace.getLine() < closeBrace.getLine() || hasComments;
 
       if (!multiLine) {
-        List<SortedFacetItem> sorted = new ArrayList<>(rawEntries.size());
+        List<CommentedBlockSlice<StvnParser.MetadataEntryContext>> sorted = new ArrayList<>(rawEntries.size());
         for (int i = 0; i < rawEntries.size(); i++) {
           StvnParser.MetadataEntryContext entry = rawEntries.get(i);
-          sorted.add(new SortedFacetItem(metadataFacetRank(entry), i, entry, List.of(), null));
+          sorted.add(new CommentedBlockSlice<>(
+              metadataFacetRank(entry), i, entry, List.of(), false, false, null
+          ));
         }
-        sorted.sort(Comparator.comparingInt(SortedFacetItem::rank)
-            .thenComparingInt(SortedFacetItem::originalOrder));
+        sorted.sort(Comparator.<CommentedBlockSlice<StvnParser.MetadataEntryContext>>comparingInt(CommentedBlockSlice::rank)
+            .thenComparingInt(CommentedBlockSlice::originalOrder));
         sb.append("{ ");
         for (int i = 0; i < sorted.size(); i++) {
           if (i > 0) {
@@ -1199,56 +1165,17 @@ public final class StvnSourceFormatter {
       } else {
         sb.append(StvnVocabulary.DELIM_OPEN_BRACE);
         lastEmittedLine = openBrace.getLine();
-        int openLimit = rawEntries.isEmpty()
-            ? closeBrace.getTokenIndex()
-            : rawEntries.get(0).getStart().getTokenIndex();
-        appendTrailingCommentIfOnLine(openBrace.getLine(), openLimit);
-
-        List<SortedFacetItem> sorted = new ArrayList<>(rawEntries.size());
-        for (int i = 0; i < rawEntries.size(); i++) {
-          StvnParser.MetadataEntryContext entry = rawEntries.get(i);
-          int nextLimit = (i + 1 < rawEntries.size())
-              ? rawEntries.get(i + 1).getStart().getTokenIndex()
-              : closeBrace.getTokenIndex();
-
-          List<Token> leading = new ArrayList<>();
-          while (nextCommentIdx < activeCommentEndIdxExclusive
-              && comments.get(nextCommentIdx).getTokenIndex() < entry.getStart().getTokenIndex()) {
-            leading.add(comments.get(nextCommentIdx++));
-          }
-          Token trailing = null;
-          if (nextCommentIdx < activeCommentEndIdxExclusive) {
-            Token candidate = comments.get(nextCommentIdx);
-            if (candidate.getTokenIndex() < nextLimit && candidate.getLine() == entry.getStop().getLine()) {
-              trailing = candidate;
-              nextCommentIdx++;
-            }
-          }
-          sorted.add(new SortedFacetItem(metadataFacetRank(entry), i, entry, leading, trailing));
-        }
-
-        List<Token> footerComments = new ArrayList<>();
-        while (nextCommentIdx < activeCommentEndIdxExclusive
-            && comments.get(nextCommentIdx).getTokenIndex() < closeBrace.getTokenIndex()) {
-          footerComments.add(comments.get(nextCommentIdx++));
-        }
-
-        sorted.sort(Comparator.comparingInt(SortedFacetItem::rank)
-            .thenComparingInt(SortedFacetItem::originalOrder));
-
-        for (SortedFacetItem item : sorted) {
-          for (Token c : item.leadingComments()) {
-            sb.append('\n').append(indentStr(indent + 1)).append(c.getText());
-          }
-          sb.append('\n').append(indentStr(indent + 1));
-          formatMetadataEntryInline(item.ctx(), indent + 1);
-          if (item.trailingComment() != null) {
-            sb.append(trailingCommentPadding(item.trailingComment())).append(item.trailingComment().getText());
-          }
-        }
-        for (Token c : footerComments) {
-          sb.append('\n').append(indentStr(indent + 1)).append(c.getText());
-        }
+        PartitionedCommentedBlock<StvnParser.MetadataEntryContext> partitioned = partitionCommentedBlock(
+            openBrace,
+            closeBrace,
+            rawEntries,
+            StvnSourceFormatter::metadataFacetRank
+        );
+        emitPartitionedCommentedBlock(
+            partitioned,
+            indent + 1,
+            entryCtx -> formatMetadataEntryInline(entryCtx, indent + 1)
+        );
         sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
         lastEmittedLine = closeBrace.getLine();
       }
@@ -1846,6 +1773,153 @@ public final class StvnSourceFormatter {
         return source.substring(start, stop + 1).replace("\r\n", "\n").replace('\r', '\n');
       }
       return ctx.getText();
+    }
+
+    private <T extends ParserRuleContext> PartitionedCommentedBlock<T> partitionCommentedBlock(
+        Token openBrace,
+        Token closeBrace,
+        List<T> rawEntries,
+        ToIntFunction<T> ranker
+    ) {
+      int openLimit = rawEntries.isEmpty()
+          ? closeBrace.getTokenIndex()
+          : rawEntries.get(0).getStart().getTokenIndex();
+      appendTrailingCommentIfOnLine(openBrace.getLine(), openLimit);
+
+      int prevAnchorStopLine = openBrace.getLine();
+      List<CommentedBlockSlice<T>> slices = new ArrayList<>(rawEntries.size());
+
+      for (int i = 0; i < rawEntries.size(); i++) {
+        T entry = rawEntries.get(i);
+        int entryStartTok = entry.getStart().getTokenIndex();
+        int entryStopTok = entry.getStop().getTokenIndex();
+        int entryStartLine = entry.getStart().getLine();
+        int entryStopLine = entry.getStop().getLine();
+        int nextLimit = (i + 1 < rawEntries.size())
+            ? rawEntries.get(i + 1).getStart().getTokenIndex()
+            : closeBrace.getTokenIndex();
+
+        List<Token> rawLeading = new ArrayList<>();
+        while (nextCommentIdx < activeCommentEndIdxExclusive
+            && comments.get(nextCommentIdx).getTokenIndex() < entryStartTok) {
+          rawLeading.add(comments.get(nextCommentIdx++));
+        }
+
+        while (nextCommentIdx < activeCommentEndIdxExclusive
+            && comments.get(nextCommentIdx).getTokenIndex() <= entryStopTok) {
+          nextCommentIdx++;
+        }
+
+        int firstSliceLine = rawLeading.isEmpty()
+            ? entryStartLine
+            : rawLeading.get(0).getLine();
+        boolean hadBlankLineBefore = i > 0 && (firstSliceLine - prevAnchorStopLine >= 2);
+
+        List<CommentLine> leading = new ArrayList<>(rawLeading.size());
+        for (int j = 0; j < rawLeading.size(); j++) {
+          Token c = rawLeading.get(j);
+          boolean blankBeforeComment = j > 0 && (c.getLine() - rawLeading.get(j - 1).getLine() >= 2);
+          leading.add(new CommentLine(c, blankBeforeComment));
+        }
+
+        boolean blankLineBeforeEntry = !rawLeading.isEmpty()
+            && (entryStartLine - rawLeading.get(rawLeading.size() - 1).getLine() >= 2);
+
+        Token trailing = null;
+        if (nextCommentIdx < activeCommentEndIdxExclusive) {
+          Token candidate = comments.get(nextCommentIdx);
+          if (candidate.getTokenIndex() < nextLimit && candidate.getLine() == entryStopLine) {
+            trailing = candidate;
+            nextCommentIdx++;
+          }
+        }
+
+        slices.add(new CommentedBlockSlice<>(
+            ranker.applyAsInt(entry),
+            i,
+            entry,
+            List.copyOf(leading),
+            hadBlankLineBefore,
+            blankLineBeforeEntry,
+            trailing
+        ));
+        prevAnchorStopLine = entryStopLine;
+      }
+
+      List<Token> rawFooter = new ArrayList<>();
+      while (nextCommentIdx < activeCommentEndIdxExclusive
+          && comments.get(nextCommentIdx).getTokenIndex() < closeBrace.getTokenIndex()) {
+        rawFooter.add(comments.get(nextCommentIdx++));
+      }
+
+      boolean footerHadBlankLineBefore = !rawEntries.isEmpty()
+          && !rawFooter.isEmpty()
+          && (rawFooter.get(0).getLine() - prevAnchorStopLine >= 2);
+      List<CommentLine> footerComments = new ArrayList<>(rawFooter.size());
+      for (int j = 0; j < rawFooter.size(); j++) {
+        Token c = rawFooter.get(j);
+        boolean blankBeforeFooter = j > 0 && (c.getLine() - rawFooter.get(j - 1).getLine() >= 2);
+        footerComments.add(new CommentLine(c, blankBeforeFooter));
+      }
+
+      slices.sort(Comparator.<CommentedBlockSlice<T>>comparingInt(CommentedBlockSlice::rank)
+          .thenComparingInt(CommentedBlockSlice::originalOrder));
+
+      return new PartitionedCommentedBlock<>(
+          slices,
+          List.copyOf(footerComments),
+          footerHadBlankLineBefore
+      );
+    }
+
+    private <T extends ParserRuleContext> void emitPartitionedCommentedBlock(
+        PartitionedCommentedBlock<T> partitioned,
+        int entryIndent,
+        Consumer<T> inlineEntryFormatter
+    ) {
+      List<CommentedBlockSlice<T>> sorted = partitioned.slices();
+      for (int i = 0; i < sorted.size(); i++) {
+        CommentedBlockSlice<T> item = sorted.get(i);
+        if (i > 0 && item.hadBlankLineBefore()) {
+          sb.append('\n');
+        }
+        for (CommentLine c : item.leadingComments()) {
+          if (c.blankLineBefore()) {
+            sb.append('\n');
+          }
+          sb.append('\n').append(indentStr(entryIndent)).append(c.token().getText());
+        }
+        if (item.blankLineBeforeEntry()) {
+          sb.append('\n');
+        }
+        sb.append('\n').append(indentStr(entryIndent));
+        inlineEntryFormatter.accept(item.ctx());
+        if (item.trailingComment() != null) {
+          sb.append(trailingCommentPadding(item.trailingComment()))
+              .append(item.trailingComment().getText());
+        }
+      }
+
+      List<CommentLine> footer = partitioned.footerComments();
+      if (!footer.isEmpty()) {
+        if (partitioned.footerHadBlankLineBefore() && !sorted.isEmpty()) {
+          sb.append('\n');
+        }
+        for (CommentLine c : footer) {
+          if (c.blankLineBefore()) {
+            sb.append('\n');
+          }
+          sb.append('\n').append(indentStr(entryIndent)).append(c.token().getText());
+        }
+      }
+      if (!footer.isEmpty()) {
+        lastEmittedLine = footer.get(footer.size() - 1).token().getLine();
+      } else if (!sorted.isEmpty()) {
+        CommentedBlockSlice<T> last = sorted.get(sorted.size() - 1);
+        lastEmittedLine = last.trailingComment() != null
+            ? last.trailingComment().getLine()
+            : last.ctx().getStop().getLine();
+      }
     }
 
     private boolean hasCommentsBetween(int startTokenIndexExclusive, int endTokenIndexExclusive) {

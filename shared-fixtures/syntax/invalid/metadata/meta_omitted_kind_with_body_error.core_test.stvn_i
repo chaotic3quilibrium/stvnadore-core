@@ -1,0 +1,11 @@
+{
+  :meta {
+    #name "meta_omitted_kind_with_body_error"
+    #domain "core_test"
+  }
+  :defs {
+    :BoundedPort { #unsigned #size 16 #minIncl 1024 #maxExcl 4096 } :Int
+  }
+  :type :BoundedPort
+  :body 5000
+}

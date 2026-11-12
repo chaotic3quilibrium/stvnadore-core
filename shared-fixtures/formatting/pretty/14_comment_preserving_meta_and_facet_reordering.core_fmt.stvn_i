@@ -1,0 +1,16 @@
+{
+  :meta {
+    #name "14_comment_preserving_meta_and_facet_reordering"
+    #domain "core_fmt"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :BoundedChannel { #unsigned #size 16 #minIncl 10 #maxExcl 5000 } :Int
+    :BoundedTag { #minSize 2 #maxSize 32 #regex "^[a-z_]+$" } :String
+  }
+  :type { #invertible #minSize 1 #maxSize 8 } :Map(:BoundedTag :BoundedChannel)
+  :body {
+    ["alpha" 42]
+    ["beta" 256]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "meta_omitted_kind_with_body_error"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E031 #ERR_DOCUMENT_KIND_MISMATCH #ERROR 2 3 4 9 "Root ':meta' section requires #kind facet matching file extension '.stvn_i' (expected '#BODY_INCLUDE')" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 10 9 202 206 "Constraint violation (:BoundedPort): Value 5000 is outside allowable range (must be < 4096)" )
+  ]
+}
