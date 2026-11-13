@@ -1,0 +1,47 @@
+{
+  :meta { // identity header
+    // stem note
+    #name "15_const_trait_facets_and_temporal_enum_comments" // stem slot 0
+    // domain note
+    #domain "core_fmt" // formatter domain
+    // kind note
+    #kind #BODY_INCLUDE // body include kind
+    // end identity header
+  }
+  :defs {
+    #DISABLE_COMPARE :Boolean #FALSE // disable lexical ordering
+    #KEEP_INDENT :Boolean #TRUE // retain fenced indentation
+    :AuditTimestamp { // audited temporal contract
+      // mandatory temporal mode
+      #audited // offset + zone verified
+      // half-open upper bound
+      #maxExcl "2030-01-01T00:00:00Z" // ceiling instant
+      // end audited temporal contract
+    } :DateTime
+    :RawTemplate { // template string constraints
+      // lower length bound
+      #minSize 4 // min chars
+      // upper length bound
+      #maxSize 128 // max chars
+      // comparable trait via constant
+      #comparable #DISABLE_COMPARE // equality only
+      // indent trait via constant
+      #preserveIndent #KEEP_INDENT // keep leading spaces
+      // lexical pattern
+      #regex "^[A-Za-z0-9_\\n ]+$" // ascii body
+      // end template string constraints
+    } :String
+    :SettlementState :Enum[#CREATED #AUTHORIZED #CAPTURED #SETTLED #VOIDED #REFUNDED]
+    :FinalizableState { // active settlement subset
+      // permitted settlement states
+      #filterIncl [#AUTHORIZED #CAPTURED #SETTLED] // narrow to finalizable
+      // end active settlement subset
+    } :SettlementState
+  }
+  :type :Tuple(:AuditTimestamp :RawTemplate :FinalizableState)
+  :body (
+    "2026-09-12T15:30:00-04:00[America/New_York]"
+    "  ready_template"
+    #CAPTURED
+  )
+}

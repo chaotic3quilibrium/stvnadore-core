@@ -1,0 +1,23 @@
+// @spec: SPEC-05-FENCED-ARITY-ISOLATION
+// @case: Negative - Malformed fenced strings preserve tuple slot arity and isolated defs syntax error preserves Pass 3 body validation
+// @error: FENCE_DELIMITER_MISMATCH
+{
+  :defs {
+    :HealthyRoute { #minSize 4 #maxSize 8 } :String
+    :FixedFive { #minSize 5 #maxSize 5 } :String
+    :IsolatedBrokenNum { #size } :Int
+  }
+  :type :Tuple(:String :String :String :Boolean :HealthyRoute :FixedFive)
+  :body (
+    "healthy-prefix"
+    """
+    untagged slot one
+    """
+    """[]
+    empty tag slot two
+    []"""
+    "true"
+    "rk"
+    "ABCDE_OVER"
+  )
+}

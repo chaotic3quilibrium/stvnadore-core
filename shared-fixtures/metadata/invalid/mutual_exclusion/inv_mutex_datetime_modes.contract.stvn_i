@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 16 26 721 727 "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 16 26 721 727 "Temporal mode facets ('#offset', '#zoned', '#audited') are mutually exclusive" )
   ]
 }

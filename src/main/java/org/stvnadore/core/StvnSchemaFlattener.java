@@ -16,6 +16,7 @@ import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.lowering.StvnDefsLowerer;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
+import org.stvnadore.core.parser.StvnSyntaxErrorSanitizer;
 import org.stvnadore.core.stdlib.StvnPrelude;
 import org.stvnadore.core.validation.CyclicDependencyException;
 import org.stvnadore.core.validation.DiagnosticBag;
@@ -158,10 +159,16 @@ public final class StvnSchemaFlattener {
     var lexer = new StvnLexer(CharStreams.fromString(rootContent));
     lexer.removeErrorListeners();
     lexer.addErrorListener(errorListener);
-    var parser = new StvnParser(new CommonTokenStream(lexer));
+    var tokens = new CommonTokenStream(lexer);
+    var parser = new StvnParser(tokens);
     parser.removeErrorListeners();
     parser.addErrorListener(errorListener);
     var docCtx = parser.stvnDocument();
+    try {
+      StvnSyntaxErrorSanitizer.scanMalformedFenceTokens(tokens, parser, null, true);
+    } catch (RuntimeException fenceEx) {
+      throw new MalformedSchemaException(fenceEx.getMessage() != null ? fenceEx.getMessage() : "Malformed fenced string", fenceEx);
+    }
 
     DiagnosticBag bag = new DiagnosticBag(32, normEntryPoint);
     StvnDefsLowerer.DefsLoweringResult lowered = StvnDefsLowerer.lowerForFlattener(

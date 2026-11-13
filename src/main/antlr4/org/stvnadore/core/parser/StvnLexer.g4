@@ -132,8 +132,14 @@ PROHIBITED_FENCE_START : '"""->[' ~[\r\n]* '\n' {
     pushMode(MALFORMED_FENCED_STRING);
 } ;
 
-MALFORMED_FENCE_OPEN : '"""' ~[\r\n]* ('\n' | '"""' | EOF) {
-    pushMode(MALFORMED_FENCED_STRING);
+MALFORMED_FENCE_INLINE : '"""' ~[\r\n]*? '"""' {
+    setType(MALFORMED_FENCE_OPEN);
+} ;
+
+MALFORMED_FENCE_OPEN : '"""' ( ~[\r\n"] | '"' ~[\r\n"] | '""' ~[\r\n"] )* ('\n' | EOF) {
+    if (getText().endsWith("\n")) {
+        pushMode(MALFORMED_FENCED_STRING);
+    }
 } ;
 
 MALFORMED_FENCE_CLOSE : '[' ~[\r\n\]]* ']"""' ;
@@ -151,9 +157,9 @@ FENCE_CONTENT : . ;
 
 mode MALFORMED_FENCED_STRING;
 
-// Consume and skip the closing delimiter to return cleanly to DEFAULT_MODE
-MALFORMED_FENCE_END : ('[' ~[\r\n\]]* ']"""' | '"""[' ~[\r\n\]]* ']') -> skip, popMode ;
-MALFORMED_BLOCK_END : '"""' -> skip, popMode ;
+// Consume the closing delimiter on the default channel to return cleanly to DEFAULT_MODE while preserving AST slot arity
+MALFORMED_FENCE_END : ('[' ~[\r\n\]]* ']"""' | '"""[' ~[\r\n\]]* ']') -> popMode ;
+MALFORMED_BLOCK_END : '"""' -> popMode ;
 
-// Silently skip body characters to prevent cascading syntax errors in DEFAULT_MODE
-MALFORMED_FENCE_CONTENT : . -> skip ;
+// Retain body characters for malformedFencedString without cascading syntax errors in DEFAULT_MODE
+MALFORMED_FENCE_CONTENT : . ;

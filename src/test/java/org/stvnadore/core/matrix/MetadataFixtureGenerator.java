@@ -1992,7 +1992,7 @@ public final class MetadataFixtureGenerator {
         Optional.of("#maxIncl")
     ));
 
-    // 3. Temporal scale conflict (#s and #ms)
+    // 3. Temporal scale conflict ('#s' and '#ms')
     list.add(new GeneratedFixture(
         Path.of("invalid", "mutual_exclusion", "inv_mutex_time_epoch_scales.stvn"),
         """
@@ -2022,7 +2022,7 @@ public final class MetadataFixtureGenerator {
         Optional.of("#ms")
     ));
 
-    // 4. Temporal mode conflict (#offset and #zoned)
+    // 4. Temporal mode conflict ('#offset' and '#zoned')
     list.add(new GeneratedFixture(
         Path.of("invalid", "mutual_exclusion", "inv_mutex_datetime_modes.stvn"),
         """
@@ -2081,6 +2081,38 @@ public final class MetadataFixtureGenerator {
         CoverageKind.MUTUALLY_EXCLUSIVE,
         Optional.of("MUTUALLY_EXCLUSIVE_BOUNDS"),
         Optional.of("#filterExcl")
+    ));
+
+    // 6. Reverse-subtier mutex precedence across all 6 mutex groups without stacking E032
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "mutual_exclusion", "inv_mutex_reverse_tier_no_order_cascade.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_mutex_reverse_tier_no_order_cascade
+        // COVERAGE-KIND:      MUTUALLY_EXCLUSIVE
+        // EXPECT-DIAGNOSTIC:  MUTUALLY_EXCLUSIVE_BOUNDS
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Reverse-subtier mutually exclusive facets emit E008 without stacking E032 order violations
+        // ==============================================================================
+        {
+          :defs {
+            :BaseStatus :Enum [ #A #B #C ]
+            :TrapDualScaleEpoch { #s #ms } :TimeEpoch
+            :TrapReverseModes { #audited #offset } :DateTime
+            :TrapExactThenSize { #exact #size 64 } :Float
+            :TrapLowerBounds { #minExcl 0.0 #minIncl 1.0 } :Float
+            :TrapUpperBounds { #maxExcl 10.0 #maxIncl 5.0 } :Float
+            :TrapReverseFilter { #filterExcl [ #A ] #filterIncl [ #A #B ] } :BaseStatus
+          }
+          :type :Int
+          :body 0
+        }
+        """,
+        CoverageKind.MUTUALLY_EXCLUSIVE,
+        Optional.of("MUTUALLY_EXCLUSIVE_BOUNDS"),
+        Optional.empty()
     ));
 
     return list;

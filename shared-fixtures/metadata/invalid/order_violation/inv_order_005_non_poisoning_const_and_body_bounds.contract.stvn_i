@@ -12,7 +12,7 @@
     ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 20 36 923 936 "Facet order violation (:LedgerChannel): facet '#minIncl' (Tier 3) violates canonical 5-tier order after '#maxExcl'" )
     ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 20 50 937 945 "Facet order violation (:LedgerChannel): facet '#size' (Tier 1) violates canonical 5-tier order after '#minIncl'" )
     ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 20 59 946 955 "Facet order violation (:LedgerChannel): facet '#unsigned' (Tier 1) violates canonical 5-tier order after '#size'" )
-    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 21 38 1000 1003 "Constraint violation (#FALLBACK_CHANNEL): Value 500 is outside allowable range (must be >= 1024)" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 21 38 1000 1003 "Constraint violation (:LedgerChannel): Value 500 is outside allowable range (must be >= 1024)" )
     ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 28 5 1080 1084 "Constraint violation (:LedgerChannel): Value 5000 is outside allowable range (must be < 4096)" )
     ( #E009 #ERR_INTEGER_OVERFLOW #ERROR 29 5 1089 1091 "Integer literal '-1' overflows unsigned 16-bit capacity for :LedgerChannel; valid value range is [0, 65535]" )
   ]

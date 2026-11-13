@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 13 9 333 342 "Invalid enum value: variant #CRITICAL is not permitted in enum subset :StandardPriority; allowed variants: [#LOW, #MEDIUM, #HIGH]" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 13 9 333 342 "Invalid enum value: variant '#CRITICAL' is not permitted in enum subset ':StandardPriority'; allowed variants: [#LOW, #MEDIUM, #HIGH]" )
   ]
 }

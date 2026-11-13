@@ -14,6 +14,6 @@
     ( #E036 #ERR_UNRECOGNIZED_METADATA_FACET #ERROR 14 35 403 414 "Metadata violation (:UnknownFacetTrap): Unrecognized constraint facet '#bogusFacet'" )
     ( #E009 #ERR_EMPTY_INTERVAL_DOMAIN #ERROR 17 58 537 549 "Constraint violation (:EmptyIntervalTrap): discrete integer interval [500, 500) defines an empty domain" )
     ( #E009 #INVALID_NUMERIC_RANGE #ERROR 20 60 665 678 "Constraint violation (:InvertedBoundsTrap): effective range is invalid (#minIncl 2000 exceeds #maxExcl 1000)" )
-    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 34 47 1118 1121 "Constraint violation (#ILLEGAL_DYNAMIC_PORT): Value 512 is outside allowable range (must be >= 1024)" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 34 47 1118 1121 "Constraint violation (:DynamicPortChannel): Value 512 is outside allowable range (must be >= 1024)" )
   ]
 }

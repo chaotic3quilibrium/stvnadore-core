@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E008 #ERR_MISSING_TEMPORAL_FACET #ERROR 6 16 154 164 "Temporal primitive ':TimeEpoch' requires a scale facet (#ns, #us, #ms, or #s)" )
+    ( #E008 #ERR_MISSING_TEMPORAL_FACET #ERROR 6 16 154 164 "Temporal primitive ':TimeEpoch' requires exactly one scale facet ('#ns', '#us', '#ms', or '#s')" )
   ]
 }

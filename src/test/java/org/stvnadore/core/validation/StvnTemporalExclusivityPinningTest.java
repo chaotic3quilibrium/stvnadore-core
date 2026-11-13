@@ -34,7 +34,7 @@ public class StvnTemporalExclusivityPinningTest {
     int expectedEnd = expectedStart + "#zoned".length();
     assertEquals(expectedStart, diag.startOffset(), "Diagnostic must pin strictly to '#zoned'");
     assertEquals(expectedEnd, diag.endOffset(), "Diagnostic end must match '#zoned'");
-    assertTrue(diag.message().contains("Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive"));
+    assertTrue(diag.message().contains("Temporal mode facets ('#offset', '#zoned', '#audited') are mutually exclusive"));
 
     // Anti-tautological assertions: verify #offset and delimiters have zero diagnostics
     int offsetStart = stvn.indexOf("#offset");
@@ -68,6 +68,7 @@ public class StvnTemporalExclusivityPinningTest {
     int expectedEnd = expectedStart + "#s".length();
     assertEquals(expectedStart, diag.startOffset(), "Diagnostic must pin strictly to '#s'");
     assertEquals(expectedEnd, diag.endOffset(), "Diagnostic end must match '#s'");
+    assertTrue(diag.message().contains("Temporal scale facets ('#ns', '#us', '#ms', '#s') are mutually exclusive"));
   }
 
   @Test

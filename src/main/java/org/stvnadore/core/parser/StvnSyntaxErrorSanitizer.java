@@ -1,5 +1,6 @@
 package org.stvnadore.core.parser;
 
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.LexerNoViableAltException;
 import org.antlr.v4.runtime.Parser;
@@ -17,6 +18,8 @@ import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.StvnSyntaxCancellationException;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -318,6 +321,77 @@ public final class StvnSyntaxErrorSanitizer {
   }
 
   /**
+   * Scans the default-channel token stream for malformed fenced string opening tokens
+   * ({@link StvnLexer#MALFORMED_FENCE_OPEN}) absorbed during Pass 1 container-slot recovery,
+   * recording deterministic {@code E025} ({@link DiagnosticBag#ERR_FENCE_DELIMITER_MISMATCH})
+   * or {@code E026} ({@link DiagnosticBag#ERR_PROHIBITED_FENCE_ARROW}) diagnostics pinned
+   * strictly to each malformed opening fence delimiter line.
+   *
+   * @param tokens        the buffered ANTLR token stream produced by {@link StvnLexer}
+   * @param parser        the active {@link Parser} instance used for sanitization context
+   * @param diagnosticBag the optional diagnostic accumulator bag, or {@code null} in strict mode
+   * @param strict        {@code true} to throw {@link StvnSyntaxCancellationException} on the first malformed fence
+   * @return an immutable list of {@link StvnDiagnostic} entries corresponding to all malformed fences in {@code tokens}
+   * @throws StvnSyntaxCancellationException if {@code strict} is {@code true} and a malformed fence token is present
+   */
+  public static List<StvnDiagnostic> scanMalformedFenceTokens(
+      CommonTokenStream tokens,
+      Parser parser,
+      @Nullable DiagnosticBag diagnosticBag,
+      boolean strict
+  ) {
+    tokens.fill();
+    List<StvnDiagnostic> recorded = new ArrayList<>();
+    for (int i = 0; i < tokens.size(); i++) {
+      Token tok = tokens.get(i);
+      if (tok.getChannel() != Token.DEFAULT_CHANNEL || tok.getType() != StvnLexer.MALFORMED_FENCE_OPEN) {
+        continue;
+      }
+      SanitizedSyntaxDiagnostic sanitized = sanitize(
+          parser,
+          tok,
+          tok.getLine(),
+          tok.getCharPositionInLine(),
+          "",
+          null
+      );
+      if (strict) {
+        throw new StvnSyntaxCancellationException(
+            sanitized.message(),
+            sanitized.line(),
+            sanitized.column(),
+            sanitized.startOffset(),
+            sanitized.endOffset(),
+            null,
+            sanitized.canonicalCode(),
+            sanitized.symbolicId()
+        );
+      }
+      StvnDiagnostic existing = null;
+      if (diagnosticBag != null) {
+        for (StvnDiagnostic prev : diagnosticBag.toList()) {
+          if (prev.startOffset() == sanitized.startOffset()
+              && (DiagnosticBag.ERR_FENCE_DELIMITER_MISMATCH.equals(prev.symbolicId().orElse(""))
+                  || DiagnosticBag.ERR_PROHIBITED_FENCE_ARROW.equals(prev.symbolicId().orElse("")))) {
+            existing = prev;
+            break;
+          }
+        }
+      }
+      if (existing != null) {
+        recorded.add(existing);
+      } else {
+        StvnDiagnostic diag = sanitized.toDiagnostic(null);
+        if (diagnosticBag != null) {
+          diagnosticBag.add(diag);
+        }
+        recorded.add(diag);
+      }
+    }
+    return List.copyOf(recorded);
+  }
+
+  /**
    * Sanitizes a raw ANTLR lexer or parser recognition error into a deterministic
    * {@link SanitizedSyntaxDiagnostic}.
    *
@@ -369,7 +443,12 @@ public final class StvnSyntaxErrorSanitizer {
             isRootMissing = true;
           }
           Token prevDefault = previousDefaultChannelToken(stream, idx);
-          if (prevDefault != null && prevDefault.getType() == StvnLexer.KW_PRESERVE_INDENT) {
+          if (prevDefault != null
+              && token.getType() != StvnLexer.MALFORMED_FENCE_OPEN
+              && token.getType() != StvnLexer.MALFORMED_FENCE_CLOSE
+              && (prevDefault.getType() == StvnLexer.KW_PRESERVE_INDENT
+                  || prevDefault.getType() == StvnLexer.KW_EQUATABLE
+                  || prevDefault.getType() == StvnLexer.KW_COMPARABLE)) {
             startOffset = prevDefault.getStartIndex();
             endOffset = prevDefault.getStopIndex() + 1;
             line = prevDefault.getLine();
@@ -657,8 +736,12 @@ public final class StvnSyntaxErrorSanitizer {
               + "' section: declare a metadata block '{ ... }' after '" + StvnVocabulary.KEYWORD_META + "'";
         }
 
-        if (prevToken != null && prevToken.getType() == StvnLexer.KW_PRESERVE_INDENT) {
-          return "Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)";
+        if (prevToken != null
+            && (prevToken.getType() == StvnLexer.KW_PRESERVE_INDENT
+                || prevToken.getType() == StvnLexer.KW_EQUATABLE
+                || prevToken.getType() == StvnLexer.KW_COMPARABLE)) {
+          return "Metadata facet '" + prevToken.getText() + "' requires an explicit boolean value ("
+              + StvnVocabulary.VAL_TRUE + " or " + StvnVocabulary.VAL_FALSE + ")";
         }
 
         if (stream != null && "(".equals(tokenText)) {
@@ -795,7 +878,8 @@ public final class StvnSyntaxErrorSanitizer {
     if (coreMsg.contains("Rule STR-04 violation") || coreMsg.contains("Unclosed fenced string")) {
       return DiagnosticBag.ERR_FENCE_DELIMITER_MISMATCH;
     }
-    if (coreMsg.contains("Metadata facet #preserveIndent requires an explicit boolean value")) {
+    if (coreMsg.contains("requires an explicit boolean value ("
+        + StvnVocabulary.VAL_TRUE + " or " + StvnVocabulary.VAL_FALSE + ")")) {
       return DiagnosticBag.ERR_INVALID_METADATA_FACET;
     }
     if (coreMsg.startsWith("Empty directive '")) {
@@ -826,7 +910,13 @@ public final class StvnSyntaxErrorSanitizer {
     return found;
   }
 
-  private static String formatMalformedFenceMessage(String tokenText) {
+  /**
+   * Formats a Rule STR-04 diagnostic core message for a malformed opening fence delimiter token.
+   *
+   * @param tokenText the raw {@link StvnLexer#MALFORMED_FENCE_OPEN} token text
+   * @return the sanitized core message without the {@code STVN Syntax Error: } prefix
+   */
+  public static String formatMalformedFenceMessage(String tokenText) {
     if (tokenText.startsWith("\"\"\"->[")) {
       return "Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited";
     }

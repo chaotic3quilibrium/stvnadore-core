@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E008 #ERR_MISSING_TEMPORAL_FACET #ERROR 6 16 159 168 "Temporal primitive ':DateTime' requires exactly one mode facet (#offset, #zoned, or #audited)" )
+    ( #E008 #ERR_MISSING_TEMPORAL_FACET #ERROR 6 16 159 168 "Temporal primitive ':DateTime' requires exactly one mode facet ('#offset', '#zoned', or '#audited')" )
   ]
 }

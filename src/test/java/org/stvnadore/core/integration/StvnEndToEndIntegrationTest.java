@@ -195,7 +195,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ #YELLOW ]
                 }
                 """,
-            "Invalid enum value: expected one of [#RED, #GREEN, #BLUE], got #YELLOW"),
+            "Invalid enum value for ':Enum': variant '#YELLOW' is not declared; allowed variants: [#RED, #GREEN, #BLUE]"),
 
         TestProfile.create(
             "Extending Enum - Registry Constant Injection Valid Map Usage",
@@ -1543,7 +1543,7 @@ public class StvnEndToEndIntegrationTest {
                   :body []
                 }
                 """,
-            "STVN Syntax Error: unexpected token '}'; expected <value>"),
+            "Metadata facet '#equatable' requires an explicit boolean value (#TRUE or #FALSE)"),
 
         TestProfile.createError(
             "Numeric Constraints - Min Bounds Checked",
@@ -1719,7 +1719,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "1.1" ]
                 }
                 """,
-            "Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)"
+            "Metadata facet '#preserveIndent' requires an explicit boolean value (#TRUE or #FALSE)"
         ),
 
         TestProfile.createError(
@@ -1733,7 +1733,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "1.1" ]
                 }
                 """,
-            "Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)"
+            "Metadata facet '#preserveIndent' requires an explicit boolean value (#TRUE or #FALSE)"
         ),
 
         TestProfile.createError(

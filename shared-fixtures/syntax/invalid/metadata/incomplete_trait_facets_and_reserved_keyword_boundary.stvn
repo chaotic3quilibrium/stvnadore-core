@@ -1,0 +1,13 @@
+// @spec: SPEC-03-TRAIT-BOUNDARY
+// @case: Negative - Incomplete boolean trait facets preserve reserved facet keyword boundary and Case B per-slot body isolation
+// @error: ERR_INCOMPLETE_TRAIT_FACET
+{
+  :defs {
+    :HealthyRoute { #minSize 4 #maxSize 8 } :String
+    :TrapIncompletePreserve { #preserveIndent #maxSize 64 } :String
+    :TrapIncompleteEquatable { #equatable #minIncl 0 } :Int
+    :TrapIncompleteComparable { #comparable } :String
+  }
+  :type :Tuple(:TrapIncompletePreserve :TrapIncompleteEquatable :TrapIncompleteComparable :HealthyRoute)
+  :body ( "alpha" -999 "gamma" "rk" )
+}

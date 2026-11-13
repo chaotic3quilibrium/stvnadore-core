@@ -26,6 +26,7 @@ import org.stvnadore.core.parser.StvnErrorListener;
 import org.stvnadore.core.parser.StvnErrorStrategy;
 import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
+import org.stvnadore.core.parser.StvnSyntaxErrorSanitizer;
 import org.stvnadore.core.stdlib.StvnPrelude;
 import org.stvnadore.core.validation.CircularReferenceException;
 import org.stvnadore.core.validation.CyclicDependencyException;
@@ -188,7 +189,8 @@ public final class StvnDefsLowerer {
     var lexer = new StvnLexer(CharStreams.fromString(input));
     lexer.removeErrorListeners();
 
-    var parser = new StvnParser(new CommonTokenStream(lexer));
+    var tokens = new CommonTokenStream(lexer);
+    var parser = new StvnParser(tokens);
     parser.removeErrorListeners();
 
     if (config.strict()) {
@@ -202,6 +204,7 @@ public final class StvnDefsLowerer {
 
     StvnParser.StvnDocumentContext docCtx = parser.stvnDocument();
     if (config.strict()) {
+      StvnSyntaxErrorSanitizer.scanMalformedFenceTokens(tokens, parser, null, true);
       validateDocumentBodyStructure(docCtx, null, true);
     }
     return docCtx;
@@ -1119,6 +1122,75 @@ public final class StvnDefsLowerer {
     return false;
   }
 
+  private static boolean hasDiagnosticAtOffset(DiagnosticBag diagnosticBag, int startOffset) {
+    for (var diag : diagnosticBag.toList()) {
+      if (diag.severity() == org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity.ERROR
+          && diag.startOffset() == startOffset) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasPass1SyntaxErrorInSpan(DiagnosticBag diagnosticBag, Span span) {
+    Optional<String> targetPath = diagnosticBag.defaultSourcePath();
+    for (var diag : diagnosticBag.toList()) {
+      if (diag.severity() != org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity.ERROR) {
+        continue;
+      }
+      if (!Objects.equals(diag.sourcePath(), targetPath)) {
+        continue;
+      }
+      String sym = diag.symbolicId().or(diag::errorCode).orElse("");
+      boolean isPass1Syntax = "STVN_SYNTAX_ERROR".equals(sym)
+          || sym.startsWith("SYNTAX_")
+          || DiagnosticBag.ERR_FENCE_DELIMITER_MISMATCH.equals(sym)
+          || DiagnosticBag.ERR_PROHIBITED_FENCE_ARROW.equals(sym)
+          || DiagnosticBag.ERR_BARE_COLON_PROHIBITED.equals(sym)
+          || DiagnosticBag.ERR_BARE_HASH_PROHIBITED.equals(sym);
+      if (isPass1Syntax && diag.startOffset() >= span.start() && diag.startOffset() <= span.end()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isMissingOrAbortedMetadataValue(StvnParser.@Nullable MetadataValueContext mv) {
+    if (mv == null || mv.exception != null) {
+      return true;
+    }
+    return mv.booleanLiteral() == null
+        && mv.integerLiteral() == null
+        && mv.floatLiteral() == null
+        && mv.stringLiteral() == null
+        && mv.facetConstRef() == null;
+  }
+
+  private static String formatMissingTimeEpochScaleMessage() {
+    return "Temporal primitive '" + StvnVocabulary.TYPE_TIME_EPOCH
+        + "' requires exactly one scale facet ('" + StvnVocabulary.FACET_KW_SCALE_NS
+        + "', '" + StvnVocabulary.FACET_KW_SCALE_US + "', '" + StvnVocabulary.FACET_KW_SCALE_MS
+        + "', or '" + StvnVocabulary.FACET_KW_SCALE_S + "')";
+  }
+
+  private static String formatMissingDateTimeModeMessage() {
+    return "Temporal primitive '" + StvnVocabulary.TYPE_DATE_TIME
+        + "' requires exactly one mode facet ('" + StvnVocabulary.FACET_KW_OFFSET
+        + "', '" + StvnVocabulary.FACET_KW_ZONED + "', or '" + StvnVocabulary.FACET_KW_AUDITED + "')";
+  }
+
+  private static String formatConflictingTemporalScalesMessage() {
+    return "Temporal scale facets ('" + StvnVocabulary.FACET_KW_SCALE_NS
+        + "', '" + StvnVocabulary.FACET_KW_SCALE_US + "', '" + StvnVocabulary.FACET_KW_SCALE_MS
+        + "', '" + StvnVocabulary.FACET_KW_SCALE_S + "') are mutually exclusive";
+  }
+
+  private static String formatConflictingTemporalModesMessage() {
+    return "Temporal mode facets ('" + StvnVocabulary.FACET_KW_OFFSET
+        + "', '" + StvnVocabulary.FACET_KW_ZONED + "', '" + StvnVocabulary.FACET_KW_AUDITED
+        + "') are mutually exclusive";
+  }
+
   private static void validateStandaloneOrphanMetadataMap(
       StvnParser.MetadataMapContext metaMap,
       @Nullable DiagnosticBag diagnosticBag,
@@ -1146,6 +1218,12 @@ public final class StvnDefsLowerer {
     }
     String ownerLabel = "<" + StvnVocabulary.KEYWORD_TYPE + ">";
     Set<String> seenFacetNames = new HashSet<>();
+    boolean seenScale = false;
+    boolean seenMode = false;
+    boolean seenSizeOrExact = false;
+    boolean seenMinBound = false;
+    boolean seenMaxBound = false;
+    boolean seenEnumFilter = false;
     int lastTier = -1;
     int lastSubTier = -1;
     String lastFacetName = null;
@@ -1188,6 +1266,19 @@ public final class StvnDefsLowerer {
         );
         continue;
       }
+      if ((entry.metadataBool() != null && entry.metadataBool().metadataValue() == null)
+          || (entry.metadataTrait() != null && entry.metadataTrait().metadataValue() == null)) {
+        if (!hasDiagnosticAtOffset(diagnosticBag, entrySpan.start())) {
+          diagnosticBag.addError(
+              "Metadata facet '" + StvnVocabulary.SIGIL_VALUE + facetName
+                  + "' requires an explicit boolean value ("
+                  + StvnVocabulary.VAL_TRUE + " or " + StvnVocabulary.VAL_FALSE + ")",
+              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              DiagnosticBag.ERR_INCOMPLETE_TRAIT_FACET
+          );
+        }
+        continue;
+      }
       if ("strip".equals(facetName)) {
         diagnosticBag.addError(
             "Constraint violation (" + ownerLabel + "): directive facet '" + StvnVocabulary.FACET_KW_STRIP
@@ -1197,6 +1288,80 @@ public final class StvnDefsLowerer {
             DiagnosticBag.ERR_INVALID_METADATA_FACET
         );
         continue;
+      }
+      if (isTemporalScaleName(facetName)) {
+        if (seenScale) {
+          diagnosticBag.addError(
+              formatConflictingTemporalScalesMessage(),
+              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+          );
+          continue;
+        }
+        seenScale = true;
+      }
+      if (isTemporalModeName(facetName)) {
+        if (seenMode) {
+          diagnosticBag.addError(
+              formatConflictingTemporalModesMessage(),
+              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+          );
+          continue;
+        }
+        seenMode = true;
+      }
+      if ("size".equals(facetName) || "exact".equals(facetName)) {
+        if (seenSizeOrExact) {
+          String peer = "size".equals(facetName) ? StvnVocabulary.FACET_KW_EXACT : StvnVocabulary.FACET_KW_SIZE;
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): facet '"
+                  + StvnVocabulary.SIGIL_VALUE + facetName + "' is mutually exclusive with '" + peer + "'",
+              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+          );
+          continue;
+        }
+        seenSizeOrExact = true;
+      }
+      if ("minIncl".equals(facetName) || "minExcl".equals(facetName)) {
+        if (seenMinBound) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): "
+                  + StvnVocabulary.FACET_KW_MIN_INCL + " and " + StvnVocabulary.FACET_KW_MIN_EXCL
+                  + " are mutually exclusive",
+              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+          );
+          continue;
+        }
+        seenMinBound = true;
+      }
+      if ("maxIncl".equals(facetName) || "maxExcl".equals(facetName)) {
+        if (seenMaxBound) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): "
+                  + StvnVocabulary.FACET_KW_MAX_INCL + " and " + StvnVocabulary.FACET_KW_MAX_EXCL
+                  + " are mutually exclusive",
+              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+          );
+          continue;
+        }
+        seenMaxBound = true;
+      }
+      if ("filterIncl".equals(facetName) || "filterExcl".equals(facetName)) {
+        if (seenEnumFilter) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): "
+                  + StvnVocabulary.FACET_KW_FILTER_INCL + " and " + StvnVocabulary.FACET_KW_FILTER_EXCL
+                  + " are mutually exclusive",
+              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+          );
+          continue;
+        }
+        seenEnumFilter = true;
       }
       int tier = getFacetTier(facetName);
       int subTier = getFacetSubTier(facetName);
@@ -1501,7 +1666,7 @@ public final class StvnDefsLowerer {
         seenName = true;
         currentTier = Math.max(currentTier, 1);
         nameNode = nf.stringLiteral();
-        if (nf.stringLiteral() != null) {
+        if (nf.stringLiteral() != null && !(nf.stringLiteral() instanceof StvnParser.StringMalformedFencedContext)) {
           Span strSpan = Span.ofContext(nf.stringLiteral());
           try {
             declaredName = StvnPayloadLowerer.decodeStringLiteral(nf.stringLiteral().getText(), true, strSpan);
@@ -1538,7 +1703,7 @@ public final class StvnDefsLowerer {
         seenDomain = true;
         currentTier = Math.max(currentTier, 2);
         domainNode = df.stringLiteral();
-        if (df.stringLiteral() != null) {
+        if (df.stringLiteral() != null && !(df.stringLiteral() instanceof StvnParser.StringMalformedFencedContext)) {
           Span strSpan = Span.ofContext(df.stringLiteral());
           try {
             declaredDomain = StvnPayloadLowerer.decodeStringLiteral(df.stringLiteral().getText(), true, strSpan);
@@ -2564,7 +2729,10 @@ public final class StvnDefsLowerer {
               DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
           );
         }
-        if (hermeticBlocked || hasIllegalOptionArg || element.stringLiteral() == null) {
+        if (hermeticBlocked
+            || hasIllegalOptionArg
+            || element.stringLiteral() == null
+            || element.stringLiteral() instanceof StvnParser.StringMalformedFencedContext) {
           continue;
         }
 
@@ -2677,7 +2845,8 @@ public final class StvnDefsLowerer {
             int childErrorsBeforePass1 = childBag.errorCount();
             var lexer = new StvnLexer(CharStreams.fromString(content));
             lexer.removeErrorListeners();
-            var parser = new StvnParser(new CommonTokenStream(lexer));
+            var childTokens = new CommonTokenStream(lexer);
+            var parser = new StvnParser(childTokens);
             parser.removeErrorListeners();
             var childListener = StvnErrorListener.accumulating(childBag);
             lexer.addErrorListener(childListener);
@@ -2685,6 +2854,7 @@ public final class StvnDefsLowerer {
             parser.setErrorHandler(new StvnErrorStrategy());
 
             StvnParser.StvnDocumentContext importedDocCtx = parser.stvnDocument();
+            StvnSyntaxErrorSanitizer.scanMalformedFenceTokens(childTokens, parser, childBag, false);
             boolean childHasPass1SyntaxError =
                 parser.getNumberOfSyntaxErrors() > 0 || childBag.errorCount() > childErrorsBeforePass1;
 
@@ -2793,7 +2963,8 @@ public final class StvnDefsLowerer {
             int childErrorsBeforePass1 = childBag.errorCount();
             var lexer = new StvnLexer(CharStreams.fromString(content));
             lexer.removeErrorListeners();
-            var parser = new StvnParser(new CommonTokenStream(lexer));
+            var childTokens = new CommonTokenStream(lexer);
+            var parser = new StvnParser(childTokens);
             parser.removeErrorListeners();
             var childListener = StvnErrorListener.accumulating(childBag);
             lexer.addErrorListener(childListener);
@@ -2801,6 +2972,7 @@ public final class StvnDefsLowerer {
             parser.setErrorHandler(new StvnErrorStrategy());
 
             StvnParser.StvnDocumentContext importedDocCtx = parser.stvnDocument();
+            StvnSyntaxErrorSanitizer.scanMalformedFenceTokens(childTokens, parser, childBag, false);
             boolean childHasPass1SyntaxError =
                 parser.getNumberOfSyntaxErrors() > 0 || childBag.errorCount() > childErrorsBeforePass1;
 
@@ -3708,13 +3880,14 @@ public final class StvnDefsLowerer {
           passedConstructor,
           true
       );
-      if (isRealPoisonedSchema(rawBundle.schema())) {
+      boolean declHadPass1SyntaxError = hasPass1SyntaxErrorInSpan(diagnosticBag, Span.ofContext(decl.ctx()));
+      if (isRealPoisonedSchema(rawBundle.schema()) || declHadPass1SyntaxError) {
         Optional<StvnSchema> bestEffort = extractBestEffortFallback(rawBundle.schema(), Optional.of(fqni));
         StvnSchema.PoisonedSchema poisoned = new StvnSchema.PoisonedSchema(
             Optional.of(fqni),
             rawBundle.schema() instanceof StvnSchema.PoisonedSchema ps
                 ? ps.primaryDiagnosticCode()
-                : DiagnosticBag.ERR_MALFORMED_SCHEMA,
+                : (declHadPass1SyntaxError ? "STVN_SYNTAX_ERROR" : DiagnosticBag.ERR_MALFORMED_SCHEMA),
             bestEffort,
             rawBundle.schema().traits()
         );
@@ -4726,8 +4899,7 @@ public final class StvnDefsLowerer {
         if (!isNominalDerivation && baseKw.equals(StvnVocabulary.TYPE_TIME_EPOCH)) {
           Span sp = Span.ofContext(atomicOrSchemaPinCtx);
           diagnosticBag.addError(
-              "Temporal primitive '" + StvnVocabulary.TYPE_TIME_EPOCH
-                  + "' requires a scale facet (#ns, #us, #ms, or #s)",
+              formatMissingTimeEpochScaleMessage(),
               sp.start(), sp.end(), sp.line(), sp.column(), null,
               DiagnosticBag.ERR_MISSING_TEMPORAL_FACET
           );
@@ -4736,8 +4908,7 @@ public final class StvnDefsLowerer {
         if (!isNominalDerivation && baseKw.equals(StvnVocabulary.TYPE_DATE_TIME)) {
           Span sp = Span.ofContext(atomicOrSchemaPinCtx);
           diagnosticBag.addError(
-              "Temporal primitive '" + StvnVocabulary.TYPE_DATE_TIME
-                  + "' requires exactly one mode facet (#offset, #zoned, or #audited)",
+              formatMissingDateTimeModeMessage(),
               sp.start(), sp.end(), sp.line(), sp.column(), null,
               DiagnosticBag.ERR_MISSING_TEMPORAL_FACET
           );
@@ -4783,7 +4954,12 @@ public final class StvnDefsLowerer {
       int lastSubTier = -1;
       String lastFacetName = null;
       int orderViolationCount = 0;
+      String primaryFacetErrorCode = null;
       Set<String> seenFacetNames = new HashSet<>();
+      boolean seenFloatSizeOrExact = false;
+      boolean seenMinBound = false;
+      boolean seenMaxBound = false;
+      boolean seenEnumFilter = false;
 
       // Local parsed facet slots
       boolean childUnsigned = false;
@@ -4853,6 +5029,24 @@ public final class StvnDefsLowerer {
               entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
               DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
           );
+          continue;
+        }
+
+        // 1b. Incomplete boolean trait facet check (#preserveIndent, #equatable, #comparable)
+        if ((entry.metadataBool() != null && entry.metadataBool().metadataValue() == null)
+            || (entry.metadataTrait() != null && entry.metadataTrait().metadataValue() == null)) {
+          if (!hasDiagnosticAtOffset(diagnosticBag, entrySpan.start())) {
+            diagnosticBag.addError(
+                "Metadata facet '" + StvnVocabulary.SIGIL_VALUE + facetName
+                    + "' requires an explicit boolean value ("
+                    + StvnVocabulary.VAL_TRUE + " or " + StvnVocabulary.VAL_FALSE + ")",
+                entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+                DiagnosticBag.ERR_INCOMPLETE_TRAIT_FACET
+            );
+          }
+          if (primaryFacetErrorCode == null) {
+            primaryFacetErrorCode = DiagnosticBag.ERR_INCOMPLETE_TRAIT_FACET;
+          }
           continue;
         }
 
@@ -4956,10 +5150,13 @@ public final class StvnDefsLowerer {
         if (isTemporalScaleName(facetName)) {
           if (firstScaleTag != null) {
             diagnosticBag.addError(
-                "Temporal scale facets (#s, #ms, #us, #ns) are mutually exclusive",
+                formatConflictingTemporalScalesMessage(),
                 entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
                 DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
             );
+            if (primaryFacetErrorCode == null) {
+              primaryFacetErrorCode = DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE;
+            }
             continue;
           }
           firstScaleTag = facetName;
@@ -4967,48 +5164,82 @@ public final class StvnDefsLowerer {
         if (isTemporalModeName(facetName)) {
           if (firstModeTag != null) {
             diagnosticBag.addError(
-                "Temporal mode facets (#offset, #zoned, #audited) are mutually exclusive",
+                formatConflictingTemporalModesMessage(),
                 entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
                 DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
             );
+            if (primaryFacetErrorCode == null) {
+              primaryFacetErrorCode = DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE;
+            }
             continue;
           }
           firstModeTag = facetName;
         }
-        if (baseKw.equals(StvnVocabulary.TYPE_FLOAT)
-            && (("size".equals(facetName) && childExact) || ("exact".equals(facetName) && childSize != null))) {
-          diagnosticBag.addError(
-              "Constraint violation (" + ownerLabel + "): facet '#" + facetName + "' is mutually exclusive with '#"
-                  + ("size".equals(facetName) ? "exact" : "size") + "'",
-              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
-              DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
-          );
-          continue;
+        if (baseKw.equals(StvnVocabulary.TYPE_FLOAT) && ("size".equals(facetName) || "exact".equals(facetName))) {
+          if (seenFloatSizeOrExact) {
+            String peer = "size".equals(facetName) ? StvnVocabulary.FACET_KW_EXACT : StvnVocabulary.FACET_KW_SIZE;
+            diagnosticBag.addError(
+                "Constraint violation (" + ownerLabel + "): facet '"
+                    + StvnVocabulary.SIGIL_VALUE + facetName + "' is mutually exclusive with '" + peer + "'",
+                entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+                DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+            if (primaryFacetErrorCode == null) {
+              primaryFacetErrorCode = DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE;
+            }
+            continue;
+          }
+          seenFloatSizeOrExact = true;
         }
-        if (("minIncl".equals(facetName) || "minExcl".equals(facetName)) && minBoundCtx != null) {
-          diagnosticBag.addError(
-              "Constraint violation (" + ownerLabel + "): #minIncl and #minExcl are mutually exclusive",
-              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
-              DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
-          );
-          continue;
+        if ("minIncl".equals(facetName) || "minExcl".equals(facetName)) {
+          if (seenMinBound) {
+            diagnosticBag.addError(
+                "Constraint violation (" + ownerLabel + "): "
+                    + StvnVocabulary.FACET_KW_MIN_INCL + " and " + StvnVocabulary.FACET_KW_MIN_EXCL
+                    + " are mutually exclusive",
+                entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+                DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+            if (primaryFacetErrorCode == null) {
+              primaryFacetErrorCode = DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE;
+            }
+            continue;
+          }
+          seenMinBound = true;
         }
-        if (("maxIncl".equals(facetName) || "maxExcl".equals(facetName)) && maxBoundCtx != null) {
-          diagnosticBag.addError(
-              "Constraint violation (" + ownerLabel + "): #maxIncl and #maxExcl are mutually exclusive",
-              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
-              DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
-          );
-          continue;
+        if ("maxIncl".equals(facetName) || "maxExcl".equals(facetName)) {
+          if (seenMaxBound) {
+            diagnosticBag.addError(
+                "Constraint violation (" + ownerLabel + "): "
+                    + StvnVocabulary.FACET_KW_MAX_INCL + " and " + StvnVocabulary.FACET_KW_MAX_EXCL
+                    + " are mutually exclusive",
+                entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+                DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+            if (primaryFacetErrorCode == null) {
+              primaryFacetErrorCode = DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE;
+            }
+            continue;
+          }
+          seenMaxBound = true;
         }
-        if (("filterIncl".equals(facetName) || "filterExcl".equals(facetName))
-            && (filterInclCtx != null || filterExclCtx != null)) {
-          diagnosticBag.addError(
-              "Constraint violation (" + ownerLabel + "): #filterIncl and #filterExcl are mutually exclusive",
-              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
-              DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
-          );
-          continue;
+        if ("filterIncl".equals(facetName) || "filterExcl".equals(facetName)) {
+          if (seenEnumFilter) {
+            filterInclCtx = null;
+            filterExclCtx = null;
+            diagnosticBag.addError(
+                "Constraint violation (" + ownerLabel + "): "
+                    + StvnVocabulary.FACET_KW_FILTER_INCL + " and " + StvnVocabulary.FACET_KW_FILTER_EXCL
+                    + " are mutually exclusive",
+                entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+                DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE
+            );
+            if (primaryFacetErrorCode == null) {
+              primaryFacetErrorCode = DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE;
+            }
+            continue;
+          }
+          seenEnumFilter = true;
         }
 
         // 5. Canonical 5-Tier Monotonic Ordering check
@@ -5197,8 +5428,7 @@ public final class StvnDefsLowerer {
         if (firstScaleTag == null) {
           Span sp = Span.ofContext(atomicOrSchemaPinCtx);
           diagnosticBag.addError(
-              "Temporal primitive '" + StvnVocabulary.TYPE_TIME_EPOCH
-                  + "' requires a scale facet (#ns, #us, #ms, or #s)",
+              formatMissingTimeEpochScaleMessage(),
               sp.start(), sp.end(), sp.line(), sp.column(), null,
               DiagnosticBag.ERR_MISSING_TEMPORAL_FACET
           );
@@ -5209,8 +5439,7 @@ public final class StvnDefsLowerer {
         if (firstModeTag == null) {
           Span sp = Span.ofContext(atomicOrSchemaPinCtx);
           diagnosticBag.addError(
-              "Temporal primitive '" + StvnVocabulary.TYPE_DATE_TIME
-                  + "' requires exactly one mode facet (#offset, #zoned, or #audited)",
+              formatMissingDateTimeModeMessage(),
               sp.start(), sp.end(), sp.line(), sp.column(), null,
               DiagnosticBag.ERR_MISSING_TEMPORAL_FACET
           );
@@ -5451,7 +5680,7 @@ public final class StvnDefsLowerer {
         Optional<StvnSchema> bestEffort = extractBestEffortFallback(loweredSchema, effectiveBrand);
         StvnSchema.PoisonedSchema poisoned = new StvnSchema.PoisonedSchema(
             effectiveBrand,
-            DiagnosticBag.ERR_MALFORMED_SCHEMA,
+            primaryFacetErrorCode != null ? primaryFacetErrorCode : DiagnosticBag.ERR_MALFORMED_SCHEMA,
             bestEffort,
             loweredSchema.traits()
         );
@@ -6296,6 +6525,21 @@ public final class StvnDefsLowerer {
       return false;
     }
 
+    private static StvnSchema rebrandEnumParent(
+        StvnSchema parentEnum,
+        StvnSchema.EnumSchema rootEnum,
+        Optional<String> effectiveBrand,
+        TraitProfile finalTraits
+    ) {
+      if (parentEnum instanceof StvnSchema.EnumSubsetSchema subset) {
+        return new StvnSchema.EnumSubsetSchema(
+            effectiveBrand, subset.parentEnum(), subset.rootEnum(), subset.activeVariants(),
+            subset.inclusiveFilter(), subset.declaredFilterList(), finalTraits
+        );
+      }
+      return new StvnSchema.EnumSchema(effectiveBrand, rootEnum.rootVariants(), finalTraits);
+    }
+
     private StvnSchema lowerEnumFacets(
         String ownerLabel,
         Optional<String> effectiveBrand,
@@ -6307,15 +6551,10 @@ public final class StvnDefsLowerer {
         TraitProfile finalTraits
     ) {
       if (filterInclCtx == null && filterExclCtx == null) {
-        if (parentEnum instanceof StvnSchema.EnumSubsetSchema subset) {
-          return new StvnSchema.EnumSubsetSchema(
-              effectiveBrand, subset.parentEnum(), subset.rootEnum(), subset.activeVariants(),
-              subset.inclusiveFilter(), subset.declaredFilterList(), finalTraits
-          );
-        }
-        return new StvnSchema.EnumSchema(effectiveBrand, rootEnum.rootVariants(), finalTraits);
+        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, finalTraits);
       }
 
+      int filterErrorsBefore = diagnosticBag.errorCount();
       boolean isIncl = filterInclCtx != null;
       var filterCtx = isIncl ? filterInclCtx : filterExclCtx;
       var variantList = filterCtx.variantList();
@@ -6327,7 +6566,7 @@ public final class StvnDefsLowerer {
             filterSpan.start(), filterSpan.end(), filterSpan.line(), filterSpan.column(), null,
             DiagnosticBag.ERR_ENUM_SUBSET_EMPTY
         );
-        return new StvnSchema.EnumSchema(effectiveBrand, rootEnum.rootVariants(), finalTraits);
+        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, finalTraits);
       }
 
       Map<String, Integer> rootOrdinalMap = new HashMap<>();
@@ -6398,7 +6637,11 @@ public final class StvnDefsLowerer {
               DiagnosticBag.ERR_ENUM_SUBSET_EMPTY
           );
         }
-        return new StvnSchema.EnumSchema(effectiveBrand, rootEnum.rootVariants(), finalTraits);
+        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, finalTraits);
+      }
+
+      if (diagnosticBag.errorCount() > filterErrorsBefore) {
+        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, finalTraits);
       }
 
       return new StvnSchema.EnumSubsetSchema(
@@ -6414,7 +6657,7 @@ public final class StvnDefsLowerer {
         StvnParser.@Nullable MetadataValueContext mv,
         ScopeFrame scope
     ) {
-      if (mv == null) {
+      if (isMissingOrAbortedMetadataValue(mv)) {
         return null;
       }
       if (mv.integerLiteral() != null) {
@@ -6424,8 +6667,8 @@ public final class StvnDefsLowerer {
         }
         return StvnLiteralParser.parseBigInteger(raw);
       }
-      if (mv.valueKeyword() != null) {
-        String kw = mv.valueKeyword().getText();
+      if (mv.facetConstRef() != null) {
+        String kw = mv.facetConstRef().getText();
         if (isBuiltinNonConstantValueKeyword(kw)) {
           return null;
         }
@@ -6450,7 +6693,7 @@ public final class StvnDefsLowerer {
         StvnParser.@Nullable MetadataValueContext mv,
         ScopeFrame scope
     ) {
-      if (mv == null) {
+      if (mv == null || mv.stringLiteral() instanceof StvnParser.StringMalformedFencedContext) {
         return null;
       }
       Span sp = Span.ofContext(mv);
@@ -6466,8 +6709,8 @@ public final class StvnDefsLowerer {
         }
         return StvnLiteralParser.parseBigInteger(raw);
       }
-      if (mv.valueKeyword() != null) {
-        String kw = mv.valueKeyword().getText();
+      if (mv.facetConstRef() != null) {
+        String kw = mv.facetConstRef().getText();
         if (isBuiltinNonConstantValueKeyword(kw)) {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): facet '" + facetLabel
@@ -6534,7 +6777,7 @@ public final class StvnDefsLowerer {
         BigInteger exactMaxDigits,
         ScopeFrame scope
     ) {
-      if (mv == null) {
+      if (mv == null || mv.stringLiteral() instanceof StvnParser.StringMalformedFencedContext) {
         return null;
       }
       Span sp = Span.ofContext(mv);
@@ -6558,8 +6801,8 @@ public final class StvnDefsLowerer {
             DiagnosticBag.ERR_INCOMPATIBLE_TYPE
         );
         return null;
-      } else if (mv.valueKeyword() != null) {
-        String kw = mv.valueKeyword().getText();
+      } else if (mv.facetConstRef() != null) {
+        String kw = mv.facetConstRef().getText();
         if (isBuiltinNonConstantValueKeyword(kw)) {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): facet '" + facetLabel
@@ -6648,7 +6891,7 @@ public final class StvnDefsLowerer {
         StvnParser.@Nullable MetadataValueContext mv,
         ScopeFrame scope
     ) {
-      if (mv == null) {
+      if (isMissingOrAbortedMetadataValue(mv) || mv.stringLiteral() instanceof StvnParser.StringMalformedFencedContext) {
         return null;
       }
       Span sp = Span.ofContext(mv);
@@ -6656,8 +6899,8 @@ public final class StvnDefsLowerer {
         String txt = mv.booleanLiteral().getText();
         return StvnVocabulary.VAL_TRUE.equals(txt) || StvnVocabulary.VAL_TRUE_SHORT.equals(txt);
       }
-      if (mv.valueKeyword() != null) {
-        String kw = mv.valueKeyword().getText();
+      if (mv.facetConstRef() != null) {
+        String kw = mv.facetConstRef().getText();
         if (isBuiltinNonConstantValueKeyword(kw)) {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): facet '" + facetLabel
@@ -6707,16 +6950,21 @@ public final class StvnDefsLowerer {
       if (traitCtx == null) {
         return null;
       }
-      if (traitCtx.booleanLiteral() != null) {
-        String txt = traitCtx.booleanLiteral().getText();
+      StvnParser.MetadataValueContext mv = traitCtx.metadataValue();
+      if (isMissingOrAbortedMetadataValue(mv) || mv.stringLiteral() instanceof StvnParser.StringMalformedFencedContext) {
+        return null;
+      }
+      Span sp = Span.ofContext(mv);
+      if (mv.booleanLiteral() != null) {
+        String txt = mv.booleanLiteral().getText();
         return StvnVocabulary.VAL_TRUE.equals(txt) || StvnVocabulary.VAL_TRUE_SHORT.equals(txt);
       }
-      if (traitCtx.valueKeyword() != null) {
-        Span sp = Span.ofContext(traitCtx.valueKeyword());
-        String kw = traitCtx.valueKeyword().getText();
+      if (mv.facetConstRef() != null) {
+        String kw = mv.facetConstRef().getText();
         if (isBuiltinNonConstantValueKeyword(kw)) {
           diagnosticBag.addError(
-              "Constraint violation (" + ownerLabel + "): facet '#preserveIndent' requires a boolean argument, got '" + kw + "'",
+              "Constraint violation (" + ownerLabel + "): facet '"
+                  + StvnVocabulary.FACET_KW_PRESERVE_INDENT + "' requires a boolean argument, got '" + kw + "'",
               sp.start(), sp.end(), sp.line(), sp.column(), null,
               DiagnosticBag.ERR_INCOMPATIBLE_TYPE
           );
@@ -6725,7 +6973,8 @@ public final class StvnDefsLowerer {
         Optional<StvnDefsCatalog.StvnConstant> cOpt = resolveConstantInScope(kw, scope);
         if (cOpt.isEmpty()) {
           diagnosticBag.addError(
-              "Undefined constant '" + kw + "' referenced in metadata facet '#preserveIndent'",
+              "Undefined constant '" + kw + "' referenced in metadata facet '"
+                  + StvnVocabulary.FACET_KW_PRESERVE_INDENT + "'",
               sp.start(), sp.end(), sp.line(), sp.column(), null,
               DiagnosticBag.ERR_UNDEFINED_CONSTANT
           );
@@ -6739,11 +6988,20 @@ public final class StvnDefsLowerer {
         }
         diagnosticBag.addError(
             "Constraint violation (" + ownerLabel + "): constant '" + kw
-                + "' in facet '#preserveIndent' must resolve to " + StvnVocabulary.TYPE_BOOLEAN,
+                + "' in facet '" + StvnVocabulary.FACET_KW_PRESERVE_INDENT + "' must resolve to "
+                + StvnVocabulary.TYPE_BOOLEAN,
             sp.start(), sp.end(), sp.line(), sp.column(), null,
             DiagnosticBag.ERR_INCOMPATIBLE_TYPE
         );
+        return null;
       }
+      diagnosticBag.addError(
+          "Metadata facet '" + StvnVocabulary.FACET_KW_PRESERVE_INDENT
+              + "' requires an explicit boolean value ("
+              + StvnVocabulary.VAL_TRUE + " or " + StvnVocabulary.VAL_FALSE + ")",
+          sp.start(), sp.end(), sp.line(), sp.column(), null,
+          DiagnosticBag.ERR_INVALID_METADATA_FACET
+      );
       return null;
     }
 
@@ -6753,7 +7011,7 @@ public final class StvnDefsLowerer {
         StvnParser.@Nullable MetadataValueContext mv,
         ScopeFrame scope
     ) {
-      if (mv == null) {
+      if (isMissingOrAbortedMetadataValue(mv) || mv.stringLiteral() instanceof StvnParser.StringMalformedFencedContext) {
         return null;
       }
       Span sp = Span.ofContext(mv);
@@ -6768,8 +7026,8 @@ public final class StvnDefsLowerer {
           return null;
         }
       }
-      if (mv.valueKeyword() != null) {
-        String kw = mv.valueKeyword().getText();
+      if (mv.facetConstRef() != null) {
+        String kw = mv.facetConstRef().getText();
         if (isBuiltinNonConstantValueKeyword(kw)) {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): facet '" + facetLabel
@@ -6817,7 +7075,7 @@ public final class StvnDefsLowerer {
         StvnParser.@Nullable MetadataValueContext mv,
         ScopeFrame scope
     ) {
-      if (mv == null) {
+      if (isMissingOrAbortedMetadataValue(mv) || mv.stringLiteral() instanceof StvnParser.StringMalformedFencedContext) {
         return null;
       }
       Span sp = Span.ofContext(mv);
@@ -6832,8 +7090,8 @@ public final class StvnDefsLowerer {
           return null;
         }
       }
-      if (mv.valueKeyword() != null) {
-        String kw = mv.valueKeyword().getText();
+      if (mv.facetConstRef() != null) {
+        String kw = mv.facetConstRef().getText();
         Optional<StvnDefsCatalog.StvnConstant> cOpt = resolveConstantInScope(kw, scope);
         if (cOpt.isEmpty()) {
           diagnosticBag.addError(

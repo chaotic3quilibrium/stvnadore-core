@@ -18,6 +18,7 @@ import org.stvnadore.core.ir.StvnValue.Ieee754SpecialKind;
 import org.stvnadore.core.ir.StvnValue.KeyValueEntry;
 import org.stvnadore.core.ir.StvnValue.StvnErrorValue;
 import org.stvnadore.core.parser.StvnParser;
+import org.stvnadore.core.parser.StvnSyntaxErrorSanitizer;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.MalformedPayloadException;
 import org.stvnadore.core.validation.MalformedSchemaException;
@@ -1407,11 +1408,11 @@ public final class StvnPayloadLowerer {
   }
 
   private static String schemaLabel(StvnSchema schema, @Nullable String overrideLabel) {
-    if (overrideLabel != null && !overrideLabel.isEmpty()) {
-      return overrideLabel;
-    }
     if (schema.aliasName().isPresent()) {
       return schema.aliasName().get();
+    }
+    if (overrideLabel != null && !overrideLabel.isEmpty()) {
+      return overrideLabel;
     }
     return baseTypeName(schema);
   }
@@ -1596,6 +1597,33 @@ public final class StvnPayloadLowerer {
             queue.removeFirst();
             throw new LoweringAbortException(preDiag);
           }
+        }
+        if (atom.ctx().stringLiteral() instanceof StvnParser.StringMalformedFencedContext malformedCtx) {
+          queue.removeFirst();
+          for (StvnDiagnostic existing : diagnosticBag.toList()) {
+            if (existing.severity() == DiagnosticSeverity.ERROR
+                && atomSpan.start() >= existing.startOffset()
+                && atomSpan.start() < existing.endOffset()) {
+              throw new LoweringAbortException(existing);
+            }
+          }
+          Token openTok = malformedCtx.malformedFencedString().MALFORMED_FENCE_OPEN().getSymbol();
+          String rawOpen = openTok.getText() != null ? openTok.getText() : "";
+          String coreMsg = StvnSyntaxErrorSanitizer.formatMalformedFenceMessage(rawOpen);
+          String fullMsg = "STVN Syntax Error: " + coreMsg;
+          boolean prohibitedArrow = coreMsg.contains("arrow '->' is prohibited");
+          String code = prohibitedArrow ? "E026" : "E025";
+          String sym = prohibitedArrow
+              ? DiagnosticBag.ERR_PROHIBITED_FENCE_ARROW
+              : DiagnosticBag.ERR_FENCE_DELIMITER_MISMATCH;
+          Span openSpan = Span.ofToken(openTok);
+          throw abort(
+              fullMsg,
+              openSpan,
+              new StvnMalformedLiteralException(fullMsg, openSpan.start(), openSpan.end()),
+              code,
+              sym
+          );
         }
       }
       if (peek instanceof AtomicValueItem atom && isMalformedSyntaxContext(atom.ctx())) {
@@ -1833,14 +1861,15 @@ public final class StvnPayloadLowerer {
 
       // Filtered-out variant vs completely unknown variant
       if (rootVariants.contains(tokenText)) {
-        String msg = "Invalid enum value: variant " + tokenText + " is not permitted in enum subset "
-            + schemaLabel(schema, overrideLabel) + "; allowed variants: " + activeVariants;
+        String msg = "Invalid enum value: variant '" + tokenText + "' is not permitted in enum subset '"
+            + schemaLabel(schema, overrideLabel) + "'; allowed variants: " + activeVariants;
         throw abort(
             msg, span,
             new MalformedPayloadException(msg, span.start(), span.end()),
             "E012", DiagnosticBag.ERR_CONSTRAINT_VIOLATION);
       }
-      String msg = "Invalid enum value: expected one of " + activeVariants + ", got " + tokenText;
+      String msg = "Invalid enum value for '" + schemaLabel(schema, overrideLabel) + "': variant '"
+          + tokenText + "' is not declared; allowed variants: " + activeVariants;
       throw abort(
           msg, span,
           new MalformedPayloadException(msg, span.start(), span.end()),
@@ -2514,7 +2543,7 @@ public final class StvnPayloadLowerer {
     private StvnValue lowerAtomicValue(StvnParser.ValueContext ctx, StvnSchema schema) {
       Span span = Span.ofContext(ctx);
       String label = schemaLabel(schema, overrideLabel);
-      String mismatchCtx = schemaContextMode && overrideLabel != null ? " (" + overrideLabel + ")" : "";
+      String mismatchCtx = schemaContextMode ? " (" + label + ")" : "";
       String expectedKind = describeSchemaStructuralKind(schema);
 
       if (ctx.integerLiteral() != null) {

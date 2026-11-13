@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "incomplete_trait_facets_and_reserved_keyword_boundary"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_INCOMPLETE_TRAIT_FACET #ERROR 7 31 294 309 "Metadata facet '#preserveIndent' requires an explicit boolean value (#TRUE or #FALSE)" )
+    ( #E008 #ERR_INCOMPLETE_TRAIT_FACET #ERROR 8 32 363 373 "Metadata facet '#equatable' requires an explicit boolean value (#TRUE or #FALSE)" )
+    ( #E008 #ERR_INCOMPLETE_TRAIT_FACET #ERROR 9 33 424 435 "Metadata facet '#comparable' requires an explicit boolean value (#TRUE or #FALSE)" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 12 32 586 590 "Constraint violation (:HealthyRoute): String length 2 violates #minSize constraint (4)" )
+  ]
+}

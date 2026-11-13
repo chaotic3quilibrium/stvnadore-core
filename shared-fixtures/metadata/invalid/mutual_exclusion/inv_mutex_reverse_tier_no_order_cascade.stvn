@@ -1,0 +1,22 @@
+// ==============================================================================
+// STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+// ==============================================================================
+// FIXTURE-ID:         inv_mutex_reverse_tier_no_order_cascade
+// COVERAGE-KIND:      MUTUALLY_EXCLUSIVE
+// EXPECT-DIAGNOSTIC:  MUTUALLY_EXCLUSIVE_BOUNDS
+// EXPECT-SEVERITY:    ERROR
+// DESCRIPTION:        Reverse-subtier mutually exclusive facets emit E008 without stacking E032 order violations
+// ==============================================================================
+{
+  :defs {
+    :BaseStatus :Enum [ #A #B #C ]
+    :TrapDualScaleEpoch { #s #ms } :TimeEpoch
+    :TrapReverseModes { #audited #offset } :DateTime
+    :TrapExactThenSize { #exact #size 64 } :Float
+    :TrapLowerBounds { #minExcl 0.0 #minIncl 1.0 } :Float
+    :TrapUpperBounds { #maxExcl 10.0 #maxIncl 5.0 } :Float
+    :TrapReverseFilter { #filterExcl [ #A ] #filterIncl [ #A #B ] } :BaseStatus
+  }
+  :type :Int
+  :body 0
+}

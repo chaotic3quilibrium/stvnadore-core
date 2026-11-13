@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "15_const_trait_facets_and_temporal_enum_comments"
+    #domain "core_fmt"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :AuditTimestamp { #audited #maxExcl "2030-01-01T00:00:00Z" } :DateTime
+    :SettlementState :Enum[#CREATED #AUTHORIZED #CAPTURED #SETTLED #VOIDED #REFUNDED]
+    :FinalizableState { #filterIncl [#AUTHORIZED #CAPTURED #SETTLED] } :SettlementState
+    :RawTemplate { #minSize 4 #maxSize 128 #comparable #FALSE #preserveIndent #TRUE #regex "^[A-Za-z0-9_\\n ]+$" } :String
+  }
+  :type :Tuple(:AuditTimestamp :RawTemplate :FinalizableState)
+  :body ("2026-09-12T15:30:00-04:00[America/New_York]" "  ready_template" #CAPTURED)
+}

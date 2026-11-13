@@ -1,0 +1,14 @@
+// @spec: SPEC-04-ENUM-SUBSET-BRANDING
+// @case: Negative - Constant nominal schema branding, undeclared vs subset enum prose, and conflict filter best-effort fallback
+// @error: ERR_CONSTRAINT_VIOLATION
+{
+  :defs {
+    :SettlementState :Enum [ #CREATED #AUTHORIZED #CAPTURED #SETTLED #VOIDED #REFUNDED ]
+    :FinalizableState { #filterIncl [ #AUTHORIZED #CAPTURED #SETTLED ] } :SettlementState
+    :TrapConflictFilter { #filterIncl [ #CREATED #AUTHORIZED ] #filterExcl [ #AUTHORIZED ] } :SettlementState
+    #TRAP_EXCLUDED_CONST :FinalizableState #CREATED
+    #TRAP_UNDECLARED_CONST :SettlementState #NOT_A_STATE
+  }
+  :type :Tuple(:SettlementState :FinalizableState :TrapConflictFilter)
+  :body ( #NOT_A_STATE #VOIDED #REFUNDED )
+}

@@ -559,15 +559,19 @@ Metadata constraint blocks `{ ... }` **must immediately precede** the target typ
 
 Empty metadata blocks (`{}`) are prohibited on type definitions and constant definitions. An author must omit the `{}` tokens or specify valid metadata facets. Violations emit diagnostic `ERR_EMPTY_METADATA_BLOCK`.
 
-#### 3.5.2 Explicit Boolean Trait Facet Requirements
+#### 3.5.2 Explicit Boolean Trait Facet Requirements & Reserved Facet Keyword Boundary
 
-Trait facets such as `#preserveIndent` require an explicit boolean value (`#TRUE`, `#FALSE`, `#T`, `#F`). Bare occurrences or non-boolean arguments are prohibited and emit `ERR_INVALID_METADATA_FACET`.
+Boolean trait facets (`#preserveIndent`, `#equatable`, and `#comparable`) require an explicit boolean argument (`#TRUE`, `#FALSE`, `#T`, `#F`, or a `#CONST` reference resolving to `:Boolean`):
+
+1. **Incomplete Boolean Trait Facets (`E008` / `ERR_INCOMPLETE_TRAIT_FACET`):** Omitting the boolean argument (e.g., `{ #preserveIndent }`, `{ #preserveIndent #maxSize 64 }`, `{ #equatable #minIncl 0 }`, or `{ #comparable }`) emits `E008` (`ERR_INCOMPLETE_TRAIT_FACET`: `"Metadata facet '<#facet>' requires an explicit boolean value (#TRUE or #FALSE)"`) pinned strictly to the incomplete trait facet token without consuming any subsequent facet keyword.
+2. **Non-Boolean Argument Rejection (`E008` / `ERR_INVALID_METADATA_FACET`):** Supplying a non-boolean literal or bare-word identifier (e.g., `{ #preserveIndent 10 }` or `{ #preserveIndent true }`) emits `E008` (`ERR_INVALID_METADATA_FACET`) with the identical single-quoted STE guidance.
+3. **Reserved Facet Keyword `#CONST` Boundary:** Across all value-bearing metadata facets (`metadataValue` and `metadataUnknownArg`), the 27 reserved facet keywords (`reservedFacetKeyword`: `#size`, `#unsigned`, `#minIncl`, `#maxIncl`, `#minExcl`, `#maxExcl`, `#minSize`, `#maxSize`, `#exact`, `#equatable`, `#comparable`, `#invertible`, `#strip`, `#preserveIndent`, `#regex`, `#filterIncl`, `#filterExcl`, `#ns`, `#us`, `#ms`, `#s`, `#offset`, `#zoned`, `#audited`, `#name`, `#domain`, `#kind`) are strictly excluded from `facetConstRef` and are never consumed as `#CONST` value arguments to a preceding metadata facet.
 
 #### 3.5.3 Unrecognized Metadata Facet Recovery
 
 Metadata facet maps on declarations (`metadataMap`) accept unrecognized facet entries without triggering parser panic mode recovery.
 
-1. The parser consumes unknown facet entries into a dedicated parse tree node (`metadataUnknownEntry`).
+1. The parser consumes unknown facet entries into a dedicated parse tree node (`metadataUnknownEntry : unknownFacetKeyword (schemaType | metadataUnknownArg)?`), excluding all 27 reserved facet keywords from `metadataUnknownArg` so trailing canonical facets remain intact.
 2. Semantic validation emits diagnostic `ERR_UNRECOGNIZED_METADATA_FACET` pinned strictly to the unrecognized facet identifier token coordinate interval `[startOffset, endOffset)`.
 3. The containing declaration registers as a poisoned sentinel in local nominal scope. Sibling declarations in the same enclosure remain valid and export cleanly to including documents.
 
@@ -663,7 +667,7 @@ Definitions schemas (`.stvn_d`, `.stvn_di`, `.stvn_bd`, or any compilation unit 
    ```
 3. **Lexical Isolation:** Nominal type identifiers (`:`) **MUST NOT** appear in value positions. Value keywords (`#`) **MUST NOT** appear as nominal type declarations.
 4. **Bit-Width Range Validation:** Integer literals assigned to sized integer types `{ #unsigned #size n } :Int` or `{ #size n } :Int` must not exceed declared capacity bounds ($0 \le V \le 2^n - 1$ for unsigned, $-2^{n-1} \le V \le 2^{n-1} - 1$ for signed). Out-of-bounds assignments trigger `ERR_INTEGER_OVERFLOW` before IR lowering.
-5. **Type Soundness:** The assigned `value` payload **MUST** conform to the specified `schemaType` and all associated metadata constraints during `:defs` validation. Mismatches cause immediate compile-time failure.
+5. **Type Soundness & Nominal Schema Attribution:** The assigned `value` payload **MUST** conform to the specified `schemaType` and all associated metadata constraints during `:defs` validation. When a `#CONST` declaration references a nominal `:TypeName` (`#TRAP_EXCLUDED_CONST :FinalizableState #CREATED`), Pass 2 preserves `:TypeName` (`schema.aliasName()`) on the governing schema so constraint and type-mismatch diagnostics attribute the violation to the governed nominal `:TypeName` (`':FinalizableState'`), falling back to the `#CONST` identifier only when the constant declares an anonymous inline schema (`#RESTRICTED_PORT { #minIncl 1024 } :Int 80`).
 
 ---
 
@@ -927,13 +931,16 @@ An enum subset must represent a non-empty domain of valid values:
 2. **Complete Exclusion Rejection:** An exclusive filter `#filterExcl` must not exclude all remaining variants of the parent type. If the subtraction produces an empty allowed variant set, the compiler rejects the definition with `ERR_MALFORMED_SCHEMA`.
 3. **No Duplicate Variants:** A filter list must not repeat a variant token (e.g., `[ #Active #Active ]`). Duplicates trigger `ERR_MALFORMED_SCHEMA`.
 
-#### 4.8.6 Payload Validation & AST Lowering
+#### 4.8.6 Payload Validation, STE Diagnostics & Degraded Fallback
 
-When a payload value targets an enum subset type:
+When a payload value or `#CONST` definition targets an `:Enum` or `:EnumSubset` type:
 
-* The parser constructs a standard `StvnValue.StvnEnum` node carrying the variant keyword, the root sequential index, and the root variant count.
-* The type resolver validates that the keyword exists in the active subset allowed list via `subset.containsVariant(kw)`.
-* If the keyword is valid in the root enum but absent from the subset, the compiler emits compile-time diagnostic `ERR_CONSTRAINT_VIOLATION` (`E012`, "Variant not permitted in enum subset").
+* The parser constructs a standard `StvnValue.StvnEnum` node carrying the variant keyword and the 0-based root sequential index.
+* If the variant exists in the root `:Enum` but is excluded from the active subset, Pass 3 emits `E012` (`ERR_CONSTRAINT_VIOLATION`):
+  `"Invalid enum value: variant '<#TAG>' is not permitted in enum subset '<:SubsetName>'; allowed variants: [...]"`
+* If the variant is not declared in the root `:Enum` (or active subset and root), Pass 3 emits `E028` (`ERR_TYPE_MISMATCH`):
+  `"Invalid enum value for '<:EnumOrSubsetName>': variant '<#TAG>' is not declared; allowed variants: [...]"`
+* When an `:EnumSubset` declaration fails Pass 2 filter validation (co-occurring `#filterIncl` + `#filterExcl`, duplicate filter variant, non-monotonic widening, root declaration order mismatch, empty filter list, or complete variant exclusion), Pass 2 wraps the uncorrupted immediate `parentEnum` (all active parent variants) inside a Case B Grounded `PoisonedSchema` (`PoisonedSchema.bestEffortFallback`), preserving full parent variant metadata for IDE introspection while suspending secondary `:body` errors on that poisoned slot (§ 7.3.5).
 
 ---
 
@@ -1136,8 +1143,8 @@ Every fenced string literal must adhere to **Rule STR-04**:
 4. **Length Bounds:**
    $1 \le \text{length} (\text{TAG}) \le 256$. Tags exceeding 256 characters are rejected at parse time to prevent memory exhaustion.
 
-5. **Prohibited Patterns:**
-   Empty tags (`"""[]`), whitespace (`0x20`, `\t`), quotation marks (`"`, `'`, ```), brackets (`[`, `]`), and punctuation (`:`, `;`, `,`, `.`, `/`, `\`) are strictly prohibited.
+5. **Prohibited Patterns & Slot-Preserving Error Recovery:**
+   Empty tags (`"""[]`), prohibited legacy arrows (`"""->[TAG]`), single-line triple-quoted strings (`"""inline"""`), whitespace (`0x20`, `\t`), quotation marks (`"`, `'`, `` ` ``), brackets (`[`, `]`), and punctuation (`:`, `;`, `,`, `.`, `/`, `\`) are strictly prohibited. When a malformed fenced string appears in a value or container slot (`malformedFencedString`), Pass 1 emits `E025` (`FENCE_DELIMITER_MISMATCH`) or `E026` (`ERR_PROHIBITED_FENCE_ARROW`) pinned strictly to the opening fence delimiter line while retaining the slot node in the CST so Pass 3 lowers the damaged slot to `StvnErrorValue` and preserves container cardinality ($M == N$, § 7.2).
 
 #### Examples
 
@@ -1254,8 +1261,8 @@ flowchart TD
   - `{ #ms } :TimeEpoch` (Milliseconds resolution, 64-bit integer tick storage)
   - `{ #us } :TimeEpoch` (Microseconds resolution, 64-bit integer tick storage)
   - `{ #ns } :TimeEpoch` (Nanoseconds resolution, 128-bit integer tick storage)
-- Omitting the scale flag triggers `ERR_MISSING_TEMPORAL_FACET`.
-- Declaring multiple scale flags triggers `ERR_MUTUALLY_EXCLUSIVE`.
+- Omitting the scale flag triggers `ERR_MISSING_TEMPORAL_FACET` (`E008`: `"Temporal primitive ':TimeEpoch' requires exactly one scale facet ('#ns', '#us', '#ms', or '#s')"`), pinned strictly to the `:TimeEpoch` token.
+- Declaring multiple scale flags triggers `ERR_MUTUALLY_EXCLUSIVE` (`E008`: `"Temporal scale facets ('#ns', '#us', '#ms', '#s') are mutually exclusive"`), pinned to each 2nd+ conflicting scale facet without emitting secondary `ERR_FACET_ORDER_VIOLATION` diagnostics.
 - The redundant `#unit` keyword is eliminated from the language grammar.
 
 #### 5.6.2 Calendar Date-Time: `:DateTime`
@@ -1276,7 +1283,7 @@ Domain-specific symbolic identifiers (`TEMPORAL_OFFSET_IN_ZONED`, `TEMPORAL_ZONE
 
 #### 5.6.3 Mutually Exclusive Mode Enforcement
 
-Declaring multiple mode facets on `:DateTime` (e.g. `{ #offset #zoned } :DateTime`) triggers `ERR_MUTUALLY_EXCLUSIVE`. Declaring `:DateTime` without a mode facet triggers `ERR_MISSING_TEMPORAL_FACET`.
+Declaring multiple mode facets on `:DateTime` (e.g. `{ #offset #zoned } :DateTime` or `{ #audited #offset } :DateTime`) triggers `ERR_MUTUALLY_EXCLUSIVE` (`E008`: `"Temporal mode facets ('#offset', '#zoned', '#audited') are mutually exclusive"`) pinned to each 2nd+ conflicting mode facet without stacking secondary `ERR_FACET_ORDER_VIOLATION` diagnostics. Declaring `:DateTime` without a mode facet triggers `ERR_MISSING_TEMPORAL_FACET` (`E008`: `"Temporal primitive ':DateTime' requires exactly one mode facet ('#offset', '#zoned', or '#audited')"`) pinned strictly to the `:DateTime` token.
 
 #### 5.6.4 Tripartite Invariant Comparison Matrix
 
@@ -1313,7 +1320,7 @@ Metadata constraint blocks `{ ... }` configure nominal type definitions and comp
 | **Enum Subsetting**                     | `#filterIncl`, `#filterExcl`                   | Nominal aliases of `:Enum` and subsets                                   | Inline enums, scalar primitives, constants, temporal                                               | `ERR_INVALID_METADATA_FACET`                                                      |
 | **Directive Options**                   | `#strip`                                       | Directive blocks in `:use` and `:include`                                | Type definitions, constant definitions                                                             | `ERR_INVALID_METADATA_FACET`                                                      |
 | **Trait Overrides**                     | `#equatable`, `#comparable`                    | Nominal type definitions                                                 | Constant definitions, collection instances                                                         | `ERR_INVALID_METADATA_FACET`                                                      |
-| **5-Tier Facet Sequence**               | All canonical facets                           | Metadata blocks `{ ... }`                                                | Facets declared out of 5-tier decimal hierarchy order                                              | `ERR_FACET_ORDER_VIOLATION`                                                       |
+| **5-Tier Facet Sequence**               | All canonical facets                           | Metadata blocks `{ ... }`                                                | Facets declared out of 5-tier decimal hierarchy order (suppressed on 2nd+ conflicting members of mutual-exclusivity groups `{#ns, #us, #ms, #s}`, `{#offset, #zoned, #audited}`, `{#size, #exact}`, `{#minIncl, #minExcl}`, `{#maxIncl, #maxExcl}`, and `{#filterIncl, #filterExcl}`, which emit strictly `ERR_MUTUALLY_EXCLUSIVE`) | `ERR_FACET_ORDER_VIOLATION`                                                       |
 
 #### Canonical Metadata Facet Matrix (Authoritative 10-Column Specification)
 
@@ -1530,11 +1537,12 @@ Nominal type definitions in a `:defs` block may explicitly declare capability tr
 
 When lowering a container with $N$ expected elements and $M$ parsed elements:
 
-1. If element $K$ fails lowering, the lowering visitor creates a `StvnError` placeholder node containing the diagnostic record.
-2. The visitor inserts `StvnError` into the container AST.
-3. Container cardinality is preserved ($M == N$). Delimiter tokens (`[`, `]`, `(`, `)`) receive zero secondary diagnostics.
-4. If $M < N$, the underflow error pins strictly to the closing delimiter token.
-5. If $M > N$, the overflow error pins across the excess element slice ($N \dots M-1$).
+1. If element $K$ fails lowering—including semantic value mismatches, pre-recorded Pass 1 syntax errors inside `:body`, or malformed Rule STR-04 fenced string slots (`malformedFencedString`, `E025` / `E026`)—the lowering visitor creates a `StvnErrorValue` placeholder node containing the diagnostic record.
+2. The visitor inserts `StvnErrorValue` into the container IR without shifting subsequent elements across slots.
+3. Container cardinality is preserved ($M == N$). Valid sibling elements validate against their true slot schemas, and delimiter tokens (`[`, `]`, `(`, `)`) receive zero secondary diagnostics.
+4. Spatial Pass 1 errors strictly enclosed inside balanced `:meta { ... }` or `:defs { ... }` blocks poison only the affected `:defs` declarations and never abort Pass 3 `:body` lowering when `:type` and `:body` parse cleanly.
+5. If $M < N$, the underflow error pins strictly to the closing delimiter token.
+6. If $M > N$, the overflow error pins across the excess element slice ($N \dots M-1$).
 
 ### 7.3 Diagnostic Coordinate Pinning Discipline
 
@@ -2952,7 +2960,8 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_MUTUALLY_EXCLUSIVE`                      | `"MUTUALLY_EXCLUSIVE_BOUNDS"`                   | Fatal    | Mutually exclusive boundary constraints or modes simultaneously declared.                                                                                                      |
 | `ERR_CIRCULAR_TYPE`                           | `"CIRCULAR_TYPE_DEFINITION"`                    | Fatal    | Recursive type aliases form non-disjunctive circular self-reference.                                                                                                           |
 | `ERR_DUPLICATE_DEF`                           | `"DUPLICATE_TYPE_DEFINITION"`                   | Fatal    | Duplicate type or constant identifiers declared in the same scope.                                                                                                             |
-| `ERR_INVALID_METADATA_FACET`                  | `"ERR_INVALID_METADATA_FACET"`                  | Fatal    | Metadata facet applied to incompatible target entity kind.                                                                                                                     |
+| `ERR_INVALID_METADATA_FACET`                  | `"ERR_INVALID_METADATA_FACET"`                  | Fatal    | Metadata facet applied to incompatible target entity kind or supplied with non-conforming argument type (`E008`).                                                               |
+| `ERR_INCOMPLETE_TRAIT_FACET`                  | `"ERR_INCOMPLETE_TRAIT_FACET"`                  | Fatal    | Boolean trait facet (`#preserveIndent`, `#equatable`, or `#comparable`) omits its required explicit boolean argument (`#TRUE`, `#FALSE`, `#T`, `#F`, or boolean `#CONST`) (`E008`, § 3.5.2). |
 | `ERR_DISCRETE_BOUND_KIND_PROHIBITED`          | `"ERR_DISCRETE_BOUND_KIND_PROHIBITED"`          | Fatal    | Discrete type (`:Int`, `{ #exact } :Float`, `:TimeEpoch`, `:DateTime`) declares `#maxIncl` or `#minExcl`.                                                                      |
 | `ERR_EMPTY_INTERVAL_DOMAIN`                   | `"ERR_EMPTY_INTERVAL_DOMAIN"`                   | Fatal    | Discrete interval defines empty domain $[k, k)$ with zero points.                                                                                                              |
 | `ERR_INCOMPATIBLE_NOMINAL_TYPE`               | `"ERR_INCOMPATIBLE_NOMINAL_TYPE"`               | Fatal    | Two incompatible nominal types are unified or assigned.                                                                                                                        |
@@ -3039,11 +3048,9 @@ lexer grammar StvnLexer;
 // 1. STANDARD LEXER RULES
 // ============================================================================
 
-SPACE   : [ \r\n]+ -> skip ;
-COMMENT : '//' ~[\r\n]* -> channel(HIDDEN) ;
-
-// Strict Zero-Tab Enforcement: Tab characters are prohibited outside fenced string bodies
+SPACE         : [ \r\n]+ -> skip ;
 TAB_CHARACTER : '\t'+ -> channel(HIDDEN) ;
+COMMENT       : '//' ~[\r\n]* -> channel(HIDDEN) ;
 
 LBRACK : '[' ;
 RBRACK : ']' ;
@@ -3053,71 +3060,55 @@ LBRACE : '{' ;
 RBRACE : '}' ;
 FSLASH : '/' ;
 
-// Structural Keywords
 KW_META    : ':meta' ;
 KW_DEFS    : ':defs' ;
 KW_TYPE    : ':type' ;
 KW_BODY    : ':body' ;
+KW_INCLUDE : ':include' ;
 KW_PACKAGE : ':package' ;
 KW_USE     : ':use' ;
-KW_INCLUDE : ':include' ;
+KW_STRIP   : '#strip' ;
 
-// Scalar Primitive Kernels
-ATOM_INT      : ':Int' ;
-ATOM_FLOAT    : ':Float' ;
-ATOM_STRING   : ':String' ;
-ATOM_BOOLEAN  : ':Boolean' ;
+KW_META_NAME   : '#name' ;
+KW_META_DOMAIN : '#domain' ;
+KW_META_KIND   : '#kind' ;
 
-// Algebraic Type Constructors
-KW_TUPLE  : ':Tuple' ;
-KW_OPTION : ':Option' ;
-KW_EITHER : ':Either' ;
-KW_UNION  : ':Union' ;
-KW_ENUM   : ':Enum' ;
-
-// Collection Constructors
-COLL_SEQ : ':Seq' ;
-COLL_SET : ':Set' ;
-COLL_MAP : ':Map' ;
-
-// Temporal Domain Constructors
-KW_TIME_EPOCH : ':TimeEpoch' ;
-KW_DATE_TIME  : ':DateTime' ;
-
-// Facet Annotation Keywords
-KW_SIZE            : '#size' ;
-KW_UNSIGNED        : '#unsigned' ;
-KW_MIN_INCL        : '#minIncl' ;
-KW_MIN_EXCL        : '#minExcl' ;
-KW_MAX_INCL        : '#maxIncl' ;
-KW_MAX_EXCL        : '#maxExcl' ;
-KW_MIN_SIZE        : '#minSize' ;
-KW_MAX_SIZE        : '#maxSize' ;
-KW_EXACT           : '#exact' ;
-KW_EQUATABLE       : '#equatable' ;
-KW_COMPARABLE      : '#comparable' ;
-KW_INVERTIBLE      : '#invertible' ;
-KW_STRIP           : '#strip' ;
-KW_PRESERVE_INDENT : '#preserveIndent' ;
-KW_REGEX           : '#regex' ;
-KW_FILTER_INCL     : '#filterIncl' ;
-KW_FILTER_EXCL     : '#filterExcl' ;
-KW_META_NAME       : '#name' ;
-KW_META_DOMAIN     : '#domain' ;
-KW_META_KIND       : '#kind' ;
 KW_KIND_BODY         : '#BODY' ;
 KW_KIND_DEFS         : '#DEFS' ;
 KW_KIND_BODY_INCLUDE : '#BODY_INCLUDE' ;
 KW_KIND_DEFS_INCLUDE : '#DEFS_INCLUDE' ;
-KW_NS                : '#ns' ;
-KW_US                : '#us' ;
-KW_MS                : '#ms' ;
-KW_S                 : '#s' ;
-KW_OFFSET            : '#offset' ;
-KW_ZONED             : '#zoned' ;
-KW_AUDITED           : '#audited' ;
 
-// Value Keywords and Literals
+KW_EQUATABLE       : '#equatable' ;
+KW_COMPARABLE      : '#comparable' ;
+KW_PRESERVE_INDENT : '#preserveIndent' ;
+KW_MIN_INCL        : '#minIncl' ;
+KW_MIN_EXCL        : '#minExcl' ;
+KW_MAX_INCL        : '#maxIncl' ;
+KW_MAX_EXCL        : '#maxExcl' ;
+KW_REGEX           : '#regex' ;
+KW_FILTER_INCL     : '#filterIncl' ;
+KW_FILTER_EXCL     : '#filterExcl' ;
+KW_SIZE            : '#size' ;
+KW_UNSIGNED        : '#unsigned' ;
+KW_EXACT           : '#exact' ;
+KW_MIN_SIZE        : '#minSize' ;
+KW_MAX_SIZE        : '#maxSize' ;
+KW_INVERTIBLE      : '#invertible' ;
+KW_OFFSET          : '#offset' ;
+KW_ZONED           : '#zoned' ;
+KW_AUDITED         : '#audited' ;
+
+KW_SCALE_S         : '#s' ;
+KW_SCALE_MS        : '#ms' ;
+KW_SCALE_US        : '#us' ;
+KW_SCALE_NS        : '#ns' ;
+
+KW_TUPLE     : ':Tuple' ;
+KW_ENUM      : ':Enum' ;
+KW_OPTION    : ':Option' ;
+KW_EITHER    : ':Either' ;
+KW_UNION     : ':Union' ;
+
 KW_TRUE        : '#TRUE' ;
 KW_FALSE       : '#FALSE' ;
 KW_TRUE_SHORT  : '#T' ;
@@ -3133,22 +3124,30 @@ KW_RIGHT       : '#Right' ;
 KW_LEFT_SHORT  : '#L' ;
 KW_RIGHT_SHORT : '#R' ;
 
+ATOM_BOOLEAN          : ':Boolean' ;
+ATOM_INT              : ':Int' ;
+ATOM_FLOAT            : ':Float' ;
+ATOM_STRING           : ':String' ;
+ATOM_TIME_EPOCH       : ':TimeEpoch' ;
+ATOM_DATE_TIME        : ':DateTime' ;
+
+COLL_SEQ               : ':Seq' ;
+COLL_SET               : ':Set' ;
+COLL_MAP               : ':Map' ;
+
 UNION_TAG_PREFIX : '#' [1-9] [0-9]* ;
 
 TYPE_KEYWORD_BASE  : ':' [a-zA-Z_][a-zA-Z0-9_]* ;
 VALUE_KEYWORD_BASE : '#' [a-zA-Z_][a-zA-Z0-9_]* ;
-IDENTIFIER         : [a-zA-Z_][a-zA-Z0-9_]* ;
+IDENTIFIER   : [a-zA-Z_][a-zA-Z0-9_]* ;
 
-// Numeric Literals: Base-10, Hex (0x), Binary (0b), and Octal (0o)
+// Base-10, Hexadecimal (0x), Binary (0b), and Octal (0o) match rules
 LITERAL_INTEGER : '-'? ('0' [xX] [0-9a-fA-F]+ | '0' [bB] [01]+ | '0' [oO] [0-7]+ | [1-9][0-9]* | '0') ;
-LITERAL_FLOAT   : '-'? [0-9]+ '.' [0-9]+ ([eE] [-+]? [0-9]+)? ;
+LITERAL_FLOAT : '-'? [0-9]+ '.' [0-9]+ ([eE] [-+]? [0-9]+)? ;
 LITERAL_STRING_SIMPLE : '"' (~["\\\r\n\t] | '\\' .)* '"' ;
 
 fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
 
-PROHIBITED_FENCE_START : '"""->' ~[\r\n]* ;
-
-// Fenced String Rule STR-04 (Without prohibited '->' arrow)
 FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     String text = getText();
     int start = text.indexOf('[') + 1;
@@ -3163,8 +3162,19 @@ FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     }
 } ;
 
-MALFORMED_FENCE_OPEN : '"""' ~[\r\n]* ('\n' | '"""' | EOF) {
+PROHIBITED_FENCE_START : '"""->[' ~[\r\n]* '\n' {
+    setType(MALFORMED_FENCE_OPEN);
     pushMode(MALFORMED_FENCED_STRING);
+} ;
+
+MALFORMED_FENCE_INLINE : '"""' ~[\r\n]*? '"""' {
+    setType(MALFORMED_FENCE_OPEN);
+} ;
+
+MALFORMED_FENCE_OPEN : '"""' ( ~[\r\n"] | '"' ~[\r\n"] | '""' ~[\r\n"] )* ('\n' | EOF) {
+    if (getText().endsWith("\n")) {
+        pushMode(MALFORMED_FENCED_STRING);
+    }
 } ;
 
 MALFORMED_FENCE_CLOSE : '[' ~[\r\n\]]* ']"""' ;
@@ -3175,16 +3185,19 @@ MALFORMED_FENCE_CLOSE : '[' ~[\r\n\]]* ']"""' ;
 
 mode FENCED_STRING;
 
-// Semantic Predicate ensures that we pop mode ONLY if the matching tag is identical
+// Semantic Predicate ensures that we only pop the lexer mode if the matching tag is mathematically identical!
 FENCE_END : '[' FENCE_TAG_CHAR+ ']"""' { getText().substring(1, getText().length() - 4).equals(currentFenceTag) }? -> popMode ;
 
 FENCE_CONTENT : . ;
 
 mode MALFORMED_FENCED_STRING;
 
-MALFORMED_FENCE_END : ('[' ~[\r\n\]]* ']"""' | '"""[' ~[\r\n\]]* ']') -> skip, popMode ;
-MALFORMED_BLOCK_END : '"""' -> skip, popMode ;
-MALFORMED_FENCE_CONTENT : . -> skip ;
+// Consume the closing delimiter on the default channel to return cleanly to DEFAULT_MODE while preserving AST slot arity
+MALFORMED_FENCE_END : ('[' ~[\r\n\]]* ']"""' | '"""[' ~[\r\n\]]* ']') -> popMode ;
+MALFORMED_BLOCK_END : '"""' -> popMode ;
+
+// Retain body characters for malformedFencedString without cascading syntax errors in DEFAULT_MODE
+MALFORMED_FENCE_CONTENT : . ;
 ```
 
 ---
@@ -3199,7 +3212,7 @@ options {
 }
 
 // ============================================================================
-// 1. PARSER ROOT AND DOCUMENT STRUCTURE
+// 1. PARSER RULES
 // ============================================================================
 
 stvnDocument : LBRACE documentBody RBRACE EOF ;
@@ -3219,6 +3232,7 @@ metaKindFacet   : KW_META_KIND metaKindValue ;
 metaKindValue   : KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_INCLUDE | KW_KIND_DEFS_INCLUDE ;
 metaUnknownFacet : valueKeyword (value | schemaType)? ;
 
+// Inclusion definitions integrated alongside type structures
 defsEntry : KW_DEFS LBRACE defsElement* RBRACE ;
 
 defsElement : includeStmt
@@ -3228,7 +3242,6 @@ defsElement : includeStmt
             | constantDefinition
             ;
 
-// Package Enclosures and Scoped Imports
 packageEnclosure : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
 packagePath      : typeKeyword ;
 packageElement   : nestedPackageIllegal
@@ -3238,82 +3251,122 @@ packageElement   : nestedPackageIllegal
                  ;
 nestedPackageIllegal : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
 
-useStmt       : KW_USE LBRACK useTarget useOptionsBlock? useAliasBlock? RBRACK ;
-useTarget     : typeKeyword ;
-useOptionsBlock : LBRACE KW_STRIP* RBRACE ;
+useStmt : KW_USE LBRACK useTarget useOptionsBlock? useAliasBlock? RBRACK ;
+useTarget : typeKeyword | useTargetIllegal ;
+useTargetIllegal : typeKeyword FSLASH+ ;
+useOptionsBlock : LBRACE useOption* RBRACE ;
+useOption       : KW_STRIP standaloneFacetIllegalArg? ;
 useAliasBlock   : LBRACE useMapAlias* RBRACE ;
 useMapAlias     : typeKeyword typeKeyword | valueKeyword valueKeyword ;
 
-// Include Directives
-includeStmt         : KW_INCLUDE LBRACK includeElement+ RBRACK ;
+includeStmt       : KW_INCLUDE LBRACK includeElement+ RBRACK ;
+
 includeElement      : stringLiteral includeOptionsBlock? includeAliasBlock? ;
+
 includeOptionsBlock : LBRACE includeOption* RBRACE ;
-includeOption       : KW_STRIP ;
+
+includeOption       : KW_STRIP standaloneFacetIllegalArg? ;
+
 includeAliasBlock   : LBRACE includeMapAlias* RBRACE ;
+
 includeMapAlias     : typeKeyword typeKeyword ;
 
-// Type and Body Declarations
 typeEntry : KW_TYPE (schemaType | metadataMap)? ;
 bodyEntry : KW_BODY value? ;
 
-typeDefinition     : typeDefTarget metadataMap? schemaType ;
-typeDefTarget      : typeKeyword ;
-constantDefinition : valueKeyword metadataMap? schemaType value ;
+typeDefinition     : typeDefTarget schemaType ;
+typeDefTarget      : typeKeyword | reservedKeyword ;
+constantDefinition : valueKeyword schemaType value ;
 
-// Metadata Blocks: Must contain one or more facet entries (Empty blocks prohibited)
-metadataMap   : LBRACE metadataEntry+ RBRACE ;
+metadataMap    : LBRACE metadataEntry* RBRACE ;
 
-metadataEntry : facetSize
-              | facetUnsigned
-              | facetTemporalScale
-              | facetTemporalMode
-              | facetRange
-              | facetExact
-              | facetInvertible
-              | facetSizeBounds
-              | facetRegex
-              | facetTraitBool
-              | facetFilter
-              | facetDirective
-              ;
+// Enforced structural type verification branches
+metadataEntry     : metadataBool | metadataTrait | metadataRange | metadataString | metadataFilter | facetDirective
+                  | metadataSize | facetUnsigned | facetExact | facetInvertible | facetTemporalScale | facetTemporalMode
+                  | metadataUnknownEntry ;
+facetDirective     : KW_STRIP standaloneFacetIllegalArg? ;
+metadataBool       : (KW_EQUATABLE | KW_COMPARABLE) metadataValue? ;
+metadataTrait      : KW_PRESERVE_INDENT metadataValue? ;
+metadataRange      : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
+metadataString     : KW_REGEX metadataValue ;
+metadataFilter     : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
+metadataSize       : (KW_SIZE | KW_MIN_SIZE | KW_MAX_SIZE) metadataValue ;
+facetUnsigned      : KW_UNSIGNED standaloneFacetIllegalArg? ;
+facetExact         : KW_EXACT standaloneFacetIllegalArg? ;
+facetInvertible    : KW_INVERTIBLE standaloneFacetIllegalArg? ;
+facetTemporalScale : (KW_SCALE_NS | KW_SCALE_US | KW_SCALE_MS | KW_SCALE_S) standaloneFacetIllegalArg? ;
+facetTemporalMode  : (KW_OFFSET | KW_ZONED | KW_AUDITED) standaloneFacetIllegalArg? ;
+standaloneFacetIllegalArg : booleanLiteral
+                          | integerLiteral
+                          | floatLiteral
+                          | stringLiteral
+                          | collectionValue
+                          | UNION_TAG_PREFIX
+                          | KW_NONE | KW_NONE_SHORT
+                          | KW_SOME | KW_SOME_SHORT
+                          | KW_LEFT | KW_LEFT_SHORT
+                          | KW_RIGHT | KW_RIGHT_SHORT
+                          | KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_INCLUDE | KW_KIND_DEFS_INCLUDE
+                          | typeKeyword
+                          | reservedKeyword
+                          ;
+metadataUnknownEntry : unknownFacetKeyword (schemaType | metadataUnknownArg)? ;
 
-facetSize          : KW_SIZE integerLiteral ;
-facetUnsigned      : KW_UNSIGNED ;
-facetTemporalScale : KW_NS | KW_US | KW_MS | KW_S ;
-facetTemporalMode  : KW_OFFSET | KW_ZONED | KW_AUDITED ;
-facetRange         : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) (integerLiteral | floatLiteral | stringLiteral | valueKeyword) ;
-facetExact         : KW_EXACT ;
-facetInvertible    : KW_INVERTIBLE ;
-facetSizeBounds    : (KW_MIN_SIZE | KW_MAX_SIZE) integerLiteral ;
-facetRegex         : KW_REGEX (stringLiteral | valueKeyword) ;
-facetTraitBool     : (KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT) booleanLiteral ;
-facetFilter        : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
-facetDirective     : KW_STRIP ;
+metadataUnknownArg : explicitOptionValue
+                   | explicitEitherValue
+                   | explicitUnionValue
+                   | booleanLiteral
+                   | integerLiteral
+                   | floatLiteral
+                   | stringLiteral
+                   | facetConstRef
+                   | collectionValue
+                   ;
 
-variantList : LBRACK valueKeyword* RBRACK ;
+unknownFacetKeyword : unknownFacetKeywordStart ( FSLASH IDENTIFIER )* ;
 
-// Type System Grammar
-schemaType : metadataMap? (schemaConstructor | typeKeyword) ;
+unknownFacetKeywordStart : VALUE_KEYWORD_BASE
+                         | UNION_TAG_PREFIX
+                         | KW_FALSE | KW_FALSE_SHORT
+                         | KW_TRUE  | KW_TRUE_SHORT
+                         | KW_NONE  | KW_NONE_SHORT
+                         | KW_SOME  | KW_SOME_SHORT
+                         | KW_LEFT  | KW_LEFT_SHORT
+                         | KW_RIGHT | KW_RIGHT_SHORT
+                         | KW_META_NAME | KW_META_DOMAIN | KW_META_KIND
+                         | KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_INCLUDE | KW_KIND_DEFS_INCLUDE
+                         ;
 
-schemaConstructor : atomicKernelType
-                  | collectionType
-                  | productType
-                  | sumType
-                  | temporalType
-                  ;
+variantList    : LBRACK valueKeyword* RBRACK ;
 
-atomicKernelType : ATOM_INT
-                 | ATOM_FLOAT
-                 | ATOM_STRING
-                 | ATOM_BOOLEAN
-                 ;
-
-collectionType : COLL_SEQ LPAREN schemaType RPAREN
-               | COLL_SET LPAREN schemaType RPAREN
-               | COLL_MAP LPAREN schemaType schemaType RPAREN
+metadataValue  : booleanLiteral
+               | integerLiteral
+               | floatLiteral
+               | stringLiteral
+               | facetConstRef
                ;
 
-productType : KW_TUPLE LPAREN schemaType+ RPAREN ;
+schemaType : metadataMap? (schemaConstructor | typeKeyword) ;
+
+schemaConstructor : atomicType | collectionType | productType | sumType ;
+
+atomicType : ATOM_BOOLEAN
+           | ATOM_INT
+           | ATOM_FLOAT
+           | ATOM_STRING
+           | ATOM_TIME_EPOCH
+           | ATOM_DATE_TIME
+           ;
+
+collectionType
+    : COLL_SEQ LPAREN schemaType RPAREN
+    | COLL_SET LPAREN schemaType RPAREN
+    | COLL_MAP LPAREN schemaType schemaType RPAREN
+    ;
+
+productType
+    : KW_TUPLE LPAREN schemaType+ RPAREN               # TupleType
+    ;
 
 sumType : KW_OPTION LPAREN schemaType RPAREN
         | KW_ENUM enumDef
@@ -3323,11 +3376,6 @@ sumType : KW_OPTION LPAREN schemaType RPAREN
 
 enumDef : LBRACK valueKeyword+ RBRACK ;
 
-temporalType : KW_TIME_EPOCH
-             | KW_DATE_TIME
-             ;
-
-// Value Literals and Expressions
 value : explicitOptionValue
       | explicitEitherValue
       | explicitUnionValue
@@ -3353,14 +3401,82 @@ explicitOptionValue : KW_NONE | KW_NONE_SHORT | (KW_SOME | KW_SOME_SHORT) value 
 explicitEitherValue : (KW_RIGHT | KW_RIGHT_SHORT) value | (KW_LEFT | KW_LEFT_SHORT) value ;
 explicitUnionValue  : UNION_TAG_PREFIX value ;
 
-stringLiteral : LITERAL_STRING_SIMPLE
-              | fencedString
-              ;
+stringLiteral
+    : LITERAL_STRING_SIMPLE  # StringSimple
+    | fencedString           # StringFenced
+    | malformedFencedString  # StringMalformedFenced
+    ;
 
 fencedString : FENCE_START FENCE_CONTENT* FENCE_END ;
 
-typeKeyword : TYPE_KEYWORD_BASE ( FSLASH IDENTIFIER )* ;
-valueKeyword : VALUE_KEYWORD_BASE ( FSLASH IDENTIFIER )* ;
+malformedFencedString
+    : MALFORMED_FENCE_OPEN MALFORMED_FENCE_CONTENT* (MALFORMED_FENCE_END | MALFORMED_BLOCK_END)?
+    ;
+
+// Support for slash-delimited pathways
+typeKeyword : typeKeywordStart ( FSLASH IDENTIFIER )* ;
+
+typeKeywordStart : TYPE_KEYWORD_BASE ;
+
+reservedKeyword : ATOM_BOOLEAN
+                | ATOM_INT
+                | ATOM_FLOAT
+                | ATOM_STRING
+                | ATOM_TIME_EPOCH
+                | ATOM_DATE_TIME
+                | COLL_SEQ
+                | COLL_SET
+                | COLL_MAP
+                | KW_META
+                | KW_DEFS
+                | KW_TYPE
+                | KW_BODY
+                | KW_INCLUDE
+                | KW_PACKAGE
+                | KW_USE
+                | KW_TUPLE
+                | KW_ENUM
+                | KW_OPTION
+                | KW_EITHER
+                | KW_UNION
+                ;
+
+reservedConstraintOrMetaKeyword
+    : KW_SIZE | KW_UNSIGNED | KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL
+    | KW_MIN_SIZE | KW_MAX_SIZE | KW_EXACT | KW_EQUATABLE | KW_COMPARABLE | KW_INVERTIBLE
+    | KW_PRESERVE_INDENT | KW_REGEX | KW_FILTER_INCL | KW_FILTER_EXCL
+    | KW_SCALE_NS | KW_SCALE_US | KW_SCALE_MS | KW_SCALE_S
+    | KW_OFFSET | KW_ZONED | KW_AUDITED
+    | KW_META_NAME | KW_META_DOMAIN | KW_META_KIND
+    ;
+
+reservedFacetKeyword
+    : reservedConstraintOrMetaKeyword
+    | KW_STRIP
+    ;
+
+facetConstRef
+    : facetConstRefStart ( FSLASH IDENTIFIER )*
+    | booleanLiteral ( FSLASH IDENTIFIER )+
+    ;
+
+facetConstRefStart
+    : VALUE_KEYWORD_BASE
+    | UNION_TAG_PREFIX
+    | KW_NONE  | KW_NONE_SHORT
+    | KW_SOME  | KW_SOME_SHORT
+    | KW_LEFT  | KW_LEFT_SHORT
+    | KW_RIGHT | KW_RIGHT_SHORT
+    | KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_INCLUDE | KW_KIND_DEFS_INCLUDE
+    ;
+
+valueKeyword : valueKeywordStart ( FSLASH IDENTIFIER )* ;
+
+valueKeywordStart : facetConstRefStart
+                  | KW_FALSE | KW_FALSE_SHORT
+                  | KW_TRUE  | KW_TRUE_SHORT
+                  | reservedConstraintOrMetaKeyword
+                  ;
 ```
 
 ## Appendix E: Tripartite Temporal VOP Design Rationale & Mathematical Semantics

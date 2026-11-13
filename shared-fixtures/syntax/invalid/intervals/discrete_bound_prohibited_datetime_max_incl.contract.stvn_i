@@ -10,6 +10,6 @@
   :type :ErrorContract
   :body [
     ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 6 18 183 214 "Discrete temporal type ':DateTime' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'" )
-    ( #E008 #ERR_MISSING_TEMPORAL_FACET #ERROR 6 52 217 226 "Temporal primitive ':DateTime' requires exactly one mode facet (#offset, #zoned, or #audited)" )
+    ( #E008 #ERR_MISSING_TEMPORAL_FACET #ERROR 6 52 217 226 "Temporal primitive ':DateTime' requires exactly one mode facet ('#offset', '#zoned', or '#audited')" )
   ]
 }

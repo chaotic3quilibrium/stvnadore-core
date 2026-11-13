@@ -37,9 +37,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Primary stateless entry-point facade for compilation, canonical serialization,
@@ -139,7 +142,8 @@ public final class StvnCompiler {
       var lexer = new StvnLexer(CharStreams.fromString(sanitizedInput));
       lexer.removeErrorListeners();
 
-      parser = new StvnParser(new CommonTokenStream(lexer));
+      var tokens = new CommonTokenStream(lexer);
+      parser = new StvnParser(tokens);
       parser.removeErrorListeners();
 
       StvnErrorStrategy errorStrategy = null;
@@ -158,20 +162,33 @@ public final class StvnCompiler {
 
       int errorsBeforePass1 = diagnosticBag.errorCount();
       var docCtx = parser.stvnDocument();
+      List<StvnDiagnostic> malformedFenceDiags = StvnSyntaxErrorSanitizer.scanMalformedFenceTokens(
+          tokens, parser, diagnosticBag, config.strict()
+      );
       List<StvnDiagnostic> coalescedNumericDiags = errorStrategy != null
           ? errorStrategy.getCoalescedNumericDiagnostics()
           : List.of();
+      var docBody = docCtx.documentBody();
+      Set<StvnDiagnostic> preRecordedBodySyntaxSet = new LinkedHashSet<>(coalescedNumericDiags);
+      if (docBody != null && docBody.bodyEntry(0) != null && docBody.bodyEntry(0).getStart() != null) {
+        int bodyClauseStart = docBody.bodyEntry(0).getStart().getStartIndex();
+        for (StvnDiagnostic fd : malformedFenceDiags) {
+          if (fd.startOffset() >= bodyClauseStart) {
+            preRecordedBodySyntaxSet.add(fd);
+          }
+        }
+      }
+      List<StvnDiagnostic> preRecordedBodySyntaxDiags = List.copyOf(preRecordedBodySyntaxSet);
       int pass1Errors = diagnosticBag.errorCount() - errorsBeforePass1;
       boolean unitHasPass1SyntaxError =
           parser.getNumberOfSyntaxErrors() > 0 || pass1Errors > 0;
-      var docBody = docCtx.documentBody();
-      boolean onlyBodyCoalescedNumericErrors = parser.getNumberOfSyntaxErrors() == 0
-          && !coalescedNumericDiags.isEmpty()
-          && pass1Errors == coalescedNumericDiags.size()
+      boolean onlyBodyPreRecordedErrors = parser.getNumberOfSyntaxErrors() == 0
+          && !preRecordedBodySyntaxDiags.isEmpty()
+          && pass1Errors == preRecordedBodySyntaxDiags.size()
           && docBody != null
           && docBody.bodyEntry(0) != null
-          && allDiagnosticsInsideContext(coalescedNumericDiags, docBody.bodyEntry(0));
-      boolean unitHasHeaderOrDefsSyntaxError = unitHasPass1SyntaxError && !onlyBodyCoalescedNumericErrors;
+          && allDiagnosticsInsideContext(preRecordedBodySyntaxDiags, docBody.bodyEntry(0));
+      boolean unitHasHeaderOrDefsSyntaxError = unitHasPass1SyntaxError && !onlyBodyPreRecordedErrors;
       boolean hasNoClauses = docBody == null
           || (docBody.metaEntry().isEmpty()
               && docBody.defsEntry().isEmpty()
@@ -225,19 +242,29 @@ public final class StvnCompiler {
         );
       }
 
-      // Determine whether Pass 3 payload lowering is eligible under fault-containment rules
-      boolean canValidateBody = !unitHasHeaderOrDefsSyntaxError
-          && defsRes.sectionsEligible()
-          && defsRes.rootType().isPresent()
+      // Determine whether Pass 3 payload lowering is eligible under spatial fault-containment rules
+      boolean cleanSingleTypeAndBody = docBody != null
+          && docBody.typeEntry().size() == 1
+          && docBody.typeEntry(0).schemaType() != null
+          && docBody.bodyEntry().size() == 1
           && docBody.bodyEntry(0).value() != null;
 
-      if (canValidateBody && diagnosticBag.hasErrors()) {
-        int docStart = docCtx.getStart() != null ? docCtx.getStart().getStartIndex() : 0;
-        int docStop = docCtx.getStop() != null ? docCtx.getStop().getStopIndex() + 1 : Integer.MAX_VALUE;
+      boolean canValidateBody = hasBodyClause
+          && defsRes.sectionsEligible()
+          && defsRes.rootType().isPresent()
+          && cleanSingleTypeAndBody;
 
-        var defsCtx = docBody.defsEntry(0);
-        int defsStart = defsCtx != null && defsCtx.getStart() != null ? defsCtx.getStart().getStartIndex() : -1;
-        int defsStop = defsCtx != null && defsCtx.getStop() != null ? defsCtx.getStop().getStopIndex() + 1 : -1;
+      if (canValidateBody && diagnosticBag.hasErrors()) {
+        int defsStart = -1;
+        int defsStop = -1;
+        if (docBody.defsEntry().size() == 1) {
+          var de = docBody.defsEntry(0);
+          if (de.getStart() != null && de.LBRACE() != null && de.RBRACE() != null
+              && !de.RBRACE().getSymbol().getText().startsWith("<missing")) {
+            defsStart = de.getStart().getStartIndex();
+            defsStop = de.RBRACE().getSymbol().getStopIndex() + 1;
+          }
+        }
 
         Optional<String> rootSourcePath = diagnosticBag.defaultSourcePath();
         for (var diag : diagnosticBag.toList()) {
@@ -247,43 +274,46 @@ public final class StvnCompiler {
           if (!Objects.equals(diag.sourcePath(), rootSourcePath)) {
             continue;
           }
-          if (isCoalescedBodyDiagnostic(diag, coalescedNumericDiags)) {
+          if (isCoalescedBodyDiagnostic(diag, preRecordedBodySyntaxDiags)) {
             continue;
           }
           String sym = diag.symbolicId().or(() -> diag.errorCode()).orElse("");
           if (DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN.equals(sym)
               || DiagnosticBag.ERR_SECTION_ORDER_VIOLATION.equals(sym)
+              || DiagnosticBag.ERR_META_POSITION_INVALID.equals(sym)
               || (DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH.equals(sym)
                   && diag.message().contains("requires " + StvnVocabulary.FACET_KW_META_KIND))) {
             continue;
           }
           if (sym.startsWith("ERR_DOCUMENT_")
               || sym.startsWith("ERR_SECTION_")
+              || sym.equals(DiagnosticBag.ERR_ROOT_ENCLOSURE_MISSING)
               || sym.equals(DiagnosticBag.ERR_DUPLICATE_ROOT_SECTION)
               || sym.equals(DiagnosticBag.ERR_MALFORMED_SECTION_STRUCTURE)
               || sym.equals(DiagnosticBag.ERR_INVALID_FILENAME_STEM)
-              || sym.equals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED)
-              || sym.equals("STVN_SYNTAX_ERROR")
-              || sym.startsWith("SYNTAX_")) {
+              || sym.equals(DiagnosticBag.ERR_LEGACY_FILE_EXTENSION_PURGED)) {
             canValidateBody = false;
             break;
           }
-          int offset = diag.startOffset();
-          if (offset >= docStart && offset < docStop) {
-            boolean inMeta = false;
-            for (var metaCtx : docBody.metaEntry()) {
-              int mStart = metaCtx.getStart() != null ? metaCtx.getStart().getStartIndex() : -1;
-              int mStop = metaCtx.getStop() != null ? metaCtx.getStop().getStopIndex() + 1 : -1;
-              if (mStart >= 0 && offset >= mStart && offset < mStop) {
+          int ds = diag.startOffset();
+          int de = diag.endOffset();
+          boolean inMeta = false;
+          for (var me : docBody.metaEntry()) {
+            var mb = me.metaBlock();
+            if (me.getStart() != null && mb != null && mb.LBRACE() != null && mb.RBRACE() != null
+                && !mb.RBRACE().getSymbol().getText().startsWith("<missing")) {
+              int mStart = me.getStart().getStartIndex();
+              int mStop = mb.RBRACE().getSymbol().getStopIndex() + 1;
+              if (ds >= mStart && de <= mStop) {
                 inMeta = true;
                 break;
               }
             }
-            boolean inDefs = defsStart >= 0 && offset >= defsStart && offset < defsStop;
-            if (!inMeta && !inDefs) {
-              canValidateBody = false;
-              break;
-            }
+          }
+          boolean inDefs = defsStart >= 0 && ds >= defsStart && de <= defsStop;
+          if (!inMeta && !inDefs) {
+            canValidateBody = false;
+            break;
           }
         }
       }
@@ -305,7 +335,7 @@ public final class StvnCompiler {
             defsRes.rootConstantResolver(),
             defsRes.nominalTypeLookup(),
             diagnosticBag,
-            coalescedNumericDiags
+            new ArrayList<>(preRecordedBodySyntaxDiags)
         );
         payload = Optional.of(loweredValue);
       } catch (Throwable t) {

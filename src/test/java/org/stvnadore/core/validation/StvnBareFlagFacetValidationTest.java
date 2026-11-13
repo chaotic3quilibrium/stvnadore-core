@@ -16,23 +16,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class StvnBareFlagFacetValidationTest {
 
-  @Test
-  @DisplayName("TC-FLAG-01: Bare #preserveIndent is rejected with ERR_INVALID_METADATA_FACET")
-  void testBarePreserveIndentRejected() {
+  @ParameterizedTest
+  @ValueSource(strings = {"#preserveIndent", "#equatable", "#comparable"})
+  @DisplayName("TC-FLAG-01: Bare boolean trait facets are rejected with ERR_INCOMPLETE_TRAIT_FACET")
+  void testBarePreserveIndentRejected(String facet) {
     String source = """
         {
           :defs {
-            :Text { #preserveIndent } :String
+            :Text { %s } :String
           }
           :type :Text
           :body "hello"
         }
-        """;
+        """.formatted(facet);
     var result = StvnCompiler.compileToResult(source, null, StvnParserConfig.DEFAULT);
-    assertTrue(result.hasErrors(), "Bare #preserveIndent must be rejected");
+    assertTrue(result.hasErrors(), "Bare " + facet + " must be rejected");
     var error = result.diagnostics().getFirst();
-    assertEquals("ERR_INVALID_METADATA_FACET", error.errorCode().orElse(null));
-    assertTrue(error.message().contains("Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)"));
+    assertEquals("ERR_INCOMPLETE_TRAIT_FACET", error.errorCode().orElse(null));
+    assertTrue(error.message().contains("Metadata facet '" + facet + "' requires an explicit boolean value (#TRUE or #FALSE)"));
   }
 
   @ParameterizedTest
@@ -100,11 +101,11 @@ public class StvnBareFlagFacetValidationTest {
     assertTrue(result.hasErrors(), "Non-boolean argument for #preserveIndent must be rejected");
     var error = result.diagnostics().getFirst();
     assertEquals("ERR_INVALID_METADATA_FACET", error.errorCode().orElse(null));
-    assertTrue(error.message().contains("Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)"));
+    assertTrue(error.message().contains("Metadata facet '#preserveIndent' requires an explicit boolean value (#TRUE or #FALSE)"));
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"#size", "#minSize", "#maxSize", "#minIncl", "#maxIncl", "#minExcl", "#maxExcl", "#regex", "#equatable", "#comparable"})
+  @ValueSource(strings = {"#size", "#minSize", "#maxSize", "#minIncl", "#maxIncl", "#minExcl", "#maxExcl", "#regex"})
   @DisplayName("TC-FLAG-04: Non-flag facets reject missing arguments with STVN_SYNTAX_ERROR")
   void testMissingArgumentRejected(String facet) {
     String source = """

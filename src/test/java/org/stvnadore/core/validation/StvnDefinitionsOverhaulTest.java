@@ -203,7 +203,7 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res1.isSuccess());
     Assertions.assertTrue(res1.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal '-1' overflows unsigned 3-bit capacity for #C1")));
+        d.message().contains("Integer literal '-1' overflows unsigned 3-bit capacity for :U3")));
 
     String overflow = """
         {
@@ -219,7 +219,7 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res2.isSuccess());
     Assertions.assertTrue(res2.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal '8' overflows unsigned 3-bit capacity for #C2")));
+        d.message().contains("Integer literal '8' overflows unsigned 3-bit capacity for :U3")));
   }
 
   @Test
@@ -239,7 +239,7 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res1.isSuccess());
     Assertions.assertTrue(res1.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal '-5' overflows signed 3-bit capacity for #C1")));
+        d.message().contains("Integer literal '-5' overflows signed 3-bit capacity for :I3")));
 
     String overflow = """
         {
@@ -255,7 +255,7 @@ public class StvnDefinitionsOverhaulTest {
     Assertions.assertFalse(res2.isSuccess());
     Assertions.assertTrue(res2.diagnostics().stream().anyMatch(d ->
         DiagnosticBag.ERR_INTEGER_OVERFLOW.equals(d.errorCode().orElse(null)) &&
-        d.message().contains("Integer literal '4' overflows signed 3-bit capacity for #C2")));
+        d.message().contains("Integer literal '4' overflows signed 3-bit capacity for :I3")));
   }
 
   @Test

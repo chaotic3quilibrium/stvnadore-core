@@ -13,6 +13,6 @@
     ( #E015 #ENUM_SUBSET_ORDER_VIOLATION #ERROR 30 30 748 756 "Root ordering violation (:OutOfOrderFilterTrap): variant '#CREATED' violates monotonic root enum declaration order" )
     ( #E008 #ERR_FILTER_DUPLICATE_VARIANT #ERROR 35 30 950 958 "Enum subset violation (:DuplicateFilterVariantTrap): duplicate variant '#CREATED' in filter list" )
     ( #E016 #ENUM_SUBSET_EMPTY #ERROR 40 7 1096 1140 "Complete exclusion violation (:CompleteExclusionTrap): filtered enum subset evaluates to zero active variants" )
-    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 51 5 1308 1317 "Invalid enum value: variant #DEPLOYED is not permitted in enum subset :PreDeployPhase; allowed variants: [#CREATED, #PENDING, #VALIDATED]" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 51 5 1308 1317 "Invalid enum value: variant '#DEPLOYED' is not permitted in enum subset ':PreDeployPhase'; allowed variants: [#CREATED, #PENDING, #VALIDATED]" )
   ]
 }

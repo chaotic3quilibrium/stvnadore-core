@@ -78,8 +78,8 @@ metadataEntry     : metadataBool | metadataTrait | metadataRange | metadataStrin
                   | metadataSize | facetUnsigned | facetExact | facetInvertible | facetTemporalScale | facetTemporalMode
                   | metadataUnknownEntry ;
 facetDirective     : KW_STRIP standaloneFacetIllegalArg? ;
-metadataBool       : (KW_EQUATABLE | KW_COMPARABLE) metadataValue ;
-metadataTrait      : KW_PRESERVE_INDENT (booleanLiteral | valueKeyword) ;
+metadataBool       : (KW_EQUATABLE | KW_COMPARABLE) metadataValue? ;
+metadataTrait      : KW_PRESERVE_INDENT metadataValue? ;
 metadataRange      : (KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL) metadataValue ;
 metadataString     : KW_REGEX metadataValue ;
 metadataFilter     : (KW_FILTER_INCL | KW_FILTER_EXCL) variantList ;
@@ -103,7 +103,18 @@ standaloneFacetIllegalArg : booleanLiteral
                           | typeKeyword
                           | reservedKeyword
                           ;
-metadataUnknownEntry : unknownFacetKeyword (value | schemaType)?? ;
+metadataUnknownEntry : unknownFacetKeyword (schemaType | metadataUnknownArg)? ;
+
+metadataUnknownArg : explicitOptionValue
+                   | explicitEitherValue
+                   | explicitUnionValue
+                   | booleanLiteral
+                   | integerLiteral
+                   | floatLiteral
+                   | stringLiteral
+                   | facetConstRef
+                   | collectionValue
+                   ;
 
 unknownFacetKeyword : unknownFacetKeywordStart ( FSLASH IDENTIFIER )* ;
 
@@ -125,7 +136,7 @@ metadataValue  : booleanLiteral
                | integerLiteral
                | floatLiteral
                | stringLiteral
-               | valueKeyword
+               | facetConstRef
                ;
 
 schemaType : metadataMap? (schemaConstructor | typeKeyword) ;
@@ -186,9 +197,14 @@ explicitUnionValue  : UNION_TAG_PREFIX value ;
 stringLiteral
     : LITERAL_STRING_SIMPLE  # StringSimple
     | fencedString           # StringFenced
+    | malformedFencedString  # StringMalformedFenced
     ;
 
 fencedString : FENCE_START FENCE_CONTENT* FENCE_END ;
+
+malformedFencedString
+    : MALFORMED_FENCE_OPEN MALFORMED_FENCE_CONTENT* (MALFORMED_FENCE_END | MALFORMED_BLOCK_END)?
+    ;
 
 // Support for slash-delimited pathways
 typeKeyword : typeKeywordStart ( FSLASH IDENTIFIER )* ;
@@ -218,25 +234,39 @@ reservedKeyword : ATOM_BOOLEAN
                 | KW_UNION
                 ;
 
+reservedConstraintOrMetaKeyword
+    : KW_SIZE | KW_UNSIGNED | KW_MIN_INCL | KW_MAX_INCL | KW_MIN_EXCL | KW_MAX_EXCL
+    | KW_MIN_SIZE | KW_MAX_SIZE | KW_EXACT | KW_EQUATABLE | KW_COMPARABLE | KW_INVERTIBLE
+    | KW_PRESERVE_INDENT | KW_REGEX | KW_FILTER_INCL | KW_FILTER_EXCL
+    | KW_SCALE_NS | KW_SCALE_US | KW_SCALE_MS | KW_SCALE_S
+    | KW_OFFSET | KW_ZONED | KW_AUDITED
+    | KW_META_NAME | KW_META_DOMAIN | KW_META_KIND
+    ;
+
+reservedFacetKeyword
+    : reservedConstraintOrMetaKeyword
+    | KW_STRIP
+    ;
+
+facetConstRef
+    : facetConstRefStart ( FSLASH IDENTIFIER )*
+    | booleanLiteral ( FSLASH IDENTIFIER )+
+    ;
+
+facetConstRefStart
+    : VALUE_KEYWORD_BASE
+    | UNION_TAG_PREFIX
+    | KW_NONE  | KW_NONE_SHORT
+    | KW_SOME  | KW_SOME_SHORT
+    | KW_LEFT  | KW_LEFT_SHORT
+    | KW_RIGHT | KW_RIGHT_SHORT
+    | KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_INCLUDE | KW_KIND_DEFS_INCLUDE
+    ;
+
 valueKeyword : valueKeywordStart ( FSLASH IDENTIFIER )* ;
 
-valueKeywordStart : VALUE_KEYWORD_BASE
-                  | UNION_TAG_PREFIX
+valueKeywordStart : facetConstRefStart
                   | KW_FALSE | KW_FALSE_SHORT
                   | KW_TRUE  | KW_TRUE_SHORT
-                  | KW_NONE  | KW_NONE_SHORT
-                  | KW_SOME  | KW_SOME_SHORT
-                  | KW_LEFT  | KW_LEFT_SHORT
-                  | KW_RIGHT | KW_RIGHT_SHORT
-                  | KW_EQUATABLE | KW_COMPARABLE | KW_PRESERVE_INDENT
-                  | KW_MIN_INCL | KW_MIN_EXCL
-                  | KW_MAX_INCL | KW_MAX_EXCL
-                  | KW_REGEX
-                  | KW_FILTER_INCL | KW_FILTER_EXCL
-                  | KW_SIZE | KW_UNSIGNED | KW_EXACT
-                  | KW_MIN_SIZE | KW_MAX_SIZE | KW_INVERTIBLE
-                  | KW_OFFSET | KW_ZONED | KW_AUDITED
-                  | KW_SCALE_S | KW_SCALE_MS | KW_SCALE_US | KW_SCALE_NS
-                  | KW_META_NAME | KW_META_DOMAIN | KW_META_KIND
-                  | KW_KIND_BODY | KW_KIND_DEFS | KW_KIND_BODY_INCLUDE | KW_KIND_DEFS_INCLUDE
+                  | reservedConstraintOrMetaKeyword
                   ;

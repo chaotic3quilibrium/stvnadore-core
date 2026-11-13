@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 16 25 711 714 "Temporal scale facets (#s, #ms, #us, #ns) are mutually exclusive" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 16 25 711 714 "Temporal scale facets ('#ns', '#us', '#ms', '#s') are mutually exclusive" )
   ]
 }

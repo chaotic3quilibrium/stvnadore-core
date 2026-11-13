@@ -103,6 +103,8 @@ public final class DiagnosticBag {
   public static final String ERR_EMPTY_DIRECTIVE_BLOCK = "ERR_EMPTY_DIRECTIVE_BLOCK";
   /** Error code emitted when a metadata facet is applied to an incompatible target entity kind. */
   public static final String ERR_INVALID_METADATA_FACET = "ERR_INVALID_METADATA_FACET";
+  /** Error code emitted when a boolean trait metadata facet ({@code #preserveIndent}, {@code #equatable}, or {@code #comparable}) omits its required boolean value (E008). */
+  public static final String ERR_INCOMPLETE_TRAIT_FACET = "ERR_INCOMPLETE_TRAIT_FACET";
   /** Error code emitted when an unrecognized constraint facet tag is encountered in a metadata block. */
   public static final String ERR_UNRECOGNIZED_METADATA_FACET = "ERR_UNRECOGNIZED_METADATA_FACET";
   /** Error code emitted when a discrete type (:Int or { #exact } :Float) declares #maxIncl or #minExcl. */
@@ -264,6 +266,7 @@ public final class DiagnosticBag {
       Map.entry("CIRCULAR_REFERENCE", "E007"),
       Map.entry(ERR_CIRCULAR_TYPE, "E007"),
       Map.entry(ERR_INVALID_METADATA_FACET, "E008"),
+      Map.entry(ERR_INCOMPLETE_TRAIT_FACET, "E008"),
       Map.entry("INVALID_FACET_TARGET", "E008"),
       Map.entry(ERR_FACET_ORDER_VIOLATION, "E008"),
       Map.entry(ERR_DUPLICATE_METADATA_FACET, "E008"),

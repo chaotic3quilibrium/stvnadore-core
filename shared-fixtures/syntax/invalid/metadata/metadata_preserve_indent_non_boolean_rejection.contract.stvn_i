@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 6 25 180 195 "STVN Syntax Error: Metadata facet #preserveIndent requires an explicit boolean value (#TRUE or #FALSE)" )
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 6 41 196 198 "Metadata facet '#preserveIndent' requires an explicit boolean value (#TRUE or #FALSE)" )
   ]
 }

@@ -18,7 +18,9 @@ import org.stvnadore.core.validation.StvnSyntaxCancellationException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -84,6 +86,7 @@ public final class StvnSourceFormatter {
     parser.setErrorHandler(new StvnErrorStrategy());
 
     StvnParser.StvnDocumentContext docCtx = parser.stvnDocument();
+    StvnSyntaxErrorSanitizer.scanMalformedFenceTokens(tokenStream, parser, null, true);
     StvnDefsLowerer.validateDocumentBodyStructureForFormatter(docCtx);
     tokenStream.fill();
 
@@ -175,6 +178,40 @@ public final class StvnSourceFormatter {
       // Tier 5.0: Directive Modifiers
       case StvnVocabulary.FACET_KW_STRIP -> 5000;
       default -> 9000;
+    };
+  }
+
+  private static @Nullable String metadataMutexGroup(String kw) {
+    return switch (kw) {
+      case StvnVocabulary.FACET_KW_SCALE_NS,
+           StvnVocabulary.FACET_KW_SCALE_US,
+           StvnVocabulary.FACET_KW_SCALE_MS,
+           StvnVocabulary.FACET_KW_SCALE_S -> "TEMPORAL_SCALE";
+      case StvnVocabulary.FACET_KW_OFFSET,
+           StvnVocabulary.FACET_KW_ZONED,
+           StvnVocabulary.FACET_KW_AUDITED -> "TEMPORAL_MODE";
+      case StvnVocabulary.FACET_KW_EXACT,
+           StvnVocabulary.FACET_KW_SIZE -> "SIZE_EXACT";
+      case StvnVocabulary.FACET_KW_MIN_INCL,
+           StvnVocabulary.FACET_KW_MIN_EXCL -> "MIN_BOUND";
+      case StvnVocabulary.FACET_KW_MAX_INCL,
+           StvnVocabulary.FACET_KW_MAX_EXCL -> "MAX_BOUND";
+      case StvnVocabulary.FACET_KW_FILTER_INCL,
+           StvnVocabulary.FACET_KW_FILTER_EXCL -> "ENUM_FILTER";
+      default -> null;
+    };
+  }
+
+  private static ToIntFunction<StvnParser.MetadataEntryContext> createMutexStabilizedMetadataRanker() {
+    Map<String, Integer> firstRankByMutexGroup = new HashMap<>();
+    return ctx -> {
+      String kw = ctx.getStart().getText();
+      int baseRank = metadataFacetRank(ctx);
+      String mutexGroup = metadataMutexGroup(kw);
+      if (mutexGroup == null) {
+        return baseRank;
+      }
+      return firstRankByMutexGroup.computeIfAbsent(mutexGroup, k -> baseRank);
     };
   }
 
@@ -1144,11 +1181,12 @@ public final class StvnSourceFormatter {
       boolean multiLine = openBrace.getLine() < closeBrace.getLine() || hasComments;
 
       if (!multiLine) {
+        ToIntFunction<StvnParser.MetadataEntryContext> ranker = createMutexStabilizedMetadataRanker();
         List<CommentedBlockSlice<StvnParser.MetadataEntryContext>> sorted = new ArrayList<>(rawEntries.size());
         for (int i = 0; i < rawEntries.size(); i++) {
           StvnParser.MetadataEntryContext entry = rawEntries.get(i);
           sorted.add(new CommentedBlockSlice<>(
-              metadataFacetRank(entry), i, entry, List.of(), false, false, null
+              ranker.applyAsInt(entry), i, entry, List.of(), false, false, null
           ));
         }
         sorted.sort(Comparator.<CommentedBlockSlice<StvnParser.MetadataEntryContext>>comparingInt(CommentedBlockSlice::rank)
@@ -1169,7 +1207,7 @@ public final class StvnSourceFormatter {
             openBrace,
             closeBrace,
             rawEntries,
-            StvnSourceFormatter::metadataFacetRank
+            createMutexStabilizedMetadataRanker()
         );
         emitPartitionedCommentedBlock(
             partitioned,
@@ -1212,9 +1250,10 @@ public final class StvnSourceFormatter {
             .append(' ')
             .append(formatMetadataValueText(ctx.metadataSize().metadataValue()));
       } else if (ctx.metadataBool() != null) {
-        sb.append(ctx.metadataBool().getStart().getText())
-            .append(' ')
-            .append(formatMetadataValueText(ctx.metadataBool().metadataValue()));
+        sb.append(ctx.metadataBool().getStart().getText());
+        if (ctx.metadataBool().metadataValue() != null) {
+          sb.append(' ').append(formatMetadataValueText(ctx.metadataBool().metadataValue()));
+        }
       } else if (ctx.metadataRange() != null) {
         sb.append(ctx.metadataRange().getStart().getText())
             .append(' ')
@@ -1225,10 +1264,10 @@ public final class StvnSourceFormatter {
             .append(formatVariantListText(ctx.metadataFilter().variantList()));
       } else if (ctx.metadataTrait() != null) {
         StvnParser.MetadataTraitContext trait = ctx.metadataTrait();
-        String arg = trait.booleanLiteral() != null
-            ? trait.booleanLiteral().getText()
-            : trait.valueKeyword().getText();
-        sb.append(StvnVocabulary.FACET_KW_PRESERVE_INDENT).append(' ').append(arg);
+        sb.append(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
+        if (trait.metadataValue() != null) {
+          sb.append(' ').append(formatMetadataValueText(trait.metadataValue()));
+        }
       } else if (ctx.metadataString() != null) {
         sb.append(StvnVocabulary.FACET_KW_REGEX)
             .append(' ')
@@ -1241,13 +1280,40 @@ public final class StvnSourceFormatter {
       } else if (ctx.metadataUnknownEntry() != null) {
         StvnParser.MetadataUnknownEntryContext unk = ctx.metadataUnknownEntry();
         sb.append(unk.unknownFacetKeyword().getText());
-        if (unk.value() != null) {
+        if (unk.metadataUnknownArg() != null) {
           sb.append(' ');
-          formatValue(unk.value(), indent);
+          formatMetadataUnknownArg(unk.metadataUnknownArg(), indent);
         } else if (unk.schemaType() != null) {
           sb.append(' ');
           formatSchemaType(unk.schemaType(), indent);
         }
+      }
+    }
+
+    private void formatMetadataUnknownArg(StvnParser.MetadataUnknownArgContext ctx, int indent) {
+      if (ctx.booleanLiteral() != null) {
+        sb.append(ctx.booleanLiteral().getText());
+        lastEmittedLine = ctx.booleanLiteral().getStop().getLine();
+      } else if (ctx.integerLiteral() != null) {
+        sb.append(ctx.integerLiteral().getText());
+        lastEmittedLine = ctx.integerLiteral().getStop().getLine();
+      } else if (ctx.floatLiteral() != null) {
+        sb.append(ctx.floatLiteral().getText());
+        lastEmittedLine = ctx.floatLiteral().getStop().getLine();
+      } else if (ctx.stringLiteral() != null) {
+        sb.append(formatStringLiteralText(ctx.stringLiteral()));
+        lastEmittedLine = ctx.stringLiteral().getStop().getLine();
+      } else if (ctx.facetConstRef() != null) {
+        sb.append(ctx.facetConstRef().getText());
+        lastEmittedLine = ctx.facetConstRef().getStop().getLine();
+      } else if (ctx.explicitOptionValue() != null) {
+        formatExplicitOptionValue(ctx.explicitOptionValue(), indent);
+      } else if (ctx.explicitEitherValue() != null) {
+        formatExplicitEitherValue(ctx.explicitEitherValue(), indent);
+      } else if (ctx.explicitUnionValue() != null) {
+        formatExplicitUnionValue(ctx.explicitUnionValue(), indent);
+      } else if (ctx.collectionValue() != null) {
+        formatCollectionValue(ctx.collectionValue(), indent);
       }
     }
 
@@ -1566,46 +1632,58 @@ public final class StvnSourceFormatter {
         sb.append(ctx.valueKeyword().getText());
         lastEmittedLine = ctx.valueKeyword().getStop().getLine();
       } else if (ctx.explicitOptionValue() != null) {
-        StvnParser.ExplicitOptionValueContext opt = ctx.explicitOptionValue();
-        sb.append(opt.getStart().getText());
-        if (opt.value() != null) {
-          sb.append(' ');
-          formatValue(opt.value(), indent);
-        }
-        lastEmittedLine = opt.getStop().getLine();
+        formatExplicitOptionValue(ctx.explicitOptionValue(), indent);
       } else if (ctx.explicitEitherValue() != null) {
-        StvnParser.ExplicitEitherValueContext eith = ctx.explicitEitherValue();
-        sb.append(eith.getStart().getText()).append(' ');
-        formatValue(eith.value(), indent);
-        lastEmittedLine = eith.getStop().getLine();
+        formatExplicitEitherValue(ctx.explicitEitherValue(), indent);
       } else if (ctx.explicitUnionValue() != null) {
-        StvnParser.ExplicitUnionValueContext un = ctx.explicitUnionValue();
-        sb.append(un.UNION_TAG_PREFIX().getText()).append(' ');
-        formatValue(un.value(), indent);
-        lastEmittedLine = un.getStop().getLine();
+        formatExplicitUnionValue(ctx.explicitUnionValue(), indent);
       } else if (ctx.collectionValue() != null) {
-        StvnParser.CollectionValueContext coll = ctx.collectionValue();
-        if (coll.listLiteral() != null) {
-          formatLinearValueContainer(
-              coll.listLiteral().LBRACK().getSymbol(),
-              coll.listLiteral().RBRACK().getSymbol(),
-              StvnVocabulary.DELIM_OPEN_BRACKET,
-              StvnVocabulary.DELIM_CLOSE_BRACKET,
-              coll.listLiteral().value(),
-              indent
-          );
-        } else if (coll.tupleLiteral() != null) {
-          formatLinearValueContainer(
-              coll.tupleLiteral().LPAREN().getSymbol(),
-              coll.tupleLiteral().RPAREN().getSymbol(),
-              StvnVocabulary.DELIM_OPEN_PAREN,
-              StvnVocabulary.DELIM_CLOSE_PAREN,
-              coll.tupleLiteral().value(),
-              indent
-          );
-        } else if (coll.mapLiteral() != null) {
-          formatMapLiteral(coll.mapLiteral(), indent);
-        }
+        formatCollectionValue(ctx.collectionValue(), indent);
+      }
+    }
+
+    private void formatExplicitOptionValue(StvnParser.ExplicitOptionValueContext opt, int indent) {
+      sb.append(opt.getStart().getText());
+      if (opt.value() != null) {
+        sb.append(' ');
+        formatValue(opt.value(), indent);
+      }
+      lastEmittedLine = opt.getStop().getLine();
+    }
+
+    private void formatExplicitEitherValue(StvnParser.ExplicitEitherValueContext eith, int indent) {
+      sb.append(eith.getStart().getText()).append(' ');
+      formatValue(eith.value(), indent);
+      lastEmittedLine = eith.getStop().getLine();
+    }
+
+    private void formatExplicitUnionValue(StvnParser.ExplicitUnionValueContext un, int indent) {
+      sb.append(un.UNION_TAG_PREFIX().getText()).append(' ');
+      formatValue(un.value(), indent);
+      lastEmittedLine = un.getStop().getLine();
+    }
+
+    private void formatCollectionValue(StvnParser.CollectionValueContext coll, int indent) {
+      if (coll.listLiteral() != null) {
+        formatLinearValueContainer(
+            coll.listLiteral().LBRACK().getSymbol(),
+            coll.listLiteral().RBRACK().getSymbol(),
+            StvnVocabulary.DELIM_OPEN_BRACKET,
+            StvnVocabulary.DELIM_CLOSE_BRACKET,
+            coll.listLiteral().value(),
+            indent
+        );
+      } else if (coll.tupleLiteral() != null) {
+        formatLinearValueContainer(
+            coll.tupleLiteral().LPAREN().getSymbol(),
+            coll.tupleLiteral().RPAREN().getSymbol(),
+            StvnVocabulary.DELIM_OPEN_PAREN,
+            StvnVocabulary.DELIM_CLOSE_PAREN,
+            coll.tupleLiteral().value(),
+            indent
+        );
+      } else if (coll.mapLiteral() != null) {
+        formatMapLiteral(coll.mapLiteral(), indent);
       }
     }
 

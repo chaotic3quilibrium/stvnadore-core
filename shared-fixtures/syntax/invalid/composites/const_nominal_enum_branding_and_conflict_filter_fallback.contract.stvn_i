@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "const_nominal_enum_branding_and_conflict_filter_fallback"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 8 64 458 485 "Constraint violation (:TrapConflictFilter): #filterIncl and #filterExcl are mutually exclusive" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 9 44 548 556 "Invalid enum value: variant '#CREATED' is not permitted in enum subset ':FinalizableState'; allowed variants: [#AUTHORIZED, #CAPTURED, #SETTLED]" )
+    ( #E028 #ERR_TYPE_MISMATCH #ERROR 10 45 601 613 "Invalid enum value for ':SettlementState': variant '#NOT_A_STATE' is not declared; allowed variants: [#CREATED, #AUTHORIZED, #CAPTURED, #SETTLED, #VOIDED, #REFUNDED]" )
+    ( #E028 #ERR_TYPE_MISMATCH #ERROR 13 11 699 711 "Invalid enum value for ':SettlementState': variant '#NOT_A_STATE' is not declared; allowed variants: [#CREATED, #AUTHORIZED, #CAPTURED, #SETTLED, #VOIDED, #REFUNDED]" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 13 24 712 719 "Invalid enum value: variant '#VOIDED' is not permitted in enum subset ':FinalizableState'; allowed variants: [#AUTHORIZED, #CAPTURED, #SETTLED]" )
+  ]
+}

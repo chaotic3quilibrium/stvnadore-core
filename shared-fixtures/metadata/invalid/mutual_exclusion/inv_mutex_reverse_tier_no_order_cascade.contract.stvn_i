@@ -1,0 +1,19 @@
+{
+  :meta {
+    #name "inv_mutex_reverse_tier_no_order_cascade"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 13 30 673 676 "Temporal scale facets ('#ns', '#us', '#ms', '#s') are mutually exclusive" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 14 34 723 730 "Temporal mode facets ('#offset', '#zoned', '#audited') are mutually exclusive" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 15 33 775 783 "Constraint violation (:TrapExactThenSize): facet '#size' is mutually exclusive with '#exact'" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 16 37 829 841 "Constraint violation (:TrapLowerBounds): #minIncl and #minExcl are mutually exclusive" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 17 38 888 900 "Constraint violation (:TrapUpperBounds): #maxIncl and #maxExcl are mutually exclusive" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 18 45 954 975 "Constraint violation (:TrapReverseFilter): #filterIncl and #filterExcl are mutually exclusive" )
+  ]
+}
