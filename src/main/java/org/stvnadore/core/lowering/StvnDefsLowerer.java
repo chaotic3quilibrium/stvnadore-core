@@ -2015,11 +2015,14 @@ public final class StvnDefsLowerer {
 
     boolean hasDefsSection = false;
     boolean hasIncludes = false;
+    boolean anyIncludeFailed = false;
 
     // Local AST declarations indexed by canonical FQNI
     private final Map<String, LocalTypeAstDecl> localTypeAsts = new LinkedHashMap<>();
     private final Map<String, LocalConstantAstDecl> localConstAsts = new LinkedHashMap<>();
     private final Set<String> locallyDeclaredPackages = new LinkedHashSet<>();
+    private final Set<String> importedPackages = new LinkedHashSet<>();
+    private final List<StvnParser.UseStmtContext> allDeclaredUseStmts = new ArrayList<>();
 
     // Active resolved bindings in the unit's global namespace (includes + local eviction)
     private final Map<String, ExportedTypeSymbol> importedTypePool = new LinkedHashMap<>();
@@ -2268,12 +2271,27 @@ public final class StvnDefsLowerer {
         if (de.includeStmt() != null) {
           this.hasIncludes = true;
         } else if (de.packageEnclosure() != null && de.packageEnclosure().packagePath() != null) {
-          locallyDeclaredPackages.add(de.packageEnclosure().packagePath().getText());
+          String pkgPath = de.packageEnclosure().packagePath().getText();
+          if (moduleCtx.isSystemAuthority() || !isReservedPackage(pkgPath)) {
+            locallyDeclaredPackages.add(pkgPath);
+          }
         } else if (de.typeDefinition() != null) {
           String rawName = de.typeDefinition().typeDefTarget().getText();
           int lastSlash = rawName.lastIndexOf('/');
           if (lastSlash > 1) {
-            locallyDeclaredPackages.add(rawName.substring(0, lastSlash));
+            String pkgPrefix = rawName.substring(0, lastSlash);
+            if (moduleCtx.isSystemAuthority() || !isReservedPackage(pkgPrefix)) {
+              locallyDeclaredPackages.add(pkgPrefix);
+            }
+          }
+        } else if (de.constantDefinition() != null && de.constantDefinition().valueKeyword() != null) {
+          String rawConst = de.constantDefinition().valueKeyword().getText();
+          int lastSlash = rawConst.lastIndexOf('/');
+          if (lastSlash > 1) {
+            String pkgPrefix = StvnVocabulary.SIGIL_TYPIC + rawConst.substring(1, lastSlash);
+            if (moduleCtx.isSystemAuthority() || !isReservedPackage(pkgPrefix)) {
+              locallyDeclaredPackages.add(pkgPrefix);
+            }
           }
         }
       }
@@ -2307,6 +2325,30 @@ public final class StvnDefsLowerer {
           processRootTypeDef(de.typeDefinition(), typeClaims, packagedTypeClaims, rootLocalUnpackagedTypes);
         } else if (de.constantDefinition() != null) {
           processRootConstDef(de.constantDefinition(), constClaims, packagedConstClaims, rootLocalUnpackagedConsts);
+        }
+      }
+
+      if (!isHermeticUnit() && !anyIncludeFailed) {
+        collectImportedPackagesFromClaims(packagedTypeClaims.keySet(), false);
+        collectImportedPackagesFromClaims(packagedConstClaims.keySet(), true);
+        for (var useStmt : allDeclaredUseStmts) {
+          if (useStmt.useTarget() == null || useStmt.useTarget().useTargetIllegal() != null) {
+            continue;
+          }
+          String target = useStmt.useTarget().getText();
+          boolean isPrelude = !moduleCtx.bootstrapPreludeMode && StvnPrelude.isPreludePackageTarget(target);
+          boolean isLocal = matchesDeclaredOrParentPackage(target, locallyDeclaredPackages);
+          boolean isImported = matchesDeclaredOrParentPackage(target, importedPackages);
+          if (!isPrelude && !isLocal && !isImported) {
+            Span sp = Span.ofContext(useStmt.useTarget());
+            diagnosticBag.addError(
+                "Unresolved package in " + StvnVocabulary.KEYWORD_USE + " directive: '" + target
+                    + "' is not declared in prelude, local " + StvnVocabulary.KEYWORD_DEFS
+                    + ", or any " + StvnVocabulary.KEYWORD_INCLUDE + " module",
+                sp.start(), sp.end(), sp.line(), sp.column(), null,
+                DiagnosticBag.ERR_UNDEFINED_TYPE
+            );
+          }
         }
       }
 
@@ -2522,6 +2564,21 @@ public final class StvnDefsLowerer {
             pathSpan.start(), pathSpan.end(), pathSpan.line(), pathSpan.column(), null,
             DiagnosticBag.ERR_RESERVED_PACKAGE_PROHIBITED
         );
+        if (pkgEnc.packageElement() != null) {
+          for (var pe : pkgEnc.packageElement()) {
+            if (pe.nestedPackageIllegal() != null) {
+              var illegalNode = pe.nestedPackageIllegal();
+              Span sp = Span.ofContext(illegalNode);
+              diagnosticBag.addError(
+                  "Nested packages are prohibited: " + illegalNode.packagePath().getText(),
+                  sp.start(), sp.end(), sp.line(), sp.column(), null,
+                  DiagnosticBag.ERR_NESTED_PACKAGE_PROHIBITED
+              );
+            } else if (pe.useStmt() != null) {
+              validateUseStmt(pe.useStmt());
+            }
+          }
+        }
         return;
       }
       if (pkgEnc.packageElement() == null) {
@@ -2591,6 +2648,7 @@ public final class StvnDefsLowerer {
     }
 
     private void validateUseStmt(StvnParser.UseStmtContext useStmt) {
+      allDeclaredUseStmts.add(useStmt);
       if (useStmt.useTarget() != null && useStmt.useTarget().useTargetIllegal() != null) {
         var illegal = useStmt.useTarget().useTargetIllegal();
         Span sp = Span.ofContext(illegal);
@@ -2603,8 +2661,8 @@ public final class StvnDefsLowerer {
         String target = useStmt.useTarget().getText();
         boolean isHermetic = isHermeticUnit();
         if (isHermetic) {
-          boolean isPrelude = target.equals(PRELUDE_PKG_ROOT) || target.startsWith(PRELUDE_PKG_ROOT + "/");
-          boolean isLocal = locallyDeclaredPackages.contains(target);
+          boolean isPrelude = !moduleCtx.bootstrapPreludeMode && StvnPrelude.isPreludePackageTarget(target);
+          boolean isLocal = matchesDeclaredOrParentPackage(target, locallyDeclaredPackages);
           if (!isPrelude && !isLocal) {
             Span sp = Span.ofContext(useStmt.useTarget());
             diagnosticBag.addError(
@@ -2642,6 +2700,31 @@ public final class StvnDefsLowerer {
             sp.start(), sp.end(), sp.line(), sp.column(), null,
             DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
         );
+      }
+    }
+
+    private static boolean matchesDeclaredOrParentPackage(String target, Set<String> candidatePackages) {
+      if (candidatePackages.contains(target)) {
+        return true;
+      }
+      String prefix = target + "/";
+      for (String pkg : candidatePackages) {
+        if (pkg.startsWith(prefix)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private void collectImportedPackagesFromClaims(Set<String> fqnis, boolean valueSigil) {
+      for (String fqni : fqnis) {
+        int lastSlash = fqni.lastIndexOf('/');
+        if (lastSlash > 1) {
+          String pkg = valueSigil
+              ? StvnVocabulary.SIGIL_TYPIC + fqni.substring(1, lastSlash)
+              : fqni.substring(0, lastSlash);
+          importedPackages.add(pkg);
+        }
       }
     }
 
@@ -2733,6 +2816,7 @@ public final class StvnDefsLowerer {
             || hasIllegalOptionArg
             || element.stringLiteral() == null
             || element.stringLiteral() instanceof StvnParser.StringMalformedFencedContext) {
+          this.anyIncludeFailed = true;
           continue;
         }
 
@@ -2746,6 +2830,7 @@ public final class StvnDefsLowerer {
               le.getMessage(), le.span().start(), le.span().end(), le.span().line(), le.span().column(),
               le.getCause(), le.canonicalCode(), le.symbolicId()
           );
+          this.anyIncludeFailed = true;
           continue;
         }
 
@@ -2753,6 +2838,7 @@ public final class StvnDefsLowerer {
         int lastSlash = normalizedInc.lastIndexOf('/');
         String incFileName = lastSlash >= 0 ? normalizedInc.substring(lastSlash + 1) : normalizedInc;
         if (rejectLegacyExtension(incFileName, diagnosticBag, pathLitSpan.start(), pathLitSpan.end(), pathLitSpan.line(), pathLitSpan.column())) {
+          this.anyIncludeFailed = true;
           continue;
         }
 
@@ -2765,6 +2851,7 @@ public final class StvnDefsLowerer {
               "E005",
               DiagnosticBag.ERR_DUPLICATE_DEF
           );
+          this.anyIncludeFailed = true;
           continue;
         }
 
@@ -2799,6 +2886,7 @@ public final class StvnDefsLowerer {
                 "E007",
                 "CYCLIC_MODULE_INCLUDE"
             );
+            this.anyIncludeFailed = true;
             continue;
           }
 
@@ -2811,6 +2899,7 @@ public final class StvnDefsLowerer {
                 null,
                 DiagnosticBag.ERR_MODULE_IMPORT
             );
+            this.anyIncludeFailed = true;
             continue;
           }
           if (incFileName.endsWith(".stvn_bd")) {
@@ -2822,6 +2911,7 @@ public final class StvnDefsLowerer {
                 null,
                 DiagnosticBag.ERR_MODULE_IMPORT
             );
+            this.anyIncludeFailed = true;
             continue;
           }
 
@@ -2838,6 +2928,7 @@ public final class StvnDefsLowerer {
                   missingEx,
                   DiagnosticBag.ERR_MODULE_IMPORT
               );
+              this.anyIncludeFailed = true;
               continue;
             }
 
@@ -2860,6 +2951,7 @@ public final class StvnDefsLowerer {
 
             if (hasNoTopLevelClauses(importedDocCtx) && childHasPass1SyntaxError) {
               moduleCtx.compiledVirtualModuleCache.put(resolvedVirtual, emptyFailedChildUnit());
+              this.anyIncludeFailed = true;
               continue;
             }
 
@@ -2882,6 +2974,7 @@ public final class StvnDefsLowerer {
                   null,
                   DiagnosticBag.ERR_MODULE_IMPORT
               );
+              this.anyIncludeFailed = true;
               continue;
             }
 
@@ -2918,6 +3011,7 @@ public final class StvnDefsLowerer {
                 "E007",
                 "CYCLIC_MODULE_INCLUDE"
             );
+            this.anyIncludeFailed = true;
             continue;
           }
 
@@ -2930,6 +3024,7 @@ public final class StvnDefsLowerer {
                 null,
                 DiagnosticBag.ERR_MODULE_IMPORT
             );
+            this.anyIncludeFailed = true;
             continue;
           }
           if (incFileName.endsWith(".stvn_bd")) {
@@ -2941,6 +3036,7 @@ public final class StvnDefsLowerer {
                 null,
                 DiagnosticBag.ERR_MODULE_IMPORT
             );
+            this.anyIncludeFailed = true;
             continue;
           }
 
@@ -2956,6 +3052,7 @@ public final class StvnDefsLowerer {
                   ioe,
                   DiagnosticBag.ERR_MODULE_IMPORT
               );
+              this.anyIncludeFailed = true;
               continue;
             }
 
@@ -2978,6 +3075,7 @@ public final class StvnDefsLowerer {
 
             if (hasNoTopLevelClauses(importedDocCtx) && childHasPass1SyntaxError) {
               moduleCtx.compiledModuleCache.put(canonicalPath, emptyFailedChildUnit());
+              this.anyIncludeFailed = true;
               continue;
             }
 
@@ -3000,11 +3098,16 @@ public final class StvnDefsLowerer {
                   null,
                   DiagnosticBag.ERR_MODULE_IMPORT
               );
+              this.anyIncludeFailed = true;
               continue;
             }
 
             moduleCtx.compiledModuleCache.put(canonicalPath, importedUnit);
           }
+        }
+
+        if (importedUnit.exportedTypes().isEmpty() && importedUnit.exportedConstants().isEmpty()) {
+          this.anyIncludeFailed = true;
         }
 
         projectIncludedModule(

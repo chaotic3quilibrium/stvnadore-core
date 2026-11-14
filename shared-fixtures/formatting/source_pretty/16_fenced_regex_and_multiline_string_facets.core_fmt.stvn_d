@@ -1,0 +1,25 @@
+{
+  :meta {
+    #name "16_fenced_regex_and_multiline_string_facets"
+    #domain "core_fmt"
+    #kind #DEFS
+  }
+  :defs {
+    #SLUG_REGEX :String """[REGEX]
+      ^[a-z0-9]+(?:\.[a-z0-9]+)*$[REGEX]"""
+    :SlugId { #minSize 3 #maxSize 64 #regex #SLUG_REGEX } :String
+    :TripleVer {
+      #minSize 5
+      #maxSize 32
+      #regex """[REGEX]
+        ^[0-9]+\.[0-9]+\.[0-9]+$[REGEX]"""
+    } :String
+    :TabRowSpec {
+      #minSize 3
+      #maxSize 48
+      #preserveIndent #T
+      #regex """[REGEX]
+        ^	[a-z]+	[0-9]+$[REGEX]"""
+    } :String
+  }
+}

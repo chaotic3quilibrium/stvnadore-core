@@ -1,0 +1,59 @@
+// @spec: SPEC-05-FENCED-STRINGS
+// @case: Positive - Fenced [REGEX] constants, inline fenced facets, #preserveIndent independence, and verbatim tab preservation
+{
+  :meta {
+    #name "fenced_regex_dedent_and_preserve_indent"
+    #kind #BODY
+  }
+  :defs {
+    #SLUG_REGEX :String """[REGEX]
+      ^[a-z0-9]+(?:\.[a-z0-9]+)*$[REGEX]"""
+
+    :SlugId { #minSize 3 #maxSize 64 #regex #SLUG_REGEX } :String
+
+    :InlineVersion {
+      #minSize 5
+      #maxSize 32
+      #regex """[REGEX]
+        ^[0-9]+\.[0-9]+\.[0-9]+$[REGEX]"""
+    } :String
+
+    :IndentedBlockWithFencedRegex {
+      #minSize 4
+      #maxSize 64
+      #preserveIndent #TRUE
+      #regex """[REGEX]
+        ^  [a-z]+
+          [0-9]+
+        $[REGEX]"""
+    } :String
+
+    :FencedLexBounded {
+      #minSize 3
+      #maxSize 16
+      #minIncl """[BOUND]
+        aaa[BOUND]"""
+      #maxIncl """[BOUND]
+        zzz[BOUND]"""
+    } :String
+
+    :TabDelimitedMetric {
+      #minSize 3
+      #maxSize 32
+      #regex """[REGEX]
+        ^	[a-z]+	[0-9]+$[REGEX]"""
+    } :String
+  }
+  :type :Tuple(:SlugId :InlineVersion :IndentedBlockWithFencedRegex :FencedLexBounded :TabDelimitedMetric)
+  :body (
+    "core.prelude.v2"
+    "2.0.0"
+    """[RAW]
+  alpha
+  42
+[RAW]"""
+    "mid"
+    """[TSV]
+        	cpu	95[TSV]"""
+  )
+}

@@ -697,11 +697,11 @@ Authors can organize definitions into explicit namespace packages and import sym
 5. **No Trailing Slashes:** Specifying a trailing slash in `:use` target paths emits `ERR_TRAILING_SLASH_PROHIBITED`.
 6. **Section 4.2 Eviction Integration:** Symbols imported via `:use` undergo eviction cascade: local definitions take precedence, explicit aliases resolve collisions, and unmitigated collisions emit `ERR_NAMESPACE_COLLISION`.
 7. **Zero-I/O & Closed Resolution Domain Invariant:**
-   The `:use` directive is strictly an in-memory lexical projection and symbol-aliasing mechanism. It **MUST NOT** perform filesystem I/O, external file resolution, or network loading.
-  - **Hermetic Documents (`.stvn`, `.stvn_d`, `.stvn_b`, `.stvn_bd`):** The target package specified by `useTarget` MUST resolve exclusively to:
-    1. The standard library prelude (`:org/stvnadore/prelude` or `:org/stvnadore/prelude/*`).
-    2. A co-located `:package` enclosure declared within the *same* `:defs` block. Targeting any package not defined locally in the document or in the prelude is a fatal semantic error (`ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT`, diagnostic code `E035`).
-  - **Modular Documents (`.stvn_i`, `.stvn_di`):** In addition to the prelude and co-located packages, `useTarget` may resolve to packages introduced into the compilation unit by an explicit `:include` statement.
+   The `:use` directive is strictly an in-memory lexical projection and symbol-aliasing mechanism. A `:use` directive **MUST NOT** perform filesystem I/O, external file resolution, or network loading.
+  - **Hermetic Documents (`.stvn`, `.stvn_d`, `.stvn_b`, `.stvn_bd`):** The target package specified by `useTarget` **MUST** resolve exclusively to:
+    1. A package declared in the standard library prelude (`:org/stvnadore/prelude` or `:org/stvnadore/prelude/meta`).
+    2. A non-reserved co-located `:package` enclosure or qualified `:defs` symbol prefix declared within the *same* `:defs` block (matching exact or parent hierarchical package prefixes). Targeting any package absent from the prelude catalog and local `:defs` declarations emits `ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` (`E035`) pinned strictly to `useTarget`.
+  - **Modular Documents (`.stvn_i`, `.stvn_di`):** In addition to the prelude catalog and non-reserved co-located `:defs` packages, `useTarget` may resolve to packages exported into the compilation unit by an explicit `:include` statement. When all `:include` directives succeed, targeting any package absent from the prelude catalog, local `:defs` declarations, and all `:include` modules **MUST** emit `ERR_UNDEFINED_TYPE` (`E030`) pinned strictly to `useTarget`.
 
 
 8. **Reserved Package Namespace Invariant:**
@@ -1145,6 +1145,9 @@ Every fenced string literal must adhere to **Rule STR-04**:
 
 5. **Prohibited Patterns & Slot-Preserving Error Recovery:**
    Empty tags (`"""[]`), prohibited legacy arrows (`"""->[TAG]`), single-line triple-quoted strings (`"""inline"""`), whitespace (`0x20`, `\t`), quotation marks (`"`, `'`, `` ` ``), brackets (`[`, `]`), and punctuation (`:`, `;`, `,`, `.`, `/`, `\`) are strictly prohibited. When a malformed fenced string appears in a value or container slot (`malformedFencedString`), Pass 1 emits `E025` (`FENCE_DELIMITER_MISMATCH`) or `E026` (`ERR_PROHIBITED_FENCE_ARROW`) pinned strictly to the opening fence delimiter line while retaining the slot node in the CST so Pass 3 lowers the damaged slot to `StvnErrorValue` and preserves container cardinality ($M == N$, § 7.2).
+
+6. **ASCII-Space Indentation Stripping & Inline Closing Fence Semantics:**
+   Unless the governing `:String` schema declares `#preserveIndent #TRUE`, decoding strips the common leading ASCII space (`0x20`) margin across all non-blank lines (`1`-line and multi-line fenced bodies alike). Blank lines containing exclusively ASCII spaces (`0x20`) normalize to empty lines (`""`) and do not cap the common indentation margin. Raw horizontal tab characters (`0x09`, `\t`) inside the fenced body are verbatim payload bytes and **MUST NOT** be treated as structural margin whitespace. Inline string metadata facets (`#regex`, `#minIncl`, `#minExcl`, `#maxIncl`, `#maxExcl`) **MUST** always strip common leading ASCII-space indentation (`preserveIndent = false`), even when the owning `:String` declaration specifies `#preserveIndent #TRUE`. Placing `[TAG]"""` inline at the end of a pattern line (`"""[REGEX]\n  ^pattern$[REGEX]"""`) omits a trailing `\n`, whereas placing `[TAG]"""` on the subsequent line (`"""[REGEX]\n  ^pattern$\n[REGEX]"""`) retains the preceding `\n`.
 
 #### Examples
 
@@ -1996,20 +1999,32 @@ The runtime environment pre-registers the canonical prelude under `:org/stvnador
       :Sha256LowerCase { #minSize 64 #maxSize 64 #regex #SHA256_LOWER_CASE_REGEX } :String
       :Sha256MixedCase { #minSize 64 #maxSize 64 #regex #SHA256_MIXED_CASE_REGEX } :String
 
-      :SemVer { #minSize 5 #maxSize 128 #regex "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$" } :String
+      :SemVer {
+        #minSize 5
+        #maxSize 128
+        #regex """[REGEX]
+          ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$[REGEX]"""
+      } :String
 
-      #EMAIL_LOWER_CASE_REGEX :String "^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$"
-      #EMAIL_MIXED_CASE_REGEX :String "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+      #EMAIL_LOWER_CASE_REGEX :String """[REGEX]
+        ^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$[REGEX]"""
+      #EMAIL_MIXED_CASE_REGEX :String """[REGEX]
+        ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$[REGEX]"""
       :EmailLowerCase { #minSize 3 #maxSize 254 #regex #EMAIL_LOWER_CASE_REGEX } :String
       :EmailMixedCase { #minSize 3 #maxSize 254 #regex #EMAIL_MIXED_CASE_REGEX } :String
 
-      :IPv4 { #minSize 7 #maxSize 15 #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$" } :String
+      :IPv4 {
+        #minSize 7
+        #maxSize 15
+        #regex """[REGEX]
+          ^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.?\b){4}$[REGEX]"""
+      } :String
       :Port { #unsigned #size 16 #minIncl 1 } :Int
 
       :Percentage { #minIncl 0.0 #maxIncl 100.0 } :Float
-      :Probability { #minIncl 0.0 #maxIncl 1.0 }   :Float
+      :Probability { #minIncl 0.0 #maxIncl 1.0 } :Float
       :Currency { #exact } :Float
-      :Latitude { #minIncl -90.0 #maxIncl 90.0 }   :Float
+      :Latitude { #minIncl -90.0 #maxIncl 90.0 } :Float
       :Longitude { #minIncl -180.0 #maxIncl 180.0 } :Float
 
       #POSIX_ID_REGEX :String "^[a-zA-Z0-9_-]+$"
@@ -2022,7 +2037,7 @@ The runtime environment pre-registers the canonical prelude under `:org/stvnador
       :use [ :org/stvnadore/prelude { #strip } ]
 
       :StvnPosixId64 { #minSize 1 #maxSize 64 #regex #POSIX_ID_REGEX } :String
-      :StvnDocumentKind :Enum [ #BODY #DEFS #BODY_INCLUDE #DEFS_INCLUDE ]
+      :StvnDocumentKind :Enum[#BODY #DEFS #BODY_INCLUDE #DEFS_INCLUDE]
       :StvnDocumentMeta :Tuple(:Option(:StvnPosixId64) :Option(:StvnPosixId64) :StvnDocumentKind)
       :StvnCatalogMeta :Tuple(:StvnPosixId64 :StvnPosixId64 :StvnDocumentKind)
     }

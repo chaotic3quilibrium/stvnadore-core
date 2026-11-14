@@ -298,7 +298,9 @@ public final class StvnLiteralParser {
         );
       }
       String payload = rawText.substring(newlineIndex + 1, rawText.length() - expectedClosing.length());
-      String lfNormalized = payload.indexOf('\r') >= 0 ? payload.replace("\r\n", "\n") : payload;
+      String lfNormalized = payload.indexOf('\r') >= 0
+          ? payload.replace("\r\n", "\n").replace('\r', '\n')
+          : payload;
       String resolvedPayload = preserveIndent ? lfNormalized : trimIndent(lfNormalized);
       return new ParsedString(resolvedPayload, StringStyle.FENCED, Optional.of(openingTag));
     }
@@ -342,7 +344,8 @@ public final class StvnLiteralParser {
   }
 
   /**
-   * Removes the common leading whitespace margin from a multi-line string block.
+   * Removes the common leading ASCII space ({@code 0x20}) margin from a multi-line string block
+   * while preserving verbatim horizontal tab ({@code 0x09}) characters per Rule STR-04.
    *
    * @param text the raw multi-line string text block
    * @return the baseline-trimmed string block

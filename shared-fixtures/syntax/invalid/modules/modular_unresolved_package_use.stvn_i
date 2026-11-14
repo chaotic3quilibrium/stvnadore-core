@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "modular_unresolved_package_use"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../valid/modules/network_primitives.stvn_d" ]
+    :use [ :external/unloaded/billing { #strip } ]
+    :use [ :external/unloaded/ledger { :Invoice :LocalInvoice } ]
+    :use [ :org/stvnadore/prelude/nonexistent { :Port :Port } ]
+    :use [ :org/stvnadore/prelude { :IPv4 :IPv4 } ]
+  }
+  :type :Port
+  :body 8080
+}

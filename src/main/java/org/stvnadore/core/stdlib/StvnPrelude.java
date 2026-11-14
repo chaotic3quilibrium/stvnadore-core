@@ -4,6 +4,7 @@ import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnDefsCatalog;
 import org.stvnadore.core.ir.StvnDocument;
 import org.stvnadore.core.lowering.StvnDefsLowerer;
@@ -12,7 +13,10 @@ import org.stvnadore.core.parser.StvnLexer;
 import org.stvnadore.core.parser.StvnParser;
 import org.stvnadore.core.validation.DiagnosticBag;
 
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Static registry for standard library types and constants implicitly available via
@@ -59,21 +63,33 @@ public final class StvnPrelude {
             :Sha256LowerCase { #minSize 64 #maxSize 64 #regex #SHA256_LOWER_CASE_REGEX } :String
             :Sha256MixedCase { #minSize 64 #maxSize 64 #regex #SHA256_MIXED_CASE_REGEX } :String
 
-            :SemVer { #minSize 5 #maxSize 128 #regex "^(0|[1-9][0-9]*)\\\\.(0|[1-9][0-9]*)\\\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\\\+([0-9a-zA-Z-]+(?:\\\\.[0-9a-zA-Z-]+)*))?$" } :String
+            :SemVer {
+              #minSize 5
+              #maxSize 128
+              #regex \"\"\"[REGEX]
+                ^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$[REGEX]\"\"\"
+            } :String
 
-            #EMAIL_LOWER_CASE_REGEX :String "^[a-z0-9._%+-]+@[a-z0-9.-]+\\\\.[a-z]{2,}$"
-            #EMAIL_MIXED_CASE_REGEX :String "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,}$"
+            #EMAIL_LOWER_CASE_REGEX :String \"\"\"[REGEX]
+              ^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$[REGEX]\"\"\"
+            #EMAIL_MIXED_CASE_REGEX :String \"\"\"[REGEX]
+              ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$[REGEX]\"\"\"
             :EmailLowerCase { #minSize 3 #maxSize 254 #regex #EMAIL_LOWER_CASE_REGEX } :String
             :EmailMixedCase { #minSize 3 #maxSize 254 #regex #EMAIL_MIXED_CASE_REGEX } :String
 
-            :IPv4  { #minSize 7 #maxSize 15 #regex "^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\\\.?\\\\b){4}$" } :String
-            :Port  { #unsigned #size 16 #minIncl 1 } :Int
+            :IPv4 {
+              #minSize 7
+              #maxSize 15
+              #regex \"\"\"[REGEX]
+                ^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\\.?\\b){4}$[REGEX]\"\"\"
+            } :String
+            :Port { #unsigned #size 16 #minIncl 1 } :Int
 
-            :Percentage  { #minIncl 0.0 #maxIncl 100.0 } :Float
-            :Probability { #minIncl 0.0 #maxIncl 1.0 }   :Float
-            :Currency    { #exact } :Float
-            :Latitude    { #minIncl -90.0 #maxIncl 90.0 }   :Float
-            :Longitude   { #minIncl -180.0 #maxIncl 180.0 } :Float
+            :Percentage { #minIncl 0.0 #maxIncl 100.0 } :Float
+            :Probability { #minIncl 0.0 #maxIncl 1.0 } :Float
+            :Currency { #exact } :Float
+            :Latitude { #minIncl -90.0 #maxIncl 90.0 } :Float
+            :Longitude { #minIncl -180.0 #maxIncl 180.0 } :Float
 
             #POSIX_ID_REGEX :String "^[a-zA-Z0-9_-]+$"
             :PosixId { #minSize 1 #maxSize 255 #regex #POSIX_ID_REGEX } :String
@@ -85,14 +101,16 @@ public final class StvnPrelude {
             :use [ :org/stvnadore/prelude { #strip } ]
 
             :StvnPosixId64 { #minSize 1 #maxSize 64 #regex #POSIX_ID_REGEX } :String
-            :StvnDocumentKind :Enum [ #BODY #DEFS #BODY_INCLUDE #DEFS_INCLUDE ]
-            :StvnDocumentMeta :Tuple( :Option(:StvnPosixId64) :Option(:StvnPosixId64) :StvnDocumentKind )
-            :StvnCatalogMeta :Tuple( :StvnPosixId64 :StvnPosixId64 :StvnDocumentKind )
+            :StvnDocumentKind :Enum[#BODY #DEFS #BODY_INCLUDE #DEFS_INCLUDE]
+            :StvnDocumentMeta :Tuple(:Option(:StvnPosixId64) :Option(:StvnPosixId64) :StvnDocumentKind)
+            :StvnCatalogMeta :Tuple(:StvnPosixId64 :StvnPosixId64 :StvnDocumentKind)
           }
         }
       }""";
 
   private static final StvnDocument CACHED_PRELUDE_DOCUMENT = bootstrapPreludeDocument();
+  private static final Set<String> DECLARED_PRELUDE_PACKAGES =
+      extractDeclaredPreludePackages(CACHED_PRELUDE_DOCUMENT.defs());
 
   private StvnPrelude() {
     // Non-instantiable standard library holder
@@ -142,5 +160,34 @@ public final class StvnPrelude {
    */
   public static StvnDefsCatalog preludeCatalog() {
     return CACHED_PRELUDE_DOCUMENT.defs();
+  }
+
+  /**
+   * Returns {@code true} if {@code targetPackage} matches a package declared in the Standard Library
+   * Prelude ({@code :org/stvnadore/prelude} or {@code :org/stvnadore/prelude/meta}).
+   *
+   * @param targetPackage typic package target from a {@code :use} statement
+   * @return {@code true} if the package exists in the Prelude catalog
+   * @since 2.0.0
+   */
+  public static boolean isPreludePackageTarget(String targetPackage) {
+    return DECLARED_PRELUDE_PACKAGES.contains(targetPackage);
+  }
+
+  private static Set<String> extractDeclaredPreludePackages(StvnDefsCatalog catalog) {
+    Set<String> pkgs = new LinkedHashSet<>();
+    for (String fqni : catalog.nominalTypes().keySet()) {
+      int lastSlash = fqni.lastIndexOf('/');
+      if (lastSlash > 1) {
+        pkgs.add(fqni.substring(0, lastSlash));
+      }
+    }
+    for (String fqni : catalog.constants().keySet()) {
+      int lastSlash = fqni.lastIndexOf('/');
+      if (lastSlash > 1) {
+        pkgs.add(StvnVocabulary.SIGIL_TYPIC + fqni.substring(1, lastSlash));
+      }
+    }
+    return Collections.unmodifiableSet(pkgs);
   }
 }

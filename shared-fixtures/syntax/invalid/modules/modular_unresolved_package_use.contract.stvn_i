@@ -1,0 +1,16 @@
+{
+  :meta {
+    #name "modular_unresolved_package_use"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E030 #UNDEFINED_TYPE #ERROR 8 12 169 195 "Unresolved package in :use directive: ':external/unloaded/billing' is not declared in prelude, local :defs, or any :include module" )
+    ( #E030 #UNDEFINED_TYPE #ERROR 9 12 220 245 "Unresolved package in :use directive: ':external/unloaded/ledger' is not declared in prelude, local :defs, or any :include module" )
+    ( #E030 #UNDEFINED_TYPE #ERROR 10 12 286 320 "Unresolved package in :use directive: ':org/stvnadore/prelude/nonexistent' is not declared in prelude, local :defs, or any :include module" )
+  ]
+}

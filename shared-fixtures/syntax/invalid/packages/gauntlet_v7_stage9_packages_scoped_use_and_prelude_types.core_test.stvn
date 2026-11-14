@@ -1,0 +1,27 @@
+{
+  :meta {
+    #name "gauntlet_v7_stage9_packages_scoped_use_and_prelude_types"
+    #domain "core_test"
+    #kind #BODY
+  }
+  :defs {
+    :package :org/stvnadore/custom_hack {
+      :HijackedPort :Int
+    }
+
+    :package :acme/network {
+      :ValidId { #unsigned #size 64 } :Int
+      :package :acme/inner {
+        :IllegalInner :Int
+      }
+    }
+
+    :use [ :acme/network {} ]
+    :use [ :external/unloaded/billing { #strip } ]
+    :use [ :external/unloaded/ledger { :Invoice :LocalInvoice } ]
+    :use [ :org/stvnadore/prelude/nonexistent { #strip } ]
+    :use [ :acme/network { #strip } ]
+  }
+  :type :ValidId
+  :body 42
+}

@@ -59,7 +59,7 @@ class StvnGoldenFormatterConformanceTest {
     Set<String> compactNames = listRegularFileNames(COMPACT_DIR);
 
     Assertions.assertFalse(inputNames.isEmpty(), "shared-fixtures/formatting/input must not be empty");
-    Assertions.assertEquals(15, inputNames.size(), "Expected 15 golden formatter quartets");
+    Assertions.assertEquals(16, inputNames.size(), "Expected 16 golden formatter quartets");
     Assertions.assertEquals(inputNames, sourcePrettyNames, "input/ and source_pretty/ file inventories must match identically");
     Assertions.assertEquals(inputNames, prettyNames, "input/ and pretty/ file inventories must match identically");
     Assertions.assertEquals(inputNames, compactNames, "input/ and compact/ file inventories must match identically");
@@ -99,7 +99,7 @@ class StvnGoldenFormatterConformanceTest {
     String expectedPretty = Files.readString(prettyPath, StandardCharsets.UTF_8);
     String expectedCompact = Files.readString(compactPath, StandardCharsets.UTF_8);
 
-    // GATE-09: Strict LF (\n) line endings across all 56 golden files
+    // GATE-09: Strict LF (\n) line endings across all 64 golden files
     Assertions.assertFalse(inputSource.contains("\r"), "CRLF prohibited in " + inputPath);
     Assertions.assertFalse(expectedSourcePretty.contains("\r"), "CRLF prohibited in " + sourcePrettyPath);
     Assertions.assertFalse(expectedPretty.contains("\r"), "CRLF prohibited in " + prettyPath);

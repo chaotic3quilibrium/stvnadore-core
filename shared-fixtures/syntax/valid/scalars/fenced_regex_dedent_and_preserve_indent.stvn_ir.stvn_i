@@ -1,0 +1,28 @@
+{
+  :meta {
+    #name "fenced_regex_dedent_and_preserve_indent"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":SlugId" ( "{#minSize 3 #maxSize 64 #regex \"^[a-z0-9]+(?:\\\\.[a-z0-9]+)*$\"}:String" ":SlugId" ( #TRUE #TRUE ) ) ]
+      [ ":InlineVersion" ( "{#minSize 5 #maxSize 32 #regex \"^[0-9]+\\\\.[0-9]+\\\\.[0-9]+$\"}:String" ":InlineVersion" ( #TRUE #TRUE ) ) ]
+      [ ":IndentedBlockWithFencedRegex" ( "{#minSize 4 #maxSize 64 #preserveIndent #T #regex \"^  [a-z]+\\n  [0-9]+\\n$\"}:String" ":IndentedBlockWithFencedRegex" ( #TRUE #TRUE ) ) ]
+      [ ":FencedLexBounded" ( "{#minSize 3 #maxSize 16 #minIncl \"aaa\" #maxIncl \"zzz\"}:String" ":FencedLexBounded" ( #TRUE #TRUE ) ) ]
+      [ ":TabDelimitedMetric" ( "{#minSize 3 #maxSize 32 #regex \"^\\t[a-z]+\\t[0-9]+$\"}:String" ":TabDelimitedMetric" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:SlugId :InlineVersion :IndentedBlockWithFencedRegex :FencedLexBounded :TabDelimitedMetric)" "" ( #TRUE #TRUE ) ) ]
+    }
+    #14 [
+      #5 "core.prelude.v2"
+      #5 "2.0.0"
+      #5 "  alpha\n  42\n"
+      #5 "mid"
+      #5 "\tcpu\t95"
+    ]
+  )
+}

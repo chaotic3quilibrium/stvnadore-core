@@ -477,7 +477,9 @@ public final class StvnPayloadLowerer {
         );
       }
       String payload = rawText.substring(newlineIndex + 1, rawText.length() - expectedClosing.length());
-      String lfNormalized = payload.indexOf('\r') >= 0 ? payload.replace("\r\n", "\n") : payload;
+      String lfNormalized = payload.indexOf('\r') >= 0
+          ? payload.replace("\r\n", "\n").replace('\r', '\n')
+          : payload;
       return preserveIndent ? lfNormalized : trimCommonIndent(lfNormalized);
     }
 
@@ -590,7 +592,8 @@ public final class StvnPayloadLowerer {
   }
 
   /**
-   * Strips the common leading whitespace margin across all non-blank lines of a fenced string body.
+   * Strips the common leading ASCII space ({@code 0x20}) margin across all non-blank lines of a
+   * fenced string body while preserving verbatim horizontal tab ({@code 0x09}) characters per Rule STR-04.
    *
    * @param text the raw multi-line fenced string payload
    * @return the baseline-stripped string payload
@@ -604,12 +607,12 @@ public final class StvnPayloadLowerer {
     boolean hasNonEmptyLine = false;
 
     for (String line : lines) {
-      if (line.trim().isEmpty()) {
+      if (isAsciiSpacesOnly(line)) {
         continue;
       }
       hasNonEmptyLine = true;
       int indent = 0;
-      while (indent < line.length() && Character.isWhitespace(line.charAt(indent))) {
+      while (indent < line.length() && line.charAt(indent) == ' ') {
         indent++;
       }
       minIndent = Math.min(minIndent, indent);
@@ -624,12 +627,21 @@ public final class StvnPayloadLowerer {
     StringBuilder sb = new StringBuilder(text.length());
     for (int i = 0; i < lines.length; i++) {
       String line = lines[i];
-      sb.append(line.trim().isEmpty() ? "" : line.substring(minIndent));
+      sb.append(isAsciiSpacesOnly(line) ? "" : line.substring(minIndent));
       if (i < lines.length - 1) {
         sb.append('\n');
       }
     }
     return sb.toString();
+  }
+
+  private static boolean isAsciiSpacesOnly(String line) {
+    for (int i = 0; i < line.length(); i++) {
+      if (line.charAt(i) != ' ') {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
