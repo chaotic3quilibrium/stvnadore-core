@@ -1,0 +1,23 @@
+{
+  :meta {
+    #name "w003_all_tautology_classes"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 7 33 113 129 "Constraint violation (:RedundantSigned8): facet '#equatable #TRUE' is redundant; scalar primitive ':Int' is intrinsically equatable" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 7 50 130 143 "Constraint violation (:RedundantSigned8): facet '#minIncl -128' is redundant; '#size 8' already bounds the minimum value to -128" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 7 64 144 156 "Constraint violation (:RedundantSigned8): facet '#maxExcl 128' is redundant; '#size 8' already bounds the maximum exclusive bound to 128" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 8 45 208 218 "Constraint violation (:RedundantUnsigned8): facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, \\infty)" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 8 56 219 231 "Constraint violation (:RedundantUnsigned8): facet '#maxExcl 256' is redundant; '#unsigned #size 8' already bounds the domain to [0, 256)" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 9 35 273 290 "Constraint violation (:RedundantExactFloat): facet '#maxSize 16777216' is redundant; exact decimal float '{ #exact } :Float' intrinsically defaults to a ceiling of 16,777,216 significant decimal digits" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 10 24 323 333 "Constraint violation (:RedundantString): facet '#minSize 0' is redundant; string cardinality is inherently non-negative" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 10 35 334 351 "Constraint violation (:RedundantString): facet '#maxSize 16777216' is redundant; ':String' intrinsically defaults to a maximum cardinality of 16,777,216" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 11 21 382 392 "Constraint violation (:RedundantSeq): facet '#minSize 0' is redundant; container cardinality is inherently non-negative" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 11 32 393 410 "Constraint violation (:RedundantSeq): facet '#maxSize 16777216' is redundant; ':Seq' intrinsically defaults to a maximum cardinality of 16,777,216" )
+  ]
+}

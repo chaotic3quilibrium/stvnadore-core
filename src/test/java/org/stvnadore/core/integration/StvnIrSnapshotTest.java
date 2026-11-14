@@ -201,7 +201,8 @@ public class StvnIrSnapshotTest {
     try (var paths = Files.walk(FIXTURES_DIR)) {
       var files = paths.filter(Files::isRegularFile)
           .filter(p -> (p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i"))
-              && !p.getFileName().toString().endsWith(".stvn_ir.stvn_i"))
+              && !p.getFileName().toString().endsWith(".stvn_ir.stvn_i")
+              && !p.getFileName().toString().endsWith(".contract.stvn_i"))
           .toList();
       return files.stream().map(p -> Arguments.of(p.getFileName().toString(), p));
     }

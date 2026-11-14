@@ -1,0 +1,58 @@
+{
+  :meta {
+    #name "w003_preserve_indent_traits_and_nominal_overrides"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 7 24 127 143 "Constraint violation (:RootStrDefaults): facet '#equatable #TRUE' is redundant; scalar primitive ':String' is intrinsically equatable" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 7 41 144 161 "Constraint violation (:RootStrDefaults): facet '#comparable #TRUE' is redundant; scalar primitive ':String' is intrinsically comparable" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 7 59 162 184 "Constraint violation (:RootStrDefaults): facet '#preserveIndent #FALSE' is redundant; fenced strings trim common leading indentation by default" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 8 19 213 223 "Constraint violation (:RootStrCap): facet '#minSize 0' is redundant; string cardinality is inherently non-negative" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 8 30 224 241 "Constraint violation (:RootStrCap): facet '#maxSize 16777216' is redundant; ':String' intrinsically defaults to a maximum cardinality of 16,777,216" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 9 19 270 280 "Constraint violation (:RootSeqCap): facet '#minSize 0' is redundant; container cardinality is inherently non-negative" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 9 30 281 298 "Constraint violation (:RootSeqCap): facet '#maxSize 16777216' is redundant; ':Seq' intrinsically defaults to a maximum cardinality of 16,777,216" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 10 19 332 342 "Constraint violation (:RootSetCap): facet '#minSize 0' is redundant; container cardinality is inherently non-negative" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 10 30 343 360 "Constraint violation (:RootSetCap): facet '#maxSize 16777216' is redundant; ':Set' intrinsically defaults to a maximum cardinality of 16,777,216" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 11 22 397 415 "Constraint violation (:RootSetTraits): facet '#comparable #FALSE' is redundant; ':Set' already resolves to '#comparable #FALSE'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 12 19 449 459 "Constraint violation (:RootMapCap): facet '#minSize 0' is redundant; container cardinality is inherently non-negative" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 12 30 460 477 "Constraint violation (:RootMapCap): facet '#maxSize 16777216' is redundant; ':Map' intrinsically defaults to a maximum cardinality of 16,777,216" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 13 22 522 540 "Constraint violation (:RootMapTraits): facet '#comparable #FALSE' is redundant; ':Map' already resolves to '#comparable #FALSE'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 14 28 591 608 "Constraint violation (:RootContFloatTraits): facet '#equatable #FALSE' is redundant; continuous ':Float' is non-equatable by default" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 14 46 609 626 "Constraint violation (:RootContFloatTraits): facet '#comparable #TRUE' is redundant; continuous ':Float' is intrinsically comparable" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 15 33 668 685 "Constraint violation (:RootExactFloatCap): facet '#maxSize 16777216' is redundant; exact decimal float '{ #exact } :Float' intrinsically defaults to a ceiling of 16,777,216 significant decimal digits" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 16 36 730 746 "Constraint violation (:RootExactFloatTraits): facet '#equatable #TRUE' is redundant; exact decimal float is intrinsically equatable" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 16 53 747 764 "Constraint violation (:RootExactFloatTraits): facet '#comparable #TRUE' is redundant; exact decimal float is intrinsically comparable" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 17 33 806 821 "Constraint violation (:Signed16Natural): facet '#minIncl -32768' is redundant; '#size 16' already bounds the minimum value to -32768" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 17 49 822 836 "Constraint violation (:Signed16Natural): facet '#maxExcl 32768' is redundant; '#size 16' already bounds the maximum exclusive bound to 32768" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 19 27 916 926 "Constraint violation (:ChildUInt16Natural): facet '#minIncl 0' is redundant; ancestor ':ParentUInt16' already establishes '#unsigned'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 19 38 927 941 "Constraint violation (:ChildUInt16Natural): facet '#maxExcl 65536' is redundant; '#unsigned #size 16' already bounds the domain to [0, 65536)" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 21 17 1041 1058 "Constraint violation (:ChildInt): facet '#equatable #FALSE' is redundant; ancestor ':ParentInt' already establishes '#equatable #FALSE'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 21 35 1059 1077 "Constraint violation (:ChildInt): facet '#comparable #FALSE' is redundant; ancestor ':ParentInt' already establishes '#comparable #FALSE'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 21 54 1078 1089 "Constraint violation (:ChildInt): facet '#minIncl 10' is redundant; ancestor ':ParentInt' already establishes '#minIncl 10'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 21 66 1090 1102 "Constraint violation (:ChildInt): facet '#maxExcl 100' is redundant; ancestor ':ParentInt' already establishes '#maxExcl 100'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 23 23 1198 1210 "Constraint violation (:ChildFloatIncl): facet '#minIncl 0.0' is redundant; ancestor ':ParentFloatIncl' already establishes '#minIncl 0.0'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 23 36 1211 1225 "Constraint violation (:ChildFloatIncl): facet '#maxIncl 100.5' is redundant; ancestor ':ParentFloatIncl' already establishes '#maxIncl 100.5'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 25 23 1326 1339 "Constraint violation (:ChildFloatExcl): facet '#minExcl -1.5' is redundant; ancestor ':ParentFloatExcl' already establishes '#minExcl -1.5'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 25 37 1340 1352 "Constraint violation (:ChildFloatExcl): facet '#maxExcl 9.5' is redundant; ancestor ':ParentFloatExcl' already establishes '#maxExcl 9.5'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 27 24 1464 1477 "Constraint violation (:ChildExactFloat): facet '#minIncl 0.00' is redundant; ancestor ':ParentExactFloat' already establishes '#minIncl 0.0'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 27 38 1478 1493 "Constraint violation (:ChildExactFloat): facet '#maxExcl 1000.0' is redundant; ancestor ':ParentExactFloat' already establishes '#maxExcl 1000.0'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 29 25 1643 1657 "Constraint violation (:ChildStrHalfOpen): facet '#minIncl \"aaa\"' is redundant; ancestor ':ParentStrHalfOpen' already establishes '#minIncl \"aaa\"'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 29 40 1658 1672 "Constraint violation (:ChildStrHalfOpen): facet '#maxExcl \"zzz\"' is redundant; ancestor ':ParentStrHalfOpen' already establishes '#maxExcl \"zzz\"'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 29 55 1673 1694 "Constraint violation (:ChildStrHalfOpen): facet '#preserveIndent #TRUE' is redundant; ancestor ':ParentStrHalfOpen' already establishes '#preserveIndent #TRUE'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 29 77 1695 1712 "Constraint violation (:ChildStrHalfOpen): facet '#regex \"^[a-z]+$\"' is redundant; ancestor ':ParentStrHalfOpen' already establishes '#regex \"^[a-z]+$\"'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 31 27 1823 1835 "Constraint violation (:ChildStrOpenClosed): facet '#minExcl \"a\"' is redundant; ancestor ':ParentStrOpenClosed' already establishes '#minExcl \"a\"'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 31 40 1836 1848 "Constraint violation (:ChildStrOpenClosed): facet '#maxIncl \"z\"' is redundant; ancestor ':ParentStrOpenClosed' already establishes '#maxIncl \"z\"'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 31 53 1849 1871 "Constraint violation (:ChildStrOpenClosed): facet '#preserveIndent #FALSE' is redundant; ancestor ':ParentStrOpenClosed' already establishes '#preserveIndent #FALSE'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 33 19 1988 2007 "Constraint violation (:ChildEpoch): facet '#minIncl 1700000000' is redundant; ancestor ':ParentEpoch' already establishes '#minIncl 1700000000'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 33 39 2008 2027 "Constraint violation (:ChildEpoch): facet '#maxExcl 1800000000' is redundant; ancestor ':ParentEpoch' already establishes '#maxExcl 1800000000'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 35 16 2158 2189 "Constraint violation (:ChildDt): facet '#minIncl \"2026-01-01T00:00:00Z\"' is redundant; ancestor ':ParentDt' already establishes '#minIncl \"2026-01-01T00:00:00Z\"'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 35 48 2190 2226 "Constraint violation (:ChildDt): facet '#maxExcl \"2027-01-01T00:00:00+00:00\"' is redundant; ancestor ':ParentDt' already establishes '#maxExcl \"2027-01-01T00:00:00Z\"'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 37 23 2314 2354 "Constraint violation (:ChildStatusAll): facet '#filterIncl [#PENDING #ACTIVE #CLOSED]' is redundant; ancestor ':ParentStatus' already establishes active variants '[#PENDING #ACTIVE #CLOSED]'" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 39 23 2454 2486 "Constraint violation (:LeafStatusOpen): facet '#filterIncl [#PENDING #ACTIVE]' is redundant; ancestor ':MidStatusOpen' already establishes active variants '[#PENDING #ACTIVE]'" )
+  ]
+}

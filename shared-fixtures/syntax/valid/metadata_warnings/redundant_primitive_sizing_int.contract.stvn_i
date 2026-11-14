@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "redundant_primitive_sizing_int"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 7 15 99 107 "Constraint violation (:BadInt): facet '#size 32' is redundant; signed integer ':Int' intrinsically defaults to 32-bit storage" )
+  ]
+}

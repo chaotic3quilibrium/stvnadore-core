@@ -262,7 +262,10 @@ public class StvnIrValidationTest {
     );
     Assertions.assertTrue(res.document().isPresent(), "Positive fixture must produce StvnDocument: " + normalizedRel);
 
-    if (isSystemDomain || normalizedRel.startsWith("metadata/valid/") || normalizedRel.startsWith("formatting/")) {
+    if (isSystemDomain
+        || fileName.endsWith(".contract.stvn_i")
+        || normalizedRel.startsWith("metadata/valid/")
+        || normalizedRel.startsWith("formatting/")) {
       Assertions.assertTrue(
           res.diagnostics().isEmpty(),
           () -> "Fixture in " + normalizedRel + " must produce 0 errors and 0 warnings, got: " + res.diagnostics()
@@ -276,6 +279,128 @@ public class StvnIrValidationTest {
           res.diagnostics().stream().allMatch(d -> d.severity() == DiagnosticSeverity.WARNING),
           () -> "metadata_warnings fixture emitted non-WARNING diagnostics: " + res.diagnostics()
       );
+    }
+  }
+
+  @ParameterizedTest(name = "Warning Fixture & Contract - {0}")
+  @MethodSource("provideWarningContractFixtures")
+  public void testWarningSharedFixtureContracts(String displayName, DynamicNegativeTestCase testCase) throws IOException {
+    Path fixturePath = testCase.fixturePath();
+    Path contractPath = testCase.contractPath();
+    String fileName = fixturePath.getFileName().toString();
+
+    String textualSource = Files.readString(fixturePath, StandardCharsets.UTF_8).replace("\r\n", "\n");
+    StvnCompilationResult<StvnDocument> targetRes = StvnCompiler.compile(
+        textualSource,
+        fixturePath.toString(),
+        StvnParserConfig.DEFAULT
+    );
+
+    Assertions.assertFalse(
+        targetRes.hasErrors(),
+        () -> "Warning fixture must not produce error diagnostics (" + fixturePath + "): " + targetRes.diagnostics()
+    );
+    Assertions.assertTrue(
+        targetRes.document().isPresent(),
+        "Warning fixture must lower to a valid StvnDocument: " + fixturePath
+    );
+    List<StvnDiagnostic> actualDiagnostics = targetRes.diagnostics();
+    Assertions.assertFalse(actualDiagnostics.isEmpty(), "Warning fixture diagnostics must not be empty: " + fixturePath);
+    assertZeroAntlrJargon(actualDiagnostics, fixturePath);
+
+    if (UPDATE_MODE) {
+      String stem = deriveStemSlot0(fileName);
+      String relErrorContractPath = contractPath.getParent()
+          .relativize(ERROR_CONTRACT_SCHEMA_PATH)
+          .toString()
+          .replace('\\', '/');
+      String generatedContract = MetadataFixtureGenerator.formatErrorContractStvnI(
+          stem,
+          relErrorContractPath,
+          actualDiagnostics
+      );
+      Files.writeString(contractPath, generatedContract, StandardCharsets.UTF_8);
+      var verifyContractRes = StvnCompiler.compileToResult(
+          generatedContract,
+          contractPath.toString(),
+          StvnParserConfig.DEFAULT
+      );
+      Assertions.assertFalse(
+          verifyContractRes.hasErrors(),
+          () -> "Generated warning .contract.stvn_i failed compilation (" + contractPath + "): " + verifyContractRes.diagnostics()
+      );
+      Assertions.assertTrue(
+          verifyContractRes.diagnostics().isEmpty(),
+          () -> "Generated warning .contract.stvn_i emitted unexpected warnings (" + contractPath + "): " + verifyContractRes.diagnostics()
+      );
+      return;
+    }
+
+    Assertions.assertTrue(
+        Files.exists(contractPath),
+        "Missing coordinate-pinned .contract.stvn_i for metadata_warnings fixture: " + contractPath
+    );
+    String contractContent = Files.readString(contractPath, StandardCharsets.UTF_8).replace("\r\n", "\n");
+    StvnCompilationResult<StvnDocument> contractRes = StvnCompiler.compileToResult(
+        contractContent,
+        contractPath.toString(),
+        StvnParserConfig.DEFAULT
+    );
+    Assertions.assertFalse(
+        contractRes.hasErrors(),
+        () -> "Warning contract file failed STVN 2.0.0 compilation (" + contractPath + "): " + contractRes.diagnostics()
+    );
+    Assertions.assertTrue(
+        contractRes.diagnostics().isEmpty(),
+        () -> "Warning contract file emitted unexpected warnings (" + contractPath + "): " + contractRes.diagnostics()
+    );
+
+    StvnValue contractRoot = contractRes.document()
+        .flatMap(StvnDocument::payload)
+        .orElseThrow(() -> new AssertionError("Warning contract payload missing: " + contractPath));
+    List<DiagnosticExpectation> expectedList = DiagnosticExpectation.fromErrorContractIr(contractRoot);
+    Assertions.assertTrue(
+        expectedList.stream().allMatch(exp -> "WARNING".equals(exp.severity())),
+        "All contract rows in metadata_warnings/ must have #WARNING severity: " + contractPath
+    );
+    Assertions.assertEquals(
+        expectedList.size(),
+        actualDiagnostics.size(),
+        () -> "Warning diagnostic count mismatch for " + fixturePath
+            + " (expected " + expectedList.size() + ", got " + actualDiagnostics.size() + "): " + actualDiagnostics
+    );
+
+    for (int i = 0; i < expectedList.size(); i++) {
+      DiagnosticExpectation exp = expectedList.get(i);
+      StvnDiagnostic act = actualDiagnostics.get(i);
+      String actCanonical = act.canonicalCode()
+          .or(() -> act.symbolicId().flatMap(DiagnosticBag::resolveCanonicalCode))
+          .or(() -> act.errorCode().flatMap(DiagnosticBag::resolveCanonicalCode))
+          .orElse("");
+      String actSymbolic = act.symbolicId().or(act::errorCode).orElse("");
+      int actLine1 = Math.max(1, act.line());
+      int actCol1 = act.column() >= 0 ? act.column() + 1 : 1;
+      int actStartOff = Math.max(0, act.startOffset());
+      int actEndOff = Math.max(actStartOff, act.endOffset());
+      final int idx = i;
+      Assertions.assertEquals(exp.canonicalCode(), actCanonical,
+          () -> "canonicalCode mismatch at warning[" + idx + "] in " + fixturePath + ": " + act);
+      Assertions.assertEquals(exp.symbolicId(), actSymbolic,
+          () -> "symbolicId mismatch at warning[" + idx + "] in " + fixturePath + ": " + act);
+      Assertions.assertEquals(exp.severity(), act.severity().name(),
+          () -> "severity mismatch at warning[" + idx + "] in " + fixturePath + ": " + act);
+      Assertions.assertEquals(exp.line(), actLine1,
+          () -> "1-based line mismatch at warning[" + idx + "] in " + fixturePath + ": " + act);
+      Assertions.assertEquals(exp.column(), actCol1,
+          () -> "1-based column mismatch at warning[" + idx + "] in " + fixturePath + ": " + act);
+      Assertions.assertEquals(exp.startOffset(), actStartOff,
+          () -> "0-based startOffset mismatch at warning[" + idx + "] in " + fixturePath + ": " + act);
+      Assertions.assertEquals(exp.endOffset(), actEndOff,
+          () -> "0-based endOffset mismatch at warning[" + idx + "] in " + fixturePath + ": " + act);
+      Assertions.assertEquals(exp.messageSubstring(), act.message(),
+          () -> "exact STE message mismatch at warning[" + idx + "] in " + fixturePath);
+      Assertions.assertTrue(act.sourcePath().isPresent());
+      Assertions.assertEquals(StvnSchemaFlattener.normalizePath(act.sourcePath().get()), act.sourcePath().get());
     }
   }
 
@@ -584,6 +709,32 @@ public class StvnIrValidationTest {
           String relDisplay = SHARED_FIXTURES_ROOT.relativize(p).toString().replace('\\', '/');
           cases.add(new DynamicNegativeTestCase(relDisplay, p, contractPath));
         }
+      }
+    }
+    return cases.stream().map(tc -> Arguments.of(tc.displayName(), tc));
+  }
+
+  private static Stream<Arguments> provideWarningContractFixtures() throws IOException {
+    Path warningsRoot = SHARED_FIXTURES_ROOT.resolve("syntax/valid/metadata_warnings");
+    if (!Files.exists(warningsRoot)) {
+      return Stream.empty();
+    }
+    List<DynamicNegativeTestCase> cases = new ArrayList<>();
+    try (Stream<Path> walk = Files.walk(warningsRoot)) {
+      List<Path> files = walk.filter(Files::isRegularFile)
+          .sorted(Comparator.comparing(Path::toString))
+          .toList();
+      for (Path p : files) {
+        String fileName = p.getFileName().toString();
+        if (!isTextualStvnFile(p)
+            || fileName.endsWith(".stvn_ir.stvn_i")
+            || fileName.endsWith(".contract.stvn_i")) {
+          continue;
+        }
+        String stem = deriveStemSlot0(fileName);
+        Path contractPath = p.resolveSibling(stem + ".contract.stvn_i");
+        String relDisplay = SHARED_FIXTURES_ROOT.relativize(p).toString().replace('\\', '/');
+        cases.add(new DynamicNegativeTestCase(relDisplay, p, contractPath));
       }
     }
     return cases.stream().map(tc -> Arguments.of(tc.displayName(), tc));

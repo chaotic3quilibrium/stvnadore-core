@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "meta_name_and_domain_warnings"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #W001 #WARN_DOCUMENT_NAME_MISMATCH #WARNING 3 11 22 47 "Declared #name 'mismatched_logical_name' does not match filename stem slot 0 'meta_name_and_domain_warnings'" )
+    ( #W002 #WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME #WARNING 4 13 60 69 "Declared #domain 'billing' is omitted from filename stem slot 1" )
+  ]
+}

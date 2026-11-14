@@ -53,7 +53,8 @@ public class StvnFixtureDocumentIdentityConformanceTest {
       var result = StvnCompiler.compile(content, file.toString(), config);
       List<StvnDiagnostic> diagnostics = result.diagnostics();
 
-      boolean isWarningFixture = file.toString().contains("metadata_warnings") && !isIrSnapshot;
+      boolean isContractSidecar = fileName.endsWith(".contract.stvn_i");
+      boolean isWarningFixture = file.toString().contains("metadata_warnings") && !isIrSnapshot && !isContractSidecar;
       boolean isLegacyDefaultCapacityFixture = fileName.equals("canonical_scalars.stvn");
       List<StvnDiagnostic> unexpectedDiagnostics;
       if (isWarningFixture) {

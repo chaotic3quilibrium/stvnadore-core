@@ -68,7 +68,8 @@ public final class IrGeneratorUtility {
     try (Stream<Path> paths = Files.walk(FIXTURES_DIR)) {
       List<Path> files = paths.filter(Files::isRegularFile)
           .filter(p -> (p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i"))
-              && !p.getFileName().toString().endsWith(".stvn_ir.stvn_i"))
+              && !p.getFileName().toString().endsWith(".stvn_ir.stvn_i")
+              && !p.getFileName().toString().endsWith(".contract.stvn_i"))
           .toList();
       for (Path file : files) {
         processFixture(file);

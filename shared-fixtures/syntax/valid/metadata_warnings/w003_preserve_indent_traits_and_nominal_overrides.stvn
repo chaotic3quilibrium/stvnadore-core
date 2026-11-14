@@ -1,0 +1,90 @@
+{
+  :meta {
+    #name "w003_preserve_indent_traits_and_nominal_overrides"
+    #kind #BODY
+  }
+  :defs {
+    :RootStrDefaults { #equatable #TRUE #comparable #TRUE #preserveIndent #FALSE } :String
+    :RootStrCap { #minSize 0 #maxSize 16777216 } :String
+    :RootSeqCap { #minSize 0 #maxSize 16777216 } :Seq( :Int )
+    :RootSetCap { #minSize 0 #maxSize 16777216 } :Set( :Int )
+    :RootSetTraits { #comparable #FALSE } :Set( :Int )
+    :RootMapCap { #minSize 0 #maxSize 16777216 } :Map( :String :Int )
+    :RootMapTraits { #comparable #FALSE } :Map( :String :Int )
+    :RootContFloatTraits { #equatable #FALSE #comparable #TRUE } :Float
+    :RootExactFloatCap { #exact #maxSize 16777216 } :Float
+    :RootExactFloatTraits { #exact #equatable #TRUE #comparable #TRUE } :Float
+    :Signed16Natural { #size 16 #minIncl -32768 #maxExcl 32768 } :Int
+    :ParentUInt16 { #unsigned #size 16 } :Int
+    :ChildUInt16Natural { #minIncl 0 #maxExcl 65536 } :ParentUInt16
+    :ParentInt { #equatable #FALSE #minIncl 10 #maxExcl 100 } :Int
+    :ChildInt { #equatable #FALSE #comparable #FALSE #minIncl 10 #maxExcl 100 } :ParentInt
+    :ParentFloatIncl { #minIncl 0.0 #maxIncl 100.5 } :Float
+    :ChildFloatIncl { #minIncl 0.0 #maxIncl 100.5 } :ParentFloatIncl
+    :ParentFloatExcl { #minExcl -1.5 #maxExcl 9.5 } :Float
+    :ChildFloatExcl { #minExcl -1.5 #maxExcl 9.5 } :ParentFloatExcl
+    :ParentExactFloat { #exact #minIncl 0.0 #maxExcl 1000.0 } :Float
+    :ChildExactFloat { #minIncl 0.00 #maxExcl 1000.0 } :ParentExactFloat
+    :ParentStrHalfOpen { #minIncl "aaa" #maxExcl "zzz" #preserveIndent #TRUE #regex "^[a-z]+$" } :String
+    :ChildStrHalfOpen { #minIncl "aaa" #maxExcl "zzz" #preserveIndent #TRUE #regex "^[a-z]+$" } :ParentStrHalfOpen
+    :ParentStrOpenClosed { #minExcl "a" #maxIncl "z" } :String
+    :ChildStrOpenClosed { #minExcl "a" #maxIncl "z" #preserveIndent #FALSE } :ParentStrOpenClosed
+    :ParentEpoch { #s #minIncl 1700000000 #maxExcl 1800000000 } :TimeEpoch
+    :ChildEpoch { #minIncl 1700000000 #maxExcl 1800000000 } :ParentEpoch
+    :ParentDt { #offset #minIncl "2026-01-01T00:00:00Z" #maxExcl "2027-01-01T00:00:00Z" } :DateTime
+    :ChildDt { #minIncl "2026-01-01T00:00:00Z" #maxExcl "2027-01-01T00:00:00+00:00" } :ParentDt
+    :ParentStatus :Enum [ #PENDING #ACTIVE #CLOSED ]
+    :ChildStatusAll { #filterIncl [ #PENDING #ACTIVE #CLOSED ] } :ParentStatus
+    :MidStatusOpen { #filterExcl [ #CLOSED ] } :ParentStatus
+    :LeafStatusOpen { #filterIncl [ #PENDING #ACTIVE ] } :MidStatusOpen
+    :Bundle :Tuple(
+      :RootStrDefaults
+      :RootStrCap
+      :RootSeqCap
+      :RootSetCap
+      :RootSetTraits
+      :RootMapCap
+      :RootMapTraits
+      :RootContFloatTraits
+      :RootExactFloatCap
+      :RootExactFloatTraits
+      :Signed16Natural
+      :ChildUInt16Natural
+      :ChildInt
+      :ChildFloatIncl
+      :ChildFloatExcl
+      :ChildExactFloat
+      :ChildStrHalfOpen
+      :ChildStrOpenClosed
+      :ChildEpoch
+      :ChildDt
+      :ChildStatusAll
+      :LeafStatusOpen
+    )
+  }
+  :type :Bundle
+  :body (
+    "ok"
+    "cap"
+    [ 1 ]
+    [ 2 ]
+    [ 3 ]
+    { [ "k" 1 ] }
+    { [ "m" 2 ] }
+    1.5
+    2.5
+    3.5
+    0
+    1
+    20
+    10.0
+    0.5
+    5.0
+    "abc"
+    "m"
+    1750000000
+    "2026-06-15T12:00:00Z"
+    #ACTIVE
+    #PENDING
+  )
+}

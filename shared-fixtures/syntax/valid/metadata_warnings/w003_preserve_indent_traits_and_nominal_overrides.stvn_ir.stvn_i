@@ -1,0 +1,90 @@
+{
+  :meta {
+    #name "w003_preserve_indent_traits_and_nominal_overrides"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":RootStrDefaults" ( ":String" ":RootStrDefaults" ( #TRUE #TRUE ) ) ]
+      [ ":RootStrCap" ( ":String" ":RootStrCap" ( #TRUE #TRUE ) ) ]
+      [ ":RootSeqCap" ( ":Seq(:Int)" ":RootSeqCap" ( #TRUE #TRUE ) ) ]
+      [ ":RootSetCap" ( ":Set(:Int)" ":RootSetCap" ( #TRUE #FALSE ) ) ]
+      [ ":RootSetTraits" ( ":Set(:Int)" ":RootSetTraits" ( #TRUE #FALSE ) ) ]
+      [ ":RootMapCap" ( ":Map(:String :Int)" ":RootMapCap" ( #TRUE #FALSE ) ) ]
+      [ ":RootMapTraits" ( ":Map(:String :Int)" ":RootMapTraits" ( #TRUE #FALSE ) ) ]
+      [ ":RootContFloatTraits" ( ":Float" ":RootContFloatTraits" ( #FALSE #TRUE ) ) ]
+      [ ":RootExactFloatCap" ( "{#exact}:Float" ":RootExactFloatCap" ( #TRUE #TRUE ) ) ]
+      [ ":RootExactFloatTraits" ( "{#exact}:Float" ":RootExactFloatTraits" ( #TRUE #TRUE ) ) ]
+      [ ":Signed16Natural" ( "{#size 16}:Int" ":Signed16Natural" ( #TRUE #TRUE ) ) ]
+      [ ":ChildUInt16Natural" ( "{#unsigned #size 16}:Int" ":ChildUInt16Natural" ( #TRUE #TRUE ) ) ]
+      [ ":ChildInt" ( "{#equatable #F #comparable #F #minIncl 10 #maxExcl 100}:Int" ":ChildInt" ( #FALSE #FALSE ) ) ]
+      [ ":ChildFloatIncl" ( "{#minIncl 0.0 #maxIncl 100.5}:Float" ":ChildFloatIncl" ( #FALSE #TRUE ) ) ]
+      [ ":ChildFloatExcl" ( "{#minExcl -1.5 #maxExcl 9.5}:Float" ":ChildFloatExcl" ( #FALSE #TRUE ) ) ]
+      [ ":ChildExactFloat" ( "{#exact #minIncl 0.0 #maxExcl 1000.0}:Float" ":ChildExactFloat" ( #TRUE #TRUE ) ) ]
+      [ ":ChildStrHalfOpen" ( "{#minIncl \"aaa\" #maxExcl \"zzz\" #preserveIndent #T #regex \"^[a-z]+$\"}:String" ":ChildStrHalfOpen" ( #TRUE #TRUE ) ) ]
+      [ ":ChildStrOpenClosed" ( "{#minExcl \"a\" #maxIncl \"z\"}:String" ":ChildStrOpenClosed" ( #TRUE #TRUE ) ) ]
+      [ ":ChildEpoch" ( "{#s #minIncl 1700000000 #maxExcl 1800000000}:TimeEpoch" ":ChildEpoch" ( #TRUE #TRUE ) ) ]
+      [ ":ChildDt" ( "{#offset #minIncl \"2026-01-01T00:00:00Z\" #maxExcl \"2027-01-01T00:00:00Z\"}:DateTime" ":ChildDt" ( #TRUE #TRUE ) ) ]
+      [ ":ChildStatusAll" ( ":Enum[#PENDING #ACTIVE #CLOSED]" ":ChildStatusAll" ( #TRUE #TRUE ) ) ]
+      [ ":ParentStatus" ( ":Enum[#PENDING #ACTIVE #CLOSED]" ":ParentStatus" ( #TRUE #TRUE ) ) ]
+      [ ":LeafStatusOpen" ( "{#filterExcl[#CLOSED]}:ParentStatus" ":LeafStatusOpen" ( #TRUE #TRUE ) ) ]
+      [ ":Bundle" ( ":Tuple(:RootStrDefaults :RootStrCap :RootSeqCap :RootSetCap :RootSetTraits :RootMapCap :RootMapTraits :RootContFloatTraits :RootExactFloatCap :RootExactFloatTraits :Signed16Natural :ChildUInt16Natural :ChildInt :ChildFloatIncl :ChildFloatExcl :ChildExactFloat :ChildStrHalfOpen :ChildStrOpenClosed :ChildEpoch :ChildDt :ChildStatusAll :LeafStatusOpen)" ":Bundle" ( #FALSE #FALSE ) ) ]
+      [ ":ParentUInt16" ( "{#unsigned #size 16}:Int" ":ParentUInt16" ( #TRUE #TRUE ) ) ]
+      [ ":ParentInt" ( "{#equatable #F #minIncl 10 #maxExcl 100}:Int" ":ParentInt" ( #FALSE #FALSE ) ) ]
+      [ ":ParentFloatIncl" ( "{#minIncl 0.0 #maxIncl 100.5}:Float" ":ParentFloatIncl" ( #FALSE #TRUE ) ) ]
+      [ ":ParentFloatExcl" ( "{#minExcl -1.5 #maxExcl 9.5}:Float" ":ParentFloatExcl" ( #FALSE #TRUE ) ) ]
+      [ ":ParentExactFloat" ( "{#exact #minIncl 0.0 #maxExcl 1000.0}:Float" ":ParentExactFloat" ( #TRUE #TRUE ) ) ]
+      [ ":ParentStrHalfOpen" ( "{#minIncl \"aaa\" #maxExcl \"zzz\" #preserveIndent #T #regex \"^[a-z]+$\"}:String" ":ParentStrHalfOpen" ( #TRUE #TRUE ) ) ]
+      [ ":ParentStrOpenClosed" ( "{#minExcl \"a\" #maxIncl \"z\"}:String" ":ParentStrOpenClosed" ( #TRUE #TRUE ) ) ]
+      [ ":ParentEpoch" ( "{#s #minIncl 1700000000 #maxExcl 1800000000}:TimeEpoch" ":ParentEpoch" ( #TRUE #TRUE ) ) ]
+      [ ":ParentDt" ( "{#offset #minIncl \"2026-01-01T00:00:00Z\" #maxExcl \"2027-01-01T00:00:00Z\"}:DateTime" ":ParentDt" ( #TRUE #TRUE ) ) ]
+      [ ":MidStatusOpen" ( "{#filterExcl[#CLOSED]}:ParentStatus" ":MidStatusOpen" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:RootStrDefaults :RootStrCap :RootSeqCap :RootSetCap :RootSetTraits :RootMapCap :RootMapTraits :RootContFloatTraits :RootExactFloatCap :RootExactFloatTraits :Signed16Natural :ChildUInt16Natural :ChildInt :ChildFloatIncl :ChildFloatExcl :ChildExactFloat :ChildStrHalfOpen :ChildStrOpenClosed :ChildEpoch :ChildDt :ChildStatusAll :LeafStatusOpen)" ":Bundle" ( #FALSE #FALSE ) ) ]
+    }
+    #14 [
+      #5 "ok"
+      #5 "cap"
+      #15 [
+        #2 ( 1 32 #FALSE )
+      ]
+      #16 [
+        #2 ( 2 32 #FALSE )
+      ]
+      #16 [
+        #2 ( 3 32 #FALSE )
+      ]
+      #17 ( #FALSE [
+        (
+          #5 "k"
+          #2 ( 1 32 #FALSE )
+        )
+      ] )
+      #17 ( #FALSE [
+        (
+          #5 "m"
+          #2 ( 2 32 #FALSE )
+        )
+      ] )
+      #3 1.5
+      #4 ( 2.5 16777216 )
+      #4 ( 3.5 16777216 )
+      #2 ( 0 16 #FALSE )
+      #2 ( 1 16 #TRUE )
+      #2 ( 20 32 #FALSE )
+      #3 10.0
+      #3 0.5
+      #4 ( 5.0 16777216 )
+      #5 "abc"
+      #5 "m"
+      #6 #4 1750000000
+      #7 #1 "2026-06-15T12:00:00Z"
+      #8 ( "#ACTIVE" 1 )
+      #8 ( "#PENDING" 0 )
+    ]
+  )
+}

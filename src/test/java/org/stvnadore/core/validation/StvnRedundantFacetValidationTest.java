@@ -599,7 +599,7 @@ public class StvnRedundantFacetValidationTest {
     int expectedEnd = expectedStart + targetToken.length();
     assertEquals(expectedStart, diag.startOffset());
     assertEquals(expectedEnd, diag.endOffset());
-    assertTrue(diag.message().contains("ancestor ':Parent' already resolves to equatable #TRUE"));
+    assertTrue(diag.message().contains("ancestor ':Parent' already establishes '#equatable #TRUE'"));
   }
 
   @Test
@@ -1433,5 +1433,389 @@ public class StvnRedundantFacetValidationTest {
     String hashB = java.util.HexFormat.of().formatHex(digest.digest(flatB.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
     assertEquals(hashA, hashB, "CAS hashes must be bitwise identical under Invariant 6");
+  }
+
+  @Test
+  @DisplayName("TC-BIJECT-02: String #preserveIndent (#TRUE/#FALSE), continuous bounds, and #regex nominal overrides emit W003 and preserve CAS bijectivity")
+  void testStringNominalOverridesAndPreserveIndentBijectivity() throws Exception {
+    String cleanSchema = """
+        {
+          :meta {
+            #name "str_biject"
+            #domain "core"
+            #kind #DEFS
+          }
+          :defs {
+            :ParentHalfOpen { #minIncl "aaa" #maxExcl "zzz" #preserveIndent #TRUE #regex "^[a-z]+$" } :String
+            :ChildHalfOpen :ParentHalfOpen
+            :ParentOpenClosed { #minExcl "a" #maxIncl "z" } :String
+            :ChildOpenClosed :ParentOpenClosed
+          }
+        }
+        """;
+
+    String redundantSchema = """
+        {
+          :meta {
+            #name "str_biject"
+            #domain "core"
+            #kind #DEFS
+          }
+          :defs {
+            :ParentHalfOpen { #minIncl "aaa" #maxExcl "zzz" #preserveIndent #TRUE #regex "^[a-z]+$" } :String
+            :ChildHalfOpen { #minIncl "aaa" #maxExcl "zzz" #preserveIndent #TRUE #regex "^[a-z]+$" } :ParentHalfOpen
+            :ParentOpenClosed { #minExcl "a" #maxIncl "z" } :String
+            :ChildOpenClosed { #minExcl "a" #maxIncl "z" #preserveIndent #FALSE } :ParentOpenClosed
+          }
+        }
+        """;
+
+    var resClean = StvnCompiler.compileToResult(cleanSchema, "str_biject.core.stvn_d", StvnParserConfig.DEFAULT);
+    assertFalse(resClean.hasErrors());
+    assertFalse(resClean.hasWarnings());
+
+    var resRedundant = StvnCompiler.compileToResult(redundantSchema, "str_biject.core.stvn_d", StvnParserConfig.DEFAULT);
+    assertFalse(resRedundant.hasErrors());
+    assertEquals(7, resRedundant.diagnostics().size());
+    assertTrue(resRedundant.diagnostics().stream().allMatch(
+        d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))
+    ));
+
+    var preserveTrueDiag = resRedundant.diagnostics().get(2);
+    String preserveTrueTok = "#preserveIndent #TRUE";
+    int childHalfOpenIdx = redundantSchema.indexOf(":ChildHalfOpen");
+    int expectedTrueStart = redundantSchema.indexOf(preserveTrueTok, childHalfOpenIdx);
+    assertEquals(expectedTrueStart, preserveTrueDiag.startOffset());
+    assertEquals(expectedTrueStart + preserveTrueTok.length(), preserveTrueDiag.endOffset());
+    assertEquals(
+        "Constraint violation (:ChildHalfOpen): facet '#preserveIndent #TRUE' is redundant; ancestor ':ParentHalfOpen' already establishes '#preserveIndent #TRUE'",
+        preserveTrueDiag.message()
+    );
+
+    var preserveFalseDiag = resRedundant.diagnostics().get(6);
+    String preserveFalseTok = "#preserveIndent #FALSE";
+    int childOpenClosedIdx = redundantSchema.indexOf(":ChildOpenClosed");
+    int expectedFalseStart = redundantSchema.indexOf(preserveFalseTok, childOpenClosedIdx);
+    assertEquals(expectedFalseStart, preserveFalseDiag.startOffset());
+    assertEquals(expectedFalseStart + preserveFalseTok.length(), preserveFalseDiag.endOffset());
+    assertEquals(
+        "Constraint violation (:ChildOpenClosed): facet '#preserveIndent #FALSE' is redundant; ancestor ':ParentOpenClosed' already establishes '#preserveIndent #FALSE'",
+        preserveFalseDiag.message()
+    );
+
+    assertDocumentBijectivity(cleanSchema, redundantSchema, "str_biject.core.stvn_d");
+  }
+
+  @Test
+  @DisplayName("TC-BIJECT-03: Float continuous bounds, exact decimal scale-distinct bounds (0.00 vs 0.0), and #exact #comparable #TRUE emit W003 and preserve CAS bijectivity")
+  void testFloatNominalOverridesAndExactDecimalScaleBijectivity() throws Exception {
+    String cleanSchema = """
+        {
+          :meta {
+            #name "float_biject"
+            #domain "core"
+            #kind #DEFS
+          }
+          :defs {
+            :RootExact { #exact } :Float
+            :ParentIncl { #minIncl 0.0 #maxIncl 100.5 } :Float
+            :ChildIncl :ParentIncl
+            :ParentExcl { #minExcl -1.5 #maxExcl 9.5 } :Float
+            :ChildExcl :ParentExcl
+            :ParentExact { #exact #minIncl 0.0 #maxExcl 1000.0 } :Float
+            :ChildExact :ParentExact
+          }
+        }
+        """;
+
+    String redundantSchema = """
+        {
+          :meta {
+            #name "float_biject"
+            #domain "core"
+            #kind #DEFS
+          }
+          :defs {
+            :RootExact { #exact #comparable #TRUE } :Float
+            :ParentIncl { #minIncl 0.0 #maxIncl 100.5 } :Float
+            :ChildIncl { #minIncl 0.0 #maxIncl 100.5 } :ParentIncl
+            :ParentExcl { #minExcl -1.5 #maxExcl 9.5 } :Float
+            :ChildExcl { #minExcl -1.5 #maxExcl 9.5 } :ParentExcl
+            :ParentExact { #exact #minIncl 0.0 #maxExcl 1000.0 } :Float
+            :ChildExact { #minIncl 0.00 #maxExcl 1000.0 } :ParentExact
+          }
+        }
+        """;
+
+    var resRedundant = StvnCompiler.compileToResult(redundantSchema, "float_biject.core.stvn_d", StvnParserConfig.DEFAULT);
+    assertFalse(resRedundant.hasErrors());
+    assertEquals(7, resRedundant.diagnostics().size());
+    assertEquals(
+        "Constraint violation (:RootExact): facet '#comparable #TRUE' is redundant; exact decimal float is intrinsically comparable",
+        resRedundant.diagnostics().get(0).message()
+    );
+    assertEquals(
+        "Constraint violation (:ChildExact): facet '#minIncl 0.00' is redundant; ancestor ':ParentExact' already establishes '#minIncl 0.0'",
+        resRedundant.diagnostics().get(5).message()
+    );
+
+    assertDocumentBijectivity(cleanSchema, redundantSchema, "float_biject.core.stvn_d");
+  }
+
+  @Test
+  @DisplayName("TC-BIJECT-04: TimeEpoch nominal #minIncl and #maxExcl overrides emit W003 and preserve CAS bijectivity")
+  void testTimeEpochNominalOverridesBijectivity() throws Exception {
+    String cleanSchema = """
+        {
+          :meta {
+            #name "epoch_biject"
+            #domain "core"
+            #kind #DEFS
+          }
+          :defs {
+            :ParentEpoch { #s #minIncl 1700000000 #maxExcl 1800000000 } :TimeEpoch
+            :ChildEpoch :ParentEpoch
+          }
+        }
+        """;
+
+    String redundantSchema = """
+        {
+          :meta {
+            #name "epoch_biject"
+            #domain "core"
+            #kind #DEFS
+          }
+          :defs {
+            :ParentEpoch { #s #minIncl 1700000000 #maxExcl 1800000000 } :TimeEpoch
+            :ChildEpoch { #minIncl 1700000000 #maxExcl 1800000000 } :ParentEpoch
+          }
+        }
+        """;
+
+    var resRedundant = StvnCompiler.compileToResult(redundantSchema, "epoch_biject.core.stvn_d", StvnParserConfig.DEFAULT);
+    assertFalse(resRedundant.hasErrors());
+    assertEquals(2, resRedundant.diagnostics().size());
+    assertEquals(
+        "Constraint violation (:ChildEpoch): facet '#minIncl 1700000000' is redundant; ancestor ':ParentEpoch' already establishes '#minIncl 1700000000'",
+        resRedundant.diagnostics().get(0).message()
+    );
+    assertEquals(
+        "Constraint violation (:ChildEpoch): facet '#maxExcl 1800000000' is redundant; ancestor ':ParentEpoch' already establishes '#maxExcl 1800000000'",
+        resRedundant.diagnostics().get(1).message()
+    );
+
+    assertDocumentBijectivity(cleanSchema, redundantSchema, "epoch_biject.core.stvn_d");
+  }
+
+  @Test
+  @DisplayName("TC-BIJECT-05: DateTime lexical and cross-offset (+00:00 vs Z) nominal overrides emit W003 and preserve CAS bijectivity")
+  void testDateTimeNominalOverridesAndUtcOffsetEquivalenceBijectivity() throws Exception {
+    String cleanSchema = """
+        {
+          :meta {
+            #name "dt_biject"
+            #domain "core"
+            #kind #DEFS
+          }
+          :defs {
+            :ParentDt { #offset #minIncl "2026-01-01T00:00:00Z" #maxExcl "2027-01-01T00:00:00Z" } :DateTime
+            :ChildDt :ParentDt
+          }
+        }
+        """;
+
+    String redundantSchema = """
+        {
+          :meta {
+            #name "dt_biject"
+            #domain "core"
+            #kind #DEFS
+          }
+          :defs {
+            :ParentDt { #offset #minIncl "2026-01-01T00:00:00Z" #maxExcl "2027-01-01T00:00:00Z" } :DateTime
+            :ChildDt { #minIncl "2026-01-01T00:00:00Z" #maxExcl "2027-01-01T00:00:00+00:00" } :ParentDt
+          }
+        }
+        """;
+
+    var resRedundant = StvnCompiler.compileToResult(redundantSchema, "dt_biject.core.stvn_d", StvnParserConfig.DEFAULT);
+    assertFalse(resRedundant.hasErrors());
+    assertEquals(2, resRedundant.diagnostics().size());
+    assertEquals(
+        "Constraint violation (:ChildDt): facet '#minIncl \"2026-01-01T00:00:00Z\"' is redundant; ancestor ':ParentDt' already establishes '#minIncl \"2026-01-01T00:00:00Z\"'",
+        resRedundant.diagnostics().get(0).message()
+    );
+    assertEquals(
+        "Constraint violation (:ChildDt): facet '#maxExcl \"2027-01-01T00:00:00+00:00\"' is redundant; ancestor ':ParentDt' already establishes '#maxExcl \"2027-01-01T00:00:00Z\"'",
+        resRedundant.diagnostics().get(1).message()
+    );
+
+    assertDocumentBijectivity(cleanSchema, redundantSchema, "dt_biject.core.stvn_d");
+  }
+
+  @Test
+  @DisplayName("TC-BIJECT-06: EnumSubset 1-hop, 2-hop, and non-equatable identity #filterIncl overrides emit canonical zero-bracket-padded W003 and preserve CAS bijectivity")
+  void testEnumIdentityFilterInclOverridesAndTraitPreservationBijectivity() throws Exception {
+    String cleanSchema = """
+        {
+          :meta {
+            #name "enum_biject"
+            #domain "core"
+            #kind #DEFS
+          }
+          :defs {
+            :ParentStatus :Enum [ #PENDING #ACTIVE #CLOSED ]
+            :ChildStatusAll :ParentStatus
+            :MidStatusOpen { #filterExcl [ #CLOSED ] } :ParentStatus
+            :LeafStatusOpen :MidStatusOpen
+            :NonEqParent { #equatable #FALSE } :Enum [ #ALPHA #BETA ]
+            :NonEqChild :NonEqParent
+          }
+        }
+        """;
+
+    String redundantSchema = """
+        {
+          :meta {
+            #name "enum_biject"
+            #domain "core"
+            #kind #DEFS
+          }
+          :defs {
+            :ParentStatus :Enum [ #PENDING #ACTIVE #CLOSED ]
+            :ChildStatusAll { #filterIncl [ #PENDING #ACTIVE #CLOSED ] } :ParentStatus
+            :MidStatusOpen { #filterExcl [ #CLOSED ] } :ParentStatus
+            :LeafStatusOpen { #filterIncl [ #PENDING #ACTIVE ] } :MidStatusOpen
+            :NonEqParent { #equatable #FALSE } :Enum [ #ALPHA #BETA ]
+            :NonEqChild { #filterIncl [ #ALPHA #BETA ] } :NonEqParent
+          }
+        }
+        """;
+
+    var resRedundant = StvnCompiler.compileToResult(redundantSchema, "enum_biject.core.stvn_d", StvnParserConfig.DEFAULT);
+    assertFalse(resRedundant.hasErrors());
+    assertEquals(3, resRedundant.diagnostics().size());
+    assertEquals(
+        "Constraint violation (:ChildStatusAll): facet '#filterIncl [#PENDING #ACTIVE #CLOSED]' is redundant; ancestor ':ParentStatus' already establishes active variants '[#PENDING #ACTIVE #CLOSED]'",
+        resRedundant.diagnostics().get(0).message()
+    );
+    assertEquals(
+        "Constraint violation (:LeafStatusOpen): facet '#filterIncl [#PENDING #ACTIVE]' is redundant; ancestor ':MidStatusOpen' already establishes active variants '[#PENDING #ACTIVE]'",
+        resRedundant.diagnostics().get(1).message()
+    );
+    assertEquals(
+        "Constraint violation (:NonEqChild): facet '#filterIncl [#ALPHA #BETA]' is redundant; ancestor ':NonEqParent' already establishes active variants '[#ALPHA #BETA]'",
+        resRedundant.diagnostics().get(2).message()
+    );
+
+    var docRedundant = resRedundant.document().orElseThrow();
+    var childAllSchema = docRedundant.defs().nominalTypes().get(":ChildStatusAll");
+    var leafOpenSchema = docRedundant.defs().nominalTypes().get(":LeafStatusOpen");
+    var nonEqChildSchema = docRedundant.defs().nominalTypes().get(":NonEqChild");
+    assertInstanceOf(org.stvnadore.core.ir.StvnSchema.EnumSchema.class, childAllSchema);
+    assertInstanceOf(org.stvnadore.core.ir.StvnSchema.EnumSubsetSchema.class, leafOpenSchema);
+    assertInstanceOf(org.stvnadore.core.ir.StvnSchema.EnumSchema.class, nonEqChildSchema);
+    assertFalse(nonEqChildSchema.traits().equatable(), "Purged identity #filterIncl must not silently resurrect equatable=#TRUE");
+    assertFalse(nonEqChildSchema.traits().comparable());
+
+    assertDocumentBijectivity(cleanSchema, redundantSchema, "enum_biject.core.stvn_d");
+  }
+
+  @Test
+  @DisplayName("TC-BIJECT-07: Interval errors (E009/E018) suppress co-located W003 on the pinned MetadataEntry and Set/Map quote '#comparable #FALSE'")
+  void testIntervalErrorSuppressionAndSetMapSingleQuotedTraits() {
+    String emptyIntervalSource = """
+        {
+          :defs {
+            :Parent { #minIncl 10 #maxExcl 20 } :Int
+            :BadEmpty { #minIncl 20 #maxExcl 20 } :Parent
+          }
+          :type :BadEmpty
+          :body 15
+        }
+        """;
+    var emptyRes = StvnCompiler.compileToResult(emptyIntervalSource, null, StvnParserConfig.DEFAULT);
+    assertTrue(emptyRes.hasErrors());
+    assertEquals(1, emptyRes.diagnostics().size(), "Pinned #maxExcl 20 carrying E018 must not stack W003");
+    assertEquals(DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN, emptyRes.diagnostics().get(0).errorCode().orElse(null));
+
+    String separateMinWarnMaxErrorSource = """
+        {
+          :defs {
+            :Parent { #minIncl 20 #maxExcl 30 } :Int
+            :BadInverted { #minIncl 20 #maxExcl 10 } :Parent
+          }
+          :type :BadInverted
+          :body 20
+        }
+        """;
+    var sepRes = StvnCompiler.compileToResult(separateMinWarnMaxErrorSource, null, StvnParserConfig.DEFAULT);
+    assertTrue(sepRes.hasErrors());
+    assertEquals(2, sepRes.diagnostics().size(), "Un-pinned #minIncl 20 keeps W003 while #maxExcl 10 receives E009");
+    assertEquals(DiagnosticBag.WARN_REDUNDANT_METADATA_FACET, sepRes.diagnostics().get(0).errorCode().orElse(null));
+    assertEquals(DiagnosticBag.ERR_INVERTED_RANGE, sepRes.diagnostics().get(1).errorCode().orElse(null));
+
+    String setMapTraitsSource = """
+        {
+          :defs {
+            :MySet { #comparable #FALSE } :Set( :Int )
+            :MyMap { #comparable #FALSE } :Map( :String :Int )
+          }
+          :type :Tuple( :MySet :MyMap )
+          :body ( [ 1 ] { [ "a" 1 ] } )
+        }
+        """;
+    var setMapRes = StvnCompiler.compileToResult(setMapTraitsSource, null, StvnParserConfig.DEFAULT);
+    assertFalse(setMapRes.hasErrors());
+    assertEquals(2, setMapRes.diagnostics().size());
+    assertEquals(
+        "Constraint violation (:MySet): facet '#comparable #FALSE' is redundant; ':Set' already resolves to '#comparable #FALSE'",
+        setMapRes.diagnostics().get(0).message()
+    );
+    assertEquals(
+        "Constraint violation (:MyMap): facet '#comparable #FALSE' is redundant; ':Map' already resolves to '#comparable #FALSE'",
+        setMapRes.diagnostics().get(1).message()
+    );
+  }
+
+  private static void assertDocumentBijectivity(String cleanSchema, String redundantSchema, String virtualFileName) throws Exception {
+    var cleanDoc = StvnCompiler.compileToResult(cleanSchema, virtualFileName, StvnParserConfig.DEFAULT)
+        .document()
+        .orElseThrow();
+    var redundantDoc = StvnCompiler.compileToResult(redundantSchema, virtualFileName, StvnParserConfig.DEFAULT)
+        .document()
+        .orElseThrow();
+
+    String flatClean = org.stvnadore.core.StvnSchemaFlattener.flatten(java.util.Map.of(virtualFileName, cleanSchema), virtualFileName);
+    String flatRedundant = org.stvnadore.core.StvnSchemaFlattener.flatten(java.util.Map.of(virtualFileName, redundantSchema), virtualFileName);
+    assertEquals(flatClean, flatRedundant, "Flattened canonical CAS preimage must match 1:1");
+
+    var digest = java.security.MessageDigest.getInstance("SHA-256");
+    String casClean = java.util.HexFormat.of().formatHex(digest.digest(flatClean.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    digest.reset();
+    String casRedundant = java.util.HexFormat.of().formatHex(digest.digest(flatRedundant.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    assertEquals(casClean, casRedundant, "Document CAS SHA-256 must match 1:1");
+
+    var prettyPrinter = new org.stvnadore.core.printer.AstPrettyPrinter();
+    var compactPrinter = new org.stvnadore.core.printer.AstCompactPrinter();
+    assertEquals(prettyPrinter.printToString(cleanDoc), prettyPrinter.printToString(redundantDoc), "AstPrettyPrinter output must match 1:1");
+    assertEquals(compactPrinter.printToString(cleanDoc), compactPrinter.printToString(redundantDoc), "AstCompactPrinter output must match 1:1");
+
+    var cleanTypes = cleanDoc.defs().nominalTypes();
+    var redundantTypes = redundantDoc.defs().nominalTypes();
+    assertEquals(cleanTypes.keySet(), redundantTypes.keySet());
+    for (String typeName : cleanTypes.keySet()) {
+      assertArrayEquals(
+          org.stvnadore.core.binary.StvnSchemaHasher.computeSha256(cleanTypes.get(typeName)),
+          org.stvnadore.core.binary.StvnSchemaHasher.computeSha256(redundantTypes.get(typeName)),
+          "StvnSchemaHasher SHA-256 must match 1:1 for " + typeName
+      );
+      assertEquals(
+          org.stvnadore.core.binary.StvnSchemaHasher.hashSchema(cleanTypes.get(typeName)),
+          org.stvnadore.core.binary.StvnSchemaHasher.hashSchema(redundantTypes.get(typeName)),
+          "StvnSchemaHasher UUIDv8 must match 1:1 for " + typeName
+      );
+    }
   }
 }

@@ -5558,6 +5558,38 @@ public final class StvnDefsLowerer {
           normExplicitComp
       );
 
+      // Compute unfiltered enum trait profile (hasEnumFilter == false) for rebrandEnumParent when
+      // an identity #filterIncl is purged under W003 or when an invalid enum filter falls back.
+      boolean unfilteredEnumIntrinsicEq = switch (baseSchema) {
+        case StvnSchema.EnumSchema ignored -> true;
+        case StvnSchema.EnumSubsetSchema sub -> sub.parentEnum().traits().equatable();
+        default -> intrinsicRootEq;
+      };
+      boolean unfilteredEnumIntrinsicComp = switch (baseSchema) {
+        case StvnSchema.EnumSchema ignored -> true;
+        case StvnSchema.EnumSubsetSchema sub -> sub.parentEnum().traits().comparable();
+        default -> intrinsicRootComp;
+      };
+      Optional<Boolean> unfilteredNormEq = (finalEq != unfilteredEnumIntrinsicEq)
+          ? Optional.of(finalEq)
+          : Optional.empty();
+      Optional<Boolean> unfilteredNormComp;
+      if (finalComp == unfilteredEnumIntrinsicComp) {
+        unfilteredNormComp = Optional.empty();
+      } else if (childComparable != null) {
+        unfilteredNormComp = Optional.of(finalComp);
+      } else {
+        boolean resolvedComp = finalComp;
+        unfilteredNormComp = baseSchema.traits().explicitComparableOverride()
+            .filter(inherited -> inherited == resolvedComp);
+      }
+      TraitProfile unfilteredEnumTraits = new TraitProfile(
+          finalEq,
+          finalComp,
+          unfilteredNormEq,
+          unfilteredNormComp
+      );
+
       // Now specialize & validate domain constraints per concrete schema family + W003 tautology purging!
       StvnSchema loweredSchema = switch (baseSchema) {
         case StvnSchema.BooleanSchema ignored -> new StvnSchema.BooleanSchema(effectiveBrand, finalTraits);
@@ -5596,34 +5628,36 @@ public final class StvnDefsLowerer {
         }
 
         case StvnSchema.FloatSchema floatBase -> lowerFloatFacets(
-            ownerLabel, effectiveBrand, floatBase, isNominalDerivation,
+            ownerLabel, effectiveBrand, floatBase, parentName, isNominalDerivation,
             childExact, childSize, childSizeSpan, childMaxSize, childMaxSizeSpan,
             minBoundCtx, minBoundName, maxBoundCtx, maxBoundName, finalTraits, scope
         );
 
         case StvnSchema.StringSchema strBase -> lowerStringFacets(
-            ownerLabel, effectiveBrand, strBase, isNominalDerivation,
+            ownerLabel, effectiveBrand, strBase, parentName, isNominalDerivation,
             childMinSize, childMinSizeSpan, childMaxSize, childMaxSizeSpan,
             minBoundCtx, minBoundName, maxBoundCtx, maxBoundName, regexCtx,
             childPreserveIndent, childPreserveIndentSpan, finalTraits, scope
         );
 
         case StvnSchema.TimeEpochSchema teBase -> lowerTimeEpochFacets(
-            ownerLabel, effectiveBrand, teBase, isNominalDerivation,
+            ownerLabel, effectiveBrand, teBase, parentName, isNominalDerivation,
             childScale, minBoundCtx, maxBoundCtx, finalTraits, scope
         );
 
         case StvnSchema.DateTimeSchema dtBase -> lowerDateTimeFacets(
-            ownerLabel, effectiveBrand, dtBase, isNominalDerivation,
+            ownerLabel, effectiveBrand, dtBase, parentName, isNominalDerivation,
             childMode, minBoundCtx, maxBoundCtx, finalTraits, scope
         );
 
         case StvnSchema.EnumSchema enumBase -> lowerEnumFacets(
-            ownerLabel, effectiveBrand, enumBase, enumBase, enumBase.rootVariants(), filterInclCtx, filterExclCtx, finalTraits
+            ownerLabel, effectiveBrand, enumBase, enumBase, parentName, isNominalDerivation,
+            enumBase.rootVariants(), filterInclCtx, filterExclCtx, finalTraits, unfilteredEnumTraits
         );
 
         case StvnSchema.EnumSubsetSchema subsetBase -> lowerEnumFacets(
-            ownerLabel, effectiveBrand, subsetBase, subsetBase.rootEnum(), subsetBase.activeVariants(), filterInclCtx, filterExclCtx, finalTraits
+            ownerLabel, effectiveBrand, subsetBase, subsetBase.rootEnum(), parentName, isNominalDerivation,
+            subsetBase.activeVariants(), filterInclCtx, filterExclCtx, finalTraits, unfilteredEnumTraits
         );
 
         case StvnSchema.TupleSchema tupBase -> new StvnSchema.TupleSchema(effectiveBrand, tupBase.fieldSchemas(), finalTraits);
@@ -5816,6 +5850,10 @@ public final class StvnDefsLowerer {
 
       Optional<BigInteger> effectiveMin = intBase.explicitMinIncl();
       Optional<BigInteger> effectiveMax = intBase.explicitMaxExcl();
+      String deferredMinW003 = null;
+      Span deferredMinSpan = null;
+      String deferredMaxW003 = null;
+      Span deferredMaxSpan = null;
 
       if (childUnsigned && !intBase.unsigned()) {
         if (effectiveMin.isPresent() && effectiveMin.get().signum() < 0) {
@@ -5865,12 +5903,10 @@ public final class StvnDefsLowerer {
           } else {
             if (effectiveMin.isPresent() && minVal.equals(effectiveMin.get())) {
               String ancName = parentName != null ? parentName : "ancestor";
-              diagnosticBag.addWarning(
-                  "Constraint violation (" + ownerLabel + "): facet '#minIncl " + minVal
-                      + "' is redundant; ancestor '" + ancName + "' already establishes '#minIncl " + minVal + "'",
-                  bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(),
-                  DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-              );
+              String minFacet = StvnVocabulary.FACET_KW_MIN_INCL + " " + minVal;
+              deferredMinW003 = "Constraint violation (" + ownerLabel + "): facet '" + minFacet
+                  + "' is redundant; ancestor '" + ancName + "' already establishes '" + minFacet + "'";
+              deferredMinSpan = bSpan;
             }
             effectiveMin = Optional.of(minVal);
           }
@@ -5942,22 +5978,30 @@ public final class StvnDefsLowerer {
           } else {
             if (effectiveMax.isPresent() && maxVal.equals(effectiveMax.get())) {
               String ancName = parentName != null ? parentName : "ancestor";
-              diagnosticBag.addWarning(
-                  "Constraint violation (" + ownerLabel + "): facet '#maxExcl " + maxVal
-                      + "' is redundant; ancestor '" + ancName + "' already establishes '#maxExcl " + maxVal + "'",
-                  bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(),
-                  DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-              );
+              String maxFacet = StvnVocabulary.FACET_KW_MAX_EXCL + " " + maxVal;
+              deferredMaxW003 = "Constraint violation (" + ownerLabel + "): facet '" + maxFacet
+                  + "' is redundant; ancestor '" + ancName + "' already establishes '" + maxFacet + "'";
+              deferredMaxSpan = bSpan;
             }
             effectiveMax = Optional.of(maxVal);
           }
         }
       }
 
+      boolean pinnedIntervalErrorOnMin = false;
+      boolean pinnedIntervalErrorOnMax = false;
       if (effectiveMin.isPresent() && effectiveMax.isPresent()) {
         int cmp = effectiveMin.get().compareTo(effectiveMax.get());
         Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
         if (cmp == 0) {
+          pinnedIntervalErrorOnMax = maxBoundCtx != null;
+          pinnedIntervalErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          if (!pinnedIntervalErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+          }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): discrete integer interval ["
                   + effectiveMin.get() + ", " + effectiveMax.get() + ") defines an empty domain",
@@ -5968,6 +6012,14 @@ public final class StvnDefsLowerer {
               effectiveBrand, effectiveUnsigned, effectiveBitWidth, finalTraits, Optional.empty(), Optional.empty()
           );
         } else if (cmp > 0) {
+          pinnedIntervalErrorOnMax = maxBoundCtx != null;
+          pinnedIntervalErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          if (!pinnedIntervalErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+          }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): effective range is invalid (#minIncl "
                   + effectiveMin.get() + " exceeds #maxExcl " + effectiveMax.get() + ")",
@@ -5978,6 +6030,19 @@ public final class StvnDefsLowerer {
               effectiveBrand, effectiveUnsigned, effectiveBitWidth, finalTraits, Optional.empty(), Optional.empty()
           );
         }
+      }
+
+      if (!pinnedIntervalErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+            deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
+      }
+      if (!pinnedIntervalErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+            deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
       }
 
       return new StvnSchema.IntSchema(
@@ -6011,6 +6076,7 @@ public final class StvnDefsLowerer {
         String ownerLabel,
         Optional<String> effectiveBrand,
         StvnSchema.FloatSchema floatBase,
+        @Nullable String parentName,
         boolean isNominalDerivation,
         boolean childExact,
         @Nullable BigInteger childSize,
@@ -6070,20 +6136,47 @@ public final class StvnDefsLowerer {
 
       Optional<ContinuousBound<BigDecimal>> lower = floatBase.lowerBound();
       Optional<ContinuousBound<BigDecimal>> upper = floatBase.upperBound();
+      String deferredMinW003 = null;
+      Span deferredMinSpan = null;
+      String deferredMaxW003 = null;
+      Span deferredMaxSpan = null;
+      String ancName = parentName != null ? parentName : "ancestor";
 
       if (minBoundCtx != null && minBoundName != null) {
-        BigDecimal bd = resolveDecimalMetadataArg(ownerLabel, StvnVocabulary.SIGIL_VALUE + minBoundName, minBoundCtx.metadataValue(), rep, exactMaxDigits, scope);
+        String minKw = StvnVocabulary.SIGIL_VALUE + minBoundName;
+        BigDecimal bd = resolveDecimalMetadataArg(ownerLabel, minKw, minBoundCtx.metadataValue(), rep, exactMaxDigits, scope);
         if (bd != null) {
           BoundKind kind = "minIncl".equals(minBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
-          lower = Optional.of(new ContinuousBound<>(bd, kind));
+          if (isNominalDerivation && lower.isPresent()
+              && lower.get().kind() == kind && bd.compareTo(lower.get().value()) == 0) {
+            deferredMinW003 = "Constraint violation (" + ownerLabel + "): facet '"
+                + minKw + " " + formatCanonicalFloatBound(bd, rep) + "' is redundant; ancestor '"
+                + ancName + "' already establishes '"
+                + minKw + " " + formatCanonicalFloatBound(lower.get().value(), rep) + "'";
+            deferredMinSpan = Span.ofContext(minBoundCtx);
+            // Retain floatBase.lowerBound() so BigDecimal scale (e.g., 0.0 vs 0.00) preserves CAS bijectivity!
+          } else {
+            lower = Optional.of(new ContinuousBound<>(bd, kind));
+          }
         }
       }
 
       if (maxBoundCtx != null && maxBoundName != null) {
-        BigDecimal bd = resolveDecimalMetadataArg(ownerLabel, StvnVocabulary.SIGIL_VALUE + maxBoundName, maxBoundCtx.metadataValue(), rep, exactMaxDigits, scope);
+        String maxKw = StvnVocabulary.SIGIL_VALUE + maxBoundName;
+        BigDecimal bd = resolveDecimalMetadataArg(ownerLabel, maxKw, maxBoundCtx.metadataValue(), rep, exactMaxDigits, scope);
         if (bd != null) {
           BoundKind kind = "maxIncl".equals(maxBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
-          upper = Optional.of(new ContinuousBound<>(bd, kind));
+          if (isNominalDerivation && upper.isPresent()
+              && upper.get().kind() == kind && bd.compareTo(upper.get().value()) == 0) {
+            deferredMaxW003 = "Constraint violation (" + ownerLabel + "): facet '"
+                + maxKw + " " + formatCanonicalFloatBound(bd, rep) + "' is redundant; ancestor '"
+                + ancName + "' already establishes '"
+                + maxKw + " " + formatCanonicalFloatBound(upper.get().value(), rep) + "'";
+            deferredMaxSpan = Span.ofContext(maxBoundCtx);
+            // Retain floatBase.upperBound() so BigDecimal scale preserves CAS bijectivity!
+          } else {
+            upper = Optional.of(new ContinuousBound<>(bd, kind));
+          }
         }
       }
 
@@ -6091,6 +6184,12 @@ public final class StvnDefsLowerer {
         int cmp = lower.get().value().compareTo(upper.get().value());
         Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
         if (cmp > 0) {
+          if (maxBoundCtx != null && deferredMinW003 != null && deferredMinSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+          }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): effective range is invalid (lower bound "
                   + lower.get().value() + " exceeds upper bound " + upper.get().value() + ")",
@@ -6101,6 +6200,12 @@ public final class StvnDefsLowerer {
               effectiveBrand, rep, exactMaxDigits, finalTraits, Optional.empty(), Optional.empty()
           );
         } else if (cmp == 0 && (lower.get().kind() == BoundKind.EXCLUSIVE || upper.get().kind() == BoundKind.EXCLUSIVE)) {
+          if (maxBoundCtx != null && deferredMinW003 != null && deferredMinSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+          }
           String errCode = rep == FloatRepresentation.EXACT_DECIMAL
               ? DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN
               : DiagnosticBag.ERR_INVERTED_RANGE;
@@ -6116,6 +6221,19 @@ public final class StvnDefsLowerer {
         }
       }
 
+      if (deferredMinW003 != null && deferredMinSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+            deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
+      }
+      if (deferredMaxW003 != null && deferredMaxSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+            deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
+      }
+
       return new StvnSchema.FloatSchema(effectiveBrand, rep, exactMaxDigits, finalTraits, lower, upper);
     }
 
@@ -6123,6 +6241,7 @@ public final class StvnDefsLowerer {
         String ownerLabel,
         Optional<String> effectiveBrand,
         StvnSchema.StringSchema strBase,
+        @Nullable String parentName,
         boolean isNominalDerivation,
         @Nullable BigInteger childMinSize,
         @Nullable Span childMinSizeSpan,
@@ -6145,27 +6264,63 @@ public final class StvnDefsLowerer {
 
       Optional<ContinuousBound<String>> lowerBound = strBase.lowerBound();
       Optional<ContinuousBound<String>> upperBound = strBase.upperBound();
+      String deferredMinW003 = null;
+      Span deferredMinSpan = null;
+      String deferredMaxW003 = null;
+      Span deferredMaxSpan = null;
+      String ancName = parentName != null ? parentName : "ancestor";
 
       if (minBoundCtx != null && minBoundName != null) {
-        String sVal = resolveStringMetadataArg(ownerLabel, StvnVocabulary.SIGIL_VALUE + minBoundName, minBoundCtx.metadataValue(), scope);
+        String minKw = StvnVocabulary.SIGIL_VALUE + minBoundName;
+        String sVal = resolveStringMetadataArg(ownerLabel, minKw, minBoundCtx.metadataValue(), scope);
         if (sVal != null) {
           BoundKind kind = "minIncl".equals(minBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
-          lowerBound = Optional.of(new ContinuousBound<>(sVal, kind));
+          if (isNominalDerivation && lowerBound.isPresent()
+              && lowerBound.get().kind() == kind
+              && compareUtf8Lexicographical(sVal, lowerBound.get().value()) == 0) {
+            String quoted = formatQuotedStvnString(sVal);
+            deferredMinW003 = "Constraint violation (" + ownerLabel + "): facet '" + minKw + " " + quoted
+                + "' is redundant; ancestor '" + ancName + "' already establishes '" + minKw + " " + quoted + "'";
+            deferredMinSpan = Span.ofContext(minBoundCtx);
+          } else {
+            lowerBound = Optional.of(new ContinuousBound<>(sVal, kind));
+          }
         }
       }
 
       if (maxBoundCtx != null && maxBoundName != null) {
-        String sVal = resolveStringMetadataArg(ownerLabel, StvnVocabulary.SIGIL_VALUE + maxBoundName, maxBoundCtx.metadataValue(), scope);
+        String maxKw = StvnVocabulary.SIGIL_VALUE + maxBoundName;
+        String sVal = resolveStringMetadataArg(ownerLabel, maxKw, maxBoundCtx.metadataValue(), scope);
         if (sVal != null) {
           BoundKind kind = "maxIncl".equals(maxBoundName) ? BoundKind.INCLUSIVE : BoundKind.EXCLUSIVE;
-          upperBound = Optional.of(new ContinuousBound<>(sVal, kind));
+          if (isNominalDerivation && upperBound.isPresent()
+              && upperBound.get().kind() == kind
+              && compareUtf8Lexicographical(sVal, upperBound.get().value()) == 0) {
+            String quoted = formatQuotedStvnString(sVal);
+            deferredMaxW003 = "Constraint violation (" + ownerLabel + "): facet '" + maxKw + " " + quoted
+                + "' is redundant; ancestor '" + ancName + "' already establishes '" + maxKw + " " + quoted + "'";
+            deferredMaxSpan = Span.ofContext(maxBoundCtx);
+          } else {
+            upperBound = Optional.of(new ContinuousBound<>(sVal, kind));
+          }
         }
       }
 
+      boolean pinnedErrorOnMin = false;
+      boolean pinnedErrorOnMax = false;
       if (lowerBound.isPresent() && upperBound.isPresent()) {
         int cmp = compareUtf8Lexicographical(lowerBound.get().value(), upperBound.get().value());
         Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
         if (cmp > 0) {
+          pinnedErrorOnMax = maxBoundCtx != null;
+          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMinW003 = null;
+          }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): string lower bound ('" + lowerBound.get().value()
                   + "') exceeds upper bound ('" + upperBound.get().value() + "')",
@@ -6176,6 +6331,15 @@ public final class StvnDefsLowerer {
           upperBound = Optional.empty();
         } else if (cmp == 0
             && (lowerBound.get().kind() == BoundKind.EXCLUSIVE || upperBound.get().kind() == BoundKind.EXCLUSIVE)) {
+          pinnedErrorOnMax = maxBoundCtx != null;
+          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMinW003 = null;
+          }
           String openBracket = lowerBound.get().kind() == BoundKind.INCLUSIVE ? "[" : "(";
           String closeBracket = upperBound.get().kind() == BoundKind.INCLUSIVE ? "]" : ")";
           diagnosticBag.addError(
@@ -6190,6 +6354,44 @@ public final class StvnDefsLowerer {
         }
       }
 
+      if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+            deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
+      }
+      if (!pinnedErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+            deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
+      }
+
+      // Evaluate Tier 4.3 #preserveIndent before Tier 4.4 #regex so diagnostics follow 5-tier source order
+      boolean effectivePreserveIndent = strBase.preserveIndent();
+      if (childPreserveIndent != null && childPreserveIndentSpan != null) {
+        String boolTok = childPreserveIndent ? StvnVocabulary.VAL_TRUE : StvnVocabulary.VAL_FALSE;
+        String preserveFacet = StvnVocabulary.FACET_KW_PRESERVE_INDENT + " " + boolTok;
+        if (isNominalDerivation && childPreserveIndent == strBase.preserveIndent()) {
+          diagnosticBag.addWarning(
+              "Constraint violation (" + ownerLabel + "): facet '" + preserveFacet
+                  + "' is redundant; ancestor '" + ancName + "' already establishes '" + preserveFacet + "'",
+              childPreserveIndentSpan.start(), childPreserveIndentSpan.end(),
+              childPreserveIndentSpan.line(), childPreserveIndentSpan.column(),
+              DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+          );
+        } else if (!isNominalDerivation && !childPreserveIndent) {
+          diagnosticBag.addWarning(
+              "Constraint violation (" + ownerLabel + "): facet '" + preserveFacet
+                  + "' is redundant; fenced strings trim common leading indentation by default",
+              childPreserveIndentSpan.start(), childPreserveIndentSpan.end(),
+              childPreserveIndentSpan.line(), childPreserveIndentSpan.column(),
+              DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+          );
+        }
+        effectivePreserveIndent = childPreserveIndent;
+      }
+
       Optional<String> regexPattern = strBase.rawRegexPattern();
       Optional<Pattern> compiledRegex = strBase.compiledRegex();
       if (regexCtx != null) {
@@ -6198,8 +6400,19 @@ public final class StvnDefsLowerer {
         if (patStr != null) {
           try {
             Pattern compiled = Pattern.compile(patStr);
-            regexPattern = Optional.of(patStr);
-            compiledRegex = Optional.of(compiled);
+            if (isNominalDerivation && strBase.rawRegexPattern().isPresent()
+                && patStr.equals(strBase.rawRegexPattern().get())) {
+              String regexFacet = StvnVocabulary.FACET_KW_REGEX + " " + formatQuotedStvnString(patStr);
+              diagnosticBag.addWarning(
+                  "Constraint violation (" + ownerLabel + "): facet '" + regexFacet
+                      + "' is redundant; ancestor '" + ancName + "' already establishes '" + regexFacet + "'",
+                  rSpan.start(), rSpan.end(), rSpan.line(), rSpan.column(),
+                  DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+              );
+            } else {
+              regexPattern = Optional.of(patStr);
+              compiledRegex = Optional.of(compiled);
+            }
           } catch (PatternSyntaxException pse) {
             diagnosticBag.addError(
                 "Constraint violation (" + ownerLabel + "): Invalid regex pattern: " + patStr,
@@ -6208,28 +6421,6 @@ public final class StvnDefsLowerer {
             );
           }
         }
-      }
-
-      boolean effectivePreserveIndent = strBase.preserveIndent();
-      if (childPreserveIndent != null && childPreserveIndentSpan != null) {
-        if (!childPreserveIndent && !strBase.preserveIndent()) {
-          diagnosticBag.addWarning(
-              "Constraint violation (" + ownerLabel
-                  + "): facet '#preserveIndent #FALSE' is redundant; fenced strings trim common leading indentation by default",
-              childPreserveIndentSpan.start(), childPreserveIndentSpan.end(),
-              childPreserveIndentSpan.line(), childPreserveIndentSpan.column(),
-              DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-          );
-        } else if (childPreserveIndent && strBase.preserveIndent() && isNominalDerivation) {
-          diagnosticBag.addWarning(
-              "Constraint violation (" + ownerLabel
-                  + "): facet '#preserveIndent #TRUE' is redundant; ancestor already establishes '#preserveIndent #TRUE'",
-              childPreserveIndentSpan.start(), childPreserveIndentSpan.end(),
-              childPreserveIndentSpan.line(), childPreserveIndentSpan.column(),
-              DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-          );
-        }
-        effectivePreserveIndent = childPreserveIndent;
       }
 
       return new StvnSchema.StringSchema(
@@ -6248,6 +6439,7 @@ public final class StvnDefsLowerer {
         String ownerLabel,
         Optional<String> effectiveBrand,
         StvnSchema.TimeEpochSchema teBase,
+        @Nullable String parentName,
         boolean isNominalDerivation,
         @Nullable TemporalScale childScale,
         StvnParser.@Nullable MetadataRangeContext minBoundCtx,
@@ -6262,6 +6454,11 @@ public final class StvnDefsLowerer {
       );
       Optional<BigInteger> minIncl = teBase.explicitMinIncl();
       Optional<BigInteger> maxExcl = teBase.explicitMaxExcl();
+      String deferredMinW003 = null;
+      Span deferredMinSpan = null;
+      String deferredMaxW003 = null;
+      Span deferredMaxSpan = null;
+      String ancName = parentName != null ? parentName : "ancestor";
 
       if (minBoundCtx != null) {
         Span bSpan = Span.ofContext(minBoundCtx);
@@ -6277,7 +6474,14 @@ public final class StvnDefsLowerer {
                 DiagnosticBag.ERR_INTEGER_OVERFLOW
             );
           } else {
-            minIncl = Optional.of(v);
+            if (isNominalDerivation && minIncl.isPresent() && v.equals(minIncl.get())) {
+              String minFacet = StvnVocabulary.FACET_KW_MIN_INCL + " " + v;
+              deferredMinW003 = "Constraint violation (" + ownerLabel + "): facet '" + minFacet
+                  + "' is redundant; ancestor '" + ancName + "' already establishes '" + minFacet + "'";
+              deferredMinSpan = bSpan;
+            } else {
+              minIncl = Optional.of(v);
+            }
           }
         }
       }
@@ -6295,15 +6499,33 @@ public final class StvnDefsLowerer {
                 DiagnosticBag.ERR_INTEGER_OVERFLOW
             );
           } else {
-            maxExcl = Optional.of(v);
+            if (isNominalDerivation && maxExcl.isPresent() && v.equals(maxExcl.get())) {
+              String maxFacet = StvnVocabulary.FACET_KW_MAX_EXCL + " " + v;
+              deferredMaxW003 = "Constraint violation (" + ownerLabel + "): facet '" + maxFacet
+                  + "' is redundant; ancestor '" + ancName + "' already establishes '" + maxFacet + "'";
+              deferredMaxSpan = bSpan;
+            } else {
+              maxExcl = Optional.of(v);
+            }
           }
         }
       }
 
+      boolean pinnedErrorOnMin = false;
+      boolean pinnedErrorOnMax = false;
       if (minIncl.isPresent() && maxExcl.isPresent()) {
         int cmp = minIncl.get().compareTo(maxExcl.get());
         Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
         if (cmp == 0) {
+          pinnedErrorOnMax = maxBoundCtx != null;
+          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMinW003 = null;
+          }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): discrete half-open interval ["
                   + minIncl.get() + ", " + maxExcl.get() + ") defines an empty domain",
@@ -6313,6 +6535,15 @@ public final class StvnDefsLowerer {
           minIncl = Optional.empty();
           maxExcl = Optional.empty();
         } else if (cmp > 0) {
+          pinnedErrorOnMax = maxBoundCtx != null;
+          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMinW003 = null;
+          }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): effective range is invalid (#minIncl "
                   + minIncl.get() + " exceeds #maxExcl " + maxExcl.get() + ")",
@@ -6324,6 +6555,19 @@ public final class StvnDefsLowerer {
         }
       }
 
+      if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+            deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
+      }
+      if (!pinnedErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+            deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
+      }
+
       return new StvnSchema.TimeEpochSchema(effectiveBrand, scale, finalTraits, minIncl, maxExcl);
     }
 
@@ -6331,6 +6575,7 @@ public final class StvnDefsLowerer {
         String ownerLabel,
         Optional<String> effectiveBrand,
         StvnSchema.DateTimeSchema dtBase,
+        @Nullable String parentName,
         boolean isNominalDerivation,
         @Nullable DateTimeMode childMode,
         StvnParser.@Nullable MetadataRangeContext minBoundCtx,
@@ -6343,6 +6588,11 @@ public final class StvnDefsLowerer {
       Optional<String> maxRaw = dtBase.explicitMaxExclIso();
       Optional<BigInteger> minNanos = minRaw.flatMap(this::parseDateTimeBoundEpochNanosQuiet);
       Optional<BigInteger> maxNanos = maxRaw.flatMap(this::parseDateTimeBoundEpochNanosQuiet);
+      String deferredMinW003 = null;
+      Span deferredMinSpan = null;
+      String deferredMaxW003 = null;
+      Span deferredMaxSpan = null;
+      String ancName = parentName != null ? parentName : "ancestor";
 
       if (minBoundCtx != null) {
         Span bSpan = Span.ofContext(minBoundCtx);
@@ -6350,8 +6600,18 @@ public final class StvnDefsLowerer {
         if (rawStr != null) {
           BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, StvnVocabulary.FACET_KW_MIN_INCL, rawStr, bSpan);
           if (epochNanos != null) {
-            minNanos = Optional.of(epochNanos);
-            minRaw = Optional.of(rawStr);
+            if (isNominalDerivation && minRaw.isPresent() && minNanos.isPresent()
+                && epochNanos.compareTo(minNanos.get()) == 0) {
+              deferredMinW003 = "Constraint violation (" + ownerLabel + "): facet '"
+                  + StvnVocabulary.FACET_KW_MIN_INCL + " " + formatQuotedStvnString(rawStr)
+                  + "' is redundant; ancestor '" + ancName + "' already establishes '"
+                  + StvnVocabulary.FACET_KW_MIN_INCL + " " + formatQuotedStvnString(minRaw.get()) + "'";
+              deferredMinSpan = bSpan;
+              // Retain dtBase.explicitMinInclIso() so equivalent UTC offsets (+00:00 vs Z) preserve CAS bijectivity!
+            } else {
+              minNanos = Optional.of(epochNanos);
+              minRaw = Optional.of(rawStr);
+            }
           }
         }
       }
@@ -6362,16 +6622,37 @@ public final class StvnDefsLowerer {
         if (rawStr != null) {
           BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, StvnVocabulary.FACET_KW_MAX_EXCL, rawStr, bSpan);
           if (epochNanos != null) {
-            maxNanos = Optional.of(epochNanos);
-            maxRaw = Optional.of(rawStr);
+            if (isNominalDerivation && maxRaw.isPresent() && maxNanos.isPresent()
+                && epochNanos.compareTo(maxNanos.get()) == 0) {
+              deferredMaxW003 = "Constraint violation (" + ownerLabel + "): facet '"
+                  + StvnVocabulary.FACET_KW_MAX_EXCL + " " + formatQuotedStvnString(rawStr)
+                  + "' is redundant; ancestor '" + ancName + "' already establishes '"
+                  + StvnVocabulary.FACET_KW_MAX_EXCL + " " + formatQuotedStvnString(maxRaw.get()) + "'";
+              deferredMaxSpan = bSpan;
+              // Retain dtBase.explicitMaxExclIso() so equivalent UTC offsets (+00:00 vs Z) preserve CAS bijectivity!
+            } else {
+              maxNanos = Optional.of(epochNanos);
+              maxRaw = Optional.of(rawStr);
+            }
           }
         }
       }
 
+      boolean pinnedErrorOnMin = false;
+      boolean pinnedErrorOnMax = false;
       if (minNanos.isPresent() && maxNanos.isPresent()) {
         int cmp = minNanos.get().compareTo(maxNanos.get());
         Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
         if (cmp == 0) {
+          pinnedErrorOnMax = maxBoundCtx != null;
+          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMinW003 = null;
+          }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): datetime half-open interval defines an empty domain",
               pin.start(), pin.end(), pin.line(), pin.column(), null,
@@ -6380,6 +6661,15 @@ public final class StvnDefsLowerer {
           minRaw = Optional.empty();
           maxRaw = Optional.empty();
         } else if (cmp > 0) {
+          pinnedErrorOnMax = maxBoundCtx != null;
+          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMinW003 = null;
+          }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): datetime #minIncl exceeds #maxExcl",
               pin.start(), pin.end(), pin.line(), pin.column(), null,
@@ -6388,6 +6678,19 @@ public final class StvnDefsLowerer {
           minRaw = Optional.empty();
           maxRaw = Optional.empty();
         }
+      }
+
+      if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+            deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
+      }
+      if (!pinnedErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+            deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
       }
 
       return new StvnSchema.DateTimeSchema(effectiveBrand, mode, finalTraits, minRaw, maxRaw);
@@ -6545,13 +6848,16 @@ public final class StvnDefsLowerer {
         Optional<String> effectiveBrand,
         StvnSchema parentEnum,
         StvnSchema.EnumSchema rootEnum,
+        @Nullable String parentName,
+        boolean isNominalDerivation,
         List<String> parentActiveVariants,
         StvnParser.@Nullable MetadataFilterContext filterInclCtx,
         StvnParser.@Nullable MetadataFilterContext filterExclCtx,
-        TraitProfile finalTraits
+        TraitProfile finalTraits,
+        TraitProfile unfilteredEnumTraits
     ) {
       if (filterInclCtx == null && filterExclCtx == null) {
-        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, finalTraits);
+        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, unfilteredEnumTraits);
       }
 
       int filterErrorsBefore = diagnosticBag.errorCount();
@@ -6566,7 +6872,7 @@ public final class StvnDefsLowerer {
             filterSpan.start(), filterSpan.end(), filterSpan.line(), filterSpan.column(), null,
             DiagnosticBag.ERR_ENUM_SUBSET_EMPTY
         );
-        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, finalTraits);
+        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, unfilteredEnumTraits);
       }
 
       Map<String, Integer> rootOrdinalMap = new HashMap<>();
@@ -6637,11 +6943,27 @@ public final class StvnDefsLowerer {
               DiagnosticBag.ERR_ENUM_SUBSET_EMPTY
           );
         }
-        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, finalTraits);
+        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, unfilteredEnumTraits);
       }
 
       if (diagnosticBag.errorCount() > filterErrorsBefore) {
-        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, finalTraits);
+        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, unfilteredEnumTraits);
+      }
+
+      if (isNominalDerivation && isIncl && childActive.equals(parentActiveVariants)) {
+        String ancName = parentName != null ? parentName : "ancestor";
+        String activeBracket = StvnVocabulary.DELIM_OPEN_BRACKET
+            + String.join(" ", childActive)
+            + StvnVocabulary.DELIM_CLOSE_BRACKET;
+        String canonicalFilter = StvnVocabulary.FACET_KW_FILTER_INCL + " " + activeBracket;
+        diagnosticBag.addWarning(
+            "Constraint violation (" + ownerLabel + "): facet '" + canonicalFilter
+                + "' is redundant; ancestor '" + ancName + "' already establishes active variants '"
+                + activeBracket + "'",
+            filterSpan.start(), filterSpan.end(), filterSpan.line(), filterSpan.column(),
+            DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
+        return rebrandEnumParent(parentEnum, rootEnum, effectiveBrand, unfilteredEnumTraits);
       }
 
       return new StvnSchema.EnumSubsetSchema(
@@ -7139,34 +7461,81 @@ public final class StvnDefsLowerer {
     ) {
       String boolLit = declaredVal ? StvnVocabulary.VAL_TRUE : StvnVocabulary.VAL_FALSE;
       String defBoolLit = defaultVal ? StvnVocabulary.VAL_TRUE : StvnVocabulary.VAL_FALSE;
+      String traitKw = "equatable".equals(traitName)
+          ? StvnVocabulary.FACET_KW_EQUATABLE
+          : StvnVocabulary.FACET_KW_COMPARABLE;
+      String canonicalFacet = traitKw + " " + boolLit;
+      String defaultFacet = traitKw + " " + defBoolLit;
       String message;
       if (ancestorName != null) {
-        message = "Constraint violation (" + ownerLabel + "): facet '#" + traitName + " " + boolLit
-            + "' is redundant; ancestor '" + ancestorName + "' already resolves to " + traitName + " " + defBoolLit;
+        message = "Constraint violation (" + ownerLabel + "): facet '" + canonicalFacet
+            + "' is redundant; ancestor '" + ancestorName + "' already establishes '" + defaultFacet + "'";
       } else if (targetBaseType.equals(StvnVocabulary.TYPE_FLOAT) && !isExactFloat && "equatable".equals(traitName) && !declaredVal) {
-        message = "Constraint violation (" + ownerLabel + "): facet '#equatable #FALSE' is redundant; continuous '"
+        message = "Constraint violation (" + ownerLabel + "): facet '" + canonicalFacet + "' is redundant; continuous '"
             + StvnVocabulary.TYPE_FLOAT + "' is non-equatable by default";
       } else if (targetBaseType.equals(StvnVocabulary.TYPE_FLOAT) && !isExactFloat && "comparable".equals(traitName) && declaredVal) {
-        message = "Constraint violation (" + ownerLabel + "): facet '#comparable #TRUE' is redundant; continuous '"
+        message = "Constraint violation (" + ownerLabel + "): facet '" + canonicalFacet + "' is redundant; continuous '"
             + StvnVocabulary.TYPE_FLOAT + "' is intrinsically comparable";
-      } else if (targetBaseType.equals(StvnVocabulary.TYPE_FLOAT) && isExactFloat && "equatable".equals(traitName) && declaredVal) {
-        message = "Constraint violation (" + ownerLabel
-            + "): facet '#equatable #TRUE' is redundant; exact decimal float is intrinsically equatable";
+      } else if (targetBaseType.equals(StvnVocabulary.TYPE_FLOAT) && isExactFloat && declaredVal) {
+        message = "Constraint violation (" + ownerLabel + "): facet '" + canonicalFacet
+            + "' is redundant; exact decimal float is intrinsically " + traitName;
       } else if ((targetBaseType.equals(StvnVocabulary.TYPE_BOOLEAN)
           || targetBaseType.equals(StvnVocabulary.TYPE_INT)
           || targetBaseType.equals(StvnVocabulary.TYPE_STRING)
           || targetBaseType.equals(StvnVocabulary.TYPE_TIME_EPOCH)
           || targetBaseType.equals(StvnVocabulary.TYPE_DATE_TIME)) && declaredVal) {
-        message = "Constraint violation (" + ownerLabel + "): facet '#" + traitName + " " + boolLit
+        message = "Constraint violation (" + ownerLabel + "): facet '" + canonicalFacet
             + "' is redundant; scalar primitive '" + targetBaseType + "' is intrinsically " + traitName;
       } else {
-        message = "Constraint violation (" + ownerLabel + "): facet '#" + traitName + " " + boolLit
-            + "' is redundant; '" + targetBaseType + "' already resolves to " + traitName + " " + defBoolLit;
+        message = "Constraint violation (" + ownerLabel + "): facet '" + canonicalFacet
+            + "' is redundant; '" + targetBaseType + "' already resolves to '" + defaultFacet + "'";
       }
       diagnosticBag.addWarning(
           message, span.start(), span.end(), span.line(), span.column(),
           DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
       );
+    }
+
+    private static String formatCanonicalFloatBound(BigDecimal value, FloatRepresentation representation) {
+      String s = (representation == FloatRepresentation.EXACT_DECIMAL)
+          ? value.toPlainString()
+          : value.toString();
+      if (!s.contains(".")) {
+        int eIdx = s.indexOf('e');
+        if (eIdx == -1) {
+          eIdx = s.indexOf('E');
+        }
+        return (eIdx == -1)
+            ? s + ".0"
+            : s.substring(0, eIdx) + ".0" + s.substring(eIdx);
+      }
+      return s;
+    }
+
+    private static String formatQuotedStvnString(String raw) {
+      var sb = new StringBuilder(raw.length() + 4);
+      sb.append('"');
+      for (int i = 0; i < raw.length(); i++) {
+        char c = raw.charAt(i);
+        switch (c) {
+          case '\\' -> sb.append("\\\\");
+          case '"' -> sb.append("\\\"");
+          case '\n' -> sb.append("\\n");
+          case '\r' -> sb.append("\\r");
+          case '\t' -> sb.append("\\t");
+          case '\b' -> sb.append("\\b");
+          case '\f' -> sb.append("\\f");
+          default -> {
+            if (c < 0x20) {
+              sb.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+            } else {
+              sb.append(c);
+            }
+          }
+        }
+      }
+      sb.append('"');
+      return sb.toString();
     }
   }
 
