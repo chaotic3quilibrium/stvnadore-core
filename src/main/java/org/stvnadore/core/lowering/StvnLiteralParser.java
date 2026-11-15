@@ -506,12 +506,25 @@ public final class StvnLiteralParser {
    * @return a safe alphanumeric/underscore fence tag matching {@link #FENCE_TAG_PATTERN}
    */
   public static String chooseSafeFenceTag(String text) {
+    return chooseSafeFenceTag(text, StvnVocabulary.FENCE_TAG_RAW);
+  }
+
+  /**
+   * Selects a collision-free Rule STR-04 fence tag ({@code baseTag}, {@code baseTag_1}, ...) that
+   * does not appear inside {@code text} as a closing fence delimiter {@code [TAG]"""}.
+   *
+   * @param text    the verbatim string body to inspect
+   * @param baseTag the preferred base fence tag (for example {@code RAW} or {@code REGEX})
+   * @return a safe fence tag matching {@link #FENCE_TAG_PATTERN}
+   */
+  public static String chooseSafeFenceTag(String text, String baseTag) {
     Objects.requireNonNull(text, "text must not be null");
-    String candidate = "RAW";
+    validateFenceTag(baseTag);
+    String candidate = baseTag;
     int suffix = 0;
     while (text.contains("[" + candidate + "]\"\"\"")) {
       suffix++;
-      candidate = "RAW_" + suffix;
+      candidate = baseTag + "_" + suffix;
     }
     return candidate;
   }

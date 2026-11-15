@@ -12,6 +12,7 @@ import org.stvnadore.core.ir.StvnSchema.BoundKind;
 import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
 import org.stvnadore.core.ir.StvnSchema.TraitProfile;
 import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.lowering.StvnLiteralParser;
 import org.stvnadore.core.lowering.StvnPayloadLowerer;
 import org.stvnadore.core.lowering.StvnReachabilityAndCasVerifier;
 import org.stvnadore.core.printer.internal.LayoutWriter;
@@ -298,7 +299,10 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
         layout.appendSeparator();
         writeSchemaReferenceOrInline(constEntry.getValue().schema(), layout);
         layout.appendSeparator();
-        PatternPrinterDispatcher.dispatch(constEntry.getValue().value(), layout, options);
+        String constFenceTag = isRegexConstantIdentifier(constEntry.getKey())
+            ? StvnVocabulary.FENCE_TAG_REGEX
+            : StvnVocabulary.FENCE_TAG_RAW;
+        PatternPrinterDispatcher.dispatch(constEntry.getValue().value(), layout, options, constFenceTag);
       }
 
       for (var typeEntry : defs.nominalTypes().entrySet()) {
@@ -482,7 +486,7 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
   }
 
   private void writeMultiElementSchemaGroup(List<StvnSchema> children, LayoutWriter layout) throws IOException {
-    boolean multiLine = (layout instanceof PrettyLayoutWriter) && requiresMultiLineSchemaGroup(children);
+    boolean multiLine = (layout instanceof PrettyLayoutWriter) && requiresMultiLineSchemaGroup(children, layout);
     layout.openGroup(StvnVocabulary.DELIM_OPEN_PAREN);
     if (multiLine) {
       layout.indent();
@@ -504,22 +508,22 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
     layout.closeGroup(StvnVocabulary.DELIM_CLOSE_PAREN);
   }
 
-  private boolean requiresMultiLineSchemaGroup(List<StvnSchema> children) {
+  private boolean requiresMultiLineSchemaGroup(List<StvnSchema> children, LayoutWriter layout) {
     for (StvnSchema child : children) {
-      if (isInlineFacetedOrMultiLineSchema(child)) {
+      if (isInlineFacetedOrMultiLineSchema(child, layout)) {
         return true;
       }
     }
     return false;
   }
 
-  private boolean isInlineFacetedOrMultiLineSchema(StvnSchema schema) {
+  private boolean isInlineFacetedOrMultiLineSchema(StvnSchema schema, LayoutWriter layout) {
     if (schema instanceof StvnSchema.PoisonedSchema p) {
       if (StvnPayloadLowerer.RECURSIVE_BACK_EDGE_SENTINEL.equals(p.primaryDiagnosticCode())
           && p.aliasName().isPresent()) {
         return false;
       }
-      return p.bestEffortFallback().map(this::isInlineFacetedOrMultiLineSchema).orElse(false);
+      return p.bestEffortFallback().map(fb -> isInlineFacetedOrMultiLineSchema(fb, layout)).orElse(false);
     }
     if (schema.aliasName().isPresent()) {
       return false;
@@ -527,37 +531,64 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
     if (!collectFiveTierFacets(schema).isEmpty()) {
       return true;
     }
-    return containsMultiLineSchema(schema);
+    return containsMultiLineSchema(schema, layout);
   }
 
-  private boolean containsMultiLineSchema(StvnSchema schema) {
+  private boolean containsMultiLineSchema(StvnSchema schema, LayoutWriter layout) {
     if (schema instanceof StvnSchema.PoisonedSchema p) {
       if (StvnPayloadLowerer.RECURSIVE_BACK_EDGE_SENTINEL.equals(p.primaryDiagnosticCode())
           && p.aliasName().isPresent()) {
         return false;
       }
-      return p.bestEffortFallback().map(this::containsMultiLineSchema).orElse(false);
+      return p.bestEffortFallback().map(fb -> containsMultiLineSchema(fb, layout)).orElse(false);
     }
     if (schema.aliasName().isPresent()) {
       return false;
     }
+    if (hasMultiLineFacetBlock(collectFiveTierFacets(schema), layout)) {
+      return true;
+    }
     return switch (schema) {
-      case StvnSchema.TupleSchema tup -> requiresMultiLineSchemaGroup(tup.fieldSchemas());
-      case StvnSchema.UnionSchema un -> requiresMultiLineSchemaGroup(un.branchSchemas());
-      case StvnSchema.OptionSchema opt -> containsMultiLineSchema(opt.valueSchema());
-      case StvnSchema.EitherSchema eith -> containsMultiLineSchema(eith.leftSchema())
-          || containsMultiLineSchema(eith.rightSchema());
-      case StvnSchema.SeqSchema seq -> containsMultiLineSchema(seq.elementSchema());
-      case StvnSchema.SetSchema set -> containsMultiLineSchema(set.elementSchema());
-      case StvnSchema.MapSchema map -> containsMultiLineSchema(map.keySchema())
-          || containsMultiLineSchema(map.valueSchema());
+      case StvnSchema.TupleSchema tup -> requiresMultiLineSchemaGroup(tup.fieldSchemas(), layout);
+      case StvnSchema.UnionSchema un -> requiresMultiLineSchemaGroup(un.branchSchemas(), layout);
+      case StvnSchema.OptionSchema opt -> containsMultiLineSchema(opt.valueSchema(), layout);
+      case StvnSchema.EitherSchema eith -> containsMultiLineSchema(eith.leftSchema(), layout)
+          || containsMultiLineSchema(eith.rightSchema(), layout);
+      case StvnSchema.SeqSchema seq -> containsMultiLineSchema(seq.elementSchema(), layout);
+      case StvnSchema.SetSchema set -> containsMultiLineSchema(set.elementSchema(), layout);
+      case StvnSchema.MapSchema map -> containsMultiLineSchema(map.keySchema(), layout)
+          || containsMultiLineSchema(map.valueSchema(), layout);
       default -> false;
     };
   }
 
+  private static boolean hasMultiLineFacetBlock(List<FacetEmitter> facets, LayoutWriter layout) {
+    if (!(layout instanceof PrettyLayoutWriter)) {
+      return false;
+    }
+    for (FacetEmitter emitter : facets) {
+      if (emitter.isMultiLine(layout)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private static void emitFacetBlock(List<FacetEmitter> facets, LayoutWriter layout) throws IOException {
     boolean pretty = layout instanceof PrettyLayoutWriter;
+    boolean multiLine = hasMultiLineFacetBlock(facets, layout);
     layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACE);
+    if (multiLine) {
+      layout.indent();
+      for (FacetEmitter emitter : facets) {
+        layout.newline();
+        emitter.emit(layout);
+      }
+      layout.outdent();
+      layout.newline();
+      layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACE);
+      return;
+    }
     if (pretty) {
       layout.appendSeparator();
     }
@@ -759,22 +790,14 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
           String kw = lb.kind() == BoundKind.INCLUSIVE
               ? StvnVocabulary.FACET_KW_MIN_INCL
               : StvnVocabulary.FACET_KW_MIN_EXCL;
-          facets.add(l -> {
-            l.writeLiteral(kw);
-            l.appendSeparator();
-            l.writeSimpleString(lb.value());
-          });
+          facets.add(stringFacetEmitter(kw, lb.value(), StvnVocabulary.FENCE_TAG_RAW));
         }
         if (s.upperBound().isPresent()) {
           var ub = s.upperBound().get();
           String kw = ub.kind() == BoundKind.INCLUSIVE
               ? StvnVocabulary.FACET_KW_MAX_INCL
               : StvnVocabulary.FACET_KW_MAX_EXCL;
-          facets.add(l -> {
-            l.writeLiteral(kw);
-            l.appendSeparator();
-            l.writeSimpleString(ub.value());
-          });
+          facets.add(stringFacetEmitter(kw, ub.value(), StvnVocabulary.FENCE_TAG_RAW));
         }
       }
       case StvnSchema.TimeEpochSchema te -> {
@@ -850,11 +873,7 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
         }
         if (s.rawRegexPattern().isPresent()) {
           String rx = s.rawRegexPattern().get();
-          facets.add(l -> {
-            l.writeLiteral(StvnVocabulary.FACET_KW_REGEX);
-            l.appendSeparator();
-            l.writeSimpleString(rx);
-          });
+          facets.add(stringFacetEmitter(StvnVocabulary.FACET_KW_REGEX, rx, StvnVocabulary.FENCE_TAG_REGEX));
         }
       }
       default -> {
@@ -863,6 +882,40 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
     }
 
     return facets;
+  }
+
+  private static FacetEmitter stringFacetEmitter(String facetKeyword, String decodedValue, String baseFenceTag) {
+    return new FacetEmitter() {
+      @Override
+      public void emit(LayoutWriter l) throws IOException {
+        l.writeLiteral(facetKeyword);
+        l.appendSeparator();
+        if (l instanceof PrettyLayoutWriter prettyLayout
+            && PatternPrinterDispatcher.shouldEmitFencedPretty(decodedValue, false)) {
+          String safeTag = StvnLiteralParser.chooseSafeFenceTag(decodedValue, baseFenceTag);
+          prettyLayout.writeFencedString(decodedValue, safeTag, false);
+        } else {
+          l.writeSimpleString(decodedValue);
+        }
+      }
+
+      @Override
+      public boolean isMultiLine(LayoutWriter l) {
+        return (l instanceof PrettyLayoutWriter)
+            && PatternPrinterDispatcher.shouldEmitFencedPretty(decodedValue, false);
+      }
+    };
+  }
+
+  private static boolean isRegexConstantIdentifier(String constIdentifier) {
+    int slashIdx = constIdentifier.lastIndexOf('/');
+    String localName = slashIdx >= 0
+        ? constIdentifier.substring(slashIdx + 1)
+        : (constIdentifier.startsWith(StvnVocabulary.SIGIL_VALUE)
+            ? constIdentifier.substring(StvnVocabulary.SIGIL_VALUE.length())
+            : constIdentifier);
+    return localName.endsWith("_" + StvnVocabulary.FENCE_TAG_REGEX)
+        || localName.endsWith(StvnVocabulary.FENCE_TAG_REGEX);
   }
 
   private static StvnDefsCatalog mergeExplicitRootIntoCatalog(StvnDefsCatalog base, StvnSchema explicitSchema) {
@@ -881,5 +934,9 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
   @FunctionalInterface
   private interface FacetEmitter {
     void emit(LayoutWriter layout) throws IOException;
+
+    default boolean isMultiLine(LayoutWriter layout) {
+      return false;
+    }
   }
 }

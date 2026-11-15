@@ -5,15 +5,21 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompilationResult;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.StvnSchemaFlattener;
+import org.stvnadore.core.binary.StvnSchemaHasher;
 import org.stvnadore.core.io.CanonicalStvnWriter;
 import org.stvnadore.core.ir.StvnDocument;
 import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
+import org.stvnadore.core.stdlib.StvnPrelude;
 
 import java.io.StringWriter;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Comprehensive verification tests for canonical pure-IR printers ({@link AstPrettyPrinter},
@@ -298,18 +304,295 @@ class AstPrinterTest {
     Assertions.assertEquals("col1\tcol2", quotedTabStr.value());
     Assertions.assertEquals("line1\twith\ttabs\nline2\tindented\n", fencedTabStr.value());
 
-    for (String printed : new String[]{
-        StvnCompiler.toCanonicalString(doc),
-        AstPrettyPrinter.print(doc),
-        AstCompactPrinter.print(doc)
-    }) {
+    String canonicalOut = StvnCompiler.toCanonicalString(doc);
+    String prettyOut = AstPrettyPrinter.print(doc);
+    String compactOut = AstCompactPrinter.print(doc);
+
+    Assertions.assertTrue(canonicalOut.contains("\"col1\\tcol2\""),
+        "Canonical writer must escape tab as \\t in simple string:\n" + canonicalOut);
+    Assertions.assertTrue(compactOut.contains("\"col1\\tcol2\""),
+        "Compact printer must escape tab as \\t in simple string:\n" + compactOut);
+    Assertions.assertTrue(prettyOut.contains("\"\"\"[RAW]\n      col1\tcol2[RAW]\"\"\""),
+        "Pretty printer must emit fenced [RAW] string with raw tab under Fenced-String Bias:\n" + prettyOut);
+
+    for (String printed : new String[]{canonicalOut, prettyOut, compactOut}) {
       Assertions.assertTrue(printed.contains("\"2026-03-15T08:00:00Z\""), "Must preserve :00 seconds:\n" + printed);
       Assertions.assertTrue(printed.contains("\"2026-03-15T08:00:00.123Z\""), "Must trim trailing zero nanos:\n" + printed);
-      Assertions.assertTrue(printed.contains("\"col1\\tcol2\""), "Simple quoted string must escape tab as \\t:\n" + printed);
 
       StvnDocument rtDoc = StvnCompiler.compile(printed).document().orElseThrow();
       Assertions.assertEquals(doc.payload().orElseThrow(), rtDoc.payload().orElseThrow(),
           "Round-trip payload must preserve tabs and :00 seconds identically:\n" + printed);
+    }
+  }
+
+  @Test
+  @DisplayName("TC-BIAS-01: AstPrettyPrinter preserves Prelude 4-fenced / 7-simple regex idiom and StvnSourceFormatter fixed point")
+  void testPreludeFencedRegexIdiomAndFixedPoint() {
+    Assertions.assertEquals(
+        StvnPrelude.PRELUDE_STVN_D,
+        StvnSourceFormatter.format(StvnPrelude.PRELUDE_STVN_D),
+        "StvnPrelude.PRELUDE_STVN_D must remain a strict fixed point of StvnSourceFormatter"
+    );
+
+    // Project StvnPrelude.PRELUDE_STVN_D into a non-reserved user package namespace so
+    // StvnReachabilityAndCasVerifier retains all exported definitions instead of eliding implicit prelude FQNIs.
+    String mirroredPreludeSource = StvnPrelude.PRELUDE_STVN_D
+        .replace("#domain \"stvn_core\"", "#domain \"core_test\"")
+        .replace(":org/stvnadore/prelude", ":org/example/prelude");
+
+    StvnCompilationResult<StvnDocument> compiled = StvnCompiler.compile(
+        mirroredPreludeSource,
+        "prelude.core_test.stvn_d",
+        StvnParserConfig.DEFAULT
+    );
+    Assertions.assertFalse(compiled.hasErrors(), () -> "Mirrored Prelude compile errors: " + compiled.diagnostics());
+    StvnDocument preludeDoc = compiled.document().orElseThrow();
+
+    String pretty = AstPrettyPrinter.print(preludeDoc);
+    Assertions.assertEquals(pretty, StvnSourceFormatter.format(pretty),
+        "AstPrettyPrinter output on Prelude schemas must be a strict fixed point of StvnSourceFormatter");
+
+    Pattern fencedRegexBlock = Pattern.compile("\"\"\"\\[REGEX]\\n[\\s\\S]*?\\[REGEX]\"\"\"");
+    int fencedCount = 0;
+    Matcher m = fencedRegexBlock.matcher(pretty);
+    while (m.find()) {
+      fencedCount++;
+    }
+    // In lowered IR, :EmailLowerCase and :EmailMixedCase also carry their resolved StringSchema.rawRegexPattern()
+    // alongside #EMAIL_LOWER_CASE_REGEX and #EMAIL_MIXED_CASE_REGEX constants (4 + 2 = 6 fenced [REGEX] blocks, 0 [RAW]).
+    Assertions.assertEquals(6, fencedCount,
+        "Expected 6 fenced [REGEX] blocks in lowered Prelude IR (:SemVer, :IPv4, 2 #EMAIL_*_REGEX constants, 2 :Email* types):\n" + pretty);
+    Assertions.assertFalse(pretty.contains("\"\"\"[RAW]"),
+        "Prelude pretty output must not emit [RAW] for regex constants or facets:\n" + pretty);
+
+    // Escape-free regexes must stay concise single-line simple strings
+    Assertions.assertTrue(pretty.contains("#org/example/prelude/SHA256_LOWER_CASE_REGEX :String \"^[0-9a-f]{64}$\""),
+        "Escape-free SHA256 regex constant must remain a single-line simple string:\n" + pretty);
+    Assertions.assertTrue(pretty.contains("#org/example/prelude/POSIX_ID_REGEX :String \"^[a-zA-Z0-9_-]+$\""),
+        "Escape-free POSIX_ID regex constant must remain a single-line simple string:\n" + pretty);
+    Assertions.assertTrue(pretty.contains(":org/example/prelude/Ulid { #minSize 26 #maxSize 26 #regex \"^[0-7][0-9A-HJKMNP-TV-Z]{25}$\" } :String"),
+        "Escape-free :Ulid type must remain on a single line:\n" + pretty);
+
+    StvnDocument roundTripDoc = StvnCompiler.compile(
+        pretty,
+        "prelude.core_test.stvn_d",
+        StvnParserConfig.DEFAULT
+    ).document().orElseThrow();
+    Assertions.assertEquals(pretty, AstPrettyPrinter.print(roundTripDoc),
+        "AstPrettyPrinter must be idempotent on Prelude IR");
+    Assertions.assertEquals(
+        StvnCompiler.toCanonicalString(preludeDoc),
+        StvnCompiler.toCanonicalString(roundTripDoc),
+        "Canonical preimage of Prelude schemas must remain invariant after pretty round-trip"
+    );
+  }
+
+  @Test
+  @DisplayName("TC-BIAS-02: Collision-safe [REGEX_k] and [RAW_k] tag escalation across #CONST, bounds, #regex, :Map, and sum types")
+  void testFenceTagCollisionEscalationAcrossAllConstructs() {
+    String defsSource = """
+        {
+          :meta {
+            #name "fence_collision_defs"
+            #domain "core_test"
+            #kind #DEFS
+          }
+          :defs {
+            #PLAIN_BANNER :String "alpha [RAW]\\"\\"\\" and [RAW_1]\\"\\"\\" omega"
+            #COLLIDING_REGEX :String "^(\\\\[REGEX]\\"\\"\\"|\\\\[REGEX_1]\\"\\"\\")+$"
+            #SUFFIXREGEX :String "^a\\\\.b$"
+            :package :acme/sec {
+              #TOKEN_REGEX :String "^tok\\\\.[0-9]+$"
+            }
+            :BoundedCollision {
+              #minSize 1
+              #maxSize 128
+              #minIncl "a[RAW]\\"\\"\\"0"
+              #maxExcl "z[RAW]\\"\\"\\"9"
+              #regex "^.*\\\\[REGEX]\\"\\"\\".*$"
+            } :String
+          }
+        }
+        """;
+
+    StvnDocument defsDoc = StvnCompiler.compile(defsSource, "fence_collision_defs.stvn_d").document().orElseThrow();
+    String prettyDefs = AstPrettyPrinter.print(defsDoc);
+
+    Assertions.assertTrue(prettyDefs.contains("#PLAIN_BANNER :String \"\"\"[RAW_2]\n"),
+        "Expected [RAW_2] escalation on #PLAIN_BANNER:\n" + prettyDefs);
+    Assertions.assertTrue(prettyDefs.contains("#COLLIDING_REGEX :String \"\"\"[REGEX_2]\n"),
+        "Expected [REGEX_2] escalation on #COLLIDING_REGEX:\n" + prettyDefs);
+    Assertions.assertTrue(prettyDefs.contains("#SUFFIXREGEX :String \"\"\"[REGEX]\n"),
+        "Expected [REGEX] tag on #SUFFIXREGEX:\n" + prettyDefs);
+    Assertions.assertTrue(prettyDefs.contains("#acme/sec/TOKEN_REGEX :String \"\"\"[REGEX]\n"),
+        "Expected [REGEX] tag on namespaced #acme/sec/TOKEN_REGEX:\n" + prettyDefs);
+    Assertions.assertTrue(prettyDefs.contains("#minIncl \"\"\"[RAW_1]\n"),
+        "Expected [RAW_1] escalation on #minIncl bound:\n" + prettyDefs);
+    Assertions.assertTrue(prettyDefs.contains("#maxExcl \"\"\"[RAW_1]\n"),
+        "Expected [RAW_1] escalation on #maxExcl bound:\n" + prettyDefs);
+    Assertions.assertTrue(prettyDefs.contains("#regex \"\"\"[REGEX_1]\n"),
+        "Expected [REGEX_1] escalation on #regex facet:\n" + prettyDefs);
+    Assertions.assertEquals(prettyDefs, StvnSourceFormatter.format(prettyDefs),
+        "StvnSourceFormatter fixed point must hold on collision-escalated #DEFS");
+
+    StvnDocument rtDefs = StvnCompiler.compile(prettyDefs, "fence_collision_defs.stvn_d").document().orElseThrow();
+    Assertions.assertEquals(StvnCompiler.toCanonicalString(defsDoc), StvnCompiler.toCanonicalString(rtDefs));
+
+    // Verify :Map fenced keys/values and :Option / :Either / :Union sum branches
+    String payloadSource = """
+        {
+          :defs {
+            :Composite :Tuple(
+              :Map(:String :String)
+              :Option(:String)
+              :Either(:String :Int)
+              :Union(:Int :String)
+              :Set(:String)
+            )
+          }
+          :type :Composite
+          :body (
+            {
+              ["key\\\\one" "val\\"one\\""]
+              ["plain_key" "has [RAW]\\"\\"\\" inside"]
+            }
+            "opt\\tvalue"
+            #Left "left\\nbranch"
+            "union\\\\branch"
+            ["set\\\\elem" "plain_elem"]
+          )
+        }
+        """;
+    StvnDocument payloadDoc = StvnCompiler.compile(payloadSource).document().orElseThrow();
+    String prettyPayload = AstPrettyPrinter.print(payloadDoc);
+    Assertions.assertEquals(prettyPayload, StvnSourceFormatter.format(prettyPayload),
+        "StvnSourceFormatter fixed point must hold on composite fenced payload:\n" + prettyPayload);
+    StvnDocument rtPayload = StvnCompiler.compile(prettyPayload).document().orElseThrow();
+    Assertions.assertEquals(payloadDoc.payload().orElseThrow(), rtPayload.payload().orElseThrow());
+  }
+
+  @Test
+  @DisplayName("TC-BIAS-03: Exhaustive lossless round-trip and fallback soundness guard matrix across preserveIndent and indentWidths")
+  void testExhaustiveRoundTripAndFallbackSoundnessMatrix() {
+    List<String> decodedSamples = List.of(
+        "",
+        "   ",
+        "\n",
+        "\n\n",
+        "a\\b",
+        "say \"hi\"",
+        "col1\tcol2",
+        "\t  ",
+        "  \t",
+        "  foo\\bar",
+        "  a\n  b",
+        "a\n  \nb",
+        "trailing\n",
+        "multi\n\nblank\n",
+        "[RAW]\"\"\"",
+        "[RAW]\"\"\" and [RAW_1]\"\"\"",
+        "cr\rhere",
+        "crlf\r\nhere",
+        "ctrl\b\f\u0000\u0007\u001fend"
+    );
+
+    StringBuilder sb = new StringBuilder();
+    sb.append("{\n  :defs {\n    :KeepIndent { #preserveIndent #TRUE } :String\n");
+    sb.append("    :Matrix :Tuple(:Seq(:String) :Seq(:KeepIndent))\n  }\n");
+    sb.append("  :type :Matrix\n  :body (\n    [\n");
+    for (String s : decodedSamples) {
+      sb.append("      \"").append(PrettyLayoutWriterTestHelper.escapeForInput(s)).append("\"\n");
+    }
+    sb.append("    ]\n    [\n");
+    for (String s : decodedSamples) {
+      sb.append("      \"").append(PrettyLayoutWriterTestHelper.escapeForInput(s)).append("\"\n");
+    }
+    sb.append("    ]\n  )\n}\n");
+
+    StvnDocument originalDoc = StvnCompiler.compile(sb.toString()).document().orElseThrow();
+    String canonicalBaseline = StvnCompiler.toCanonicalString(originalDoc);
+
+    for (int indentWidth : new int[]{0, 2, 4}) {
+      AstPrettyPrinter printer = new AstPrettyPrinter(indentWidth);
+      String pretty = printer.printToString(originalDoc);
+      StvnCompilationResult<StvnDocument> rtRes = StvnCompiler.compile(pretty);
+      Assertions.assertFalse(rtRes.hasErrors(),
+          () -> "Round-trip compile failed at indentWidth=" + indentWidth + ": " + rtRes.diagnostics() + "\n" + pretty);
+      StvnDocument rtDoc = rtRes.document().orElseThrow();
+
+      Assertions.assertEquals(originalDoc.payload().orElseThrow(), rtDoc.payload().orElseThrow(),
+          "Decoded IR payload must round-trip 100% losslessly at indentWidth=" + indentWidth);
+      Assertions.assertEquals(pretty, printer.printToString(rtDoc),
+          "AstPrettyPrinter must be idempotent at indentWidth=" + indentWidth);
+      Assertions.assertEquals(canonicalBaseline, StvnCompiler.toCanonicalString(rtDoc),
+          "Canonical preimage must remain invariant at indentWidth=" + indentWidth);
+      if (indentWidth == 2) {
+        Assertions.assertEquals(pretty, StvnSourceFormatter.format(pretty),
+            "Default 2-space pretty output must be a strict fixed point of StvnSourceFormatter");
+      }
+    }
+
+    String compact = AstCompactPrinter.print(originalDoc);
+    StvnDocument rtCompact = StvnCompiler.compile(compact).document().orElseThrow();
+    Assertions.assertEquals(originalDoc.payload().orElseThrow(), rtCompact.payload().orElseThrow(),
+        "AstCompactPrinter must also round-trip all control-char fallback strings 100% losslessly");
+  }
+
+  @Test
+  @DisplayName("TC-BIAS-04: Nested multi-line facet schema group wrapping parity and zero SHA-256 CAS hash drift")
+  void testNestedMultiLineFacetSchemaWrappingAndCasInvariance() {
+    String source = """
+        {
+          :defs {
+            :NestedGroup :Tuple(:Seq({ #minSize 1 #maxSize 32 #regex "^a\\\\.b$" } :String) :Int)
+            :NestedUnion :Union(:Option({ #minSize 1 #maxSize 32 #minIncl "a\\\\0" } :String) :Boolean)
+          }
+          :type :Tuple(:NestedGroup :NestedUnion)
+          :body ((["a.b"] 7) #TRUE)
+        }
+        """;
+    StvnDocument doc = StvnCompiler.compile(source).document().orElseThrow();
+    byte[] casBefore = StvnCompiler.computeCasFingerprint(doc);
+    byte[] schemaHashBefore = StvnSchemaHasher.computeSha256(doc.payload().orElseThrow().schema());
+
+    String pretty = AstPrettyPrinter.print(doc);
+    Assertions.assertTrue(pretty.contains(":NestedGroup :Tuple(\n"),
+        ":NestedGroup must expand to multi-line :Tuple(...) when child :Seq contains multi-line metadataMap:\n" + pretty);
+    Assertions.assertTrue(pretty.contains(":NestedUnion :Union(\n"),
+        ":NestedUnion must expand to multi-line :Union(...) when child :Option contains multi-line metadataMap:\n" + pretty);
+    Assertions.assertEquals(pretty, StvnSourceFormatter.format(pretty),
+        "Nested multi-line facet schema group must be a strict fixed point of StvnSourceFormatter:\n" + pretty);
+
+    StvnDocument rtDoc = StvnCompiler.compile(pretty).document().orElseThrow();
+    Assertions.assertArrayEquals(casBefore, StvnCompiler.computeCasFingerprint(rtDoc),
+        "Document SHA-256 CAS fingerprint must be bitwise identical");
+    Assertions.assertArrayEquals(schemaHashBefore, StvnSchemaHasher.computeSha256(rtDoc.payload().orElseThrow().schema()),
+        "StvnSchemaHasher SHA-256 digest must be bitwise identical");
+  }
+
+  private static final class PrettyLayoutWriterTestHelper {
+    static String escapeForInput(String s) {
+      StringBuilder out = new StringBuilder(s.length());
+      for (int i = 0; i < s.length(); i++) {
+        char c = s.charAt(i);
+        switch (c) {
+          case '\\' -> out.append("\\\\");
+          case '"' -> out.append("\\\"");
+          case '\n' -> out.append("\\n");
+          case '\r' -> out.append("\\r");
+          case '\t' -> out.append("\\t");
+          case '\b' -> out.append("\\b");
+          case '\f' -> out.append("\\f");
+          default -> {
+            if (c < 0x20) {
+              out.append(String.format(java.util.Locale.ROOT, "\\u%04x", (int) c));
+            } else {
+              out.append(c);
+            }
+          }
+        }
+      }
+      return out.toString();
     }
   }
 }

@@ -353,6 +353,12 @@ public final class StvnVocabulary {
   /** Canonical token for IEEE-754 negative zero literal ({@code -0.0}). */
   public static final String LITERAL_NEG_ZERO = "-0.0";
 
+  /** Canonical Rule STR-04 fence tag for general verbatim strings ({@code RAW}). */
+  public static final String FENCE_TAG_RAW = "RAW";
+
+  /** Canonical Rule STR-04 fence tag for regular-expression strings ({@code REGEX}). */
+  public static final String FENCE_TAG_REGEX = "REGEX";
+
   // ============================================================================
   // 8. EXHAUSTIVE STRUCTURAL GROUP DELIMITERS
   // ============================================================================

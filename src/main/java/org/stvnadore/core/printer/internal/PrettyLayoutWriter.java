@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Locale;
 
 /**
  * A layout writer that emits structured, indented pretty STVN tokens.
@@ -91,6 +92,49 @@ public final class PrettyLayoutWriter implements LayoutWriter {
     writer.write("\"");
   }
 
+  /**
+   * Writes a Rule STR-04 fenced verbatim string literal ({@code """[TAG]\n...[TAG]"""}) using
+   * either verbatim column-0 preservation ({@code preserveIndent == true}) or canonical structural
+   * body indentation ({@code preserveIndent == false}).
+   *
+   * @param text           the decoded string value to serialize
+   * @param tag            the collision-safe fence tag
+   * @param preserveIndent {@code true} to emit {@code text} verbatim at column 0; {@code false} to
+   *                       indent non-empty lines by {@code (indentLevel + 1) * indentStep} spaces
+   * @throws IOException if an I/O error occurs
+   */
+  public void writeFencedString(String text, String tag, boolean preserveIndent) throws IOException {
+    writeIndentIfNeeded();
+    writer.write("\"\"\"[");
+    writer.write(tag);
+    writer.write("]\n");
+    if (preserveIndent) {
+      writer.write(text);
+    } else {
+      String bodyIndent = " ".repeat((indentLevel + 1) * indentStep);
+      String closingIndent = " ".repeat(indentLevel * indentStep);
+      String[] lines = text.split("\n", -1);
+      boolean trailingNewline = text.endsWith("\n");
+      int contentLineLimit = trailingNewline ? lines.length - 1 : lines.length;
+      for (int i = 0; i < contentLineLimit; i++) {
+        String line = lines[i];
+        if (!line.isEmpty()) {
+          writer.write(bodyIndent);
+          writer.write(line);
+        }
+        if (i < contentLineLimit - 1 || trailingNewline) {
+          writer.write('\n');
+        }
+      }
+      if (trailingNewline) {
+        writer.write(closingIndent);
+      }
+    }
+    writer.write("[");
+    writer.write(tag);
+    writer.write("]\"\"\"");
+  }
+
   @Override
   public void openGroup(String delimiter) throws IOException {
     writeIndentIfNeeded();
@@ -171,11 +215,31 @@ public final class PrettyLayoutWriter implements LayoutWriter {
     writer.flush();
   }
 
+  static String escapeSimpleStringBody(String s) {
+    StringBuilder sb = new StringBuilder(s.length());
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      switch (c) {
+        case '\\' -> sb.append("\\\\");
+        case '"' -> sb.append("\\\"");
+        case '\n' -> sb.append("\\n");
+        case '\r' -> sb.append("\\r");
+        case '\t' -> sb.append("\\t");
+        case '\b' -> sb.append("\\b");
+        case '\f' -> sb.append("\\f");
+        default -> {
+          if (c < 0x20) {
+            sb.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+          } else {
+            sb.append(c);
+          }
+        }
+      }
+    }
+    return sb.toString();
+  }
+
   private String escapeString(String s) {
-    return s.replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t");
+    return escapeSimpleStringBody(s);
   }
 }

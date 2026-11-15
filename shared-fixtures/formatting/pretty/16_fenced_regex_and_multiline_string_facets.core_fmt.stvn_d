@@ -5,9 +5,26 @@
     #kind #DEFS
   }
   :defs {
-    #SLUG_REGEX :String "^[a-z0-9]+(?:\\.[a-z0-9]+)*$"
-    :SlugId { #minSize 3 #maxSize 64 #regex "^[a-z0-9]+(?:\\.[a-z0-9]+)*$" } :String
-    :TabRowSpec { #minSize 3 #maxSize 48 #preserveIndent #TRUE #regex "^\t[a-z]+\t[0-9]+$" } :String
-    :TripleVer { #minSize 5 #maxSize 32 #regex "^[0-9]+\\.[0-9]+\\.[0-9]+$" } :String
+    #SLUG_REGEX :String """[REGEX]
+      ^[a-z0-9]+(?:\.[a-z0-9]+)*$[REGEX]"""
+    :SlugId {
+      #minSize 3
+      #maxSize 64
+      #regex """[REGEX]
+        ^[a-z0-9]+(?:\.[a-z0-9]+)*$[REGEX]"""
+    } :String
+    :TabRowSpec {
+      #minSize 3
+      #maxSize 48
+      #preserveIndent #TRUE
+      #regex """[REGEX]
+        ^	[a-z]+	[0-9]+$[REGEX]"""
+    } :String
+    :TripleVer {
+      #minSize 5
+      #maxSize 32
+      #regex """[REGEX]
+        ^[0-9]+\.[0-9]+\.[0-9]+$[REGEX]"""
+    } :String
   }
 }

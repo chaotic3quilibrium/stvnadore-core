@@ -6,10 +6,10 @@
   :type :Tuple(:TrimmedQuery :PreservedTsv)
   :body (
     """[RAW]
-SELECT id, status
-  FROM audit_log
- WHERE active = TRUE;
-[RAW]"""
+      SELECT id, status
+        FROM audit_log
+       WHERE active = TRUE;
+    [RAW]"""
     """[RAW]
 col1	col2
   10	20

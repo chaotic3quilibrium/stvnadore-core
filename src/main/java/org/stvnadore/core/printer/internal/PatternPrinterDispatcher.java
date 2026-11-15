@@ -41,6 +41,25 @@ public final class PatternPrinterDispatcher {
    *                               is a poisoned sentinel lacking valid schema context
    */
   public static void dispatch(StvnValue val, LayoutWriter layout, PrinterOptions options) throws IOException {
+    dispatch(val, layout, options, StvnVocabulary.FENCE_TAG_RAW);
+  }
+
+  /**
+   * Dispatches the printing of a pure-IR {@link StvnValue} to the provided {@link LayoutWriter}
+   * using {@code preferredFenceTag} when the top-level value is a {@link StvnValue.StvnString}
+   * serialized as a Rule STR-04 fenced string.
+   *
+   * @param val               the pure-IR value to print
+   * @param layout            the layout writer to write to
+   * @param options           the formatting printer options
+   * @param preferredFenceTag the preferred base fence tag ({@code RAW} or {@code REGEX})
+   * @throws IOException           if a writing exception occurs
+   * @throws IllegalStateException if {@code HAPPY_PATH_INFERRED} is active on a value whose schema
+   *                               is a poisoned sentinel lacking valid schema context
+   */
+  public static void dispatch(
+      StvnValue val, LayoutWriter layout, PrinterOptions options, String preferredFenceTag
+  ) throws IOException {
     if (options.sumTypePolicy() == PrinterOptions.SumTypePolicy.HAPPY_PATH_INFERRED
         && isRealPoisonedSchema(val.schema())) {
       throw new IllegalStateException(
@@ -76,9 +95,16 @@ public final class PatternPrinterDispatcher {
 
       case StvnValue.StvnString s -> {
         String text = s.value();
-        boolean shouldEmitFenced = shouldEmitFencedString(s);
-        if (shouldEmitFenced) {
-          String tag = StvnLiteralParser.chooseSafeFenceTag(text);
+        boolean preserveIndent = s.schema() instanceof StvnSchema.StringSchema ss && ss.preserveIndent();
+        if (layout instanceof PrettyLayoutWriter prettyLayout) {
+          if (shouldEmitFencedPretty(text, preserveIndent)) {
+            String tag = StvnLiteralParser.chooseSafeFenceTag(text, preferredFenceTag);
+            prettyLayout.writeFencedString(text, tag, preserveIndent);
+          } else {
+            prettyLayout.writeSimpleString(text);
+          }
+        } else if (shouldEmitFencedCompact(text, preserveIndent)) {
+          String tag = StvnLiteralParser.chooseSafeFenceTag(text, StvnVocabulary.FENCE_TAG_RAW);
           layout.writeLiteral("\"\"\"[" + tag + "]\n" + text + "[" + tag + "]\"\"\"");
         } else {
           layout.writeSimpleString(text);
@@ -205,7 +231,7 @@ public final class PatternPrinterDispatcher {
       LayoutWriter layout,
       PrinterOptions options
   ) throws IOException {
-    boolean multiLine = (layout instanceof PrettyLayoutWriter) && requiresMultiLinePayloadContainer(elements);
+    boolean multiLine = (layout instanceof PrettyLayoutWriter) && requiresMultiLinePayloadContainer(elements, layout);
     layout.openGroup(openDelim);
     if (multiLine) {
       layout.indent();
@@ -227,36 +253,115 @@ public final class PatternPrinterDispatcher {
     layout.closeGroup(closeDelim);
   }
 
-  private static boolean requiresMultiLinePayloadContainer(List<StvnValue> elements) {
+  private static boolean requiresMultiLinePayloadContainer(List<StvnValue> elements, LayoutWriter layout) {
     for (StvnValue el : elements) {
-      if (isStructuredOrFencedPayload(el)) {
+      if (isStructuredOrFencedPayload(el, layout)) {
         return true;
       }
     }
     return false;
   }
 
-  private static boolean isStructuredOrFencedPayload(StvnValue val) {
+  private static boolean isStructuredOrFencedPayload(StvnValue val, LayoutWriter layout) {
     return switch (val) {
       case StvnValue.StvnMap ignored -> true;
       case StvnValue.StvnTuple ignored -> true;
       case StvnValue.StvnSeq ignored -> true;
       case StvnValue.StvnSet ignored -> true;
-      case StvnValue.StvnString s -> shouldEmitFencedString(s);
-      case StvnValue.StvnOption opt -> opt.value().map(PatternPrinterDispatcher::isStructuredOrFencedPayload).orElse(false);
-      case StvnValue.StvnEither eith -> isStructuredOrFencedPayload(eith.value());
-      case StvnValue.StvnUnion un -> isStructuredOrFencedPayload(un.value());
+      case StvnValue.StvnString s -> {
+        boolean preserveIndent = s.schema() instanceof StvnSchema.StringSchema ss && ss.preserveIndent();
+        yield (layout instanceof PrettyLayoutWriter)
+            ? shouldEmitFencedPretty(s.value(), preserveIndent)
+            : shouldEmitFencedCompact(s.value(), preserveIndent);
+      }
+      case StvnValue.StvnOption opt -> opt.value().map(inner -> isStructuredOrFencedPayload(inner, layout)).orElse(false);
+      case StvnValue.StvnEither eith -> isStructuredOrFencedPayload(eith.value(), layout);
+      case StvnValue.StvnUnion un -> isStructuredOrFencedPayload(un.value(), layout);
       default -> false;
     };
   }
 
-  private static boolean shouldEmitFencedString(StvnValue.StvnString s) {
-    String text = s.value();
-    boolean preserveIndent = s.schema() instanceof StvnSchema.StringSchema ss && ss.preserveIndent();
-    return text.indexOf('\r') < 0
+  /**
+   * Evaluates whether {@code AstPrettyPrinter} ({@link PrettyLayoutWriter}) must emit {@code text}
+   * as a Rule STR-04 fenced verbatim string under Fenced-String Bias and the 100% lossless
+   * round-trip soundness guard ({@code decode(print(s)) == s}).
+   *
+   * @param text           the decoded UTF-16 string content
+   * @param preserveIndent the effective {@code #preserveIndent} flag for this emission site
+   * @return {@code true} if fenced emission is triggered and 100% round-trip lossless
+   */
+  public static boolean shouldEmitFencedPretty(String text, boolean preserveIndent) {
+    if (!containsSimpleEscapeTrigger(text) || containsForbiddenFencedControlChar(text)) {
+      return false;
+    }
+    if (preserveIndent) {
+      return true;
+    }
+    return !isAsciiSpacesOnly(text)
+        && !hasNonEmptyAsciiSpaceOnlyLine(text)
+        && StvnPayloadLowerer.trimCommonIndent(text).equals(text);
+  }
+
+  private static boolean shouldEmitFencedCompact(String text, boolean preserveIndent) {
+    return !containsForbiddenFencedControlChar(text)
         && ((text.indexOf('\n') >= 0
-            && (preserveIndent || text.equals(StvnPayloadLowerer.trimCommonIndent(text))))
+            && (preserveIndent
+                || (!isAsciiSpacesOnly(text)
+                    && !hasNonEmptyAsciiSpaceOnlyLine(text)
+                    && text.equals(StvnPayloadLowerer.trimCommonIndent(text)))))
             || (preserveIndent && text.indexOf('\t') >= 0));
+  }
+
+  private static boolean hasNonEmptyAsciiSpaceOnlyLine(String text) {
+    int lineStart = 0;
+    int len = text.length();
+    for (int i = 0; i <= len; i++) {
+      if (i == len || text.charAt(i) == '\n') {
+        if (i > lineStart) {
+          boolean allSpaces = true;
+          for (int j = lineStart; j < i; j++) {
+            if (text.charAt(j) != ' ') {
+              allSpaces = false;
+              break;
+            }
+          }
+          if (allSpaces) {
+            return true;
+          }
+        }
+        lineStart = i + 1;
+      }
+    }
+    return false;
+  }
+
+  private static boolean containsSimpleEscapeTrigger(String text) {
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      if (c == '\\' || c == '"' || c == '\n' || c == '\t') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean containsForbiddenFencedControlChar(String text) {
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      if (c < 0x20 && c != '\n' && c != '\t') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isAsciiSpacesOnly(String text) {
+    for (int i = 0; i < text.length(); i++) {
+      if (text.charAt(i) != ' ') {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**

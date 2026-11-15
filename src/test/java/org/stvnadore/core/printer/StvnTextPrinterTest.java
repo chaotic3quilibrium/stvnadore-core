@@ -501,8 +501,8 @@ class StvnTextPrinterTest {
             {
                 :type :String
                 :body ""\"[RAW]
-            Nested fenced content
-            [RAW]""\"
+                    Nested fenced content
+                [RAW]""\"
             }"""
     );
     assertVisualLayout(matrixFencedStr);

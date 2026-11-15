@@ -1,0 +1,39 @@
+{
+  :meta {
+    #name "17_pretty_printer_fenced_string_bias_and_roundtrip_guards"
+    #domain "core_fmt"
+    #kind #BODY
+  }
+  :defs {
+    :BoundedEndpoint {
+      #minSize 3
+      #maxSize 128
+      #minIncl """[RAW]
+        a\0[RAW]"""
+      #maxExcl """[RAW]
+        z\9[RAW]"""
+      #regex """[REGEX]
+        ^[a-z0-9]+(?:\.[a-z0-9]+)+\b$[REGEX]"""
+    } :String
+    :PreservedRaw { #preserveIndent #TRUE } :String
+    :Sha256Hex { #minSize 64 #maxSize 64 #regex "^[0-9a-f]{64}$" } :String
+    :GuardPayload :Tuple(:BoundedEndpoint :Sha256Hex :String :PreservedRaw :String :String :String :String :String)
+  }
+  :type :GuardPayload
+  :body (
+    "api.v1"
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    """[RAW]
+      say "hi"\path	here[RAW]"""
+    """[RAW]
+  kept_indent\line1
+    kept_tab	line2
+[RAW]"""
+    """[RAW_1]
+      contains [RAW]""" marker[RAW_1]"""
+    "  leading_space\\escaped"
+    "space_blank_line\n  \ntrailer"
+    "carriage\rreturn"
+    "bell\u0007char"
+  )
+}
