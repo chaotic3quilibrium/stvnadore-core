@@ -1,0 +1,157 @@
+{
+  :meta {
+    #name "sum_type_torture"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ "<:type>" ( ":Seq(:Option(:Either(:String :Option(:Either(:String :Float)))))" "" ( #FALSE #TRUE ) ) ]
+    }
+    #15 [
+      #10 #NONE
+      #9 ( #SOME
+        #11 ( #LEFT
+          #5 "Explicit Outer Left"
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #10 #NONE
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #11 ( #LEFT
+              #5 "Explicit Inner Left"
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 3.14159
+            )
+          )
+        )
+      )
+      #10 #NONE
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #10 #NONE
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #10 #NONE
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+      #9 ( #SOME
+        #12 ( #RIGHT
+          #9 ( #SOME
+            #12 ( #RIGHT
+              #3 1.234
+            )
+          )
+        )
+      )
+    ]
+  )
+}

@@ -104,6 +104,7 @@
     * [7.4 Interactive DX Guards & Caret Resolution Boundaries](#74-interactive-dx-guards--caret-resolution-boundaries)
   * [8. Payload Inference & AST Lowering Rules](#8-payload-inference--ast-lowering-rules)
     * [8.1 Inference Rules (Rule A through Rule J)](#81-inference-rules-rule-a-through-rule-j)
+      * [8.1.1 Canonical Pretty & Compact Sum-Tag Elision Soundness Invariant](#811-canonical-pretty--compact-sum-tag-elision-soundness-invariant)
     * [8.2 Canonical Intermediate Representation (IR) Algebra](#82-canonical-intermediate-representation-ir-algebra)
     * [8.3 CPU-Bias-Free Expression Space Invariant](#83-cpu-bias-free-expression-space-invariant)
   * [9. Opaque Nominal Type Branding & CAS Bijectivity Invariant](#9-opaque-nominal-type-branding--cas-bijectivity-invariant)
@@ -1642,6 +1643,41 @@ STVN decoders support implicit tagging for sum types when the payload value is u
 * **Rule H (Right-First Precedence & Either vs. Union):** A 2-branch `:Union( A B )` has no structural bias and allows implicit bidirectional matching across distinct token domains via Rule C. In contrast, `:Either( L R )` is fundamentally right-biased ($R$ precedes $L$). Across all compiler validation passes, diagnostic message enumerations, candidate resolutions, and interactive IDE intention actions/quick-fixes, branch $R$ is evaluated and presented prior to branch $L$. In IDE quick-fixes for ambiguous `:Either` payloads, `Wrap with #Right (-> R)` must always be registered as the primary (top) intention action, followed by `Wrap with #Left (-> L)`.
 * **Rule I (Intersection Clusters & Duplicate Branches):** If an untagged value matches multiple candidate branches in a sum type (due to intersecting structural domains or duplicate nominal types such as `:Union( :Int :Int )`), implicit resolution is disabled. The payload must provide an explicit branch tag (`#Left`, `#Right`, `#1`, `#2`, etc.), or the parser emits `ERR_AMBIGUOUS_SUM_INFERENCE`.
 * **Rule J (Semantic Guard Tracking):** If an explicit branch tag is syntactically valid but the value violates a localized constraint (e.g., a `#regex` mismatch), the AST node is lowered into a monadic diagnostic framework (`StvnAnalysisResult`). The error is tracked in a `StvnDiagnostic` frame with text coordinates for IDE highlighting without crashing the AST pipeline.
+
+#### 8.1.1 Canonical Pretty & Compact Sum-Tag Elision Soundness Invariant
+
+When Operation 2 presentation serializers (`AstPrettyPrinter` and `AstCompactPrinter`) format a lowered `StvnDocument` or `StvnValue` under `HAPPY_PATH_INFERRED`, tag elision MUST evaluate the **bottom-up emitted surface** of each inner sum operand so that re-compiling the formatted output produces zero errors and preserves exact Pure-IR `StvnValue` identity (`origDoc.payload().equals(recompiledDoc.payload())`):
+
+1. **Transitive `:Option` Tag Preservation:** An enclosing `:Option` (`#Some` / `#S`) MUST retain its explicit tag whenever its child's emitted surface begins with `#None` / `#N` or `#Some` / `#S` across any chain of intermediate elided `:Either` or `:Union` constructors (for example, `Some(Right(None))` on `:Option(:Either(:String :Option(:Int)))` emits `#Some #None` in pretty form and `#S #N` in compact form).
+2. **Enclosing `:Either` & `:Union` Hijack Prevention:** An enclosing `:Either` (`#Right` / `#R`) MUST retain its explicit tag whenever its child's emitted surface begins with `#Left` / `#L` or `#Right` / `#R`. An enclosing `:Union` (`#<k>`) MUST retain its explicit tag whenever its child's emitted surface begins with any union branch tag `#<m>`.
+3. **Unwrapped Leaf & Head-Token Disjointness:** Sibling branch capture tests on `:Either` (`leftSchema`) and `:Union` (all branches $j \ne k - 1$) MUST inspect the child's unwrapped terminal `StvnValue` leaf (or retained surface tag chain) and style-specific head token, unfolding guarded recursive nominal back-edges cycle-safely.
+
+```stvn
+{
+  // sum_tag_elision_soundness.stvn
+  :meta {
+    #name "sum_tag_elision_soundness"
+    #kind #BODY
+  }
+  :defs {
+    :NestedOptEither :Option(:Either(:String :Option(:Either(:String :Float))))
+    :NestedUnion     :Union(:String :Union(:String :String))
+    :LeafOverlap     :Either(:Float :Option(:Float))
+  }
+  :type :Tuple(:Seq(:NestedOptEither) :NestedUnion :LeafOverlap)
+  :body (
+    [
+      #None
+      #Left "outer-left"
+      #Some #None
+      #Right #Left "inner-left"
+      3.14159
+    ]
+    #2 #1 "inner-branch"
+    #Right 1.5
+  )
+}
+```
 
 ### 8.2 Canonical Intermediate Representation (IR) Algebra
 

@@ -1,0 +1,79 @@
+{
+  :meta {
+    #name "18_nested_sum_tag_capture_soundness"
+    #domain "core_fmt"
+    #kind #BODY
+  }
+  :defs {
+    // Leaf-overlap float constant inlined during Pass 4 IR projection
+    #SAMPLE_WEIGHT :Float 1.5
+    :CaseA_DoubleOption :Option(:Option(:Int))
+    :CaseB_SiblingOptionEither :Either(:Option(:Int) :Option(:String))
+    :CaseC_SiblingOptionUnion :Union(:Option(:Int) :Option(:String))
+    :CaseD_DisjointInnerUnion :Union(:Union(:String :Int) :Union(:String :Float))
+    :CaseE_OverlappingFloatUnions :Option(:Either(:Union(:String :Float) :Union(:Boolean :Float)))
+    :CaseF_TransitiveOptionViaUnion :Option(:Union(:String :Option(:Int)))
+    :CaseG_SameTypeUnionHijack :Union(:String :Union(:String :String))
+    :CaseH_CrossTypeUnionHijack :Union(:Int :Union(:String :String))
+    :CaseI_UnwrappedFloatUnionOverlap :Option(:Either(:Float :Union(:Boolean :Float)))
+    :CaseJ_UnwrappedFloatOptionOverlap :Either(:Float :Option(:Float))
+    :CaseK_OuterEitherUnionLeftHijack :Either(:Union(:String :Int) :Either(:String :Float))
+    :CaseL_OuterEitherDirectLeftHijack :Either(:String :Either(:String :Float))
+    :CaseM_OuterOptionSiblingOptionEither :Option(:Either(:Option(:Int) :Option(:String)))
+    :CaseN_OuterUnionViaElidedOption :Union(:Int :Option(:Union(:String :String)))
+    :CaseO_TupleLeafOverlap :Either(:Tuple(:Int :Int) :Option(:Tuple(:Int :Int)))
+    :CaseP_ControlEnum :Enum[#None #Left #1 #OK]
+    :CaseQ_BoolWordEnum :Enum[#TRUE #T #OTHER]
+    :CaseR_EnumAndBoolSuite :Tuple(:Option(:Either(:Int :CaseP_ControlEnum)) :Option(:Union(:String :CaseP_ControlEnum)) :Either(:CaseQ_BoolWordEnum :Boolean))
+    :CaseS_FormulaAst :Union(:Float :Tuple(:String :CaseS_FormulaAst :CaseS_FormulaAst))
+    :CaseT_RecursiveLeafOverlap :Tuple(:CaseS_FormulaAst :Either(:CaseS_FormulaAst :Option(:Float)))
+    :CaseU_TortureElement :Option(:Either(:String :Option(:Either(:String :Float))))
+    :CaseV_TortureSeq :Seq(:CaseU_TortureElement)
+    :CaseW_SoundnessRoot :Tuple(:CaseV_TortureSeq :CaseA_DoubleOption :CaseB_SiblingOptionEither :CaseC_SiblingOptionUnion :CaseD_DisjointInnerUnion :CaseE_OverlappingFloatUnions :CaseF_TransitiveOptionViaUnion :CaseG_SameTypeUnionHijack :CaseH_CrossTypeUnionHijack :CaseI_UnwrappedFloatUnionOverlap :CaseJ_UnwrappedFloatOptionOverlap :CaseK_OuterEitherUnionLeftHijack :CaseL_OuterEitherDirectLeftHijack :CaseM_OuterOptionSiblingOptionEither :CaseN_OuterUnionViaElidedOption :CaseO_TupleLeafOverlap :CaseR_EnumAndBoolSuite :CaseT_RecursiveLeafOverlap)
+  }
+  :type :CaseW_SoundnessRoot
+  :body (
+    [
+      // All 19 sum_type_torture pathways
+      #None
+      #Some #Left "Explicit Outer Left"
+      #Some #Right #None
+      #Some #Right #Some #Left "Explicit Inner Left"
+      #Some #Right #Some #Right 3.14159
+      #N
+      #Some #None
+      #Right #None
+      #Some #Right #Some #Right 1.234
+      #Some #Right #Some 1.234
+      #Some #Right #Right 1.234
+      #Right #Some #Right 1.234
+      #Some #Some 1.234
+      #Right #Right 1.234
+      #Some #Right 1.234
+      #Right #Some 1.234
+      #Some 1.234
+      #Right 1.234
+      1.234
+    ]
+    #S #N
+    #Right #None
+    #2 #None
+    #2 #1 "x"
+    #Some #Right #2 #SAMPLE_WEIGHT
+    #Some #2 #None
+    #2 #1 "inner"
+    #2 #1 "inner"
+    #Some #Right #2 #SAMPLE_WEIGHT
+    #Right #Some #SAMPLE_WEIGHT
+    #Right #Left "x"
+    #R #L "x"
+    #Some #Right #None
+    #2 #Some #1 "x"
+    #Right #Some (1 2)
+    (#Some #Right #None #Some #2 #1 #Right #T)
+    (
+      #2 ("add" #1 1.0 #1 2.0)
+      #Right #Some 2.5
+    )
+  )
+}

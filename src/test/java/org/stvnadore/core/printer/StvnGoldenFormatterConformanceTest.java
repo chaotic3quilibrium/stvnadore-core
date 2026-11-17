@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -44,6 +45,7 @@ class StvnGoldenFormatterConformanceTest {
   private static final Pattern FENCED_STRING_PATTERN = Pattern.compile(
       "\"\"\"\\[([A-Za-z0-9_-]+)]\\n[\\s\\S]*?\\[\\1]\"\"\""
   );
+  private static final String PRELUDE_CONST_PREFIX = "#org/stvnadore/prelude/";
 
   @Test
   @DisplayName("Formatting directories contain matching file inventories across input/, source_pretty/, pretty/, and compact/")
@@ -59,7 +61,7 @@ class StvnGoldenFormatterConformanceTest {
     Set<String> compactNames = listRegularFileNames(COMPACT_DIR);
 
     Assertions.assertFalse(inputNames.isEmpty(), "shared-fixtures/formatting/input must not be empty");
-    Assertions.assertEquals(17, inputNames.size(), "Expected 17 golden formatter quartets");
+    Assertions.assertEquals(18, inputNames.size(), "Expected 18 golden formatter quartets");
     Assertions.assertEquals(inputNames, sourcePrettyNames, "input/ and source_pretty/ file inventories must match identically");
     Assertions.assertEquals(inputNames, prettyNames, "input/ and pretty/ file inventories must match identically");
     Assertions.assertEquals(inputNames, compactNames, "input/ and compact/ file inventories must match identically");
@@ -99,7 +101,7 @@ class StvnGoldenFormatterConformanceTest {
     String expectedPretty = Files.readString(prettyPath, StandardCharsets.UTF_8);
     String expectedCompact = Files.readString(compactPath, StandardCharsets.UTF_8);
 
-    // GATE-09: Strict LF (\n) line endings across all 68 golden files
+    // GATE-09: Strict LF (\n) line endings across all 72 golden files
     Assertions.assertFalse(inputSource.contains("\r"), "CRLF prohibited in " + inputPath);
     Assertions.assertFalse(expectedSourcePretty.contains("\r"), "CRLF prohibited in " + sourcePrettyPath);
     Assertions.assertFalse(expectedPretty.contains("\r"), "CRLF prohibited in " + prettyPath);
@@ -140,6 +142,11 @@ class StvnGoldenFormatterConformanceTest {
     StvnDocument sourcePrettyDoc = compileCleanDocument(expectedSourcePretty, sourcePrettyPath);
     StvnDocument prettyDoc = compileCleanDocument(expectedPretty, prettyPath);
     StvnDocument compactDoc = compileCleanDocument(expectedCompact, compactPath);
+
+    // 4b. Normative Pure-IR payload and constant value round-trip equivalence
+    assertDocumentSemanticEquivalence(inputDoc, sourcePrettyDoc, true, "input vs source_pretty: " + fileName);
+    assertDocumentSemanticEquivalence(inputDoc, prettyDoc, false, "input vs pretty: " + fileName);
+    assertDocumentSemanticEquivalence(inputDoc, compactDoc, false, "input vs compact: " + fileName);
 
     // 5. Operation 2 Byte-for-byte golden equivalence (with trailing LF newline)
     String actualPrettyFromInput = AstPrettyPrinter.print(inputDoc) + "\n";
@@ -216,6 +223,36 @@ class StvnGoldenFormatterConformanceTest {
           actualCompactFromInput.contains("col1\tcol2\n  10\t20"),
           "Compact output for 07_fenced_verbatim_strings.stvn must preserve raw tabs inside #preserveIndent #T fenced string"
       );
+    }
+  }
+
+  private static void assertDocumentSemanticEquivalence(
+      StvnDocument original,
+      StvnDocument recompiled,
+      boolean requireAllConstantsRetained,
+      String context
+  ) {
+    Assertions.assertEquals(
+        original.payload(),
+        recompiled.payload(),
+        () -> "Pure-IR payload mismatch (" + context + ")"
+    );
+    boolean defsOnly = original.payload().isEmpty();
+    for (var entry : original.defs().constants().entrySet()) {
+      String key = entry.getKey();
+      if (key.startsWith(PRELUDE_CONST_PREFIX) || key.startsWith(":org/stvnadore/prelude/#")) {
+        continue;
+      }
+      var recompConst = recompiled.defs().constants().get(key);
+      if (requireAllConstantsRetained || defsOnly) {
+        Assertions.assertNotNull(recompConst, () -> "Missing expected constant '" + key + "' (" + context + ")");
+      }
+      if (recompConst != null) {
+        Assertions.assertTrue(
+            Objects.equals(entry.getValue().value(), recompConst.value()),
+            () -> "Pure-IR constant value mismatch on '" + key + "' (" + context + ")"
+        );
+      }
     }
   }
 

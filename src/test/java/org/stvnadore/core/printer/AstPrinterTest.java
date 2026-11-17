@@ -14,12 +14,20 @@ import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.stdlib.StvnPrelude;
 
+import java.io.IOException;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * Comprehensive verification tests for canonical pure-IR printers ({@link AstPrettyPrinter},
@@ -568,6 +576,272 @@ class AstPrinterTest {
         "Document SHA-256 CAS fingerprint must be bitwise identical");
     Assertions.assertArrayEquals(schemaHashBefore, StvnSchemaHasher.computeSha256(rtDoc.payload().orElseThrow().schema()),
         "StvnSchemaHasher SHA-256 digest must be bitwise identical");
+  }
+
+  @Test
+  @DisplayName("TC-SUM-RT-01: Defects U1-U4, #DEFS constant-enum shadowing, and mutual recursive sum schemas round-trip losslessly")
+  void testNestedSumTagRoundTripSoundnessDefectsU1ToU4() {
+    // 1. #DEFS document where #SHARED constant has OptionSchema and :MyEnum also declares #SHARED
+    String defsShadowSource = """
+        {
+          :meta {
+            #name "defs_const_enum_shadow"
+            #domain "core_test"
+            #kind #DEFS
+          }
+          :defs {
+            #SHARED :Option(:Int) #None
+            :MyEnum :Enum[#SHARED #OK]
+            #TRICKY_OPT :Option(:MyEnum) #Some #SHARED
+            #TRICKY_NESTED :Option(:Either(:Int :MyEnum)) #Some #Right #SHARED
+          }
+        }
+        """;
+    StvnDocument defsOrig = StvnCompiler.compile(defsShadowSource, "defs_const_enum_shadow.core_test.stvn_d")
+        .document().orElseThrow();
+    for (String emitted : new String[]{AstPrettyPrinter.print(defsOrig), AstCompactPrinter.print(defsOrig)}) {
+      StvnCompilationResult<StvnDocument> rtRes = StvnCompiler.compile(emitted, "defs_const_enum_shadow.core_test.stvn_d");
+      Assertions.assertFalse(rtRes.hasErrors(), () -> "Unexpected errors on:\n" + emitted + "\nDiags: " + rtRes.diagnostics());
+      StvnDocument rtDoc = rtRes.document().orElseThrow();
+      Assertions.assertEquals(
+          defsOrig.defs().constants().get("#TRICKY_OPT").value(),
+          rtDoc.defs().constants().get("#TRICKY_OPT").value()
+      );
+      Assertions.assertEquals(
+          defsOrig.defs().constants().get("#TRICKY_NESTED").value(),
+          rtDoc.defs().constants().get("#TRICKY_NESTED").value()
+      );
+    }
+    String prettyDefs = AstPrettyPrinter.print(defsOrig);
+    Assertions.assertEquals(prettyDefs, StvnSourceFormatter.format(prettyDefs));
+
+    // 2. Mutual recursive nominal sum schemas (:RecA <-> :RecB) + nested union/either/option traps
+    String mutualRecSource = """
+        {
+          :defs {
+            :RecA :Union(:String :Tuple(:Boolean :RecB))
+            :RecB :Union(:Int :Option(:RecA))
+            :UnionAcrossEither :Union(:String :Either(:Boolean :Union(:String :String)))
+          }
+          :type :Tuple(:Either(:RecB :String) :Either(:RecB :Float) :UnionAcrossEither)
+          :body (
+            #Right "overlap-via-mutual-backedge"
+            9.75
+            #2 #1 "retained-union-head"
+          )
+        }
+        """;
+    StvnCompilationResult<StvnDocument> recInit = StvnCompiler.compile(mutualRecSource);
+    Assertions.assertFalse(recInit.hasErrors(), () -> "Unexpected initial errors: " + recInit.diagnostics());
+    StvnDocument recOrig = recInit.document().orElseThrow();
+    String prettyRec = AstPrettyPrinter.print(recOrig);
+    String compactRec = AstCompactPrinter.print(recOrig);
+    Assertions.assertEquals(prettyRec, StvnSourceFormatter.format(prettyRec));
+    Assertions.assertTrue(prettyRec.contains("#Right \"overlap-via-mutual-backedge\""), prettyRec);
+    Assertions.assertTrue(prettyRec.contains("#2 #1 \"retained-union-head\""), prettyRec);
+    for (String emitted : new String[]{prettyRec, compactRec}) {
+      StvnCompilationResult<StvnDocument> rt = StvnCompiler.compile(emitted);
+      Assertions.assertFalse(rt.hasErrors(), () -> "Errors on:\n" + emitted + "\nDiags: " + rt.diagnostics());
+      assertEquivalentDocumentPayloads(recOrig, rt.document().orElseThrow(), "mutualRecSource");
+    }
+  }
+
+  @Test
+  @DisplayName("TC-SUM-RT-02: Normative Pretty & Compact round-trip and StvnSourceFormatter fixed-point across all valid shared-fixtures")
+  void testNormativeRoundTripAcrossAllValidSharedFixtures() throws IOException {
+    List<Path> validRoots = List.of(
+        Paths.get("shared-fixtures", "syntax", "valid"),
+        Paths.get("shared-fixtures", "metadata", "valid")
+    );
+    List<Path> discovered = new ArrayList<>();
+    for (Path root : validRoots) {
+      try (Stream<Path> walk = Files.walk(root)) {
+        walk.filter(Files::isRegularFile)
+            .filter(p -> {
+              String name = p.getFileName().toString();
+              return (name.endsWith(".stvn") || name.endsWith(".stvn_i")
+                  || name.endsWith(".stvn_d") || name.endsWith(".stvn_di"))
+                  && !name.endsWith(".contract.stvn_i")
+                  && !name.equals("prelude.stvn_core.stvn_d");
+            })
+            .forEach(discovered::add);
+      }
+    }
+    discovered.sort(Comparator.comparing(Path::toString));
+    Assertions.assertFalse(discovered.isEmpty(), "Expected non-empty valid fixture inventory");
+
+    for (Path fixture : discovered) {
+      String fileName = fixture.getFileName().toString();
+      boolean isSystem = fileName.endsWith(".stvn_ir.stvn_i")
+          || fileName.endsWith(".stvn_ir.stvn_d")
+          || fileName.endsWith(".stvn_core.stvn_d");
+      StvnParserConfig config = isSystem ? StvnParserConfig.SYSTEM : StvnParserConfig.DEFAULT;
+      String src = Files.readString(fixture, StandardCharsets.UTF_8).replace("\r\n", "\n");
+      StvnDocument origDoc = StvnCompiler.compile(src, fixture.toString(), config).document()
+          .orElseThrow(() -> new AssertionError("Failed initial compile: " + fixture));
+
+      String pretty = AstPrettyPrinter.print(origDoc);
+      String compact = AstCompactPrinter.print(origDoc);
+      Assertions.assertEquals(pretty, StvnSourceFormatter.format(pretty),
+          () -> "AstPrettyPrinter output must be a strict fixed point of StvnSourceFormatter for " + fixture);
+
+      for (String emitted : new String[]{pretty, compact}) {
+        StvnCompilationResult<StvnDocument> rtRes = StvnCompiler.compile(emitted, fixture.toString(), config);
+        Assertions.assertFalse(rtRes.hasErrors(),
+            () -> "Round-trip recompile failed for " + fixture + ": " + rtRes.diagnostics() + "\nEmitted:\n" + emitted);
+        StvnDocument rtDoc = rtRes.document().orElseThrow();
+        if ("sum_type_torture.stvn".equals(fileName)) {
+          Assertions.assertEquals(origDoc.payload(), rtDoc.payload(), "Exact record equality on sum_type_torture.stvn");
+        }
+        assertEquivalentDocumentPayloads(origDoc, rtDoc, fixture.toString());
+        for (var cEntry : origDoc.defs().constants().entrySet()) {
+          var rtConst = rtDoc.defs().constants().get(cEntry.getKey());
+          if (rtConst != null) {
+            assertEquivalentValues(
+                cEntry.getValue().value(),
+                rtConst.value(),
+                "Constant " + cEntry.getKey() + " in " + fixture
+            );
+          }
+        }
+      }
+    }
+  }
+
+  private static void assertEquivalentDocumentPayloads(
+      StvnDocument origDoc,
+      StvnDocument rtDoc,
+      String context
+  ) {
+    Assertions.assertEquals(
+        StvnCompiler.toCanonicalString(origDoc),
+        StvnCompiler.toCanonicalString(rtDoc),
+        () -> "Canonical preimage drift on " + context
+    );
+    Assertions.assertArrayEquals(
+        StvnCompiler.computeCasFingerprint(origDoc),
+        StvnCompiler.computeCasFingerprint(rtDoc),
+        () -> "SHA-256 CAS fingerprint drift on " + context
+    );
+    Assertions.assertEquals(
+        origDoc.payload().isPresent(),
+        rtDoc.payload().isPresent(),
+        () -> "Payload presence mismatch on " + context
+    );
+    if (origDoc.payload().isPresent()) {
+      StvnValue origVal = origDoc.payload().get();
+      StvnValue rtVal = rtDoc.payload().get();
+      assertEquivalentValues(origVal, rtVal, context);
+    }
+  }
+
+  private static void assertEquivalentValues(StvnValue expected, StvnValue actual, String context) {
+    Assertions.assertEquals(expected.getClass(), actual.getClass(), () -> "Value kind mismatch in " + context);
+    Assertions.assertEquals(
+        expected.schema().aliasName(),
+        actual.schema().aliasName(),
+        () -> "Nominal schema brand mismatch in " + context
+    );
+    switch (expected) {
+      case StvnValue.StvnBoolean b ->
+          Assertions.assertEquals(b.value(), ((StvnValue.StvnBoolean) actual).value(), context);
+      case StvnValue.StvnInt i ->
+          Assertions.assertEquals(i.value(), ((StvnValue.StvnInt) actual).value(), context);
+      case StvnValue.StvnFloat f -> {
+        StvnValue.StvnFloat af = (StvnValue.StvnFloat) actual;
+        Assertions.assertEquals(f.specialKind(), af.specialKind(), context);
+        Assertions.assertEquals(f.negativeZero(), af.negativeZero(), context);
+        if (f.specialKind() == StvnValue.Ieee754SpecialKind.FINITE && !f.negativeZero()) {
+          StvnSchema.FloatRepresentation rep = f.schema() instanceof StvnSchema.FloatSchema fs
+              ? fs.representation()
+              : StvnSchema.FloatRepresentation.IEEE_64;
+          switch (rep) {
+            case IEEE_32 -> Assertions.assertEquals(
+                Float.floatToRawIntBits(f.decimalValue().floatValue()),
+                Float.floatToRawIntBits(af.decimalValue().floatValue()),
+                context
+            );
+            case IEEE_64 -> Assertions.assertEquals(
+                Double.doubleToRawLongBits(f.decimalValue().doubleValue()),
+                Double.doubleToRawLongBits(af.decimalValue().doubleValue()),
+                context
+            );
+            case EXACT_DECIMAL -> Assertions.assertEquals(
+                0,
+                f.decimalValue().compareTo(af.decimalValue()),
+                context
+            );
+          }
+        }
+      }
+      case StvnValue.StvnString s ->
+          Assertions.assertEquals(s.value(), ((StvnValue.StvnString) actual).value(), context);
+      case StvnValue.StvnTimeEpoch te ->
+          Assertions.assertEquals(te.epochTicks(), ((StvnValue.StvnTimeEpoch) actual).epochTicks(), context);
+      case StvnValue.StvnDateTime dt -> {
+        StvnValue.StvnDateTime adt = (StvnValue.StvnDateTime) actual;
+        Assertions.assertEquals(dt.mode(), adt.mode(), context);
+        Assertions.assertEquals(dt.localWallClock(), adt.localWallClock(), context);
+        Assertions.assertEquals(dt.offset(), adt.offset(), context);
+        Assertions.assertEquals(dt.zone(), adt.zone(), context);
+      }
+      case StvnValue.StvnEnum en ->
+          Assertions.assertEquals(en.variantTag(), ((StvnValue.StvnEnum) actual).variantTag(), context);
+      case StvnValue.StvnOption opt -> {
+        StvnValue.StvnOption aopt = (StvnValue.StvnOption) actual;
+        Assertions.assertEquals(opt.value().isPresent(), aopt.value().isPresent(), context);
+        if (opt.value().isPresent()) {
+          assertEquivalentValues(opt.value().get(), aopt.value().get(), context);
+        }
+      }
+      case StvnValue.StvnEither eith -> {
+        StvnValue.StvnEither aeith = (StvnValue.StvnEither) actual;
+        Assertions.assertEquals(eith.branch(), aeith.branch(), context);
+        assertEquivalentValues(eith.value(), aeith.value(), context);
+      }
+      case StvnValue.StvnUnion un -> {
+        StvnValue.StvnUnion aun = (StvnValue.StvnUnion) actual;
+        Assertions.assertEquals(un.oneBasedBranchIndex(), aun.oneBasedBranchIndex(), context);
+        assertEquivalentValues(un.value(), aun.value(), context);
+      }
+      case StvnValue.StvnTuple tup -> {
+        StvnValue.StvnTuple atup = (StvnValue.StvnTuple) actual;
+        Assertions.assertEquals(tup.elements().size(), atup.elements().size(), context);
+        for (int idx = 0; idx < tup.elements().size(); idx++) {
+          assertEquivalentValues(tup.elements().get(idx), atup.elements().get(idx), context + "[" + idx + "]");
+        }
+      }
+      case StvnValue.StvnSeq seq -> {
+        StvnValue.StvnSeq aseq = (StvnValue.StvnSeq) actual;
+        Assertions.assertEquals(seq.elements().size(), aseq.elements().size(), context);
+        for (int idx = 0; idx < seq.elements().size(); idx++) {
+          assertEquivalentValues(seq.elements().get(idx), aseq.elements().get(idx), context + "[" + idx + "]");
+        }
+      }
+      case StvnValue.StvnSet set -> {
+        List<StvnValue> es = List.copyOf(set.elements());
+        List<StvnValue> as = List.copyOf(((StvnValue.StvnSet) actual).elements());
+        Assertions.assertEquals(es.size(), as.size(), context);
+        for (int idx = 0; idx < es.size(); idx++) {
+          assertEquivalentValues(es.get(idx), as.get(idx), context + "{" + idx + "}");
+        }
+      }
+      case StvnValue.StvnMap map -> {
+        List<StvnValue.KeyValueEntry> em = map.entries();
+        List<StvnValue.KeyValueEntry> am = ((StvnValue.StvnMap) actual).entries();
+        Assertions.assertEquals(em.size(), am.size(), context);
+        for (int idx = 0; idx < em.size(); idx++) {
+          assertEquivalentValues(em.get(idx).key(), am.get(idx).key(), context + "[k" + idx + "]");
+          assertEquivalentValues(em.get(idx).value(), am.get(idx).value(), context + "[v" + idx + "]");
+        }
+      }
+      case StvnValue.StvnErrorValue err ->
+          Assertions.assertEquals(
+              err.diagnostic().message(),
+              ((StvnValue.StvnErrorValue) actual).diagnostic().message(),
+              context
+          );
+    }
   }
 
   private static final class PrettyLayoutWriterTestHelper {

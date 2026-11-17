@@ -1,0 +1,44 @@
+// @spec: SPEC-10-SUM-TYPES
+// @case: Positive - Deep nested sum-type explicit and asymmetric happy-path inference
+{
+  :meta {
+    #name "sum_type_torture"
+    #kind #BODY
+  }
+  :type :Seq(:Option(:Either(:String :Option(:Either(:String :Float)))))
+  :body [
+    // =========================================================================
+    // EXPLICITLY TAGGED PERMUTATIONS (The baseline syntax paths)
+    // =========================================================================
+
+    #None
+    #Some #Left "Explicit Outer Left"
+    #Some #Right #None
+    #Some #Right #Some #Left "Explicit Inner Left"
+    #Some #Right #Some #Right 3.14159
+
+    // =========================================================================
+    // VALID SPEC-COMPLIANT INFERENCE PATHWAYS (Asymmetric Happy-Paths)
+    // =========================================================================
+
+    // Path A: Partially Inferred Inner Empty - above Explicit case 3
+    #None
+    #Some #None
+    #Right #None
+
+    // Path A: Partially inferred
+    #Some #Right #Some #Right 1.234
+    #Some #Right #Some 1.234
+    #Some #Right #Right 1.234
+    #Right #Some #Right 1.234
+    #Some #Some 1.234
+    #Right #Right 1.234
+    #Some #Right 1.234
+    #Right #Some 1.234
+    #Some 1.234
+    #Right 1.234
+
+    // Path B: Total Fall-Through Inference (The Only Deep Leaf Path Allowed) - Explicit 5
+    1.234
+  ]
+}

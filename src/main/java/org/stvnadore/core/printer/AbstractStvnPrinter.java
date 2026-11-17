@@ -109,7 +109,13 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
 
     var layout = createLayoutWriter(target);
     if (options.coverage() == PrinterOptions.Coverage.BODY_ONLY) {
-      PatternPrinterDispatcher.dispatch(value, layout, options);
+      PatternPrinterDispatcher.dispatch(
+          value,
+          layout,
+          options,
+          StvnVocabulary.FENCE_TAG_RAW,
+          StvnReachabilityAndCasVerifier.synthesizeDocumentFromValue(value).defs()
+      );
       layout.flush();
       return;
     }
@@ -176,7 +182,13 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
 
     var layout = createLayoutWriter(target);
     if (options.coverage() == PrinterOptions.Coverage.BODY_ONLY && document.payload().isPresent()) {
-      PatternPrinterDispatcher.dispatch(document.payload().get(), layout, options);
+      PatternPrinterDispatcher.dispatch(
+          document.payload().get(),
+          layout,
+          options,
+          StvnVocabulary.FENCE_TAG_RAW,
+          document.defs()
+      );
       layout.flush();
       return;
     }
@@ -302,7 +314,7 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
         String constFenceTag = isRegexConstantIdentifier(constEntry.getKey())
             ? StvnVocabulary.FENCE_TAG_REGEX
             : StvnVocabulary.FENCE_TAG_RAW;
-        PatternPrinterDispatcher.dispatch(constEntry.getValue().value(), layout, options, constFenceTag);
+        PatternPrinterDispatcher.dispatch(constEntry.getValue().value(), layout, options, constFenceTag, defs);
       }
 
       for (var typeEntry : defs.nominalTypes().entrySet()) {
@@ -358,7 +370,7 @@ public abstract sealed class AbstractStvnPrinter implements StvnTextPrinter perm
       }
       layout.writeLiteral(StvnVocabulary.KEYWORD_BODY);
       layout.appendSeparator();
-      PatternPrinterDispatcher.dispatch(doc.payload().get(), layout, options);
+      PatternPrinterDispatcher.dispatch(doc.payload().get(), layout, options, StvnVocabulary.FENCE_TAG_RAW, defs);
     }
 
     if (pretty) {
