@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "modular_di_failed_include_closed_prelude_use"
+    #domain "core_test"
+    #kind #DEFS_INCLUDE
+  }
+  :defs {
+    :include [ "missing_10b.core_test.stvn_di" ]
+    :use [ :external/unloaded/deep_space { #strip } ]
+    :use [ :org/stvnadore/prelude/nonexistent { #strip } ]
+    :use [ :org/stvnadore/prelude/meta { #strip } ]
+    :PackageScopedKind :StvnDocumentKind
+  }
+}

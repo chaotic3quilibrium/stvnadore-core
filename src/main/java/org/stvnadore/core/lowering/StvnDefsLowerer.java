@@ -774,6 +774,7 @@ public final class StvnDefsLowerer {
       Optional<StvnSchema> rootType,
       boolean hasDefsSection,
       boolean hasIncludes,
+      boolean anyIncludeFailed,
       boolean sectionsEligible,
       Map<String, ExportedTypeSymbol> exportedTypes,
       Map<String, ExportedConstantSymbol> exportedConstants,
@@ -1410,6 +1411,7 @@ public final class StvnDefsLowerer {
         Optional.empty(),
         false,
         false,
+        true,
         false,
         Map.of(),
         Map.of(),
@@ -1441,6 +1443,7 @@ public final class StvnDefsLowerer {
           false,
           false,
           true,
+          true,
           Map.of(),
           Map.of(),
           (tok, site) -> Optional.empty(),
@@ -1460,6 +1463,7 @@ public final class StvnDefsLowerer {
           Optional.empty(),
           !body.defsEntry().isEmpty(),
           false,
+          true,
           false,
           Map.of(),
           Map.of(),
@@ -1498,6 +1502,7 @@ public final class StvnDefsLowerer {
         rootType,
         env.hasDefsSection,
         env.hasIncludes,
+        env.anyIncludeFailed,
         true,
         env.exportedTypes,
         env.exportedConstants,
@@ -2036,8 +2041,12 @@ public final class StvnDefsLowerer {
     private final Map<String, LoweredSchemaBundle> loweredTypes = new LinkedHashMap<>();
     private final Map<String, StvnDefsCatalog.StvnConstant> loweredConstants = new LinkedHashMap<>();
     private final Set<String> evaluatingConstants = new LinkedHashSet<>();
+    private final Set<String> circularConstants = new HashSet<>();
+    private final Set<String> circularConstantDiagnosticsEmitted = new HashSet<>();
+    private final Map<String, String> constantCycleTraces = new HashMap<>();
     private final Set<String> circularDiagnosticsEmitted = new HashSet<>();
     private final Map<String, String> structuralCycleTraces = new HashMap<>();
+    private int suppressedPoisonedConstRefCount = 0;
 
     // Lexical scopes
     ScopeFrame rootScope = ScopeFrame.EMPTY;
@@ -2328,15 +2337,19 @@ public final class StvnDefsLowerer {
         }
       }
 
-      if (!isHermeticUnit() && !anyIncludeFailed) {
+      if (!isHermeticUnit()) {
         collectImportedPackagesFromClaims(packagedTypeClaims.keySet(), false);
         collectImportedPackagesFromClaims(packagedConstClaims.keySet(), true);
         for (var useStmt : allDeclaredUseStmts) {
-          if (useStmt.useTarget() == null || useStmt.useTarget().useTargetIllegal() != null) {
+          if (!isValidSyntacticUseTarget(useStmt.useTarget(), diagnosticBag)) {
             continue;
           }
           String target = useStmt.useTarget().getText();
           boolean isPrelude = !moduleCtx.bootstrapPreludeMode && StvnPrelude.isPreludePackageTarget(target);
+          boolean isClosedReservedTarget = !moduleCtx.isSystemAuthority() && isReservedPackage(target);
+          if (anyIncludeFailed && !isClosedReservedTarget) {
+            continue;
+          }
           boolean isLocal = matchesDeclaredOrParentPackage(target, locallyDeclaredPackages);
           boolean isImported = matchesDeclaredOrParentPackage(target, importedPackages);
           if (!isPrelude && !isLocal && !isImported) {
@@ -2657,7 +2670,7 @@ public final class StvnDefsLowerer {
             sp.start(), sp.end(), sp.line(), sp.column(), null,
             DiagnosticBag.ERR_TRAILING_SLASH_PROHIBITED
         );
-      } else if (useStmt.useTarget() != null) {
+      } else if (isValidSyntacticUseTarget(useStmt.useTarget(), diagnosticBag)) {
         String target = useStmt.useTarget().getText();
         boolean isHermetic = isHermeticUnit();
         if (isHermetic) {
@@ -2701,6 +2714,25 @@ public final class StvnDefsLowerer {
             DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
         );
       }
+    }
+
+    private static boolean isValidSyntacticUseTarget(
+        StvnParser.@Nullable UseTargetContext ut,
+        DiagnosticBag diagnosticBag
+    ) {
+      if (ut == null || ut.exception != null || ut.useTargetIllegal() != null || ut.typeKeyword() == null) {
+        return false;
+      }
+      Token startTok = ut.typeKeyword().getStart();
+      Token stopTok = ut.typeKeyword().getStop();
+      if (startTok == null || stopTok == null || startTok.getTokenIndex() < 0 || startTok.getStartIndex() < 0) {
+        return false;
+      }
+      String raw = ut.getText();
+      if (raw.isEmpty() || StvnVocabulary.SIGIL_TYPIC.equals(raw) || raw.contains("<missing")) {
+        return false;
+      }
+      return !hasPass1SyntaxErrorInSpan(diagnosticBag, Span.ofContext(ut));
     }
 
     private static boolean matchesDeclaredOrParentPackage(String target, Set<String> candidatePackages) {
@@ -3106,7 +3138,8 @@ public final class StvnDefsLowerer {
           }
         }
 
-        if (importedUnit.exportedTypes().isEmpty() && importedUnit.exportedConstants().isEmpty()) {
+        if (importedUnit.anyIncludeFailed()
+            || (importedUnit.exportedTypes().isEmpty() && importedUnit.exportedConstants().isEmpty())) {
           this.anyIncludeFailed = true;
         }
 
@@ -3687,7 +3720,7 @@ public final class StvnDefsLowerer {
     }
 
     private static boolean isPoisonedConstant(StvnDefsCatalog.StvnConstant constant) {
-      return isRealPoisonedSchema(constant.schema()) || constant.value() instanceof StvnValue.StvnErrorValue;
+      return isRealPoisonedSchema(constant.schema()) || StvnPayloadLowerer.containsErrorValue(constant.value());
     }
 
     // =========================================================================
@@ -3857,16 +3890,8 @@ public final class StvnDefsLowerer {
         return Optional.empty();
       }
       if (evaluatingConstants.contains(fqni)) {
-        Span sp = Span.ofContext(decl.ctx());
-        String trace = String.join(" -> ", evaluatingConstants) + " -> " + fqni;
-        String msg = "Circular constant definition detected: " + trace;
-        diagnosticBag.addError(
-            msg,
-            sp.start(), sp.end(), sp.line(), sp.column(),
-            new CircularReferenceException(msg),
-            DiagnosticBag.ERR_CIRCULAR_TYPE
-        );
-        return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE));
+        emitConstantCycleRingDiagnostics(fqni);
+        return Optional.of(loweredConstants.get(fqni));
       }
 
       evaluatingConstants.add(fqni);
@@ -3885,6 +3910,9 @@ public final class StvnDefsLowerer {
         );
         StvnSchema constSchema = schemaBundle.schema();
         if (isRealPoisonedSchema(constSchema)) {
+          if (circularConstants.contains(fqni)) {
+            return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE));
+          }
           if (constSchema instanceof StvnSchema.PoisonedSchema ps
               && DiagnosticBag.ERR_EMPTY_METADATA_BLOCK.equals(ps.primaryDiagnosticCode())
               && ps.bestEffortFallback().isPresent()
@@ -3898,15 +3926,23 @@ public final class StvnDefsLowerer {
                 this::findLoweredNominalSchema,
                 diagnosticBag
             );
-            if (!(fallbackVal instanceof StvnValue.StvnErrorValue)) {
+            if (!StvnPayloadLowerer.containsErrorValue(fallbackVal)) {
               StvnDefsCatalog.StvnConstant lowered = new StvnDefsCatalog.StvnConstant(fqni, fallbackSchema, fallbackVal);
               loweredConstants.put(fqni, lowered);
               return Optional.of(lowered);
             }
+            if (circularConstants.contains(fqni) || checkAndEmitDirectCircularConstantStem(fqni, decl, scope)) {
+              return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE));
+            }
+          } else if (checkAndEmitDirectCircularConstantStem(fqni, decl, scope) || circularConstants.contains(fqni)) {
+            return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE));
           }
           return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
         }
         if (decl.ctx().value() == null) {
+          if (circularConstants.contains(fqni)) {
+            return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE));
+          }
           return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
         }
         StvnValue val = StvnPayloadLowerer.lowerConstantValue(
@@ -3917,7 +3953,10 @@ public final class StvnDefsLowerer {
             this::findLoweredNominalSchema,
             diagnosticBag
         );
-        if (val instanceof StvnValue.StvnErrorValue) {
+        if (circularConstants.contains(fqni) || checkAndEmitDirectCircularConstantStem(fqni, decl, scope)) {
+          return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE));
+        }
+        if (StvnPayloadLowerer.containsErrorValue(val)) {
           return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
         }
         StvnDefsCatalog.StvnConstant lowered = new StvnDefsCatalog.StvnConstant(fqni, constSchema, val);
@@ -3926,6 +3965,148 @@ public final class StvnDefsLowerer {
       } finally {
         evaluatingConstants.remove(fqni);
       }
+    }
+
+    private void emitConstantCycleRingDiagnostics(String closingFqni) {
+      List<String> activeList = new ArrayList<>(evaluatingConstants);
+      int startIdx = activeList.indexOf(closingFqni);
+      List<String> ring = startIdx >= 0
+          ? activeList.subList(startIdx, activeList.size())
+          : List.of(closingFqni);
+      int ringSize = ring.size();
+      for (int i = 0; i < ringSize; i++) {
+        String memberFqni = ring.get(i);
+        List<String> rotated = new ArrayList<>(ringSize + 1);
+        for (int offset = 0; offset < ringSize; offset++) {
+          rotated.add(ring.get((i + offset) % ringSize));
+        }
+        rotated.add(memberFqni);
+        String trace = String.join(" -> ", rotated);
+        constantCycleTraces.putIfAbsent(memberFqni, trace);
+        circularConstants.add(memberFqni);
+        if (circularConstantDiagnosticsEmitted.add(memberFqni)) {
+          LocalConstantAstDecl memberDecl = localConstAsts.get(memberFqni);
+          Span sp = memberDecl != null ? Span.ofContext(memberDecl.ctx()) : new Span(0, 1, 1, 0);
+          String msg = "Circular constant definition detected: " + constantCycleTraces.get(memberFqni);
+          diagnosticBag.addError(
+              msg,
+              sp.start(), sp.end(), sp.line(), sp.column(),
+              new CircularReferenceException(msg),
+              DiagnosticBag.ERR_CIRCULAR_TYPE
+          );
+        }
+        registerPoisonedConstant(memberFqni, DiagnosticBag.ERR_CIRCULAR_TYPE);
+      }
+    }
+
+    private boolean checkAndEmitDirectCircularConstantStem(
+        String fqni,
+        LocalConstantAstDecl decl,
+        ScopeFrame scope
+    ) {
+      if (decl.ctx().value() == null || decl.ctx().value().valueKeyword() == null) {
+        return false;
+      }
+      String rawRef = decl.ctx().value().valueKeyword().getText();
+      if (isBuiltinNonConstantValueKeyword(rawRef)) {
+        return false;
+      }
+      Optional<StvnDefsCatalog.StvnConstant> targetOpt;
+      String localTargetKey = resolveLocalConstantKey(rawRef, scope);
+      if (localTargetKey != null) {
+        targetOpt = loweredConstants.containsKey(localTargetKey)
+            ? Optional.of(loweredConstants.get(localTargetKey))
+            : ensureLocalConstantLowered(localTargetKey);
+      } else {
+        targetOpt = resolveImportedConstantSilent(rawRef, scope);
+      }
+      if (circularConstants.contains(fqni)) {
+        return true;
+      }
+      if (targetOpt.isPresent()
+          && targetOpt.get().schema() instanceof StvnSchema.PoisonedSchema ps
+          && DiagnosticBag.ERR_CIRCULAR_TYPE.equals(ps.primaryDiagnosticCode())) {
+        String targetFqni = targetOpt.get().fqni();
+        String targetTrace = constantCycleTraces.getOrDefault(targetFqni, targetFqni);
+        String stemTrace = fqni + " -> " + targetTrace;
+        constantCycleTraces.putIfAbsent(fqni, stemTrace);
+        circularConstants.add(fqni);
+        if (circularConstantDiagnosticsEmitted.add(fqni)) {
+          Span sp = Span.ofContext(decl.ctx());
+          String msg = "Circular constant definition detected: " + constantCycleTraces.get(fqni);
+          diagnosticBag.addError(
+              msg,
+              sp.start(), sp.end(), sp.line(), sp.column(),
+              new CircularReferenceException(msg),
+              DiagnosticBag.ERR_CIRCULAR_TYPE
+          );
+        }
+        return true;
+      }
+      return false;
+    }
+
+    private @Nullable String resolveLocalConstantKey(String rawToken, ScopeFrame scope) {
+      if (scope.constAliases().containsKey(rawToken)) {
+        String mapped = scope.constAliases().get(rawToken);
+        if (mapped.equals(rawToken) && scope.packagePrefix().isPresent() && !rawToken.contains("/")) {
+          String pkgConstFqni = StvnVocabulary.SIGIL_VALUE
+              + scope.packagePrefix().get().substring(1) + "/" + rawToken.substring(1);
+          if (localConstAsts.containsKey(pkgConstFqni)) {
+            return pkgConstFqni;
+          }
+        }
+        if (localConstAsts.containsKey(mapped)) {
+          return mapped;
+        }
+      }
+      if (scope.packagePrefix().isPresent() && !rawToken.contains("/")) {
+        String pkgConstFqni = StvnVocabulary.SIGIL_VALUE
+            + scope.packagePrefix().get().substring(1) + "/" + rawToken.substring(1);
+        if (localConstAsts.containsKey(pkgConstFqni)) {
+          return pkgConstFqni;
+        }
+      }
+      if (scope != rootScope && rootScope.constAliases().containsKey(rawToken)) {
+        String rootMapped = rootScope.constAliases().get(rawToken);
+        if (localConstAsts.containsKey(rootMapped)) {
+          return rootMapped;
+        }
+      }
+      if (localConstAsts.containsKey(rawToken)) {
+        return rawToken;
+      }
+      return null;
+    }
+
+    private Optional<StvnDefsCatalog.StvnConstant> resolveImportedConstantSilent(String rawToken, ScopeFrame scope) {
+      if (scope.constAliases().containsKey(rawToken)) {
+        String mapped = scope.constAliases().get(rawToken);
+        Optional<StvnDefsCatalog.StvnConstant> aliased = lookupImportedConstantSilent(mapped);
+        if (aliased.isPresent()) {
+          return aliased;
+        }
+      }
+      if (scope != rootScope && rootScope.constAliases().containsKey(rawToken)) {
+        String rootMapped = rootScope.constAliases().get(rawToken);
+        Optional<StvnDefsCatalog.StvnConstant> rootAliased = lookupImportedConstantSilent(rootMapped);
+        if (rootAliased.isPresent()) {
+          return rootAliased;
+        }
+      }
+      return lookupImportedConstantSilent(rawToken);
+    }
+
+    private Optional<StvnDefsCatalog.StvnConstant> lookupImportedConstantSilent(String fqni) {
+      ExportedConstantSymbol imp = importedConstPool.get(fqni);
+      if (imp != null) {
+        return Optional.of(imp.constant());
+      }
+      ExportedConstantSymbol pkgImp = packagedConstImportPool.get(fqni);
+      if (pkgImp != null && fqni.contains("/")) {
+        return Optional.of(pkgImp.constant());
+      }
+      return Optional.empty();
     }
 
     private LoweredSchemaBundle ensureLocalNominalTypeLowered(
@@ -4002,7 +4183,11 @@ public final class StvnDefsLowerer {
       StvnSchema branded = rebrandSchema(rawBundle.schema(), Optional.of(fqni));
       LoweredSchemaBundle finalized = new LoweredSchemaBundle(branded, rawBundle.ledger());
       loweredTypes.put(fqni, finalized);
-      return finalized;
+      if ((reachesTargetAlias(branded, fqni, new HashSet<>()) || isCircularlyUninhabitedNonTupleSchema(branded))
+          && !reachesAnyAlias(branded, visitedTypeStack, new HashSet<>())) {
+        verifyRecursiveInhabitationAndPoisonUnguarded();
+      }
+      return loweredTypes.getOrDefault(fqni, finalized);
     }
 
     private @Nullable String resolveLocalNominalKey(String rawKw, ScopeFrame scope) {
@@ -4074,109 +4259,214 @@ public final class StvnDefsLowerer {
           cyclicTypes.add(fqni);
         }
       }
-      if (cyclicTypes.isEmpty()) {
-        return;
-      }
-
-      Map<String, Boolean> inhabited = new LinkedHashMap<>();
-      for (Map.Entry<String, LoweredSchemaBundle> entry : loweredTypes.entrySet()) {
-        String fqni = entry.getKey();
-        StvnSchema schema = entry.getValue().schema();
-        if (cyclicTypes.contains(fqni)) {
-          inhabited.put(fqni, false);
-        } else if (schema instanceof StvnSchema.PoisonedSchema ps
-            && DiagnosticBag.ERR_CIRCULAR_TYPE.equals(ps.primaryDiagnosticCode())
-            && ps.isUngrounded()) {
-          inhabited.put(fqni, false);
-        } else {
-          inhabited.put(fqni, true);
-        }
-      }
-
-      boolean changed = true;
-      while (changed) {
-        changed = false;
-        for (String fqni : cyclicTypes) {
-          if (!Boolean.TRUE.equals(inhabited.get(fqni))) {
-            StvnSchema schema = loweredTypes.get(fqni).schema();
-            if (isSchemaFinitelyInhabited(schema, inhabited)) {
-              inhabited.put(fqni, true);
-              changed = true;
-            }
-          }
-        }
-      }
-
       Set<String> newlyPoisoned = new LinkedHashSet<>();
-      for (String fqni : cyclicTypes) {
-        if (!Boolean.TRUE.equals(inhabited.get(fqni))) {
-          newlyPoisoned.add(fqni);
-          String trace = buildStructuralCycleTrace(fqni, cyclicTypes, inhabited);
-          structuralCycleTraces.put(fqni, trace);
-          if (!circularDiagnosticsEmitted.contains(fqni)) {
-            LocalTypeAstDecl decl = localTypeAsts.get(fqni);
-            Span sp = decl != null ? Span.ofContext(decl.ctx()) : new Span(0, 1, 1, 0);
-            String msg = "Circular type definition detected: " + trace;
-            diagnosticBag.addError(
-                msg,
-                sp.start(), sp.end(), sp.line(), sp.column(),
-                new CircularReferenceException(msg),
-                DiagnosticBag.ERR_CIRCULAR_TYPE
-            );
-            circularDiagnosticsEmitted.add(fqni);
+      if (!cyclicTypes.isEmpty()) {
+        Map<String, Boolean> inhabited = new LinkedHashMap<>();
+        for (Map.Entry<String, LoweredSchemaBundle> entry : loweredTypes.entrySet()) {
+          String fqni = entry.getKey();
+          StvnSchema schema = entry.getValue().schema();
+          if (cyclicTypes.contains(fqni) || isCircularlyUninhabitedNonTupleSchema(schema)) {
+            inhabited.put(fqni, false);
+          } else {
+            inhabited.put(fqni, true);
           }
-          registerPoisonedType(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE);
         }
-      }
 
-      if (!newlyPoisoned.isEmpty()) {
-        boolean stemChanged = true;
-        while (stemChanged) {
-          stemChanged = false;
-          for (Map.Entry<String, LocalTypeAstDecl> entry : localTypeAsts.entrySet()) {
-            String fqni = entry.getKey();
-            if (newlyPoisoned.contains(fqni) || !loweredTypes.containsKey(fqni)) {
-              continue;
-            }
-            LocalTypeAstDecl ast = entry.getValue();
-            if (ast.ctx().schemaType() != null && ast.ctx().schemaType().typeKeyword() != null) {
-              ScopeFrame astScope = ast.packageCtx() != null
-                  ? packageScopes.getOrDefault(ast.packageCtx(), rootScope)
-                  : rootScope;
-              String rawTarget = ast.ctx().schemaType().typeKeyword().getText();
-              String targetKey = resolveLocalNominalKey(rawTarget, astScope);
-              if (targetKey != null && newlyPoisoned.contains(targetKey)) {
-                newlyPoisoned.add(fqni);
-                stemChanged = true;
-                String trace = buildCircularDerivationTrace(fqni, rawTarget);
-                structuralCycleTraces.put(fqni, trace);
-                if (!circularDiagnosticsEmitted.contains(fqni)) {
-                  Span sp = Span.ofContext(ast.ctx());
-                  String msg = "Circular type definition detected: " + trace;
-                  diagnosticBag.addError(
-                      msg,
-                      sp.start(), sp.end(), sp.line(), sp.column(),
-                      new CircularReferenceException(msg),
-                      DiagnosticBag.ERR_CIRCULAR_TYPE
-                  );
-                  circularDiagnosticsEmitted.add(fqni);
-                }
-                registerPoisonedType(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE);
+        boolean changed = true;
+        while (changed) {
+          changed = false;
+          for (String fqni : cyclicTypes) {
+            if (!Boolean.TRUE.equals(inhabited.get(fqni))) {
+              StvnSchema schema = loweredTypes.get(fqni).schema();
+              if (isSchemaFinitelyInhabited(schema, inhabited)) {
+                inhabited.put(fqni, true);
+                changed = true;
               }
             }
           }
         }
 
-        for (String fqni : new ArrayList<>(loweredTypes.keySet())) {
-          if (!newlyPoisoned.contains(fqni)) {
-            LoweredSchemaBundle bundle = loweredTypes.get(fqni);
-            StvnSchema updated = replaceNewlyPoisonedReferences(bundle.schema(), newlyPoisoned);
-            if (updated != bundle.schema()) {
-              loweredTypes.put(fqni, new LoweredSchemaBundle(updated, bundle.ledger()));
+        for (String fqni : cyclicTypes) {
+          if (!Boolean.TRUE.equals(inhabited.get(fqni))) {
+            newlyPoisoned.add(fqni);
+            String trace = buildStructuralCycleTrace(fqni, cyclicTypes, inhabited);
+            structuralCycleTraces.put(fqni, trace);
+            if (!circularDiagnosticsEmitted.contains(fqni)) {
+              LocalTypeAstDecl decl = localTypeAsts.get(fqni);
+              Span sp = decl != null ? Span.ofContext(decl.ctx()) : new Span(0, 1, 1, 0);
+              String msg = "Circular type definition detected: " + trace;
+              diagnosticBag.addError(
+                  msg,
+                  sp.start(), sp.end(), sp.line(), sp.column(),
+                  new CircularReferenceException(msg),
+                  DiagnosticBag.ERR_CIRCULAR_TYPE
+              );
+              circularDiagnosticsEmitted.add(fqni);
             }
+            registerPoisonedType(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE);
+          }
+        }
+        rewritePoisonedReferencesAcrossLoweredTypes(newlyPoisoned);
+      }
+
+      boolean stemChanged = true;
+      while (stemChanged) {
+        stemChanged = false;
+        Set<String> wavePoisoned = new LinkedHashSet<>();
+        for (Map.Entry<String, LocalTypeAstDecl> entry : localTypeAsts.entrySet()) {
+          String fqni = entry.getKey();
+          LoweredSchemaBundle currentBundle = loweredTypes.get(fqni);
+          if (currentBundle == null) {
+            continue;
+          }
+          StvnSchema currentSchema = currentBundle.schema();
+          if (currentSchema instanceof StvnSchema.PoisonedSchema ps
+              && DiagnosticBag.ERR_CIRCULAR_TYPE.equals(ps.primaryDiagnosticCode())
+              && ps.isUngrounded()) {
+            continue;
+          }
+          LocalTypeAstDecl ast = entry.getValue();
+          String detectedTrace = null;
+          if (ast.ctx().schemaType() != null && ast.ctx().schemaType().typeKeyword() != null) {
+            ScopeFrame astScope = ast.packageCtx() != null
+                ? packageScopes.getOrDefault(ast.packageCtx(), rootScope)
+                : rootScope;
+            String rawTarget = ast.ctx().schemaType().typeKeyword().getText();
+            String targetKey = resolveLocalNominalKey(rawTarget, astScope);
+            if (targetKey != null && isRegisteredCircularType(targetKey)) {
+              detectedTrace = buildCircularDerivationTrace(fqni, rawTarget);
+            }
+          } else if (isCircularlyUninhabitedNonTupleSchema(currentSchema)) {
+            String firstCircularTarget = findFirstCircularPoisonTarget(currentSchema);
+            String suffixTrace = firstCircularTarget != null
+                ? buildCircularDerivationTrace(firstCircularTarget, firstCircularTarget)
+                : fqni;
+            detectedTrace = fqni + " -> " + suffixTrace;
+          }
+
+          if (detectedTrace != null) {
+            wavePoisoned.add(fqni);
+            stemChanged = true;
+            structuralCycleTraces.put(fqni, detectedTrace);
+            if (!circularDiagnosticsEmitted.contains(fqni)) {
+              Span sp = Span.ofContext(ast.ctx());
+              String msg = "Circular type definition detected: " + detectedTrace;
+              diagnosticBag.addError(
+                  msg,
+                  sp.start(), sp.end(), sp.line(), sp.column(),
+                  new CircularReferenceException(msg),
+                  DiagnosticBag.ERR_CIRCULAR_TYPE
+              );
+              circularDiagnosticsEmitted.add(fqni);
+            }
+            registerPoisonedType(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE);
+          }
+        }
+        rewritePoisonedReferencesAcrossLoweredTypes(wavePoisoned);
+      }
+    }
+
+    private boolean isRegisteredCircularType(String fqni) {
+      LoweredSchemaBundle bundle = loweredTypes.get(fqni);
+      return bundle != null
+          && bundle.schema() instanceof StvnSchema.PoisonedSchema ps
+          && DiagnosticBag.ERR_CIRCULAR_TYPE.equals(ps.primaryDiagnosticCode())
+          && ps.isUngrounded();
+    }
+
+    private void rewritePoisonedReferencesAcrossLoweredTypes(Set<String> poisonedSet) {
+      if (poisonedSet.isEmpty()) {
+        return;
+      }
+      for (String fqni : new ArrayList<>(loweredTypes.keySet())) {
+        if (!poisonedSet.contains(fqni)) {
+          LoweredSchemaBundle bundle = loweredTypes.get(fqni);
+          StvnSchema updated = replaceNewlyPoisonedReferences(bundle.schema(), poisonedSet);
+          if (updated != bundle.schema()) {
+            loweredTypes.put(fqni, new LoweredSchemaBundle(updated, bundle.ledger()));
           }
         }
       }
+    }
+
+    private boolean isCircularlyUninhabitedNonTupleSchema(StvnSchema schema) {
+      if (schema instanceof StvnSchema.PoisonedSchema ps) {
+        if (DiagnosticBag.ERR_CIRCULAR_TYPE.equals(ps.primaryDiagnosticCode()) && ps.isUngrounded()) {
+          return true;
+        }
+        if (ps.bestEffortFallback().isPresent()) {
+          return isCircularlyUninhabitedNonTupleSchema(ps.bestEffortFallback().get());
+        }
+        return false;
+      }
+      return switch (schema) {
+        case StvnSchema.EitherSchema es ->
+            isCircularlyUninhabitedNonTupleSchema(es.leftSchema())
+                && isCircularlyUninhabitedNonTupleSchema(es.rightSchema());
+        case StvnSchema.UnionSchema us ->
+            us.branchSchemas().size() >= 2
+                && us.branchSchemas().stream().allMatch(this::isCircularlyUninhabitedNonTupleSchema);
+        case StvnSchema.SeqSchema ss ->
+            ss.minSize().compareTo(BigInteger.ZERO) > 0
+                && isCircularlyUninhabitedNonTupleSchema(ss.elementSchema());
+        case StvnSchema.SetSchema sts ->
+            sts.minSize().compareTo(BigInteger.ZERO) > 0
+                && isCircularlyUninhabitedNonTupleSchema(sts.elementSchema());
+        case StvnSchema.MapSchema ms ->
+            ms.minSize().compareTo(BigInteger.ZERO) > 0
+                && (isCircularlyUninhabitedNonTupleSchema(ms.keySchema())
+                    || isCircularlyUninhabitedNonTupleSchema(ms.valueSchema()));
+        default -> false;
+      };
+    }
+
+    private @Nullable String findFirstCircularPoisonTarget(StvnSchema schema) {
+      if (schema instanceof StvnSchema.PoisonedSchema ps) {
+        if (DiagnosticBag.ERR_CIRCULAR_TYPE.equals(ps.primaryDiagnosticCode()) && ps.isUngrounded()) {
+          return ps.aliasName().orElse(null);
+        }
+        if (ps.bestEffortFallback().isPresent()) {
+          return findFirstCircularPoisonTarget(ps.bestEffortFallback().get());
+        }
+        return null;
+      }
+      return switch (schema) {
+        case StvnSchema.EitherSchema es -> {
+          String left = findFirstCircularPoisonTarget(es.leftSchema());
+          yield left != null ? left : findFirstCircularPoisonTarget(es.rightSchema());
+        }
+        case StvnSchema.UnionSchema us -> {
+          for (StvnSchema branch : us.branchSchemas()) {
+            String found = findFirstCircularPoisonTarget(branch);
+            if (found != null) {
+              yield found;
+            }
+          }
+          yield null;
+        }
+        case StvnSchema.SeqSchema ss -> findFirstCircularPoisonTarget(ss.elementSchema());
+        case StvnSchema.SetSchema sts -> findFirstCircularPoisonTarget(sts.elementSchema());
+        case StvnSchema.MapSchema ms -> {
+          String keyTarget = isCircularlyUninhabitedNonTupleSchema(ms.keySchema())
+              ? findFirstCircularPoisonTarget(ms.keySchema())
+              : null;
+          yield keyTarget != null ? keyTarget : findFirstCircularPoisonTarget(ms.valueSchema());
+        }
+        default -> null;
+      };
+    }
+
+    private boolean reachesAnyAlias(
+        @Nullable StvnSchema schema,
+        Set<String> targetFqnis,
+        Set<String> visitedAliases
+    ) {
+      for (String target : targetFqnis) {
+        if (reachesTargetAlias(schema, target, new HashSet<>(visitedAliases))) {
+          return true;
+        }
+      }
+      return false;
     }
 
     private boolean reachesTargetAlias(
@@ -5057,6 +5347,7 @@ public final class StvnDefsLowerer {
       int lastSubTier = -1;
       String lastFacetName = null;
       int orderViolationCount = 0;
+      int poisonedConstRefBefore = this.suppressedPoisonedConstRefCount;
       String primaryFacetErrorCode = null;
       Set<String> seenFacetNames = new HashSet<>();
       boolean seenFloatSizeOrExact = false;
@@ -5813,7 +6104,8 @@ public final class StvnDefsLowerer {
       };
 
       AncestorFacetLedger finalLedger = lockIntrinsicDefaults(loweredSchema, mergedLedger);
-      if (diagnosticBag.errorCount() - orderViolationCount > errBefore) {
+      if (diagnosticBag.errorCount() - orderViolationCount > errBefore
+          || this.suppressedPoisonedConstRefCount > poisonedConstRefBefore) {
         Optional<StvnSchema> bestEffort = extractBestEffortFallback(loweredSchema, effectiveBrand);
         StvnSchema.PoisonedSchema poisoned = new StvnSchema.PoisonedSchema(
             effectiveBrand,
@@ -7155,6 +7447,7 @@ public final class StvnDefsLowerer {
           return null;
         }
         if (isPoisonedConstant(cOpt.get())) {
+          this.suppressedPoisonedConstRefCount++;
           return null;
         }
         StvnValue cv = cOpt.get().value();
@@ -7247,6 +7540,7 @@ public final class StvnDefsLowerer {
           return null;
         }
         if (isPoisonedConstant(cOpt.get())) {
+          this.suppressedPoisonedConstRefCount++;
           return null;
         }
         StvnValue cv = cOpt.get().value();
@@ -7345,6 +7639,7 @@ public final class StvnDefsLowerer {
           return null;
         }
         if (isPoisonedConstant(cOpt.get())) {
+          this.suppressedPoisonedConstRefCount++;
           return null;
         }
         if (cOpt.get().value() instanceof StvnValue.StvnBoolean sb) {
@@ -7406,6 +7701,7 @@ public final class StvnDefsLowerer {
           return null;
         }
         if (isPoisonedConstant(cOpt.get())) {
+          this.suppressedPoisonedConstRefCount++;
           return null;
         }
         if (cOpt.get().value() instanceof StvnValue.StvnBoolean sb) {
@@ -7472,6 +7768,7 @@ public final class StvnDefsLowerer {
           return null;
         }
         if (isPoisonedConstant(cOpt.get())) {
+          this.suppressedPoisonedConstRefCount++;
           return null;
         }
         if (cOpt.get().value() instanceof StvnValue.StvnString ss) {
@@ -7527,6 +7824,7 @@ public final class StvnDefsLowerer {
           return null;
         }
         if (isPoisonedConstant(cOpt.get())) {
+          this.suppressedPoisonedConstRefCount++;
           return null;
         }
         return switch (cOpt.get().value()) {

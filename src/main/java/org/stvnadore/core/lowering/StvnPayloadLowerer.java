@@ -1471,7 +1471,13 @@ public final class StvnPayloadLowerer {
     };
   }
 
-  private static boolean containsErrorValue(StvnValue value) {
+  /**
+   * Evaluates recursively whether {@code value} is or contains an {@link StvnErrorValue} sentinel.
+   *
+   * @param value the lowered pure-IR value to inspect
+   * @return {@code true} if {@code value} or any nested slot is an {@link StvnErrorValue}; {@code false} otherwise
+   */
+  static boolean containsErrorValue(StvnValue value) {
     return switch (value) {
       case StvnErrorValue ignored -> true;
       case StvnValue.StvnTuple t -> t.elements().stream().anyMatch(StvnPayloadLowerer::containsErrorValue);

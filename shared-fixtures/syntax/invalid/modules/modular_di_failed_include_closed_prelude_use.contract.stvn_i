@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "modular_di_failed_include_closed_prelude_use"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E005 #MODULE_IMPORT_FAILED #ERROR 8 16 146 177 "Failed to read include file: missing_10b.core_test.stvn_di" )
+    ( #E030 #UNDEFINED_TYPE #ERROR 10 12 245 279 "Unresolved package in :use directive: ':org/stvnadore/prelude/nonexistent' is not declared in prelude, local :defs, or any :include module" )
+  ]
+}

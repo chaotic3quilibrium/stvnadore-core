@@ -1,0 +1,37 @@
+{
+  :meta {
+    #name "inv_stage11_cyclic_coproduct_stems_and_symmetric_const_cycles"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 11 5 273 306 "Circular type definition detected: :DirectSelfCycle -> :DirectSelfCycle" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 12 5 311 333 "Circular type definition detected: :CycleAlpha -> :CycleBeta -> :CycleAlpha" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 13 5 338 360 "Circular type definition detected: :CycleBeta -> :CycleAlpha -> :CycleBeta" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 14 5 365 394 "Circular type definition detected: :DerivedFromCycle -> :CycleAlpha -> :CycleBeta -> :CycleAlpha" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 15 5 399 462 "Circular type definition detected: :UnguardedTupleCycle -> :UnguardedTupleCycle" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 16 5 467 567 "Circular type definition detected: :UninhabitedNonEmptyTree -> :UninhabitedNonEmptyTree" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 18 5 573 637 "Circular type definition detected: :AllBranchesCyclicUnion -> :CycleAlpha -> :CycleBeta -> :CycleAlpha" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 19 5 642 705 "Circular type definition detected: :AllBranchesCyclicEither -> :CycleAlpha -> :CycleBeta -> :CycleAlpha" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 20 5 710 761 "Circular type definition detected: :NonEmptyCyclicSeq -> :CycleAlpha -> :CycleBeta -> :CycleAlpha" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 21 5 766 826 "Circular type definition detected: :NonEmptyCyclicSet -> :UnguardedTupleCycle -> :UnguardedTupleCycle" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 22 5 831 893 "Circular type definition detected: :NonEmptyCyclicMap -> :CycleAlpha -> :CycleBeta -> :CycleAlpha" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 23 5 898 948 "Circular type definition detected: :DerivedFromAllCyclicUnion -> :AllBranchesCyclicUnion -> :CycleAlpha -> :CycleBeta -> :CycleAlpha" )
+    ( #E030 #UNDEFINED_TYPE #ERROR 32 25 1299 1319 "Undefined type: :MissingExternalType" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 37 5 1531 1568 "Circular constant definition detected: #CONST_PING -> #CONST_PONG -> #CONST_PING" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 38 5 1573 1610 "Circular constant definition detected: #CONST_PONG -> #CONST_PING -> #CONST_PONG" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 39 5 1615 1652 "Circular constant definition detected: #DERIVED_CONST -> #CONST_PING -> #CONST_PONG -> #CONST_PING" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 41 5 1658 1687 "Circular constant definition detected: #RING_A -> #RING_B -> #RING_C -> #RING_A" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 42 5 1692 1721 "Circular constant definition detected: #RING_B -> #RING_C -> #RING_A -> #RING_B" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 43 5 1726 1755 "Circular constant definition detected: #RING_C -> #RING_A -> #RING_B -> #RING_C" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 45 5 1761 1811 "Circular constant definition detected: #FACET_CONST_A -> #FACET_CONST_B -> #FACET_CONST_A" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 46 5 1816 1866 "Circular constant definition detected: #FACET_CONST_B -> #FACET_CONST_A -> #FACET_CONST_B" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 49 7 1905 1929 "Circular constant definition detected: #acme/telemetry/PKG_PING -> #acme/telemetry/PKG_PONG -> #acme/telemetry/PKG_PING" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 50 7 1936 1960 "Circular constant definition detected: #acme/telemetry/PKG_PONG -> #acme/telemetry/PKG_PING -> #acme/telemetry/PKG_PONG" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 73 5 2384 2385 "Constraint violation (:MetricWeight): Value 0 is outside allowable range (must be >= 1)" )
+  ]
+}

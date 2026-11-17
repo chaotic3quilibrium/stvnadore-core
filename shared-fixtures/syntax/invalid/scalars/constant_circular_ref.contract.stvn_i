@@ -10,5 +10,6 @@
   :type :ErrorContract
   :body [
     ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 6 5 128 150 "Circular constant definition detected: #CONST_A -> #CONST_B -> #CONST_A" )
+    ( #E007 #CIRCULAR_TYPE_DEFINITION #ERROR 7 5 155 177 "Circular constant definition detected: #CONST_B -> #CONST_A -> #CONST_B" )
   ]
 }

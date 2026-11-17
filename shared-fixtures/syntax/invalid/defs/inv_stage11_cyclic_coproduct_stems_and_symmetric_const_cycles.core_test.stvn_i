@@ -1,0 +1,75 @@
+{
+  :meta {
+    #name "inv_stage11_cyclic_coproduct_stems_and_symmetric_const_cycles"
+    #domain "core_test"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :MetricWeight { #unsigned #size 16 #minIncl 1 #maxExcl 1000 } :Int
+    :NodeLabel { #minSize 1 #maxSize 8 } :String
+
+    :DirectSelfCycle :DirectSelfCycle
+    :CycleAlpha :CycleBeta
+    :CycleBeta :CycleAlpha
+    :DerivedFromCycle :CycleAlpha
+    :UnguardedTupleCycle :Tuple(:MetricWeight :UnguardedTupleCycle)
+    :UninhabitedNonEmptyTree :Tuple(:NodeLabel { #minSize 1 #maxSize 8 } :Seq(:UninhabitedNonEmptyTree))
+
+    :AllBranchesCyclicUnion :Union(:CycleAlpha :UnguardedTupleCycle)
+    :AllBranchesCyclicEither :Either(:CycleAlpha :DerivedFromCycle)
+    :NonEmptyCyclicSeq { #minSize 1 } :Seq(:CycleAlpha)
+    :NonEmptyCyclicSet { #minSize 1 } :Set(:UnguardedTupleCycle)
+    :NonEmptyCyclicMap { #minSize 1 } :Map(:NodeLabel :CycleAlpha)
+    :DerivedFromAllCyclicUnion :AllBranchesCyclicUnion
+
+    :GuardedOptionOfCycle :Option(:CycleAlpha)
+    :EmptyAllowedSeqOfCycle :Seq(:CycleAlpha)
+    :EmptyAllowedSetOfCycle :Set(:CycleAlpha)
+    :EmptyAllowedMapOfCycle :Map(:CycleAlpha :CycleBeta)
+    :PartiallyInhabitedUnion :Union(:MetricWeight :CycleAlpha)
+    :PartiallyInhabitedEither :Either(:CycleAlpha :MetricWeight)
+
+    :BrokenUndefinedRef :MissingExternalType
+    :UnionWithNonCircularError :Union(:CycleAlpha :BrokenUndefinedRef)
+    :NonEmptySeqOfUndefined { #minSize 1 } :Seq(:BrokenUndefinedRef)
+    :AcyclicPairOfCycles :Tuple(:CycleAlpha :UnguardedTupleCycle)
+
+    #CONST_PING :MetricWeight #CONST_PONG
+    #CONST_PONG :MetricWeight #CONST_PING
+    #DERIVED_CONST :NodeLabel #CONST_PING
+
+    #RING_A :MetricWeight #RING_B
+    #RING_B :MetricWeight #RING_C
+    #RING_C :MetricWeight #RING_A
+
+    #FACET_CONST_A { #minIncl #FACET_CONST_B } :Int 10
+    #FACET_CONST_B { #minIncl #FACET_CONST_A } :Int 20
+
+    :package :acme/telemetry {
+      #PKG_PING :Int #PKG_PONG
+      #PKG_PONG :Int #PKG_PING
+    }
+
+    :Stage11Matrix :Tuple(
+      :AllBranchesCyclicUnion
+      :NonEmptyCyclicSeq
+      :AcyclicPairOfCycles
+      :GuardedOptionOfCycle
+      :EmptyAllowedSeqOfCycle
+      :PartiallyInhabitedUnion
+      :MetricWeight
+      :MetricWeight
+    )
+  }
+  :type :Stage11Matrix
+  :body (
+    "suspended-union-slot"
+    "suspended-seq-slot"
+    ( "suspended-a" "suspended-b" )
+    #None
+    []
+    50
+    #DERIVED_CONST
+    0
+  )
+}
