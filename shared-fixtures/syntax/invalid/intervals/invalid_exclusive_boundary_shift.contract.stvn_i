@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #ERR_EMPTY_INTERVAL_DOMAIN #ERROR 6 30 166 176 "Constraint violation (:ShiftedType): discrete integer interval [6, 6) defines an empty domain" )
+    ( #E009 #ERR_EMPTY_INTERVAL_DOMAIN #ERROR 6 19 155 176 "Constraint violation (:ShiftedType): discrete integer interval [6, 6) defines an empty domain" )
   ]
 }

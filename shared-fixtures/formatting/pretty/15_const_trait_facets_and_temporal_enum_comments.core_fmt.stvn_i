@@ -5,7 +5,7 @@
     #kind #BODY_INCLUDE
   }
   :defs {
-    :AuditTimestamp { #audited #maxExcl "2030-01-01T00:00:00Z" } :DateTime
+    :AuditTimestamp { #audited #maxExcl "2030-01-01T00:00:00Z[UTC]" } :DateTime
     :SettlementState :Enum[#CREATED #AUTHORIZED #CAPTURED #SETTLED #VOIDED #REFUNDED]
     :FinalizableState { #filterIncl [#AUTHORIZED #CAPTURED #SETTLED] } :SettlementState
     :RawTemplate {

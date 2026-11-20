@@ -3,9 +3,89 @@ lexer grammar StvnLexer;
 @members {
     // Isolated Lexer state to track exact fencing boundaries during Mode transitions
     private String currentFenceTag = "";
+    private final java.util.Deque<String> mismatchedNestedTags = new java.util.ArrayDeque<>();
 
     public String getCurrentFenceTag() {
         return currentFenceTag;
+    }
+
+    private static boolean isValidFenceTagChar(int ch) {
+        return (ch >= 'a' && ch <= 'z')
+            || (ch >= 'A' && ch <= 'Z')
+            || (ch >= '0' && ch <= '9')
+            || ch == '_'
+            || ch == '-';
+    }
+
+    private boolean hasMatchingCloseAhead(String tag) {
+        int start = _input.index();
+        int size = _input.size();
+        if (start >= size) {
+            return false;
+        }
+        String rem = _input.getText(org.antlr.v4.runtime.misc.Interval.of(start, size - 1));
+        return rem.contains("[" + tag + "]\"\"\"");
+    }
+
+    private boolean hasDepthZeroCandidateCloseAhead() {
+        int start = _input.index();
+        int size = _input.size();
+        if (start >= size) {
+            return false;
+        }
+        String rem = _input.getText(org.antlr.v4.runtime.misc.Interval.of(start, size - 1));
+        int len = rem.length();
+        java.util.Deque<String> nestedStack = new java.util.ArrayDeque<>();
+        int i = 0;
+        while (i < len) {
+            if (rem.startsWith("\"\"\"[", i)) {
+                int p = i + 4;
+                while (p < len && isValidFenceTagChar(rem.charAt(p))) {
+                    p++;
+                }
+                int tagLen = p - (i + 4);
+                if (tagLen >= 1 && tagLen <= 256 && p < len && rem.charAt(p) == ']') {
+                    int scan = p + 1;
+                    while (scan < len && (rem.charAt(scan) == ' ' || rem.charAt(scan) == '\r')) {
+                        scan++;
+                    }
+                    if (scan < len && rem.charAt(scan) == '\n') {
+                        String innerTag = rem.substring(i + 4, p);
+                        if (rem.indexOf("[" + innerTag + "]\"\"\"", scan + 1) >= 0) {
+                            nestedStack.push(innerTag);
+                            i = scan + 1;
+                            continue;
+                        }
+                    }
+                }
+            }
+            if (rem.charAt(i) == '[') {
+                int closeBracket = rem.indexOf(']', i + 1);
+                if (closeBracket > i) {
+                    boolean validCloseSpan = true;
+                    for (int k = i + 1; k < closeBracket; k++) {
+                        char c = rem.charAt(k);
+                        if (c == '\r' || c == '\n' || c == '[') {
+                            validCloseSpan = false;
+                            break;
+                        }
+                    }
+                    if (validCloseSpan && rem.startsWith("\"\"\"", closeBracket + 1)) {
+                        String closeTag = rem.substring(i + 1, closeBracket);
+                        if (!nestedStack.isEmpty()) {
+                            if (closeTag.equals(nestedStack.peek())) {
+                                nestedStack.pop();
+                            }
+                            i = closeBracket + 4;
+                            continue;
+                        }
+                        return true;
+                    }
+                }
+            }
+            i++;
+        }
+        return false;
     }
 }
 
@@ -121,6 +201,10 @@ FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     if (tag.length() > 256) {
         setType(MALFORMED_FENCE_OPEN);
         pushMode(MALFORMED_FENCED_STRING);
+    } else if (!hasMatchingCloseAhead(tag) && hasDepthZeroCandidateCloseAhead()) {
+        setType(MALFORMED_FENCE_OPEN);
+        mismatchedNestedTags.clear();
+        pushMode(MISMATCHED_FENCED_STRING);
     } else {
         currentFenceTag = tag;
         pushMode(FENCED_STRING);
@@ -163,3 +247,31 @@ MALFORMED_BLOCK_END : '"""' -> popMode ;
 
 // Retain body characters for malformedFencedString without cascading syntax errors in DEFAULT_MODE
 MALFORMED_FENCE_CONTENT : . ;
+
+mode MISMATCHED_FENCED_STRING;
+
+MISMATCHED_NESTED_OPEN : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
+    String text = getText();
+    int closeBracket = text.indexOf(']');
+    String innerTag = text.substring(4, closeBracket);
+    if (innerTag.length() <= 256 && hasMatchingCloseAhead(innerTag)) {
+        mismatchedNestedTags.push(innerTag);
+    }
+    setType(MALFORMED_FENCE_CONTENT);
+} ;
+
+MISMATCHED_CANDIDATE_END : '[' ~[\r\n[\]]* ']"""' {
+    String text = getText();
+    String closeTag = text.substring(1, text.length() - 4);
+    if (!mismatchedNestedTags.isEmpty()) {
+        if (closeTag.equals(mismatchedNestedTags.peek())) {
+            mismatchedNestedTags.pop();
+        }
+        setType(MALFORMED_FENCE_CONTENT);
+    } else {
+        setType(MALFORMED_FENCE_END);
+        popMode();
+    }
+} ;
+
+MISMATCHED_FENCE_CHAR : . -> type(MALFORMED_FENCE_CONTENT) ;

@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 15 35 720 730 "Constraint violation (:InvertedString): #minSize (10) cannot exceed #maxSize (5)" )
+    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 15 23 708 730 "Constraint violation (:InvertedString): #minSize (10) cannot exceed #maxSize (5)" )
   ]
 }

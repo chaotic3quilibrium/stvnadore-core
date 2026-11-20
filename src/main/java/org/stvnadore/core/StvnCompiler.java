@@ -170,10 +170,12 @@ public final class StvnCompiler {
           : List.of();
       var docBody = docCtx.documentBody();
       Set<StvnDiagnostic> preRecordedBodySyntaxSet = new LinkedHashSet<>(coalescedNumericDiags);
-      if (docBody != null && docBody.bodyEntry(0) != null && docBody.bodyEntry(0).getStart() != null) {
+      if (docBody != null && docBody.bodyEntry(0) != null
+          && docBody.bodyEntry(0).getStart() != null && docBody.bodyEntry(0).getStop() != null) {
         int bodyClauseStart = docBody.bodyEntry(0).getStart().getStartIndex();
+        int bodyClauseStop = docBody.bodyEntry(0).getStop().getStopIndex() + 1;
         for (StvnDiagnostic fd : malformedFenceDiags) {
-          if (fd.startOffset() >= bodyClauseStart) {
+          if (fd.startOffset() >= bodyClauseStart && fd.endOffset() <= bodyClauseStop) {
             preRecordedBodySyntaxSet.add(fd);
           }
         }

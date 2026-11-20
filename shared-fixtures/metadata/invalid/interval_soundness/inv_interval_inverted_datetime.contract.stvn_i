@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 15 65 748 779 "Constraint violation (:InvertedDateTime): datetime #minIncl exceeds #maxExcl" )
+    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 15 33 716 779 "Constraint violation (:InvertedDateTime): datetime #minIncl exceeds #maxExcl" )
   ]
 }

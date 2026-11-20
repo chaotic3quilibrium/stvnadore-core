@@ -84,7 +84,37 @@ public final class StvnDefsLowerer {
   private static final String RESERVED_PKG_ROOT = StvnVocabulary.SIGIL_TYPIC + "org/stvnadore";
   private static final String PRELUDE_PKG_ROOT = StvnVocabulary.SIGIL_TYPIC + "org/stvnadore/prelude";
   private static final Pattern POSIX_META_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{1,64}$");
+  private static final Pattern LOCAL_DATETIME_PREFIX_PATTERN = Pattern.compile(
+      "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\\.[0-9]+)?)?$"
+  );
   private static final BigDecimal IEEE_32_MAX_FINITE = new BigDecimal(String.valueOf(Float.MAX_VALUE));
+
+  private record BoundEntryPin(Span span, int entryIndex) {}
+
+  private static Span resolveBoundPairSpan(
+      @Nullable BoundEntryPin minPin,
+      @Nullable BoundEntryPin maxPin
+  ) {
+    if (minPin != null && maxPin != null) {
+      BoundEntryPin earlier = minPin.entryIndex() <= maxPin.entryIndex() ? minPin : maxPin;
+      BoundEntryPin later = minPin.entryIndex() <= maxPin.entryIndex() ? maxPin : minPin;
+      if (Math.abs(minPin.entryIndex() - maxPin.entryIndex()) == 1) {
+        return new Span(earlier.span().start(), later.span().end(), earlier.span().line(), earlier.span().column());
+      }
+      return later.span();
+    }
+    if (maxPin != null) {
+      return maxPin.span();
+    }
+    if (minPin != null) {
+      return minPin.span();
+    }
+    return new Span(0, 1, 1, 0);
+  }
+
+  private static boolean spanOverlaps(Span outer, @Nullable Span candidate) {
+    return candidate != null && outer.start() < candidate.end() && outer.end() > candidate.start();
+  }
 
   private static final List<String> PERMANENTLY_EXCISED_EXTENSIONS = List.of(
       ".stvn_incl", ".stvn_inclf", ".stvn_cas", ".stvn_bin",
@@ -5378,8 +5408,10 @@ public final class StvnDefsLowerer {
       Span childSizeSpan = null;
       BigInteger childMinSize = null;
       Span childMinSizeSpan = null;
+      BoundEntryPin childMinSizePin = null;
       BigInteger childMaxSize = null;
       Span childMaxSizeSpan = null;
+      BoundEntryPin childMaxSizePin = null;
 
       Boolean childEquatable = null;
       Span childEquatableSpan = null;
@@ -5390,16 +5422,22 @@ public final class StvnDefsLowerer {
 
       StvnParser.MetadataRangeContext minBoundCtx = null;
       String minBoundName = null;
+      BoundEntryPin minBoundPin = null;
       StvnParser.MetadataRangeContext maxBoundCtx = null;
       String maxBoundName = null;
+      BoundEntryPin maxBoundPin = null;
       StvnParser.MetadataRangeContext prohibitedDiscreteMinCtx = null;
+      BoundEntryPin prohibitedDiscreteMinPin = null;
       StvnParser.MetadataRangeContext prohibitedDiscreteMaxCtx = null;
+      BoundEntryPin prohibitedDiscreteMaxPin = null;
 
       StvnParser.MetadataStringContext regexCtx = null;
       StvnParser.MetadataFilterContext filterInclCtx = null;
       StvnParser.MetadataFilterContext filterExclCtx = null;
 
-      for (var entry : metaMap.metadataEntry()) {
+      List<StvnParser.MetadataEntryContext> entries = metaMap.metadataEntry();
+      for (int entryIdx = 0; entryIdx < entries.size(); entryIdx++) {
+        var entry = entries.get(entryIdx);
         boolean deferredToSpecializer = false;
         try {
         if (entry.metadataUnknownEntry() != null) {
@@ -5513,8 +5551,10 @@ public final class StvnDefsLowerer {
           );
           if ("minExcl".equals(facetName)) {
             prohibitedDiscreteMinCtx = entry.metadataRange();
+            prohibitedDiscreteMinPin = new BoundEntryPin(entrySpan, entryIdx);
           } else {
             prohibitedDiscreteMaxCtx = entry.metadataRange();
+            prohibitedDiscreteMaxPin = new BoundEntryPin(entrySpan, entryIdx);
           }
           continue;
         }
@@ -5772,6 +5812,7 @@ public final class StvnDefsLowerer {
             if (ms != null) {
               childMinSize = ms;
               childMinSizeSpan = entrySpan;
+              childMinSizePin = new BoundEntryPin(entrySpan, entryIdx);
             }
           }
           case "maxSize" -> {
@@ -5779,6 +5820,7 @@ public final class StvnDefsLowerer {
             if (mx != null) {
               childMaxSize = mx;
               childMaxSizeSpan = entrySpan;
+              childMaxSizePin = new BoundEntryPin(entrySpan, entryIdx);
             }
           }
           case "equatable" -> {
@@ -5805,11 +5847,13 @@ public final class StvnDefsLowerer {
           case "minIncl", "minExcl" -> {
             minBoundCtx = entry.metadataRange();
             minBoundName = facetName;
+            minBoundPin = new BoundEntryPin(entrySpan, entryIdx);
             deferredToSpecializer = true;
           }
           case "maxIncl", "maxExcl" -> {
             maxBoundCtx = entry.metadataRange();
             maxBoundName = facetName;
+            maxBoundPin = new BoundEntryPin(entrySpan, entryIdx);
             deferredToSpecializer = true;
           }
           case "regex" -> {
@@ -6016,7 +6060,7 @@ public final class StvnDefsLowerer {
         case StvnSchema.IntSchema intBase -> {
           StvnSchema res = lowerIntFacets(
               ownerLabel, effectiveBrand, intBase, parentName, parentLedger, isNominalDerivation,
-              childUnsigned, childSize, childSizeSpan, minBoundCtx, maxBoundCtx, finalTraits, scope
+              childUnsigned, childSize, childSizeSpan, minBoundCtx, minBoundPin, maxBoundCtx, maxBoundPin, finalTraits, scope
           );
           if (prohibitedDiscreteMinCtx != null || prohibitedDiscreteMaxCtx != null) {
             BigInteger candMin = minBoundCtx != null
@@ -6030,11 +6074,9 @@ public final class StvnDefsLowerer {
                     ? resolveIntegerMetadataArgQuiet(prohibitedDiscreteMaxCtx.metadataValue(), scope)
                     : intBase.explicitMaxExcl().orElse(null));
             if (candMin != null && candMax != null && candMin.compareTo(candMax) > 0) {
-              Span pin = Span.ofContext(
-                  maxBoundCtx != null ? maxBoundCtx
-                      : (prohibitedDiscreteMaxCtx != null ? prohibitedDiscreteMaxCtx
-                          : (minBoundCtx != null ? minBoundCtx : prohibitedDiscreteMinCtx))
-              );
+              BoundEntryPin effMinPin = minBoundPin != null ? minBoundPin : prohibitedDiscreteMinPin;
+              BoundEntryPin effMaxPin = maxBoundPin != null ? maxBoundPin : prohibitedDiscreteMaxPin;
+              Span pin = resolveBoundPairSpan(effMinPin, effMaxPin);
               diagnosticBag.addError(
                   "Constraint violation (" + ownerLabel + "): effective range is invalid (minimum "
                       + candMin + " is greater than maximum " + candMax + ")",
@@ -6049,24 +6091,24 @@ public final class StvnDefsLowerer {
         case StvnSchema.FloatSchema floatBase -> lowerFloatFacets(
             ownerLabel, effectiveBrand, floatBase, parentName, isNominalDerivation,
             childExact, childSize, childSizeSpan, childMaxSize, childMaxSizeSpan,
-            minBoundCtx, minBoundName, maxBoundCtx, maxBoundName, finalTraits, scope
+            minBoundCtx, minBoundName, minBoundPin, maxBoundCtx, maxBoundName, maxBoundPin, finalTraits, scope
         );
 
         case StvnSchema.StringSchema strBase -> lowerStringFacets(
             ownerLabel, effectiveBrand, strBase, parentName, isNominalDerivation,
-            childMinSize, childMinSizeSpan, childMaxSize, childMaxSizeSpan,
-            minBoundCtx, minBoundName, maxBoundCtx, maxBoundName, regexCtx,
+            childMinSize, childMinSizeSpan, childMinSizePin, childMaxSize, childMaxSizeSpan, childMaxSizePin,
+            minBoundCtx, minBoundName, minBoundPin, maxBoundCtx, maxBoundName, maxBoundPin, regexCtx,
             childPreserveIndent, childPreserveIndentSpan, finalTraits, scope
         );
 
         case StvnSchema.TimeEpochSchema teBase -> lowerTimeEpochFacets(
             ownerLabel, effectiveBrand, teBase, parentName, isNominalDerivation,
-            childScale, minBoundCtx, maxBoundCtx, finalTraits, scope
+            childScale, minBoundCtx, minBoundPin, maxBoundCtx, maxBoundPin, finalTraits, scope
         );
 
         case StvnSchema.DateTimeSchema dtBase -> lowerDateTimeFacets(
             ownerLabel, effectiveBrand, dtBase, parentName, isNominalDerivation,
-            childMode, minBoundCtx, maxBoundCtx, finalTraits, scope
+            childMode, minBoundCtx, minBoundPin, maxBoundCtx, maxBoundPin, finalTraits, scope
         );
 
         case StvnSchema.EnumSchema enumBase -> lowerEnumFacets(
@@ -6092,7 +6134,7 @@ public final class StvnDefsLowerer {
         case StvnSchema.SeqSchema seqBase -> {
           CardinalityPair cp = resolveCardinalityPair(
               ownerLabel, StvnVocabulary.TYPE_SEQ, seqBase.minSize(), seqBase.maxSize(),
-              childMinSize, childMinSizeSpan, childMaxSize, childMaxSizeSpan
+              childMinSize, childMinSizeSpan, childMinSizePin, childMaxSize, childMaxSizeSpan, childMaxSizePin
           );
           yield new StvnSchema.SeqSchema(effectiveBrand, cp.min(), cp.max(), seqBase.elementSchema(), finalTraits);
         }
@@ -6100,7 +6142,7 @@ public final class StvnDefsLowerer {
         case StvnSchema.SetSchema setBase -> {
           CardinalityPair cp = resolveCardinalityPair(
               ownerLabel, StvnVocabulary.TYPE_SET, setBase.minSize(), setBase.maxSize(),
-              childMinSize, childMinSizeSpan, childMaxSize, childMaxSizeSpan
+              childMinSize, childMinSizeSpan, childMinSizePin, childMaxSize, childMaxSizeSpan, childMaxSizePin
           );
           yield new StvnSchema.SetSchema(effectiveBrand, cp.min(), cp.max(), setBase.elementSchema(), finalTraits);
         }
@@ -6118,7 +6160,7 @@ public final class StvnDefsLowerer {
           }
           CardinalityPair cp = resolveCardinalityPair(
               ownerLabel, StvnVocabulary.TYPE_MAP, mapBase.minSize(), mapBase.maxSize(),
-              childMinSize, childMinSizeSpan, childMaxSize, childMaxSizeSpan
+              childMinSize, childMinSizeSpan, childMinSizePin, childMaxSize, childMaxSizeSpan, childMaxSizePin
           );
           yield new StvnSchema.MapSchema(
               effectiveBrand, effectiveInv, cp.min(), cp.max(), mapBase.keySchema(), mapBase.valueSchema(), finalTraits
@@ -6163,11 +6205,17 @@ public final class StvnDefsLowerer {
         BigInteger inheritedMax,
         @Nullable BigInteger childMinSize,
         @Nullable Span childMinSizeSpan,
+        @Nullable BoundEntryPin childMinSizePin,
         @Nullable BigInteger childMaxSize,
-        @Nullable Span childMaxSizeSpan
+        @Nullable Span childMaxSizeSpan,
+        @Nullable BoundEntryPin childMaxSizePin
     ) {
       BigInteger effectiveMin = inheritedMin;
       BigInteger effectiveMax = inheritedMax;
+      String deferredMinW003 = null;
+      Span deferredMinSpan = null;
+      String deferredMaxW003 = null;
+      Span deferredMaxSpan = null;
 
       if (childMinSize != null && childMinSizeSpan != null) {
         if (childMinSize.signum() < 0) {
@@ -6178,12 +6226,9 @@ public final class StvnDefsLowerer {
           );
         } else if (childMinSize.signum() == 0) {
           boolean isStr = targetBaseType.equals(StvnVocabulary.TYPE_STRING);
-          diagnosticBag.addWarning(
-              "Constraint violation (" + ownerLabel + "): facet '#minSize 0' is redundant; "
-                  + (isStr ? "string cardinality is inherently non-negative" : "container cardinality is inherently non-negative"),
-              childMinSizeSpan.start(), childMinSizeSpan.end(), childMinSizeSpan.line(), childMinSizeSpan.column(),
-              DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-          );
+          deferredMinW003 = "Constraint violation (" + ownerLabel + "): facet '#minSize 0' is redundant; "
+              + (isStr ? "string cardinality is inherently non-negative" : "container cardinality is inherently non-negative");
+          deferredMinSpan = childMinSizeSpan;
         } else {
           effectiveMin = childMinSize;
         }
@@ -6197,19 +6242,30 @@ public final class StvnDefsLowerer {
               null, DiagnosticBag.ERR_CAPACITY_OVERFLOW
           );
         } else if (childMaxSize.equals(StvnVocabulary.DEFAULT_MAX_SIZE)) {
-          diagnosticBag.addWarning(
-              "Constraint violation (" + ownerLabel + "): facet '#maxSize 16777216' is redundant; '"
-                  + targetBaseType + "' intrinsically defaults to a maximum cardinality of 16,777,216",
-              childMaxSizeSpan.start(), childMaxSizeSpan.end(), childMaxSizeSpan.line(), childMaxSizeSpan.column(),
-              DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-          );
+          deferredMaxW003 = "Constraint violation (" + ownerLabel + "): facet '#maxSize 16777216' is redundant; '"
+              + targetBaseType + "' intrinsically defaults to a maximum cardinality of 16,777,216";
+          deferredMaxSpan = childMaxSizeSpan;
         } else {
           effectiveMax = childMaxSize;
         }
       }
 
       if (effectiveMin.compareTo(effectiveMax) > 0) {
-        Span pin = childMaxSizeSpan != null ? childMaxSizeSpan : (childMinSizeSpan != null ? childMinSizeSpan : new Span(0, 1, 1, 0));
+        Span pin = resolveBoundPairSpan(childMinSizePin, childMaxSizePin);
+        if (!spanOverlaps(pin, deferredMinSpan) && deferredMinW003 != null && deferredMinSpan != null) {
+          diagnosticBag.addWarning(
+              deferredMinW003,
+              deferredMinSpan.start(), deferredMinSpan.end(), deferredMinSpan.line(), deferredMinSpan.column(),
+              DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+          );
+        }
+        if (!spanOverlaps(pin, deferredMaxSpan) && deferredMaxW003 != null && deferredMaxSpan != null) {
+          diagnosticBag.addWarning(
+              deferredMaxW003,
+              deferredMaxSpan.start(), deferredMaxSpan.end(), deferredMaxSpan.line(), deferredMaxSpan.column(),
+              DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+          );
+        }
         diagnosticBag.addError(
             "Constraint violation (" + ownerLabel + "): #minSize (" + effectiveMin
                 + ") cannot exceed #maxSize (" + effectiveMax + ")",
@@ -6217,6 +6273,21 @@ public final class StvnDefsLowerer {
             null, DiagnosticBag.ERR_INVERTED_RANGE
         );
         return new CardinalityPair(BigInteger.ZERO, StvnVocabulary.DEFAULT_MAX_SIZE);
+      }
+
+      if (deferredMinW003 != null && deferredMinSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMinW003,
+            deferredMinSpan.start(), deferredMinSpan.end(), deferredMinSpan.line(), deferredMinSpan.column(),
+            DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
+      }
+      if (deferredMaxW003 != null && deferredMaxSpan != null) {
+        diagnosticBag.addWarning(
+            deferredMaxW003,
+            deferredMaxSpan.start(), deferredMaxSpan.end(), deferredMaxSpan.line(), deferredMaxSpan.column(),
+            DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+        );
       }
 
       return new CardinalityPair(effectiveMin, effectiveMax);
@@ -6233,7 +6304,9 @@ public final class StvnDefsLowerer {
         @Nullable BigInteger childSize,
         @Nullable Span childSizeSpan,
         StvnParser.@Nullable MetadataRangeContext minBoundCtx,
+        @Nullable BoundEntryPin minBoundPin,
         StvnParser.@Nullable MetadataRangeContext maxBoundCtx,
+        @Nullable BoundEntryPin maxBoundPin,
         TraitProfile finalTraits,
         ScopeFrame scope
     ) {
@@ -6305,22 +6378,16 @@ public final class StvnDefsLowerer {
           } else if (effectiveUnsigned && minVal.signum() == 0) {
             boolean ancestorEstablishesUnsigned = isNominalDerivation && parentLedger.lockedUnsigned().orElse(false) && !childUnsigned;
             String ancName = parentName != null ? parentName : "ancestor";
-            String msg = ancestorEstablishesUnsigned
+            deferredMinW003 = ancestorEstablishesUnsigned
                 ? "Constraint violation (" + ownerLabel + "): facet '#minIncl 0' is redundant; ancestor '"
                     + ancName + "' already establishes '#unsigned'"
                 : "Constraint violation (" + ownerLabel + "): facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, \\infty)";
-            diagnosticBag.addWarning(
-                msg, bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(),
-                DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-            );
+            deferredMinSpan = bSpan;
             // Strip redundant #minIncl 0 from IR node!
           } else if (!effectiveUnsigned && isExactSignedMinBound(minVal, effectiveBitWidth)) {
-            diagnosticBag.addWarning(
-                "Constraint violation (" + ownerLabel + "): facet '#minIncl " + minVal
-                    + "' is redundant; '#size " + effectiveBitWidth + "' already bounds the minimum value to " + minVal,
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(),
-                DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-            );
+            deferredMinW003 = "Constraint violation (" + ownerLabel + "): facet '#minIncl " + minVal
+                + "' is redundant; '#size " + effectiveBitWidth + "' already bounds the minimum value to " + minVal;
+            deferredMinSpan = bSpan;
           } else {
             if (effectiveMin.isPresent() && minVal.equals(effectiveMin.get())) {
               String ancName = parentName != null ? parentName : "ancestor";
@@ -6374,26 +6441,28 @@ public final class StvnDefsLowerer {
                 DiagnosticBag.ERR_INTEGER_OVERFLOW
             );
           } else if (isExactUnsignedCeiling) {
-            diagnosticBag.addWarning(
-                "Constraint violation (" + ownerLabel + "): facet '#maxExcl " + maxVal
-                    + "' is redundant; '#unsigned #size " + effectiveBitWidth
-                    + "' already bounds the domain to [0, " + maxVal + ")",
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(),
-                DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-            );
+            deferredMaxW003 = "Constraint violation (" + ownerLabel + "): facet '#maxExcl " + maxVal
+                + "' is redundant; '#unsigned #size " + effectiveBitWidth
+                + "' already bounds the domain to [0, " + maxVal + ")";
+            deferredMaxSpan = bSpan;
             // Strip redundant architectural ceiling from IR node!
           } else if (isExactSignedCeiling) {
-            diagnosticBag.addWarning(
-                "Constraint violation (" + ownerLabel + "): facet '#maxExcl " + maxVal
-                    + "' is redundant; '#size " + effectiveBitWidth
-                    + "' already bounds the maximum exclusive bound to " + maxVal,
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(),
-                DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-            );
-          } else if (effectiveUnsigned && maxVal.signum() == 0) {
+            deferredMaxW003 = "Constraint violation (" + ownerLabel + "): facet '#maxExcl " + maxVal
+                + "' is redundant; '#size " + effectiveBitWidth
+                + "' already bounds the maximum exclusive bound to " + maxVal;
+            deferredMaxSpan = bSpan;
+          } else if (effectiveUnsigned && maxVal.signum() == 0 && effectiveMin.isEmpty()) {
+            Span zeroPin = resolveBoundPairSpan(minBoundPin, maxBoundPin);
+            if (!spanOverlaps(zeroPin, deferredMinSpan) && deferredMinW003 != null && deferredMinSpan != null) {
+              diagnosticBag.addWarning(
+                  deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
+                  deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+              );
+            }
+            deferredMinW003 = null;
             diagnosticBag.addError(
                 "Constraint violation (" + ownerLabel + "): discrete integer interval [0, 0) defines an empty domain",
-                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+                zeroPin.start(), zeroPin.end(), zeroPin.line(), zeroPin.column(), null,
                 DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN
             );
           } else {
@@ -6413,14 +6482,20 @@ public final class StvnDefsLowerer {
       boolean pinnedIntervalErrorOnMax = false;
       if (effectiveMin.isPresent() && effectiveMax.isPresent()) {
         int cmp = effectiveMin.get().compareTo(effectiveMax.get());
-        Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
+        Span pin = resolveBoundPairSpan(minBoundPin, maxBoundPin);
         if (cmp == 0) {
-          pinnedIntervalErrorOnMax = maxBoundCtx != null;
-          pinnedIntervalErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          pinnedIntervalErrorOnMin = spanOverlaps(pin, deferredMinSpan);
+          pinnedIntervalErrorOnMax = spanOverlaps(pin, deferredMaxSpan);
           if (!pinnedIntervalErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
             diagnosticBag.addWarning(
                 deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
                 deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+          }
+          if (!pinnedIntervalErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+                deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
           }
           diagnosticBag.addError(
@@ -6433,12 +6508,18 @@ public final class StvnDefsLowerer {
               effectiveBrand, effectiveUnsigned, effectiveBitWidth, finalTraits, Optional.empty(), Optional.empty()
           );
         } else if (cmp > 0) {
-          pinnedIntervalErrorOnMax = maxBoundCtx != null;
-          pinnedIntervalErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          pinnedIntervalErrorOnMin = spanOverlaps(pin, deferredMinSpan);
+          pinnedIntervalErrorOnMax = spanOverlaps(pin, deferredMaxSpan);
           if (!pinnedIntervalErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
             diagnosticBag.addWarning(
                 deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
                 deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+          }
+          if (!pinnedIntervalErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+                deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
           }
           diagnosticBag.addError(
@@ -6506,8 +6587,10 @@ public final class StvnDefsLowerer {
         @Nullable Span childMaxSizeSpan,
         StvnParser.@Nullable MetadataRangeContext minBoundCtx,
         @Nullable String minBoundName,
+        @Nullable BoundEntryPin minBoundPin,
         StvnParser.@Nullable MetadataRangeContext maxBoundCtx,
         @Nullable String maxBoundName,
+        @Nullable BoundEntryPin maxBoundPin,
         TraitProfile finalTraits,
         ScopeFrame scope
     ) {
@@ -6603,12 +6686,18 @@ public final class StvnDefsLowerer {
 
       if (lower.isPresent() && upper.isPresent()) {
         int cmp = lower.get().value().compareTo(upper.get().value());
-        Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
+        Span pin = resolveBoundPairSpan(minBoundPin, maxBoundPin);
         if (cmp > 0) {
-          if (maxBoundCtx != null && deferredMinW003 != null && deferredMinSpan != null) {
+          if (!spanOverlaps(pin, deferredMinSpan) && deferredMinW003 != null && deferredMinSpan != null) {
             diagnosticBag.addWarning(
                 deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
                 deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+          }
+          if (!spanOverlaps(pin, deferredMaxSpan) && deferredMaxW003 != null && deferredMaxSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+                deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
           }
           diagnosticBag.addError(
@@ -6621,10 +6710,16 @@ public final class StvnDefsLowerer {
               effectiveBrand, rep, exactMaxDigits, finalTraits, Optional.empty(), Optional.empty()
           );
         } else if (cmp == 0 && (lower.get().kind() == BoundKind.EXCLUSIVE || upper.get().kind() == BoundKind.EXCLUSIVE)) {
-          if (maxBoundCtx != null && deferredMinW003 != null && deferredMinSpan != null) {
+          if (!spanOverlaps(pin, deferredMinSpan) && deferredMinW003 != null && deferredMinSpan != null) {
             diagnosticBag.addWarning(
                 deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
                 deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+          }
+          if (!spanOverlaps(pin, deferredMaxSpan) && deferredMaxW003 != null && deferredMaxSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+                deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
           }
           String errCode = rep == FloatRepresentation.EXACT_DECIMAL
@@ -6666,12 +6761,16 @@ public final class StvnDefsLowerer {
         boolean isNominalDerivation,
         @Nullable BigInteger childMinSize,
         @Nullable Span childMinSizeSpan,
+        @Nullable BoundEntryPin childMinSizePin,
         @Nullable BigInteger childMaxSize,
         @Nullable Span childMaxSizeSpan,
+        @Nullable BoundEntryPin childMaxSizePin,
         StvnParser.@Nullable MetadataRangeContext minBoundCtx,
         @Nullable String minBoundName,
+        @Nullable BoundEntryPin minBoundPin,
         StvnParser.@Nullable MetadataRangeContext maxBoundCtx,
         @Nullable String maxBoundName,
+        @Nullable BoundEntryPin maxBoundPin,
         StvnParser.@Nullable MetadataStringContext regexCtx,
         @Nullable Boolean childPreserveIndent,
         @Nullable Span childPreserveIndentSpan,
@@ -6680,7 +6779,7 @@ public final class StvnDefsLowerer {
     ) {
       CardinalityPair cp = resolveCardinalityPair(
           ownerLabel, StvnVocabulary.TYPE_STRING, strBase.minSize(), strBase.maxSize(),
-          childMinSize, childMinSizeSpan, childMaxSize, childMaxSizeSpan
+          childMinSize, childMinSizeSpan, childMinSizePin, childMaxSize, childMaxSizeSpan, childMaxSizePin
       );
 
       Optional<ContinuousBound<String>> lowerBound = strBase.lowerBound();
@@ -6731,16 +6830,23 @@ public final class StvnDefsLowerer {
       boolean pinnedErrorOnMax = false;
       if (lowerBound.isPresent() && upperBound.isPresent()) {
         int cmp = compareUtf8Lexicographical(lowerBound.get().value(), upperBound.get().value());
-        Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
+        Span pin = resolveBoundPairSpan(minBoundPin, maxBoundPin);
         if (cmp > 0) {
-          pinnedErrorOnMax = maxBoundCtx != null;
-          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          pinnedErrorOnMin = spanOverlaps(pin, deferredMinSpan);
+          pinnedErrorOnMax = spanOverlaps(pin, deferredMaxSpan);
           if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
             diagnosticBag.addWarning(
                 deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
                 deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
             deferredMinW003 = null;
+          }
+          if (!pinnedErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+                deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMaxW003 = null;
           }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): string lower bound ('" + lowerBound.get().value()
@@ -6752,14 +6858,21 @@ public final class StvnDefsLowerer {
           upperBound = Optional.empty();
         } else if (cmp == 0
             && (lowerBound.get().kind() == BoundKind.EXCLUSIVE || upperBound.get().kind() == BoundKind.EXCLUSIVE)) {
-          pinnedErrorOnMax = maxBoundCtx != null;
-          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          pinnedErrorOnMin = spanOverlaps(pin, deferredMinSpan);
+          pinnedErrorOnMax = spanOverlaps(pin, deferredMaxSpan);
           if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
             diagnosticBag.addWarning(
                 deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
                 deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
             deferredMinW003 = null;
+          }
+          if (!pinnedErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+                deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMaxW003 = null;
           }
           String openBracket = lowerBound.get().kind() == BoundKind.INCLUSIVE ? "[" : "(";
           String closeBracket = upperBound.get().kind() == BoundKind.INCLUSIVE ? "]" : ")";
@@ -6864,7 +6977,9 @@ public final class StvnDefsLowerer {
         boolean isNominalDerivation,
         @Nullable TemporalScale childScale,
         StvnParser.@Nullable MetadataRangeContext minBoundCtx,
+        @Nullable BoundEntryPin minBoundPin,
         StvnParser.@Nullable MetadataRangeContext maxBoundCtx,
+        @Nullable BoundEntryPin maxBoundPin,
         TraitProfile finalTraits,
         ScopeFrame scope
     ) {
@@ -6936,16 +7051,23 @@ public final class StvnDefsLowerer {
       boolean pinnedErrorOnMax = false;
       if (minIncl.isPresent() && maxExcl.isPresent()) {
         int cmp = minIncl.get().compareTo(maxExcl.get());
-        Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
+        Span pin = resolveBoundPairSpan(minBoundPin, maxBoundPin);
         if (cmp == 0) {
-          pinnedErrorOnMax = maxBoundCtx != null;
-          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          pinnedErrorOnMin = spanOverlaps(pin, deferredMinSpan);
+          pinnedErrorOnMax = spanOverlaps(pin, deferredMaxSpan);
           if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
             diagnosticBag.addWarning(
                 deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
                 deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
             deferredMinW003 = null;
+          }
+          if (!pinnedErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+                deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMaxW003 = null;
           }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): discrete half-open interval ["
@@ -6956,14 +7078,21 @@ public final class StvnDefsLowerer {
           minIncl = Optional.empty();
           maxExcl = Optional.empty();
         } else if (cmp > 0) {
-          pinnedErrorOnMax = maxBoundCtx != null;
-          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          pinnedErrorOnMin = spanOverlaps(pin, deferredMinSpan);
+          pinnedErrorOnMax = spanOverlaps(pin, deferredMaxSpan);
           if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
             diagnosticBag.addWarning(
                 deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
                 deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
             deferredMinW003 = null;
+          }
+          if (!pinnedErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+                deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMaxW003 = null;
           }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): effective range is invalid (#minIncl "
@@ -7000,7 +7129,9 @@ public final class StvnDefsLowerer {
         boolean isNominalDerivation,
         @Nullable DateTimeMode childMode,
         StvnParser.@Nullable MetadataRangeContext minBoundCtx,
+        @Nullable BoundEntryPin minBoundPin,
         StvnParser.@Nullable MetadataRangeContext maxBoundCtx,
+        @Nullable BoundEntryPin maxBoundPin,
         TraitProfile finalTraits,
         ScopeFrame scope
     ) {
@@ -7019,7 +7150,7 @@ public final class StvnDefsLowerer {
         Span bSpan = Span.ofContext(minBoundCtx);
         String rawStr = resolveDateTimeBoundStringArg(ownerLabel, StvnVocabulary.FACET_KW_MIN_INCL, minBoundCtx.metadataValue(), scope);
         if (rawStr != null) {
-          BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, StvnVocabulary.FACET_KW_MIN_INCL, rawStr, bSpan);
+          BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, StvnVocabulary.FACET_KW_MIN_INCL, rawStr, mode, bSpan);
           if (epochNanos != null) {
             if (isNominalDerivation && minRaw.isPresent() && minNanos.isPresent()
                 && epochNanos.compareTo(minNanos.get()) == 0) {
@@ -7041,7 +7172,7 @@ public final class StvnDefsLowerer {
         Span bSpan = Span.ofContext(maxBoundCtx);
         String rawStr = resolveDateTimeBoundStringArg(ownerLabel, StvnVocabulary.FACET_KW_MAX_EXCL, maxBoundCtx.metadataValue(), scope);
         if (rawStr != null) {
-          BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, StvnVocabulary.FACET_KW_MAX_EXCL, rawStr, bSpan);
+          BigInteger epochNanos = parseDateTimeBoundEpochNanos(ownerLabel, StvnVocabulary.FACET_KW_MAX_EXCL, rawStr, mode, bSpan);
           if (epochNanos != null) {
             if (isNominalDerivation && maxRaw.isPresent() && maxNanos.isPresent()
                 && epochNanos.compareTo(maxNanos.get()) == 0) {
@@ -7063,16 +7194,23 @@ public final class StvnDefsLowerer {
       boolean pinnedErrorOnMax = false;
       if (minNanos.isPresent() && maxNanos.isPresent()) {
         int cmp = minNanos.get().compareTo(maxNanos.get());
-        Span pin = Span.ofContext(maxBoundCtx != null ? maxBoundCtx : minBoundCtx);
+        Span pin = resolveBoundPairSpan(minBoundPin, maxBoundPin);
         if (cmp == 0) {
-          pinnedErrorOnMax = maxBoundCtx != null;
-          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          pinnedErrorOnMin = spanOverlaps(pin, deferredMinSpan);
+          pinnedErrorOnMax = spanOverlaps(pin, deferredMaxSpan);
           if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
             diagnosticBag.addWarning(
                 deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
                 deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
             deferredMinW003 = null;
+          }
+          if (!pinnedErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+                deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMaxW003 = null;
           }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): datetime half-open interval defines an empty domain",
@@ -7082,14 +7220,21 @@ public final class StvnDefsLowerer {
           minRaw = Optional.empty();
           maxRaw = Optional.empty();
         } else if (cmp > 0) {
-          pinnedErrorOnMax = maxBoundCtx != null;
-          pinnedErrorOnMin = maxBoundCtx == null && minBoundCtx != null;
+          pinnedErrorOnMin = spanOverlaps(pin, deferredMinSpan);
+          pinnedErrorOnMax = spanOverlaps(pin, deferredMaxSpan);
           if (!pinnedErrorOnMin && deferredMinW003 != null && deferredMinSpan != null) {
             diagnosticBag.addWarning(
                 deferredMinW003, deferredMinSpan.start(), deferredMinSpan.end(),
                 deferredMinSpan.line(), deferredMinSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
             );
             deferredMinW003 = null;
+          }
+          if (!pinnedErrorOnMax && deferredMaxW003 != null && deferredMaxSpan != null) {
+            diagnosticBag.addWarning(
+                deferredMaxW003, deferredMaxSpan.start(), deferredMaxSpan.end(),
+                deferredMaxSpan.line(), deferredMaxSpan.column(), DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+            deferredMaxW003 = null;
           }
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): datetime #minIncl exceeds #maxExcl",
@@ -7158,10 +7303,113 @@ public final class StvnDefsLowerer {
         String ownerLabel,
         String boundFacet,
         String decodedText,
+        DateTimeMode mode,
         Span bSpan
     ) {
       int lbIdx = decodedText.indexOf('[');
       int rbIdx = decodedText.endsWith("]") ? decodedText.length() - 1 : -1;
+      boolean hasAnyBracket = lbIdx >= 0 || decodedText.indexOf(']') >= 0;
+      boolean hasTailBracket = lbIdx > 0 && rbIdx > lbIdx;
+      String isoPrefix = hasTailBracket ? decodedText.substring(0, lbIdx) : decodedText;
+      boolean hasOffset = hasExplicitOffsetSuffix(isoPrefix);
+
+      if (mode == DateTimeMode.ZONED) {
+        if (hasOffset) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): Invalid { " + StvnVocabulary.FACET_KW_ZONED + " } "
+                  + StvnVocabulary.TYPE_DATE_TIME + " bound " + boundFacet
+                  + ": UTC offset ('Z' or '±HH:mm') is prohibited; expected \"YYYY-MM-DDTHH:mm:ss[.fraction][Region/City]\", got '"
+                  + decodedText + "'",
+              bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+              DiagnosticBag.ERR_TEMPORAL_OFFSET_IN_ZONED
+          );
+          return null;
+        }
+        if (!hasAnyBracket && LOCAL_DATETIME_PREFIX_PATTERN.matcher(decodedText).matches()) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): Invalid { " + StvnVocabulary.FACET_KW_ZONED + " } "
+                  + StvnVocabulary.TYPE_DATE_TIME + " bound " + boundFacet
+                  + ": missing required IANA time zone '[Region/City]'; expected \"YYYY-MM-DDTHH:mm:ss[.fraction][Region/City]\", got '"
+                  + decodedText + "'",
+              bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+              DiagnosticBag.ERR_DATETIME_MISSING_ZONE
+          );
+          return null;
+        }
+        if (!hasTailBracket) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): invalid ISO-8601 datetime literal in "
+                  + boundFacet + ": " + decodedText,
+              bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+              DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+          );
+          return null;
+        }
+      } else if (mode == DateTimeMode.OFFSET) {
+        if (hasAnyBracket) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): Invalid { " + StvnVocabulary.FACET_KW_OFFSET + " } "
+                  + StvnVocabulary.TYPE_DATE_TIME + " bound " + boundFacet
+                  + ": IANA time zone brackets '[...]' are prohibited; expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)\", got '"
+                  + decodedText + "'",
+              bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+              DiagnosticBag.ERR_TEMPORAL_ZONE_IN_OFFSET
+          );
+          return null;
+        }
+        if (!hasOffset && LOCAL_DATETIME_PREFIX_PATTERN.matcher(decodedText).matches()) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): Invalid { " + StvnVocabulary.FACET_KW_OFFSET + " } "
+                  + StvnVocabulary.TYPE_DATE_TIME + " bound " + boundFacet
+                  + ": missing required UTC offset ('Z' or '±HH:mm'); expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)\", got '"
+                  + decodedText + "'",
+              bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+              DiagnosticBag.ERR_DATETIME_MISSING_OFFSET
+          );
+          return null;
+        }
+      } else if (mode == DateTimeMode.AUDITED) {
+        if (!hasAnyBracket) {
+          if (hasOffset) {
+            diagnosticBag.addError(
+                "Constraint violation (" + ownerLabel + "): Invalid { " + StvnVocabulary.FACET_KW_AUDITED + " } "
+                    + StvnVocabulary.TYPE_DATE_TIME + " bound " + boundFacet
+                    + ": missing required IANA time zone '[Region/City]'; expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)[Region/City]\", got '"
+                    + decodedText + "'",
+                bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+                DiagnosticBag.ERR_DATETIME_MISSING_ZONE
+            );
+            return null;
+          }
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): invalid ISO-8601 datetime literal in "
+                  + boundFacet + ": " + decodedText,
+              bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+              DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+          );
+          return null;
+        }
+        if (!hasTailBracket) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): invalid ISO-8601 datetime literal in "
+                  + boundFacet + ": " + decodedText,
+              bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+              DiagnosticBag.ERR_INCOMPATIBLE_TYPE
+          );
+          return null;
+        }
+        if (!hasOffset && LOCAL_DATETIME_PREFIX_PATTERN.matcher(isoPrefix).matches()) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): Invalid { " + StvnVocabulary.FACET_KW_AUDITED + " } "
+                  + StvnVocabulary.TYPE_DATE_TIME + " bound " + boundFacet
+                  + ": missing required UTC offset ('Z' or '±HH:mm'); expected \"YYYY-MM-DDTHH:mm:ss[.fraction](Z|±HH:mm)[Region/City]\", got '"
+                  + decodedText + "'",
+              bSpan.start(), bSpan.end(), bSpan.line(), bSpan.column(), null,
+              DiagnosticBag.ERR_DATETIME_MISSING_OFFSET
+          );
+          return null;
+        }
+      }
       try {
         Instant inst;
         if (lbIdx > 0 && rbIdx > lbIdx) {
@@ -7830,6 +8078,16 @@ public final class StvnDefsLowerer {
       Span sp = Span.ofContext(mv);
       if (mv.stringLiteral() != null) {
         Span litSpan = Span.ofContext(mv.stringLiteral());
+        if (mv.stringLiteral() instanceof StvnParser.StringFencedContext) {
+          diagnosticBag.addError(
+              "Constraint violation (" + ownerLabel + "): Rule STR-04 fenced multi-line strings are prohibited on "
+                  + StvnVocabulary.TYPE_DATE_TIME + " bound " + facetLabel
+                  + "; expected single-line ISO-8601 string literal",
+              litSpan.start(), litSpan.end(), litSpan.line(), litSpan.column(), null,
+              DiagnosticBag.ERR_DATETIME_FENCED_STRING_PROHIBITED
+          );
+          return null;
+        }
         return StvnPayloadLowerer.decodeStringLiteralAccumulating(
             mv.stringLiteral().getText(), true, litSpan, diagnosticBag
         ).orElse(null);

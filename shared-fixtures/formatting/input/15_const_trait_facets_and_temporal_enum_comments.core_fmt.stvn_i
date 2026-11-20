@@ -13,7 +13,7 @@
     #KEEP_INDENT :Boolean #TRUE // retain fenced indentation
     :AuditTimestamp { // audited temporal contract
       // half-open upper bound
-      #maxExcl "2030-01-01T00:00:00Z" // ceiling instant
+      #maxExcl "2030-01-01T00:00:00Z[UTC]" // ceiling instant
       // mandatory temporal mode
       #audited // offset + zone verified
       // end audited temporal contract

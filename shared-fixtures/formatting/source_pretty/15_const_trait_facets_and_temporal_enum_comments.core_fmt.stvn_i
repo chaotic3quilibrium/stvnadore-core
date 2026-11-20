@@ -15,7 +15,7 @@
       // mandatory temporal mode
       #audited // offset + zone verified
       // half-open upper bound
-      #maxExcl "2030-01-01T00:00:00Z" // ceiling instant
+      #maxExcl "2030-01-01T00:00:00Z[UTC]" // ceiling instant
       // end audited temporal contract
     } :DateTime
     :RawTemplate { // template string constraints

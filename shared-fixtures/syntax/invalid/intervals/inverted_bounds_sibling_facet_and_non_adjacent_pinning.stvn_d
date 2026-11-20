@@ -1,0 +1,12 @@
+{
+  :meta {
+    #name "inverted_bounds_sibling_facet_and_non_adjacent_pinning"
+    #kind #DEFS
+  }
+  :defs {
+    :TrapInvertedStringBounds { #maxSize 8 #minIncl "Z" #maxIncl "A" } :String
+    :TrapInvertedSeqSize { #minSize 12 #maxSize 4 } :Seq( :Int )
+    :TrapInvertedEpoch { #s #minIncl 200 #maxExcl 100 } :TimeEpoch
+    :TrapNonAdjacentBounds { #minIncl 10 #size 16 #maxExcl 5 } :Int
+  }
+}

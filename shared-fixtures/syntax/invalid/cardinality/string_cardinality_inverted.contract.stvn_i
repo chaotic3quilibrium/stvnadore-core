@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 6 30 188 198 "Constraint violation (:BadString): #minSize (10) cannot exceed #maxSize (5)" )
+    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 6 18 176 198 "Constraint violation (:BadString): #minSize (10) cannot exceed #maxSize (5)" )
   ]
 }

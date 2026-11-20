@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "datetime_schema_bounds_mode_mismatch_poisoning"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E019 #TEMPORAL_OFFSET_IN_ZONED #ERROR 9 7 143 196 "Constraint violation (:ZonedDispatchTs): Invalid { #zoned } :DateTime bound #minIncl: UTC offset ('Z' or '±HH:mm') is prohibited" )
+    ( #E019 #TEMPORAL_OFFSET_IN_ZONED #ERROR 10 7 203 256 "Constraint violation (:ZonedDispatchTs): Invalid { #zoned } :DateTime bound #maxExcl: UTC offset ('Z' or '±HH:mm') is prohibited" )
+    ( #E028 #TEMPORAL_ZONE_IN_OFFSET #ERROR 14 7 315 351 "Constraint violation (:OffsetWithZone): Invalid { #offset } :DateTime bound #minIncl: IANA time zone brackets '[...]' are prohibited" )
+    ( #E028 #DATETIME_MISSING_ZONE #ERROR 18 7 415 446 "Constraint violation (:AuditedMissingZone): Invalid { #audited } :DateTime bound #maxExcl: missing required IANA time zone '[Region/City]'" )
+  ]
+}

@@ -1857,7 +1857,9 @@ public final class StvnPayloadLowerer {
           }
           Token openTok = malformedCtx.malformedFencedString().MALFORMED_FENCE_OPEN().getSymbol();
           String rawOpen = openTok.getText() != null ? openTok.getText() : "";
-          String coreMsg = StvnSyntaxErrorSanitizer.formatMalformedFenceMessage(rawOpen);
+          var endNode = malformedCtx.malformedFencedString().MALFORMED_FENCE_END();
+          String rawClose = endNode != null ? endNode.getSymbol().getText() : null;
+          String coreMsg = StvnSyntaxErrorSanitizer.formatMalformedFenceMessage(rawOpen, rawClose);
           String fullMsg = "STVN Syntax Error: " + coreMsg;
           boolean prohibitedArrow = coreMsg.contains("arrow '->' is prohibited");
           String code = prohibitedArrow ? "E026" : "E025";

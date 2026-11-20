@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #ERR_EMPTY_INTERVAL_DOMAIN #ERROR 18 7 775 806 "Constraint violation (:EmptyDateTime): datetime half-open interval defines an empty domain" )
+    ( #E009 #ERR_EMPTY_INTERVAL_DOMAIN #ERROR 17 7 737 806 "Constraint violation (:EmptyDateTime): datetime half-open interval defines an empty domain" )
   ]
 }

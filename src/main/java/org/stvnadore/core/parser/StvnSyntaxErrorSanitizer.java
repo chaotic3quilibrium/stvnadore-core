@@ -124,6 +124,7 @@ public final class StvnSyntaxErrorSanitizer {
             }
             if (scan < len && chars[scan] == '\n') {
               String fenceTag = source.substring(tagOpen + 1, p);
+              String closeSeq = "[" + fenceTag + "]\"\"\"";
               // Advance to after ']', sanitizing any forbidden tabs on the opening fence delimiter line
               int openPrefixLen = afterBracket - i;
               i = afterBracket;
@@ -150,25 +151,26 @@ public final class StvnSyntaxErrorSanitizer {
               line++;
               col = 0;
 
-              // Inside Rule STR-04 fenced string verbatim body: preserve all '\t' until '[TAG]"""'
-              String closeSeq = "[" + fenceTag + "]\"\"\"";
-              int closeLen = closeSeq.length();
-              while (i < len) {
-                if (chars[i] == '[' && source.startsWith(closeSeq, i)) {
-                  i += closeLen;
-                  col += closeLen;
-                  break;
-                }
-                char bodyChar = chars[i];
-                if (bodyChar == '\n') {
-                  i++;
-                  line++;
-                  col = 0;
-                } else if (bodyChar == '\r') {
-                  i++;
-                } else {
-                  i++;
-                  col++;
+              // Inside Rule STR-04 fenced string verbatim body: preserve '\t' strictly when '[TAG]"""' closes the block
+              if (source.indexOf(closeSeq, i) >= 0) {
+                int closeLen = closeSeq.length();
+                while (i < len) {
+                  if (chars[i] == '[' && source.startsWith(closeSeq, i)) {
+                    i += closeLen;
+                    col += closeLen;
+                    break;
+                  }
+                  char bodyChar = chars[i];
+                  if (bodyChar == '\n') {
+                    i++;
+                    line++;
+                    col = 0;
+                  } else if (bodyChar == '\r') {
+                    i++;
+                  } else {
+                    i++;
+                    col++;
+                  }
                 }
               }
               continue;
@@ -679,7 +681,7 @@ public final class StvnSyntaxErrorSanitizer {
       }
 
       if (tokenType == StvnLexer.MALFORMED_FENCE_OPEN) {
-        return formatMalformedFenceMessage(tokenText);
+        return formatMalformedFenceTokenMessage(parser.getTokenStream(), offendingToken, tokenText);
       }
 
       if (tokenType == StvnLexer.MALFORMED_FENCE_CLOSE) {
@@ -917,6 +919,18 @@ public final class StvnSyntaxErrorSanitizer {
    * @return the sanitized core message without the {@code STVN Syntax Error: } prefix
    */
   public static String formatMalformedFenceMessage(String tokenText) {
+    return formatMalformedFenceMessage(tokenText, null);
+  }
+
+  /**
+   * Formats a Rule STR-04 diagnostic core message for a malformed opening fence delimiter token
+   * and an optional paired closing fence delimiter token.
+   *
+   * @param tokenText        the raw {@link StvnLexer#MALFORMED_FENCE_OPEN} token text
+   * @param closingTokenText the paired {@link StvnLexer#MALFORMED_FENCE_END} token text, or {@code null}
+   * @return the sanitized core message without the {@code STVN Syntax Error: } prefix
+   */
+  public static String formatMalformedFenceMessage(String tokenText, @Nullable String closingTokenText) {
     if (tokenText.startsWith("\"\"\"->[")) {
       return "Rule STR-04 violation: Fenced string delimiter arrow '->' is prohibited";
     }
@@ -936,8 +950,63 @@ public final class StvnSyntaxErrorSanitizer {
     if (tag.length() > 256) {
       return "Rule STR-04 violation: Fenced string delimiter tag length exceeds maximum of 256 characters, got " + tag.length();
     }
+    if (isValidFenceTag(tag) && tokenText.endsWith("\n")) {
+      if (closingTokenText != null && closingTokenText.startsWith("[") && closingTokenText.endsWith("]\"\"\"")) {
+        String foundClosingTag = closingTokenText.substring(1, closingTokenText.length() - 4);
+        return "Rule STR-04 violation: Unclosed fenced string: expected closing delimiter '[" + tag
+            + "]\"\"\"', found mismatched closing tag '[" + foundClosingTag + "]'";
+      }
+      return "Rule STR-04 violation: Unclosed fenced string: expected closing delimiter '[" + tag + "]\"\"\"'";
+    }
     return "Rule STR-04 violation: Fenced string delimiter tag '" + tag
         + "' contains invalid characters; must match positive character class ^[a-zA-Z0-9_-]{1,256}$";
+  }
+
+  private static boolean isValidFenceTag(String tag) {
+    if (tag.isEmpty() || tag.length() > 256) {
+      return false;
+    }
+    for (int i = 0; i < tag.length(); i++) {
+      if (!isFenceTagChar(tag.charAt(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static String formatMalformedFenceTokenMessage(
+      @Nullable TokenStream stream,
+      @Nullable Token openTok,
+      String tokenText
+  ) {
+    String closingText = null;
+    if (stream != null && openTok != null) {
+      int startIdx = openTok.getTokenIndex();
+      if (startIdx < 0) {
+        for (int k = 0; k < stream.size(); k++) {
+          Token cand = stream.get(k);
+          if (cand.getStartIndex() == openTok.getStartIndex()
+              && cand.getType() == StvnLexer.MALFORMED_FENCE_OPEN) {
+            startIdx = k;
+            break;
+          }
+        }
+      }
+      if (startIdx >= 0) {
+        for (int i = startIdx + 1; i < stream.size(); i++) {
+          Token t = stream.get(i);
+          int type = t.getType();
+          if (type == StvnLexer.MALFORMED_FENCE_CONTENT || t.getChannel() != Token.DEFAULT_CHANNEL) {
+            continue;
+          }
+          if (type == StvnLexer.MALFORMED_FENCE_END) {
+            closingText = t.getText();
+          }
+          break;
+        }
+      }
+    }
+    return formatMalformedFenceMessage(tokenText, closingText);
   }
 
   private static String formatUnclosedFenceMessage(Parser parser) {

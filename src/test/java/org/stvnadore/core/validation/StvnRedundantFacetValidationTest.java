@@ -1740,7 +1740,7 @@ public class StvnRedundantFacetValidationTest {
     assertEquals(1, emptyRes.diagnostics().size(), "Pinned #maxExcl 20 carrying E018 must not stack W003");
     assertEquals(DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN, emptyRes.diagnostics().get(0).errorCode().orElse(null));
 
-    String separateMinWarnMaxErrorSource = """
+    String adjacentInvertedPairSource = """
         {
           :defs {
             :Parent { #minIncl 20 #maxExcl 30 } :Int
@@ -1750,11 +1750,26 @@ public class StvnRedundantFacetValidationTest {
           :body 20
         }
         """;
-    var sepRes = StvnCompiler.compileToResult(separateMinWarnMaxErrorSource, null, StvnParserConfig.DEFAULT);
+    var adjRes = StvnCompiler.compileToResult(adjacentInvertedPairSource, null, StvnParserConfig.DEFAULT);
+    assertTrue(adjRes.hasErrors());
+    assertEquals(1, adjRes.diagnostics().size(), "Contiguous E009 span [#minIncl 20 .. #maxExcl 10) suppresses co-located W003 on #minIncl 20");
+    assertEquals(DiagnosticBag.ERR_INVERTED_RANGE, adjRes.diagnostics().get(0).errorCode().orElse(null));
+
+    String nonAdjacentMinWarnMaxErrorSource = """
+        {
+          :defs {
+            :Parent { #minIncl 20 #maxExcl 30 } :Int
+            :BadInvertedNonAdj { #minIncl 20 #comparable #FALSE #maxExcl 10 } :Parent
+          }
+          :type :BadInvertedNonAdj
+          :body 20
+        }
+        """;
+    var sepRes = StvnCompiler.compileToResult(nonAdjacentMinWarnMaxErrorSource, null, StvnParserConfig.DEFAULT);
     assertTrue(sepRes.hasErrors());
-    assertEquals(2, sepRes.diagnostics().size(), "Un-pinned #minIncl 20 keeps W003 while #maxExcl 10 receives E009");
-    assertEquals(DiagnosticBag.WARN_REDUNDANT_METADATA_FACET, sepRes.diagnostics().get(0).errorCode().orElse(null));
-    assertEquals(DiagnosticBag.ERR_INVERTED_RANGE, sepRes.diagnostics().get(1).errorCode().orElse(null));
+    assertEquals(3, sepRes.diagnostics().size(), "Un-pinned #minIncl 20 keeps W003 alongside E008 tier-order and E009 on #maxExcl 10");
+    assertTrue(sepRes.diagnostics().stream().anyMatch(d -> DiagnosticBag.WARN_REDUNDANT_METADATA_FACET.equals(d.errorCode().orElse(null))));
+    assertTrue(sepRes.diagnostics().stream().anyMatch(d -> DiagnosticBag.ERR_INVERTED_RANGE.equals(d.errorCode().orElse(null))));
 
     String setMapTraitsSource = """
         {

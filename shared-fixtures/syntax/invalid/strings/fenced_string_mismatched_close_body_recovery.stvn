@@ -1,0 +1,35 @@
+{
+  :meta {
+    #name "fenced_string_mismatched_close_body_recovery"
+    #kind #BODY
+  }
+  :defs {
+    :ShortCode { #minSize 3 #maxSize 5 #regex "^[A-Z]+$" } :String
+    :BrokenRegex { #regex "[unclosed" } :String
+    :Stage4Matrix :Tuple(
+      :String
+      :ShortCode
+      :ShortCode
+      :String
+      :String
+      :BrokenRegex
+    )
+  }
+  :type :Stage4Matrix
+  :body (
+    """[OUTER]
+      """[INNER]
+      select 1;
+      [INNER]"""
+    [OUTER]"""
+    "AB"
+    "ab12"
+    """
+      SELECT 1 FROM missing_tag;
+    """
+    """[SQL]
+      SELECT 1 FROM mismatched_close;
+    [JSON]"""
+    "suspended-broken-regex-slot"
+  )
+}

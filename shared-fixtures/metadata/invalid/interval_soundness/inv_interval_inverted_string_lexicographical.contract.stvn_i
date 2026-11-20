@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 19 43 840 856 "Constraint violation (:InvertedLexString): string lower bound ('omega') exceeds upper bound ('alpha')" )
+    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 19 26 823 856 "Constraint violation (:InvertedLexString): string lower bound ('omega') exceeds upper bound ('alpha')" )
   ]
 }

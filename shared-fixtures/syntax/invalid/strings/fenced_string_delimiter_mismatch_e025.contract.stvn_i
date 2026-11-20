@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E025 #FENCE_DELIMITER_MISMATCH #ERROR 7 9 106 137 "STVN Syntax Error: Rule STR-04 violation: Unclosed fenced string: expected closing delimiter '[SQL]\"\"\"', found mismatched closing tag '[JSON]'" )
+    ( #E025 #FENCE_DELIMITER_MISMATCH #ERROR 7 9 106 115 "STVN Syntax Error: Rule STR-04 violation: Unclosed fenced string: expected closing delimiter '[SQL]\"\"\"', found mismatched closing tag '[JSON]'" )
   ]
 }

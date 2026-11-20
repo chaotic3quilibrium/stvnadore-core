@@ -1,0 +1,27 @@
+{
+  :meta {
+    #name "datetime_schema_bounds_mode_mismatch_poisoning"
+    #kind #BODY
+  }
+  :defs {
+    :ZonedDispatchTs {
+      #zoned
+      #minIncl "2026-01-01T00:00:00-06:00[America/Chicago]"
+      #maxExcl "2027-01-01T00:00:00-06:00[America/Chicago]"
+    } :DateTime
+    :OffsetWithZone {
+      #offset
+      #minIncl "2026-01-01T00:00:00Z[UTC]"
+    } :DateTime
+    :AuditedMissingZone {
+      #audited
+      #maxExcl "2027-01-01T00:00:00Z"
+    } :DateTime
+  }
+  :type :Tuple( :ZonedDispatchTs :OffsetWithZone :AuditedMissingZone )
+  :body (
+    "2026-07-04T12:00:00-05:00[America/Chicago]"
+    "2026-07-04T12:00:00Z"
+    "2026-07-04T12:00:00-05:00[America/Chicago]"
+  )
+}

@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 15 33 703 714 "Constraint violation (:InvertedInt): effective range is invalid (#minIncl 100 exceeds #maxExcl 50)" )
+    ( #E009 #INVALID_NUMERIC_RANGE #ERROR 15 20 690 714 "Constraint violation (:InvertedInt): effective range is invalid (#minIncl 100 exceeds #maxExcl 50)" )
   ]
 }

@@ -1164,7 +1164,7 @@ Every fenced string literal must adhere to **Rule STR-04**:
    $1 \le \text{length} (\text{TAG}) \le 256$. Tags exceeding 256 characters are rejected at parse time to prevent memory exhaustion.
 
 5. **Prohibited Patterns & Slot-Preserving Error Recovery:**
-   Empty tags (`"""[]`), prohibited legacy arrows (`"""->[TAG]`), single-line triple-quoted strings (`"""inline"""`), whitespace (`0x20`, `\t`), quotation marks (`"`, `'`, `` ` ``), brackets (`[`, `]`), and punctuation (`:`, `;`, `,`, `.`, `/`, `\`) are strictly prohibited. When a malformed fenced string appears in a value or container slot (`malformedFencedString`), Pass 1 emits `E025` (`FENCE_DELIMITER_MISMATCH`) or `E026` (`ERR_PROHIBITED_FENCE_ARROW`) pinned strictly to the opening fence delimiter line while retaining the slot node in the CST so Pass 3 lowers the damaged slot to `StvnErrorValue` and preserves container cardinality ($M == N$, § 7.2).
+   Empty tags (`"""[]`), prohibited legacy arrows (`"""->[TAG]`), single-line triple-quoted strings (`"""inline"""`), whitespace (`0x20`, `\t`), quotation marks (`"`, `'`, `` ` ``), brackets (`[`, `]`), and punctuation (`:`, `;`, `,`, `.`, `/`, `\`) are strictly prohibited. Furthermore, when an opening fence `"""[TAG_A]\n` has **no** matching closing delimiter `[TAG_A]"""` anywhere later in the input stream, if a depth-0 candidate closing delimiter `[TAG_B]"""` (`'[' ~[\r\n[\]]* ']"""'` after balancing any nested well-formed `"""[INNER]\n ... [INNER]"""` blocks) exists ahead, the lexer reclassifies the block into `malformedFencedString` (`MALFORMED_FENCE_OPEN` .. `MALFORMED_FENCE_END`) terminating cleanly at `[TAG_B]"""` without consuming subsequent slots or enclosing delimiters; whenever a matching `[TAG_A]"""` **does** exist later in the input stream, nested polyglot fences (`"""[OUTER]\n ... [INNER]""" ... [OUTER]"""`) remain 100% verbatim. When a malformed fenced string appears in a value or container slot (`malformedFencedString`), Pass 1 emits `E025` (`FENCE_DELIMITER_MISMATCH`) or `E026` (`ERR_PROHIBITED_FENCE_ARROW`) pinned strictly to the opening fence delimiter line while retaining the slot node in the CST so Pass 3 lowers the damaged slot to `StvnErrorValue` and preserves container cardinality ($M == N$, § 7.2).
 
 6. **ASCII-Space Indentation Stripping & Inline Closing Fence Semantics:**
    Unless the governing `:String` schema declares `#preserveIndent #TRUE`, decoding strips the common leading ASCII space (`0x20`) margin across all non-blank lines (`1`-line and multi-line fenced bodies alike). Blank lines containing exclusively ASCII spaces (`0x20`) normalize to empty lines (`""`) and do not cap the common indentation margin. Raw horizontal tab characters (`0x09`, `\t`) inside the fenced body are verbatim payload bytes and **MUST NOT** be treated as structural margin whitespace. Inline string metadata facets (`#regex`, `#minIncl`, `#minExcl`, `#maxIncl`, `#maxExcl`) **MUST** always strip common leading ASCII-space indentation (`preserveIndent = false`), even when the owning `:String` declaration specifies `#preserveIndent #TRUE`. Placing `[TAG]"""` inline at the end of a pattern line (`"""[REGEX]\n  ^pattern$[REGEX]"""`) omits a trailing `\n`, whereas placing `[TAG]"""` on the subsequent line (`"""[REGEX]\n  ^pattern$\n[REGEX]"""`) retains the preceding `\n`.
@@ -1573,6 +1573,7 @@ When lowering a container with $N$ expected elements and $M$ parsed elements:
 All compiler and PSI diagnostics must pin their text spans strictly to the exact offending token span `[startOffset, endOffset)`:
 
 - Discrete bound violation pins strictly to `#maxIncl <val>` or `#minExcl <val>`.
+- Two-bound interval and cardinality inversion or empty-domain violations (`E009` `INVALID_NUMERIC_RANGE` / `ERR_EMPTY_INTERVAL_DOMAIN` across `#minIncl`/`#minExcl` vs. `#maxIncl`/`#maxExcl` and `#minSize` vs. `#maxSize`) pin from `[earlierEntry.startOffset, laterEntry.endOffset)` when both bounds are declared locally at adjacent indices (`|minIdx - maxIdx| == 1`) in the same metadata constraint block, pin strictly to `laterEntry` when an unrelated facet sits between them (`|minIdx - maxIdx| > 1`), and pin strictly to the local bound entry on cross-hop nominal overrides—never underlining enclosing `{` / `}` braces or sibling facets.
 - Prohibited string `#size` pins strictly to `#size <val>`.
 - Missing temporal facet pins strictly to the type keyword token.
 - Valid sibling elements and parent delimiters maintain zero error diagnostics.
@@ -3109,9 +3110,89 @@ lexer grammar StvnLexer;
 @members {
     // Isolated Lexer state to track exact fencing boundaries during Mode transitions
     private String currentFenceTag = "";
+    private final java.util.Deque<String> mismatchedNestedTags = new java.util.ArrayDeque<>();
 
     public String getCurrentFenceTag() {
         return currentFenceTag;
+    }
+
+    private static boolean isValidFenceTagChar(int ch) {
+        return (ch >= 'a' && ch <= 'z')
+            || (ch >= 'A' && ch <= 'Z')
+            || (ch >= '0' && ch <= '9')
+            || ch == '_'
+            || ch == '-';
+    }
+
+    private boolean hasMatchingCloseAhead(String tag) {
+        int start = _input.index();
+        int size = _input.size();
+        if (start >= size) {
+            return false;
+        }
+        String rem = _input.getText(org.antlr.v4.runtime.misc.Interval.of(start, size - 1));
+        return rem.contains("[" + tag + "]\"\"\"");
+    }
+
+    private boolean hasDepthZeroCandidateCloseAhead() {
+        int start = _input.index();
+        int size = _input.size();
+        if (start >= size) {
+            return false;
+        }
+        String rem = _input.getText(org.antlr.v4.runtime.misc.Interval.of(start, size - 1));
+        int len = rem.length();
+        java.util.Deque<String> nestedStack = new java.util.ArrayDeque<>();
+        int i = 0;
+        while (i < len) {
+            if (rem.startsWith("\"\"\"[", i)) {
+                int p = i + 4;
+                while (p < len && isValidFenceTagChar(rem.charAt(p))) {
+                    p++;
+                }
+                int tagLen = p - (i + 4);
+                if (tagLen >= 1 && tagLen <= 256 && p < len && rem.charAt(p) == ']') {
+                    int scan = p + 1;
+                    while (scan < len && (rem.charAt(scan) == ' ' || rem.charAt(scan) == '\r')) {
+                        scan++;
+                    }
+                    if (scan < len && rem.charAt(scan) == '\n') {
+                        String innerTag = rem.substring(i + 4, p);
+                        if (rem.indexOf("[" + innerTag + "]\"\"\"", scan + 1) >= 0) {
+                            nestedStack.push(innerTag);
+                            i = scan + 1;
+                            continue;
+                        }
+                    }
+                }
+            }
+            if (rem.charAt(i) == '[') {
+                int closeBracket = rem.indexOf(']', i + 1);
+                if (closeBracket > i) {
+                    boolean validCloseSpan = true;
+                    for (int k = i + 1; k < closeBracket; k++) {
+                        char c = rem.charAt(k);
+                        if (c == '\r' || c == '\n' || c == '[') {
+                            validCloseSpan = false;
+                            break;
+                        }
+                    }
+                    if (validCloseSpan && rem.startsWith("\"\"\"", closeBracket + 1)) {
+                        String closeTag = rem.substring(i + 1, closeBracket);
+                        if (!nestedStack.isEmpty()) {
+                            if (closeTag.equals(nestedStack.peek())) {
+                                nestedStack.pop();
+                            }
+                            i = closeBracket + 4;
+                            continue;
+                        }
+                        return true;
+                    }
+                }
+            }
+            i++;
+        }
+        return false;
     }
 }
 
@@ -3227,6 +3308,10 @@ FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     if (tag.length() > 256) {
         setType(MALFORMED_FENCE_OPEN);
         pushMode(MALFORMED_FENCED_STRING);
+    } else if (!hasMatchingCloseAhead(tag) && hasDepthZeroCandidateCloseAhead()) {
+        setType(MALFORMED_FENCE_OPEN);
+        mismatchedNestedTags.clear();
+        pushMode(MISMATCHED_FENCED_STRING);
     } else {
         currentFenceTag = tag;
         pushMode(FENCED_STRING);
@@ -3269,6 +3354,34 @@ MALFORMED_BLOCK_END : '"""' -> popMode ;
 
 // Retain body characters for malformedFencedString without cascading syntax errors in DEFAULT_MODE
 MALFORMED_FENCE_CONTENT : . ;
+
+mode MISMATCHED_FENCED_STRING;
+
+MISMATCHED_NESTED_OPEN : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
+    String text = getText();
+    int closeBracket = text.indexOf(']');
+    String innerTag = text.substring(4, closeBracket);
+    if (innerTag.length() <= 256 && hasMatchingCloseAhead(innerTag)) {
+        mismatchedNestedTags.push(innerTag);
+    }
+    setType(MALFORMED_FENCE_CONTENT);
+} ;
+
+MISMATCHED_CANDIDATE_END : '[' ~[\r\n[\]]* ']"""' {
+    String text = getText();
+    String closeTag = text.substring(1, text.length() - 4);
+    if (!mismatchedNestedTags.isEmpty()) {
+        if (closeTag.equals(mismatchedNestedTags.peek())) {
+            mismatchedNestedTags.pop();
+        }
+        setType(MALFORMED_FENCE_CONTENT);
+    } else {
+        setType(MALFORMED_FENCE_END);
+        popMode();
+    }
+} ;
+
+MISMATCHED_FENCE_CHAR : . -> type(MALFORMED_FENCE_CONTENT) ;
 ```
 
 ---
