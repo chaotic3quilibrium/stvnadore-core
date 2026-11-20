@@ -1,0 +1,13 @@
+{
+  :meta {
+    #name "simple_string_escape_include_path"
+    #domain "core_test"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "./missing_\z_mod_\u12G4.stvn_di" ]
+    :use [ :ext/pkg ]
+  }
+  :type :String
+  :body "ok"
+}

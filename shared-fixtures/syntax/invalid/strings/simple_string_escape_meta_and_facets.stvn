@@ -1,0 +1,14 @@
+{
+  :meta {
+    #name "bad_\z_stem_\u12G4"
+    #domain "stvn_bad_\q"
+    #kind #BODY
+  }
+  :defs {
+    :BadRegex { #regex "[unclosed_\z_\u12" } :String
+    :BadBounds { #minIncl "z_\p" #maxIncl "a_\r" } :String
+    :BadDtBound { #offset #minIncl "not-iso-\w-\u12G4" } :DateTime
+  }
+  :type :Tuple(:BadRegex :BadBounds :BadDtBound :Int)
+  :body ("any" "any" "any" "not_an_int")
+}

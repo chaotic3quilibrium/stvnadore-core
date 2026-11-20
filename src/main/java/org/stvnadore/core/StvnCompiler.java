@@ -319,6 +319,15 @@ public final class StvnCompiler {
       }
 
       if (!canValidateBody) {
+        if (defsRes.sectionsEligible()
+            && docBody != null
+            && !docBody.bodyEntry().isEmpty()
+            && docBody.bodyEntry(0).value() != null) {
+          StvnPayloadLowerer.scanLexicalSimpleStringEscapesInSubtree(
+              docBody.bodyEntry(0).value(),
+              diagnosticBag
+          );
+        }
         return new TextCompilationOutcome(
             StvnCompilationResult.failure(diagnosticBag.toList()),
             defsRes.meta(),

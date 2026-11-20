@@ -109,7 +109,7 @@ IDENTIFIER   : [a-zA-Z_][a-zA-Z0-9_]* ;
 // Base-10, Hexadecimal (0x), Binary (0b), and Octal (0o) match rules
 LITERAL_INTEGER : '-'? ('0' [xX] [0-9a-fA-F]+ | '0' [bB] [01]+ | '0' [oO] [0-7]+ | [1-9][0-9]* | '0') ;
 LITERAL_FLOAT : '-'? [0-9]+ '.' [0-9]+ ([eE] [-+]? [0-9]+)? ;
-LITERAL_STRING_SIMPLE : '"' (~["\\\r\n\t] | '\\' .)* '"' ;
+LITERAL_STRING_SIMPLE : '"' (~["\\\r\n\t] | '\\' ~[\r\n])* '"' ;
 
 fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
 

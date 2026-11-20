@@ -1,0 +1,22 @@
+{
+  :meta {
+    #name "simple_string_escape_meta_and_facets"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 3 16 27 29 "Illegal escape sequence '\\z' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 3 24 35 41 "Invalid hexadecimal digits in Unicode escape '\\u12G4'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 4 23 65 67 "Illegal escape sequence '\\q' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 8 35 133 135 "Illegal escape sequence '\\z' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 8 38 136 140 "Incomplete Unicode escape sequence in string literal; expected '\\uXXXX'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 9 30 181 183 "Illegal escape sequence '\\p' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 10 45 255 257 "Illegal escape sequence '\\w' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 10 48 258 264 "Invalid hexadecimal digits in Unicode escape '\\u12G4'" )
+    ( #E028 #ERR_TYPE_MISMATCH #ERROR 13 28 363 375 "Type mismatch: expected scalar :Int, found scalar :String literal" )
+  ]
+}

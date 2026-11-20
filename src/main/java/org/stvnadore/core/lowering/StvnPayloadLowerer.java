@@ -2,6 +2,7 @@ package org.stvnadore.core.lowering;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
@@ -378,6 +379,7 @@ public final class StvnPayloadLowerer {
       return silentPoisonErrorValue(ctx, poisoned, diagnosticBag);
     }
     if (isMalformedSyntaxContext(ctx)) {
+      scanLexicalSimpleStringEscapesInSubtree(ctx, diagnosticBag);
       Span span = Span.ofContext(ctx);
       RuntimeException cause = new MalformedPayloadException(
           "STVN Syntax Error: malformed value expression", span.start(), span.end());
@@ -394,6 +396,7 @@ public final class StvnPayloadLowerer {
       StvnValue result = session.evaluateNext(queue, effectiveTarget);
       if (!queue.isEmpty()) {
         StreamItem leftover = queue.removeFirst();
+        scanLexicalSimpleStringEscapesInSubtree(leftover.sourceCtx(), diagnosticBag);
         Span span = leftover.itemSpan();
         String msg = "STVN Syntax Error: unexpected trailing value token '" + leftover.displayText() + "'";
         RuntimeException cause = new MalformedPayloadException(msg, span.start(), span.end());
@@ -483,97 +486,318 @@ public final class StvnPayloadLowerer {
       return preserveIndent ? lfNormalized : trimCommonIndent(lfNormalized);
     }
 
-    if (rawText.length() >= 2 && rawText.startsWith("\"") && rawText.endsWith("\"")) {
+    if (rawText.startsWith("\"")) {
       return unescapeSimpleQuotedString(rawText, literalSpan);
     }
     return rawText;
   }
 
+  /**
+   * Represents a single lexical escape diagnostic pinned to its exact sub-span inside a
+   * {@code LITERAL_STRING_SIMPLE} token.
+   *
+   * @param message       user-facing STE diagnostic message
+   * @param span          exact sub-token source span
+   * @param canonicalCode canonical STVN 2.0.0 code ({@code E002})
+   * @param symbolicId    symbolic identifier ({@code STVN_SYNTAX_ERROR})
+   * @param cause         structured literal exception cause
+   * @since 2.0.0
+   */
+  public record SimpleStringEscapeDiagnostic(
+      String message,
+      Span span,
+      String canonicalCode,
+      String symbolicId,
+      StvnMalformedLiteralException cause
+  ) {}
+
+  /**
+   * Result of non-aborting lexical escape scanning over a single {@code LITERAL_STRING_SIMPLE} token.
+   *
+   * @param decoded decoded UTF-8 string when {@code errors} is empty, or {@code null} when corrupt
+   * @param errors  ordered left-to-right escape diagnostics ({@code empty} when valid)
+   * @since 2.0.0
+   */
+  public record SimpleStringDecodeOutcome(
+      @Nullable String decoded,
+      List<SimpleStringEscapeDiagnostic> errors
+  ) {
+    /**
+     * Returns {@code true} when at least one lexical escape error was found.
+     *
+     * @return {@code true} if corrupt
+     */
+    public boolean hasErrors() {
+      return !errors.isEmpty();
+    }
+  }
+
+  /**
+   * Decodes a simple or Rule STR-04 fenced string literal, recording all invalid escape diagnostics
+   * in left-to-right source order into {@code diagnosticBag} without aborting after the first escape error.
+   *
+   * @param rawText        raw literal token text including enclosing quotes or fences
+   * @param preserveIndent {@code true} to preserve leading ASCII-space indentation on fenced strings
+   * @param literalSpan    source span of the literal token
+   * @param diagnosticBag  target diagnostic accumulator
+   * @return decoded string when lexically valid, or {@link Optional#empty()} when one or more errors were recorded
+   */
+  public static Optional<String> decodeStringLiteralAccumulating(
+      String rawText,
+      boolean preserveIndent,
+      Span literalSpan,
+      DiagnosticBag diagnosticBag
+  ) {
+    if (rawText.startsWith("\"\"\"")) {
+      try {
+        return Optional.of(decodeStringLiteral(rawText, preserveIndent, literalSpan));
+      } catch (LoweringLiteralException le) {
+        recordLiteralDiagnosticIdempotent(
+            diagnosticBag, le.getMessage(), le.span(), le.getCause(), le.canonicalCode(), le.symbolicId()
+        );
+        return Optional.empty();
+      }
+    }
+    SimpleStringDecodeOutcome outcome = scanSimpleQuotedString(rawText, literalSpan);
+    if (outcome.hasErrors()) {
+      for (SimpleStringEscapeDiagnostic err : outcome.errors()) {
+        recordLiteralDiagnosticIdempotent(
+            diagnosticBag, err.message(), err.span(), err.cause(), err.canonicalCode(), err.symbolicId()
+        );
+      }
+      return Optional.empty();
+    }
+    return Optional.of(Objects.requireNonNull(outcome.decoded()));
+  }
+
+  /**
+   * Scans an ANTLR parse subtree for {@link StvnParser.StringSimpleContext} nodes and records any
+   * lexical {@code E002} escape diagnostics idempotently in left-to-right source order.
+   *
+   * @param root          parse tree root to inspect, or {@code null}
+   * @param diagnosticBag target diagnostic accumulator
+   */
+  public static void scanLexicalSimpleStringEscapesInSubtree(
+      @Nullable ParseTree root,
+      DiagnosticBag diagnosticBag
+  ) {
+    if (root == null) {
+      return;
+    }
+    if (root instanceof StvnParser.StringSimpleContext simpleCtx) {
+      Span sp = Span.ofContext(simpleCtx);
+      SimpleStringDecodeOutcome outcome = scanSimpleQuotedString(simpleCtx.getText(), sp);
+      for (SimpleStringEscapeDiagnostic err : outcome.errors()) {
+        recordLiteralDiagnosticIdempotent(
+            diagnosticBag, err.message(), err.span(), err.cause(), err.canonicalCode(), err.symbolicId()
+        );
+      }
+      return;
+    }
+    for (int i = 0; i < root.getChildCount(); i++) {
+      scanLexicalSimpleStringEscapesInSubtree(root.getChild(i), diagnosticBag);
+    }
+  }
+
+  private static StvnDiagnostic recordLiteralDiagnosticIdempotent(
+      DiagnosticBag bag,
+      String message,
+      Span span,
+      @Nullable Throwable cause,
+      String canonicalCode,
+      String symbolicId
+  ) {
+    Optional<String> targetPath = bag.defaultSourcePath();
+    for (StvnDiagnostic existing : bag.toList()) {
+      if (existing.severity() == DiagnosticSeverity.ERROR
+          && existing.startOffset() == span.start()
+          && existing.endOffset() == span.end()
+          && Objects.equals(existing.sourcePath(), targetPath)
+          && symbolicId.equals(existing.symbolicId().orElse(""))) {
+        return existing;
+      }
+    }
+    StvnDiagnostic diag = new StvnDiagnostic(
+        message,
+        DiagnosticSeverity.ERROR,
+        span.line(),
+        span.column(),
+        span.start(),
+        span.end(),
+        cause,
+        Optional.of(canonicalCode),
+        Optional.of(symbolicId)
+    ).withSourcePath(targetPath.orElse(null));
+    bag.add(diag);
+    return diag;
+  }
+
   private static String unescapeSimpleQuotedString(String rawText, Span literalSpan) {
+    SimpleStringDecodeOutcome outcome = scanSimpleQuotedString(rawText, literalSpan);
+    if (outcome.hasErrors()) {
+      SimpleStringEscapeDiagnostic first = outcome.errors().getFirst();
+      throw new LoweringLiteralException(
+          first.message(), first.span(), first.canonicalCode(), first.symbolicId(), first.cause()
+      );
+    }
+    return Objects.requireNonNull(outcome.decoded());
+  }
+
+  /**
+   * Scans and unescapes a {@code LITERAL_STRING_SIMPLE} token in a single non-aborting left-to-right pass.
+   *
+   * @param rawText     raw simple string token text
+   * @param literalSpan source span of the enclosing token
+   * @return structured decode outcome containing either the decoded text or all ordered escape diagnostics
+   */
+  public static SimpleStringDecodeOutcome scanSimpleQuotedString(String rawText, Span literalSpan) {
+    if (rawText.length() < 2 || rawText.charAt(0) != '"' || rawText.charAt(rawText.length() - 1) != '"') {
+      String msg = "Malformed simple string literal; expected enclosing '\"...\"' quotes";
+      return new SimpleStringDecodeOutcome(
+          null,
+          List.of(new SimpleStringEscapeDiagnostic(
+              msg, literalSpan, "E002", "STVN_SYNTAX_ERROR",
+              new StvnMalformedLiteralException(msg, literalSpan.start(), literalSpan.end())
+          ))
+      );
+    }
     int end = rawText.length() - 1;
     if (rawText.indexOf('\\') < 0) {
-      return rawText.substring(1, end);
+      return new SimpleStringDecodeOutcome(rawText.substring(1, end), List.of());
     }
     StringBuilder sb = new StringBuilder(end - 1);
+    List<SimpleStringEscapeDiagnostic> errors = null;
     int i = 1;
     while (i < end) {
       char c = rawText.charAt(i);
       if (c != '\\') {
-        sb.append(c);
+        if (errors == null) {
+          sb.append(c);
+        }
         i++;
         continue;
       }
       if (i + 1 >= end) {
         Span escSpan = literalSpan.subSpan(i, i + 1);
         String msg = "Illegal trailing backslash escape in string literal";
-        throw new LoweringLiteralException(
+        if (errors == null) {
+          errors = new ArrayList<>(2);
+        }
+        errors.add(new SimpleStringEscapeDiagnostic(
             msg, escSpan, "E002", "STVN_SYNTAX_ERROR",
-            new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end()));
+            new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end())
+        ));
+        break;
       }
       char next = rawText.charAt(i + 1);
       switch (next) {
         case '"' -> {
-          sb.append('"');
+          if (errors == null) {
+            sb.append('"');
+          }
           i += 2;
         }
         case '\\' -> {
-          sb.append('\\');
+          if (errors == null) {
+            sb.append('\\');
+          }
           i += 2;
         }
         case '/' -> {
-          sb.append('/');
+          if (errors == null) {
+            sb.append('/');
+          }
           i += 2;
         }
         case 'b' -> {
-          sb.append('\b');
+          if (errors == null) {
+            sb.append('\b');
+          }
           i += 2;
         }
         case 'f' -> {
-          sb.append('\f');
+          if (errors == null) {
+            sb.append('\f');
+          }
           i += 2;
         }
         case 'n' -> {
-          sb.append('\n');
+          if (errors == null) {
+            sb.append('\n');
+          }
           i += 2;
         }
         case 'r' -> {
-          sb.append('\r');
+          if (errors == null) {
+            sb.append('\r');
+          }
           i += 2;
         }
         case 't' -> {
-          sb.append('\t');
+          if (errors == null) {
+            sb.append('\t');
+          }
           i += 2;
         }
         case 'u' -> {
-          if (i + 6 > end) {
-            Span escSpan = literalSpan.subSpan(i, Math.min(end, i + 6));
+          int j = i + 2;
+          int maxEnd = Math.min(end, i + 6);
+          while (j < maxEnd) {
+            char ch = rawText.charAt(j);
+            if (ch == '\\' || ch == '"' || ch == '\r' || ch == '\n' || ch == '\t') {
+              break;
+            }
+            j++;
+          }
+          int hexLen = j - (i + 2);
+          if (hexLen < 4) {
+            Span escSpan = literalSpan.subSpan(i, j);
             String msg = "Incomplete Unicode escape sequence in string literal; expected '\\uXXXX'";
-            throw new LoweringLiteralException(
+            if (errors == null) {
+              errors = new ArrayList<>(2);
+            }
+            errors.add(new SimpleStringEscapeDiagnostic(
                 msg, escSpan, "E002", "STVN_SYNTAX_ERROR",
-                new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end()));
+                new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end())
+            ));
+            i = j;
+          } else {
+            String hex = rawText.substring(i + 2, i + 6);
+            int codeUnit = parseFourHexDigits(hex);
+            if (codeUnit < 0) {
+              Span escSpan = literalSpan.subSpan(i, i + 6);
+              String msg = "Invalid hexadecimal digits in Unicode escape '\\u" + hex + "'";
+              if (errors == null) {
+                errors = new ArrayList<>(2);
+              }
+              errors.add(new SimpleStringEscapeDiagnostic(
+                  msg, escSpan, "E002", "STVN_SYNTAX_ERROR",
+                  new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end())
+              ));
+            } else if (errors == null) {
+              sb.append((char) codeUnit);
+            }
+            i = i + 6;
           }
-          String hex = rawText.substring(i + 2, i + 6);
-          int codeUnit = parseFourHexDigits(hex);
-          if (codeUnit < 0) {
-            Span escSpan = literalSpan.subSpan(i, i + 6);
-            String msg = "Invalid hexadecimal digits in Unicode escape '\\u" + hex + "'";
-            throw new LoweringLiteralException(
-                msg, escSpan, "E002", "STVN_SYNTAX_ERROR",
-                new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end()));
-          }
-          sb.append((char) codeUnit);
-          i += 6;
         }
         default -> {
           Span escSpan = literalSpan.subSpan(i, i + 2);
           String msg = "Illegal escape sequence '\\" + next + "' in simple string literal";
-          throw new LoweringLiteralException(
+          if (errors == null) {
+            errors = new ArrayList<>(2);
+          }
+          errors.add(new SimpleStringEscapeDiagnostic(
               msg, escSpan, "E002", "STVN_SYNTAX_ERROR",
-              new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end()));
+              new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end())
+          ));
+          i += 2;
         }
       }
     }
-    return sb.toString();
+    if (errors != null) {
+      return new SimpleStringDecodeOutcome(null, List.copyOf(errors));
+    }
+    return new SimpleStringDecodeOutcome(sb.toString(), List.of());
   }
 
   private static int parseFourHexDigits(String hex) {
@@ -808,7 +1032,12 @@ public final class StvnPayloadLowerer {
       );
     }
 
-    String inner = rawText.substring(1, rawText.length() - 1);
+    SimpleStringDecodeOutcome escapeScan = scanSimpleQuotedString(rawText, new Span(0, rawText.length(), 1, 0));
+    if (escapeScan.hasErrors()) {
+      SimpleStringEscapeDiagnostic first = escapeScan.errors().getFirst();
+      return EitherDateTimeResult.fail(mode, first.canonicalCode(), first.symbolicId(), first.message());
+    }
+    String inner = Objects.requireNonNull(escapeScan.decoded());
     int lb = inner.indexOf('[');
     int rb = inner.lastIndexOf(']');
     boolean hasBracketChars = lb >= 0 || rb >= 0;
@@ -1370,6 +1599,7 @@ public final class StvnPayloadLowerer {
       StvnSchema.PoisonedSchema poisoned,
       DiagnosticBag bag
   ) {
+    scanLexicalSimpleStringEscapesInSubtree(ctx, bag);
     Span span = Span.ofContext(ctx);
     String code = poisoned.primaryDiagnosticCode();
     Optional<String> canonical = code.startsWith("E") ? Optional.of(code) : DiagnosticBag.resolveCanonicalCode(code);
@@ -1642,6 +1872,23 @@ public final class StvnPayloadLowerer {
               code,
               sym
           );
+        }
+        if (atom.ctx().stringLiteral() instanceof StvnParser.StringSimpleContext simpleCtx) {
+          Span strSpan = Span.ofContext(simpleCtx);
+          SimpleStringDecodeOutcome outcome = scanSimpleQuotedString(simpleCtx.getText(), strSpan);
+          if (outcome.hasErrors()) {
+            queue.removeFirst();
+            StvnDiagnostic firstDiag = null;
+            for (SimpleStringEscapeDiagnostic err : outcome.errors()) {
+              StvnDiagnostic recorded = recordLiteralDiagnosticIdempotent(
+                  diagnosticBag, err.message(), err.span(), err.cause(), err.canonicalCode(), err.symbolicId()
+              );
+              if (firstDiag == null) {
+                firstDiag = recorded;
+              }
+            }
+            throw new LoweringAbortException(Objects.requireNonNull(firstDiag));
+          }
         }
       }
       if (peek instanceof AtomicValueItem atom && isMalformedSyntaxContext(atom.ctx())) {
@@ -2069,6 +2316,10 @@ public final class StvnPayloadLowerer {
       }
 
       queue.removeFirst();
+      StvnDiagnostic syntaxDiag = replaySyntaxDiagnosticsFromFailedProbes(List.of(rightProbe.bag(), leftProbe.bag()));
+      if (syntaxDiag != null) {
+        throw new LoweringAbortException(syntaxDiag);
+      }
       // Preserve specific Rule C / undefined-constant errors if raised on a branch
       StvnDiagnostic specific = pickSpecificBranchDiagnostic(rightProbe.bag(), leftProbe.bag());
       if (specific != null) {
@@ -2207,6 +2458,10 @@ public final class StvnPayloadLowerer {
       }
 
       queue.removeFirst();
+      StvnDiagnostic syntaxDiag = replaySyntaxDiagnosticsFromFailedProbes(failedBags);
+      if (syntaxDiag != null) {
+        throw new LoweringAbortException(syntaxDiag);
+      }
       for (DiagnosticBag fb : failedBags) {
         for (StvnDiagnostic d : fb.toList()) {
           if (d.cause() instanceof IllegalArgumentException
@@ -2266,6 +2521,37 @@ public final class StvnPayloadLowerer {
       for (StvnDiagnostic d : probe.bag().toList()) {
         diagnosticBag.add(d);
       }
+    }
+
+    private static boolean isLexicalSyntaxDiagnostic(StvnDiagnostic d) {
+      if ("E028".equals(d.canonicalCode().orElse(null))) {
+        return false;
+      }
+      return "STVN_SYNTAX_ERROR".equals(d.symbolicId().orElse(null))
+          || d.cause() instanceof StvnMalformedLiteralException;
+    }
+
+    private @Nullable StvnDiagnostic replaySyntaxDiagnosticsFromFailedProbes(List<DiagnosticBag> failedBags) {
+      StvnDiagnostic firstReplayed = null;
+      for (DiagnosticBag fb : failedBags) {
+        for (StvnDiagnostic d : fb.toList()) {
+          if (isLexicalSyntaxDiagnostic(d)) {
+            Span sp = new Span(d.startOffset(), d.endOffset(), d.line(), d.column());
+            StvnDiagnostic recorded = recordLiteralDiagnosticIdempotent(
+                diagnosticBag,
+                d.message(),
+                sp,
+                d.cause(),
+                d.canonicalCode().orElse("E002"),
+                d.symbolicId().orElse("STVN_SYNTAX_ERROR")
+            );
+            if (firstReplayed == null) {
+              firstReplayed = recorded;
+            }
+          }
+        }
+      }
+      return firstReplayed;
     }
 
     private static @Nullable StvnDiagnostic pickSpecificBranchDiagnostic(DiagnosticBag first, DiagnosticBag second) {
@@ -2638,12 +2924,12 @@ public final class StvnPayloadLowerer {
           return lowerDateTimeLiteral(raw, dtSchema, label, span);
         }
         if (schema instanceof StvnSchema.StringSchema stringSchema) {
-          String decoded;
-          try {
-            decoded = decodeStringLiteral(raw, stringSchema.preserveIndent(), span);
-          } catch (LoweringLiteralException lle) {
-            throw abort(lle.getMessage(), lle.span(), lle.getCause(), lle.canonicalCode(), lle.symbolicId());
+          Optional<String> decodedOpt = decodeStringLiteralAccumulating(
+              raw, stringSchema.preserveIndent(), span, diagnosticBag);
+          if (decodedOpt.isEmpty()) {
+            throw new LoweringAbortException(diagnosticBag.toList().getLast());
           }
+          String decoded = decodedOpt.get();
           validateStringValue(decoded, stringSchema, label, span);
           return new StvnValue.StvnString(stringSchema, decoded);
         }
@@ -3112,7 +3398,8 @@ public final class StvnPayloadLowerer {
           }
         } else {
           // Excess slot (M > N): consume without emitting secondary per-element type errors
-          queue.removeFirst();
+          StreamItem excessItem = queue.removeFirst();
+          scanLexicalSimpleStringEscapesInSubtree(excessItem.sourceCtx(), diagnosticBag);
           excessSpans.add(headSpan);
         }
         slot++;
@@ -3156,6 +3443,7 @@ public final class StvnPayloadLowerer {
         if (entryCtx.exception != null || entryCtx.value().size() < 2
             || isMalformedSyntaxContext(entryCtx.value(0))
             || isMalformedSyntaxContext(entryCtx.value(1))) {
+          scanLexicalSimpleStringEscapesInSubtree(entryCtx, diagnosticBag);
           String msg = "STVN Syntax Error: map entry requires '[ key value ]' pair";
           StvnDiagnostic diag = recordError(
               diagnosticBag, msg, entrySpan,

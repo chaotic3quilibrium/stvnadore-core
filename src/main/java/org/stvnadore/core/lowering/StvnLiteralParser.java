@@ -305,10 +305,17 @@ public final class StvnLiteralParser {
       return new ParsedString(resolvedPayload, StringStyle.FENCED, Optional.of(openingTag));
     }
     if (rawText.startsWith("\"") && rawText.endsWith("\"") && rawText.length() >= 2) {
-      String decoded = StvnPayloadLowerer.decodeStringLiteral(
-          rawText, true, new StvnPayloadLowerer.Span(0, rawText.length(), 1, 0)
-      );
-      return new ParsedString(decoded, StringStyle.SIMPLE, Optional.empty());
+      try {
+        String decoded = StvnPayloadLowerer.decodeStringLiteral(
+            rawText, true, new StvnPayloadLowerer.Span(0, rawText.length(), 1, 0)
+        );
+        return new ParsedString(decoded, StringStyle.SIMPLE, Optional.empty());
+      } catch (StvnPayloadLowerer.LoweringLiteralException lle) {
+        if (lle.getCause() instanceof org.stvnadore.core.validation.StvnMalformedLiteralException mle) {
+          throw mle;
+        }
+        throw lle;
+      }
     }
     return new ParsedString(rawText, StringStyle.SIMPLE, Optional.empty());
   }

@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "simple_string_multi_escape_recovery"
+    #kind #BODY
+  }
+  :defs {
+    :ShortStr { #maxSize 3 } :String
+  }
+  :type :Tuple(:String :String :String :String :ShortStr)
+  :body (
+    "CORRUPT_ESCAPE_\z_AND_HEX_\u12G4"
+    "\u12\z"
+    "END_\u12"
+    "QUOTE_\u12\"_NEXT_\q"
+    "OVERFLOW"
+  )
+}

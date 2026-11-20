@@ -1,0 +1,21 @@
+{
+  :meta {
+    #name "simple_string_multi_escape_recovery"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 11 21 219 221 "Illegal escape sequence '\\z' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 11 32 230 236 "Invalid hexadecimal digits in Unicode escape '\\u12G4'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 12 6 243 247 "Incomplete Unicode escape sequence in string literal; expected '\\uXXXX'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 12 10 247 249 "Illegal escape sequence '\\z' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 13 10 260 264 "Incomplete Unicode escape sequence in string literal; expected '\\uXXXX'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 14 12 277 281 "Incomplete Unicode escape sequence in string literal; expected '\\uXXXX'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 14 24 289 291 "Illegal escape sequence '\\q' in simple string literal" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 15 5 297 307 "Constraint violation (:ShortStr): String length exceeds maximum length of 3 characters, got 8 (Size 8 outside allowable range [0, 3])" )
+  ]
+}

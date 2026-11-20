@@ -1,0 +1,23 @@
+{
+  :meta {
+    #name "simple_string_escape_cascade_suppression"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 13 35 334 336 "Illegal escape sequence '\\z' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 13 38 337 343 "Invalid hexadecimal digits in Unicode escape '\\u00GG'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 24 8 504 506 "Illegal escape sequence '\\x' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 24 11 507 511 "Incomplete Unicode escape sequence in string literal; expected '\\uXXXX'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 25 26 538 540 "Illegal escape sequence '\\z' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 25 28 540 546 "Invalid hexadecimal digits in Unicode escape '\\u12G4'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 26 15 562 564 "Illegal escape sequence '\\k' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 26 18 565 571 "Invalid hexadecimal digits in Unicode escape '\\u99ZZ'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 27 11 583 585 "Illegal escape sequence '\\z' in simple string literal" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 27 20 592 594 "Illegal escape sequence '\\z' in simple string literal" )
+  ]
+}

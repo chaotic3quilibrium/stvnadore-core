@@ -182,7 +182,7 @@ public final class StvnSyntaxErrorSanitizer {
         i++;
         col++;
         while (i < len && chars[i] != '"' && chars[i] != '\n' && chars[i] != '\r') {
-          if (chars[i] == '\\' && i + 1 < len && chars[i + 1] != '\n' && chars[i + 1] != '\r') {
+          if (chars[i] == '\\' && i + 1 < len && chars[i + 1] != '\n' && chars[i + 1] != '\r' && chars[i + 1] != '\t') {
             i += 2;
             col += 2;
           } else if (chars[i] == '\t') {

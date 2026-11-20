@@ -1,0 +1,29 @@
+{
+  :meta {
+    #name "simple_string_escape_cascade_suppression"
+    #kind #BODY
+  }
+  :defs {
+    :StrictCode { #minSize 10 #maxSize 12 #regex "^[A-Z_]+$" } :String
+    :AuditedTs {
+      #audited
+      #minIncl "2026-01-01T00:00:00Z[UTC]"
+      #maxExcl "2027-01-01T00:00:00Z[UTC]"
+    } :DateTime
+    #BAD_STR_CONST :StrictCode "a_\z_\u00GG"
+  }
+  :type :Tuple(
+    :StrictCode
+    :StrictCode
+    :AuditedTs
+    :Either(:Int :StrictCode)
+    :Set(:StrictCode)
+  )
+  :body (
+    #BAD_STR_CONST
+    "b_\x_\u12"
+    "2025-03-15T08:00:00Z\z\u12G4"
+    "UNTAGGED_\k_\u99ZZ"
+    ["dup_\z" "dup_\z" "VALID_CODE"]
+  )
+}
