@@ -47,6 +47,8 @@ public record StvnDiagnostic(
 ) {
 
   private static final Pattern CANONICAL_CODE_PATTERN = Pattern.compile("^[EW][0-9]{3}$");
+  private static final Pattern NORMATIVE_CODE_PATTERN =
+      Pattern.compile("^(?:E0(?:0[1-9]|[1-3][0-9]|40)|W00[1-3])$");
 
   /**
    * Diagnostic severity classifications.
@@ -301,6 +303,68 @@ public record StvnDiagnostic(
         symbolicId,
         Optional.empty()
     );
+  }
+
+  /**
+   * Creates a dual-attributed diagnostic carrying both a normative canonical code
+   * ({@code E001}–{@code E040}, {@code W001}–{@code W003}) and a non-blank symbolic identifier.
+   *
+   * @param message       the descriptive diagnostic message free of parser-generator jargon
+   * @param severity      the diagnostic severity classification
+   * @param line          the 1-based source line index, or {@code -1} if unlocated
+   * @param column        the 0-based character column offset, or {@code -1} if unlocated
+   * @param startOffset   the 0-based inclusive character start offset, or {@code -1} if unlocated
+   * @param endOffset     the 0-based exclusive character end offset, or {@code -1} if unlocated
+   * @param cause         the underlying exception that triggered the diagnostic, or {@code null}
+   * @param canonicalCode the normative canonical code ({@code E001}–{@code E040}, {@code W001}–{@code W003})
+   * @param symbolicId    the symbolic diagnostic identifier ({@code ERR_*} / {@code WARN_*})
+   * @return an immutable dual-attributed {@link StvnDiagnostic}
+   * @throws IllegalArgumentException if {@code canonicalCode} is not canonical or {@code symbolicId} is blank
+   * @since 2.0.0
+   */
+  public static StvnDiagnostic ofDual(
+      String message,
+      DiagnosticSeverity severity,
+      int line,
+      int column,
+      int startOffset,
+      int endOffset,
+      @Nullable Throwable cause,
+      String canonicalCode,
+      String symbolicId
+  ) {
+    Objects.requireNonNull(canonicalCode, "canonicalCode must not be null");
+    Objects.requireNonNull(symbolicId, "symbolicId must not be null");
+    if (!NORMATIVE_CODE_PATTERN.matcher(canonicalCode).matches()) {
+      throw new IllegalArgumentException("Invalid canonical diagnostic code: " + canonicalCode);
+    }
+    if (symbolicId.isBlank()) {
+      throw new IllegalArgumentException("Symbolic diagnostic identifier must not be blank");
+    }
+    return new StvnDiagnostic(
+        message,
+        severity,
+        line,
+        column,
+        startOffset,
+        endOffset,
+        cause,
+        Optional.of(symbolicId),
+        Optional.of(canonicalCode),
+        Optional.of(symbolicId),
+        Optional.empty()
+    );
+  }
+
+  /**
+   * Returns the normative canonical specification code ({@code E001}–{@code E040},
+   * {@code W001}–{@code W003}), equivalent to {@link #canonicalCode()}.
+   *
+   * @return optional canonical specification code
+   * @since 2.0.0
+   */
+  public Optional<String> code() {
+    return canonicalCode;
   }
 
   /**

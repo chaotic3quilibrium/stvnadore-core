@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * Accumulator bag for recording semantic and syntactic diagnostics during STVN 2.0.0 compilation.
@@ -225,6 +226,11 @@ public final class DiagnosticBag {
   public static final String ERR_CAS_PREIMAGE_AMBIGUITY = "ERR_CAS_PREIMAGE_AMBIGUITY";
   /** Error code emitted when discrete intervals define an empty domain [k, k) with zero habitable values (SPEC-04). */
   public static final String ERR_EMPTY_INTERVAL_DOMAIN = "ERR_EMPTY_INTERVAL_DOMAIN";
+  /** Internal sentinel code marking a guarded recursive nominal back-edge in a sum schema (E007). */
+  public static final String ERR_RECURSIVE_NOMINAL_BACK_EDGE = "INTERNAL_RECURSIVE_NOMINAL_REF";
+
+  private static final Pattern NORMATIVE_CANONICAL_CODE_PATTERN =
+      Pattern.compile("^(?:E0(?:0[1-9]|[1-3][0-9]|40)|W00[1-3])$");
 
   private static final Map<String, String> SYMBOLIC_TO_CANONICAL = Map.ofEntries(
       Map.entry(ERR_TAB_CHARACTER_FORBIDDEN, "E001"),
@@ -265,6 +271,7 @@ public final class DiagnosticBag {
       Map.entry("CIRCULAR_DEPENDENCY", "E007"),
       Map.entry("CIRCULAR_REFERENCE", "E007"),
       Map.entry(ERR_CIRCULAR_TYPE, "E007"),
+      Map.entry(ERR_RECURSIVE_NOMINAL_BACK_EDGE, "E007"),
       Map.entry(ERR_INVALID_METADATA_FACET, "E008"),
       Map.entry(ERR_INCOMPLETE_TRAIT_FACET, "E008"),
       Map.entry("INVALID_FACET_TARGET", "E008"),
@@ -360,6 +367,72 @@ public final class DiagnosticBag {
       Map.entry(WARN_REDUNDANT_METADATA_FACET, "W003"),
       Map.entry(WARN_DIAG_LIMIT_EXCEEDED, "W003")
   );
+
+  private static final Map<String, String> CANONICAL_TO_DEFAULT_SYMBOLIC = Map.ofEntries(
+      Map.entry("E001", ERR_TAB_CHARACTER_FORBIDDEN),
+      Map.entry("E002", "STVN_SYNTAX_ERROR"),
+      Map.entry("E003", ERR_EMPTY_METADATA_BLOCK),
+      Map.entry("E004", ERR_EMPTY_DIRECTIVE_BLOCK),
+      Map.entry("E005", ERR_MODULE_IMPORT),
+      Map.entry("E006", ERR_NAMESPACE_COLLISION),
+      Map.entry("E007", ERR_CIRCULAR_TYPE),
+      Map.entry("E008", ERR_INVALID_METADATA_FACET),
+      Map.entry("E009", ERR_INTEGER_OVERFLOW),
+      Map.entry("E010", ERR_MALFORMED_SCHEMA),
+      Map.entry("E011", ERR_DISCRETE_BOUND_KIND_PROHIBITED),
+      Map.entry("E012", ERR_CONSTRAINT_VIOLATION),
+      Map.entry("E013", ERR_REGEX_MISMATCH),
+      Map.entry("E014", ERR_ENUM_SUBSET_NOT_SUBSET),
+      Map.entry("E015", ERR_ENUM_SUBSET_ORDER_VIOLATION),
+      Map.entry("E016", ERR_ENUM_SUBSET_EMPTY),
+      Map.entry("E017", ERR_DUPLICATE_SET_ELEMENT),
+      Map.entry("E018", ERR_DUPLICATE_INVERTED_MAP_VALUE),
+      Map.entry("E019", ERR_TEMPORAL_OFFSET_IN_ZONED),
+      Map.entry("E020", ERR_TEMPORAL_ZONE_IN_EPOCH),
+      Map.entry("E021", ERR_TEMPORAL_AUDITED_MISMATCH),
+      Map.entry("E022", ERR_TEMPORAL_DST_GAP_LITERAL),
+      Map.entry("E023", ERR_EITHER_LEFT_MISSING_TAG),
+      Map.entry("E024", ERR_AMBIGUOUS_SUM_INFERENCE),
+      Map.entry("E025", ERR_FENCE_DELIMITER_MISMATCH),
+      Map.entry("E026", ERR_PROHIBITED_FENCE_ARROW),
+      Map.entry("E027", ERR_INCOMPATIBLE_NOMINAL_TYPE),
+      Map.entry("E028", ERR_TYPE_MISMATCH),
+      Map.entry("E029", ERR_DEAD_CODE_CANONICAL_FAIL),
+      Map.entry("E030", ERR_UNDEFINED_TYPE),
+      Map.entry("E031", ERR_DOCUMENT_KIND_MISMATCH),
+      Map.entry("E032", ERR_INVALID_FILENAME_STEM),
+      Map.entry("E033", ERR_META_POSITION_INVALID),
+      Map.entry("E034", ERR_LEGACY_FILE_EXTENSION_PURGED),
+      Map.entry("E035", ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT),
+      Map.entry("E036", ERR_UNRECOGNIZED_METADATA_FACET),
+      Map.entry("E037", ERR_RESERVED_PACKAGE_PROHIBITED),
+      Map.entry("E038", ERR_RESERVED_DOMAIN_PROHIBITED),
+      Map.entry("E039", ERR_EMPTY_META_BLOCK),
+      Map.entry("E040", ERR_NON_OVERRIDABLE_FACET),
+      Map.entry("W001", WARN_DOCUMENT_NAME_MISMATCH),
+      Map.entry("W002", WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME),
+      Map.entry("W003", WARN_REDUNDANT_METADATA_FACET)
+  );
+
+  /**
+   * Immutable pair of normative canonical code and symbolic diagnostic identifier.
+   *
+   * @param canonicalCode canonical STVN 2.0.0 code ({@code E001}–{@code E040}, {@code W001}–{@code W003})
+   * @param symbolicId    symbolic diagnostic identifier ({@code ERR_*} / {@code WARN_*})
+   * @since 2.0.0
+   */
+  public record DualCode(String canonicalCode, String symbolicId) {
+    /**
+     * Validates non-null components.
+     *
+     * @param canonicalCode canonical STVN 2.0.0 code
+     * @param symbolicId    symbolic diagnostic identifier
+     */
+    public DualCode {
+      Objects.requireNonNull(canonicalCode, "canonicalCode must not be null");
+      Objects.requireNonNull(symbolicId, "symbolicId must not be null");
+    }
+  }
 
   private static final class AccumulatorState {
     final int maxDiagnostics;
@@ -459,16 +532,68 @@ public final class DiagnosticBag {
   }
 
   /**
+   * Resolves the default symbolic diagnostic identifier for a normative canonical code
+   * ({@code E001}–{@code E040}, {@code W001}–{@code W003}).
+   *
+   * @param canonicalCode the canonical code, or {@code null}
+   * @return the default symbolic identifier, or {@link Optional#empty()} if unrecognized
+   * @since 2.0.0
+   */
+  public static Optional<String> resolveDefaultSymbolicId(@Nullable String canonicalCode) {
+    if (canonicalCode == null || canonicalCode.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.ofNullable(CANONICAL_TO_DEFAULT_SYMBOLIC.get(canonicalCode));
+  }
+
+  /**
+   * Resolves a canonical or symbolic code token into a guaranteed non-empty {@link DualCode} pair.
+   *
+   * @param codeToken mapped symbolic identifier or normative canonical code
+   * @return resolved {@link DualCode}
+   * @throws IllegalArgumentException if {@code codeToken} is blank or unmapped
+   * @since 2.0.0
+   */
+  public static DualCode resolveDualCodes(String codeToken) {
+    Objects.requireNonNull(codeToken, "codeToken must not be null");
+    if (NORMATIVE_CANONICAL_CODE_PATTERN.matcher(codeToken).matches()) {
+      String sym = resolveDefaultSymbolicId(codeToken)
+          .orElseThrow(() -> new IllegalArgumentException("Unmapped canonical diagnostic code: " + codeToken));
+      return new DualCode(codeToken, sym);
+    }
+    String canon = resolveCanonicalCode(codeToken)
+        .orElseThrow(() -> new IllegalArgumentException("Unmapped symbolic diagnostic identifier: " + codeToken));
+    return new DualCode(canon, codeToken);
+  }
+
+  /**
    * Records a diagnostic into the bag.
    * <p>
    * Automatically enriches diagnostics that declare a {@code symbolicId} without an explicit
-   * {@code canonicalCode}. If the number of accumulated diagnostics reaches {@code maxDiagnostics},
-   * further diagnostics are suppressed and a single sentinel warning diagnostic is appended.
+   * {@code canonicalCode} (or vice versa) and enforces non-empty dual attribution. If the number of
+   * accumulated diagnostics reaches {@code maxDiagnostics}, further diagnostics are suppressed and a
+   * single sentinel warning diagnostic is appended.
    *
    * @param diagnostic the diagnostic to record
    * @return {@code true} if the diagnostic was accepted, {@code false} if suppressed due to threshold
+   * @throws IllegalArgumentException if {@code diagnostic} lacks a valid canonical code or symbolic identifier
    */
   public boolean add(StvnDiagnostic diagnostic) {
+    Objects.requireNonNull(diagnostic, "diagnostic must not be null");
+    Optional<String> canonOpt = diagnostic.canonicalCode();
+    Optional<String> symOpt = diagnostic.symbolicId();
+    if (canonOpt.isEmpty() && symOpt.isPresent()) {
+      canonOpt = resolveCanonicalCode(symOpt.get());
+    } else if (symOpt.isEmpty() && canonOpt.isPresent()) {
+      symOpt = resolveDefaultSymbolicId(canonOpt.get());
+    }
+    if (canonOpt.isEmpty() || symOpt.isEmpty()
+        || !NORMATIVE_CANONICAL_CODE_PATTERN.matcher(canonOpt.get()).matches()
+        || symOpt.get().isBlank()) {
+      throw new IllegalArgumentException(
+          "DiagnosticBag requires both canonicalCode and symbolicId on every StvnDiagnostic: " + diagnostic
+      );
+    }
     Optional<String> effectivePath = diagnostic.sourcePath().isPresent()
         ? diagnostic.sourcePath()
         : this.defaultSourcePath;
@@ -491,26 +616,19 @@ public final class DiagnosticBag {
       }
       return false;
     }
-    StvnDiagnostic enriched = diagnostic;
-    if (diagnostic.canonicalCode().isEmpty() && diagnostic.symbolicId().isPresent()) {
-      Optional<String> mapped = resolveCanonicalCode(diagnostic.symbolicId().get());
-      if (mapped.isPresent()) {
-        enriched = new StvnDiagnostic(
-            diagnostic.message(),
-            diagnostic.severity(),
-            diagnostic.line(),
-            diagnostic.column(),
-            diagnostic.startOffset(),
-            diagnostic.endOffset(),
-            diagnostic.cause(),
-            mapped,
-            diagnostic.symbolicId()
-        ).withSourcePath(effectivePath.orElse(null));
-      }
-    }
-    if (enriched.sourcePath().isEmpty() && effectivePath.isPresent()) {
-      enriched = enriched.withSourcePath(effectivePath.get());
-    }
+    StvnDiagnostic enriched = new StvnDiagnostic(
+        diagnostic.message(),
+        diagnostic.severity(),
+        diagnostic.line(),
+        diagnostic.column(),
+        diagnostic.startOffset(),
+        diagnostic.endOffset(),
+        diagnostic.cause(),
+        symOpt,
+        canonOpt,
+        symOpt,
+        effectivePath
+    );
     state.diagnostics.add(enriched);
     return true;
   }
@@ -538,6 +656,8 @@ public final class DiagnosticBag {
       String canonicalCode,
       String symbolicId
   ) {
+    Objects.requireNonNull(canonicalCode, "canonicalCode must not be null");
+    Objects.requireNonNull(symbolicId, "symbolicId must not be null");
     Throwable effectiveCause = buildEffectiveCause(message, startOffset, endOffset, cause, symbolicId);
     add(new StvnDiagnostic(
         message,
@@ -573,6 +693,8 @@ public final class DiagnosticBag {
       String canonicalCode,
       String symbolicId
   ) {
+    Objects.requireNonNull(canonicalCode, "canonicalCode must not be null");
+    Objects.requireNonNull(symbolicId, "symbolicId must not be null");
     add(new StvnDiagnostic(
         message,
         DiagnosticSeverity.WARNING,
@@ -595,7 +717,7 @@ public final class DiagnosticBag {
    * @param line        the 1-based source line index
    * @param column      the 0-based character column offset
    * @param cause       the underlying throwable cause, or {@code null}
-   * @param errorCode   the optional standardized error code identifier, or {@code null}
+   * @param errorCode   the standardized symbolic or canonical error code identifier
    */
   public void addError(
       String message,
@@ -604,34 +726,19 @@ public final class DiagnosticBag {
       int line,
       int column,
       @Nullable Throwable cause,
-      @Nullable String errorCode
+      String errorCode
   ) {
-    Throwable effectiveCause = buildEffectiveCause(message, startOffset, endOffset, cause, errorCode);
-    Optional<String> canonical = resolveCanonicalCode(errorCode);
-    if (canonical.isPresent() && errorCode != null) {
-      add(new StvnDiagnostic(
-          message,
-          DiagnosticSeverity.ERROR,
-          line,
-          column,
-          startOffset,
-          endOffset,
-          effectiveCause,
-          canonical,
-          Optional.of(errorCode)
-      ));
-    } else {
-      add(new StvnDiagnostic(
-          message,
-          DiagnosticSeverity.ERROR,
-          line,
-          column,
-          startOffset,
-          endOffset,
-          effectiveCause,
-          Optional.ofNullable(errorCode)
-      ));
-    }
+    DualCode dual = resolveDualCodes(errorCode);
+    addErrorDual(
+        message,
+        startOffset,
+        endOffset,
+        line,
+        column,
+        cause,
+        dual.canonicalCode(),
+        dual.symbolicId()
+    );
   }
 
   /**
@@ -641,14 +748,14 @@ public final class DiagnosticBag {
    * @param startOffset the 0-based character start offset
    * @param endOffset   the 0-based character end offset
    * @param cause       the underlying throwable cause, or {@code null}
-   * @param errorCode   the optional standardized error code identifier, or {@code null}
+   * @param errorCode   the standardized symbolic or canonical error code identifier
    */
   public void addError(
       String message,
       int startOffset,
       int endOffset,
       @Nullable Throwable cause,
-      @Nullable String errorCode
+      String errorCode
   ) {
     addError(message, startOffset, endOffset, -1, -1, cause, errorCode);
   }
@@ -661,7 +768,7 @@ public final class DiagnosticBag {
    * @param endOffset   the 0-based character end offset
    * @param line        the 1-based source line index
    * @param column      the 0-based character column offset
-   * @param errorCode   the optional standardized error code identifier, or {@code null}
+   * @param errorCode   the standardized symbolic or canonical warning code identifier
    */
   public void addWarning(
       String message,
@@ -669,33 +776,18 @@ public final class DiagnosticBag {
       int endOffset,
       int line,
       int column,
-      @Nullable String errorCode
+      String errorCode
   ) {
-    Optional<String> canonical = resolveCanonicalCode(errorCode);
-    if (canonical.isPresent() && errorCode != null) {
-      add(new StvnDiagnostic(
-          message,
-          DiagnosticSeverity.WARNING,
-          line,
-          column,
-          startOffset,
-          endOffset,
-          null,
-          canonical,
-          Optional.of(errorCode)
-      ));
-    } else {
-      add(new StvnDiagnostic(
-          message,
-          DiagnosticSeverity.WARNING,
-          line,
-          column,
-          startOffset,
-          endOffset,
-          null,
-          Optional.ofNullable(errorCode)
-      ));
-    }
+    DualCode dual = resolveDualCodes(errorCode);
+    addWarningDual(
+        message,
+        startOffset,
+        endOffset,
+        line,
+        column,
+        dual.canonicalCode(),
+        dual.symbolicId()
+    );
   }
 
   /**
@@ -704,13 +796,13 @@ public final class DiagnosticBag {
    * @param message     the descriptive warning message
    * @param startOffset the 0-based character start offset
    * @param endOffset   the 0-based character end offset
-   * @param errorCode   the optional standardized error code identifier, or {@code null}
+   * @param errorCode   the standardized symbolic or canonical warning code identifier
    */
   public void addWarning(
       String message,
       int startOffset,
       int endOffset,
-      @Nullable String errorCode
+      String errorCode
   ) {
     addWarning(message, startOffset, endOffset, -1, -1, errorCode);
   }

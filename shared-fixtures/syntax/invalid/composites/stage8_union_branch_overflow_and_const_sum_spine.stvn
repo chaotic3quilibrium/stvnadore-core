@@ -1,0 +1,29 @@
+// @spec: SPEC-08-UNION-BRANCH-OVERFLOW-AND-CONST-SUM-SPINE
+// @case: Negative - Stage 8 2-branch :Union #3 #TRUE overflow and :defs #CONST multi-hop sum spine
+// @error: UNION_BRANCH_OVERFLOW
+{
+  :meta {
+    #name "stage8_union_branch_overflow_and_const_sum_spine"
+    #kind #BODY
+  }
+  :defs {
+    :SensorId { #minSize 1 #maxSize 32 } :String
+    :RetryMillis { #unsigned #size 16 #minIncl 10 #maxExcl 5000 } :Int
+    :ConfidenceRatio { #minIncl 0.0 #maxExcl 1.0 } :Float
+    :TelemetryBranch :Union( :Boolean :ConfidenceRatio )
+    :TelemetryBranchAlias :TelemetryBranch
+    :InnerOutcome :Option( :Either( :SensorId :TelemetryBranchAlias ) )
+    :OuterDispatchEnvelope :Option( :Either( :RetryMillis :InnerOutcome ) )
+
+    #IRREDUCIBLE_DEF_NONE :OuterDispatchEnvelope #Some #None
+    #REDUCIBLE_DEF_LEAF :OuterDispatchEnvelope 0.85
+    #EXPLICIT_DEF_LEAF :OuterDispatchEnvelope #Some #Right #Some #Right #2 0.85
+
+    :package :telemetry {
+      #PKG_REDUCIBLE_LEAF :OuterDispatchEnvelope 0.25
+    }
+    :use [ :telemetry { #strip } ]
+  }
+  :type :Tuple( :OuterDispatchEnvelope :OuterDispatchEnvelope :OuterDispatchEnvelope :TelemetryBranch )
+  :body ( #IRREDUCIBLE_DEF_NONE #REDUCIBLE_DEF_LEAF #PKG_REDUCIBLE_LEAF #3 #TRUE )
+}

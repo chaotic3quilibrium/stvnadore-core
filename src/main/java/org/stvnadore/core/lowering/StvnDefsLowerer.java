@@ -384,7 +384,32 @@ public final class StvnDefsLowerer {
       DiagnosticBag diagnosticBag,
       boolean unitHasPass1SyntaxError
   ) {
-    return lowerDocumentHeaderAndDefsInternal(doc, docPath, config, diagnosticBag, false, false, unitHasPass1SyntaxError);
+    return lowerDocumentHeaderAndDefsInternal(doc, docPath, config, diagnosticBag, false, false, unitHasPass1SyntaxError, false);
+  }
+
+  /**
+   * Lowers the {@code :meta} and {@code :defs} catalog of a parsed STVN document in fault-isolated
+   * catalog-recovery mode, preserving lowered {@link StvnDefsCatalog} nominal types and constants
+   * even when {@code :type} or {@code :body} sections are omitted, malformed, or ineligible.
+   *
+   * @param doc                            the parsed ANTLR document context
+   * @param docPath                        the optional physical file path or URI
+   * @param config                         the active parser configuration
+   * @param diagnosticBag                  the diagnostic accumulator
+   * @param unitHasHeaderOrDefsSyntaxError {@code true} if Pass 1 recorded a syntax error outside {@code :type}/{@code :body}
+   * @return the lowered {@link DefsLoweringResult} carrying the recovered {@link StvnDefsCatalog}
+   * @since 2.0.0
+   */
+  public static DefsLoweringResult lowerDefsCatalogForRecovery(
+      StvnParser.StvnDocumentContext doc,
+      @Nullable String docPath,
+      StvnParserConfig config,
+      DiagnosticBag diagnosticBag,
+      boolean unitHasHeaderOrDefsSyntaxError
+  ) {
+    return lowerDocumentHeaderAndDefsInternal(
+        doc, docPath, config, diagnosticBag, false, false, unitHasHeaderOrDefsSyntaxError, true
+    );
   }
 
   /**
@@ -433,7 +458,7 @@ public final class StvnDefsLowerer {
       DiagnosticBag diagnosticBag,
       boolean unitHasPass1SyntaxError
   ) {
-    return lowerDocumentHeaderAndDefsInternal(doc, docPath, config, diagnosticBag, true, true, unitHasPass1SyntaxError);
+    return lowerDocumentHeaderAndDefsInternal(doc, docPath, config, diagnosticBag, true, true, unitHasPass1SyntaxError, false);
   }
 
   private static DefsLoweringResult lowerDocumentHeaderAndDefsInternal(
@@ -443,7 +468,8 @@ public final class StvnDefsLowerer {
       DiagnosticBag diagnosticBag,
       boolean skipTopLevelPathIdentityChecks,
       boolean embeddedBinaryDefsMode,
-      boolean unitHasPass1SyntaxError
+      boolean unitHasPass1SyntaxError,
+      boolean catalogOnlyMode
   ) {
     Objects.requireNonNull(doc, "doc must not be null");
     Objects.requireNonNull(config, "config must not be null");
@@ -459,7 +485,14 @@ public final class StvnDefsLowerer {
       }
     }
     return lowerDocumentUnit(
-        doc, docPath, moduleCtx, diagnosticBag, skipTopLevelPathIdentityChecks, embeddedBinaryDefsMode, unitHasPass1SyntaxError
+        doc,
+        docPath,
+        moduleCtx,
+        diagnosticBag,
+        skipTopLevelPathIdentityChecks,
+        embeddedBinaryDefsMode,
+        unitHasPass1SyntaxError,
+        catalogOnlyMode
     ).toPublicResult();
   }
 
@@ -1465,6 +1498,28 @@ public final class StvnDefsLowerer {
       boolean embeddedBinaryDefsMode,
       boolean unitHasPass1SyntaxError
   ) {
+    return lowerDocumentUnit(
+        doc,
+        docPath,
+        moduleCtx,
+        diagnosticBag,
+        skipPathIdentityChecks,
+        embeddedBinaryDefsMode,
+        unitHasPass1SyntaxError,
+        false
+    );
+  }
+
+  private static CompiledUnit lowerDocumentUnit(
+      StvnParser.StvnDocumentContext doc,
+      @Nullable String docPath,
+      ModuleCompilationContext moduleCtx,
+      DiagnosticBag diagnosticBag,
+      boolean skipPathIdentityChecks,
+      boolean embeddedBinaryDefsMode,
+      boolean unitHasPass1SyntaxError,
+      boolean catalogOnlyMode
+  ) {
     IdentityOutcome identity = lowerAndValidateDocumentIdentity(doc, docPath, moduleCtx, diagnosticBag, skipPathIdentityChecks);
     validateDocumentBodyStructure(doc, diagnosticBag, moduleCtx.config.strict());
 
@@ -1487,32 +1542,65 @@ public final class StvnDefsLowerer {
       );
     }
 
-    boolean sectionsEligible = validateDocumentSectionEligibility(
-        doc, docPath, identity, moduleCtx, diagnosticBag, embeddedBinaryDefsMode, unitHasPass1SyntaxError
-    );
-    if (!sectionsEligible) {
-      return new CompiledUnit(
-          identity.meta(),
-          identity.effectiveKind(),
-          StvnDefsCatalog.EMPTY,
-          Optional.empty(),
-          !body.defsEntry().isEmpty(),
-          false,
-          true,
-          false,
-          Map.of(),
-          Map.of(),
-          (tok, site) -> Optional.empty(),
-          fqni -> Optional.empty(),
-          Map.of()
+    boolean sectionsEligible;
+    if (catalogOnlyMode) {
+      StvnDocumentKind effKind = identity.effectiveKind().orElse(null);
+      boolean isDefsKindOrExt = effKind == StvnDocumentKind.DEFS
+          || effKind == StvnDocumentKind.DEFS_INCLUDE
+          || (docPath != null
+              && (docPath.endsWith(".stvn_d") || docPath.endsWith(".stvn_di") || docPath.endsWith(".stvn_bd")));
+      if (isDefsKindOrExt) {
+        sectionsEligible = validateDocumentSectionEligibility(
+            doc, docPath, identity, moduleCtx, diagnosticBag, embeddedBinaryDefsMode, unitHasPass1SyntaxError
+        );
+      } else {
+        sectionsEligible = true;
+      }
+      if (body.defsEntry().isEmpty()) {
+        return new CompiledUnit(
+            identity.meta(),
+            identity.effectiveKind(),
+            StvnDefsCatalog.EMPTY,
+            Optional.empty(),
+            false,
+            false,
+            true,
+            sectionsEligible,
+            Map.of(),
+            Map.of(),
+            (tok, site) -> Optional.empty(),
+            fqni -> Optional.empty(),
+            Map.of()
+        );
+      }
+    } else {
+      sectionsEligible = validateDocumentSectionEligibility(
+          doc, docPath, identity, moduleCtx, diagnosticBag, embeddedBinaryDefsMode, unitHasPass1SyntaxError
       );
+      if (!sectionsEligible) {
+        return new CompiledUnit(
+            identity.meta(),
+            identity.effectiveKind(),
+            StvnDefsCatalog.EMPTY,
+            Optional.empty(),
+            !body.defsEntry().isEmpty(),
+            false,
+            true,
+            false,
+            Map.of(),
+            Map.of(),
+            (tok, site) -> Optional.empty(),
+            fqni -> Optional.empty(),
+            Map.of()
+        );
+      }
     }
 
     UnitEnvironment env = new UnitEnvironment(doc, docPath, identity, moduleCtx, diagnosticBag, embeddedBinaryDefsMode);
     env.collectAndResolveDefs();
 
     Optional<StvnSchema> rootType = Optional.empty();
-    if (body.typeEntry(0) != null && body.typeEntry(0).schemaType() != null) {
+    if (!catalogOnlyMode && body.typeEntry(0) != null && body.typeEntry(0).schemaType() != null) {
       rootType = Optional.of(
           env.lowerAnonymousOrRootSchema(body.typeEntry(0).schemaType(), env.rootScope, new LinkedHashSet<>(), true).schema()
       );
@@ -1922,7 +2010,7 @@ public final class StvnDefsLowerer {
         Span sp = Span.ofContext(body.typeEntry(0));
         diagnosticBag.addError(
             "Structural violation: Definitions schema (" + targetDesc + ") declaring #kind " + kindLabel
-                + " cannot declare '" + StvnVocabulary.KEYWORD_TYPE + "' section [stvn-core:ERR_DOCUMENT_KIND_MISMATCH]",
+                + " cannot declare '" + StvnVocabulary.KEYWORD_TYPE + "' section",
             sp.start(), sp.end(), sp.line(), sp.column(), null,
             DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
         );
@@ -1932,7 +2020,7 @@ public final class StvnDefsLowerer {
         Span sp = Span.ofContext(body.bodyEntry(0));
         diagnosticBag.addError(
             "Structural violation: Definitions schema (" + targetDesc + ") declaring #kind " + kindLabel
-                + " cannot declare '" + StvnVocabulary.KEYWORD_BODY + "' section [stvn-core:ERR_DOCUMENT_KIND_MISMATCH]",
+                + " cannot declare '" + StvnVocabulary.KEYWORD_BODY + "' section",
             sp.start(), sp.end(), sp.line(), sp.column(), null,
             DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
         );
@@ -3934,9 +4022,10 @@ public final class StvnDefsLowerer {
     // =========================================================================
 
     private StvnDefsCatalog.StvnConstant registerPoisonedConstant(String fqni, String code) {
+      DiagnosticBag.DualCode dual = DiagnosticBag.resolveDualCodes(code);
       StvnSchema.PoisonedSchema poisonedSchema = new StvnSchema.PoisonedSchema(
           Optional.empty(),
-          code,
+          dual.symbolicId(),
           Optional.empty(),
           TraitProfile.ofDefault(true, true)
       );
@@ -3948,8 +4037,8 @@ public final class StvnDefsLowerer {
           0,
           1,
           null,
-          DiagnosticBag.resolveCanonicalCode(code),
-          Optional.of(code)
+          Optional.of(dual.canonicalCode()),
+          Optional.of(dual.symbolicId())
       ).withSourcePath(diagnosticBag.defaultSourcePath().orElse(null));
       StvnValue.StvnErrorValue errVal = new StvnValue.StvnErrorValue(poisonedSchema, syntheticDiag);
       StvnDefsCatalog.StvnConstant sentinel = new StvnDefsCatalog.StvnConstant(fqni, poisonedSchema, errVal);

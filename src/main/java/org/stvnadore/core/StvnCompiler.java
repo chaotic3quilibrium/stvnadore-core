@@ -116,6 +116,221 @@ public final class StvnCompiler {
     return compileTextInternal(input, docPath, config).result();
   }
 
+  /**
+   * Compiles the {@code :defs} catalog of a textual STVN document using {@link StvnParserConfig#DEFAULT},
+   * returning all lowered {@link StvnDefsCatalog} nominal types and constants even when sibling declarations,
+   * {@code :type}, or {@code :body} sections contain errors.
+   *
+   * @param input   the raw STVN document text
+   * @param docPath the optional URI or file path identifier for document identity and relative include resolution, or {@code null}
+   * @return a {@link StvnCompilationResult} carrying the lowered {@link StvnDefsCatalog} and accumulated {@code :meta}/{@code :defs} diagnostics
+   * @throws NullPointerException if {@code input} is {@code null}
+   * @since 2.0.0
+   */
+  public static StvnCompilationResult<StvnDefsCatalog> compileDefsCatalog(
+      String input,
+      @Nullable String docPath
+  ) {
+    return compileDefsCatalog(input, docPath, StvnParserConfig.DEFAULT);
+  }
+
+  /**
+   * Compiles the {@code :defs} catalog of a textual STVN document with fault isolation,
+   * preserving lowered healthy {@link StvnDefsCatalog.StvnConstant} sum spines and nominal types
+   * when sibling declarations emit errors and isolating {@code :meta}/{@code :defs} lowering from
+   * in-flight {@code :type} or {@code :body} syntax errors.
+   *
+   * @param input   the raw STVN document text
+   * @param docPath the optional URI or file path identifier for document identity and relative include resolution, or {@code null}
+   * @param config  the parser configuration specifying diagnostics threshold and strictness
+   * @return a {@link StvnCompilationResult} carrying the lowered {@link StvnDefsCatalog} and accumulated {@code :meta}/{@code :defs} diagnostics
+   * @throws NullPointerException if {@code input} or {@code config} is {@code null}
+   * @since 2.0.0
+   */
+  public static StvnCompilationResult<StvnDefsCatalog> compileDefsCatalog(
+      String input,
+      @Nullable String docPath,
+      StvnParserConfig config
+  ) {
+    Objects.requireNonNull(input, "input must not be null");
+    Objects.requireNonNull(config, "config must not be null");
+
+    var pass1Bag = new DiagnosticBag(config.maxDiagnostics(), docPath);
+    var defsBag = new DiagnosticBag(config.maxDiagnostics(), docPath);
+    StvnParser parser = null;
+
+    try {
+      String sanitizedInput = StvnSyntaxErrorSanitizer.sanitizeNonFencedTabs(input, pass1Bag, config.strict());
+      var lexer = new StvnLexer(CharStreams.fromString(sanitizedInput));
+      lexer.removeErrorListeners();
+
+      var tokens = new CommonTokenStream(lexer);
+      parser = new StvnParser(tokens);
+      parser.removeErrorListeners();
+
+      if (config.strict()) {
+        parser.setErrorHandler(new BailErrorStrategy());
+        var errorListener = StvnErrorListener.strict();
+        lexer.addErrorListener(errorListener);
+        parser.addErrorListener(errorListener);
+      } else {
+        var listener = StvnErrorListener.accumulating(pass1Bag);
+        lexer.addErrorListener(listener);
+        parser.addErrorListener(listener);
+        parser.setErrorHandler(new StvnErrorStrategy(pass1Bag));
+      }
+
+      var docCtx = parser.stvnDocument();
+      StvnSyntaxErrorSanitizer.scanMalformedFenceTokens(tokens, parser, pass1Bag, config.strict());
+      var docBody = docCtx.documentBody();
+
+      List<StvnDiagnostic> pass1Diags = pass1Bag.toList();
+      boolean hasHeaderOrDefsSyntaxError = false;
+      for (StvnDiagnostic d : pass1Diags) {
+        if (docBody != null && isDiagnosticIsolatedToTypeOrBody(d, docBody)) {
+          continue;
+        }
+        defsBag.add(d);
+        if (d.severity() == StvnDiagnostic.DiagnosticSeverity.ERROR) {
+          hasHeaderOrDefsSyntaxError = true;
+        }
+      }
+      if (!hasHeaderOrDefsSyntaxError && parser.getNumberOfSyntaxErrors() > 0 && pass1Diags.isEmpty()) {
+        hasHeaderOrDefsSyntaxError = true;
+      }
+
+      StvnDefsLowerer.DefsLoweringResult defsRes = StvnDefsLowerer.lowerDefsCatalogForRecovery(
+          docCtx, docPath, config, defsBag, hasHeaderOrDefsSyntaxError
+      );
+      return defsBag.hasErrors()
+          ? StvnCompilationResult.partial(defsRes.defs(), defsBag.toList())
+          : StvnCompilationResult.success(defsRes.defs(), defsBag.toList());
+    } catch (StvnSyntaxCancellationException e) {
+      String raw = e.getMessage() != null ? e.getMessage() : "STVN Syntax Error";
+      String msg = StvnSyntaxErrorSanitizer.purgeResidualAntlrJargon(raw);
+      String symbolicId = e.getSymbolicId();
+      if (symbolicId == null) {
+        symbolicId = msg.contains(StvnVocabulary.KEYWORD_META)
+            ? DiagnosticBag.ERR_META_POSITION_INVALID
+            : "STVN_SYNTAX_ERROR";
+      }
+      String canonicalCode = e.getCanonicalCode();
+      if (canonicalCode == null) {
+        canonicalCode = DiagnosticBag.resolveCanonicalCode(symbolicId).orElse("E002");
+      }
+      defsBag.add(new StvnDiagnostic(
+          msg,
+          StvnDiagnostic.DiagnosticSeverity.ERROR,
+          e.getLine(),
+          e.getColumn(),
+          e.getStartOffset(),
+          e.getEndOffset(),
+          e.getCause(),
+          Optional.of(canonicalCode),
+          Optional.of(symbolicId)
+      ));
+      return StvnCompilationResult.partial(StvnDefsCatalog.EMPTY, defsBag.toList());
+    } catch (ParseCancellationException e) {
+      Throwable cause = e.getCause();
+      if (cause instanceof RecognitionException re && parser != null) {
+        Token token = re.getOffendingToken();
+        int line = token != null ? token.getLine() : 1;
+        int column = token != null ? token.getCharPositionInLine() : 0;
+        var sanitized = StvnSyntaxErrorSanitizer.sanitize(
+            parser,
+            token,
+            line,
+            column,
+            re.getMessage() != null ? re.getMessage() : "",
+            re
+        );
+        defsBag.add(sanitized.toDiagnostic(re));
+      } else {
+        String raw = e.getMessage() != null ? e.getMessage() : "STVN Syntax Error";
+        String msg = StvnSyntaxErrorSanitizer.purgeResidualAntlrJargon(raw);
+        String symbolicId = msg.contains(StvnVocabulary.KEYWORD_META)
+            ? DiagnosticBag.ERR_META_POSITION_INVALID
+            : "STVN_SYNTAX_ERROR";
+        String canonicalCode = DiagnosticBag.resolveCanonicalCode(symbolicId).orElse("E002");
+        defsBag.add(new StvnDiagnostic(
+            msg,
+            StvnDiagnostic.DiagnosticSeverity.ERROR,
+            -1,
+            -1,
+            -1,
+            -1,
+            cause != null ? cause : e,
+            Optional.of(canonicalCode),
+            Optional.of(symbolicId)
+        ));
+      }
+      return StvnCompilationResult.partial(StvnDefsCatalog.EMPTY, defsBag.toList());
+    } catch (Throwable t) {
+      mapUnexpectedLoweringException(t, input, defsBag);
+      return StvnCompilationResult.partial(StvnDefsCatalog.EMPTY, defsBag.toList());
+    }
+  }
+
+  private static boolean isDiagnosticIsolatedToTypeOrBody(
+      StvnDiagnostic diag,
+      StvnParser.DocumentBodyContext docBody
+  ) {
+    int ds = diag.startOffset();
+    int de = diag.endOffset();
+    if (ds < 0 || de < ds) {
+      return false;
+    }
+    for (var te : docBody.typeEntry()) {
+      if (te.getStart() != null && te.getStop() != null) {
+        int start = te.getStart().getStartIndex();
+        int stop = te.getStop().getStopIndex() + 1;
+        if (ds >= start && ds <= stop) {
+          return true;
+        }
+      }
+    }
+    for (var be : docBody.bodyEntry()) {
+      if (be.getStart() != null && be.getStop() != null) {
+        int start = be.getStart().getStartIndex();
+        int stop = be.getStop().getStopIndex() + 1;
+        if (ds >= start && ds <= stop) {
+          return true;
+        }
+      }
+    }
+    int firstTypeOrBodyStart = Integer.MAX_VALUE;
+    for (var te : docBody.typeEntry()) {
+      if (te.getStart() != null) {
+        firstTypeOrBodyStart = Math.min(firstTypeOrBodyStart, te.getStart().getStartIndex());
+      }
+    }
+    for (var be : docBody.bodyEntry()) {
+      if (be.getStart() != null) {
+        firstTypeOrBodyStart = Math.min(firstTypeOrBodyStart, be.getStart().getStartIndex());
+      }
+    }
+    if (firstTypeOrBodyStart == Integer.MAX_VALUE) {
+      return false;
+    }
+    int maxMetaOrDefsStop = -1;
+    for (var me : docBody.metaEntry()) {
+      var mb = me.metaBlock();
+      if (me.getStart() == null || mb == null || mb.RBRACE() == null
+          || mb.RBRACE().getSymbol().getText().startsWith("<missing")) {
+        return false;
+      }
+      maxMetaOrDefsStop = Math.max(maxMetaOrDefsStop, mb.RBRACE().getSymbol().getStopIndex() + 1);
+    }
+    for (var defE : docBody.defsEntry()) {
+      if (defE.getStart() == null || defE.RBRACE() == null
+          || defE.RBRACE().getSymbol().getText().startsWith("<missing")) {
+        return false;
+      }
+      maxMetaOrDefsStop = Math.max(maxMetaOrDefsStop, defE.RBRACE().getSymbol().getStopIndex() + 1);
+    }
+    return maxMetaOrDefsStop <= firstTypeOrBodyStart && ds >= firstTypeOrBodyStart;
+  }
+
   private static TextCompilationOutcome compileTextInternal(
       String input,
       @Nullable String docPath,

@@ -137,7 +137,7 @@ public final class StvnPayloadLowerer {
    * Internal sentinel code marking a guarded recursive nominal schema back-edge inside an immutable
    * {@link StvnSchema} record DAG; unfolded on demand from {@link StvnDefsCatalog} during payload lowering.
    */
-  public static final String RECURSIVE_BACK_EDGE_SENTINEL = "INTERNAL_RECURSIVE_NOMINAL_REF";
+  public static final String RECURSIVE_BACK_EDGE_SENTINEL = DiagnosticBag.ERR_RECURSIVE_NOMINAL_BACK_EDGE;
 
   /**
    * Functional lookup hook resolving nominal schema FQNIs on demand when traversing guarded recursive types.
@@ -1601,9 +1601,7 @@ public final class StvnPayloadLowerer {
   ) {
     scanLexicalSimpleStringEscapesInSubtree(ctx, bag);
     Span span = Span.ofContext(ctx);
-    String code = poisoned.primaryDiagnosticCode();
-    Optional<String> canonical = code.startsWith("E") ? Optional.of(code) : DiagnosticBag.resolveCanonicalCode(code);
-    Optional<String> symbolic = code.startsWith("E") && code.length() == 4 ? Optional.empty() : Optional.of(code);
+    DiagnosticBag.DualCode dual = DiagnosticBag.resolveDualCodes(poisoned.primaryDiagnosticCode());
     StvnDiagnostic synthetic = new StvnDiagnostic(
         "Poisoned schema sentinel",
         DiagnosticSeverity.ERROR,
@@ -1612,8 +1610,8 @@ public final class StvnPayloadLowerer {
         span.start(),
         span.end(),
         null,
-        canonical,
-        symbolic
+        Optional.of(dual.canonicalCode()),
+        Optional.of(dual.symbolicId())
     ).withSourcePath(bag.defaultSourcePath().orElse(null));
     return new StvnErrorValue(poisoned, synthetic);
   }

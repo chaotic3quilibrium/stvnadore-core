@@ -1,6 +1,8 @@
 package org.stvnadore.core.ir;
 
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnVocabulary;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -66,13 +68,77 @@ public record StvnDefsCatalog(
 
   /**
    * Looks up a lowered typed constant by its Fully Qualified Nominal Identifier.
+   * <p>
+   * Supports root constants ({@code #CONST_NAME}) as well as both packaged constant forms
+   * ({@code #pkg/CONST_NAME} and {@code :pkg/#CONST_NAME}).
    *
-   * @param fqni the Fully Qualified Nominal Identifier (for example, {@code :pkg/#CONST_NAME})
+   * @param fqni the Fully Qualified Nominal Identifier (for example, {@code #MAX_PORT}, {@code #pkg/CONST_NAME}, or {@code :pkg/#CONST_NAME})
    * @return an {@link Optional} containing the matching {@link StvnConstant}, or empty if absent
    */
   public Optional<StvnConstant> findConstant(String fqni) {
     Objects.requireNonNull(fqni, "fqni must not be null");
-    return Optional.ofNullable(constants.get(fqni));
+    StvnConstant direct = constants.get(fqni);
+    if (direct != null) {
+      return Optional.of(direct);
+    }
+    if (fqni.startsWith(StvnVocabulary.SIGIL_TYPIC) && fqni.contains("/" + StvnVocabulary.SIGIL_VALUE)) {
+      int sep = fqni.lastIndexOf("/" + StvnVocabulary.SIGIL_VALUE);
+      String alt = StvnVocabulary.SIGIL_VALUE + fqni.substring(1, sep) + "/" + fqni.substring(sep + 2);
+      StvnConstant found = constants.get(alt);
+      if (found != null) {
+        return Optional.of(found);
+      }
+    } else if (fqni.startsWith(StvnVocabulary.SIGIL_VALUE) && fqni.contains("/")) {
+      int sep = fqni.lastIndexOf('/');
+      String alt = StvnVocabulary.SIGIL_TYPIC + fqni.substring(1, sep)
+          + "/" + StvnVocabulary.SIGIL_VALUE + fqni.substring(sep + 1);
+      StvnConstant found = constants.get(alt);
+      if (found != null) {
+        return Optional.of(found);
+      }
+    } else if (!fqni.isEmpty() && !fqni.startsWith(StvnVocabulary.SIGIL_VALUE)) {
+      StvnConstant found = constants.get(StvnVocabulary.SIGIL_VALUE + fqni);
+      if (found != null) {
+        return Optional.of(found);
+      }
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * Looks up a lowered typed constant by optional enclosing package path and local constant name.
+   *
+   * @param packagePath  enclosing package path (for example, {@code :telemetry} or {@code telemetry}),
+   *                     or {@code null}/empty for root scope
+   * @param constantName local constant identifier (for example, {@code #REDUCIBLE_DEF_LEAF} or {@code REDUCIBLE_DEF_LEAF})
+   * @return an {@link Optional} containing the matching {@link StvnConstant}, or empty if absent
+   * @since 2.0.0
+   */
+  public Optional<StvnConstant> findConstant(
+      @Nullable String packagePath,
+      String constantName
+  ) {
+    Objects.requireNonNull(constantName, "constantName must not be null");
+    String cleanConst = constantName.startsWith(StvnVocabulary.SIGIL_VALUE)
+        ? constantName.substring(1)
+        : constantName;
+    if (cleanConst.isEmpty()) {
+      return Optional.empty();
+    }
+    if (packagePath == null || packagePath.isBlank()) {
+      return findConstant(StvnVocabulary.SIGIL_VALUE + cleanConst);
+    }
+    String trimmedPkg = packagePath.trim();
+    while (trimmedPkg.endsWith("/")) {
+      trimmedPkg = trimmedPkg.substring(0, trimmedPkg.length() - 1);
+    }
+    String cleanPkg = trimmedPkg.startsWith(StvnVocabulary.SIGIL_TYPIC)
+        ? trimmedPkg.substring(1)
+        : trimmedPkg;
+    if (cleanPkg.isEmpty()) {
+      return findConstant(StvnVocabulary.SIGIL_VALUE + cleanConst);
+    }
+    return findConstant(StvnVocabulary.SIGIL_VALUE + cleanPkg + "/" + cleanConst);
   }
 
   /**
