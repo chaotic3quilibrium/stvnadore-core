@@ -36,7 +36,8 @@ defsElement : includeStmt
             ;
 
 packageEnclosure : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
-packagePath      : typeKeyword ;
+packagePath      : typeKeyword | packagePathIllegal ;
+packagePathIllegal : typeKeyword FSLASH+ ;
 packageElement   : nestedPackageIllegal
                  | useStmt
                  | typeDefinition

@@ -715,7 +715,7 @@ Like `:include [ includeElement+ ]`, a single `:use [ useElement+ ]` directive a
 2. **Scope Isolation:** `:use` directives declared inside a `:package` enclosure are isolated strictly to that enclosure. Sibling packages and the document root cannot see package-local `:use` mappings.
 3. **Root Visibility:** `:use` directives declared directly under `:defs` are visible across all sibling packages and the document root `:type` section.
 4. **No Package Nesting:** Enclosing `:package` within another `:package` is prohibited and emits `ERR_NESTED_PACKAGE_PROHIBITED`.
-5. **No Trailing Slashes:** Specifying a trailing slash in `:use` target paths emits `ERR_TRAILING_SLASH_PROHIBITED`.
+5. **No Trailing Slashes:** Specifying a trailing slash in `:package` declaration paths or `:use` target paths emits `ERR_TRAILING_SLASH_PROHIBITED` (`E002`). A trailing-slash `:package` enclosure isolates its inner declarations cleanly in Pass 2 without corrupting brace balance or suppressing Pass 3 `:body` validation on the document.
 6. **Section 4.2 Eviction Integration & Multi-Element Order:** Symbols imported via `:use` undergo Section 4.2 eviction in strict left-to-right `useElement` order: multi-element `:use [ elem1 elem2 ]` is semantically identical to sequential `:use [ elem1 ]` followed by `:use [ elem2 ]`. Local definitions take precedence, explicit aliases resolve collisions, and unmitigated collisions emit `ERR_NAMESPACE_COLLISION`.
 7. **Zero-I/O & Closed Resolution Domain Invariant:**
    The `:use` directive is strictly an in-memory lexical projection and symbol-aliasing mechanism. A `:use` directive **MUST NOT** perform filesystem I/O, external file resolution, or network loading.
@@ -1774,7 +1774,7 @@ When comparing schemas or evaluating structural equality (`isSameSchemaNodeRecur
 
 1. **Recursive Unwrapping Prohibited:** Compilers must not unwrap nominal definitions down to primitive scalars during AST or PSI unification.
 2. **FQNI Equality:** Two nominal types match if and only if their Fully Qualified Nominal Identifiers (FQNIs) match identically.
-3. **Incompatible Unification:** Unifying distinct nominal types (`:UserId` vs `:AccountId`) triggers compile-time diagnostic `ERR_INCOMPATIBLE_NOMINAL_TYPE`.
+3. **Incompatible Unification & Recursive `#CONST` Enforcement:** Unifying distinct nominal types (`:UserId` vs `:AccountId`) — whether on direct `#CONST` assignments or on branded elements nested inside anonymous composite `#CONST` values (`:Tuple`, `:Seq`, `:Set`, `:Map`, `:Option`, `:Either`, `:Union`) — triggers compile-time diagnostic `ERR_INCOMPATIBLE_NOMINAL_TYPE` (`E027`).
 
 ### 9.1.1 The Anti-Subtyping & Total Nominal Override Principle
 
@@ -3038,7 +3038,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT`    | `"ERR_INCLUDES_PROHIBITED_IN_FLAT_DOCUMENT"`    | Fatal    | Include statement declared inside hermetic document or schema (`.stvn`, `.stvn_d`, `.stvn_b`, or `.stvn_bd`).                                                                  |
 | `ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT` | `"ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT"` | Fatal    | Scoped import `:use` in hermetic document (`.stvn`, `.stvn_d`, `.stvn_b`, or `.stvn_bd`) targets package not declared in local `:defs` or prelude.                             |
 | `ERR_NESTED_PACKAGE_PROHIBITED`               | `"ERR_NESTED_PACKAGE_PROHIBITED"`               | Fatal    | Package enclosure is illegally nested inside another package enclosure.                                                                                                        |
-| `ERR_TRAILING_SLASH_PROHIBITED`               | `"ERR_TRAILING_SLASH_PROHIBITED"`               | Fatal    | Module `:use` path specification contains trailing slash characters.                                                                                                           |
+| `ERR_TRAILING_SLASH_PROHIBITED`               | `"ERR_TRAILING_SLASH_PROHIBITED"`               | Fatal    | Package `:package` path or module `:use` target path contains trailing slash characters.                                                                                       |
 | `ERR_SUM_TYPE_COLLISION`                      | `"SUM_TYPE_TAG_COLLISION"`                      | Fatal    | Algebraic sum type branches share duplicate tag identifiers.                                                                                                                   |
 | `ERR_AMBIGUOUS_SUM_INFERENCE`                 | `"ERR_AMBIGUOUS_SUM_INFERENCE"`                 | Fatal    | Implicit sum payload inference is ambiguous across branches.                                                                                                                   |
 | `ERR_TRAIT_VIOLATION`                         | `"TRAIT_VIOLATION"`                             | Fatal    | Structural trait constraints violated (e.g. non-equatable element in set).                                                                                                     |
@@ -3445,7 +3445,8 @@ defsElement : includeStmt
             ;
 
 packageEnclosure : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
-packagePath      : typeKeyword ;
+packagePath      : typeKeyword | packagePathIllegal ;
+packagePathIllegal : typeKeyword FSLASH+ ;
 packageElement   : nestedPackageIllegal
                  | useStmt
                  | typeDefinition

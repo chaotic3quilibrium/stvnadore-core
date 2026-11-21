@@ -1,0 +1,56 @@
+{
+  :meta {
+    #name "nominal_brand_sum_inference_and_nested_option_consts"
+    #kind #BODY
+  }
+  :defs {
+    :package :propulsion/thruster {
+      :ThrustMillinewtons { #unsigned #minIncl 100 #maxExcl 500000 } :Int
+      #CRUISE_THRUST :ThrustMillinewtons 12500
+    }
+
+    :package :propulsion/attitude {
+      :ThrustMillinewtons { #unsigned #minIncl 100 #maxExcl 500000 } :Int
+      #RCS_PULSE_THRUST :ThrustMillinewtons 12500
+    }
+
+    :PrimaryPort { #unsigned #size 16 #minIncl 1 } :Int
+    :FallbackPort { #unsigned #size 16 #minIncl 1 } :Int
+    :RetryMillis { #unsigned #size 16 #minIncl 10 #maxExcl 5000 } :Int
+    :InnerOption :Option(:RetryMillis)
+    :OuterOption :Option(:InnerOption)
+
+    #RAW_THRUST { #unsigned } :Int 12500
+    #FALLBACK_DEFAULT :FallbackPort 8443
+    #INNER_DISPATCH :InnerOption #Some 250
+    #TUPLE_TO_SUM_SOURCE :Tuple(:FallbackPort :InnerOption) ( #FALLBACK_DEFAULT #INNER_DISPATCH )
+
+    :use [
+      :propulsion/thruster { #strip }
+      :propulsion/attitude {
+        :ThrustMillinewtons :AttitudeThrust
+        #RCS_PULSE_THRUST #ATTITUDE_PULSE
+      }
+    ]
+
+    :NominalBrandValidMatrix :Tuple(
+      :ThrustMillinewtons
+      :AttitudeThrust
+      :ThrustMillinewtons
+      :Union(:PrimaryPort :FallbackPort)
+      :Either(:PrimaryPort :FallbackPort)
+      :OuterOption
+      :Tuple(:Union(:PrimaryPort :FallbackPort) :Option(:InnerOption))
+    )
+  }
+  :type :NominalBrandValidMatrix
+  :body (
+    #CRUISE_THRUST
+    #ATTITUDE_PULSE
+    #RAW_THRUST
+    #FALLBACK_DEFAULT
+    #FALLBACK_DEFAULT
+    #INNER_DISPATCH
+    #TUPLE_TO_SUM_SOURCE
+  )
+}

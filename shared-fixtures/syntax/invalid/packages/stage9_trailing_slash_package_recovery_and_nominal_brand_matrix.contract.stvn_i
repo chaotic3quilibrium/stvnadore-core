@@ -1,0 +1,16 @@
+{
+  :meta {
+    #name "stage9_trailing_slash_package_recovery_and_nominal_brand_matrix"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ERR_TRAILING_SLASH_PROHIBITED #ERROR 17 14 462 489 "Trailing slash prohibited in :package path ':propulsion/trailing_slash/'; use ':propulsion/trailing_slash'" )
+    ( #E027 #ERR_INCOMPATIBLE_NOMINAL_TYPE #ERROR 40 5 950 965 "Incompatible nominal type: constant '#ATTITUDE_PULSE' of nominal type ':propulsion/attitude/ThrustMillinewtons' cannot be assigned to target nominal type ':propulsion/thruster/ThrustMillinewtons'" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 41 5 970 972 "Constraint violation (:propulsion/thruster/ThrustMillinewtons): Value 50 is outside allowable range (must be >= 100)" )
+  ]
+}

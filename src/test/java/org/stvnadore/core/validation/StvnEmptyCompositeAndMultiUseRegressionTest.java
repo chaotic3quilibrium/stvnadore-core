@@ -116,7 +116,7 @@ class StvnEmptyCompositeAndMultiUseRegressionTest {
     Assertions.assertEquals(union0Start, errors.get(0).startOffset());
     Assertions.assertEquals(union0Start + ":Union()".length(), errors.get(0).endOffset());
     Assertions.assertEquals(
-        "STVN Syntax Error: empty composite argument list: :Union() requires at least one schema type",
+        "STVN Syntax Error: empty composite argument list: :Union() requires at least 2 schema types",
         errors.get(0).message()
     );
 
@@ -138,9 +138,9 @@ class StvnEmptyCompositeAndMultiUseRegressionTest {
         Arguments.of(":Tuple (   )", "E010", DiagnosticBag.ERR_MALFORMED_SCHEMA,
             "STVN Syntax Error: empty composite argument list: :Tuple() requires at least one schema type"),
         Arguments.of(":Union()", "E010", DiagnosticBag.ERR_MALFORMED_SCHEMA,
-            "STVN Syntax Error: empty composite argument list: :Union() requires at least one schema type"),
+            "STVN Syntax Error: empty composite argument list: :Union() requires at least 2 schema types"),
         Arguments.of(":Union (   )", "E010", DiagnosticBag.ERR_MALFORMED_SCHEMA,
-            "STVN Syntax Error: empty composite argument list: :Union() requires at least one schema type"),
+            "STVN Syntax Error: empty composite argument list: :Union() requires at least 2 schema types"),
         Arguments.of(":Option()", "E002", "STVN_SYNTAX_ERROR",
             "STVN Syntax Error: empty composite argument list: collection requires schema type argument"),
         Arguments.of(":Option(:Int :String)", "E002", "STVN_SYNTAX_ERROR",

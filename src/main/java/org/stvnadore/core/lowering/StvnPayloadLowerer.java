@@ -2188,12 +2188,17 @@ public final class StvnPayloadLowerer {
           return new StvnValue.StvnOption(optionSchema, Optional.empty());
         }
         var constOpt = constantResolver.resolve(kw.tokenText(), kw.sourceCtx());
-        if (constOpt.isPresent()
-            && (constOpt.get().schema() instanceof StvnSchema.OptionSchema
-                || constOpt.get().schema() instanceof StvnSchema.PoisonedSchema
-                || constOpt.get().value() instanceof StvnErrorValue)) {
-          queue.removeFirst();
-          return adaptConstantToSchema(constOpt.get(), kw.tokenText(), optionSchema, kw.itemSpan());
+        if (constOpt.isPresent()) {
+          StvnSchema cs = constOpt.get().schema();
+          boolean isPoisonedConst = cs instanceof StvnSchema.PoisonedSchema
+              || constOpt.get().value() instanceof StvnErrorValue;
+          boolean directOptionMatch = cs instanceof StvnSchema.OptionSchema
+              && (cs.aliasName().equals(optionSchema.aliasName())
+                  || !canAcceptSumSchemaKind(optionSchema.valueSchema(), StvnSchema.OptionSchema.class, new LinkedHashSet<>()));
+          if (isPoisonedConst || directOptionMatch) {
+            queue.removeFirst();
+            return adaptConstantToSchema(constOpt.get(), kw.tokenText(), optionSchema, kw.itemSpan());
+          }
         }
       }
 
@@ -2241,12 +2246,18 @@ public final class StvnPayloadLowerer {
       // Direct #CONST whose declared schema is EitherSchema (or poisoned sentinel)
       if (peek instanceof KeywordTokenItem kw) {
         var constOpt = constantResolver.resolve(kw.tokenText(), kw.sourceCtx());
-        if (constOpt.isPresent()
-            && (constOpt.get().schema() instanceof StvnSchema.EitherSchema
-                || constOpt.get().schema() instanceof StvnSchema.PoisonedSchema
-                || constOpt.get().value() instanceof StvnErrorValue)) {
-          queue.removeFirst();
-          return adaptConstantToSchema(constOpt.get(), kw.tokenText(), eitherSchema, kw.itemSpan());
+        if (constOpt.isPresent()) {
+          StvnSchema cs = constOpt.get().schema();
+          boolean isPoisonedConst = cs instanceof StvnSchema.PoisonedSchema
+              || constOpt.get().value() instanceof StvnErrorValue;
+          boolean directEitherMatch = cs instanceof StvnSchema.EitherSchema
+              && (cs.aliasName().equals(eitherSchema.aliasName())
+                  || (!canAcceptSumSchemaKind(eitherSchema.leftSchema(), StvnSchema.EitherSchema.class, new LinkedHashSet<>())
+                      && !canAcceptSumSchemaKind(eitherSchema.rightSchema(), StvnSchema.EitherSchema.class, new LinkedHashSet<>())));
+          if (isPoisonedConst || directEitherMatch) {
+            queue.removeFirst();
+            return adaptConstantToSchema(constOpt.get(), kw.tokenText(), eitherSchema, kw.itemSpan());
+          }
         }
       }
 
@@ -2379,12 +2390,18 @@ public final class StvnPayloadLowerer {
       // Direct #CONST whose declared schema is UnionSchema (or poisoned sentinel)
       if (peek instanceof KeywordTokenItem kw) {
         var constOpt = constantResolver.resolve(kw.tokenText(), kw.sourceCtx());
-        if (constOpt.isPresent()
-            && (constOpt.get().schema() instanceof StvnSchema.UnionSchema
-                || constOpt.get().schema() instanceof StvnSchema.PoisonedSchema
-                || constOpt.get().value() instanceof StvnErrorValue)) {
-          queue.removeFirst();
-          return adaptConstantToSchema(constOpt.get(), kw.tokenText(), unionSchema, kw.itemSpan());
+        if (constOpt.isPresent()) {
+          StvnSchema cs = constOpt.get().schema();
+          boolean isPoisonedConst = cs instanceof StvnSchema.PoisonedSchema
+              || constOpt.get().value() instanceof StvnErrorValue;
+          boolean directUnionMatch = cs instanceof StvnSchema.UnionSchema
+              && (cs.aliasName().equals(unionSchema.aliasName())
+                  || branches.stream().noneMatch(
+                      b -> canAcceptSumSchemaKind(b, StvnSchema.UnionSchema.class, new LinkedHashSet<>())));
+          if (isPoisonedConst || directUnionMatch) {
+            queue.removeFirst();
+            return adaptConstantToSchema(constOpt.get(), kw.tokenText(), unionSchema, kw.itemSpan());
+          }
         }
       }
 
@@ -2559,7 +2576,8 @@ public final class StvnPayloadLowerer {
     private static @Nullable StvnDiagnostic pickSpecificBranchDiagnostic(DiagnosticBag first, DiagnosticBag second) {
       for (DiagnosticBag bag : List.of(first, second)) {
         for (StvnDiagnostic d : bag.toList()) {
-          if (d.cause() instanceof IllegalArgumentException) {
+          if (d.cause() instanceof IllegalArgumentException
+              || DiagnosticBag.ERR_UNDEFINED_CONSTANT.equals(d.symbolicId().orElse(null))) {
             return d;
           }
         }
@@ -2637,28 +2655,197 @@ public final class StvnPayloadLowerer {
 
       // § 9.1 Opaque Nominal Branding check: a constant carrying an explicit nominal brand
       // cannot be assigned to a distinct nominal target brand. Unbranded constants revalidate and rebrand.
-      if (sourceSchema.aliasName().isPresent()) {
-        if (!sourceSchema.aliasName().equals(targetSchema.aliasName())) {
-          String srcName = sourceSchema.aliasName().get();
-          String tgtName = targetSchema.aliasName().orElseGet(() -> baseTypeName(targetSchema));
-          String msg = "Incompatible nominal type: constant '" + rawTokenText + "' of nominal type '"
-              + srcName + "' cannot be assigned to target nominal type '" + tgtName + "'";
-          throw abort(
-              msg, span,
-              new MalformedPayloadException(msg, span.start(), span.end()),
-              "E027", DiagnosticBag.ERR_INCOMPATIBLE_NOMINAL_TYPE);
-        }
-        return revalidateAndRebrandValue(constant.value(), targetSchema, span);
-      }
+      verifyNominalBrandCompatibility(sourceSchema, targetSchema, rawTokenText, span);
 
-      // Both schemas are anonymous: verify structural & domain compatibility against targetSchema
-      return revalidateAndRebrandValue(constant.value(), targetSchema, span);
+      // Verify structural, domain, and nested-element nominal brand compatibility against targetSchema
+      return revalidateAndRebrandValue(constant.value(), targetSchema, rawTokenText, span);
     }
 
-    private StvnValue revalidateAndRebrandValue(StvnValue value, StvnSchema targetSchema, Span span) {
+    private void verifyNominalBrandCompatibility(
+        StvnSchema sourceSchema,
+        StvnSchema targetSchema,
+        String rawTokenText,
+        Span span
+    ) {
+      if (sourceSchema.aliasName().isPresent()
+          && !sourceSchema.aliasName().equals(targetSchema.aliasName())) {
+        String srcName = sourceSchema.aliasName().get();
+        String tgtName = targetSchema.aliasName().orElseGet(() -> baseTypeName(targetSchema));
+        String msg = "Incompatible nominal type: constant '" + rawTokenText + "' of nominal type '"
+            + srcName + "' cannot be assigned to target nominal type '" + tgtName + "'";
+        throw abort(
+            msg, span,
+            new MalformedPayloadException(msg, span.start(), span.end()),
+            "E027", DiagnosticBag.ERR_INCOMPATIBLE_NOMINAL_TYPE);
+      }
+    }
+
+    private boolean canAcceptSumSchemaKind(
+        StvnSchema rawSchema,
+        Class<? extends StvnSchema> sumKind,
+        Set<String> visitedAliases
+    ) {
+      StvnSchema unwrapped = unwrapRecursiveBackEdge(rawSchema, nominalSchemaResolver);
+      if (unwrapped.aliasName().isPresent() && !visitedAliases.add(unwrapped.aliasName().get())) {
+        return false;
+      }
+      if (sumKind.isInstance(unwrapped)) {
+        return true;
+      }
+      if (unwrapped instanceof StvnSchema.OptionSchema opt) {
+        return canAcceptSumSchemaKind(opt.valueSchema(), sumKind, new LinkedHashSet<>(visitedAliases));
+      }
+      if (unwrapped instanceof StvnSchema.EitherSchema either) {
+        return canAcceptSumSchemaKind(either.leftSchema(), sumKind, new LinkedHashSet<>(visitedAliases))
+            || canAcceptSumSchemaKind(either.rightSchema(), sumKind, new LinkedHashSet<>(visitedAliases));
+      }
+      if (unwrapped instanceof StvnSchema.UnionSchema union) {
+        return union.branchSchemas().stream()
+            .anyMatch(b -> canAcceptSumSchemaKind(b, sumKind, new LinkedHashSet<>(visitedAliases)));
+      }
+      return false;
+    }
+
+    private @Nullable StvnValue probeRevalidateBranch(
+        StvnValue value,
+        StvnSchema rawBranchSchema,
+        String rawTokenText,
+        Span span
+    ) {
+      StvnSchema branchSchema = unwrapRecursiveBackEdge(rawBranchSchema, nominalSchemaResolver);
+      if (branchSchema instanceof StvnSchema.PoisonedSchema) {
+        return null;
+      }
+      DiagnosticBag probeBag = new DiagnosticBag();
+      LoweringSession probeSession = withBag(probeBag);
+      try {
+        StvnValue candidate = probeSession.revalidateAndRebrandValue(value, branchSchema, rawTokenText, span);
+        return (!probeBag.hasErrors() && !containsErrorValue(candidate)) ? candidate : null;
+      } catch (LoweringAbortException e) {
+        return null;
+      }
+    }
+
+    private StvnValue adaptNonWrapperValueToEither(
+        StvnValue value,
+        StvnSchema.EitherSchema eitherSchema,
+        String rawTokenText,
+        Span span
+    ) {
+      StvnSchema leftSchema = eitherSchema.leftSchema();
+      StvnSchema rightSchema = eitherSchema.rightSchema();
+      if (areIdenticalSchemas(leftSchema, rightSchema)) {
+        String msg = "Ambiguous implicit either: Both sides are identical (" + schemaLabel(leftSchema, null)
+            + "), explicit " + StvnVocabulary.VAL_LEFT + " or " + StvnVocabulary.VAL_RIGHT + " tag is required";
+        throw abort(
+            msg, span,
+            new MalformedPayloadException(msg, span.start(), span.end()),
+            "E024", DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE);
+      }
+      StvnValue rightVal = probeRevalidateBranch(value, rightSchema, rawTokenText, span);
+      StvnValue leftVal = probeRevalidateBranch(value, leftSchema, rawTokenText, span);
+      if (rightVal != null && leftVal != null) {
+        String msg = "Ambiguous implicit resolution: Value matches both Left and Right branches of "
+            + StvnVocabulary.TYPE_EITHER;
+        throw abort(
+            msg, span,
+            new MalformedPayloadException(msg, span.start(), span.end()),
+            "E024", DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE);
+      }
+      if (rightVal != null) {
+        return new StvnValue.StvnEither(eitherSchema, EitherBranch.RIGHT, rightVal);
+      }
+      if (leftVal != null) {
+        String msg = "Rule E Violation: Untagged value matching Left branch of "
+            + StvnVocabulary.TYPE_EITHER + " is non-inferable; explicit "
+            + StvnVocabulary.VAL_LEFT + " tag is required";
+        throw abort(
+            msg, span,
+            new MalformedPayloadException(msg, span.start(), span.end()),
+            "E023", DiagnosticBag.ERR_EITHER_LEFT_MISSING_TAG);
+      }
+      verifyNominalBrandCompatibility(value.schema(), eitherSchema, rawTokenText, span);
+      throw typeMismatch(eitherSchema, value, span);
+    }
+
+    private StvnValue adaptNonWrapperValueToUnion(
+        StvnValue value,
+        StvnSchema.UnionSchema unionSchema,
+        String rawTokenText,
+        Span span
+    ) {
+      List<StvnSchema> branches = unionSchema.branchSchemas();
+      int matchCount = 0;
+      int matchedIndex = -1;
+      StvnValue winningVal = null;
+      for (int i = 0; i < branches.size(); i++) {
+        StvnValue candidate = probeRevalidateBranch(value, branches.get(i), rawTokenText, span);
+        if (candidate != null) {
+          matchCount++;
+          matchedIndex = i;
+          winningVal = candidate;
+        }
+      }
+      if (matchCount > 1) {
+        String msg = "Ambiguous implicit resolution: Value matches multiple branches";
+        throw abort(
+            msg, span,
+            new StvnCollectionCollisionException(msg, span.start(), span.end()),
+            "E024", DiagnosticBag.ERR_AMBIGUOUS_SUM_INFERENCE);
+      }
+      if (matchCount == 1 && winningVal != null) {
+        return new StvnValue.StvnUnion(unionSchema, BigInteger.valueOf(matchedIndex + 1L), winningVal);
+      }
+      verifyNominalBrandCompatibility(value.schema(), unionSchema, rawTokenText, span);
+      throw typeMismatch(unionSchema, value, span);
+    }
+
+    private StvnValue revalidateAndRebrandValue(
+        StvnValue value,
+        StvnSchema rawTargetSchema,
+        String rawTokenText,
+        Span span
+    ) {
+      StvnSchema targetSchema = unwrapRecursiveBackEdge(rawTargetSchema, nominalSchemaResolver);
       if (value instanceof StvnErrorValue errVal) {
         return new StvnErrorValue(targetSchema, errVal.diagnostic());
       }
+      if (targetSchema instanceof StvnSchema.PoisonedSchema poisoned) {
+        return silentPoisonErrorValue(new ParserRuleContext(), poisoned, diagnosticBag);
+      }
+      // Safeguard 2: Delegate non-wrapper (and nested inner-sum) fallthroughs to child/branch schemas
+      // BEFORE checking nominal brand equality against the outer sum schema.
+      if (targetSchema instanceof StvnSchema.OptionSchema optSchema) {
+        boolean sameLevelOption = value instanceof StvnValue.StvnOption
+            && (value.schema().aliasName().equals(optSchema.aliasName())
+                || !canAcceptSumSchemaKind(optSchema.valueSchema(), StvnSchema.OptionSchema.class, new LinkedHashSet<>()));
+        if (!sameLevelOption) {
+          return new StvnValue.StvnOption(
+              optSchema,
+              Optional.of(revalidateAndRebrandValue(value, optSchema.valueSchema(), rawTokenText, span))
+          );
+        }
+      }
+      if (targetSchema instanceof StvnSchema.EitherSchema eitherSchema) {
+        boolean sameLevelEither = value instanceof StvnValue.StvnEither
+            && (value.schema().aliasName().equals(eitherSchema.aliasName())
+                || (!canAcceptSumSchemaKind(eitherSchema.leftSchema(), StvnSchema.EitherSchema.class, new LinkedHashSet<>())
+                    && !canAcceptSumSchemaKind(eitherSchema.rightSchema(), StvnSchema.EitherSchema.class, new LinkedHashSet<>())));
+        if (!sameLevelEither) {
+          return adaptNonWrapperValueToEither(value, eitherSchema, rawTokenText, span);
+        }
+      }
+      if (targetSchema instanceof StvnSchema.UnionSchema unionSchema) {
+        boolean sameLevelUnion = value instanceof StvnValue.StvnUnion
+            && (value.schema().aliasName().equals(unionSchema.aliasName())
+                || unionSchema.branchSchemas().stream().noneMatch(
+                    b -> canAcceptSumSchemaKind(b, StvnSchema.UnionSchema.class, new LinkedHashSet<>())));
+        if (!sameLevelUnion) {
+          return adaptNonWrapperValueToUnion(value, unionSchema, rawTokenText, span);
+        }
+      }
+
+      verifyNominalBrandCompatibility(value.schema(), targetSchema, rawTokenText, span);
       String label = schemaLabel(targetSchema, overrideLabel);
       return switch (targetSchema) {
         case StvnSchema.BooleanSchema boolSchema -> {
@@ -2724,7 +2911,7 @@ public final class StvnPayloadLowerer {
             List<StvnValue> adapted = new ArrayList<>(t.elements().size());
             for (int idx = 0; idx < t.elements().size(); idx++) {
               adapted.add(revalidateAndRebrandValue(
-                  t.elements().get(idx), tupleSchema.fieldSchemas().get(idx), span));
+                  t.elements().get(idx), tupleSchema.fieldSchemas().get(idx), rawTokenText, span));
             }
             yield new StvnValue.StvnTuple(tupleSchema, adapted);
           }
@@ -2733,11 +2920,11 @@ public final class StvnPayloadLowerer {
         case StvnSchema.OptionSchema optSchema -> {
           if (value instanceof StvnValue.StvnOption o) {
             Optional<StvnValue> inner = o.value()
-                .map(v -> revalidateAndRebrandValue(v, optSchema.valueSchema(), span));
+                .map(v -> revalidateAndRebrandValue(v, optSchema.valueSchema(), rawTokenText, span));
             yield new StvnValue.StvnOption(optSchema, inner);
           }
           yield new StvnValue.StvnOption(
-              optSchema, Optional.of(revalidateAndRebrandValue(value, optSchema.valueSchema(), span)));
+              optSchema, Optional.of(revalidateAndRebrandValue(value, optSchema.valueSchema(), rawTokenText, span)));
         }
         case StvnSchema.EitherSchema eitherSchema -> {
           if (value instanceof StvnValue.StvnEither e) {
@@ -2745,7 +2932,7 @@ public final class StvnPayloadLowerer {
                 ? eitherSchema.rightSchema()
                 : eitherSchema.leftSchema();
             yield new StvnValue.StvnEither(
-                eitherSchema, e.branch(), revalidateAndRebrandValue(e.value(), branchTarget, span));
+                eitherSchema, e.branch(), revalidateAndRebrandValue(e.value(), branchTarget, rawTokenText, span));
           }
           throw typeMismatch(targetSchema, value, span);
         }
@@ -2754,7 +2941,7 @@ public final class StvnPayloadLowerer {
               && u.oneBasedBranchIndex().intValueExact() <= unionSchema.branchSchemas().size()) {
             StvnSchema branchTarget = unionSchema.branchSchemas().get(u.oneBasedBranchIndex().intValueExact() - 1);
             yield new StvnValue.StvnUnion(
-                unionSchema, u.oneBasedBranchIndex(), revalidateAndRebrandValue(u.value(), branchTarget, span));
+                unionSchema, u.oneBasedBranchIndex(), revalidateAndRebrandValue(u.value(), branchTarget, rawTokenText, span));
           }
           throw typeMismatch(targetSchema, value, span);
         }
@@ -2771,7 +2958,7 @@ public final class StvnPayloadLowerer {
             }
             List<StvnValue> adapted = new ArrayList<>(s.elements().size());
             for (StvnValue el : s.elements()) {
-              adapted.add(revalidateAndRebrandValue(el, seqSchema.elementSchema(), span));
+              adapted.add(revalidateAndRebrandValue(el, seqSchema.elementSchema(), rawTokenText, span));
             }
             yield new StvnValue.StvnSeq(seqSchema, adapted);
           }
@@ -2790,7 +2977,7 @@ public final class StvnPayloadLowerer {
             }
             List<StvnValue> adapted = new ArrayList<>(s.elements().size());
             for (StvnValue el : s.elements()) {
-              adapted.add(revalidateAndRebrandValue(el, setSchema.elementSchema(), span));
+              adapted.add(revalidateAndRebrandValue(el, setSchema.elementSchema(), rawTokenText, span));
             }
             yield new StvnValue.StvnSet(setSchema, adapted);
           }
@@ -2810,8 +2997,8 @@ public final class StvnPayloadLowerer {
             List<KeyValueEntry> adapted = new ArrayList<>(m.entries().size());
             Set<Object> seenValues = new LinkedHashSet<>();
             for (KeyValueEntry entry : m.entries()) {
-              StvnValue k = revalidateAndRebrandValue(entry.key(), mapSchema.keySchema(), span);
-              StvnValue v = revalidateAndRebrandValue(entry.value(), mapSchema.valueSchema(), span);
+              StvnValue k = revalidateAndRebrandValue(entry.key(), mapSchema.keySchema(), rawTokenText, span);
+              StvnValue v = revalidateAndRebrandValue(entry.value(), mapSchema.valueSchema(), rawTokenText, span);
               if (mapSchema.invertible() && !containsErrorValue(v) && !seenValues.add(canonicalEqualityKey(v))) {
                 String msg = "Duplicate inverted map value detected";
                 throw abort(

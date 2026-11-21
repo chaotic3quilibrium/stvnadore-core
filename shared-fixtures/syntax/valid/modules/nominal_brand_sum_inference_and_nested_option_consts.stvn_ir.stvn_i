@@ -1,0 +1,50 @@
+{
+  :meta {
+    #name "nominal_brand_sum_inference_and_nested_option_consts"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":propulsion/thruster/ThrustMillinewtons" ( "{#unsigned #minIncl 100 #maxExcl 500000}:Int" ":propulsion/thruster/ThrustMillinewtons" ( #TRUE #TRUE ) ) ]
+      [ ":propulsion/attitude/ThrustMillinewtons" ( "{#unsigned #minIncl 100 #maxExcl 500000}:Int" ":propulsion/attitude/ThrustMillinewtons" ( #TRUE #TRUE ) ) ]
+      [ ":PrimaryPort" ( "{#unsigned #size 16 #minIncl 1}:Int" ":PrimaryPort" ( #TRUE #TRUE ) ) ]
+      [ ":FallbackPort" ( "{#unsigned #size 16 #minIncl 1}:Int" ":FallbackPort" ( #TRUE #TRUE ) ) ]
+      [ ":RetryMillis" ( "{#unsigned #size 16 #minIncl 10 #maxExcl 5000}:Int" ":RetryMillis" ( #TRUE #TRUE ) ) ]
+      [ ":InnerOption" ( ":Option(:RetryMillis)" ":InnerOption" ( #TRUE #TRUE ) ) ]
+      [ ":OuterOption" ( ":Option(:InnerOption)" ":OuterOption" ( #TRUE #TRUE ) ) ]
+      [ ":NominalBrandValidMatrix" ( ":Tuple(:propulsion/thruster/ThrustMillinewtons :propulsion/attitude/ThrustMillinewtons :propulsion/thruster/ThrustMillinewtons :Union(:PrimaryPort :FallbackPort):Either(:PrimaryPort :FallbackPort):OuterOption :Tuple(:Union(:PrimaryPort :FallbackPort):Option(:InnerOption)))" ":NominalBrandValidMatrix" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:propulsion/thruster/ThrustMillinewtons :propulsion/attitude/ThrustMillinewtons :propulsion/thruster/ThrustMillinewtons :Union(:PrimaryPort :FallbackPort):Either(:PrimaryPort :FallbackPort):OuterOption :Tuple(:Union(:PrimaryPort :FallbackPort):Option(:InnerOption)))" ":NominalBrandValidMatrix" ( #TRUE #TRUE ) ) ]
+    }
+    #14 [
+      #2 ( 12500 32 #TRUE )
+      #2 ( 12500 32 #TRUE )
+      #2 ( 12500 32 #TRUE )
+      #13 ( 2
+        #2 ( 8443 16 #TRUE )
+      )
+      #12 ( #RIGHT
+        #2 ( 8443 16 #TRUE )
+      )
+      #9 ( #SOME
+        #9 ( #SOME
+          #2 ( 250 16 #TRUE )
+        )
+      )
+      #14 [
+        #13 ( 2
+          #2 ( 8443 16 #TRUE )
+        )
+        #9 ( #SOME
+          #9 ( #SOME
+            #2 ( 250 16 #TRUE )
+          )
+        )
+      ]
+    ]
+  )
+}

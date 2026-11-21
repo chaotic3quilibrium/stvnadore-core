@@ -754,7 +754,7 @@ public final class StvnSyntaxErrorSanitizer {
               return "empty composite argument list: " + StvnVocabulary.TYPE_TUPLE + "() requires at least one schema type";
             }
             if (StvnVocabulary.TYPE_UNION.equals(prev.getText())) {
-              return "empty composite argument list: " + StvnVocabulary.TYPE_UNION + "() requires at least one schema type";
+              return "empty composite argument list: " + StvnVocabulary.TYPE_UNION + "() requires at least 2 schema types";
             }
             if (isSingleArgCollectionKeyword(prev.getText())) {
               return "empty composite argument list: collection requires schema type argument";
@@ -787,7 +787,7 @@ public final class StvnSyntaxErrorSanitizer {
               return "empty composite argument list: " + StvnVocabulary.TYPE_TUPLE + "() requires at least one schema type";
             }
             if (StvnVocabulary.TYPE_UNION.equals(prev2.getText())) {
-              return "empty composite argument list: " + StvnVocabulary.TYPE_UNION + "() requires at least one schema type";
+              return "empty composite argument list: " + StvnVocabulary.TYPE_UNION + "() requires at least 2 schema types";
             }
             if (isSingleArgCollectionKeyword(prev2.getText())) {
               return "empty composite argument list: collection requires schema type argument";
@@ -818,7 +818,7 @@ public final class StvnSyntaxErrorSanitizer {
           return "empty composite argument list: " + StvnVocabulary.TYPE_TUPLE + "() requires at least one schema type";
         }
         if (isUnionContext(ctx)) {
-          return "empty composite argument list: " + StvnVocabulary.TYPE_UNION + "() requires at least one schema type";
+          return "empty composite argument list: " + StvnVocabulary.TYPE_UNION + "() requires at least 2 schema types";
         }
         if (isSingleArgumentCollection(ctx)) {
           return "empty composite argument list: collection requires schema type argument";

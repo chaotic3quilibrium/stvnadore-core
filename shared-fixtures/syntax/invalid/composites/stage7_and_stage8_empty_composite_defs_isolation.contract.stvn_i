@@ -12,7 +12,7 @@
     ( #E010 #MALFORMED_SCHEMA #ERROR 15 21 496 504 "STVN Syntax Error: empty composite argument list: :Tuple() requires at least one schema type" )
     ( #E009 #INVALID_NUMERIC_RANGE #ERROR 16 32 536 558 "Constraint violation (:TrapInvertedSeqCapacity): #minSize (12) cannot exceed #maxSize (4)" )
     ( #E008 #TRAIT_VIOLATION #ERROR 17 41 617 631 "Set elements require types to be #equatable #TRUE" )
-    ( #E010 #MALFORMED_SCHEMA #ERROR 20 21 713 721 "STVN Syntax Error: empty composite argument list: :Union() requires at least one schema type" )
+    ( #E010 #MALFORMED_SCHEMA #ERROR 20 21 713 721 "STVN Syntax Error: empty composite argument list: :Union() requires at least 2 schema types" )
     ( #E010 #MALFORMED_SCHEMA #ERROR 21 28 749 769 "Union schema requires at least 2 branch types, got 1" )
   ]
 }

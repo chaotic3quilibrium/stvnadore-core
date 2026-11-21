@@ -1,0 +1,45 @@
+{
+  :meta {
+    #name "composite_and_sum_const_nominal_brand_isolation"
+    #kind #BODY
+  }
+  :defs {
+    :package :propulsion/thruster {
+      :ThrustMillinewtons { #unsigned #minIncl 100 #maxExcl 500000 } :Int
+    }
+
+    :package :propulsion/attitude {
+      :ThrustMillinewtons { #unsigned #minIncl 100 #maxExcl 500000 } :Int
+      #RCS_PULSE_THRUST :ThrustMillinewtons 12500
+    }
+
+    :PrimaryPort { #unsigned #size 16 #minIncl 1 } :Int
+    #PRIMARY_PORT_CONST :PrimaryPort 8080
+
+    :use [
+      :propulsion/thruster { #strip }
+      :propulsion/attitude {
+        :ThrustMillinewtons :AttitudeThrust
+        #RCS_PULSE_THRUST #ATTITUDE_PULSE
+      }
+    ]
+
+    #ATTITUDE_SEQ :Seq(:AttitudeThrust) [ 12500 ]
+
+    :CompositeBrandMatrix :Tuple(
+      :Option(:ThrustMillinewtons)
+      :Either(:String :ThrustMillinewtons)
+      :Union(:ThrustMillinewtons :String)
+      :Seq(:ThrustMillinewtons)
+      :Int
+    )
+  }
+  :type :CompositeBrandMatrix
+  :body (
+    #ATTITUDE_PULSE
+    #Right #ATTITUDE_PULSE
+    #1 #ATTITUDE_PULSE
+    #ATTITUDE_SEQ
+    #PRIMARY_PORT_CONST
+  )
+}

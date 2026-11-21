@@ -1,0 +1,43 @@
+{
+  :meta {
+    #name "stage9_trailing_slash_package_recovery_and_nominal_brand_matrix"
+    #kind #BODY
+  }
+  :defs {
+    :package :propulsion/thruster {
+      :ThrustMillinewtons { #unsigned #minIncl 100 #maxExcl 500000 } :Int
+      #CRUISE_THRUST :ThrustMillinewtons 12500
+    }
+
+    :package :propulsion/attitude {
+      :ThrustMillinewtons { #unsigned #minIncl 100 #maxExcl 500000 } :Int
+      #RCS_PULSE_THRUST :ThrustMillinewtons 12500
+    }
+
+    :package :propulsion/trailing_slash/ {
+      :SlashInt :Int
+    }
+
+    :use [
+      :propulsion/thruster { #strip }
+      :propulsion/attitude {
+        :ThrustMillinewtons :AttitudeThrust
+        #RCS_PULSE_THRUST #ATTITUDE_PULSE
+      }
+    ]
+
+    :Stage9BrandingAndNamespaceMatrix :Tuple(
+      :ThrustMillinewtons
+      :AttitudeThrust
+      :ThrustMillinewtons
+      :ThrustMillinewtons
+    )
+  }
+  :type :Stage9BrandingAndNamespaceMatrix
+  :body (
+    #CRUISE_THRUST
+    #ATTITUDE_PULSE
+    #ATTITUDE_PULSE
+    50
+  )
+}

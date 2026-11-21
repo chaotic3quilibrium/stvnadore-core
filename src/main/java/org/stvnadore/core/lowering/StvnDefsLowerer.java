@@ -2312,9 +2312,13 @@ public final class StvnDefsLowerer {
         if (de.includeStmt() != null) {
           this.hasIncludes = true;
         } else if (de.packageEnclosure() != null && de.packageEnclosure().packagePath() != null) {
-          String pkgPath = de.packageEnclosure().packagePath().getText();
-          if (moduleCtx.isSystemAuthority() || !isReservedPackage(pkgPath)) {
-            locallyDeclaredPackages.add(pkgPath);
+          var pkgPathCtx = de.packageEnclosure().packagePath();
+          String candidatePkg = pkgPathCtx.packagePathIllegal() != null
+              ? pkgPathCtx.packagePathIllegal().typeKeyword().getText()
+              : pkgPathCtx.getText();
+          if (!candidatePkg.isEmpty()
+              && (moduleCtx.isSystemAuthority() || !isReservedPackage(candidatePkg))) {
+            locallyDeclaredPackages.add(candidatePkg);
           }
         } else if (de.typeDefinition() != null) {
           String rawName = de.typeDefinition().typeDefTarget().getText();
@@ -2423,6 +2427,9 @@ public final class StvnDefsLowerer {
       for (var de : defsEntry.defsElement()) {
         if (de.packageEnclosure() != null) {
           var pkgEnc = de.packageEnclosure();
+          if (pkgEnc.packagePath() == null || pkgEnc.packagePath().packagePathIllegal() != null) {
+            continue;
+          }
           String pkgPrefix = pkgEnc.packagePath().getText();
           if (!moduleCtx.isSystemAuthority() && isReservedPackage(pkgPrefix)) {
             continue;
@@ -2600,6 +2607,24 @@ public final class StvnDefsLowerer {
         Map<String, List<ScopeClaim<ExportedTypeSymbol>>> packagedTypeClaims,
         Map<String, List<ScopeClaim<ExportedConstantSymbol>>> packagedConstClaims
     ) {
+      if (pkgEnc.packagePath().packagePathIllegal() != null) {
+        var illegal = pkgEnc.packagePath().packagePathIllegal();
+        Span pathSpan = Span.ofContext(pkgEnc.packagePath());
+        String rawPath = illegal.getText();
+        String cleanedPath = illegal.typeKeyword().getText();
+        diagnosticBag.addError(
+            "Trailing slash prohibited in " + StvnVocabulary.KEYWORD_PACKAGE
+                + " path '" + rawPath + "'; use '" + cleanedPath + "'",
+            pathSpan.start(),
+            pathSpan.end(),
+            pathSpan.line(),
+            pathSpan.column(),
+            null,
+            DiagnosticBag.ERR_TRAILING_SLASH_PROHIBITED
+        );
+        validateNestedDirectivesOnly(pkgEnc);
+        return;
+      }
       String pkgPath = pkgEnc.packagePath().getText();
       if (!moduleCtx.isSystemAuthority() && isReservedPackage(pkgPath)) {
         Span pathSpan = Span.ofContext(pkgEnc.packagePath());
@@ -2609,21 +2634,7 @@ public final class StvnDefsLowerer {
             pathSpan.start(), pathSpan.end(), pathSpan.line(), pathSpan.column(), null,
             DiagnosticBag.ERR_RESERVED_PACKAGE_PROHIBITED
         );
-        if (pkgEnc.packageElement() != null) {
-          for (var pe : pkgEnc.packageElement()) {
-            if (pe.nestedPackageIllegal() != null) {
-              var illegalNode = pe.nestedPackageIllegal();
-              Span sp = Span.ofContext(illegalNode);
-              diagnosticBag.addError(
-                  "Nested packages are prohibited: " + illegalNode.packagePath().getText(),
-                  sp.start(), sp.end(), sp.line(), sp.column(), null,
-                  DiagnosticBag.ERR_NESTED_PACKAGE_PROHIBITED
-              );
-            } else if (pe.useStmt() != null) {
-              validateUseStmt(pe.useStmt());
-            }
-          }
-        }
+        validateNestedDirectivesOnly(pkgEnc);
         return;
       }
       if (pkgEnc.packageElement() == null) {
@@ -2688,6 +2699,27 @@ public final class StvnDefsLowerer {
           packagedConstClaims.computeIfAbsent(fqni, k -> new ArrayList<>())
               .add(new ScopeClaim<>(fqni, null, "<local>", ClaimKind.LOCAL));
           localConstAsts.put(fqni, new LocalConstantAstDecl(fqni, localName, constDef, pkgPath, pkgEnc));
+        }
+      }
+    }
+
+    private void validateNestedDirectivesOnly(StvnParser.PackageEnclosureContext pkgEnc) {
+      if (pkgEnc.packageElement() == null) {
+        return;
+      }
+      for (var pe : pkgEnc.packageElement()) {
+        if (pe.nestedPackageIllegal() != null) {
+          var illegalNode = pe.nestedPackageIllegal();
+          Span sp = Span.ofContext(illegalNode);
+          diagnosticBag.addError(
+              "Nested packages are prohibited: " + illegalNode.packagePath().getText(),
+              sp.start(), sp.end(), sp.line(), sp.column(), null,
+              DiagnosticBag.ERR_NESTED_PACKAGE_PROHIBITED
+          );
+        } else if (pe.useStmt() != null && pe.useStmt().useElement() != null) {
+          for (var useElem : pe.useStmt().useElement()) {
+            validateUseElement(useElem);
+          }
         }
       }
     }
@@ -5255,7 +5287,7 @@ public final class StvnDefsLowerer {
             if (isDelimiterClosedCleanly(sum.RPAREN()) && !hasPass1SyntaxErrorInSpan(diagnosticBag, sp)) {
               String unionMsg = branches.isEmpty()
                   ? "STVN Syntax Error: empty composite argument list: "
-                      + StvnVocabulary.TYPE_UNION + "() requires at least one schema type"
+                      + StvnVocabulary.TYPE_UNION + "() requires at least 2 schema types"
                   : "Union schema requires at least 2 branch types, got " + branches.size();
               diagnosticBag.addErrorDual(
                   unionMsg,

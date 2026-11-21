@@ -104,7 +104,7 @@ public class StvnDiagnosticsTest {
 
     var diag = result.diagnostics().getFirst();
     Assertions.assertTrue(
-        diag.message().contains("empty composite argument list: :Union() requires at least one schema type") ||
+        diag.message().contains("empty composite argument list: :Union() requires at least 2 schema types") ||
         diag.message().contains("<schema type>"),
         "Expected concise message but got: " + diag.message()
     );

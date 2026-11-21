@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "composite_and_sum_const_nominal_brand_isolation"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E027 #ERR_INCOMPATIBLE_NOMINAL_TYPE #ERROR 39 5 966 981 "Incompatible nominal type: constant '#ATTITUDE_PULSE' of nominal type ':propulsion/attitude/ThrustMillinewtons' cannot be assigned to target nominal type ':propulsion/thruster/ThrustMillinewtons'" )
+    ( #E027 #ERR_INCOMPATIBLE_NOMINAL_TYPE #ERROR 40 12 993 1008 "Incompatible nominal type: constant '#ATTITUDE_PULSE' of nominal type ':propulsion/attitude/ThrustMillinewtons' cannot be assigned to target nominal type ':propulsion/thruster/ThrustMillinewtons'" )
+    ( #E027 #ERR_INCOMPATIBLE_NOMINAL_TYPE #ERROR 41 8 1016 1031 "Incompatible nominal type: constant '#ATTITUDE_PULSE' of nominal type ':propulsion/attitude/ThrustMillinewtons' cannot be assigned to target nominal type ':propulsion/thruster/ThrustMillinewtons'" )
+    ( #E027 #ERR_INCOMPATIBLE_NOMINAL_TYPE #ERROR 42 5 1036 1049 "Incompatible nominal type: constant '#ATTITUDE_SEQ' of nominal type ':propulsion/attitude/ThrustMillinewtons' cannot be assigned to target nominal type ':propulsion/thruster/ThrustMillinewtons'" )
+    ( #E027 #ERR_INCOMPATIBLE_NOMINAL_TYPE #ERROR 43 5 1054 1073 "Incompatible nominal type: constant '#PRIMARY_PORT_CONST' of nominal type ':PrimaryPort' cannot be assigned to target nominal type ':Int'" )
+  ]
+}
