@@ -7,10 +7,10 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.stdlib.StvnPrelude;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -317,7 +317,7 @@ public class StvnPreludeExplicitCasingTest {
   @Test
   @DisplayName("TC-EXPLICIT-CASE-20: Updated prelude fixture compiles cleanly")
   void testPreludeFixtureCompilesCleanly() throws IOException {
-    var path = Paths.get("shared-fixtures/syntax/valid/modules/prelude.stvn_core.stvn_d");
+    var path = StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "modules", "prelude.stvn_core.stvn_d");
     assertTrue(Files.exists(path), "prelude.stvn_core.stvn_d fixture file must exist");
     var content = Files.readString(path);
     var compilation = StvnCompiler.compile(content, path.toString(), StvnParserConfig.SYSTEM);
@@ -327,7 +327,7 @@ public class StvnPreludeExplicitCasingTest {
   @Test
   @DisplayName("TC-EXPLICIT-CASE-21: IR snapshot test compiles with 0 diagnostics")
   void testPreludeIrSnapshotCompilesCleanly() throws IOException {
-    var path = Paths.get("shared-fixtures/syntax/valid/modules/prelude.stvn_ir.stvn_i");
+    var path = StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "modules", "prelude.stvn_ir.stvn_i");
     assertTrue(Files.exists(path), "prelude.stvn_ir.stvn_i snapshot file must exist");
     var content = Files.readString(path);
     var result = StvnCompiler.compileToResult(content, path.toString(), StvnParserConfig.SYSTEM);

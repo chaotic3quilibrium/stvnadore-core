@@ -11,6 +11,7 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.StvnSchemaFlattener;
 import org.stvnadore.core.matrix.MetadataFixtureGenerator.GeneratedFixture;
+import org.stvnadore.core.utils.StvnProjectPaths;
 import org.stvnadore.core.validation.DiagnosticBag;
 
 import java.io.IOException;
@@ -36,7 +37,7 @@ import java.util.stream.Stream;
 public class StvnMetadataMatrixTest {
 
   private static final Path FIXTURE_ROOT =
-      Path.of("shared-fixtures/metadata");
+      StvnProjectPaths.resolve("shared-fixtures", "metadata");
 
   private static final Pattern EXPECT_DIAGNOSTIC_PATTERN =
       Pattern.compile("^//\\s*EXPECT-DIAGNOSTIC:\\s*(\\w+)", Pattern.MULTILINE);

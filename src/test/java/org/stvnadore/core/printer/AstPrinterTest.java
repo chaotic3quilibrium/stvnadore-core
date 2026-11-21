@@ -13,13 +13,13 @@ import org.stvnadore.core.ir.StvnDocument;
 import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.stdlib.StvnPrelude;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -650,8 +650,8 @@ class AstPrinterTest {
   @DisplayName("TC-SUM-RT-02: Normative Pretty & Compact round-trip and StvnSourceFormatter fixed-point across all valid shared-fixtures")
   void testNormativeRoundTripAcrossAllValidSharedFixtures() throws IOException {
     List<Path> validRoots = List.of(
-        Paths.get("shared-fixtures", "syntax", "valid"),
-        Paths.get("shared-fixtures", "metadata", "valid")
+        StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid"),
+        StvnProjectPaths.resolve("shared-fixtures", "metadata", "valid")
     );
     List<Path> discovered = new ArrayList<>();
     for (Path root : validRoots) {

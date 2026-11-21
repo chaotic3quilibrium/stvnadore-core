@@ -1,6 +1,7 @@
 package org.stvnadore.core.matrix;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -74,7 +75,7 @@ public final class MetadataMatrixReader {
       }
     }
     // Fallback for file system execution
-    Path fsPath = Path.of("src/test/resources", DEFAULT_MATRIX_RESOURCE_PATH);
+    Path fsPath = StvnProjectPaths.resolve("src", "test", "resources", DEFAULT_MATRIX_RESOURCE_PATH);
     if (Files.exists(fsPath)) {
       return readFromPath(fsPath);
     }

@@ -2,6 +2,7 @@ package org.stvnadore.core;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -218,8 +219,8 @@ class StvnVocabularyTest {
   @Test
   @DisplayName("TC-VOCAB-10: Automated Grep Sweep Quality Gate asserting zero hardcoded string literals")
   void testZeroHardcodedStringLiteralsQualityGate() throws java.io.IOException {
-    java.nio.file.Path mainJava = java.nio.file.Path.of("src/main/java");
-    if (!java.nio.file.Files.exists(mainJava)) return;
+    java.nio.file.Path mainJava = StvnProjectPaths.resolve("src", "main", "java");
+    assertTrue(java.nio.file.Files.isDirectory(mainJava), "src/main/java directory must exist: " + mainJava);
 
     java.util.regex.Pattern forbiddenLiterals = java.util.regex.Pattern.compile(
         "\"(:Int|:Float|:String|:Boolean|:TimeEpoch|:DateTime|:Seq|:Set|:Map|:Tuple|:Option|:Either|:Union|:Enum|:MapEntry|:meta|:defs|:type|:body|:include|:package|:use)\""

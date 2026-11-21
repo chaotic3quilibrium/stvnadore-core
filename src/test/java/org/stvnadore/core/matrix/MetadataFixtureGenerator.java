@@ -2,6 +2,7 @@ package org.stvnadore.core.matrix;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -23,8 +24,11 @@ import java.util.*;
 @NullMarked
 public final class MetadataFixtureGenerator {
 
-  public static final Path DEFAULT_OUTPUT_ROOT =
-      Path.of("shared-fixtures/metadata");
+  public static final Path DEFAULT_OUTPUT_SUBPATH =
+      Path.of("shared-fixtures", "metadata");
+
+  private static final Path ERROR_CONTRACT_SUBPATH =
+      Path.of("shared-fixtures", "syntax", "invalid", "error_contract.stvn_d");
 
   /**
    * Set of TSV type/tag combinations prohibited by the current compiler implementation.
@@ -77,13 +81,26 @@ public final class MetadataFixtureGenerator {
   }
 
   /**
+   * Resolves the canonical {@code ij_stvnadore_core/shared-fixtures/metadata} output root,
+   * failing fast via {@link StvnProjectPaths#resolveProjectBasedir()} if {@code shared-fixtures/syntax}
+   * is absent.
+   *
+   * @return normalized absolute path to {@code shared-fixtures/metadata}
+   */
+  public static Path resolveDefaultOutputRoot() {
+    return StvnProjectPaths.resolve(DEFAULT_OUTPUT_SUBPATH);
+  }
+
+  /**
    * CLI entry point to materialize all fixtures to disk.
    *
    * @param args optional first argument specifies target output root path
    * @throws IOException if disk serialization fails
    */
   public static void main(String[] args) throws IOException {
-    Path outputDir = args.length > 0 ? Path.of(args[0]) : DEFAULT_OUTPUT_ROOT;
+    Path outputDir = args.length > 0
+        ? Path.of(args[0]).toAbsolutePath().normalize()
+        : resolveDefaultOutputRoot();
     System.out.println("Starting Metadata Fixture Generation Pipeline...");
     List<MetadataMatrixRow> rows = MetadataMatrixReader.readDefaultMatrix();
     Map<Path, GeneratedFixture> fixtures = generateAllFixturesInMemory(rows);
@@ -114,7 +131,6 @@ public final class MetadataFixtureGenerator {
       map.put(f.relativePath(), normalizeLf(f));
     }
     // 4. Invalid Negative Fixtures (+ coordinate-pinned .contract.stvn_i companions)
-    Path errorContractTarget = Path.of("shared-fixtures/syntax/invalid/error_contract.stvn_d");
     for (GeneratedFixture f : generateInvalidEdgeCaseFixtures(rows)) {
       GeneratedFixture normalized = normalizeLf(f);
       map.put(normalized.relativePath(), normalized);
@@ -123,10 +139,10 @@ public final class MetadataFixtureGenerator {
       int dot = fileName.indexOf('.');
       String stem = dot > 0 ? fileName.substring(0, dot) : fileName;
       Path contractRelPath = normalized.relativePath().resolveSibling(stem + ".contract.stvn_i");
-      Path diskSourcePath = DEFAULT_OUTPUT_ROOT.resolve(normalized.relativePath());
-      Path diskContractPath = DEFAULT_OUTPUT_ROOT.resolve(contractRelPath);
+      Path diskSourcePath = DEFAULT_OUTPUT_SUBPATH.resolve(normalized.relativePath());
+      Path diskContractPath = DEFAULT_OUTPUT_SUBPATH.resolve(contractRelPath);
       String relErrorContract = diskContractPath.getParent()
-          .relativize(errorContractTarget)
+          .relativize(ERROR_CONTRACT_SUBPATH)
           .toString()
           .replace('\\', '/');
       var compRes = org.stvnadore.core.StvnCompiler.compileToResult(

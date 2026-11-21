@@ -18,6 +18,7 @@ import org.stvnadore.core.binary.readers.StvnSeqReader;
 import org.stvnadore.core.binary.readers.StvnTupleReader;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.utils.StvnBinaryUtils;
+import org.stvnadore.core.utils.StvnProjectPaths;
 import org.stvnadore.core.validation.MalformedPayloadException;
 
 import java.io.IOException;
@@ -26,7 +27,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -69,7 +69,8 @@ class StvnBinaryCrc32cTrailerTest {
   @Test
   @DisplayName("TC-CRC-02: CRC-32C across all scalar and collection types")
   void testCrc32cAcrossAllScalarAndCollectionTypes() throws IOException {
-    Path validFixturePath = Paths.get("shared-fixtures/syntax/valid/scalars/crc32c_trailer_valid.stvn");
+    Path validFixturePath =
+        StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "scalars", "crc32c_trailer_valid.stvn");
     String stvnContent = Files.readString(validFixturePath);
     var expectedIr = StvnCompiler.compilePayload(stvnContent, validFixturePath.toString()).orElseThrow();
 
@@ -190,7 +191,7 @@ class StvnBinaryCrc32cTrailerTest {
   @Test
   @DisplayName("TC-CRC-09: Backward compatibility - all non-CRC valid fixtures parse without trailer")
   void testBackwardCompatibilityAll21FixturesWithoutTrailer() throws IOException {
-    Path validDir = Paths.get("shared-fixtures/syntax/valid");
+    Path validDir = StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid");
     try (Stream<Path> stream = Files.walk(validDir)) {
       List<Path> nonCrcBins = stream
           .filter(Files::isRegularFile)

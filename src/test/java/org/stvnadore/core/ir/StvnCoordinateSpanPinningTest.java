@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.utils.StvnProjectPaths;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.MalformedPayloadException;
 
@@ -74,7 +75,7 @@ public class StvnCoordinateSpanPinningTest {
   @DisplayName("TC-SPAN-04: Bare hash comment pins strictly to single character [offset, offset + 1)")
   void testBareHashCoordinatePinning() throws java.io.IOException {
     String source = java.nio.file.Files.readString(
-        java.nio.file.Path.of("shared-fixtures/syntax/invalid/lexical/trap6_hash_comment.stvn")
+        StvnProjectPaths.resolve("shared-fixtures", "syntax", "invalid", "lexical", "trap6_hash_comment.stvn")
     );
     var result = StvnCompiler.compileToResult(source);
     assertTrue(result.hasErrors());
@@ -89,7 +90,7 @@ public class StvnCoordinateSpanPinningTest {
   @DisplayName("TC-SPAN-05: Infix colon pins strictly to single character [offset, offset + 1)")
   void testInfixColonCoordinatePinning() throws java.io.IOException {
     String source = java.nio.file.Files.readString(
-        java.nio.file.Path.of("shared-fixtures/syntax/invalid/lexical/trap7_infix_colon.stvn")
+        StvnProjectPaths.resolve("shared-fixtures", "syntax", "invalid", "lexical", "trap7_infix_colon.stvn")
     );
     var result = StvnCompiler.compileToResult(source);
     assertTrue(result.hasErrors());

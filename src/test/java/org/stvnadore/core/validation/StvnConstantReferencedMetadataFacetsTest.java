@@ -5,10 +5,10 @@ import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.stdlib.StvnPrelude;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -393,7 +393,7 @@ public class StvnConstantReferencedMetadataFacetsTest {
   @Test
   @DisplayName("TC-CONST-FACET-12: Downstream fixture prelude.stvn_core.stvn_d compiles with 0 diagnostics")
   void testCanonicalPreludeFixtureCompilesCleanly() throws IOException {
-    var path = Paths.get("shared-fixtures/syntax/valid/modules/prelude.stvn_core.stvn_d");
+    var path = StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "modules", "prelude.stvn_core.stvn_d");
     assertTrue(Files.exists(path), "prelude.stvn_core.stvn_d fixture file must exist");
     var content = Files.readString(path);
     assertFalse(content.isBlank(), "prelude.stvn_core.stvn_d fixture must not be blank");

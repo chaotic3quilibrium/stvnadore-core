@@ -28,6 +28,7 @@ import org.stvnadore.core.ir.StvnValue.StvnString;
 import org.stvnadore.core.ir.StvnValue.StvnTuple;
 import org.stvnadore.core.matrix.MetadataFixtureGenerator;
 import org.stvnadore.core.printer.StvnSourceFormatter;
+import org.stvnadore.core.utils.StvnProjectPaths;
 import org.stvnadore.core.validation.CyclicDependencyException;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.MalformedPayloadException;
@@ -57,7 +58,7 @@ import java.util.stream.Stream;
 @NullMarked
 public class StvnIrValidationTest {
 
-  private static final Path SHARED_FIXTURES_ROOT = Paths.get("shared-fixtures");
+  private static final Path SHARED_FIXTURES_ROOT = StvnProjectPaths.sharedFixturesRoot();
   private static final Path SYNTAX_VALID_ROOT = SHARED_FIXTURES_ROOT.resolve("syntax/valid");
   private static final Path SYNTAX_INVALID_ROOT = SHARED_FIXTURES_ROOT.resolve("syntax/invalid");
   private static final Path METADATA_VALID_ROOT = SHARED_FIXTURES_ROOT.resolve("metadata/valid");
@@ -916,8 +917,9 @@ public class StvnIrValidationTest {
 
   @Test
   public void testIncludeLegal() throws Exception {
-    String input = Files.readString(Paths.get("shared-fixtures/syntax/valid/modules/include_legal.stvn_i"), StandardCharsets.UTF_8);
-    var astOpt = StvnCompiler.compilePayload(input, "shared-fixtures/syntax/valid/modules/include_legal.stvn_i");
+    Path includeLegalPath = StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "modules", "include_legal.stvn_i");
+    String input = Files.readString(includeLegalPath, StandardCharsets.UTF_8);
+    var astOpt = StvnCompiler.compilePayload(input, includeLegalPath.toString());
     Assertions.assertTrue(astOpt.isPresent());
     var ast = astOpt.get();
     Assertions.assertNotNull(ast);
@@ -962,7 +964,7 @@ public class StvnIrValidationTest {
   @Test
   @DisplayName("TC-CARD-01: Valid cardinality fixtures compile and extract values correctly")
   public void testValidCardinalityFixturesValueExtraction() throws Exception {
-    Path cardDir = Paths.get("shared-fixtures/syntax/valid/cardinality");
+    Path cardDir = StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "cardinality");
     Assertions.assertTrue(Files.exists(cardDir), "Cardinality fixture directory must exist");
 
     // 1. Exact string fixed dimension

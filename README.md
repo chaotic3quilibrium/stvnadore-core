@@ -349,6 +349,18 @@ The low-level binary codec negotiating [SchemaIdentityStrategy](https://github.c
 .\mvnw.cmd clean test
 ```
 
+### Synchronize Shared Fixtures & IR Snapshots
+
+Verify or regenerate metadata fixtures, Option B2 `.stvn_ir.stvn_i` snapshots, and `.stvn_b` / `.stvn_bd` binary fixtures from either the module directory or the parent workspace root:
+
+```bash
+# Verify snapshot parity (read-only)
+./mvnw -f pom.xml test-compile -Pgenerate-snapshots
+
+# Regenerate metadata fixtures and IR/binary snapshots in place
+./mvnw -f pom.xml test-compile -Pgenerate-snapshots "-DupdateSnapshots=true"
+```
+
 ### Compiler Quality Invariants
 
 * **Java Version:** JDK 21+ (`--release 21`).

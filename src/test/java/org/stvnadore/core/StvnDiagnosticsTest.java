@@ -1673,7 +1673,7 @@ public class StvnDiagnosticsTest {
   @Test
   @DisplayName("TC-GAUNTLET-V4-STAGE1-01: Disordered :meta facets, reserved stvn_* domain, unknown #author facet, and Pass 3 :body error accumulate in single pass")
   void testGauntletV4Stage1MetaMultiErrorAndBodyIsolation() throws Exception {
-    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+    java.nio.file.Path fixturePath = org.stvnadore.core.utils.StvnProjectPaths.resolve(
         "shared-fixtures/syntax/invalid/metadata/gauntlet_v4_stage1_meta_multi_error_and_body.core_test.stvn_i"
     );
     String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
@@ -1715,7 +1715,7 @@ public class StvnDiagnosticsTest {
   @Test
   @DisplayName("TC-GAUNTLET-V4-STAGE1-02: Empty :meta {} emits E039 on {} without E031 and preserves Pass 3 :body validation")
   void testGauntletV4Stage1EmptyMetaBlockAndBodyIsolation() throws Exception {
-    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+    java.nio.file.Path fixturePath = org.stvnadore.core.utils.StvnProjectPaths.resolve(
         "shared-fixtures/syntax/invalid/metadata/empty_meta_block_with_body_error.core_test.stvn_i"
     );
     String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
@@ -1735,7 +1735,7 @@ public class StvnDiagnosticsTest {
   @Test
   @DisplayName("TC-GAUNTLET-V4-STAGE1-03: Empty :defs {} in payload document emits E002 on {} and preserves Pass 3 :body validation")
   void testGauntletV4Stage1EmptyDefsBlockInPayloadAndBodyIsolation() throws Exception {
-    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+    java.nio.file.Path fixturePath = org.stvnadore.core.utils.StvnProjectPaths.resolve(
         "shared-fixtures/syntax/invalid/metadata/empty_defs_block_in_payload.core_test.stvn_i"
     );
     String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
@@ -1755,7 +1755,7 @@ public class StvnDiagnosticsTest {
   @Test
   @DisplayName("TC-GAUNTLET-V4-STAGE7-01: Single-branch :Union(:ErrorCode) emits E010 ERR_MALFORMED_SCHEMA, lowers to ungrounded PoisonedSchema, suspends Pass 3 on #1 404, and preserves sibling E012 validation")
   void testSingleBranchUnionEmitsE010AndPoisonsUngroundedWithSiblingIsolation() throws Exception {
-    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+    java.nio.file.Path fixturePath = org.stvnadore.core.utils.StvnProjectPaths.resolve(
         "shared-fixtures/syntax/invalid/metadata/single_branch_union_poisoning.core_test.stvn_i"
     );
     String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
@@ -1796,7 +1796,7 @@ public class StvnDiagnosticsTest {
   @Test
   @DisplayName("TC-DIAG-GAUNTLET-V5-S1: Duplicate :meta blocks after invalid :meta emit E033 on each duplicate :meta keyword and preserve Pass 3 :body validation")
   void testGauntletV5Stage1DuplicateMetaAndBodyFaultIsolation() throws Exception {
-    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+    java.nio.file.Path fixturePath = org.stvnadore.core.utils.StvnProjectPaths.resolve(
         "shared-fixtures/syntax/invalid/metadata/duplicate_meta_and_body_fault_isolation.core_test.stvn_i"
     );
     String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
@@ -1834,7 +1834,7 @@ public class StvnDiagnosticsTest {
   @Test
   @DisplayName("TC-DIAG-GAUNTLET-V5-S2: Case B Grounded PoisonedSchema (:TrapIntMinExcl) unwraps in Pass 2 and suspends Pass 3 :body validation per § 7.3.5")
   void testGauntletV5Stage2GroundedPoisonedSchemaBodySuspension() throws Exception {
-    java.nio.file.Path fixturePath = java.nio.file.Path.of(
+    java.nio.file.Path fixturePath = org.stvnadore.core.utils.StvnProjectPaths.resolve(
         "shared-fixtures/syntax/invalid/metadata/grounded_poisoned_schema_body_suspension.core_test.stvn_i"
     );
     String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
@@ -1875,7 +1875,7 @@ public class StvnDiagnosticsTest {
   @Test
   @DisplayName("TC-ROOT-FLUSTER-01: Scenario A root_fluster.domain.stvn emits 16 harmonized pinned diagnostics with zero blame on :body {} and zero duplicate cascades")
   void testRootFlusterScenarioAZeroBlameShiftAndZeroDuplicateCascades() throws Exception {
-    var fixturePath = java.nio.file.Paths.get("shared-fixtures/syntax/invalid/structure/root_fluster.domain.stvn");
+    var fixturePath = org.stvnadore.core.utils.StvnProjectPaths.resolve("shared-fixtures/syntax/invalid/structure/root_fluster.domain.stvn");
     String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
         .replace("\r\n", "\n");
     var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);
@@ -1907,7 +1907,7 @@ public class StvnDiagnosticsTest {
   @Test
   @DisplayName("TC-ROOT-ORDER-01: Scenario B root_ordering.stvn emits 3 misplaced-section errors + W002 while preserving non-poisoning Pass 2 & Pass 3 lowering")
   void testRootOrderingScenarioBNonPoisoningLowering() throws Exception {
-    var fixturePath = java.nio.file.Paths.get("shared-fixtures/syntax/invalid/structure/root_ordering.stvn");
+    var fixturePath = org.stvnadore.core.utils.StvnProjectPaths.resolve("shared-fixtures/syntax/invalid/structure/root_ordering.stvn");
     String input = java.nio.file.Files.readString(fixturePath, java.nio.charset.StandardCharsets.UTF_8)
         .replace("\r\n", "\n");
     var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);

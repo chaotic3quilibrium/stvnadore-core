@@ -5,7 +5,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -25,6 +24,7 @@ import org.stvnadore.core.ir.StvnDocumentMeta;
 import org.stvnadore.core.ir.StvnSchema;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.utils.IrGeneratorUtility;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 /**
  * Parameterized integration test verifying live compiler IR structures match committed Option B2
@@ -32,10 +32,14 @@ import org.stvnadore.core.utils.IrGeneratorUtility;
  */
 public class StvnIrSnapshotTest {
 
-  private static final Path FIXTURES_DIR = Paths.get("shared-fixtures/syntax/valid");
-  private static final Path SUBSTRATE_SCHEMA_PATH = Paths.get("shared-fixtures/syntax/valid/modules/stvn_ir_substrate.stvn_ir.stvn_d");
-  private static final Path NETWORK_PRIMITIVES_DEFS_PATH = Paths.get("shared-fixtures/syntax/valid/modules/network_primitives.stvn_d");
-  private static final Path NETWORK_PRIMITIVES_BIN_PATH = Paths.get("shared-fixtures/syntax/valid/modules/network_primitives.stvn_bd");
+  private static final Path FIXTURES_DIR =
+      StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid");
+  private static final Path SUBSTRATE_SCHEMA_PATH =
+      StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "modules", "stvn_ir_substrate.stvn_ir.stvn_d");
+  private static final Path NETWORK_PRIMITIVES_DEFS_PATH =
+      StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "modules", "network_primitives.stvn_d");
+  private static final Path NETWORK_PRIMITIVES_BIN_PATH =
+      StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "modules", "network_primitives.stvn_bd");
 
   @ParameterizedTest(name = "Snapshot Test - {0}")
   @MethodSource("provideFixtureFiles")
@@ -157,7 +161,7 @@ public class StvnIrSnapshotTest {
   @Test
   @DisplayName("Zero-Deprecation Invariant: Zero legacy .stvn_ir, .stvn_i_ir, or .ir.stvn_i files remain in shared-fixtures")
   public void testZeroLegacyIrSnapshotsRemainOnDisk() throws IOException {
-    Path fixturesRoot = Paths.get("shared-fixtures");
+    Path fixturesRoot = StvnProjectPaths.sharedFixturesRoot();
     if (!Files.exists(fixturesRoot)) {
       return;
     }

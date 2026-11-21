@@ -1316,7 +1316,7 @@ public class StvnDocumentIdentityValidationTest {
   @Test
   @DisplayName("TC-BIN-ID-14: Valid binary snapshots match encoder output bit-for-bit")
   void testValidBinarySnapshotsBitForBitEquivalence() throws java.io.IOException {
-    java.nio.file.Path validFixtures = java.nio.file.Paths.get("shared-fixtures/syntax/valid");
+    java.nio.file.Path validFixtures = org.stvnadore.core.utils.StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid");
     try (var paths = java.nio.file.Files.walk(validFixtures)) {
       var binFiles = paths.filter(java.nio.file.Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn_b")).toList();
       assertFalse(binFiles.isEmpty(), "Valid binary snapshot fixtures must not be empty");
@@ -1331,7 +1331,7 @@ public class StvnDocumentIdentityValidationTest {
   @Test
   @DisplayName("TC-BIN-ID-15: Dynamic invalid binary test across all 3 invalid .stvn_b files traps contracts")
   void testInvalidBinaryFixturesTrapExpectedExceptions() throws java.io.IOException {
-    java.nio.file.Path invalidFixtures = java.nio.file.Paths.get("shared-fixtures/syntax/invalid");
+    java.nio.file.Path invalidFixtures = org.stvnadore.core.utils.StvnProjectPaths.resolve("shared-fixtures", "syntax", "invalid");
     try (var paths = java.nio.file.Files.walk(invalidFixtures)) {
       var binFiles = paths.filter(java.nio.file.Files::isRegularFile).filter(p -> p.toString().endsWith(".stvn_b")).toList();
       assertEquals(3, binFiles.size(), "Expected exactly 3 invalid binary fixtures");
@@ -1566,7 +1566,7 @@ public class StvnDocumentIdentityValidationTest {
   @DisplayName("TC-BIN-ID-16: Negative .stvn_bd shared fixtures match deterministic encoder output and emit coordinate-pinned diagnostics (WT-05)")
   void testInvalidBinaryDefsFixturesBitwiseDeterministicAndCoordinatePinned() throws java.io.IOException {
     org.stvnadore.core.utils.IrGeneratorUtility.syncNegativeBinaryDefsFixtures(false);
-    java.nio.file.Path invalidFixtures = java.nio.file.Paths.get("shared-fixtures/syntax/invalid");
+    java.nio.file.Path invalidFixtures = org.stvnadore.core.utils.StvnProjectPaths.resolve("shared-fixtures", "syntax", "invalid");
     try (var paths = java.nio.file.Files.walk(invalidFixtures)) {
       var bdFiles = paths.filter(java.nio.file.Files::isRegularFile)
           .filter(p -> p.toString().endsWith(".stvn_bd"))

@@ -7,11 +7,11 @@ import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnDocumentKind;
 import org.stvnadore.core.ir.StvnDocumentMeta;
+import org.stvnadore.core.utils.StvnProjectPaths;
 import java.util.Optional;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -377,7 +377,7 @@ public class StvnPreludeIdentifiersAndMetaTest {
   @Test
   @DisplayName("TC-PRELUDE-FIXTURE-01: Canonical shared fixture prelude.stvn_core.stvn_d exists and compiles with zero diagnostics")
   void testCanonicalPreludeFixtureExistsAndIsNonEmpty() throws IOException {
-    var path = Paths.get("shared-fixtures/syntax/valid/modules/prelude.stvn_core.stvn_d");
+    var path = StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "modules", "prelude.stvn_core.stvn_d");
     assertTrue(Files.exists(path), "prelude.stvn_core.stvn_d fixture file must exist");
     var content = Files.readString(path);
     assertFalse(content.isBlank(), "prelude.stvn_core.stvn_d fixture must not be blank");
@@ -400,7 +400,7 @@ public class StvnPreludeIdentifiersAndMetaTest {
   @Test
   @DisplayName("TC-PRELUDE-FIXTURE-02: Canonical IR snapshot prelude.stvn_ir.stvn_i compiles cleanly")
   void testCanonicalPreludeIrSnapshotCompilesCleanly() throws IOException {
-    var path = Paths.get("shared-fixtures/syntax/valid/modules/prelude.stvn_ir.stvn_i");
+    var path = StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "modules", "prelude.stvn_ir.stvn_i");
     assertTrue(Files.exists(path), "prelude.stvn_ir.stvn_i snapshot file must exist");
     var content = Files.readString(path);
     var result = StvnCompiler.compileToResult(content, path.toString(), StvnParserConfig.SYSTEM);

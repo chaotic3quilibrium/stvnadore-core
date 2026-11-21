@@ -8,6 +8,7 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.ir.StvnValue;
 import org.stvnadore.core.lowering.StvnDefsLowerer;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -400,7 +401,9 @@ public class StvnPackageAndUseScopingTest {
   @Test
   @DisplayName("TC-STAGE9-02: Shared fixture inv_stage9_nested_reserved_package_and_trailing_slash.stvn_i accumulates all 9 Stage 7/8/9 diagnostics")
   void testStage789PolyglotSharedFixtureAccumulation() throws IOException {
-    Path fixturePath = Path.of("shared-fixtures/syntax/invalid/packages/inv_stage9_nested_reserved_package_and_trailing_slash.stvn_i");
+    Path fixturePath = StvnProjectPaths.resolve(
+        "shared-fixtures/syntax/invalid/packages/inv_stage9_nested_reserved_package_and_trailing_slash.stvn_i"
+    );
     String source = Files.readString(fixturePath);
     var result = StvnCompiler.compileToResult(source, fixturePath.toString());
     Assertions.assertTrue(result.hasErrors(), "Polyglot Stage 7/8/9 fixture must fail compilation");

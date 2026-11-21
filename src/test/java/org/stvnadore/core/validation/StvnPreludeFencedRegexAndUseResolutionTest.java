@@ -28,12 +28,12 @@ import org.stvnadore.core.printer.AstCompactPrinter;
 import org.stvnadore.core.printer.AstPrettyPrinter;
 import org.stvnadore.core.printer.StvnSourceFormatter;
 import org.stvnadore.core.stdlib.StvnPrelude;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,7 +56,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class StvnPreludeFencedRegexAndUseResolutionTest {
 
   private static final Path PRELUDE_FIXTURE_PATH =
-      Paths.get("shared-fixtures", "syntax", "valid", "modules", "prelude.stvn_core.stvn_d");
+      StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid", "modules", "prelude.stvn_core.stvn_d");
 
   private static final Pattern FENCED_REGEX_BLOCK_PATTERN =
       Pattern.compile("\"\"\"\\[REGEX]\\n[\\s\\S]*?\\[REGEX]\"\"\"");

@@ -11,12 +11,12 @@ import org.stvnadore.core.StvnCompilationResult;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnParserConfig;
 import org.stvnadore.core.ir.StvnDocument;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -36,7 +36,7 @@ import java.util.stream.Stream;
 @NullMarked
 class StvnGoldenFormatterConformanceTest {
 
-  private static final Path FORMATTING_ROOT = Paths.get("shared-fixtures", "formatting");
+  private static final Path FORMATTING_ROOT = StvnProjectPaths.resolve("shared-fixtures", "formatting");
   private static final Path INPUT_DIR = FORMATTING_ROOT.resolve("input");
   private static final Path SOURCE_PRETTY_DIR = FORMATTING_ROOT.resolve("source_pretty");
   private static final Path PRETTY_DIR = FORMATTING_ROOT.resolve("pretty");

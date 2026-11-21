@@ -8,11 +8,11 @@ import org.junit.jupiter.api.io.TempDir;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @NullMarked
 public class SpecificationMarkdownSnippetTest {
 
-  private static final Path SPEC_PATH = Paths.get("docs", "architecture", "STVN_LANGUAGE_SPEC.md");
+  private static final Path SPEC_PATH = StvnProjectPaths.resolve("docs", "architecture", "STVN_LANGUAGE_SPEC.md");
   private static final Pattern CODE_BLOCK_PATTERN = Pattern.compile("```stvn\\s*\\n(.*?)```", Pattern.DOTALL);
   private static final Pattern FILENAME_HINT_PATTERN = Pattern.compile("//\\s*(?:[A-Za-z0-9_ ]+:\\s*)?([a-zA-Z0-9_.-]+\\.stvn[a-zA-Z0-9_.]*)");
   private static final Pattern NEGATIVE_MARKER_PATTERN = Pattern.compile("(?i)(//\\s*FATAL:|//\\s*INVALID:|TRAP\\s+\\d+|FATAL\\s+REJECTION)");

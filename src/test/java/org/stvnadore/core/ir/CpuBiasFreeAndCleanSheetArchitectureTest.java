@@ -7,6 +7,7 @@ import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 import org.stvnadore.core.StvnVocabulary;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.IOException;
 import java.lang.module.ModuleDescriptor;
@@ -23,7 +24,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -57,7 +57,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @NullMarked
 class CpuBiasFreeAndCleanSheetArchitectureTest {
 
-  private static final Path IR_SOURCE_DIR = Path.of("src", "main", "java", "org", "stvnadore", "core", "ir");
+  private static final Path IR_SOURCE_DIR =
+      StvnProjectPaths.resolve("src", "main", "java", "org", "stvnadore", "core", "ir");
 
   private static final List<Class<?>> TOP_LEVEL_IR_CLASSES = List.of(
       StvnDocumentKind.class,
@@ -547,7 +548,7 @@ class CpuBiasFreeAndCleanSheetArchitectureTest {
   @Test
   @DisplayName("TC-IR-ARCH-07: Verify total excision of org.stvnadore.core.ast, LegacyAstBridge, and StvnTypeResolver from src/main/java and runtime classpath")
   void testTotalLegacyAstBridgeAndResolverExcision() throws IOException {
-    Path mainJavaRoot = Path.of("src", "main", "java");
+    Path mainJavaRoot = StvnProjectPaths.resolve("src", "main", "java");
     assertTrue(Files.isDirectory(mainJavaRoot), "src/main/java directory must exist");
 
     assertFalse(
@@ -672,7 +673,7 @@ class CpuBiasFreeAndCleanSheetArchitectureTest {
     // Scan every public/protected class and member in all 12 exported packages for leaked internal or ANTLR types
     List<String> signatureLeaks = new ArrayList<>();
     int scannedExportedClasses = 0;
-    Path mainJavaRoot = Paths.get("src", "main", "java");
+    Path mainJavaRoot = StvnProjectPaths.resolve("src", "main", "java");
     for (String exportedPkg : exportedPackages) {
       Path pkgDir = mainJavaRoot.resolve(exportedPkg.replace('.', '/'));
       assertTrue(Files.isDirectory(pkgDir), "Exported package source directory must exist: " + pkgDir);

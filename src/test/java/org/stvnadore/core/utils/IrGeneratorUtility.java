@@ -24,7 +24,6 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -38,13 +37,16 @@ import java.util.stream.Stream;
  */
 public final class IrGeneratorUtility {
 
-  private static final Path SHARED_FIXTURES_ROOT = Paths.get("shared-fixtures");
-  private static final Path FIXTURES_DIR = Paths.get("shared-fixtures/syntax/valid");
-  private static final Path SUBSTRATE_SCHEMA_PATH = Paths.get("shared-fixtures/syntax/valid/modules/stvn_ir_substrate.stvn_ir.stvn_d");
-  private static final Path NETWORK_PRIMITIVES_DEFS_PATH = Paths.get("shared-fixtures/syntax/valid/modules/network_primitives.stvn_d");
-  private static final Path NETWORK_PRIMITIVES_BIN_PATH = Paths.get("shared-fixtures/syntax/valid/modules/network_primitives.stvn_bd");
-  private static final Path INVALID_METADATA_DIR = Paths.get("shared-fixtures/syntax/invalid/metadata");
-  private static final boolean UPDATE_MODE = Boolean.getBoolean("updateSnapshots");
+  private static final Path SHARED_FIXTURES_SUBPATH = Path.of("shared-fixtures");
+  private static final Path VALID_FIXTURES_SUBPATH = Path.of("shared-fixtures", "syntax", "valid");
+  private static final Path SUBSTRATE_SCHEMA_SUBPATH =
+      Path.of("shared-fixtures", "syntax", "valid", "modules", "stvn_ir_substrate.stvn_ir.stvn_d");
+  private static final Path NETWORK_PRIMITIVES_DEFS_SUBPATH =
+      Path.of("shared-fixtures", "syntax", "valid", "modules", "network_primitives.stvn_d");
+  private static final Path NETWORK_PRIMITIVES_BIN_SUBPATH =
+      Path.of("shared-fixtures", "syntax", "valid", "modules", "network_primitives.stvn_bd");
+  private static final Path INVALID_METADATA_SUBPATH =
+      Path.of("shared-fixtures", "syntax", "invalid", "metadata");
   private static final String PRELUDE_TYPE_PREFIX = StvnVocabulary.SIGIL_TYPIC + "org/stvnadore/prelude/";
 
   private IrGeneratorUtility() {
@@ -52,12 +54,20 @@ public final class IrGeneratorUtility {
   }
 
   public static void main(String[] args) throws Exception {
+    Path baseDir = StvnProjectPaths.resolveProjectBasedir();
+    Path sharedFixturesRoot = baseDir.resolve(SHARED_FIXTURES_SUBPATH).normalize();
+    Path fixturesDir = baseDir.resolve(VALID_FIXTURES_SUBPATH).normalize();
+    Path substrateSchemaPath = baseDir.resolve(SUBSTRATE_SCHEMA_SUBPATH).normalize();
+    Path networkPrimitivesDefsPath = baseDir.resolve(NETWORK_PRIMITIVES_DEFS_SUBPATH).normalize();
+    Path networkPrimitivesBinPath = baseDir.resolve(NETWORK_PRIMITIVES_BIN_SUBPATH).normalize();
+    boolean updateMode = Boolean.getBoolean("updateSnapshots");
+
     System.out.println("Starting Option B2 pure-IR snapshot generation pipeline...");
 
-    if (UPDATE_MODE) {
+    if (updateMode) {
       MetadataFixtureGenerator.main(new String[0]);
-      normalizeTextualFixturesToLf(SHARED_FIXTURES_ROOT);
-      generateBinaryDefsFixture(NETWORK_PRIMITIVES_DEFS_PATH, NETWORK_PRIMITIVES_BIN_PATH);
+      normalizeTextualFixturesToLf(sharedFixturesRoot);
+      generateBinaryDefsFixture(networkPrimitivesDefsPath, networkPrimitivesBinPath);
       syncNegativeBinaryDefsFixtures(true);
     } else {
       syncNegativeBinaryDefsFixtures(false);
@@ -65,14 +75,14 @@ public final class IrGeneratorUtility {
 
     int processedCount = 0;
 
-    try (Stream<Path> paths = Files.walk(FIXTURES_DIR)) {
+    try (Stream<Path> paths = Files.walk(fixturesDir)) {
       List<Path> files = paths.filter(Files::isRegularFile)
           .filter(p -> (p.toString().endsWith(".stvn") || p.toString().endsWith(".stvn_i"))
               && !p.getFileName().toString().endsWith(".stvn_ir.stvn_i")
               && !p.getFileName().toString().endsWith(".contract.stvn_i"))
           .toList();
       for (Path file : files) {
-        processFixture(file);
+        processFixture(file, substrateSchemaPath, updateMode);
         processedCount++;
       }
     }
@@ -233,7 +243,11 @@ public final class IrGeneratorUtility {
   }
 
   public static void syncNegativeBinaryDefsFixtures(boolean writeToDisk) throws IOException {
-    Files.createDirectories(INVALID_METADATA_DIR);
+    Path baseDir = StvnProjectPaths.resolveProjectBasedir();
+    Path invalidMetadataDir = baseDir.resolve(INVALID_METADATA_SUBPATH).normalize();
+    if (writeToDisk) {
+      Files.createDirectories(invalidMetadataDir);
+    }
     for (NegativeBinaryDefsSpec spec : negativeBinaryDefsSpecs()) {
       String lfText = spec.embeddedDefsText().replace("\r\n", "\n");
       var encoder = new StvnBinaryEncoder(
@@ -247,7 +261,7 @@ public final class IrGeneratorUtility {
       if (spec.rawByte5KindBitsOverride().isPresent()) {
         patchByte5KindAndRecomputeCrc32c(expectedBytes, spec.rawByte5KindBitsOverride().get());
       }
-      Path targetPath = INVALID_METADATA_DIR.resolve(spec.fileName());
+      Path targetPath = invalidMetadataDir.resolve(spec.fileName());
       if (writeToDisk) {
         Files.write(targetPath, expectedBytes);
         System.out.printf("  [UPDATED] %s (%d bytes)%n", spec.fileName(), expectedBytes.length);
@@ -276,7 +290,7 @@ public final class IrGeneratorUtility {
     }
   }
 
-  private static void processFixture(Path stvnFile) throws Exception {
+  private static void processFixture(Path stvnFile, Path substrateSchemaPath, boolean updateMode) throws Exception {
     String stvnContent = Files.readString(stvnFile, StandardCharsets.UTF_8).replace("\r\n", "\n");
 
     var compilation = StvnCompiler.compile(stvnContent, stvnFile.toString(), StvnParserConfig.DEFAULT);
@@ -294,10 +308,10 @@ public final class IrGeneratorUtility {
     Path irSnapshotPath = stvnFile.resolveSibling(irSnapshotStem + ".stvn_ir.stvn_i");
     Path binSnapshotPath = stvnFile.resolveSibling(rawBaseName + ".stvn_b");
 
-    String relativeSubstratePath = stvnFile.getParent().relativize(SUBSTRATE_SCHEMA_PATH).toString().replace('\\', '/');
+    String relativeSubstratePath = stvnFile.getParent().relativize(substrateSchemaPath).toString().replace('\\', '/');
     String generatedSnapshot = serializeSnapshotDocument(irSnapshotStem, relativeSubstratePath, liveDoc);
 
-    if (UPDATE_MODE) {
+    if (updateMode) {
       Files.writeString(irSnapshotPath, generatedSnapshot, StandardCharsets.UTF_8);
 
       var snapVerify = StvnCompiler.compile(generatedSnapshot, irSnapshotPath.toString(), StvnParserConfig.SYSTEM);

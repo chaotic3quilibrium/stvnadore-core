@@ -3,6 +3,7 @@ package org.stvnadore.core;
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.stvnadore.core.utils.StvnProjectPaths;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -38,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @NullMarked
 class StvnVocabularyHygieneTest {
 
-  private static final Path MAIN_JAVA_ROOT = Path.of("src/main/java/org/stvnadore/core");
+  private static final Path MAIN_JAVA_ROOT = StvnProjectPaths.resolve("src", "main", "java", "org", "stvnadore", "core");
 
   private static final Set<String> FORBIDDEN_EXACT_STRING_LITERALS = Set.of(
       // Base scalar & composite types

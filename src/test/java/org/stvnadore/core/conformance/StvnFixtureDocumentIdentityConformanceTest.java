@@ -5,12 +5,12 @@ import org.junit.jupiter.api.Test;
 import org.stvnadore.core.StvnCompiler;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnParserConfig;
+import org.stvnadore.core.utils.StvnProjectPaths;
 import org.stvnadore.core.validation.DiagnosticBag;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class StvnFixtureDocumentIdentityConformanceTest {
 
-  private static final Path VALID_FIXTURES_DIR = Paths.get("shared-fixtures/syntax/valid");
+  private static final Path VALID_FIXTURES_DIR = StvnProjectPaths.resolve("shared-fixtures", "syntax", "valid");
 
   @Test
   @DisplayName("TC-CONF-01: Every valid fixture compiles with its real filesystem path with zero diagnostics")
