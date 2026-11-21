@@ -1,0 +1,56 @@
+// Multi-element :use formatting quartet with comments, #strip, and alias blocks
+{
+  :meta   {
+    #kind   #BODY_INCLUDE
+    #domain   "core_fmt"
+    #name   "19_multiline_multi_target_use"
+  }
+
+  :defs  {
+    :package  :propulsion/thruster   {
+      :ThrustMillinewtons   {  #maxExcl 500000  #unsigned  #minIncl 1  }   :Int
+      :NozzleCode   {  #maxSize 12  #minSize 2  }   :String
+      #RCS_PULSE   :ThrustMillinewtons   250
+    }
+
+    :package  :propulsion/attitude   {
+      :ThrustMillinewtons   {  #maxExcl 1000000  #unsigned  #size 64  #minIncl 1  }   :Int
+      :BusStatus   :Enum[  #NOMINAL   #STANDBY   #FAULT  ]
+      #RCS_PULSE   :ThrustMillinewtons   500
+    }
+
+    :package  :propulsion/guidance   {
+      // Single-line multi-element :use inside a package enclosure
+      :use   [   :propulsion/thruster  {  #strip  }   :propulsion/attitude  {  :ThrustMillinewtons  :AttitudeThrust   :BusStatus  :AttitudeBusStatus  }   ]
+      :GuidanceFrame   :Tuple(  :ThrustMillinewtons   :NozzleCode   :AttitudeThrust   :AttitudeBusStatus  )
+    }
+
+    // Multi-line multi-element :use directive at root :defs scope
+    :use  [ // Trailing comment on opening bracket
+      // Element 1: unary #strip import
+      :propulsion/thruster   {  #strip  } // Thruster strip comment
+      // Element 2: multi-line type and constant alias mapping
+      :propulsion/attitude   {
+        // Alias ThrustMillinewtons and RCS_PULSE to avoid collision
+        :ThrustMillinewtons   :AttitudeThrust // Attitude type alias
+        :BusStatus   :AttitudeBusStatus
+        #RCS_PULSE   #ATTITUDE_PULSE // Attitude constant alias
+      }
+      // Element 3: inline single-line alias block
+      :propulsion/guidance   {  :GuidanceFrame  :GuidanceFrame  }
+      :org/stvnadore/prelude   {  :Port  :TelemetryPort  }
+    ] // Trailing comment on closing bracket
+
+    :Stage9Summary :Tuple( :ThrustMillinewtons :AttitudeThrust :AttitudeBusStatus :GuidanceFrame :TelemetryPort )
+  }
+
+  :type   :Stage9Summary
+
+  :body   (
+    #RCS_PULSE // Preserved thruster constant
+    #ATTITUDE_PULSE // Preserved attitude constant
+    #NOMINAL
+    (  1200   "NZ-01"   2400   #STANDBY  )
+    9090
+  )
+}

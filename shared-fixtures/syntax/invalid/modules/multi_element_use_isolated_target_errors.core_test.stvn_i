@@ -1,0 +1,27 @@
+// @spec: SPEC-03-SCOPED-USE
+// @case: Negative - Multi-element :use directive isolates per-element target and block diagnostics while preserving healthy sibling imports
+// @error: ERR_TRAILING_SLASH_PROHIBITED
+{
+  :meta {
+    #name "multi_element_use_isolated_target_errors"
+    #domain "core_test"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :package :local/alpha {
+      :AlphaCode { #minSize 1 #maxSize 16 } :String
+    }
+    :package :local/beta {
+      :BetaCount { #unsigned } :Int
+    }
+    :use [
+      :local/alpha/ { #strip }
+      :local/beta {}
+      :local/beta { #strip #TRUE }
+      :external/missing/pkg { #strip }
+      :org/stvnadore/prelude { :Port :ServicePort }
+    ]
+  }
+  :type :ServicePort
+  :body 8443
+}

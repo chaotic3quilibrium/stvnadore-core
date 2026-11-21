@@ -691,6 +691,24 @@ Authors can organize definitions into explicit namespace packages and import sym
 }
 ```
 
+Like `:include [ includeElement+ ]`, a single `:use [ useElement+ ]` directive accepts one or more package import elements in left-to-right declaration order:
+
+```stvn
+{
+  :defs {
+    :package :propulsion/thruster { :Thrust { #unsigned } :Int }
+    :package :propulsion/attitude { :Thrust { #unsigned #size 64 } :Int }
+    :use [
+      :propulsion/thruster { #strip }
+      :propulsion/attitude { :Thrust :AttitudeThrust }
+    ]
+    :CombinedEnvelope :Tuple(:Thrust :AttitudeThrust)
+  }
+  :type :CombinedEnvelope
+  :body ( 10 20 )
+}
+```
+
 #### Scoping Invariants
 
 1. **LHS FQNI Expansion:** Relative type identifiers (`:Name`) and constant identifiers (`#NAME`) declared inside `:package :Prefix { ... }` expand immediately to `:Prefix/Name` and `#Prefix/NAME`.
@@ -698,7 +716,7 @@ Authors can organize definitions into explicit namespace packages and import sym
 3. **Root Visibility:** `:use` directives declared directly under `:defs` are visible across all sibling packages and the document root `:type` section.
 4. **No Package Nesting:** Enclosing `:package` within another `:package` is prohibited and emits `ERR_NESTED_PACKAGE_PROHIBITED`.
 5. **No Trailing Slashes:** Specifying a trailing slash in `:use` target paths emits `ERR_TRAILING_SLASH_PROHIBITED`.
-6. **Section 4.2 Eviction Integration:** Symbols imported via `:use` undergo eviction cascade: local definitions take precedence, explicit aliases resolve collisions, and unmitigated collisions emit `ERR_NAMESPACE_COLLISION`.
+6. **Section 4.2 Eviction Integration & Multi-Element Order:** Symbols imported via `:use` undergo Section 4.2 eviction in strict left-to-right `useElement` order: multi-element `:use [ elem1 elem2 ]` is semantically identical to sequential `:use [ elem1 ]` followed by `:use [ elem2 ]`. Local definitions take precedence, explicit aliases resolve collisions, and unmitigated collisions emit `ERR_NAMESPACE_COLLISION`.
 7. **Zero-I/O & Closed Resolution Domain Invariant:**
    The `:use` directive is strictly an in-memory lexical projection and symbol-aliasing mechanism. A `:use` directive **MUST NOT** perform filesystem I/O, external file resolution, or network loading.
   - **Hermetic Documents (`.stvn`, `.stvn_d`, `.stvn_b`, `.stvn_bd`):** The target package specified by `useTarget` **MUST** resolve exclusively to:
@@ -1598,7 +1616,7 @@ When a nominal type definition in `:defs` or an inline schema in `:type` fails P
    - Circular or uninhabited recursive type definitions (`E007` `ERR_CIRCULAR_TYPE`), including direct and mutual alias cycles (`:CycleAlpha :CycleBeta` / `:CycleBeta :CycleAlpha`), nominal stem aliases referencing a circular type (`:DerivedFromCycle :CycleAlpha`), non-cyclic coproduct stems (`:Either(L R)` or `:Union(B1 ... Bn)` with $n \ge 2$) where **every** branch is uninhabited strictly due to `E007` circularity (`:AllBranchesCyclicUnion :Union(:CycleAlpha :UnguardedTupleCycle)`), non-cyclic required-cardinality collection stems (`{ #minSize k } :Seq(T)`, `{ #minSize k } :Set(T)`, or `{ #minSize k } :Map(K V)` with $k \ge 1$) whose required element, key, or value schema is uninhabited strictly due to `E007` circularity, and unguarded structural recursion with zero finite inhabitants under the Kleene least-fixed-point inhabitation rules. Guarded recursive and stem schemas remain valid and finitely inhabited (`0` `E007` diagnostics) when inhabited via `:Option(X)` (`#None`), `:Seq(X)` / `:Set(X)` / `:Map(K V)` with `minSize == 0` (`[]` / `{}`), or `:Either(L R)` / `:Union(B1 ... Bn)` with at least one finitely inhabited branch (or a branch failing a non-circular diagnostic such as `E030` / `E008`). Acyclic `:Tuple(...)` declarations (`:Stage11Matrix :Tuple(:CycleAlpha :MetricWeight)` or `:Pair :Tuple(:CycleAlpha :UnguardedTupleCycle)`) MUST NOT emit `E007` and MUST remain `TupleSchema` instances whose individual circular slots hold `PoisonedSchema` so Pass 3 per-slot fault isolation (Item 3) continues to validate healthy sibling slots.
    - Unresolved or unimported nominal type references (`E005` `ERR_UNKNOWN_TYPE` / `ERR_UNDEFINED_TYPE`) or purged 1.x aliases (`E030` `ERR_PRELUDE_ALIAS_PURGED`).
    - Reserved keywords bound on the LHS of `:defs` (`E027` `ERR_RESERVED_KEYWORD_ON_LHS`) or unauthorized `:org/stvnadore/prelude` package declarations (`E035` `ERR_RESERVED_PACKAGE_PROHIBITED`).
-   - Malformed structural constructors (`:Enum []` with zero variants or `:Union(...)` with fewer than 2 branches, `E010` `ERR_MALFORMED_SCHEMA`).
+   - Malformed or wrong-arity structural and collection constructors: zero-argument variadic constructors (`:Enum[]`, `:Tuple()`, `:Union()`, `E010` `ERR_MALFORMED_SCHEMA`), single-branch `:Union(T)` (`E010` `ERR_MALFORMED_SCHEMA`), and empty, under-arity, or over-arity fixed-arity constructors (`:Option(...)`, `:Seq(...)`, `:Set(...)` with `!= 1` schema argument; `:Either(...)`, `:Map(...)` with `!= 2` schema arguments, `E002` `STVN_SYNTAX_ERROR`). Balanced `(...)` and `[...]` constructors close deterministically at their matching delimiter without deleting `)` or `]` or swallowing subsequent `:defs` declarations.
    - `:Set` element or `:Map` key/value algebraic trait violations (`E011` `ERR_TRAIT_VIOLATION`).
    - `:TimeEpoch` or `:DateTime` declarations omitting mandatory temporal scale or mode facets (`E033` `ERR_MISSING_TEMPORAL_FACET`).
    - Any child nominal alias `:Child :Parent` derived from an ungrounded `:Parent`.
@@ -3435,7 +3453,8 @@ packageElement   : nestedPackageIllegal
                  ;
 nestedPackageIllegal : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
 
-useStmt : KW_USE LBRACK useTarget useOptionsBlock? useAliasBlock? RBRACK ;
+useStmt : KW_USE LBRACK useElement+ RBRACK ;
+useElement : useTarget useOptionsBlock? useAliasBlock? ;
 useTarget : typeKeyword | useTargetIllegal ;
 useTargetIllegal : typeKeyword FSLASH+ ;
 useOptionsBlock : LBRACE useOption* RBRACE ;
@@ -3543,22 +3562,22 @@ atomicType : ATOM_BOOLEAN
            ;
 
 collectionType
-    : COLL_SEQ LPAREN schemaType RPAREN
-    | COLL_SET LPAREN schemaType RPAREN
-    | COLL_MAP LPAREN schemaType schemaType RPAREN
+    : COLL_SEQ LPAREN schemaType* RPAREN
+    | COLL_SET LPAREN schemaType* RPAREN
+    | COLL_MAP LPAREN schemaType* RPAREN
     ;
 
 productType
-    : KW_TUPLE LPAREN schemaType+ RPAREN               # TupleType
+    : KW_TUPLE LPAREN schemaType* RPAREN               # TupleType
     ;
 
-sumType : KW_OPTION LPAREN schemaType RPAREN
+sumType : KW_OPTION LPAREN schemaType* RPAREN
         | KW_ENUM enumDef
-        | KW_EITHER LPAREN schemaType schemaType RPAREN
-        | KW_UNION LPAREN schemaType+ RPAREN
+        | KW_EITHER LPAREN schemaType* RPAREN
+        | KW_UNION LPAREN schemaType* RPAREN
         ;
 
-enumDef : LBRACK valueKeyword+ RBRACK ;
+enumDef : LBRACK valueKeyword* RBRACK ;
 
 value : explicitOptionValue
       | explicitEitherValue

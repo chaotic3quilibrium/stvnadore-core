@@ -63,6 +63,35 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
     super.sync(recognizer);
   }
 
+  /**
+   * Prevents single-token deletion recovery from deleting structural closing delimiters
+   * ({@code ')'}, {@code ']'}, {@code '}'}) or top-level section and directive boundary keywords.
+   * <p>
+   * Deleting a closing delimiter causes the enclosing rule to consume subsequent {@code :defs}
+   * declarations or sibling container elements until a later delimiter accidentally matches.
+   */
+  @Override
+  protected @Nullable Token singleTokenDeletion(Parser recognizer) {
+    int nextTokenType = recognizer.getInputStream().LA(1);
+    if (isProtectedClosingOrBoundaryToken(nextTokenType)) {
+      return null;
+    }
+    return super.singleTokenDeletion(recognizer);
+  }
+
+  private static boolean isProtectedClosingOrBoundaryToken(int tokenType) {
+    return tokenType == StvnLexer.RPAREN
+        || tokenType == StvnLexer.RBRACK
+        || tokenType == StvnLexer.RBRACE
+        || tokenType == StvnLexer.KW_META
+        || tokenType == StvnLexer.KW_DEFS
+        || tokenType == StvnLexer.KW_TYPE
+        || tokenType == StvnLexer.KW_BODY
+        || tokenType == StvnLexer.KW_INCLUDE
+        || tokenType == StvnLexer.KW_PACKAGE
+        || tokenType == StvnLexer.KW_USE;
+  }
+
   @Override
   public void reportError(Parser recognizer, RecognitionException e) {
     if (inErrorRecoveryMode(recognizer)) {

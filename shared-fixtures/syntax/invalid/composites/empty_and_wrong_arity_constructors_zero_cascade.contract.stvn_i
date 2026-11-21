@@ -1,0 +1,32 @@
+{
+  :meta {
+    #name "empty_and_wrong_arity_constructors_zero_cascade"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E010 #MALFORMED_SCHEMA #ERROR 10 16 300 307 "STVN Syntax Error: empty enum variant list: :Enum[] requires at least one value keyword variant" )
+    ( #E010 #MALFORMED_SCHEMA #ERROR 11 22 329 340 "STVN Syntax Error: empty enum variant list: :Enum[] requires at least one value keyword variant" )
+    ( #E010 #MALFORMED_SCHEMA #ERROR 12 17 357 365 "STVN Syntax Error: empty composite argument list: :Tuple() requires at least one schema type" )
+    ( #E010 #MALFORMED_SCHEMA #ERROR 13 23 388 400 "STVN Syntax Error: empty composite argument list: :Tuple() requires at least one schema type" )
+    ( #E010 #MALFORMED_SCHEMA #ERROR 14 17 417 425 "STVN Syntax Error: empty composite argument list: :Union() requires at least one schema type" )
+    ( #E010 #MALFORMED_SCHEMA #ERROR 15 23 448 460 "STVN Syntax Error: empty composite argument list: :Union() requires at least one schema type" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 16 18 478 487 "STVN Syntax Error: empty composite argument list: collection requires schema type argument" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 17 17 504 525 "STVN Syntax Error: excessive composite arguments: ':Option' expects exactly 1 schema type argument, got 2" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 18 15 540 546 "STVN Syntax Error: empty composite argument list: collection requires schema type argument" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 19 14 560 578 "STVN Syntax Error: excessive composite arguments: ':Seq' expects exactly 1 schema type argument, got 2" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 20 15 593 599 "STVN Syntax Error: empty composite argument list: collection requires schema type argument" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 21 14 613 631 "STVN Syntax Error: excessive composite arguments: ':Set' expects exactly 1 schema type argument, got 2" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 22 18 649 658 "STVN Syntax Error: insufficient composite arguments: expected 2 schema type arguments" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 23 18 676 689 "STVN Syntax Error: insufficient composite arguments: expected 2 schema type arguments" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 24 17 706 736 "STVN Syntax Error: excessive composite arguments: ':Either' expects exactly 2 schema type arguments, got 3" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 25 15 751 757 "STVN Syntax Error: insufficient composite arguments: expected 2 schema type arguments" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 26 15 772 785 "STVN Syntax Error: insufficient composite arguments: expected 2 schema type arguments" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 27 14 799 826 "STVN Syntax Error: excessive composite arguments: ':Map' expects exactly 2 schema type arguments, got 3" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 33 67 1055 1056 "Constraint violation (:ValidPort): Value 0 is outside allowable range (must be >= 1)" )
+  ]
+}

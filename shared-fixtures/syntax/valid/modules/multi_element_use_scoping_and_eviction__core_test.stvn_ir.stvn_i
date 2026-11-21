@@ -1,0 +1,34 @@
+{
+  :meta {
+    #name "multi_element_use_scoping_and_eviction__core_test"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":propulsion/thruster/ThrustMillinewtons" ( "{#unsigned #minIncl 1 #maxExcl 500000}:Int" ":propulsion/thruster/ThrustMillinewtons" ( #TRUE #TRUE ) ) ]
+      [ ":propulsion/attitude/ThrustMillinewtons" ( "{#unsigned #size 64 #minIncl 1 #maxExcl 1000000}:Int" ":propulsion/attitude/ThrustMillinewtons" ( #TRUE #TRUE ) ) ]
+      [ ":propulsion/attitude/BusStatus" ( ":Enum[#NOMINAL #STANDBY #FAULT]" ":propulsion/attitude/BusStatus" ( #TRUE #TRUE ) ) ]
+      [ ":propulsion/thruster/NozzleTag" ( "{#minSize 1 #maxSize 16}:String" ":propulsion/thruster/NozzleTag" ( #TRUE #TRUE ) ) ]
+      [ ":propulsion/telemetry/TelemetrySample" ( ":Tuple(:propulsion/thruster/ThrustMillinewtons :propulsion/thruster/NozzleTag :propulsion/attitude/ThrustMillinewtons :propulsion/attitude/BusStatus)" ":propulsion/telemetry/TelemetrySample" ( #TRUE #TRUE ) ) ]
+      [ ":DispatchEnvelope" ( ":Tuple(:propulsion/thruster/ThrustMillinewtons :propulsion/attitude/ThrustMillinewtons :propulsion/attitude/BusStatus :propulsion/telemetry/TelemetrySample :org/stvnadore/prelude/Port)" ":DispatchEnvelope" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:propulsion/thruster/ThrustMillinewtons :propulsion/attitude/ThrustMillinewtons :propulsion/attitude/BusStatus :propulsion/telemetry/TelemetrySample :org/stvnadore/prelude/Port)" ":DispatchEnvelope" ( #TRUE #TRUE ) ) ]
+    }
+    #14 [
+      #2 ( 250 32 #TRUE )
+      #2 ( 500 64 #TRUE )
+      #8 ( "#NOMINAL" 0 )
+      #14 [
+        #2 ( 1200 32 #TRUE )
+        #5 "RCS-A1"
+        #2 ( 2400 64 #TRUE )
+        #8 ( "#STANDBY" 1 )
+      ]
+      #2 ( 8080 16 #TRUE )
+    ]
+  )
+}

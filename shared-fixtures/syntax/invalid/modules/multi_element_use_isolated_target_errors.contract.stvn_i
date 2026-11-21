@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "multi_element_use_isolated_target_errors"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ERR_TRAILING_SLASH_PROHIBITED #ERROR 18 7 510 523 "Trailing slash prohibited in :use target: :local/alpha/" )
+    ( #E004 #ERR_EMPTY_DIRECTIVE_BLOCK #ERROR 19 19 553 555 "Empty directive block in :use or :include statement is invalid; specify {#strip}, alias mappings, or remove '{}'" )
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 20 28 583 588 "Metadata facet '#strip' is a standalone flag and does not accept arguments; unexpected '#TRUE'" )
+    ( #E030 #UNDEFINED_TYPE #ERROR 21 7 597 618 "Unresolved package in :use directive: ':external/missing/pkg' is not declared in prelude, local :defs, or any :include module" )
+  ]
+}

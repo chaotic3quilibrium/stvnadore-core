@@ -5,6 +5,7 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.TerminalNode;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnParserConfig;
@@ -2058,7 +2059,7 @@ public final class StvnDefsLowerer {
     private final Map<String, LocalConstantAstDecl> localConstAsts = new LinkedHashMap<>();
     private final Set<String> locallyDeclaredPackages = new LinkedHashSet<>();
     private final Set<String> importedPackages = new LinkedHashSet<>();
-    private final List<StvnParser.UseStmtContext> allDeclaredUseStmts = new ArrayList<>();
+    private final List<StvnParser.UseElementContext> allDeclaredUseElements = new ArrayList<>();
 
     // Active resolved bindings in the unit's global namespace (includes + local eviction)
     private final Map<String, ExportedTypeSymbol> importedTypePool = new LinkedHashMap<>();
@@ -2342,7 +2343,7 @@ public final class StvnDefsLowerer {
       Map<String, List<ScopeClaim<ExportedConstantSymbol>>> packagedConstClaims = new LinkedHashMap<>();
 
       Set<String> seenIncludeRawPaths = new HashSet<>();
-      List<StvnParser.UseStmtContext> rootUseStmts = new ArrayList<>();
+      List<StvnParser.UseElementContext> rootUseElements = new ArrayList<>();
       List<String> rootLocalUnpackagedTypes = new ArrayList<>();
       List<String> rootLocalUnpackagedConsts = new ArrayList<>();
 
@@ -2360,7 +2361,7 @@ public final class StvnDefsLowerer {
           processPackageEnclosure(de.packageEnclosure(), typeClaims, constClaims, packagedTypeClaims, packagedConstClaims);
         } else if (de.useStmt() != null) {
           validateUseStmt(de.useStmt());
-          rootUseStmts.add(de.useStmt());
+          rootUseElements.addAll(de.useStmt().useElement());
         } else if (de.typeDefinition() != null) {
           processRootTypeDef(de.typeDefinition(), typeClaims, packagedTypeClaims, rootLocalUnpackagedTypes);
         } else if (de.constantDefinition() != null) {
@@ -2371,11 +2372,11 @@ public final class StvnDefsLowerer {
       if (!isHermeticUnit()) {
         collectImportedPackagesFromClaims(packagedTypeClaims.keySet(), false);
         collectImportedPackagesFromClaims(packagedConstClaims.keySet(), true);
-        for (var useStmt : allDeclaredUseStmts) {
-          if (!isValidSyntacticUseTarget(useStmt.useTarget(), diagnosticBag)) {
+        for (var useElem : allDeclaredUseElements) {
+          if (!isValidSyntacticUseTarget(useElem.useTarget(), diagnosticBag)) {
             continue;
           }
-          String target = useStmt.useTarget().getText();
+          String target = useElem.useTarget().getText();
           boolean isPrelude = !moduleCtx.bootstrapPreludeMode && StvnPrelude.isPreludePackageTarget(target);
           boolean isClosedReservedTarget = !moduleCtx.isSystemAuthority() && isReservedPackage(target);
           if (anyIncludeFailed && !isClosedReservedTarget) {
@@ -2384,7 +2385,7 @@ public final class StvnDefsLowerer {
           boolean isLocal = matchesDeclaredOrParentPackage(target, locallyDeclaredPackages);
           boolean isImported = matchesDeclaredOrParentPackage(target, importedPackages);
           if (!isPrelude && !isLocal && !isImported) {
-            Span sp = Span.ofContext(useStmt.useTarget());
+            Span sp = Span.ofContext(useElem.useTarget());
             diagnosticBag.addError(
                 "Unresolved package in " + StvnVocabulary.KEYWORD_USE + " directive: '" + target
                     + "' is not declared in prelude, local " + StvnVocabulary.KEYWORD_DEFS
@@ -2418,7 +2419,7 @@ public final class StvnDefsLowerer {
       }
 
       // Build :use scope frames for root and each :package enclosure
-      this.rootScope = buildScopeFrame(null, rootUseStmts, rootLocalUnpackagedTypes, rootLocalUnpackagedConsts);
+      this.rootScope = buildScopeFrame(null, rootUseElements, rootLocalUnpackagedTypes, rootLocalUnpackagedConsts);
       for (var de : defsEntry.defsElement()) {
         if (de.packageEnclosure() != null) {
           var pkgEnc = de.packageEnclosure();
@@ -2426,13 +2427,13 @@ public final class StvnDefsLowerer {
           if (!moduleCtx.isSystemAuthority() && isReservedPackage(pkgPrefix)) {
             continue;
           }
-          List<StvnParser.UseStmtContext> pkgUses = new ArrayList<>();
+          List<StvnParser.UseElementContext> pkgUseElements = new ArrayList<>();
           List<String> pkgLocalSimpleTypes = new ArrayList<>();
           List<String> pkgLocalSimpleConsts = new ArrayList<>();
           if (pkgEnc.packageElement() != null) {
             for (var pe : pkgEnc.packageElement()) {
               if (pe.useStmt() != null) {
-                pkgUses.add(pe.useStmt());
+                pkgUseElements.addAll(pe.useStmt().useElement());
               } else if (pe.typeDefinition() != null) {
                 pkgLocalSimpleTypes.add(pe.typeDefinition().typeDefTarget().getText());
               } else if (pe.constantDefinition() != null) {
@@ -2440,7 +2441,7 @@ public final class StvnDefsLowerer {
               }
             }
           }
-          packageScopes.put(pkgEnc, buildScopeFrame(pkgPrefix, pkgUses, pkgLocalSimpleTypes, pkgLocalSimpleConsts));
+          packageScopes.put(pkgEnc, buildScopeFrame(pkgPrefix, pkgUseElements, pkgLocalSimpleTypes, pkgLocalSimpleConsts));
         }
       }
 
@@ -2692,23 +2693,32 @@ public final class StvnDefsLowerer {
     }
 
     private void validateUseStmt(StvnParser.UseStmtContext useStmt) {
-      allDeclaredUseStmts.add(useStmt);
-      if (useStmt.useTarget() != null && useStmt.useTarget().useTargetIllegal() != null) {
-        var illegal = useStmt.useTarget().useTargetIllegal();
+      if (useStmt.useElement() == null) {
+        return;
+      }
+      for (var useElem : useStmt.useElement()) {
+        validateUseElement(useElem);
+      }
+    }
+
+    private void validateUseElement(StvnParser.UseElementContext useElem) {
+      allDeclaredUseElements.add(useElem);
+      if (useElem.useTarget() != null && useElem.useTarget().useTargetIllegal() != null) {
+        var illegal = useElem.useTarget().useTargetIllegal();
         Span sp = Span.ofContext(illegal);
         diagnosticBag.addError(
             "Trailing slash prohibited in " + StvnVocabulary.KEYWORD_USE + " target: " + illegal.getText(),
             sp.start(), sp.end(), sp.line(), sp.column(), null,
             DiagnosticBag.ERR_TRAILING_SLASH_PROHIBITED
         );
-      } else if (isValidSyntacticUseTarget(useStmt.useTarget(), diagnosticBag)) {
-        String target = useStmt.useTarget().getText();
+      } else if (isValidSyntacticUseTarget(useElem.useTarget(), diagnosticBag)) {
+        String target = useElem.useTarget().getText();
         boolean isHermetic = isHermeticUnit();
         if (isHermetic) {
           boolean isPrelude = !moduleCtx.bootstrapPreludeMode && StvnPrelude.isPreludePackageTarget(target);
           boolean isLocal = matchesDeclaredOrParentPackage(target, locallyDeclaredPackages);
           if (!isPrelude && !isLocal) {
-            Span sp = Span.ofContext(useStmt.useTarget());
+            Span sp = Span.ofContext(useElem.useTarget());
             diagnosticBag.addError(
                 "Scoped " + StvnVocabulary.KEYWORD_USE
                     + " in hermetic document (.stvn, .stvn_d, .stvn_b, .stvn_bd) cannot target external package: " + target,
@@ -2719,9 +2729,9 @@ public final class StvnDefsLowerer {
         }
       }
 
-      if (useStmt.useOptionsBlock() != null) {
-        if (useStmt.useOptionsBlock().useOption().isEmpty()) {
-          Span sp = Span.ofContext(useStmt.useOptionsBlock());
+      if (useElem.useOptionsBlock() != null) {
+        if (useElem.useOptionsBlock().useOption().isEmpty()) {
+          Span sp = Span.ofContext(useElem.useOptionsBlock());
           diagnosticBag.addError(
               "Empty directive block in " + StvnVocabulary.KEYWORD_USE + " or "
                   + StvnVocabulary.KEYWORD_INCLUDE + " statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
@@ -2729,15 +2739,15 @@ public final class StvnDefsLowerer {
               DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
           );
         } else {
-          for (var opt : useStmt.useOptionsBlock().useOption()) {
+          for (var opt : useElem.useOptionsBlock().useOption()) {
             if (opt.standaloneFacetIllegalArg() != null) {
               reportStandaloneFacetIllegalArg(StvnVocabulary.FACET_KW_STRIP, opt.standaloneFacetIllegalArg());
             }
           }
         }
       }
-      if (useStmt.useAliasBlock() != null && useStmt.useAliasBlock().useMapAlias().isEmpty()) {
-        Span sp = Span.ofContext(useStmt.useAliasBlock());
+      if (useElem.useAliasBlock() != null && useElem.useAliasBlock().useMapAlias().isEmpty()) {
+        Span sp = Span.ofContext(useElem.useAliasBlock());
         diagnosticBag.addError(
             "Empty directive block in " + StvnVocabulary.KEYWORD_USE + " or "
                 + StvnVocabulary.KEYWORD_INCLUDE + " statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
@@ -3355,7 +3365,7 @@ public final class StvnDefsLowerer {
 
     private ScopeFrame buildScopeFrame(
         @Nullable String packagePrefix,
-        List<StvnParser.UseStmtContext> useStmts,
+        List<StvnParser.UseElementContext> useElements,
         List<String> localSimpleTypes,
         List<String> localSimpleConsts
     ) {
@@ -3396,19 +3406,19 @@ public final class StvnDefsLowerer {
         }
       }
 
-      for (var useStmt : useStmts) {
-        if (useStmt.useTarget() == null || useStmt.useTarget().useTargetIllegal() != null) {
+      for (var useElem : useElements) {
+        if (useElem.useTarget() == null || useElem.useTarget().useTargetIllegal() != null) {
           continue;
         }
-        String target = useStmt.useTarget().getText();
-        boolean hasStrip = useStmt.useOptionsBlock() != null
-            && useStmt.useOptionsBlock().useOption().stream()
+        String target = useElem.useTarget().getText();
+        boolean hasStrip = useElem.useOptionsBlock() != null
+            && useElem.useOptionsBlock().useOption().stream()
                 .anyMatch(o -> o.KW_STRIP() != null && o.standaloneFacetIllegalArg() == null);
 
         Map<String, String> typeRenameMap = new LinkedHashMap<>();
         Map<String, String> constRenameMap = new LinkedHashMap<>();
-        if (useStmt.useAliasBlock() != null && useStmt.useAliasBlock().useMapAlias() != null) {
-          for (var alias : useStmt.useAliasBlock().useMapAlias()) {
+        if (useElem.useAliasBlock() != null && useElem.useAliasBlock().useMapAlias() != null) {
+          for (var alias : useElem.useAliasBlock().useMapAlias()) {
             if (alias.typeKeyword(0) != null && alias.typeKeyword(1) != null) {
               typeRenameMap.put(alias.typeKeyword(0).getText(), alias.typeKeyword(1).getText());
             } else if (alias.valueKeyword(0) != null && alias.valueKeyword(1) != null) {
@@ -4949,9 +4959,28 @@ public final class StvnDefsLowerer {
 
       if (ctor.collectionType() != null) {
         var coll = ctor.collectionType();
+        List<StvnParser.SchemaTypeContext> collArgs = coll.schemaType();
+        Span collSpan = Span.ofContext(coll);
+        boolean collHasPass1Error = !isDelimiterClosedCleanly(coll.RPAREN())
+            || hasPass1SyntaxErrorInSpan(diagnosticBag, collSpan);
         if (coll.COLL_SEQ() != null) {
+          if (collArgs.size() != 1) {
+            for (var argCtx : collArgs) {
+              lowerSchemaNode(ownerLabel, Optional.empty(), argCtx, scope, visitedTypeStack, true, false);
+            }
+            if (!collHasPass1Error) {
+              emitFixedArityConstructorDiagnostic(StvnVocabulary.TYPE_SEQ, 1, collArgs.size(), collSpan);
+            }
+            StvnSchema dummySeq = new StvnSchema.SeqSchema(
+                targetNominalAlias, BigInteger.ZERO, StvnVocabulary.DEFAULT_MAX_SIZE,
+                new StvnSchema.BooleanSchema(Optional.empty(), TraitProfile.ofDefault(true, true)),
+                TraitProfile.ofDefault(true, true)
+            );
+            validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_SEQ, dummySeq, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
+            return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+          }
           LoweredSchemaBundle elemBundle = lowerSchemaNode(
-              ownerLabel, Optional.empty(), coll.schemaType(0), scope, visitedTypeStack, true, false
+              ownerLabel, Optional.empty(), collArgs.get(0), scope, visitedTypeStack, true, false
           );
           StvnSchema elem = elemBundle.schema();
           boolean elemPoisoned = isRealPoisonedSchema(elem);
@@ -4969,7 +4998,22 @@ public final class StvnDefsLowerer {
           );
         }
         if (coll.COLL_SET() != null) {
-          var elemCtx = coll.schemaType(0);
+          if (collArgs.size() != 1) {
+            for (var argCtx : collArgs) {
+              lowerSchemaNode(ownerLabel, Optional.empty(), argCtx, scope, visitedTypeStack, true, false);
+            }
+            if (!collHasPass1Error) {
+              emitFixedArityConstructorDiagnostic(StvnVocabulary.TYPE_SET, 1, collArgs.size(), collSpan);
+            }
+            StvnSchema dummySet = new StvnSchema.SetSchema(
+                targetNominalAlias, BigInteger.ZERO, StvnVocabulary.DEFAULT_MAX_SIZE,
+                new StvnSchema.BooleanSchema(Optional.empty(), TraitProfile.ofDefault(true, true)),
+                TraitProfile.ofDefault(true, false)
+            );
+            validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_SET, dummySet, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
+            return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+          }
+          var elemCtx = collArgs.get(0);
           LoweredSchemaBundle elemBundle = lowerSchemaNode(
               ownerLabel, Optional.empty(), elemCtx, scope, visitedTypeStack, true, false
           );
@@ -4999,8 +5043,23 @@ public final class StvnDefsLowerer {
           );
         }
         if (coll.COLL_MAP() != null) {
-          var keyCtx = coll.schemaType(0);
-          var valCtx = coll.schemaType(1);
+          if (collArgs.size() != 2) {
+            for (var argCtx : collArgs) {
+              lowerSchemaNode(ownerLabel, Optional.empty(), argCtx, scope, visitedTypeStack, true, false);
+            }
+            if (!collHasPass1Error) {
+              emitFixedArityConstructorDiagnostic(StvnVocabulary.TYPE_MAP, 2, collArgs.size(), collSpan);
+            }
+            StvnSchema boolPlaceholder = new StvnSchema.BooleanSchema(Optional.empty(), TraitProfile.ofDefault(true, true));
+            StvnSchema dummyMap = new StvnSchema.MapSchema(
+                targetNominalAlias, false, BigInteger.ZERO, StvnVocabulary.DEFAULT_MAX_SIZE,
+                boolPlaceholder, boolPlaceholder, TraitProfile.ofDefault(true, false)
+            );
+            validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_MAP, dummyMap, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
+            return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+          }
+          var keyCtx = collArgs.get(0);
+          var valCtx = collArgs.get(1);
           LoweredSchemaBundle keyBundle = lowerSchemaNode(
               ownerLabel, Optional.empty(), keyCtx, scope, visitedTypeStack, true, false
           );
@@ -5054,6 +5113,25 @@ public final class StvnDefsLowerer {
       }
 
       if (ctor.productType() instanceof StvnParser.TupleTypeContext tupCtx) {
+        if (tupCtx.schemaType().isEmpty()) {
+          Span sp = Span.ofContext(tupCtx);
+          if (isDelimiterClosedCleanly(tupCtx.RPAREN()) && !hasPass1SyntaxErrorInSpan(diagnosticBag, sp)) {
+            diagnosticBag.addErrorDual(
+                "STVN Syntax Error: empty composite argument list: "
+                    + StvnVocabulary.TYPE_TUPLE + "() requires at least one schema type",
+                sp.start(), sp.end(), sp.line(), sp.column(), null,
+                "E010",
+                DiagnosticBag.ERR_MALFORMED_SCHEMA
+            );
+          }
+          StvnSchema dummyTup = new StvnSchema.TupleSchema(
+              targetNominalAlias,
+              List.of(new StvnSchema.BooleanSchema(Optional.empty(), TraitProfile.ofDefault(true, true))),
+              TraitProfile.ofDefault(true, true)
+          );
+          validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_TUPLE, dummyTup, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
+          return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+        }
         List<StvnSchema> elems = new ArrayList<>();
         boolean allEq = true;
         boolean allComp = true;
@@ -5080,9 +5158,28 @@ public final class StvnDefsLowerer {
 
       if (ctor.sumType() != null) {
         var sum = ctor.sumType();
+        List<StvnParser.SchemaTypeContext> sumArgs = sum.schemaType();
+        Span sumSpan = Span.ofContext(sum);
         if (sum.KW_OPTION() != null) {
+          boolean optHasPass1Error = !isDelimiterClosedCleanly(sum.RPAREN())
+              || hasPass1SyntaxErrorInSpan(diagnosticBag, sumSpan);
+          if (sumArgs.size() != 1) {
+            for (var argCtx : sumArgs) {
+              lowerSchemaNode(ownerLabel, Optional.empty(), argCtx, scope, visitedTypeStack, true, false);
+            }
+            if (!optHasPass1Error) {
+              emitFixedArityConstructorDiagnostic(StvnVocabulary.TYPE_OPTION, 1, sumArgs.size(), sumSpan);
+            }
+            StvnSchema dummyOpt = new StvnSchema.OptionSchema(
+                targetNominalAlias,
+                new StvnSchema.BooleanSchema(Optional.empty(), TraitProfile.ofDefault(true, true)),
+                TraitProfile.ofDefault(true, true)
+            );
+            validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_OPTION, dummyOpt, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
+            return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+          }
           LoweredSchemaBundle innerBundle = lowerSchemaNode(
-              ownerLabel, Optional.empty(), sum.schemaType(0), scope, visitedTypeStack, true, false
+              ownerLabel, Optional.empty(), sumArgs.get(0), scope, visitedTypeStack, true, false
           );
           StvnSchema inner = innerBundle.schema();
           boolean innerPoisoned = isRealPoisonedSchema(inner);
@@ -5100,11 +5197,27 @@ public final class StvnDefsLowerer {
           );
         }
         if (sum.KW_EITHER() != null) {
+          boolean eitherHasPass1Error = !isDelimiterClosedCleanly(sum.RPAREN())
+              || hasPass1SyntaxErrorInSpan(diagnosticBag, sumSpan);
+          if (sumArgs.size() != 2) {
+            for (var argCtx : sumArgs) {
+              lowerSchemaNode(ownerLabel, Optional.empty(), argCtx, scope, visitedTypeStack, true, false);
+            }
+            if (!eitherHasPass1Error) {
+              emitFixedArityConstructorDiagnostic(StvnVocabulary.TYPE_EITHER, 2, sumArgs.size(), sumSpan);
+            }
+            StvnSchema boolPlaceholder = new StvnSchema.BooleanSchema(Optional.empty(), TraitProfile.ofDefault(true, true));
+            StvnSchema dummyEither = new StvnSchema.EitherSchema(
+                targetNominalAlias, boolPlaceholder, boolPlaceholder, TraitProfile.ofDefault(true, true)
+            );
+            validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_EITHER, dummyEither, null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
+            return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+          }
           LoweredSchemaBundle leftB = lowerSchemaNode(
-              ownerLabel, Optional.empty(), sum.schemaType(0), scope, visitedTypeStack, true, false
+              ownerLabel, Optional.empty(), sumArgs.get(0), scope, visitedTypeStack, true, false
           );
           LoweredSchemaBundle rightB = lowerSchemaNode(
-              ownerLabel, Optional.empty(), sum.schemaType(1), scope, visitedTypeStack, true, false
+              ownerLabel, Optional.empty(), sumArgs.get(1), scope, visitedTypeStack, true, false
           );
           StvnSchema l = leftB.schema();
           StvnSchema r = rightB.schema();
@@ -5126,7 +5239,7 @@ public final class StvnDefsLowerer {
           boolean arityInvalid = false;
           boolean allEq = true;
           boolean allComp = true;
-          for (var bCtx : sum.schemaType()) {
+          for (var bCtx : sumArgs) {
             LoweredSchemaBundle bb = lowerSchemaNode(
                 ownerLabel, Optional.empty(), bCtx, scope, visitedTypeStack, true, false
             );
@@ -5139,12 +5252,18 @@ public final class StvnDefsLowerer {
           }
           if (branches.size() < 2) {
             Span sp = Span.ofContext(sum);
-            diagnosticBag.addErrorDual(
-                "Union schema requires at least 2 branch types, got " + branches.size(),
-                sp.start(), sp.end(), sp.line(), sp.column(), null,
-                "E010",
-                DiagnosticBag.ERR_MALFORMED_SCHEMA
-            );
+            if (isDelimiterClosedCleanly(sum.RPAREN()) && !hasPass1SyntaxErrorInSpan(diagnosticBag, sp)) {
+              String unionMsg = branches.isEmpty()
+                  ? "STVN Syntax Error: empty composite argument list: "
+                      + StvnVocabulary.TYPE_UNION + "() requires at least one schema type"
+                  : "Union schema requires at least 2 branch types, got " + branches.size();
+              diagnosticBag.addErrorDual(
+                  unionMsg,
+                  sp.start(), sp.end(), sp.line(), sp.column(), null,
+                  "E010",
+                  DiagnosticBag.ERR_MALFORMED_SCHEMA
+              );
+            }
             arityInvalid = true;
           }
           StvnSchema baseUnion = new StvnSchema.UnionSchema(
@@ -5184,12 +5303,15 @@ public final class StvnDefsLowerer {
           }
           if (variants.isEmpty()) {
             Span sp = Span.ofContext(sum);
-            diagnosticBag.addErrorDual(
-                "Enum schema requires at least 1 variant, got 0",
-                sp.start(), sp.end(), sp.line(), sp.column(), null,
-                "E010",
-                DiagnosticBag.ERR_MALFORMED_SCHEMA
-            );
+            if (isDelimiterClosedCleanly(sum.enumDef().RBRACK()) && !hasPass1SyntaxErrorInSpan(diagnosticBag, sp)) {
+              diagnosticBag.addErrorDual(
+                  "STVN Syntax Error: empty enum variant list: "
+                      + StvnVocabulary.TYPE_ENUM + "[] requires at least one value keyword variant",
+                  sp.start(), sp.end(), sp.line(), sp.column(), null,
+                  "E010",
+                  DiagnosticBag.ERR_MALFORMED_SCHEMA
+              );
+            }
             validateFacetsOnlyIfPresent(ownerLabel, StvnVocabulary.TYPE_ENUM, new StvnSchema.BooleanSchema(Optional.empty(), TraitProfile.ofDefault(true, true)), null, AncestorFacetLedger.EMPTY, false, metaMap, schemaCtx, scope);
             return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
           }
@@ -5205,6 +5327,42 @@ public final class StvnDefsLowerer {
       }
 
       return poisonedBundle(targetNominalAlias, DiagnosticBag.ERR_MALFORMED_SCHEMA);
+    }
+
+    private static boolean isDelimiterClosedCleanly(@Nullable TerminalNode closeNode) {
+      if (closeNode == null || closeNode.getSymbol() == null) {
+        return false;
+      }
+      Token sym = closeNode.getSymbol();
+      return sym.getTokenIndex() >= 0 && sym.getStartIndex() >= 0;
+    }
+
+    private void emitFixedArityConstructorDiagnostic(
+        String constructorKeyword,
+        int expectedArity,
+        int actualArity,
+        Span span
+    ) {
+      String msg;
+      if (expectedArity == 1 && actualArity == 0) {
+        msg = "STVN Syntax Error: empty composite argument list: collection requires schema type argument";
+      } else if (expectedArity == 2 && actualArity < 2) {
+        msg = "STVN Syntax Error: insufficient composite arguments: expected 2 schema type arguments";
+      } else {
+        String noun = expectedArity == 1 ? "schema type argument" : "schema type arguments";
+        msg = "STVN Syntax Error: excessive composite arguments: '" + constructorKeyword
+            + "' expects exactly " + expectedArity + " " + noun + ", got " + actualArity;
+      }
+      diagnosticBag.addErrorDual(
+          msg,
+          span.start(),
+          span.end(),
+          span.line(),
+          span.column(),
+          null,
+          "E002",
+          "STVN_SYNTAX_ERROR"
+      );
     }
 
     private LoweredSchemaBundle poisonedBundle(Optional<String> alias, String symbolicCode) {

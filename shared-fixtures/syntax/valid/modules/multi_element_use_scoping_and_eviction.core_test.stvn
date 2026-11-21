@@ -1,0 +1,52 @@
+{
+  :meta {
+    #name "multi_element_use_scoping_and_eviction"
+    #domain "core_test"
+    #kind #BODY
+  }
+  :defs {
+    :package :propulsion/thruster {
+      :ThrustMillinewtons { #unsigned #minIncl 1 #maxExcl 500000 } :Int
+      :NozzleTag { #minSize 1 #maxSize 16 } :String
+      #RCS_PULSE_THRUST :ThrustMillinewtons 250
+    }
+
+    :package :propulsion/attitude {
+      :ThrustMillinewtons { #unsigned #size 64 #minIncl 1 #maxExcl 1000000 } :Int
+      :BusStatus :Enum[#NOMINAL #STANDBY #FAULT]
+      #RCS_PULSE_THRUST :ThrustMillinewtons 500
+    }
+
+    :package :propulsion/telemetry {
+      :use [ :propulsion/thruster { #strip } :propulsion/attitude { :ThrustMillinewtons :AttitudeThrust :BusStatus :AttitudeBusStatus } ]
+      :TelemetrySample :Tuple(:ThrustMillinewtons :NozzleTag :AttitudeThrust :AttitudeBusStatus)
+    }
+
+    :use [
+      :propulsion/thruster { #strip }
+      :propulsion/attitude {
+        :ThrustMillinewtons :AttitudeThrust
+        :BusStatus :AttitudeBusStatus
+        #RCS_PULSE_THRUST #ATTITUDE_PULSE
+      }
+      :propulsion/telemetry { #strip }
+      :org/stvnadore/prelude { :Port :Port }
+    ]
+
+    :DispatchEnvelope :Tuple(
+      :ThrustMillinewtons
+      :AttitudeThrust
+      :AttitudeBusStatus
+      :TelemetrySample
+      :Port
+    )
+  }
+  :type :DispatchEnvelope
+  :body (
+    #RCS_PULSE_THRUST
+    #ATTITUDE_PULSE
+    #NOMINAL
+    ( 1200 "RCS-A1" 2400 #STANDBY )
+    8080
+  )
+}

@@ -1,0 +1,26 @@
+// @spec: SPEC-07-FAULT-ISOLATION
+// @case: Negative - Stage 7 and Stage 8 :Tuple() and :Union() :defs fault isolation without E030 cascade
+// @error: MALFORMED_SCHEMA
+{
+  :meta {
+    #name "stage7_and_stage8_empty_composite_defs_isolation"
+    #kind #BODY
+  }
+  :defs {
+    :SensorId { #minSize 1 #maxSize 32 } :String
+    :SampleReading :Float
+    :RetryMillis { #unsigned #size 16 #minIncl 10 #maxExcl 5000 } :Int
+    :OuterDispatchEnvelope :Option(:Option(:RetryMillis))
+
+    :TrapEmptyTuple :Tuple()
+    :TrapInvertedSeqCapacity { #minSize 12 #maxSize 4 } :Seq(:SensorId)
+    :TrapFloatInSet { #maxSize 8 } :Set(:SampleReading)
+    :Stage7CompositesMatrix :Tuple(:SensorId :RetryMillis)
+
+    :TrapEmptyUnion :Union()
+    :WarnSingleBranchUnion :Union(:RetryMillis)
+    #IRREDUCIBLE_DEF_NONE :OuterDispatchEnvelope #Some #None
+  }
+  :type :Tuple(:TrapEmptyTuple :TrapEmptyUnion :Stage7CompositesMatrix :OuterDispatchEnvelope)
+  :body ( "suspended-tuple" "suspended-union" ( "sensor-01" 250 ) #IRREDUCIBLE_DEF_NONE )
+}

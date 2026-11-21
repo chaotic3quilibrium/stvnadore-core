@@ -44,7 +44,8 @@ packageElement   : nestedPackageIllegal
                  ;
 nestedPackageIllegal : KW_PACKAGE packagePath LBRACE packageElement* RBRACE ;
 
-useStmt : KW_USE LBRACK useTarget useOptionsBlock? useAliasBlock? RBRACK ;
+useStmt : KW_USE LBRACK useElement+ RBRACK ;
+useElement : useTarget useOptionsBlock? useAliasBlock? ;
 useTarget : typeKeyword | useTargetIllegal ;
 useTargetIllegal : typeKeyword FSLASH+ ;
 useOptionsBlock : LBRACE useOption* RBRACE ;
@@ -152,22 +153,22 @@ atomicType : ATOM_BOOLEAN
            ;
 
 collectionType
-    : COLL_SEQ LPAREN schemaType RPAREN
-    | COLL_SET LPAREN schemaType RPAREN
-    | COLL_MAP LPAREN schemaType schemaType RPAREN
+    : COLL_SEQ LPAREN schemaType* RPAREN
+    | COLL_SET LPAREN schemaType* RPAREN
+    | COLL_MAP LPAREN schemaType* RPAREN
     ;
 
 productType
-    : KW_TUPLE LPAREN schemaType+ RPAREN               # TupleType
+    : KW_TUPLE LPAREN schemaType* RPAREN               # TupleType
     ;
 
-sumType : KW_OPTION LPAREN schemaType RPAREN
+sumType : KW_OPTION LPAREN schemaType* RPAREN
         | KW_ENUM enumDef
-        | KW_EITHER LPAREN schemaType schemaType RPAREN
-        | KW_UNION LPAREN schemaType+ RPAREN
+        | KW_EITHER LPAREN schemaType* RPAREN
+        | KW_UNION LPAREN schemaType* RPAREN
         ;
 
-enumDef : LBRACK valueKeyword+ RBRACK ;
+enumDef : LBRACK valueKeyword* RBRACK ;
 
 value : explicitOptionValue
       | explicitEitherValue
