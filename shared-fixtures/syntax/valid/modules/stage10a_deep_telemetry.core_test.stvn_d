@@ -1,0 +1,18 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Positive - Stage 10A deep leaf telemetry module exporting #DEEP_TEST_FIX
+{
+  :meta {
+    #name "stage10a_deep_telemetry"
+    #domain "core_test"
+    #kind #DEFS
+  }
+  :defs {
+    :package :com/acme/telemetry {
+      :CoordFix :Tuple(
+        { #exact #maxSize 12 } :Float
+        { #exact #maxSize 12 } :Float
+      )
+      #DEEP_TEST_FIX :CoordFix (37.7749 -122.4194)
+    }
+  }
+}

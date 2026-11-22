@@ -4,6 +4,8 @@
     #kind #DEFS_INCLUDE
   }
   :defs {
-    :ConflictType :Int
+    :package :org/example/asym_a {
+      :ConflictType :Int
+    }
   }
 }

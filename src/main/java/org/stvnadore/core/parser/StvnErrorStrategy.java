@@ -32,6 +32,7 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
 
   private final @Nullable DiagnosticBag diagnosticBag;
   private final List<StvnDiagnostic> coalescedNumericDiagnostics = new ArrayList<>();
+  private @Nullable RuleContext suppressedIncludeBracketStmt = null;
 
   /** Constructs a new coordinate-pinning parser error strategy. */
   public StvnErrorStrategy() {
@@ -59,6 +60,9 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
 
   @Override
   public void sync(Parser recognizer) throws RecognitionException {
+    if (tryConsumeProhibitedIncludeBraceBlocks(recognizer)) {
+      return;
+    }
     tryCoalesceContiguousNumericUnderscore(recognizer);
     super.sync(recognizer);
   }
@@ -94,7 +98,13 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
 
   @Override
   public void reportError(Parser recognizer, RecognitionException e) {
+    if (suppressedIncludeBracketStmt != null && recognizer.getContext() == suppressedIncludeBracketStmt) {
+      return;
+    }
     if (inErrorRecoveryMode(recognizer)) {
+      return;
+    }
+    if (tryConsumeProhibitedIncludeBraceBlocks(recognizer)) {
       return;
     }
 
@@ -190,6 +200,19 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
     TokenStream stream = recognizer.getTokenStream();
     Token prevToken = stream.LT(-1);
 
+    if (ctx instanceof StvnParser.IncludeStmtContext) {
+      while (stream.LA(1) == StvnParser.LBRACE) {
+        tryConsumeProhibitedIncludeBraceBlocks(recognizer);
+      }
+      if (suppressedIncludeBracketStmt == ctx) {
+        suppressedIncludeBracketStmt = null;
+        if (stream.LA(1) == StvnParser.RBRACK) {
+          recognizer.consume();
+        }
+        return;
+      }
+    }
+
     if (isDefsContext(ctx, prevToken) && (offendingToken == null || offendingToken.getType() != StvnParser.LBRACE)) {
       return;
     }
@@ -208,6 +231,13 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
 
   @Override
   public Token recoverInline(Parser recognizer) throws RecognitionException {
+    if (tryConsumeProhibitedIncludeBraceBlocks(recognizer)) {
+      if (recognizer.getExpectedTokens().contains(recognizer.getTokenStream().LA(1))) {
+        Token matchedSymbol = recognizer.getCurrentToken();
+        recognizer.consume();
+        return matchedSymbol;
+      }
+    }
     if (tryCoalesceContiguousNumericUnderscore(recognizer)) {
       if (recognizer.getExpectedTokens().contains(recognizer.getTokenStream().LA(1))) {
         Token matchedSymbol = recognizer.getCurrentToken();
@@ -289,6 +319,89 @@ public final class StvnErrorStrategy extends DefaultErrorStrategy {
       recognizer.notifyErrorListeners(prev, msg, null);
     }
     return true;
+  }
+
+  /**
+   * Builds the Simplified Technical English (STE) core diagnostic message (without the
+   * {@code "STVN Syntax Error: "} prefix) emitted when prohibited {@code { ... }} blocks appear
+   * inside an {@code :include [ ... ]} directive.
+   *
+   * @return the STE core message recommending {@code :package} and {@code :use}
+   */
+  public static String buildProhibitedIncludeBlockCoreMessage() {
+    return "'" + StvnVocabulary.KEYWORD_INCLUDE
+        + "' accepts only module path string literals; use '"
+        + StvnVocabulary.KEYWORD_PACKAGE + "' and '" + StvnVocabulary.KEYWORD_USE
+        + "' for '" + StvnVocabulary.FACET_KW_STRIP + "' or symbol aliasing";
+  }
+
+  /**
+   * Builds the full Simplified Technical English (STE) syntax error message emitted when prohibited
+   * {@code { ... }} blocks appear inside an {@code :include [ ... ]} directive.
+   *
+   * @return the prefixed STE syntax error message
+   */
+  public static String buildProhibitedIncludeBlockMessage() {
+    return "STVN Syntax Error: " + buildProhibitedIncludeBlockCoreMessage();
+  }
+
+  private boolean tryConsumeProhibitedIncludeBraceBlocks(Parser recognizer) {
+    if (!(recognizer.getContext() instanceof StvnParser.IncludeStmtContext incCtx)
+        || incCtx.LBRACK() == null) {
+      return false;
+    }
+    TokenStream tokens = recognizer.getInputStream();
+    if (tokens == null || tokens.LA(1) != StvnParser.LBRACE) {
+      return false;
+    }
+    boolean consumedAny = false;
+    while (tokens.LA(1) == StvnParser.LBRACE) {
+      Token openBrace = tokens.LT(1);
+      Token lastConsumed = openBrace;
+      recognizer.consume();
+      int depth = 1;
+      while (depth > 0) {
+        int la = tokens.LA(1);
+        Token nextTok = tokens.LT(1);
+        if (la == Token.EOF || isTopLevelKeyword(nextTok)) {
+          break;
+        }
+        if (la == StvnParser.RBRACK && depth == 1) {
+          break;
+        }
+        if (nextTok != null) {
+          lastConsumed = nextTok;
+        }
+        recognizer.consume();
+        if (la == StvnParser.LBRACE) {
+          depth++;
+        } else if (la == StvnParser.RBRACE) {
+          depth--;
+        }
+      }
+      String msg = buildProhibitedIncludeBlockMessage();
+      int startOffset = Math.max(0, openBrace.getStartIndex());
+      int endOffset = Math.max(startOffset + 1, lastConsumed.getStopIndex() + 1);
+      if (diagnosticBag != null) {
+        diagnosticBag.addErrorDual(
+            msg,
+            startOffset,
+            endOffset,
+            openBrace.getLine(),
+            openBrace.getCharPositionInLine(),
+            null,
+            "E002",
+            "STVN_SYNTAX_ERROR"
+        );
+      } else {
+        recognizer.notifyErrorListeners(openBrace, msg, null);
+      }
+      consumedAny = true;
+    }
+    if (consumedAny && incCtx.includeElement().isEmpty() && tokens.LA(1) == StvnParser.RBRACK) {
+      suppressedIncludeBracketStmt = incCtx;
+    }
+    return consumedAny;
   }
 
   private static boolean isStructuralDelimiterToken(int tokenType) {

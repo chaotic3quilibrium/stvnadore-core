@@ -5,15 +5,16 @@
     #kind #BODY_INCLUDE
   }
   :defs {
-    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" ]
+    :use [ :org/stvnadore/ir { #strip } ]
   }
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":HttpStatus" ( ":Enum[#net/http/OK #net/http/NotFound #net/http/Error]" ":HttpStatus" ( #TRUE #TRUE ) ) ]
-      [ ":HttpHeader" ( ":Tuple(:String :String)" ":HttpHeader" ( #TRUE #TRUE ) ) ]
-      [ ":app/v1/Response" ( ":Tuple(:HttpStatus :HttpHeader)" ":app/v1/Response" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:HttpStatus :HttpHeader)" ":app/v1/Response" ( #TRUE #TRUE ) ) ]
+      [ ":net/http/Status" ( ":Enum[#net/http/OK #net/http/NotFound #net/http/Error]" ":net/http/Status" ( #TRUE #TRUE ) ) ]
+      [ ":net/http/Header" ( ":Tuple(:String :String)" ":net/http/Header" ( #TRUE #TRUE ) ) ]
+      [ ":app/v1/Response" ( ":Tuple(:net/http/Status :net/http/Header)" ":app/v1/Response" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:net/http/Status :net/http/Header)" ":app/v1/Response" ( #TRUE #TRUE ) ) ]
     }
     #14 [
       #8 ( "#net/http/OK" 0 )

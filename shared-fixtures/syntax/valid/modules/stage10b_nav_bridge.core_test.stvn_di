@@ -1,0 +1,26 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Positive - Stage 10B intermediate navigation bridge re-exporting #HOME_WAYPOINT via :use
+{
+  :meta {
+    #name "stage10b_nav_bridge"
+    #domain "core_test"
+    #kind #DEFS_INCLUDE
+  }
+  :defs {
+    :include [ "stage10a_deep_telemetry.core_test.stvn_d" ]
+
+    :package :com/acme/nav {
+      :use [
+        :com/acme/telemetry {
+          :CoordFix :BridgeFix
+          #DEEP_TEST_FIX #BRIDGE_DEFAULT_FIX
+        }
+      ]
+      :Waypoint :Tuple(
+        { #minSize 1 #maxSize 32 } :String
+        :BridgeFix
+      )
+      #HOME_WAYPOINT :Waypoint ("BASE_ALPHA" #BRIDGE_DEFAULT_FIX)
+    }
+  }
+}

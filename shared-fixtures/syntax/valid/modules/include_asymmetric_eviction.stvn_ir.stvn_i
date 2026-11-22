@@ -5,14 +5,15 @@
     #kind #BODY_INCLUDE
   }
   :defs {
-    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" ]
+    :use [ :org/stvnadore/ir { #strip } ]
   }
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":AliasedType" ( ":Int" ":AliasedType" ( #TRUE #TRUE ) ) ]
+      [ ":org/example/asym_a/ConflictType" ( ":Int" ":org/example/asym_a/ConflictType" ( #TRUE #TRUE ) ) ]
       [ ":ConflictType" ( ":String" ":ConflictType" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:AliasedType :ConflictType)" "" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:org/example/asym_a/ConflictType :ConflictType)" "" ( #TRUE #TRUE ) ) ]
     }
     #14 [
       #2 ( 42 32 #FALSE )

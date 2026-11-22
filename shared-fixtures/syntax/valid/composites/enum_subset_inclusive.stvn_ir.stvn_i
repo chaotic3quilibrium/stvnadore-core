@@ -5,7 +5,8 @@
     #kind #BODY_INCLUDE
   }
   :defs {
-    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+    :include [ "../modules/stvn_ir_substrate.stvn_ir.stvn_d" ]
+    :use [ :org/stvnadore/ir { #strip } ]
   }
   :type :IrSnapshotDocument
   :body (

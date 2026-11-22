@@ -1,0 +1,23 @@
+// @spec: SPEC-07-NOMINAL-BIJECT
+// @case: Negative - Reject cross-file packaged nominal brand mismatch across :use aliases (E027)
+{
+  :meta {
+    #name "stage10_cross_file_package_brand_mismatch"
+    #domain "core_test"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../valid/modules/stage10_brand_provider.core_test.stvn_d" ]
+    :use [
+      :com/acme/alpha {
+        :ChannelId :AlphaId
+        #ALPHA_CHANNEL #ALPHA_CH
+      }
+      :com/acme/beta {
+        :ChannelId :BetaId
+      }
+    ]
+  }
+  :type :BetaId
+  :body #ALPHA_CH
+}

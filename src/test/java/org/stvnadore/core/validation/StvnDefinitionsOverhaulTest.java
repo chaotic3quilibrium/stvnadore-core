@@ -340,11 +340,11 @@ public class StvnDefinitionsOverhaulTest {
   }
 
   // ==========================================================================
-  // Test Group 4: Include Prefix Stripping (#strip)
+  // Test Group 4: Pure :include Ingestion + :use Prefix Stripping (#strip)
   // ==========================================================================
 
   @Test
-  @DisplayName("Bare #strip imports strip up to terminal slash")
+  @DisplayName("Bare #strip on :use strips cross-file :include definitions up to terminal slash")
   void testBareStripImports(@TempDir Path tempDir) throws IOException {
     Path subDir = tempDir.resolve("sub");
     Files.createDirectories(subDir);
@@ -366,7 +366,8 @@ public class StvnDefinitionsOverhaulTest {
             #kind #BODY_INCLUDE
           }
           :defs {
-            :include [ "sub/module.stvn_d" { #strip } ]
+            :include [ "sub/module.stvn_d" ]
+            :use [ :pkg/sub { #strip } ]
           }
           :type :Type
           :body 42
@@ -375,12 +376,12 @@ public class StvnDefinitionsOverhaulTest {
     Files.writeString(mainFile, mainContent);
 
     var res = StvnCompiler.compileToResult(mainContent, mainFile.toString());
-    Assertions.assertTrue(res.isSuccess(), "Bare strip should strip pkg/sub/Type to Type");
+    Assertions.assertTrue(res.isSuccess(), "Bare strip on :use should strip pkg/sub/Type to Type: " + res.diagnostics());
     Assertions.assertNotNull(res.orElseThrow());
   }
 
   @Test
-  @DisplayName("Unary #strip strips all definitions to terminal segment")
+  @DisplayName("Unary #strip across multiple :use targets strips all definitions to terminal segment")
   void testUnaryStripMultipleDefinitions(@TempDir Path tempDir) throws IOException {
     Path module = tempDir.resolve("module.stvn_d");
     Files.writeString(module, """
@@ -401,7 +402,11 @@ public class StvnDefinitionsOverhaulTest {
             #kind #BODY_INCLUDE
           }
           :defs {
-            :include [ "module.stvn_d" { #strip } ]
+            :include [ "module.stvn_d" ]
+            :use [
+              :pkg/sub { #strip }
+              :other { #strip }
+            ]
           }
           :type :Tuple( :Type :Foo )
           :body ( 42 "bar" )
@@ -415,7 +420,7 @@ public class StvnDefinitionsOverhaulTest {
   }
 
   @Test
-  @DisplayName("Parameterized #strip argument fails at parser gate")
+  @DisplayName("Prohibited { #strip } on :include and parameterized #strip on :use fail cleanly")
   void testParameterizedStripFailsAtParserGate(@TempDir Path tempDir) throws IOException {
     Path module = tempDir.resolve("module.stvn_d");
     Files.writeString(module, """
@@ -435,7 +440,7 @@ public class StvnDefinitionsOverhaulTest {
             #kind #BODY_INCLUDE
           }
           :defs {
-            :include [ "module.stvn_d" { #strip "unmatched/path/" } ]
+            :include [ "module.stvn_d" { #strip } ]
           }
           :type :Int
           :body 42
@@ -445,10 +450,14 @@ public class StvnDefinitionsOverhaulTest {
 
     var res = StvnCompiler.compileToResult(mainContent, mainFile.toString());
     Assertions.assertFalse(res.isSuccess());
+    Assertions.assertTrue(
+        res.diagnostics().stream().anyMatch(d -> "E002".equals(d.canonicalCode().orElse(""))),
+        () -> "Expected E002 on prohibited :include { #strip } block: " + res.diagnostics()
+    );
   }
 
   @Test
-  @DisplayName("#strip combined with alias block renames stripped symbol")
+  @DisplayName(":use #strip combined with alias block renames symbol while keeping others stripped")
   void testStripCombinedWithAliasBlock(@TempDir Path tempDir) throws IOException {
     Path module = tempDir.resolve("module.stvn_d");
     Files.writeString(module, """
@@ -468,7 +477,8 @@ public class StvnDefinitionsOverhaulTest {
             #kind #BODY_INCLUDE
           }
           :defs {
-            :include [ "module.stvn_d" { #strip } { :Type :LocalType } ]
+            :include [ "module.stvn_d" ]
+            :use [ :pkg/sub { #strip } { :Type :LocalType } ]
           }
           :type :LocalType
           :body 123
@@ -477,7 +487,7 @@ public class StvnDefinitionsOverhaulTest {
     Files.writeString(mainFile, mainContent);
 
     var res = StvnCompiler.compileToResult(mainContent, mainFile.toString());
-    Assertions.assertTrue(res.isSuccess(), "Stripped symbol should be renamed by alias block to LocalType");
+    Assertions.assertTrue(res.isSuccess(), "Stripped symbol should be renamed by :use alias block to LocalType: " + res.diagnostics());
     Assertions.assertNotNull(res.orElseThrow());
   }
 
@@ -512,7 +522,7 @@ public class StvnDefinitionsOverhaulTest {
   }
 
   @Test
-  @DisplayName("Flattener CAS hash stability across modular and flattened forms")
+  @DisplayName("Flattener CAS hash stability across modular (:include + :use) and flattened forms (§ 9.1.2)")
   void testFlattenerCasHashStability(@TempDir Path tempDir) throws IOException {
     Path netModule = tempDir.resolve("net.stvn_d");
     Files.writeString(netModule, """
@@ -532,7 +542,8 @@ public class StvnDefinitionsOverhaulTest {
             #kind #BODY_INCLUDE
           }
           :defs {
-            :include [ "net.stvn_d" { #strip } ]
+            :include [ "net.stvn_d" ]
+            :use [ :org/example/network { #strip } ]
           }
           :type :Port
           :body 8080
@@ -541,17 +552,19 @@ public class StvnDefinitionsOverhaulTest {
     Files.writeString(mainFile, mainContent);
 
     var modularResult = StvnCompiler.compileToResult(mainContent, mainFile.toString());
-    Assertions.assertTrue(modularResult.isSuccess(), "Modular document should compile cleanly");
+    Assertions.assertTrue(modularResult.isSuccess(), "Modular document should compile cleanly: " + modularResult.diagnostics());
 
     Map<String, String> workspace = Map.of(
         "net.stvn_d", Files.readString(netModule),
         "main.stvn_i", mainContent
     );
     String flattenedDefs = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
-    String flattenedDocument = flattenedDefs.replace("#kind #DEFS", "#kind #BODY").replaceFirst("\\}\\s*$", ":type :Port :body 8080 }");
+    String flattenedDocument = flattenedDefs
+        .replace("#kind #DEFS", "#kind #BODY")
+        .replaceFirst("\\}\\s*$", ":type :org/example/network/Port :body 8080 }");
 
     var flattenedResult = StvnCompiler.compileToResult(flattenedDocument);
-    Assertions.assertTrue(flattenedResult.isSuccess(), "Flattened document should compile cleanly");
+    Assertions.assertTrue(flattenedResult.isSuccess(), "Flattened document should compile cleanly: " + flattenedResult.diagnostics());
 
     byte[] modularCas = StvnCompiler.computeCasFingerprint(modularResult.orElseThrow().requirePayload());
     byte[] flattenedCas = StvnCompiler.computeCasFingerprint(flattenedResult.orElseThrow().requirePayload());

@@ -5,6 +5,8 @@
   }
   :defs {
     :TypeB :String
-    :ConflictType :String
+    :package :org/example/mod_b {
+      :ConflictType :String
+    }
   }
 }

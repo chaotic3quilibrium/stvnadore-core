@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 10 59 272 282 "Metadata facet '#strip' is a standalone flag and does not accept arguments; unexpected '\"pkg/sub/\"'" )
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 11 30 280 290 "Metadata facet '#strip' is a standalone flag and does not accept arguments; unexpected '\"pkg/sub/\"'" )
   ]
 }

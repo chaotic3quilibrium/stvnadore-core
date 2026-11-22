@@ -191,11 +191,13 @@ class StvnMultiEscapeDiagnosticRecoveryTest {
         () -> "Expected 0 E038 reserved-domain cascade on corrupt #domain: " + res1.diagnostics()
     );
 
-    // Locus 2 (:include in hermetic-blocked .stvn mode still scans path & option escape errors)
+    // Locus 2 (:include in hermetic-blocked .stvn mode still scans path & :use option escape errors)
     String hermeticInclude = "{\n"
         + "  :meta { #name \"herm\" #kind #BODY }\n"
         + "  :defs {\n"
-        + "    :include [ \"./mod_\\z_\\u12G4.stvn_di\" { #strip \"opt_\\q\" } ]\n"
+        + "    :package :local/pkg { :T :Int }\n"
+        + "    :include [ \"./mod_\\z_\\u12G4.stvn_di\" ]\n"
+        + "    :use [ :local/pkg { #strip \"opt_\\q\" } ]\n"
         + "  }\n"
         + "  :type :String\n"
         + "  :body \"ok\"\n"
@@ -204,7 +206,7 @@ class StvnMultiEscapeDiagnosticRecoveryTest {
     List<StvnDiagnostic> incE002 = res2.diagnostics().stream()
         .filter(d -> "E002".equals(d.canonicalCode().orElse("")))
         .toList();
-    assertEquals(3, incE002.size(), () -> "Expected 3 E002 errors in hermetic-blocked :include, got: " + res2.diagnostics());
+    assertEquals(3, incE002.size(), () -> "Expected 3 E002 errors in hermetic-blocked :include and :use, got: " + res2.diagnostics());
 
     // Orphan :type metadata block with multi-escape string
     String orphanTypeMeta = "{\n"

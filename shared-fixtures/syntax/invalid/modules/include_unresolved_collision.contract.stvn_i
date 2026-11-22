@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E006 #NAMESPACE_COLLISION #ERROR 4 1 123 363 "Namespace collision(s) detected: [:ConflictType]" )
+    ( #E006 #NAMESPACE_COLLISION #ERROR 4 1 123 335 "Namespace collision(s) detected: [:ConflictType]; enclose module declarations in ':package' and disambiguate local symbols with ':use'" )
   ]
 }

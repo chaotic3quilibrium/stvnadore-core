@@ -4,6 +4,8 @@
     #kind #DEFS_INCLUDE
   }
   :defs {
-    :ConflictType :String
+    :package :org/example/dual_b {
+      :ConflictType :String
+    }
   }
 }

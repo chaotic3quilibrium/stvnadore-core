@@ -100,7 +100,7 @@ public final class DiagnosticBag {
   public static final String ERR_SECTION_ORDER_VIOLATION = "ERR_SECTION_ORDER_VIOLATION";
   /** Error code emitted when a ':meta', ':defs', ':type', or ':body' root section omits its required block, schema type, or payload value (E002). */
   public static final String ERR_MALFORMED_SECTION_STRUCTURE = "ERR_MALFORMED_SECTION_STRUCTURE";
-  /** Error code emitted when an empty directive block '{}' is encountered in :use or :include. */
+  /** Error code emitted when an empty directive block '{}' is encountered in :use, or an empty '[]' list in :use or :include. */
   public static final String ERR_EMPTY_DIRECTIVE_BLOCK = "ERR_EMPTY_DIRECTIVE_BLOCK";
   /** Error code emitted when a metadata facet is applied to an incompatible target entity kind. */
   public static final String ERR_INVALID_METADATA_FACET = "ERR_INVALID_METADATA_FACET";

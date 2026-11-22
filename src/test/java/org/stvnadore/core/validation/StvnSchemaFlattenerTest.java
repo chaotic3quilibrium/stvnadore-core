@@ -198,18 +198,22 @@ class StvnSchemaFlattenerTest {
             {
               :defs {
                 :include [
-                  "module_a.stvn_d" {
-                    :ConflictType :AliasA
-                  }
+                  "module_a.stvn_d"
                   "module_b.stvn_d"
                 ]
+                :use [ :pkg/a { :ConflictType :AliasA } ]
+                :Combined :Tuple(:AliasA :ConflictType)
               }
+              :type :Combined
+              :body (1 "ok")
             }
             """,
         "module_a.stvn_d", """
             {
               :defs {
-                :ConflictType :Int
+                :package :pkg/a {
+                  :ConflictType :Int
+                }
               }
             }
             """,
@@ -223,10 +227,8 @@ class StvnSchemaFlattenerTest {
     );
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
-    // :ConflictType from module_a is renamed to :AliasA, which evicts its LHS name (:ConflictType) from the collision,
-    // allowing module_b's raw :ConflictType to survive.
-    // Alphabetical order: :AliasA, :ConflictType
-    String expected = "{:meta{#kind #DEFS}:defs{:AliasA :Int :ConflictType :String}}";
+    // Pure :include + :use preserves canonical FQNI :pkg/a/ConflictType alongside unpackaged :ConflictType
+    String expected = "{:meta{#kind #DEFS}:defs{:Combined :Tuple(:pkg/a/ConflictType :ConflictType) :ConflictType :String :pkg/a/ConflictType :Int}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -237,36 +239,41 @@ class StvnSchemaFlattenerTest {
             {
               :defs {
                 :include [
-                  "module_a.stvn_d" {
-                    :ConflictType :AliasA
-                  }
-                  "module_b.stvn_d" {
-                    :ConflictType :AliasB
-                  }
+                  "module_a.stvn_d"
+                  "module_b.stvn_d"
                 ]
+                :use [
+                  :pkg/a { :ConflictType :AliasA }
+                  :pkg/b { :ConflictType :AliasB }
+                ]
+                :Combined :Tuple(:AliasA :AliasB)
               }
+              :type :Combined
+              :body (1 "ok")
             }
             """,
         "module_a.stvn_d", """
             {
               :defs {
-                :ConflictType :Int
+                :package :pkg/a {
+                  :ConflictType :Int
+                }
               }
             }
             """,
         "module_b.stvn_d", """
             {
               :defs {
-                :ConflictType :String
+                :package :pkg/b {
+                  :ConflictType :String
+                }
               }
             }
             """
     );
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
-    // Both aliases survive, but the raw LHS name (:ConflictType) is evicted and unresolved in the local namespace.
-    // No exception is thrown because the collision itself was mitigated by alias renaming.
-    String expected = "{:meta{#kind #DEFS}:defs{:AliasA :Int :AliasB :String}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:Combined :Tuple(:pkg/a/ConflictType :pkg/b/ConflictType) :pkg/a/ConflictType :Int :pkg/b/ConflictType :String}}";
     Assertions.assertEquals(expected, result);
   }
 
@@ -299,10 +306,11 @@ class StvnSchemaFlattenerTest {
             """
     );
 
-    Assertions.assertThrows(
+    NamespaceCollisionException ex = Assertions.assertThrows(
         NamespaceCollisionException.class,
         () -> StvnSchemaFlattener.flatten(workspace, "main.stvn_i")
     );
+    Assertions.assertTrue(ex.getMessage().contains("enclose module declarations in ':package' and disambiguate local symbols with ':use'"));
   }
 
   @Test
@@ -312,27 +320,30 @@ class StvnSchemaFlattenerTest {
             {
               :defs {
                 :include [
-                  "module_a.stvn_d" {
-                    :ConflictType :ConflictTypeA
-                  }
+                  "module_a.stvn_d"
                 ]
+                :use [ :pkg/a { :ConflictType :ConflictTypeA :TypeA :ImportedTypeA } ]
                 :ConflictType :Int
+                :RootPair :Tuple(:ConflictType :ImportedTypeA)
               }
+              :type :RootPair
+              :body (7 ("s" 9))
             }
             """,
         "module_a.stvn_d", """
             {
               :defs {
-                :TypeA :Tuple( :ConflictType :Int )
-                :ConflictType :String
+                :package :pkg/a {
+                  :TypeA :Tuple( :ConflictType :Int )
+                  :ConflictType :String
+                }
               }
             }
             """
     );
 
     String result = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
-    // TypeA's internal reference to :ConflictType must be rewritten to :ConflictTypeA
-    String expected = "{:meta{#kind #DEFS}:defs{:ConflictType :Int :ConflictTypeA :String :TypeA :Tuple(:ConflictTypeA :Int)}}";
+    String expected = "{:meta{#kind #DEFS}:defs{:ConflictType :Int :RootPair :Tuple(:ConflictType :pkg/a/TypeA) :pkg/a/ConflictType :String :pkg/a/TypeA :Tuple(:pkg/a/ConflictType :Int)}}";
     Assertions.assertEquals(expected, result);
   }
 

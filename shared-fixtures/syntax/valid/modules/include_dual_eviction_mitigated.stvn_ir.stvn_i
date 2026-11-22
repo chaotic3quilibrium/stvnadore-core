@@ -5,15 +5,16 @@
     #kind #BODY_INCLUDE
   }
   :defs {
-    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" { #strip } ]
+    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" ]
+    :use [ :org/stvnadore/ir { #strip } ]
   }
   :type :IrSnapshotDocument
   :body (
     {
-      [ ":RecordA" ( ":Int" ":RecordA" ( #TRUE #TRUE ) ) ]
-      [ ":RecordB" ( ":String" ":RecordB" ( #TRUE #TRUE ) ) ]
-      [ ":MergedPair" ( ":Tuple(:RecordA :RecordB)" ":MergedPair" ( #TRUE #TRUE ) ) ]
-      [ "<:type>" ( ":Tuple(:RecordA :RecordB)" ":MergedPair" ( #TRUE #TRUE ) ) ]
+      [ ":org/example/dual_a/ConflictType" ( ":Int" ":org/example/dual_a/ConflictType" ( #TRUE #TRUE ) ) ]
+      [ ":org/example/dual_b/ConflictType" ( ":String" ":org/example/dual_b/ConflictType" ( #TRUE #TRUE ) ) ]
+      [ ":MergedPair" ( ":Tuple(:org/example/dual_a/ConflictType :org/example/dual_b/ConflictType)" ":MergedPair" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:org/example/dual_a/ConflictType :org/example/dual_b/ConflictType)" ":MergedPair" ( #TRUE #TRUE ) ) ]
     }
     #14 [
       #2 ( 100 32 #FALSE )

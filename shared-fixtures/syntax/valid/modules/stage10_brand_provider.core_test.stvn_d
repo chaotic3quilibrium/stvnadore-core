@@ -1,0 +1,18 @@
+// @spec: SPEC-07-NOMINAL-BIJECT
+// @case: Positive - Stage 10 cross-file packaged nominal brand provider
+{
+  :meta {
+    #name "stage10_brand_provider"
+    #domain "core_test"
+    #kind #DEFS
+  }
+  :defs {
+    :package :com/acme/alpha {
+      :ChannelId { #unsigned #size 16 #minIncl 1 } :Int
+      #ALPHA_CHANNEL :ChannelId 7
+    }
+    :package :com/acme/beta {
+      :ChannelId { #unsigned #size 16 #minIncl 1 } :Int
+    }
+  }
+}

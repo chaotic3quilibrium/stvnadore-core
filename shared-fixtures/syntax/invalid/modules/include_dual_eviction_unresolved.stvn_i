@@ -9,12 +9,12 @@
 
   :defs {
     :include [
-      "./module_dual_a.stvn_di" {
-        :ConflictType :AliasA
-      }
-      "./module_dual_b.stvn_di" {
-        :ConflictType :AliasB
-      }
+      "./module_dual_a.stvn_di"
+      "./module_dual_b.stvn_di"
+    ]
+    :use [
+      :org/example/dual_a { :ConflictType :AliasA }
+      :org/example/dual_b { :ConflictType :AliasB }
     ]
   }
   :type :ConflictType

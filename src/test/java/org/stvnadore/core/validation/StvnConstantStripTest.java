@@ -15,7 +15,7 @@ import java.util.Map;
 class StvnConstantStripTest {
 
   @Test
-  @DisplayName("Bare #strip imports strip constant path up to terminal slash preserving '#' sigil")
+  @DisplayName("Bare #strip on :use strips cross-file constant path up to terminal slash preserving '#' sigil")
   void testBareStripConstantImports(@TempDir Path tempDir) throws IOException {
     Path module = tempDir.resolve("module.stvn_d");
     Files.writeString(module, """
@@ -35,7 +35,8 @@ class StvnConstantStripTest {
             #kind #BODY_INCLUDE
           }
           :defs {
-            :include [ "module.stvn_d" { #strip } ]
+            :include [ "module.stvn_d" ]
+            :use [ :pkg/sub { #strip } ]
           }
           :type :Int
           :body #TIMEOUT
@@ -44,12 +45,12 @@ class StvnConstantStripTest {
     Files.writeString(mainFile, mainContent);
 
     var res = StvnCompiler.compileToResult(mainContent, mainFile.toString());
-    Assertions.assertTrue(res.isSuccess(), "Bare strip must strip #pkg/sub/TIMEOUT to #TIMEOUT: " + res.diagnostics());
+    Assertions.assertTrue(res.isSuccess(), "Bare strip on :use must strip #pkg/sub/TIMEOUT to #TIMEOUT: " + res.diagnostics());
     Assertions.assertNotNull(res.orElseThrow());
   }
 
   @Test
-  @DisplayName("Unary #strip strips all imported constants to terminal identifiers")
+  @DisplayName("Unary #strip across :use targets strips all imported constants to terminal identifiers")
   void testUnaryStripMultipleConstants(@TempDir Path tempDir) throws IOException {
     Path module = tempDir.resolve("module.stvn_d");
     Files.writeString(module, """
@@ -70,7 +71,11 @@ class StvnConstantStripTest {
             #kind #BODY_INCLUDE
           }
           :defs {
-            :include [ "module.stvn_d" { #strip } ]
+            :include [ "module.stvn_d" ]
+            :use [
+              :pkg/sub { #strip }
+              :other { #strip }
+            ]
           }
           :type :Tuple( :Int :Int )
           :body ( #TIMEOUT #RETRIES )
@@ -83,7 +88,7 @@ class StvnConstantStripTest {
   }
 
   @Test
-  @DisplayName("Parameterized #strip fails at syntax gate")
+  @DisplayName("Parameterized #strip on :use fails with ERR_INVALID_METADATA_FACET and { #strip } on :include fails with E002")
   void testParameterizedStripFailsAtSyntaxGate(@TempDir Path tempDir) throws IOException {
     Path module = tempDir.resolve("module.stvn_d");
     Files.writeString(module, """
@@ -103,7 +108,8 @@ class StvnConstantStripTest {
             #kind #BODY_INCLUDE
           }
           :defs {
-            :include [ "module.stvn_d" { #strip "config/db/" } ]
+            :include [ "module.stvn_d" ]
+            :use [ :config/db { #strip "config/db/" } ]
           }
           :type :Int
           :body #POOL_SIZE
@@ -114,7 +120,25 @@ class StvnConstantStripTest {
     var res = StvnCompiler.compileToResult(mainContent, mainFile.toString());
     Assertions.assertFalse(res.isSuccess(), "Parameterized #strip must fail compilation");
     Assertions.assertTrue(res.diagnostics().stream()
-        .anyMatch(d -> "ERR_INVALID_METADATA_FACET".equals(d.errorCode().orElse(null))));
+        .anyMatch(d -> DiagnosticBag.ERR_INVALID_METADATA_FACET.equals(d.errorCode().orElse(null))));
+
+    String prohibitedIncludeStrip = """
+        {
+          :meta {
+            #name "main"
+            #kind #BODY_INCLUDE
+          }
+          :defs {
+            :include [ "module.stvn_d" { #strip } ]
+          }
+          :type :Int
+          :body 10
+        }
+        """;
+    var incRes = StvnCompiler.compileToResult(prohibitedIncludeStrip, mainFile.toString());
+    Assertions.assertFalse(incRes.isSuccess());
+    Assertions.assertTrue(incRes.diagnostics().stream()
+        .anyMatch(d -> "E002".equals(d.canonicalCode().orElse(""))));
   }
 
   @Test
@@ -197,13 +221,14 @@ class StvnConstantStripTest {
   }
 
   @Test
-  @DisplayName("StvnSchemaFlattener strips and emits constants canonically")
+  @DisplayName("StvnSchemaFlattener desugars :use #strip and emits canonical FQNI constants")
   void testFlattenerStripsAndEmitsConstants() {
     Map<String, String> workspace = Map.of(
         "main.stvn_i", """
             {
               :defs {
-                :include [ "net.stvn_d" { #strip } ]
+                :include [ "net.stvn_d" ]
+                :use [ :pkg/net { #strip } ]
                 :App :Tuple( :Port )
               }
               :type :App
@@ -222,9 +247,11 @@ class StvnConstantStripTest {
     );
 
     String flattened = StvnSchemaFlattener.flatten(workspace, "main.stvn_i");
-    Assertions.assertTrue(flattened.contains("#PORT :Int 8080"),
-        "Flattened output must contain stripped #PORT: " + flattened);
-    Assertions.assertTrue(flattened.contains(":Port :Int"),
-        "Flattened output must contain stripped :Port: " + flattened);
+    Assertions.assertTrue(flattened.contains("#pkg/net/PORT :Int 8080"),
+        "Flattened output must contain canonical #pkg/net/PORT: " + flattened);
+    Assertions.assertTrue(flattened.contains(":pkg/net/Port :Int"),
+        "Flattened output must contain canonical :pkg/net/Port: " + flattened);
+    Assertions.assertTrue(flattened.contains(":App :Tuple(:pkg/net/Port)"),
+        "Flattened output must desugar :Port to :pkg/net/Port: " + flattened);
   }
 }

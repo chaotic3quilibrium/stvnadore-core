@@ -882,7 +882,7 @@ public final class StvnSourceFormatter {
           } else {
             sb.append(' ');
           }
-          sb.append(formatIncludeElementInline(elements.get(i)));
+          sb.append(formatStringLiteralText(elements.get(i).stringLiteral()));
         }
         sb.append(" ]");
         lastEmittedLine = rbrack.getLine();
@@ -897,65 +897,12 @@ public final class StvnSourceFormatter {
         sb.append(StvnVocabulary.KEYWORD_INCLUDE)
             .append(" [ ")
             .append(formatStringLiteralText(elem.stringLiteral()));
-        if (elem.includeOptionsBlock() != null) {
-          sb.append(' ').append(formatIncludeOptionsBlockInline(elem.includeOptionsBlock()));
-        }
-        if (elem.includeAliasBlock() != null) {
-          StvnParser.IncludeAliasBlockContext aliasBlock = elem.includeAliasBlock();
-          Token aliasOpen = aliasBlock.LBRACE().getSymbol();
-          Token aliasClose = aliasBlock.RBRACE().getSymbol();
-          sb.append(" {");
-          lastEmittedLine = aliasOpen.getLine();
-
-          boolean emittedAlias = false;
-          List<StvnParser.IncludeMapAliasContext> aliases = aliasBlock.includeMapAlias();
-          int aliasOpenLimit = aliases.isEmpty()
-              ? aliasClose.getTokenIndex()
-              : aliases.get(0).getStart().getTokenIndex();
-          appendTrailingCommentIfOnLine(aliasOpen.getLine(), aliasOpenLimit);
-          for (int i = 0; i < aliases.size(); i++) {
-            StvnParser.IncludeMapAliasContext alias = aliases.get(i);
-            int aliasLimit = (i + 1 < aliases.size())
-                ? aliases.get(i + 1).getStart().getTokenIndex()
-                : aliasClose.getTokenIndex();
-            emittedAlias = flushStandaloneCommentsBefore(
-                alias.getStart().getTokenIndex(),
-                baseIndent + 2,
-                emittedAlias
-            );
-            startNewBlockChildLine(baseIndent + 2, alias.getStart().getLine(), emittedAlias);
-            emittedAlias = true;
-            sb.append(alias.typeKeyword(0).getText())
-                .append(' ')
-                .append(alias.typeKeyword(1).getText());
-            lastEmittedLine = alias.getStop().getLine();
-            appendTrailingCommentIfOnLine(alias.getStop().getLine(), aliasLimit);
-          }
-
-          flushStandaloneCommentsBefore(aliasClose.getTokenIndex(), baseIndent + 2, emittedAlias);
-          boolean sameLineClose = aliasClose.getLine() == rbrack.getLine()
-              && !hasCommentsBetween(aliasClose.getTokenIndex(), rbrack.getTokenIndex());
-          if (sameLineClose) {
-            sb.append('\n').append(indentStr(baseIndent + 1)).append("} ]");
-            lastEmittedLine = rbrack.getLine();
-            appendTrailingCommentIfOnLine(rbrack.getLine(), nextTokenLimit);
-          } else {
-            sb.append('\n').append(indentStr(baseIndent + 1)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
-            lastEmittedLine = aliasClose.getLine();
-            appendTrailingCommentIfOnLine(aliasClose.getLine(), rbrack.getTokenIndex());
-            flushStandaloneCommentsBefore(rbrack.getTokenIndex(), baseIndent + 1, true);
-            sb.append('\n').append(indentStr(baseIndent)).append(StvnVocabulary.DELIM_CLOSE_BRACKET);
-            lastEmittedLine = rbrack.getLine();
-            appendTrailingCommentIfOnLine(rbrack.getLine(), nextTokenLimit);
-          }
-        } else {
-          lastEmittedLine = elem.getStop().getLine();
-          appendTrailingCommentIfOnLine(lastEmittedLine, rbrack.getTokenIndex());
-          flushStandaloneCommentsBefore(rbrack.getTokenIndex(), baseIndent + 1, false);
-          sb.append('\n').append(indentStr(baseIndent)).append(StvnVocabulary.DELIM_CLOSE_BRACKET);
-          lastEmittedLine = rbrack.getLine();
-          appendTrailingCommentIfOnLine(rbrack.getLine(), nextTokenLimit);
-        }
+        lastEmittedLine = elem.getStop().getLine();
+        appendTrailingCommentIfOnLine(lastEmittedLine, rbrack.getTokenIndex());
+        flushStandaloneCommentsBefore(rbrack.getTokenIndex(), baseIndent + 1, false);
+        sb.append('\n').append(indentStr(baseIndent)).append(StvnVocabulary.DELIM_CLOSE_BRACKET);
+        lastEmittedLine = rbrack.getLine();
+        appendTrailingCommentIfOnLine(rbrack.getLine(), nextTokenLimit);
         return;
       }
 
@@ -980,59 +927,8 @@ public final class StvnSourceFormatter {
         emittedElem = true;
 
         sb.append(formatStringLiteralText(elem.stringLiteral()));
-        if (elem.includeOptionsBlock() != null) {
-          sb.append(' ').append(formatIncludeOptionsBlockInline(elem.includeOptionsBlock()));
-        }
-        if (elem.includeAliasBlock() != null) {
-          StvnParser.IncludeAliasBlockContext aliasBlock = elem.includeAliasBlock();
-          Token aliasOpen = aliasBlock.LBRACE().getSymbol();
-          Token aliasClose = aliasBlock.RBRACE().getSymbol();
-          boolean singleLineAlias = aliasOpen.getLine() == aliasClose.getLine()
-              && !hasCommentsBetween(aliasOpen.getTokenIndex(), aliasClose.getTokenIndex());
-          if (singleLineAlias) {
-            sb.append(' ').append(formatIncludeAliasBlockInline(aliasBlock));
-            lastEmittedLine = aliasClose.getLine();
-            appendTrailingCommentIfOnLine(aliasClose.getLine(), elemLimit);
-          } else {
-            sb.append(" {");
-            lastEmittedLine = aliasOpen.getLine();
-
-            boolean emittedAlias = false;
-            List<StvnParser.IncludeMapAliasContext> aliases = aliasBlock.includeMapAlias();
-            int aliasOpenLimit = aliases.isEmpty()
-                ? aliasClose.getTokenIndex()
-                : aliases.get(0).getStart().getTokenIndex();
-            appendTrailingCommentIfOnLine(aliasOpen.getLine(), aliasOpenLimit);
-            for (int i = 0; i < aliases.size(); i++) {
-              StvnParser.IncludeMapAliasContext alias = aliases.get(i);
-              int aliasLimit = (i + 1 < aliases.size())
-                  ? aliases.get(i + 1).getStart().getTokenIndex()
-                  : aliasClose.getTokenIndex();
-              emittedAlias = flushStandaloneCommentsBefore(
-                  alias.getStart().getTokenIndex(),
-                  baseIndent + 2,
-                  emittedAlias
-              );
-              startNewBlockChildLine(baseIndent + 2, alias.getStart().getLine(), emittedAlias);
-              emittedAlias = true;
-              sb.append(alias.typeKeyword(0).getText())
-                  .append(' ')
-                  .append(alias.typeKeyword(1).getText());
-              lastEmittedLine = alias.getStop().getLine();
-              appendTrailingCommentIfOnLine(alias.getStop().getLine(), aliasLimit);
-            }
-
-            flushStandaloneCommentsBefore(aliasClose.getTokenIndex(), baseIndent + 2, emittedAlias);
-            sb.append('\n')
-                .append(indentStr(baseIndent + 1))
-                .append(StvnVocabulary.DELIM_CLOSE_BRACE);
-            lastEmittedLine = aliasClose.getLine();
-            appendTrailingCommentIfOnLine(aliasClose.getLine(), elemLimit);
-          }
-        } else {
-          lastEmittedLine = elem.getStop().getLine();
-          appendTrailingCommentIfOnLine(lastEmittedLine, elemLimit);
-        }
+        lastEmittedLine = elem.getStop().getLine();
+        appendTrailingCommentIfOnLine(lastEmittedLine, elemLimit);
       }
 
       flushStandaloneCommentsBefore(rbrack.getTokenIndex(), baseIndent + 1, emittedElem);
@@ -1083,54 +979,6 @@ public final class StvnSourceFormatter {
         return ctx.typeKeyword(0).getText() + " " + ctx.typeKeyword(1).getText();
       }
       return ctx.valueKeyword(0).getText() + " " + ctx.valueKeyword(1).getText();
-    }
-
-    private String formatIncludeElementInline(StvnParser.IncludeElementContext ctx) {
-      StringBuilder b = new StringBuilder(formatStringLiteralText(ctx.stringLiteral()));
-      if (ctx.includeOptionsBlock() != null) {
-        b.append(' ').append(formatIncludeOptionsBlockInline(ctx.includeOptionsBlock()));
-      }
-      if (ctx.includeAliasBlock() != null) {
-        b.append(' ').append(formatIncludeAliasBlockInline(ctx.includeAliasBlock()));
-      }
-      return b.toString();
-    }
-
-    private static String formatIncludeOptionsBlockInline(StvnParser.IncludeOptionsBlockContext ctx) {
-      List<StvnParser.IncludeOptionContext> opts = ctx.includeOption();
-      if (opts.isEmpty()) {
-        return "{}";
-      }
-      StringBuilder b = new StringBuilder("{ ");
-      for (int i = 0; i < opts.size(); i++) {
-        if (i > 0) {
-          b.append(' ');
-        }
-        b.append(opts.get(i).KW_STRIP().getText());
-        if (opts.get(i).standaloneFacetIllegalArg() != null) {
-          b.append(' ').append(opts.get(i).standaloneFacetIllegalArg().getText());
-        }
-      }
-      b.append(" }");
-      return b.toString();
-    }
-
-    private static String formatIncludeAliasBlockInline(StvnParser.IncludeAliasBlockContext ctx) {
-      List<StvnParser.IncludeMapAliasContext> aliases = ctx.includeMapAlias();
-      if (aliases.isEmpty()) {
-        return "{}";
-      }
-      StringBuilder b = new StringBuilder("{ ");
-      for (int i = 0; i < aliases.size(); i++) {
-        if (i > 0) {
-          b.append(' ');
-        }
-        b.append(aliases.get(i).typeKeyword(0).getText())
-            .append(' ')
-            .append(aliases.get(i).typeKeyword(1).getText());
-      }
-      b.append(" }");
-      return b.toString();
     }
 
     private void formatTypeDefinition(

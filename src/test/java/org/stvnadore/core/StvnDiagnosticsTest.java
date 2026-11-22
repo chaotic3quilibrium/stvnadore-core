@@ -802,25 +802,50 @@ public class StvnDiagnosticsTest {
     Assertions.assertFalse(result.isSuccess());
     var diag = result.diagnostics().getFirst();
     Assertions.assertEquals(DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK, diag.errorCode().orElse(""));
-    Assertions.assertTrue(diag.message().contains("Empty directive block in :use or :include statement is invalid"));
+    Assertions.assertTrue(diag.message().contains("Empty directive block in :use statement is invalid"));
   }
 
   @Test
-  @DisplayName("Tolerant parsing: Empty directive block in :include emits ERR_EMPTY_DIRECTIVE_BLOCK")
+  @DisplayName("Pure :include ingestion: Prohibited { ... } blocks in :include emit E002 STE error without :defs collapse")
   void testEmptyDirectiveBlockInIncludeEmitsSemanticError() {
     String input = """
         {
           :defs {
             :include [ "common.stvn_d" {} ]
+            :include [ "net.stvn_d" { #strip } ]
+            :include [ "types.stvn_d" { :Old :New } ]
+            :LocalHealthy :Int
           }
-          :type :String
-          :body "val"
+          :type :LocalHealthy
+          :body 7
         }
         """;
-    var result = StvnCompiler.compileToResult(input);
+    var result = StvnCompiler.compileToResult(input, "test.stvn_i", StvnParserConfig.DEFAULT);
     Assertions.assertFalse(result.isSuccess());
-    var diag = result.diagnostics().getFirst();
-    Assertions.assertEquals(DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK, diag.errorCode().orElse(""));
+    var syntaxDiags = result.diagnostics().stream()
+        .filter(d -> "E002".equals(d.canonicalCode().orElse("")))
+        .toList();
+    Assertions.assertEquals(3, syntaxDiags.size(), () -> "Expected 3 E002 errors on prohibited :include blocks: " + result.diagnostics());
+    for (var d : syntaxDiags) {
+      Assertions.assertEquals("STVN_SYNTAX_ERROR", d.symbolicId().orElse(""));
+      Assertions.assertEquals(
+          "STVN Syntax Error: ':include' accepts only module path string literals; use ':package' and ':use' for '#strip' or symbol aliasing",
+          d.message()
+      );
+    }
+    Assertions.assertTrue(
+        result.diagnostics().stream().noneMatch(d -> d.message().contains("Undefined type: :LocalHealthy")),
+        () -> ":defs closing brace must remain intact so :LocalHealthy resolves cleanly: " + result.diagnostics()
+    );
+
+    var strictResult = StvnCompiler.compileToResult(input, "test.stvn_i", StvnParserConfig.STRICT);
+    Assertions.assertFalse(strictResult.isSuccess());
+    var strictDiag = strictResult.diagnostics().getFirst();
+    Assertions.assertEquals("E002", strictDiag.canonicalCode().orElse(""));
+    Assertions.assertEquals("STVN_SYNTAX_ERROR", strictDiag.symbolicId().orElse(""));
+    int openBrace = input.indexOf("{}");
+    Assertions.assertEquals(openBrace, strictDiag.startOffset());
+    Assertions.assertEquals(openBrace + 2, strictDiag.endOffset());
   }
 
   @Test

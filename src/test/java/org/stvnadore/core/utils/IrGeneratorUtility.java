@@ -402,7 +402,8 @@ public final class IrGeneratorUtility {
     sb.append("    #kind #BODY_INCLUDE\n");
     sb.append("  }\n");
     sb.append("  :defs {\n");
-    sb.append("    :include [ \"").append(escapeString(relativeSubstratePath)).append("\" { #strip } ]\n");
+    sb.append("    :include [ \"").append(escapeString(relativeSubstratePath)).append("\" ]\n");
+    sb.append("    :use [ :org/stvnadore/ir { #strip } ]\n");
     sb.append("  }\n");
     sb.append("  :type :IrSnapshotDocument\n");
     sb.append("  :body (\n");

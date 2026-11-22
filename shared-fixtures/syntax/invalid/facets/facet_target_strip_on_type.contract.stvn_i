@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 7 20 181 187 "Constraint violation (:IllegalType): directive facet '#strip' is not permitted on type declarations; directive facets are valid strictly in :use and :include blocks" )
+    ( #E008 #ERR_INVALID_METADATA_FACET #ERROR 7 20 181 187 "Constraint violation (:IllegalType): directive facet '#strip' is not permitted on type declarations; directive facets are valid strictly in :use blocks" )
   ]
 }

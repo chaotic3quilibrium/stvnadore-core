@@ -6,7 +6,8 @@
     #kind #BODY_INCLUDE
   }
   :defs {
-    :include [ "network_service.stvn_di" { :net/http/Status :HttpStatus :net/http/Header :HttpHeader } ]
+    :include [ "network_service.stvn_di" ]
+    :use [ :net/http { :Status :HttpStatus :Header :HttpHeader } ]
 
     :app/v1/Response :Tuple( :HttpStatus :HttpHeader )
   }

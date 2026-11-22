@@ -5,8 +5,12 @@
   }
   :defs {
     :include [
-      "../../invalid/modules/module_dual_a.stvn_di" { :ConflictType :RecordA }
-      "../../invalid/modules/module_dual_b.stvn_di" { :ConflictType :RecordB }
+      "../../invalid/modules/module_dual_a.stvn_di"
+      "../../invalid/modules/module_dual_b.stvn_di"
+    ]
+    :use [
+      :org/example/dual_a { :ConflictType :RecordA }
+      :org/example/dual_b { :ConflictType :RecordB }
     ]
     :MergedPair :Tuple( :RecordA :RecordB )
   }

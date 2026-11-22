@@ -1,0 +1,35 @@
+// Pure :include ingestion formatting quartet (single-line and multi-line comment preservation)
+{
+  :meta {
+    #name "20_multiline_pure_include_and_comments"
+    #domain "core_fmt"
+    #kind #BODY_INCLUDE
+  }
+
+  :defs {
+    // Single-line pure :include with trailing comment
+    :include [ "08_schema_defs_module.core_fmt.stvn_d" ] // Primary schema module
+
+    // Multi-line Layout 2 pure :include with standalone and trailing comments
+    :include [ // Open multi-line include list
+      // Network primitives module path
+      "../../syntax/valid/modules/network_primitives.stvn_d" // Trailing path comment
+    ] // Close multi-line include list
+
+    :package :com/acme/gateway {
+      :GatewayRoute :Tuple(:Identifier :HostName :Port :Protocol :TimeoutMs)
+    }
+
+    :use [ :com/acme/gateway { :GatewayRoute :ActiveRoute } ]
+  }
+
+  :type :ActiveRoute
+
+  :body (
+    "edge_node_01"
+    "api.internal"
+    8443
+    #HTTPS
+    #DEFAULT_TIMEOUT_MS
+  )
+}

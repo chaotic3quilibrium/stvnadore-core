@@ -1,0 +1,35 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Positive - Stage 10C diamond modular :include + :package + :use conformance
+{
+  :meta {
+    #name "stage10c_diamond_mission"
+    #domain "core_test"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [
+      "stage10a_deep_telemetry.core_test.stvn_d"
+      "stage10b_nav_bridge.core_test.stvn_di"
+    ]
+
+    :use [
+      :com/acme/telemetry {
+        :CoordFix :TelemetryFix
+        #DEEP_TEST_FIX #LOCAL_DEEP_FIX
+      }
+      :com/acme/nav {
+        :Waypoint :MissionWaypoint
+        #HOME_WAYPOINT #PRIMARY_HOME_WAYPOINT
+      }
+    ]
+
+    :MissionEnvelope :Tuple(:TelemetryFix :MissionWaypoint)
+  }
+
+  :type :MissionEnvelope
+
+  :body (
+    #LOCAL_DEEP_FIX
+    #PRIMARY_HOME_WAYPOINT
+  )
+}

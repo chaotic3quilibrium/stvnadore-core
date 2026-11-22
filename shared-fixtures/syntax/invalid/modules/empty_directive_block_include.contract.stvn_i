@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E004 #ERR_EMPTY_DIRECTIVE_BLOCK #ERROR 12 39 292 294 "Empty directive block in :use or :include statement is invalid; specify {#strip}, alias mappings, or remove '{}'" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 12 39 292 294 "STVN Syntax Error: ':include' accepts only module path string literals; use ':package' and ':use' for '#strip' or symbol aliasing" )
   ]
 }

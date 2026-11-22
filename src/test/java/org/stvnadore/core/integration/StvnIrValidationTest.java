@@ -929,6 +929,23 @@ public class StvnIrValidationTest {
   }
 
   @Test
+  @DisplayName("Stage 10A-10C diamond modular :include + :package + :use evaluates #DEEP_TEST_FIX and #HOME_WAYPOINT cleanly")
+  public void testStage10DiamondIncludePackageUseSuite() throws Exception {
+    Path stage10cPath = StvnProjectPaths.resolve(
+        "shared-fixtures", "syntax", "valid", "modules", "stage10c_diamond_mission.core_test.stvn_i"
+    );
+    String input = Files.readString(stage10cPath, StandardCharsets.UTF_8);
+    var result = StvnCompiler.compile(input, stage10cPath.toString(), StvnParserConfig.STRICT);
+    Assertions.assertFalse(result.hasErrors(), () -> "Expected 0 errors in Stage 10C diamond mission: " + result.diagnostics());
+    Assertions.assertTrue(result.diagnostics().isEmpty(), () -> "Expected 0 warnings in Stage 10C diamond mission: " + result.diagnostics());
+    var doc = result.document().orElseThrow();
+    String compact = org.stvnadore.core.printer.AstCompactPrinter.print(doc);
+    Assertions.assertTrue(compact.contains("37.7749"), () -> "Expected #DEEP_TEST_FIX latitude in payload: " + compact);
+    Assertions.assertTrue(compact.contains("-122.4194"), () -> "Expected #DEEP_TEST_FIX longitude in payload: " + compact);
+    Assertions.assertTrue(compact.contains("\"BASE_ALPHA\""), () -> "Expected #HOME_WAYPOINT label in payload: " + compact);
+  }
+
+  @Test
   @DisplayName("TC-IR-TUPLE-01: Tuple arity mismatch throws MalformedPayloadException with pinned coordinates")
   void testTupleArityMismatchCoordinatesInStrictCompile() {
     String underflow = """

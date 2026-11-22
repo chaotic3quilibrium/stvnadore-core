@@ -498,6 +498,12 @@ public final class StvnSyntaxErrorSanitizer {
             }
           }
 
+          // Pin prohibited '{ ... }' options/alias block inside ':include [ ... ]' across balanced braces
+          RuleContext checkCtx = e != null && e.getCtx() != null ? e.getCtx() : parser.getContext();
+          if (token.getType() == StvnLexer.LBRACE && isInsideIncludeStmt(checkCtx)) {
+            endOffset = findBalancedIncludeBraceEnd(stream, token.getTokenIndex(), endOffset);
+          }
+
           // Pin unclosed / mismatched fenced string at EOF back to FENCE_START
           if (offendingToken != null && offendingToken.getType() == Token.EOF) {
             IntervalSet expected = e != null ? e.getExpectedTokens() : parser.getExpectedTokens();
@@ -711,6 +717,10 @@ public final class StvnSyntaxErrorSanitizer {
             + StvnVocabulary.KEYWORD_BODY + "' (canonical order: "
             + StvnVocabulary.KEYWORD_META + " -> " + StvnVocabulary.KEYWORD_DEFS + " -> "
             + StvnVocabulary.KEYWORD_TYPE + " -> " + StvnVocabulary.KEYWORD_BODY + ")";
+      }
+
+      if (tokenType == StvnLexer.LBRACE && isInsideIncludeStmt(ctx)) {
+        return StvnErrorStrategy.buildProhibitedIncludeBlockCoreMessage();
       }
 
       boolean inCollectionLiteral = isInCollectionLiteral(ctx);
@@ -1351,5 +1361,52 @@ public final class StvnSyntaxErrorSanitizer {
       }
     }
     return null;
+  }
+
+  private static boolean isInsideIncludeStmt(@Nullable RuleContext ctx) {
+    for (RuleContext curr = ctx; curr != null; curr = curr.parent) {
+      if (curr instanceof StvnParser.IncludeStmtContext) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static int findBalancedIncludeBraceEnd(TokenStream stream, int openTokenIdx, int fallbackEnd) {
+    if (stream instanceof CommonTokenStream cts) {
+      cts.fill();
+    }
+    if (openTokenIdx < 0 || openTokenIdx >= stream.size()) {
+      return fallbackEnd;
+    }
+    Token openTok = stream.get(openTokenIdx);
+    if (openTok.getType() != StvnLexer.LBRACE) {
+      return fallbackEnd;
+    }
+    int depth = 1;
+    int lastStop = Math.max(fallbackEnd, openTok.getStopIndex() + 1);
+    for (int i = openTokenIdx + 1; i < stream.size(); i++) {
+      Token t = stream.get(i);
+      if (t.getChannel() != Token.DEFAULT_CHANNEL) {
+        continue;
+      }
+      int type = t.getType();
+      if (type == Token.EOF || StvnErrorStrategy.isTopLevelKeyword(t)) {
+        break;
+      }
+      if (type == StvnLexer.RBRACK && depth == 1) {
+        break;
+      }
+      lastStop = Math.max(lastStop, t.getStopIndex() + 1);
+      if (type == StvnLexer.LBRACE) {
+        depth++;
+      } else if (type == StvnLexer.RBRACE) {
+        depth--;
+        if (depth == 0) {
+          return lastStop;
+        }
+      }
+    }
+    return lastStop;
   }
 }

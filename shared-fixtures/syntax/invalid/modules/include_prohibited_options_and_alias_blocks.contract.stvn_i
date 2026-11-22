@@ -1,0 +1,16 @@
+{
+  :meta {
+    #name "include_prohibited_options_and_alias_blocks"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 10 79 346 356 "STVN Syntax Error: ':include' accepts only module path string literals; use ':package' and ':use' for '#strip' or symbol aliasing" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 11 64 422 442 "STVN Syntax Error: ':include' accepts only module path string literals; use ':package' and ':use' for '#strip' or symbol aliasing" )
+    ( #E002 #STVN_SYNTAX_ERROR #ERROR 12 78 522 524 "STVN Syntax Error: ':include' accepts only module path string literals; use ':package' and ':use' for '#strip' or symbol aliasing" )
+  ]
+}

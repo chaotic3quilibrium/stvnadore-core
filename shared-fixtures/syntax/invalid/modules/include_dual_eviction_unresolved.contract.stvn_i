@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E030 #UNDEFINED_TYPE #ERROR 20 9 397 410 "Undefined type: :ConflictType" )
+    ( #E030 #UNDEFINED_TYPE #ERROR 20 9 438 451 "Undefined type: :ConflictType" )
   ]
 }

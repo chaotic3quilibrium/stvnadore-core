@@ -91,5 +91,4 @@ Position	Category	Modifying	Tag Name	Parameter Kind	Parameter Range	Default	Over
 2.2	Trait	:Map	comparable	:Boolean	#F|#T|#FALSE|#TRUE	#FALSE	Yes	N/A	Opt-in comparison (disabled by default; unordered maps lack natural total ordering)
 2.1	Trait	:Map (invertible)	equatable	:Boolean	#F|#T|#FALSE|#TRUE	Derived	Yes	N/A	Enables dual-set bijection equality comparison (both keys and values must resolve to #equatable #TRUE)
 2.2	Trait	:Map (invertible)	comparable	:Boolean	#F|#T|#FALSE|#TRUE	#FALSE	Yes	N/A	Opt-in comparison (disabled by default; unordered invertible maps lack natural total ordering)
-5	Directive	:include	strip	Standalone	N/A	<None>	No	N/A	Terminal segment slicing; strips package prefixes from imported identifiers upon ingestion
 5	Directive	:use	strip	Standalone	N/A	<None>	No	N/A	Terminal segment slicing; strips package prefix for local unqualified access within scope

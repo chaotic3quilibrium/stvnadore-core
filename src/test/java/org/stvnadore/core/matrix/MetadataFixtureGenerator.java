@@ -32,7 +32,7 @@ public final class MetadataFixtureGenerator {
 
   /**
    * Set of TSV type/tag combinations prohibited by the current compiler implementation.
-   * Empty in STVN 2.0.0 as all 94 matrix rows are fully permitted and supported.
+   * Empty in STVN 2.0.0 as all 93 matrix rows are fully permitted and supported.
    */
   public static final Set<String> PROHIBITED_MATRIX_FACETS = Set.of();
 
@@ -263,7 +263,6 @@ public final class MetadataFixtureGenerator {
 
   /**
    * Generates isolated valid fixtures for all permitted matrix rows.
-   * Also generates the supporting include helper fixture {@code empty_module.stvn_d}.
    *
    * @param rows parsed canonical matrix rows
    * @return list of isolated valid fixtures
@@ -271,39 +270,12 @@ public final class MetadataFixtureGenerator {
   public static List<GeneratedFixture> generateIsolatedValidFixtures(List<MetadataMatrixRow> rows) {
     List<GeneratedFixture> list = new ArrayList<>();
 
-    // Supporting include module fixture
-    String helperContent = """
-        // ==============================================================================
-        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
-        // ==============================================================================
-        // FIXTURE-ID:         empty_module
-        // COVERAGE-KIND:      ISOLATED_VALID
-        // DESCRIPTION:        Helper include module declaring a nominal type for :include
-        // ==============================================================================
-        {
-          :meta {
-            #name "empty_module"
-            #kind #DEFS_INCLUDE
-          }
-          :defs {
-            :IncludeType :Int
-          }
-        }
-        """;
-    list.add(new GeneratedFixture(
-        Path.of("valid", "isolated", "empty_module.stvn_di"),
-        helperContent,
-        CoverageKind.ISOLATED_VALID,
-        Optional.empty(),
-        Optional.empty()
-    ));
-
     for (MetadataMatrixRow row : rows) {
       String key = row.cleanBaseType() + "/" + row.tagName();
       if (PROHIBITED_MATRIX_FACETS.contains(key)) {
         continue;
       }
-      if (row.cleanBaseType().startsWith(":include") || row.cleanBaseType().startsWith(":use")) {
+      if (row.cleanBaseType().startsWith(":use")) {
         list.add(generateDirectiveIsolatedFixture(row));
       } else {
         list.add(generateTypeIsolatedFixture(row));
@@ -619,23 +591,13 @@ public final class MetadataFixtureGenerator {
   }
 
   private static GeneratedFixture generateDirectiveIsolatedFixture(MetadataMatrixRow row) {
-    boolean isInclude = row.cleanBaseType().contains("include");
-    String ext = isInclude ? ".stvn_i" : ".stvn";
-    String fileName = "val_iso_" + sanitizeName(row.cleanBaseType()) + "_" + sanitizeName(row.tagName()) + ext;
+    String fileName = "val_iso_" + sanitizeName(row.cleanBaseType()) + "_" + sanitizeName(row.tagName()) + ".stvn";
     Path relPath = Path.of("valid", "isolated", fileName);
 
-    String defsContent = isInclude
-        ? "    :include [ \"empty_module.stvn_di\" { #strip } ]"
-        : "    :package :PkgA { :TestedType :Int }\n    :use [ :PkgA { #strip } ]";
-    String testedType = isInclude ? ":IncludeType" : ":TestedType";
+    String defsContent = "    :package :PkgA { :TestedType :Int }\n    :use [ :PkgA { #strip } ]";
+    String testedType = ":TestedType";
     String bodyVal = "42";
-    String fixtureId = fileName.replace(".stvn_i", "").replace(".stvn", "");
-    String metaBlock = isInclude ? """
-          :meta {
-            #name "%s"
-            #kind #BODY_INCLUDE
-          }
-        """.formatted(fixtureId) : "";
+    String fixtureId = fileName.replace(".stvn", "");
 
     String content = """
         // ==============================================================================
@@ -650,7 +612,7 @@ public final class MetadataFixtureGenerator {
         // DESCRIPTION:        %s
         // ==============================================================================
         {
-        %s  :defs {
+          :defs {
         %s
           }
           :type %s
@@ -662,7 +624,6 @@ public final class MetadataFixtureGenerator {
         row.modifying(),
         row.tagName(),
         row.description(),
-        metaBlock,
         defsContent,
         testedType,
         bodyVal

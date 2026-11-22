@@ -1,0 +1,17 @@
+// @spec: SPEC-09-MODULES-INCLUDES
+// @case: Negative - Reject prohibited options and alias blocks inside :include without :defs collapse
+{
+  :meta {
+    #name "include_prohibited_options_and_alias_blocks"
+    #domain "core_test"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../valid/modules/stage10a_deep_telemetry.core_test.stvn_d" { #strip } ]
+    :include [ "../../valid/modules/network_primitives.stvn_d" { :Port :LocalPort } ]
+    :include [ "../../valid/modules/stage10_brand_provider.core_test.stvn_d" {} ]
+    :LocalHealthyType :Int
+  }
+  :type :LocalHealthyType
+  :body 42
+}

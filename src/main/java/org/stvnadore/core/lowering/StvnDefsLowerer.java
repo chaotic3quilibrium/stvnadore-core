@@ -1349,7 +1349,7 @@ public final class StvnDefsLowerer {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): directive facet '" + StvnVocabulary.FACET_KW_STRIP
                   + "' is not permitted on type declarations; directive facets are valid strictly in "
-                  + StvnVocabulary.KEYWORD_USE + " and " + StvnVocabulary.KEYWORD_INCLUDE + " blocks",
+                  + StvnVocabulary.KEYWORD_USE + " blocks",
               entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
               DiagnosticBag.ERR_INVALID_METADATA_FACET
           );
@@ -2500,7 +2500,9 @@ public final class StvnDefsLowerer {
         Span docSpan = Span.ofContext(doc);
         List<String> uniqueCollisions = new ArrayList<>(new LinkedHashSet<>(collisions));
         for (int i = 0; i < uniqueCollisions.size(); i++) {
-          String msg = "Namespace collision(s) detected: " + uniqueCollisions;
+          String msg = "Namespace collision(s) detected: " + uniqueCollisions
+              + "; enclose module declarations in '" + StvnVocabulary.KEYWORD_PACKAGE
+              + "' and disambiguate local symbols with '" + StvnVocabulary.KEYWORD_USE + "'";
           diagnosticBag.addError(
               msg,
               docSpan.start(), docSpan.end(), docSpan.line(), docSpan.column(),
@@ -2853,8 +2855,9 @@ public final class StvnDefsLowerer {
         if (useElem.useOptionsBlock().useOption().isEmpty()) {
           Span sp = Span.ofContext(useElem.useOptionsBlock());
           diagnosticBag.addError(
-              "Empty directive block in " + StvnVocabulary.KEYWORD_USE + " or "
-                  + StvnVocabulary.KEYWORD_INCLUDE + " statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
+              "Empty directive block in " + StvnVocabulary.KEYWORD_USE
+                  + " statement is invalid; specify {" + StvnVocabulary.FACET_KW_STRIP
+                  + "}, alias mappings, or remove '{}'",
               sp.start(), sp.end(), sp.line(), sp.column(), null,
               DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
           );
@@ -2869,8 +2872,9 @@ public final class StvnDefsLowerer {
       if (useElem.useAliasBlock() != null && useElem.useAliasBlock().useMapAlias().isEmpty()) {
         Span sp = Span.ofContext(useElem.useAliasBlock());
         diagnosticBag.addError(
-            "Empty directive block in " + StvnVocabulary.KEYWORD_USE + " or "
-                + StvnVocabulary.KEYWORD_INCLUDE + " statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
+            "Empty directive block in " + StvnVocabulary.KEYWORD_USE
+                + " statement is invalid; specify {" + StvnVocabulary.FACET_KW_STRIP
+                + "}, alias mappings, or remove '{}'",
             sp.start(), sp.end(), sp.line(), sp.column(), null,
             DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
         );
@@ -2985,41 +2989,10 @@ public final class StvnDefsLowerer {
           );
         }
 
-        boolean hasIllegalOptionArg = false;
-        if (element.includeOptionsBlock() != null) {
-          if (element.includeOptionsBlock().includeOption().isEmpty()) {
-            Span sp = Span.ofContext(element.includeOptionsBlock());
-            diagnosticBag.addError(
-                "Empty directive block in " + StvnVocabulary.KEYWORD_USE + " or "
-                    + StvnVocabulary.KEYWORD_INCLUDE + " statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
-                sp.start(), sp.end(), sp.line(), sp.column(), null,
-                DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
-            );
-          } else {
-            for (var opt : element.includeOptionsBlock().includeOption()) {
-              if (opt.standaloneFacetIllegalArg() != null) {
-                reportStandaloneFacetIllegalArg(StvnVocabulary.FACET_KW_STRIP, opt.standaloneFacetIllegalArg());
-                hasIllegalOptionArg = true;
-              }
-            }
-          }
-          StvnPayloadLowerer.scanLexicalSimpleStringEscapesInSubtree(element.includeOptionsBlock(), diagnosticBag);
-        }
-        if (element.includeAliasBlock() != null) {
-          if (element.includeAliasBlock().includeMapAlias().isEmpty()) {
-            Span sp = Span.ofContext(element.includeAliasBlock());
-            diagnosticBag.addError(
-                "Empty directive block in " + StvnVocabulary.KEYWORD_USE + " or "
-                    + StvnVocabulary.KEYWORD_INCLUDE + " statement is invalid; specify {#strip}, alias mappings, or remove '{}'",
-                sp.start(), sp.end(), sp.line(), sp.column(), null,
-                DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
-            );
-          }
-          StvnPayloadLowerer.scanLexicalSimpleStringEscapesInSubtree(element.includeAliasBlock(), diagnosticBag);
-        }
         if (hermeticBlocked
-            || hasIllegalOptionArg
             || element.stringLiteral() == null
+            || element.stringLiteral().getStart() == null
+            || element.stringLiteral().getStart().getStartIndex() < 0
             || element.stringLiteral() instanceof StvnParser.StringMalformedFencedContext
             || decodedPathOpt.isEmpty()) {
           this.anyIncludeFailed = true;
@@ -3137,7 +3110,7 @@ public final class StvnDefsLowerer {
             var childListener = StvnErrorListener.accumulating(childBag);
             lexer.addErrorListener(childListener);
             parser.addErrorListener(childListener);
-            parser.setErrorHandler(new StvnErrorStrategy());
+            parser.setErrorHandler(new StvnErrorStrategy(childBag));
 
             StvnParser.StvnDocumentContext importedDocCtx = parser.stvnDocument();
             StvnSyntaxErrorSanitizer.scanMalformedFenceTokens(childTokens, parser, childBag, false);
@@ -3261,7 +3234,7 @@ public final class StvnDefsLowerer {
             var childListener = StvnErrorListener.accumulating(childBag);
             lexer.addErrorListener(childListener);
             parser.addErrorListener(childListener);
-            parser.setErrorHandler(new StvnErrorStrategy());
+            parser.setErrorHandler(new StvnErrorStrategy(childBag));
 
             StvnParser.StvnDocumentContext importedDocCtx = parser.stvnDocument();
             StvnSyntaxErrorSanitizer.scanMalformedFenceTokens(childTokens, parser, childBag, false);
@@ -3308,7 +3281,6 @@ public final class StvnDefsLowerer {
 
         projectIncludedModule(
             importedUnit,
-            element,
             typeClaims,
             constClaims,
             packagedTypeClaims,
@@ -3319,110 +3291,27 @@ public final class StvnDefsLowerer {
 
     private void projectIncludedModule(
         CompiledUnit importedUnit,
-        StvnParser.IncludeElementContext element,
         Map<String, List<ScopeClaim<ExportedTypeSymbol>>> typeClaims,
         Map<String, List<ScopeClaim<ExportedConstantSymbol>>> constClaims,
         Map<String, List<ScopeClaim<ExportedTypeSymbol>>> packagedTypeClaims,
         Map<String, List<ScopeClaim<ExportedConstantSymbol>>> packagedConstClaims
     ) {
-      boolean hasStrip = element.includeOptionsBlock() != null
-          && element.includeOptionsBlock().includeOption().stream().anyMatch(o -> o.KW_STRIP() != null);
-
-      Map<String, String> aliasMap = new LinkedHashMap<>();
-      if (element.includeAliasBlock() != null && element.includeAliasBlock().includeMapAlias() != null) {
-        for (var alias : element.includeAliasBlock().includeMapAlias()) {
-          if (alias.typeKeyword(0) != null && alias.typeKeyword(1) != null) {
-            aliasMap.put(alias.typeKeyword(0).getText(), alias.typeKeyword(1).getText());
-          }
-        }
-      }
-
-      Map<String, String> includeRenames = new LinkedHashMap<>();
-      for (String exportedKey : importedUnit.exportedTypes().keySet()) {
-        String strippedKey = sliceTerminal(exportedKey);
-        if (aliasMap.containsKey(exportedKey)) {
-          includeRenames.put(exportedKey, aliasMap.get(exportedKey));
-        } else if (hasStrip && aliasMap.containsKey(strippedKey)) {
-          includeRenames.put(exportedKey, aliasMap.get(strippedKey));
-        } else if (hasStrip && exportedKey.contains("/")) {
-          includeRenames.put(exportedKey, strippedKey);
-        }
-      }
-
       for (var entry : importedUnit.exportedTypes().entrySet()) {
         String originalFqni = entry.getKey();
         ExportedTypeSymbol sym = entry.getValue();
-        boolean isPackaged = originalFqni.contains("/");
-        String stripped = sliceTerminal(originalFqni);
-        StvnSchema baseSymSchema = includeRenames.isEmpty()
-            ? sym.schema()
-            : rewriteNestedChildAliases(sym.schema(), includeRenames);
-        ExportedTypeSymbol effectiveSym = baseSymSchema == sym.schema()
-            ? sym
-            : new ExportedTypeSymbol(sym.canonicalFqni(), baseSymSchema, sym.ledger(), sym.originModuleKey());
-
-        if (aliasMap.containsKey(originalFqni) || (hasStrip && aliasMap.containsKey(stripped))) {
-          String aliasRhs = aliasMap.containsKey(originalFqni)
-              ? aliasMap.get(originalFqni)
-              : aliasMap.get(stripped);
-          ExportedTypeSymbol projected = new ExportedTypeSymbol(
-              aliasRhs,
-              rebrandSchema(baseSymSchema, Optional.of(aliasRhs)),
-              sym.ledger(),
-              sym.originModuleKey()
-          );
-          Map<String, List<ScopeClaim<ExportedTypeSymbol>>> dest =
-              aliasRhs.contains("/") ? packagedTypeClaims : typeClaims;
-          dest.computeIfAbsent(aliasRhs, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(aliasRhs, projected, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RENAMED_IMPORT_RHS));
-          // Note: originalFqni is intentionally evicted from this include projection per Appendix F Scenarios 2 & 3!
-        } else if (isPackaged && hasStrip) {
-          ExportedTypeSymbol strippedSym = new ExportedTypeSymbol(
-              stripped,
-              rebrandSchema(baseSymSchema, Optional.of(stripped)),
-              sym.ledger(),
-              sym.originModuleKey()
-          );
-          typeClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(stripped, strippedSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
-        } else if (isPackaged) {
-          // Retain full FQNI in packagedImportPool for qualified :pkg/Name and :use [ :pkg ... ]
-          packagedTypeClaims.computeIfAbsent(originalFqni, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(originalFqni, effectiveSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
-        } else {
-          typeClaims.computeIfAbsent(originalFqni, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(originalFqni, effectiveSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
-        }
+        Map<String, List<ScopeClaim<ExportedTypeSymbol>>> dest =
+            originalFqni.contains("/") ? packagedTypeClaims : typeClaims;
+        dest.computeIfAbsent(originalFqni, k -> new ArrayList<>())
+            .add(new ScopeClaim<>(originalFqni, sym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
       }
 
       for (var entry : importedUnit.exportedConstants().entrySet()) {
         String originalFqni = entry.getKey();
         ExportedConstantSymbol sym = entry.getValue();
-        boolean isPackaged = originalFqni.contains("/");
-        String stripped = sliceTerminal(originalFqni);
-        ExportedConstantSymbol effectiveConstSym = sym;
-        if (!includeRenames.isEmpty()) {
-          StvnSchema rewrittenConstSchema = rewriteSchemaAliasesRecursive(sym.constant().schema(), includeRenames, true);
-          if (rewrittenConstSchema != sym.constant().schema()) {
-            String targetConstFqni = isPackaged && hasStrip ? stripped : sym.canonicalFqni();
-            effectiveConstSym = new ExportedConstantSymbol(
-                targetConstFqni,
-                new StvnDefsCatalog.StvnConstant(targetConstFqni, rewrittenConstSchema, sym.constant().value()),
-                sym.originModuleKey()
-            );
-          }
-        }
-
-        if (isPackaged && hasStrip) {
-          constClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(stripped, effectiveConstSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
-        } else if (isPackaged) {
-          packagedConstClaims.computeIfAbsent(originalFqni, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(originalFqni, effectiveConstSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
-        } else {
-          constClaims.computeIfAbsent(originalFqni, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(originalFqni, effectiveConstSym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
-        }
+        Map<String, List<ScopeClaim<ExportedConstantSymbol>>> dest =
+            originalFqni.contains("/") ? packagedConstClaims : constClaims;
+        dest.computeIfAbsent(originalFqni, k -> new ArrayList<>())
+            .add(new ScopeClaim<>(originalFqni, sym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
       }
     }
 
@@ -3609,7 +3498,9 @@ public final class StvnDefsLowerer {
         Span docSpan = Span.ofContext(doc);
         List<String> uniqueCols = new ArrayList<>(new LinkedHashSet<>(scopeCollisions));
         for (int i = 0; i < uniqueCols.size(); i++) {
-          String msg = "Namespace collision(s) detected: " + uniqueCols;
+          String msg = "Namespace collision(s) detected: " + uniqueCols
+              + "; enclose module declarations in '" + StvnVocabulary.KEYWORD_PACKAGE
+              + "' and disambiguate local symbols with '" + StvnVocabulary.KEYWORD_USE + "'";
           diagnosticBag.addError(
               msg,
               docSpan.start(), docSpan.end(), docSpan.line(), docSpan.column(),
@@ -3712,120 +3603,6 @@ public final class StvnDefsLowerer {
         case StvnSchema.PoisonedSchema s -> new StvnSchema.PoisonedSchema(
             newAliasName, s.primaryDiagnosticCode(), s.bestEffortFallback(), s.traits()
         );
-      };
-    }
-
-    static StvnSchema rewriteNestedChildAliases(StvnSchema schema, Map<String, String> renames) {
-      if (renames.isEmpty()) {
-        return schema;
-      }
-      return rewriteSchemaAliasesRecursive(schema, renames, false);
-    }
-
-    private static StvnSchema rewriteSchemaAliasesRecursive(
-        StvnSchema schema,
-        Map<String, String> renames,
-        boolean rewriteTopAlias
-    ) {
-      Optional<String> effectiveAlias = schema.aliasName();
-      if (rewriteTopAlias && effectiveAlias.isPresent() && renames.containsKey(effectiveAlias.get())) {
-        effectiveAlias = Optional.of(renames.get(effectiveAlias.get()));
-      }
-      return switch (schema) {
-        case StvnSchema.BooleanSchema s -> effectiveAlias.equals(s.aliasName())
-            ? s
-            : new StvnSchema.BooleanSchema(effectiveAlias, s.traits());
-        case StvnSchema.IntSchema s -> effectiveAlias.equals(s.aliasName())
-            ? s
-            : new StvnSchema.IntSchema(
-                effectiveAlias, s.unsigned(), s.bitWidth(), s.traits(), s.explicitMinIncl(), s.explicitMaxExcl()
-            );
-        case StvnSchema.FloatSchema s -> effectiveAlias.equals(s.aliasName())
-            ? s
-            : new StvnSchema.FloatSchema(
-                effectiveAlias, s.representation(), s.exactMaxDigits(), s.traits(), s.lowerBound(), s.upperBound()
-            );
-        case StvnSchema.StringSchema s -> effectiveAlias.equals(s.aliasName())
-            ? s
-            : new StvnSchema.StringSchema(
-                effectiveAlias, s.minSize(), s.maxSize(), s.traits(), s.lowerBound(), s.upperBound(),
-                s.preserveIndent(), s.compiledRegex(), s.rawRegexPattern()
-            );
-        case StvnSchema.TimeEpochSchema s -> effectiveAlias.equals(s.aliasName())
-            ? s
-            : new StvnSchema.TimeEpochSchema(
-                effectiveAlias, s.scale(), s.traits(), s.explicitMinIncl(), s.explicitMaxExcl()
-            );
-        case StvnSchema.DateTimeSchema s -> effectiveAlias.equals(s.aliasName())
-            ? s
-            : new StvnSchema.DateTimeSchema(
-                effectiveAlias, s.mode(), s.traits(), s.explicitMinInclIso(), s.explicitMaxExclIso()
-            );
-        case StvnSchema.EnumSchema s -> effectiveAlias.equals(s.aliasName())
-            ? s
-            : new StvnSchema.EnumSchema(effectiveAlias, s.rootVariants(), s.traits());
-        case StvnSchema.EnumSubsetSchema s -> new StvnSchema.EnumSubsetSchema(
-            effectiveAlias,
-            rewriteSchemaAliasesRecursive(s.parentEnum(), renames, true),
-            (StvnSchema.EnumSchema) rewriteSchemaAliasesRecursive(s.rootEnum(), renames, true),
-            s.activeVariants(),
-            s.inclusiveFilter(),
-            s.declaredFilterList(),
-            s.traits()
-        );
-        case StvnSchema.TupleSchema s -> {
-          List<StvnSchema> rewrittenFields = new ArrayList<>(s.fieldSchemas().size());
-          for (StvnSchema f : s.fieldSchemas()) {
-            rewrittenFields.add(rewriteSchemaAliasesRecursive(f, renames, true));
-          }
-          yield new StvnSchema.TupleSchema(effectiveAlias, rewrittenFields, s.traits());
-        }
-        case StvnSchema.OptionSchema s -> new StvnSchema.OptionSchema(
-            effectiveAlias,
-            rewriteSchemaAliasesRecursive(s.valueSchema(), renames, true),
-            s.traits()
-        );
-        case StvnSchema.EitherSchema s -> new StvnSchema.EitherSchema(
-            effectiveAlias,
-            rewriteSchemaAliasesRecursive(s.leftSchema(), renames, true),
-            rewriteSchemaAliasesRecursive(s.rightSchema(), renames, true),
-            s.traits()
-        );
-        case StvnSchema.UnionSchema s -> {
-          List<StvnSchema> rewrittenBranches = new ArrayList<>(s.branchSchemas().size());
-          for (StvnSchema b : s.branchSchemas()) {
-            rewrittenBranches.add(rewriteSchemaAliasesRecursive(b, renames, true));
-          }
-          yield new StvnSchema.UnionSchema(effectiveAlias, rewrittenBranches, s.traits());
-        }
-        case StvnSchema.SeqSchema s -> new StvnSchema.SeqSchema(
-            effectiveAlias,
-            s.minSize(),
-            s.maxSize(),
-            rewriteSchemaAliasesRecursive(s.elementSchema(), renames, true),
-            s.traits()
-        );
-        case StvnSchema.SetSchema s -> new StvnSchema.SetSchema(
-            effectiveAlias,
-            s.minSize(),
-            s.maxSize(),
-            rewriteSchemaAliasesRecursive(s.elementSchema(), renames, true),
-            s.traits()
-        );
-        case StvnSchema.MapSchema s -> new StvnSchema.MapSchema(
-            effectiveAlias,
-            s.invertible(),
-            s.minSize(),
-            s.maxSize(),
-            rewriteSchemaAliasesRecursive(s.keySchema(), renames, true),
-            rewriteSchemaAliasesRecursive(s.valueSchema(), renames, true),
-            s.traits()
-        );
-        case StvnSchema.PoisonedSchema s -> effectiveAlias.equals(s.aliasName())
-            ? s
-            : new StvnSchema.PoisonedSchema(
-                effectiveAlias, s.primaryDiagnosticCode(), s.bestEffortFallback(), s.traits()
-            );
       };
     }
 
@@ -5777,8 +5554,9 @@ public final class StvnDefsLowerer {
         // 2. Directive #strip rejection on type declarations
         if ("strip".equals(facetName)) {
           diagnosticBag.addError(
-              "Constraint violation (" + ownerLabel + "): directive facet '#strip' is not permitted on type declarations; directive facets are valid strictly in "
-                  + StvnVocabulary.KEYWORD_USE + " and " + StvnVocabulary.KEYWORD_INCLUDE + " blocks",
+              "Constraint violation (" + ownerLabel + "): directive facet '" + StvnVocabulary.FACET_KW_STRIP
+                  + "' is not permitted on type declarations; directive facets are valid strictly in "
+                  + StvnVocabulary.KEYWORD_USE + " blocks",
               entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
               DiagnosticBag.ERR_INVALID_METADATA_FACET
           );

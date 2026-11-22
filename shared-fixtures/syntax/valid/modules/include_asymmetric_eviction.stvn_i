@@ -7,11 +7,10 @@
   }
   :defs {
     :include [
-      "./module_asym_a.stvn_di" {
-        :ConflictType :AliasedType
-      }
+      "./module_asym_a.stvn_di"
       "./module_asym_b.stvn_di"
     ]
+    :use [ :org/example/asym_a { :ConflictType :AliasedType } ]
   }
   :type :Tuple( :AliasedType :ConflictType )
   :body ( 42 "hello" )

@@ -192,8 +192,8 @@ STVN serialization enforces mathematical determinism and hermetic document self-
    * Definitions not reachable from the root `:type` or `:body` are pruned (or rejected with `E029` under strict canonical validation).
 
 3. **Universal Alias Desugaring**:
-   * Local aliases declared via `:use` or `:include` desugar directly into Fully Qualified Nominal Identifiers (FQNIs).
-   * Canonical documents emit zero `:package` or `:use` wrappers.
+   * Local aliases declared via `:use` desugar directly into Fully Qualified Nominal Identifiers (FQNIs).
+   * Canonical documents emit zero `:package`, `:use`, or `:include` wrappers.
 
 4. **Topological Dependency Ordering**:
    * Retained definitions emit in deterministic DFS post-order.

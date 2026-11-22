@@ -7,7 +7,8 @@
     #kind #BODY_INCLUDE
   }
   :defs {
-    :include [ "../modules/module_raw_a.stvn_di" { #strip "pkg/sub/" } ]
+    :package :pkg/sub { :Item :Int }
+    :use [ :pkg/sub { #strip "pkg/sub/" } ]
   }
   :type :Int
   :body 42

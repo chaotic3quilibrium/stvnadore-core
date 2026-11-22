@@ -11,7 +11,7 @@
   :body [
     ( #E037 #ERR_RESERVED_PACKAGE_PROHIBITED #ERROR 8 14 148 174 "Reserved package namespace prohibited: ':org/stvnadore/custom_hack' is reserved for runtime and standard library definitions" )
     ( #E002 #ERR_NESTED_PACKAGE_PROHIBITED #ERROR 14 7 287 344 "Nested packages are prohibited: :acme/inner" )
-    ( #E004 #ERR_EMPTY_DIRECTIVE_BLOCK #ERROR 19 26 377 379 "Empty directive block in :use or :include statement is invalid; specify {#strip}, alias mappings, or remove '{}'" )
+    ( #E004 #ERR_EMPTY_DIRECTIVE_BLOCK #ERROR 19 26 377 379 "Empty directive block in :use statement is invalid; specify {#strip}, alias mappings, or remove '{}'" )
     ( #E035 #ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT #ERROR 20 12 393 419 "Scoped :use in hermetic document (.stvn, .stvn_d, .stvn_b, .stvn_bd) cannot target external package: :external/unloaded/billing" )
     ( #E035 #ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT #ERROR 21 12 444 469 "Scoped :use in hermetic document (.stvn, .stvn_d, .stvn_b, .stvn_bd) cannot target external package: :external/unloaded/ledger" )
     ( #E035 #ERR_UNRESOLVED_PACKAGE_IN_HERMETIC_DOCUMENT #ERROR 22 12 510 544 "Scoped :use in hermetic document (.stvn, .stvn_d, .stvn_b, .stvn_bd) cannot target external package: :org/stvnadore/prelude/nonexistent" )

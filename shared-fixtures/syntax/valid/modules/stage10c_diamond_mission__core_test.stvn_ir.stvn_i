@@ -1,0 +1,33 @@
+{
+  :meta {
+    #name "stage10c_diamond_mission__core_test"
+    #domain "stvn_ir"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "stvn_ir_substrate.stvn_ir.stvn_d" ]
+    :use [ :org/stvnadore/ir { #strip } ]
+  }
+  :type :IrSnapshotDocument
+  :body (
+    {
+      [ ":com/acme/telemetry/CoordFix" ( ":Tuple({#exact #maxSize 12}:Float{#exact #maxSize 12}:Float)" ":com/acme/telemetry/CoordFix" ( #TRUE #TRUE ) ) ]
+      [ ":com/acme/nav/Waypoint" ( ":Tuple({#minSize 1 #maxSize 32}:String :com/acme/telemetry/CoordFix)" ":com/acme/nav/Waypoint" ( #TRUE #TRUE ) ) ]
+      [ ":MissionEnvelope" ( ":Tuple(:com/acme/telemetry/CoordFix :com/acme/nav/Waypoint)" ":MissionEnvelope" ( #TRUE #TRUE ) ) ]
+      [ "<:type>" ( ":Tuple(:com/acme/telemetry/CoordFix :com/acme/nav/Waypoint)" ":MissionEnvelope" ( #TRUE #TRUE ) ) ]
+    }
+    #14 [
+      #14 [
+        #4 ( 37.7749 12 )
+        #4 ( -122.4194 12 )
+      ]
+      #14 [
+        #5 "BASE_ALPHA"
+        #14 [
+          #4 ( 37.7749 12 )
+          #4 ( -122.4194 12 )
+        ]
+      ]
+    ]
+  )
+}

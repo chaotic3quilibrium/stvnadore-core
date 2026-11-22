@@ -56,15 +56,7 @@ useMapAlias     : typeKeyword typeKeyword | valueKeyword valueKeyword ;
 
 includeStmt       : KW_INCLUDE LBRACK includeElement+ RBRACK ;
 
-includeElement      : stringLiteral includeOptionsBlock? includeAliasBlock? ;
-
-includeOptionsBlock : LBRACE includeOption* RBRACE ;
-
-includeOption       : KW_STRIP standaloneFacetIllegalArg? ;
-
-includeAliasBlock   : LBRACE includeMapAlias* RBRACE ;
-
-includeMapAlias     : typeKeyword typeKeyword ;
+includeElement    : stringLiteral ;
 
 typeEntry : KW_TYPE (schemaType | metadataMap)? ;
 bodyEntry : KW_BODY value? ;

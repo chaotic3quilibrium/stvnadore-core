@@ -281,8 +281,9 @@ When a lexer encounters a tab character outside the verbatim body of a fenced st
     #kind #DEFS_INCLUDE
   }
   :defs {
-    :include ["network_primitives.network.stvn_d" { :HostName :RemoteHost }]
+    :include [ "network_primitives.network.stvn_d" ]
 
+    :RemoteHost :HostName
     :NodeStatus :Enum [ #HEALTHY #DEGRADED #UNREACHABLE ]
     :AudioSample24 { #size 24 } :Int
     :PacketCounter { #unsigned #size 49 } :Int
@@ -350,7 +351,7 @@ When a lexer encounters a tab character outside the verbatim body of a fenced st
 │ Curly Braces { }    │ • File root { ... }          │ • Metadata blocks            │
 │                     │ • Document identity :meta {} │   { #minIncl 1 #unsigned }   │
 │                     │ • Definition block :defs { } │   { #minIncl 1 #unsigned }   │
-│                     │ • Include alias maps { :A :B}│ • Map literal values:        │
+│                     │ • Package & :use blocks { }  │ • Map literal values:        │
 │                     │                              │   :Map -> { [ "k1" "v1" ] }  │
 ├─────────────────────┼──────────────────────────────┼──────────────────────────────┤
 │ Parentheses ( )     │ • Type constructors:         │ • Product / Tuple values:    │
@@ -360,8 +361,8 @@ When a lexer encounters a tab character outside the verbatim body of a fenced st
 ├─────────────────────┼──────────────────────────────┼──────────────────────────────┤
 │ Brackets [ ]        │ • :Enum domain constants:    │ • Collection values:         │
 │                     │   :Enum [ #A #B #C ]         │   :Seq -> [ 1 2 3 ]          │
-│                     │ • Include directives:        │   :Set -> [ 1 2 3 ]          │
-│                     │   :include [ "path" { } ]    │ • Map entries: [ "k" "v" ]   │
+│                     │ • Include & :use directives: │   :Set -> [ 1 2 3 ]          │
+│                     │   :include [ "path.stvn_d" ] │ • Map entries: [ "k" "v" ]   │
 └─────────────────────┴──────────────────────────────┴──────────────────────────────┘
 ```
 
@@ -443,9 +444,9 @@ STVN enforces strict lexical whitespace discipline and defines two distinct form
     - *Automatic Root-Section Canonical Reordering:* When a document declares at most one of each root section (`:meta`, `:defs`, `:type`, `:body`) and every declared root section is structurally complete, `StvnSourceFormatter` losslessly reorders out-of-order root sections into canonical `:meta -> :defs -> :type -> :body` order, migrating each section's contiguous leading `//` comments and same-line trailing `//` comment with that section. Duplicate or incomplete root sections fail fast with `StvnSyntaxCancellationException`.
     - *2-Space Indentation Hierarchy (`indentWidth = 2`):* Document root `{` and `}` sit at column 0; top-level sections (`:meta`, `:defs`, `:type`, `:body`) sit at column 2; `:meta` entries and `:defs` top-level elements sit at column 4; elements inside `:package :path { ... }` sit at column 6.
     - *Multi-Line `:use` and `:include` Indentation Layouts (at `:defs` base column 4; add `+2` when nested inside `:package`):*
-      - **Layout 1 (Same-Line Target and `{`):** `:use [ :pkg {` (or `:use [ :pkg { #strip } {`) starts at column 4, alias pairs (`:Type :Alias` or `#CONST #ALIAS`) and interior standalone comments indent to **column 8**, closing `}` indents to **column 6**, and closing `]` indents to **column 4** (or `} ]` at column 6 when authored on the same line without comments).
-      - **Layout 2 (New-Line Target and `{`):** `:use [` starts at column 4, `:pkg {` (or `:pkg { #strip } {`) sits on a new line at **column 6**, alias pairs and interior standalone comments indent to **column 8**, closing `}` indents to **column 6**, and closing `]` indents to **column 4**.
-    - *Canonical Horizontal Spacing:* Single interior space inside non-empty metadata maps (`{ #facet1 ... #facetN }`) and single-line `:use` / `:include` brackets (`:use [ :pkg { #strip } ]`); zero interior space inside `:Enum[#A #B]`, `#filterIncl [#A #B]`, `:Tuple(...)`, `:Seq(...)`, `[1 2 3]`, `["k" v]`, `("a" 1)`, and empty delimiters `{}`, `[]`, `()`; single space before `{` in `:meta {`, `:defs {`, `:package :path {`, and `:use [ :path {`; at least one space (`>= 1` spaces, preserving authored multi-space horizontal padding and target-column alignment) between any syntax token and a trailing same-line `//` comment (§ 3.3.1).
+      - **Layout 1 (`:use` Same-Line Target and `{` / Single-Element `:include`):** `:use [ :pkg {` (or `:use [ :pkg { #strip } {`) starts at column 4, alias pairs (`:Type :Alias` or `#CONST #ALIAS`) and interior standalone comments indent to **column 8**, closing `}` indents to **column 6**, and closing `]` indents to **column 4** (or `} ]` at column 6 when authored on the same line without comments). Single-element multi-line `:include [ "a.stvn_d"` places closing `]` at **column 4**.
+      - **Layout 2 (`:use` New-Line Target / Multi-Line `:include` Path List):** `:use [` starts at column 4, `:pkg {` (or `:pkg { #strip } {`) sits on a new line at **column 6**, alias pairs and interior standalone comments indent to **column 8**, closing `}` indents to **column 6**, and closing `]` indents to **column 4**. Multi-line `:include [` starts at column 4, each module path string literal (`"mod.stvn_d"`) and standalone `//` comment indents to **column 6**, and closing `]` indents to **column 4**.
+    - *Canonical Horizontal Spacing:* Single interior space inside non-empty metadata maps (`{ #facet1 ... #facetN }`) and single-line `:use` / `:include` brackets (`:use [ :pkg { #strip } ]`, `:include [ "a.stvn_d" "b.stvn_di" ]`); zero interior space inside `:Enum[#A #B]`, `#filterIncl [#A #B]`, `:Tuple(...)`, `:Seq(...)`, `[1 2 3]`, `["k" v]`, `("a" 1)`, and empty delimiters `{}`, `[]`, `()`; single space before `{` in `:meta {`, `:defs {`, `:package :path {`, and `:use [ :path {`; at least one space (`>= 1` spaces, preserving authored multi-space horizontal padding and target-column alignment) between any syntax token and a trailing same-line `//` comment (§ 3.3.1).
     - *Automatic `:meta` Facet Sorting & § 6.1 5-Tier Decimal Metadata Facet Sorting:* Sorts `:meta` facets into `#name` -> `#domain` -> `#kind` order and sorts `metadataEntry` facets inside every `{ ... }` `metadataMap` constraint block into canonical § 6.1 5-tier decimal order (`1.1.1` through `5.0`) while losslessly migrating each entry's comment and blank-line slice (§ 3.3.1). Single-line `metadataMap` constraint blocks without interior comments (`openBrace.line == closeBrace.line`) format inline (`{ #facet1 ... #facetN }`), whereas multi-line `metadataMap` constraint blocks (`openBrace.line < closeBrace.line` or containing interior `//` comments) preserve multi-line layout by emitting `{` on the declaration line, each sorted `metadataEntry` on its own `+2`-space indented line (`baseIndent + 2`), and closing `} :TargetType` at the declaration's `baseIndent`.
     - *Authored Multi-Line Schema & Payload Container Preservation:* Preserves authored multi-line `metadataMap` blocks (`openBrace.line < closeBrace.line`), authored multi-line `:Tuple(...)` and `:Union(...)` schema groups (`openParen.line < closeParen.line`), authored multi-line parameterized schema constructors (`:Seq(...)`, `:Set(...)`, `:Map(...)`, `:Option(...)`, and `:Either(...)` when authored with a line break or `//` comment after `(`, between child schemas, or before `)`), and authored multi-line non-empty payload `tupleLiteral` `( ... )` and `listLiteral` `[ ... ]` containers (`openDelim.line < closeDelim.line`), emitting each element on its own `+2`-space indented line and the closing delimiter at the container's base indentation. When a parameterized constructor's `(` and its first child schema start on the same line without interior comments at the constructor boundary (`openParen.line == firstChild.start.line` and `lastChild.stop.line == closeParen.line`), the outer constructor stays in single-line wrapper mode (e.g., `:Seq(:Tuple(\n  ...\n))` and `:Option(:Either(:Boolean :Union(\n  ...\n)))`). Single-line non-empty payload `tupleLiteral` `(1 2 3)` and `listLiteral` `[1 2 3]` containers without interior comments or nested composite/fenced elements format inline on a single line; empty containers without interior comments always format inline as `{}`, `()`, and `[]`. Automatically expands any `:Tuple(...)` or `:Union(...)` schema group whose member schemas carry inline metadata facets or recursively contain a multi-line schema construct through any chain of intermediate constructors (`:Tuple`, `:Union`, `:Option`, `:Either`, `:Seq`, `:Set`, `:Map`).
 6. **Operation 2 — Canonical IR Projections (`AstPrettyPrinter` -> `shared-fixtures/formatting/pretty/` & `AstCompactPrinter` -> `shared-fixtures/formatting/compact/`):**
@@ -581,26 +582,36 @@ Metadata facet maps on declarations (`metadataMap`) accept unrecognized facet en
 
 ### 3.6 Module Include Directive Syntax
 
-All `:include` directives inside a `:defs` block **must** be enclosed within square brackets `[ ... ]`:
+`:include` is a **pure physical module ingestion directive**. Every `:include` directive inside a `:defs` block **must** be enclosed within square brackets `[ ... ]` and accept **only** one or more module path string literals (`includeElement : stringLiteral ;`):
 
 ```stvn
 :defs {
-// Direct import
-:include [ "network_primitives.network.stvn_d" ]
+  // Single-module physical ingestion
+  :include [ "network_primitives.network.stvn_d" ]
 
-// Import with atomic unary prefix strip (terminal segment slicing)
-:include [ "types/network.types.stvn_di" { #strip } ]
-
-// Import with explicit namespace alias mapping block
-:include [ "shared_models.shared.stvn_di" { :HostName :RemoteHost :Port :RemotePort } ]
+  // Multi-module physical ingestion paired with scoped lexical renaming (:use)
+  :include [
+    "types/network.types.stvn_di"
+    "networking.net.stvn_di"
+  ]
+  :use [ :org/example { #strip } ]
 }
 ```
 
-The `#strip` facet is an atomic unary flag without string arguments. Supplying string arguments fails at the parser gate. Unary `#strip` executes deterministic terminal segment slicing across all slash-delimited nominal types (`:org/example/Port` -> `:Port`) and value constants (`#org/example/TIMEOUT` -> `#TIMEOUT`). Leading sigils are strictly preserved. Single-segment identifiers are preserved idempotently.
+```stvn
+{
+  // INVALID: Option blocks ({ #strip }) and alias blocks ({ :Old :New }) are prohibited inside :include (E002)
+  :defs {
+    :include [ "types/network.types.stvn_di" { #strip } ]
+  }
+}
+```
 
-#### 3.6.1 Empty Directive Block Prohibition
+`:include` loads external `.stvn_d` and `.stvn_di` modules into the compilation unit without mutating canonical Fully Qualified Nominal Identifiers (FQNIs) or SHA-256 CAS hashes. Prefix stripping (`{ #strip }`) and local symbol aliasing (`{ :Orig :Local #ORIG #LOCAL }`) are supported exclusively on `:use` (§ 3.9, § 9.1.2). The `#strip` facet in `:use` is an atomic unary flag without arguments; supplying arguments fails at the parser/lowering gate. Unary `#strip` executes deterministic terminal segment slicing across slash-delimited nominal types (`:org/example/Port` -> `:Port`) and value constants (`#org/example/TIMEOUT` -> `#TIMEOUT`) within the active lexical scope.
 
-Empty option blocks or alias blocks (`{}`) in `:use` and `:include` directives are prohibited. An author must specify valid directive facets (`{#strip}`), valid alias pairs, or remove `{}`. Violations emit diagnostic `ERR_EMPTY_DIRECTIVE_BLOCK`.
+#### 3.6.1 Empty Directive & Prohibited Block Rules
+
+Empty bracket lists (`:include []` and `:use []`) and empty option or alias blocks (`{}`) inside `:use` directives are prohibited and emit diagnostic `ERR_EMPTY_DIRECTIVE_BLOCK` (`E004`). Any `{ ... }` block written inside `:include [ ... ]` is rejected in Pass 1 with `E002` (`STVN_SYNTAX_ERROR`).
 
 ---
 
@@ -621,10 +632,11 @@ A path-delimited identifier consists of a base keyword start token followed by o
 
 1. **Atomic Token Identity:** The complete slash-delimited token acts as a single, indivisible nominal identifier. The compiler treats `:net/http/Status` and `:Status` as distinct, non-interchangeable nominal types.
 2. **Leading Prefix Rule:** The leading colon (`:`) or hash (`#`) sigil attaches only to the first segment. Subsequent segments are separated solely by forward slashes (`/`). Colons must not appear in infix positions (e.g. `:net:http:Status` is a fatal syntax error).
-3. **Module Alias Compatibility:** Namespaced identifiers can be targeted by include alias blocks inside `:defs`:
+3. **Scoped Lexical Alias Compatibility:** Namespaced identifiers exported by an included module can be projected into flat local aliases via `:use` inside `:defs` or `:package`:
    ```stvn
    :defs {
-     :include [ "networking.net.stvn_di" { :net/http/Status :HttpStatus } ]
+     :include [ "networking.net.stvn_di" ]
+     :use [ :net/http { :Status :HttpStatus } ]
    }
    ```
 
@@ -777,35 +789,35 @@ A file path string literal may appear in an `:include` directive **only once** p
 
 ### 4.2 Namespace Eviction Cascade
 
-When multiple modules or local declarations supply the same type identifier name, the compiler evaluates conflicts sequentially and resolves them at the closing curly brace `}` of the `:defs` block:
+When multiple modules or `:use` projections supply the same local identifier name inside `:defs`, the compiler evaluates claims sequentially and resolves them at the closing curly brace `}` of the `:defs` block:
 
-1. **Local Priority:** Local definitions inside the file's `:defs` block evict clashing imported raw names. *(See [Appendix F.1](#f1-scenario-1-local-priority-eviction))*.
-2. **Asymmetric Ingestion (Alias vs. Raw):** If Module A renames `:TypeX` to `:LocalAlias`, and Module B imports `:TypeX` raw, the raw slot is assigned to Module B. Module A accesses the type through `:LocalAlias`. *(See [Appendix F.2](#f2-scenario-2-asymmetric-ingestion-alias-vs-raw))*.
-3. **Dual Ingestion (Alias vs. Alias):** If Module A and Module B both alias `:TypeX` using distinct local names, both claims on the raw identifier `:TypeX` are evicted. Both local alias names remain valid. *(See [Appendix F.3](#f3-scenario-3-dual-ingestion-alias-vs-alias))*.
-4. **Unmitigated Collision (Raw vs. Raw):** If two modules import the identical raw identifier without alias mapping, the conflict cannot be resolved. The compiler flags this as an unmitigated error and throws `NamespaceCollisionException`. *(See [Appendix F.4](#f4-scenario-4-unmitigated-raw-vs-raw-collision-compiler-rejection))*.
-5. **Gate Execution:** At the closing brace `}` of `:defs`, if any unmitigated collisions remain, the compiler stops and throws `NamespaceCollisionException`. Downstream `:type` and `:body` sections **must not** be parsed if `:defs` validation fails.
+1. **Local Priority:** Local definitions inside the file's `:defs` block evict clashing imported raw names and `:use { #strip }` terminal projections. *(See [Appendix F.1](#f1-scenario-1-local-priority-eviction))*.
+2. **Asymmetric Projection (Scoped `:use` Alias vs. Raw):** If packaged Module A's `:TypeX` is aliased via `:use [ :pkg_a { :TypeX :LocalAlias } ]`, and unpackaged Module B exports `:TypeX` raw (or Package B projects `:TypeX` via `{ #strip }`), the raw slot `:TypeX` binds to Module B while Module A's symbol is accessed through `:LocalAlias`. *(See [Appendix F.2](#f2-scenario-2-asymmetric-ingestion-alias-vs-raw))*.
+3. **Dual Projection (Scoped `:use` Alias vs. Scoped `:use` Alias):** If packaged Module A and packaged Module B both export `:TypeX` and the consumer maps them to distinct local identifiers via `:use`, neither occupies the bare `:TypeX` slot and both local alias names resolve cleanly. *(See [Appendix F.3](#f3-scenario-3-dual-ingestion-alias-vs-alias))*.
+4. **Unmitigated Collision (Raw vs. Raw):** If two modules export the identical unpackaged raw identifier (or two `:use { #strip }` projections claim the same bare identifier) without local override or `:use` disambiguation, the compiler emits `E006` (`NAMESPACE_COLLISION`) with remediation guidance recommending `:package` and `:use`, and throws `NamespaceCollisionException`. *(See [Appendix F.4](#f4-scenario-4-unmitigated-raw-vs-raw-collision-compiler-rejection))*.
+5. **Gate Execution:** At the closing brace `}` of `:defs`, if any unmitigated collisions remain, the compiler stops and throws `NamespaceCollisionException`. Downstream `:type` and `:body` sections **must not** be lowered against an ambiguous root scope.
 
 *(See [**Appendix F**](#appendix-f-module-ingestion-import-aliasing-and-collision-resolution-catalogue) for complete, executable code examples demonstrating each resolution scenario.)*
 
 ```mermaid
 flowchart TD
-    A["Start Defs Ingestion"] --> B{"Identifier Collision Detected?"}
-    B -- " No " --> C["Register Identifier in Scope"]
-    B -- " Yes " --> D{"Is one local and one imported?"}
-    D -- " Yes " --> E["Keep Local Definition; Evict Imported Raw Name"]
-    D -- " No " --> F{"Is one Aliased RHS and one Raw LHS?"}
-    F -- " Yes " --> G["Keep Raw Name in Raw Slot; Keep Alias in RHS Slot; Evict Aliased LHS Raw Name"]
-    F -- " No " --> H{"Are both distinct Aliased RHS?"}
-    H -- " Yes " --> I["Keep both RHS Aliases; Evict both LHS Raw Names"]
-    H -- " No " --> J["Unmitigated Raw vs Raw Collision; Record Compilation Error"]
+    A["Start Pure :include Ingestion and :use Projection"] --> B{"Identifier Collision Detected?"}
+    B -- "No" --> C["Register Identifier in Scope"]
+    B -- "Yes" --> D{"Is one local and one imported or stripped?"}
+    D -- "Yes" --> E["Keep Local Definition; Evict Imported or Stripped Raw Name"]
+    D -- "No" --> F{"Is one :use Aliased RHS and one Raw LHS?"}
+    F -- "Yes" --> G["Keep Raw Name in Raw Slot; Keep :use Alias in RHS Slot"]
+    F -- "No" --> H{"Are both distinct :use Aliased RHS?"}
+    H -- "Yes" --> I["Keep both :use RHS Aliases; Bare Name Remains Unbound"]
+    H -- "No" --> J["Unmitigated Raw vs Raw Collision; Recommend :package and :use"]
     C --> K["Reach Closing Brace '}'"]
     E --> K
     G --> K
     I --> K
     J --> K
     K --> L{"Unmitigated Collisions in List?"}
-    L -- " Yes " --> M["Fail Fast: Emit E006 ERR_NAMESPACE_COLLISION"]
-    L -- " No " --> N["Scope Validated: Lower Type and Body"]
+    L -- "Yes" --> M["Fail Fast: Emit E006 ERR_NAMESPACE_COLLISION"]
+    L -- "No" --> N["Scope Validated: Lower Type and Body"]
 ```
 
 ### 4.3 Cross-Module Diagnostic Provenance Attribution
@@ -813,7 +825,7 @@ flowchart TD
 When a modular textual compilation unit (`.stvn_i` or `.stvn_di`) ingests external definitions modules via `:include`, every emitted diagnostic MUST record its authoritative originating compilation unit path (`sourcePath`) normalized to POSIX forward-slash segments:
 
 1. **Child-Unit Provenance Binding:** Every Pass 1 lexical/syntactic diagnostic and Pass 2 metadata/schema/constant diagnostic emitted while parsing or lowering an imported `.stvn_d` or `.stvn_di` module binds `sourcePath` to that imported module's normalized path and retains the imported module's unshifted 0-based character offsets `[startOffset, endOffset)` and `(line, column)` coordinates.
-2. **Parent-Directive Provenance Binding:** Diagnostics that reject the `:include` directive itself — including hermetic include prohibition (`E005`), empty directive blocks (`E004`), excised legacy file extensions (`E034`), duplicate module imports (`E005`), missing or unreadable target files (`E005`), payload-kind or binary-container import targets (`E005`), and `#strip` namespace collisions (`E006`) — bind `sourcePath` to the importing parent unit's normalized path and pin to the offending `:include` token or element span in the parent buffer.
+2. **Parent-Directive Provenance Binding:** Diagnostics that reject the `:include` or `:use` directive in the importing unit — including prohibited `{ ... }` blocks in `:include` (`E002`), hermetic include prohibition (`E005`), empty directive blocks (`E004`), excised legacy file extensions (`E034`), duplicate module imports (`E005`), missing or unreadable target files (`E005`), payload-kind or binary-container import targets (`E005`), and unpackaged or `:use` `#strip` namespace collisions (`E006`) — bind `sourcePath` to the importing parent unit's normalized path and pin to the offending directive or element span in the parent buffer.
 3. **Transitive Cycle Provenance (`E007`):** When module `B` closes an include cycle (`A -> B -> A`), `CYCLIC_MODULE_INCLUDE` (`E007`) pins to the cycle-closing `:include` element inside `B` and binds `B`'s normalized `sourcePath`.
 4. **Cross-Unit Fault Containment:** Child-unit diagnostics carrying a `sourcePath` distinct from the root document's `sourcePath` MUST NOT disable Pass 3 `:body` lowering of the root document when the root document's `:type` schema resolves validly.
 
@@ -1359,7 +1371,7 @@ Metadata constraint blocks `{ ... }` configure nominal type definitions and comp
 | **Temporal Scale Flags**                | `#ns`, `#us`, `#ms`, `#s`                      | `:TimeEpoch` (exactly one scale mandatory)                               | All non-epoch types; omitting scale emits `ERR_TEMPORAL_SCALE_MISSING`                             | `ERR_INVALID_METADATA_FACET`                                                      |
 | **Temporal Mode Flags**                 | `#offset`, `#zoned`, `#audited`                | `:DateTime` (exactly one mode mandatory)                                 | All non-datetime types; omitting mode emits `ERR_DATETIME_MODE_INVALID`                            | `ERR_INVALID_METADATA_FACET`                                                      |
 | **Enum Subsetting**                     | `#filterIncl`, `#filterExcl`                   | Nominal aliases of `:Enum` and subsets                                   | Inline enums, scalar primitives, constants, temporal                                               | `ERR_INVALID_METADATA_FACET`                                                      |
-| **Directive Options**                   | `#strip`                                       | Directive blocks in `:use` and `:include`                                | Type definitions, constant definitions                                                             | `ERR_INVALID_METADATA_FACET`                                                      |
+| **Directive Options**                   | `#strip`                                       | Directive blocks in `:use`                                               | Type definitions, constant definitions, `:include` directives                                      | `ERR_INVALID_METADATA_FACET` (`E008`), `STVN_SYNTAX_ERROR` (`E002` in `:include`) |
 | **Trait Overrides**                     | `#equatable`, `#comparable`                    | Nominal type definitions                                                 | Constant definitions, collection instances                                                         | `ERR_INVALID_METADATA_FACET`                                                      |
 | **5-Tier Facet Sequence**               | All canonical facets                           | Metadata blocks `{ ... }`                                                | Facets declared out of 5-tier decimal hierarchy order (suppressed on 2nd+ conflicting members of mutual-exclusivity groups `{#ns, #us, #ms, #s}`, `{#offset, #zoned, #audited}`, `{#size, #exact}`, `{#minIncl, #minExcl}`, `{#maxIncl, #maxExcl}`, and `{#filterIncl, #filterExcl}`, which emit strictly `ERR_MUTUALLY_EXCLUSIVE`) | `ERR_FACET_ORDER_VIOLATION`                                                       |
 
@@ -1471,7 +1483,6 @@ $$\text{Tier 1: Definition} \longrightarrow \text{Tier 2: Trait} \longrightarrow
 |  `2.2`   | Trait      | `:Map`                | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#FALSE`          |     Yes     | N/A                   | Opt-in comparison (disabled by default; unordered maps lack natural total ordering)                                                                                                                                                            |
 |  `2.1`   | Trait      | `:Map (invertible)`   | `equatable`      | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          Derived           |     Yes     | N/A                   | Enables dual-set bijection equality comparison (both keys and values must resolve to #equatable #TRUE)                                                                                                                                         |
 |  `2.2`   | Trait      | `:Map (invertible)`   | `comparable`     | `:Boolean`       | `#F\|#T\|#FALSE\|#TRUE`                                                      |          `#FALSE`          |     Yes     | N/A                   | Opt-in comparison (disabled by default; unordered invertible maps lack natural total ordering)                                                                                                                                                 |
-|   `5`    | Directive  | `:include`            | `strip`          | Standalone       | N/A                                                                          |          `<None>`          |     No      | N/A                   | Terminal segment slicing; strips package prefixes from imported identifiers upon ingestion                                                                                                                                                     |
 |   `5`    | Directive  | `:use`                | `strip`          | Standalone       | N/A                                                                          |          `<None>`          |     No      | N/A                   | Terminal segment slicing; strips package prefix for local unqualified access within scope                                                                                                                                                      |
 
 #### Structural Invariants & Ordering Rules
@@ -1783,6 +1794,22 @@ In STVN, structural subtyping, refinement subtyping lattices, and Liskov substit
 1. **No Subtyping Lattice:** A nominal definition `:Child :Parent` does not establish an "is-a" subtyping relationship. A value of type `:Child` cannot be supplied where type `:Parent` is expected, and vice versa. Each nominal type forms an isolated, opaque type domain.
 2. **Explicit Attribute Override Principle:** Attaching a metadata block to a base type (`:NewType { ... } :BaseType`) constitutes an explicit facet attribute override, not a monotonic narrowing. Overridability is strictly determined by Category (§ 6.1). Tier 1 Definition facets (`#unsigned`, `#exact`, `#invertible`, `#ns`, `#us`, `#ms`, `#s`, `#offset`, `#zoned`, `#audited`, `#size`, `#minSize`, `#maxSize`) establish the foundational physical structure and capacity allocation of a nominal brand; representation, bit-width, unit, mode, and structural identity facets (`#unsigned`, `#exact`, `#invertible`, `#size`, `#ns`, `#us`, `#ms`, `#s`, `#offset`, `#zoned`, `#audited`) resolve at root nominal type definition—either from an explicit facet declaration or from the root type's intrinsic default—and lock permanently (`Overridable: No`). Downstream nominal derivations, constants, or inline slots cannot declare, override, widen, narrow, or re-specify locked Tier 1 facets (`ERR_NON_OVERRIDABLE_FACET` / `E040`, or `ERR_MUTUALLY_EXCLUSIVE` / `E008` when conflicting with the locked representation), even if the parent nominal alias omitted the facet in surface syntax. Overrides are permitted exclusively for Tier 2 Trait (`#equatable`, `#comparable`), Tier 3 Bounds (`#minIncl`, `#minExcl`, `#maxIncl`, `#maxExcl`), and Tier 4 Constraint (`#regex`, `#preserveIndent`, `#filterIncl`, `#filterExcl`) facets.
 3. **Scope Distinction for Monotonic Narrowing:** Monotonic narrowing applies strictly and exclusively to closed variant projections in Enum Subset Filtering (§ 4.8.3). It does not govern general nominal type definitions.
+
+### 9.1.2 Lexical Renaming (`:use`) vs. Opaque Nominal Rebranding (`:defs`)
+
+STVN 2.0.0 enforces orthogonal separation between **Module Ingestion**, **Namespace Authority**, **Scoped Lexical Renaming**, and **Opaque Nominal Rebranding**:
+
+1. **Pure Physical Module Ingestion (`:include [ "path.stvn_d"+ ]`):** Loads external `.stvn_d` and `.stvn_di` compilation units into the module symbol table without altering any canonical Fully Qualified Nominal Identifier (FQNI) or SHA-256 CAS hash. Inline `{ #strip }` and `{ :Old :New }` blocks inside `:include` are syntax errors (`E002`).
+2. **Namespace Authority (`:package :domain/module { ... }`):** Establishes canonical FQNIs (`:domain/module/Type`, `#domain/module/CONST`) at declaration time.
+3. **Scoped Lexical Renaming (`:use [ :domain/module { #strip } ]` and `:use [ :domain/module { :Orig :Local #ORIG #LOCAL } ]`):** Binds ergonomic local identifiers within the enclosing `:defs` or `:package` scope to existing packaged FQNIs without altering canonical FQNIs or SHA-256 CAS fingerprints. In Pass 4 (Appendix G.2), every `:use` alias desugars transparently to its target canonical FQNI. Values typed against `:Local` remain 100% nominally compatible with `:domain/module/Orig`.
+4. **Explicit Opaque Nominal Rebranding (`:NewBrand :ExistingType` in `:defs` or `:package`):** Declaring a new LHS type definition in `:defs` (or inside `:package`) is the **sole** construct in STVN that mints a new opaque nominal brand FQNI (`E027` nominal isolation) and generates a distinct SHA-256 CAS fingerprint (§ 9.2–9.3).
+
+| Construct | Enclosure | Responsibility | Mints New Opaque Brand (`E027`)? | Mutates Canonical FQNI? | Mutates SHA-256 CAS Hash? | Pass 4 IR Representation |
+|:----------|:----------|:---------------|:--------------------------------:|:-----------------------:|:-------------------------:|:-------------------------|
+| `:include [ "mod.stvn_d" ]` | `:defs` | Physical module ingestion | No | No | No | Reachable definitions flattened into `:defs` |
+| `:package :dom/mod { ... }` | `:defs` | Namespace authority | Defines `:dom/mod/T` | Establishes canonical FQNI | Defines canonical preimage | Desugared to `:dom/mod/T` |
+| `:use [ :dom/mod { :T :Local } ]` | `:defs`, `:package` | Scoped lexical renaming | **No** (compatible with `:dom/mod/T`) | **No** | **No** | Erased; references rewritten to `:dom/mod/T` |
+| `:NewBrand :Local` | `:defs`, `:package` | Opaque nominal rebranding | **Yes** (incompatible with `:dom/mod/T`) | **Yes** (`:NewBrand` or `:pkg/NewBrand`) | **Yes** | Retained as distinct nominal entry in `:defs` |
 
 ### 9.2 The Nominal Bijectivity Invariant ($1:1$ Law)
 
@@ -2973,7 +3000,7 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 | `E001`          | `TAB_DISCIPLINE_VIOLATION`                | Lexical            | Fatal    | A literal tab character `\t` was encountered in the source text outside the verbatim body of a fenced multi-line string.                                                                                                                                                                                                                                                                                                                                    |
 | `E002`          | `ROOT_ENCLOSURE_MISSING`                  | Syntactic          | Fatal    | Syntactic, simple-string escape (`STVN_SYNTAX_ERROR`, § 5.3.1), or root-section structural violation: illegal or incomplete escape sequence inside `"..."` (emitted left-to-right per invalid escape), missing root enclosure `{ ... }`, incomplete root section (`ERR_MALFORMED_SECTION_STRUCTURE`), empty `:defs {}` section (`ERR_EMPTY_DEFS_BLOCK`), duplicate `:defs`/`:type`/`:body` section (`ERR_DUPLICATE_ROOT_SECTION`), or misplaced `:defs`/`:type` section (`ERR_SECTION_ORDER_VIOLATION`). |
 | `E003`          | `EMPTY_METADATA_BLOCK`                    | Syntactic          | Fatal    | An empty type or constant metadata annotation block `{}` was encountered (§ 3.5.1).                                                                                                                                                                                                                                                                                                                                                                         |
-| `E004`          | `EMPTY_DIRECTIVE_BLOCK`                   | Syntactic          | Fatal    | An empty `:include []` or `:use []` directive was encountered.                                                                                                                                                                                                                                                                                                                                                                                              |
+| `E004`          | `EMPTY_DIRECTIVE_BLOCK`                   | Syntactic          | Fatal    | An empty `:include []` or `:use []` directive, or an empty `{}` block inside `:use`, was encountered (any `{ ... }` block inside `:include` is rejected as `E002`).                                                                                                                                                                                                                                                                                            |
 | `E005`          | `DUPLICATE_MODULE_IMPORT`                 | Semantic           | Fatal    | A module file path or package URI was imported more than once in `:defs`.                                                                                                                                                                                                                                                                                                                                                                                   |
 | `E006`          | `NAMESPACE_COLLISION`                     | Semantic           | Fatal    | Unmitigated nominal identifier collision between imported modules.                                                                                                                                                                                                                                                                                                                                                                                          |
 | `E007`          | `CIRCULAR_DEPENDENCY`                     | Semantic           | Fatal    | Cyclical module inclusion detected in the `:include` transitive graph.                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -3027,7 +3054,7 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 | `ERR_DUPLICATE_ROOT_SECTION`                  | `"ERR_DUPLICATE_ROOT_SECTION"`                  | Fatal    | Duplicate `:defs`, `:type`, or `:body` root section declared (`E002`). Secondary sections suppress inner diagnostic cascades (§ 1.1).                                           |
 | `ERR_SECTION_ORDER_VIOLATION`                 | `"ERR_SECTION_ORDER_VIOLATION"`                 | Fatal    | Unique `:defs` or `:type` root section declared out of canonical `:meta -> :defs -> :type -> :body` order (`E002`, non-poisoning for Pass 3 `:body` lowering, § 1.1).           |
 | `ERR_MALFORMED_SECTION_STRUCTURE`             | `"ERR_MALFORMED_SECTION_STRUCTURE"`             | Fatal    | Incomplete `:meta`, `:defs`, `:type`, or `:body` root section lacking its required block, target schema type, or payload value (`E002`, pinned strictly to section keyword).   |
-| `ERR_EMPTY_DIRECTIVE_BLOCK`                   | `"ERR_EMPTY_DIRECTIVE_BLOCK"`                   | Fatal    | Empty directive block `{}` declared in `:use` or `:include`.                                                                                                                   |
+| `ERR_EMPTY_DIRECTIVE_BLOCK`                   | `"ERR_EMPTY_DIRECTIVE_BLOCK"`                   | Fatal    | Empty directive list `[]` in `:use` or `:include`, or empty directive block `{}` declared in `:use`.                                                                            |
 | `ERR_MODULE_IMPORT`                           | `"MODULE_IMPORT_FAILED"`                        | Fatal    | Declared module include file cannot be located or read.                                                                                                                        |
 | `ERR_CYCLIC_MODULE`                           | `"CYCLIC_MODULE_INCLUDE"`                       | Fatal    | Cyclic module include dependencies detected.                                                                                                                                   |
 | `ERR_NAMESPACE_COLLISION`                     | `"NAMESPACE_COLLISION"`                         | Fatal    | Namespace prefix collisions occur across included modules.                                                                                                                     |
@@ -3465,15 +3492,7 @@ useMapAlias     : typeKeyword typeKeyword | valueKeyword valueKeyword ;
 
 includeStmt       : KW_INCLUDE LBRACK includeElement+ RBRACK ;
 
-includeElement      : stringLiteral includeOptionsBlock? includeAliasBlock? ;
-
-includeOptionsBlock : LBRACE includeOption* RBRACE ;
-
-includeOption       : KW_STRIP standaloneFacetIllegalArg? ;
-
-includeAliasBlock   : LBRACE includeMapAlias* RBRACE ;
-
-includeMapAlias     : typeKeyword typeKeyword ;
+includeElement    : stringLiteral ;
 
 typeEntry : KW_TYPE (schemaType | metadataMap)? ;
 bodyEntry : KW_BODY value? ;
@@ -3845,7 +3864,7 @@ A local definition in `:defs` takes precedence over an imported raw identifier. 
 
 ### F.2 Scenario 2: Asymmetric Ingestion (Alias vs. Raw)
 
-Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` without an alias. The raw slot `:HostName` is assigned to Module B, while Module A's type is accessed through `:RemoteHost`.
+Module A exports `:HostName` inside `:package :net/dns`, which the importing document aliases to `:RemoteHost` via `:use`. Module B exports unpackaged `:HostName` raw. The raw slot `:HostName` binds to Module B, while Module A's type is accessed through `:RemoteHost`.
 
 ```stvn
 {
@@ -3856,7 +3875,9 @@ Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` with
     #kind #DEFS
   }
   :defs {
-    :HostName { #maxSize 64 #regex "^[a-z.]+$" } :String
+    :package :net/dns {
+      :HostName { #maxSize 64 #regex "^[a-z.]+$" } :String
+    }
   }
 }
 ```
@@ -3884,18 +3905,21 @@ Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` with
     #kind #BODY_INCLUDE
   }
   :defs {
-    // Aliases dns_types.:HostName -> :RemoteHost
-    :include [ "dns_types.network.stvn_d" { :HostName :RemoteHost } ]
+    // Pure physical ingestion of both definition modules
+    :include [
+      "dns_types.network.stvn_d"
+      "system_types.system.stvn_d"
+    ]
 
-    // Imports system_types.:HostName raw into the active scope
-    :include [ "system_types.system.stvn_d" ]
+    // Scoped lexical alias maps :net/dns/HostName -> :RemoteHost while raw :HostName binds to system_types
+    :use [ :net/dns { :HostName :RemoteHost } ]
 
     :NetworkRoute :Tuple(:RemoteHost :HostName)
   }
 
   :type :NetworkRoute
   :body (
-    "api.service.internal" // :RemoteHost (dns_types)
+    "api.service.internal" // :RemoteHost (:net/dns/HostName)
     "HOST-NODE-01-SEC"     // :HostName   (system_types)
   )
 }
@@ -3905,7 +3929,7 @@ Module A aliases `:HostName` to `:RemoteHost`. Module B imports `:HostName` with
 
 ### F.3 Scenario 3: Dual Ingestion (Alias vs. Alias)
 
-Module A and Module B both export `:Status`. The importing document aliases both modules using distinct local names. The raw identifier `:Status` is completely evicted from the scope.
+Module A and Module B both export `:Status` inside their respective `:package` namespaces. The importing document ingests both modules via pure `:include` and binds distinct local aliases via `:use`. Bare `:Status` remains unbound in root scope.
 
 ```stvn
 {
@@ -3916,7 +3940,9 @@ Module A and Module B both export `:Status`. The importing document aliases both
     #kind #DEFS
   }
   :defs {
-    :Status :Enum [ #CONNECTED #DISCONNECTED #CONNECTING ]
+    :package :net/conn {
+      :Status :Enum [ #CONNECTED #DISCONNECTED #CONNECTING ]
+    }
   }
 }
 ```
@@ -3930,7 +3956,9 @@ Module A and Module B both export `:Status`. The importing document aliases both
     #kind #DEFS
   }
   :defs {
-    :Status :Enum [ #ONLINE #OFFLINE #READ_ONLY #FAILOVER ]
+    :package :db/engine {
+      :Status :Enum [ #ONLINE #OFFLINE #READ_ONLY #FAILOVER ]
+    }
   }
 }
 ```
@@ -3944,21 +3972,28 @@ Module A and Module B both export `:Status`. The importing document aliases both
     #kind #BODY_INCLUDE
   }
   :defs {
-    // Both modules alias :Status to explicit local identifiers
-    :include [ "network_status.network.stvn_d"  { :Status :NetworkStatus } ]
-    :include [ "database_status.database.stvn_d" { :Status :DbStatus } ]
+    :include [
+      "network_status.network.stvn_d"
+      "database_status.database.stvn_d"
+    ]
+
+    // Both packaged :Status types map to distinct local identifiers via :use
+    :use [
+      :net/conn  { :Status :NetworkStatus }
+      :db/engine { :Status :DbStatus }
+    ]
 
     :SystemState :Tuple(:NetworkStatus :DbStatus)
   }
 
   :type :SystemState
   :body (
-    #CONNECTED // Bound to :NetworkStatus
-    #ONLINE    // Bound to :DbStatus
+    #CONNECTED // Bound to :NetworkStatus (:net/conn/Status)
+    #ONLINE    // Bound to :DbStatus      (:db/engine/Status)
   )
 
   // NOTE: A bare reference to ':Status' anywhere in this file is a fatal
-  // compile error because raw ':Status' was evicted by the dual alias mapping.
+  // compile error (E030) because neither package stripped ':Status' into root scope.
 }
 ```
 
@@ -4035,8 +4070,8 @@ A file path string literal may appear in `:include` only once per `:defs` block.
   :defs {
     :include [ "network_base.network.stvn_d" ]
     // FATAL: "network_base.network.stvn_d" is already imported in this :defs block.
-    // Combining imports into a single include directive or alias map is mandatory.
-    :include [ "network_base.network.stvn_d" { :Port :AltPort } ]
+    // Every module path string literal may appear at most once per :defs section.
+    :include [ "network_base.network.stvn_d" ]
   }
   // <-- Gate Execution fails: Throws E005 (DUPLICATE_MODULE_IMPORT)
 
@@ -4049,7 +4084,7 @@ A file path string literal may appear in `:include` only once per `:defs` block.
 
 ### F.6 Scenario 6: Namespaced and Path-Delimited Identifier Ingestion
 
-Hierarchical, slash-delimited type identifiers (for example, `:aws/s3/BucketName`) can be consumed raw or mapped to flat local aliases via `:include` alias blocks.
+Hierarchical, slash-delimited type identifiers (for example, `:aws/s3/BucketName`) ingested via pure `:include` can be consumed raw by full FQNI or bound to flat local aliases via `:use` (§ 9.1.2).
 
 ```stvn
 {
@@ -4075,16 +4110,17 @@ Hierarchical, slash-delimited type identifiers (for example, `:aws/s3/BucketName
     #kind #BODY_INCLUDE
   }
   :defs {
-    // Consume AWS path identifier raw, alias Azure path identifier to flat local alias
-    :include [ "cloud_services.cloud.stvn_d" { :azure/blob/Container :AzureContainer } ]
+    // Ingest module via pure :include, consume AWS FQNI directly, and bind Azure alias via :use
+    :include [ "cloud_services.cloud.stvn_d" ]
+    :use [ :azure/blob { :Container :AzureContainer } ]
 
     :StorageTargets :Tuple(:aws/s3/BucketName :AzureContainer)
   }
 
   :type :StorageTargets
   :body (
-    "prod-telemetry-archive-2026" // :aws/s3/BucketName (Raw path token)
-    "backup-container-east"       // :AzureContainer (Aliased from :azure/blob/Container)
+    "prod-telemetry-archive-2026" // :aws/s3/BucketName (Raw FQNI path token)
+    "backup-container-east"       // :AzureContainer (Lexically aliased from :azure/blob/Container)
   )
 }
 ```
@@ -4106,7 +4142,7 @@ Serializers execute a worklist reachability algorithm:
 
 ### G.2 Universal Alias Desugaring
 
-Local aliases established by `:use` directives and `:include` alias maps are scoped syntactical sugar. Canonical serializers MUST desugar local aliases into their Fully Qualified Nominal Identifiers (FQNIs).
+Local aliases established by `:use` directives (`{ #strip }` and `{ :Orig :Local #ORIG #LOCAL }`) are scoped lexical sugar (§ 9.1.2). Canonical serializers MUST desugar local `:use` aliases into their Fully Qualified Nominal Identifiers (FQNIs).
 
 Canonical documents MUST NOT emit `:package` or `:use` wrappers in `:defs`. Every retained type definition MUST be emitted under its canonical FQNI.
 
