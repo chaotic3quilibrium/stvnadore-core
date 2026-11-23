@@ -1,0 +1,12 @@
+{
+  :meta {
+    #name "vial_custody_manifest"
+    #domain "stvn_cryo_vault"
+    #kind #BODY
+  }
+  :defs {
+    :CustodyTempKelvin { #minIncl 1 #maxExcl 300 } :Int
+  }
+  :type :CustodyTempKelvin
+  :body 500
+}

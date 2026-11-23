@@ -1,0 +1,21 @@
+{
+  :meta {
+    #name "float_invalid_size_and_exact_size_mutex_both_orders"
+    #kind #BODY
+  }
+  :defs {
+    :FloatHalf16 { #size 16 } :Float
+    :FloatExactThenSize64 { #exact #size 64 } :Float
+    :FloatSize32ThenExact { #size 32 #exact } :Float
+    :FloatSize64ThenExact { #size 64 #exact } :Float
+    :HealthyBoundedFloat { #size 32 #minIncl 0.0 #maxIncl 100.0 } :Float
+  }
+  :type :Tuple(
+    :FloatHalf16
+    :FloatExactThenSize64
+    :FloatSize32ThenExact
+    :FloatSize64ThenExact
+    :HealthyBoundedFloat
+  )
+  :body ( 1.0 2.0 3.0 4.0 250.0 )
+}

@@ -1,0 +1,12 @@
+{
+  :meta {
+    #name ""
+    #domain "invalid/domain"
+    #kind #BODY
+  }
+  :defs {
+    :VialCount { #unsigned #maxExcl 100 } :Int
+  }
+  :type :VialCount
+  :body 250
+}

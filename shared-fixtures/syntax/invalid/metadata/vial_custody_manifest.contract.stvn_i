@@ -1,0 +1,15 @@
+{
+  :meta {
+    #name "vial_custody_manifest"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E038 #ERR_RESERVED_DOMAIN_PROHIBITED #ERROR 4 13 58 75 "Reserved system domain prohibited: User document cannot declare reserved system domain 'stvn_cryo_vault'; domains with prefix 'stvn_' are strictly reserved for system artifacts" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 11 9 201 204 "Constraint violation (:CustodyTempKelvin): Value 500 is outside allowable range (must be < 300)" )
+  ]
+}

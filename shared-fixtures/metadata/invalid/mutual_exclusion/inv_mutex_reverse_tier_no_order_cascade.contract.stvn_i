@@ -12,8 +12,10 @@
     ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 13 30 673 676 "Temporal scale facets ('#ns', '#us', '#ms', '#s') are mutually exclusive" )
     ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 14 34 723 730 "Temporal mode facets ('#offset', '#zoned', '#audited') are mutually exclusive" )
     ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 15 33 775 783 "Constraint violation (:TrapExactThenSize): facet '#size' is mutually exclusive with '#exact'" )
-    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 16 37 829 841 "Constraint violation (:TrapLowerBounds): #minIncl and #minExcl are mutually exclusive" )
-    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 17 38 888 900 "Constraint violation (:TrapUpperBounds): #maxIncl and #maxExcl are mutually exclusive" )
-    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 18 45 954 975 "Constraint violation (:TrapReverseFilter): #filterIncl and #filterExcl are mutually exclusive" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 16 37 829 835 "Constraint violation (:TrapSize32ThenExact): facet '#exact' is mutually exclusive with '#size'" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 17 37 881 887 "Constraint violation (:TrapSize64ThenExact): facet '#exact' is mutually exclusive with '#size'" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 18 37 933 945 "Constraint violation (:TrapLowerBounds): #minIncl and #minExcl are mutually exclusive" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 19 38 992 1004 "Constraint violation (:TrapUpperBounds): #maxIncl and #maxExcl are mutually exclusive" )
+    ( #E008 #MUTUALLY_EXCLUSIVE_BOUNDS #ERROR 20 45 1058 1079 "Constraint violation (:TrapReverseFilter): #filterIncl and #filterExcl are mutually exclusive" )
   ]
 }

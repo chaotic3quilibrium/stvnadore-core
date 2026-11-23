@@ -1706,7 +1706,7 @@ public class StvnDiagnosticsTest {
     var result = StvnCompiler.compile(input, fixturePath.toString(), StvnParserConfig.DEFAULT);
     Assertions.assertTrue(result.hasErrors());
     var diags = result.diagnostics();
-    Assertions.assertEquals(7, diags.size(), "Expected 5 errors (E008, E038, E008, E008, E012) and 2 stem warnings (W001): " + diags);
+    Assertions.assertEquals(6, diags.size(), "Expected 5 errors (E008, E038, E008, E008, E012) and 1 #name stem warning (W001; #domain W001 suppressed by E038): " + diags);
 
     Assertions.assertEquals("E008", diags.get(0).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.ERR_FACET_ORDER_VIOLATION, diags.get(0).symbolicId().orElse(""));
@@ -1727,14 +1727,16 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals("W001", diags.get(4).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH, diags.get(4).symbolicId().orElse(""));
     Assertions.assertEquals("\"gauntlet_v4_stage1_wrong_stem\"", input.substring(diags.get(4).startOffset(), diags.get(4).endOffset()));
+    Assertions.assertTrue(
+        diags.stream().noneMatch(d ->
+            DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH.equals(d.symbolicId().orElse(""))
+                && d.message().contains("stvn_reserved_trap")),
+        "Reserved #domain triggering E038 must suppress secondary W001 stem mismatch warning"
+    );
 
-    Assertions.assertEquals("W001", diags.get(5).canonicalCode().orElse(""));
-    Assertions.assertEquals(DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH, diags.get(5).symbolicId().orElse(""));
-    Assertions.assertEquals("\"stvn_reserved_trap\"", input.substring(diags.get(5).startOffset(), diags.get(5).endOffset()));
-
-    Assertions.assertEquals("E012", diags.get(6).canonicalCode().orElse(""));
-    Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(6).symbolicId().orElse(""));
-    Assertions.assertEquals("5000", input.substring(diags.get(6).startOffset(), diags.get(6).endOffset()));
+    Assertions.assertEquals("E012", diags.get(5).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(5).symbolicId().orElse(""));
+    Assertions.assertEquals("5000", input.substring(diags.get(5).startOffset(), diags.get(5).endOffset()));
   }
 
   @Test
@@ -1830,30 +1832,30 @@ public class StvnDiagnosticsTest {
     Assertions.assertTrue(result.hasErrors());
     var diags = result.diagnostics();
     Assertions.assertEquals(
-        9,
+        8,
         diags.size(),
-        "Expected 7 errors (E008, E038, E008, E008, E033, E033, E012) and 2 stem warnings (W001): " + diags
+        "Expected 7 errors (E008, E038, E008, E008, E033, E033, E012) and 1 #name stem warning (W001; #domain W001 suppressed by E038): " + diags
     );
+
+    Assertions.assertEquals("E033", diags.get(5).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, diags.get(5).symbolicId().orElse(""));
+    Assertions.assertEquals(":meta", input.substring(diags.get(5).startOffset(), diags.get(5).endOffset()));
+    Assertions.assertEquals(8, diags.get(5).line());
+    Assertions.assertEquals(2, diags.get(5).column());
+    Assertions.assertEquals(147, diags.get(5).startOffset());
+    Assertions.assertEquals(152, diags.get(5).endOffset());
 
     Assertions.assertEquals("E033", diags.get(6).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, diags.get(6).symbolicId().orElse(""));
     Assertions.assertEquals(":meta", input.substring(diags.get(6).startOffset(), diags.get(6).endOffset()));
-    Assertions.assertEquals(8, diags.get(6).line());
+    Assertions.assertEquals(9, diags.get(6).line());
     Assertions.assertEquals(2, diags.get(6).column());
-    Assertions.assertEquals(147, diags.get(6).startOffset());
-    Assertions.assertEquals(152, diags.get(6).endOffset());
+    Assertions.assertEquals(158, diags.get(6).startOffset());
+    Assertions.assertEquals(163, diags.get(6).endOffset());
 
-    Assertions.assertEquals("E033", diags.get(7).canonicalCode().orElse(""));
-    Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, diags.get(7).symbolicId().orElse(""));
-    Assertions.assertEquals(":meta", input.substring(diags.get(7).startOffset(), diags.get(7).endOffset()));
-    Assertions.assertEquals(9, diags.get(7).line());
-    Assertions.assertEquals(2, diags.get(7).column());
-    Assertions.assertEquals(158, diags.get(7).startOffset());
-    Assertions.assertEquals(163, diags.get(7).endOffset());
-
-    Assertions.assertEquals("E012", diags.get(8).canonicalCode().orElse(""));
-    Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(8).symbolicId().orElse(""));
-    Assertions.assertEquals("5000", input.substring(diags.get(8).startOffset(), diags.get(8).endOffset()));
+    Assertions.assertEquals("E012", diags.get(7).canonicalCode().orElse(""));
+    Assertions.assertEquals(DiagnosticBag.ERR_CONSTRAINT_VIOLATION, diags.get(7).symbolicId().orElse(""));
+    Assertions.assertEquals("5000", input.substring(diags.get(7).startOffset(), diags.get(7).endOffset()));
   }
 
   @Test

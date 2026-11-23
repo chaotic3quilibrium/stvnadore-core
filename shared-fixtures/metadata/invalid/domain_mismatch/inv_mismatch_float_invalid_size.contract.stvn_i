@@ -1,0 +1,16 @@
+{
+  :meta {
+    #name "inv_mismatch_float_invalid_size"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../../../syntax/invalid/error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E010 #FLOAT_INVALID_SIZE #ERROR 20 18 826 834 "Constraint violation (:HalfFloat): continuous :Float #size must be 32 or 64, got 16" )
+    ( #E010 #FLOAT_INVALID_SIZE #ERROR 21 18 861 870 "Constraint violation (:QuadFloat): continuous :Float #size must be 32 or 64, got 128" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 25 19 1008 1012 "Constraint violation (:ValidCheck): Value must be strictly less than 10.0" )
+  ]
+}

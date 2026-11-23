@@ -238,6 +238,22 @@ public final class IrGeneratorUtility {
             }
             """,
             Optional.of(0b11)
+        ),
+        new NegativeBinaryDefsSpec(
+            "binary_reserved_domain_two_stem_isolation.cryo_biobank.stvn_bd",
+            StvnDocumentMeta.of("other_binary_defs", "stvn_cryo_vault", StvnDocumentKind.DEFS),
+            """
+            {
+              :meta {
+                #name "other_binary_defs"
+                #domain "stvn_cryo_vault"
+                #kind #DEFS
+              }
+              :defs {
+                :CustodyTempKelvin { #minIncl 1 #maxExcl 300 } :Int
+              }
+            }
+            """
         )
     );
   }

@@ -656,6 +656,7 @@ public final class StvnDefsLowerer {
       return;
     }
 
+    boolean domainReservedRejected = false;
     if (!config.systemAuthority() && meta.domain().isPresent() && isReservedDomain(meta.domain().get())) {
       String declaredDomain = meta.domain().get();
       diagnosticBag.addError(
@@ -664,7 +665,13 @@ public final class StvnDefsLowerer {
           domainSpan.startOffset(), domainSpan.endOffset(), domainSpan.line(), domainSpan.column(), null,
           DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED
       );
+      domainReservedRejected = true;
     }
+    boolean nameValidForStem = meta.name().isPresent()
+        && POSIX_META_ID_PATTERN.matcher(meta.name().get()).matches();
+    boolean domainValidForStem = meta.domain().isPresent()
+        && !domainReservedRejected
+        && POSIX_META_ID_PATTERN.matcher(meta.domain().get()).matches();
 
     if (fatalPathRejection) {
       return;
@@ -674,7 +681,8 @@ public final class StvnDefsLowerer {
     if (declaredKind == StvnDocumentKind.BODY_INCLUDE || declaredKind == StvnDocumentKind.DEFS_INCLUDE) {
       diagnosticBag.addError(
           "Binary document header cannot declare modular kind '" + declaredKind.keyword()
-              + "'; binary frames (.stvn_b, .stvn_bd) are strictly hermetic (#BODY or #DEFS)",
+              + "'; binary frames (.stvn_b, .stvn_bd) are strictly hermetic ("
+              + StvnVocabulary.KIND_KW_BODY + " or " + StvnVocabulary.KIND_KW_DEFS + ")",
           ctrlSpan.startOffset(), ctrlSpan.endOffset(), ctrlSpan.line(), ctrlSpan.column(), null,
           DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH
       );
@@ -689,32 +697,36 @@ public final class StvnDefsLowerer {
 
     if (dotParts != null && dotParts.length >= 1) {
       String stemName = dotParts[0];
-      if (meta.name().isPresent() && !meta.name().get().equals(stemName)) {
+      if (nameValidForStem && !meta.name().get().equals(stemName)) {
         diagnosticBag.addWarning(
-            "Declared #name '" + meta.name().get() + "' does not match filename stem slot 0 '" + stemName + "'",
+            "Declared " + StvnVocabulary.FACET_KW_META_NAME + " '" + meta.name().get()
+                + "' does not match filename stem slot 0 '" + stemName + "'",
             nameSpan.startOffset(), nameSpan.endOffset(), nameSpan.line(), nameSpan.column(),
             DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
         );
       }
-      if (meta.domain().isPresent()) {
+      if (domainValidForStem) {
         String declaredDomain = meta.domain().get();
         if (dotParts.length == 1) {
           diagnosticBag.addWarning(
-              "Declared #domain '" + declaredDomain + "' is omitted from filename stem slot 1",
+              "Declared " + StvnVocabulary.FACET_KW_META_DOMAIN + " '" + declaredDomain
+                  + "' is omitted from filename stem slot 1",
               domainSpan.startOffset(), domainSpan.endOffset(), domainSpan.line(), domainSpan.column(),
               DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME
           );
         } else if (!declaredDomain.equals(dotParts[1])) {
           diagnosticBag.addWarning(
-              "Declared #domain '" + declaredDomain + "' does not match filename stem slot 1 '" + dotParts[1] + "'",
+              "Declared " + StvnVocabulary.FACET_KW_META_DOMAIN + " '" + declaredDomain
+                  + "' does not match filename stem slot 1 '" + dotParts[1] + "'",
               domainSpan.startOffset(), domainSpan.endOffset(), domainSpan.line(), domainSpan.column(),
               DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
           );
         }
-      } else if (dotParts.length == 2 && !dotParts[1].isEmpty() && !isReservedDomain(dotParts[1])) {
+      } else if (meta.domain().isEmpty() && dotParts.length == 2 && !dotParts[1].isEmpty() && !isReservedDomain(dotParts[1])) {
         diagnosticBag.addWarning(
             "Filename stem slot 1 declares domain '" + dotParts[1]
-                + "', but :meta omits #domain \"" + dotParts[1] + "\"",
+                + "', but " + StvnVocabulary.KEYWORD_META + " omits "
+                + StvnVocabulary.FACET_KW_META_DOMAIN + " \"" + dotParts[1] + "\"",
             ctrlSpan.startOffset(), ctrlSpan.endOffset(), ctrlSpan.line(), ctrlSpan.column(),
             DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META
         );
@@ -1750,6 +1762,8 @@ public final class StvnDefsLowerer {
     boolean seenKind = false;
     int currentTier = 0;
 
+    boolean nameValidForStem = false;
+    boolean domainValidForStem = false;
     String declaredName = null;
     String declaredDomain = null;
     StvnDocumentKind declaredKind = null;
@@ -1771,7 +1785,7 @@ public final class StvnDefsLowerer {
         }
         Span sp = Span.ofContext(unk);
         diagnosticBag.addError(
-            "Invalid metadata facet tag '" + facetTag + "' in ':meta' block",
+            "Invalid metadata facet tag '" + facetTag + "' in '" + StvnVocabulary.KEYWORD_META + "' block",
             sp.start(), sp.end(), sp.line(), sp.column(), null,
             DiagnosticBag.ERR_INVALID_METADATA_FACET
         );
@@ -1779,77 +1793,107 @@ public final class StvnDefsLowerer {
       } else if (el.metaNameFacet() != null) {
         var nf = el.metaNameFacet();
         Span nfSpan = Span.ofContext(nf);
-        if (seenName) {
+        boolean isDuplicateName = seenName;
+        if (isDuplicateName) {
           diagnosticBag.addError(
-              "Duplicate metadata facet tag '#name' declared in ':meta' block",
+              "Duplicate metadata facet tag '" + StvnVocabulary.FACET_KW_META_NAME
+                  + "' declared in '" + StvnVocabulary.KEYWORD_META + "' block",
               nfSpan.start(), nfSpan.end(), nfSpan.line(), nfSpan.column(), null,
               DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
           );
         } else if (currentTier > 1) {
           diagnosticBag.addError(
-              "Metadata facet '#name' violates 3-tier monotonic progression (#name -> #domain -> #kind)",
+              "Metadata facet '" + StvnVocabulary.FACET_KW_META_NAME
+                  + "' violates 3-tier monotonic progression ("
+                  + StvnVocabulary.FACET_KW_META_NAME + " -> "
+                  + StvnVocabulary.FACET_KW_META_DOMAIN + " -> "
+                  + StvnVocabulary.FACET_KW_META_KIND + ")",
               nfSpan.start(), nfSpan.end(), nfSpan.line(), nfSpan.column(), null,
               DiagnosticBag.ERR_FACET_ORDER_VIOLATION
           );
         }
         seenName = true;
         currentTier = Math.max(currentTier, 1);
-        nameNode = nf.stringLiteral();
+        if (!isDuplicateName) {
+          nameNode = nf.stringLiteral();
+        }
         if (nf.stringLiteral() != null && !(nf.stringLiteral() instanceof StvnParser.StringMalformedFencedContext)) {
           Span strSpan = Span.ofContext(nf.stringLiteral());
           Optional<String> decodedName = StvnPayloadLowerer.decodeStringLiteralAccumulating(
               nf.stringLiteral().getText(), true, strSpan, diagnosticBag
           );
           if (decodedName.isPresent()) {
-            declaredName = decodedName.get();
-            if (!POSIX_META_ID_PATTERN.matcher(declaredName).matches()) {
+            String candidateName = decodedName.get();
+            boolean posixValid = POSIX_META_ID_PATTERN.matcher(candidateName).matches();
+            if (!posixValid) {
               diagnosticBag.addError(
-                  "Metadata #name '" + declaredName + "' does not match required atomic POSIX pattern ^[a-zA-Z0-9_-]{1,64}$",
+                  "Metadata " + StvnVocabulary.FACET_KW_META_NAME + " '" + candidateName
+                      + "' does not match required atomic POSIX pattern ^[a-zA-Z0-9_-]{1,64}$",
                   strSpan.start(), strSpan.end(), strSpan.line(), strSpan.column(), null,
                   DiagnosticBag.ERR_INVALID_METADATA_FACET
               );
+            }
+            if (!isDuplicateName) {
+              declaredName = candidateName;
+              nameValidForStem = posixValid;
             }
           }
         }
       } else if (el.metaDomainFacet() != null) {
         var df = el.metaDomainFacet();
         Span dfSpan = Span.ofContext(df);
-        if (seenDomain) {
+        boolean isDuplicateDomain = seenDomain;
+        if (isDuplicateDomain) {
           diagnosticBag.addError(
-              "Duplicate metadata facet tag '#domain' declared in ':meta' block",
+              "Duplicate metadata facet tag '" + StvnVocabulary.FACET_KW_META_DOMAIN
+                  + "' declared in '" + StvnVocabulary.KEYWORD_META + "' block",
               dfSpan.start(), dfSpan.end(), dfSpan.line(), dfSpan.column(), null,
               DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
           );
         } else if (currentTier > 2) {
           diagnosticBag.addError(
-              "Metadata facet '#domain' violates 3-tier monotonic progression (#name -> #domain -> #kind)",
+              "Metadata facet '" + StvnVocabulary.FACET_KW_META_DOMAIN
+                  + "' violates 3-tier monotonic progression ("
+                  + StvnVocabulary.FACET_KW_META_NAME + " -> "
+                  + StvnVocabulary.FACET_KW_META_DOMAIN + " -> "
+                  + StvnVocabulary.FACET_KW_META_KIND + ")",
               dfSpan.start(), dfSpan.end(), dfSpan.line(), dfSpan.column(), null,
               DiagnosticBag.ERR_FACET_ORDER_VIOLATION
           );
         }
         seenDomain = true;
         currentTier = Math.max(currentTier, 2);
-        domainNode = df.stringLiteral();
+        if (!isDuplicateDomain) {
+          domainNode = df.stringLiteral();
+        }
         if (df.stringLiteral() != null && !(df.stringLiteral() instanceof StvnParser.StringMalformedFencedContext)) {
           Span strSpan = Span.ofContext(df.stringLiteral());
           Optional<String> decodedDomain = StvnPayloadLowerer.decodeStringLiteralAccumulating(
               df.stringLiteral().getText(), true, strSpan, diagnosticBag
           );
           if (decodedDomain.isPresent()) {
-            declaredDomain = decodedDomain.get();
-            if (!POSIX_META_ID_PATTERN.matcher(declaredDomain).matches()) {
+            String candidateDomain = decodedDomain.get();
+            boolean posixValid = POSIX_META_ID_PATTERN.matcher(candidateDomain).matches();
+            boolean reservedRejected = false;
+            if (!posixValid) {
               diagnosticBag.addError(
-                  "Metadata #domain '" + declaredDomain + "' does not match required atomic POSIX pattern ^[a-zA-Z0-9_-]{1,64}$",
+                  "Metadata " + StvnVocabulary.FACET_KW_META_DOMAIN + " '" + candidateDomain
+                      + "' does not match required atomic POSIX pattern ^[a-zA-Z0-9_-]{1,64}$",
                   strSpan.start(), strSpan.end(), strSpan.line(), strSpan.column(), null,
                   DiagnosticBag.ERR_INVALID_METADATA_FACET
               );
-            } else if (!moduleCtx.isSystemAuthority() && isReservedDomain(declaredDomain)) {
+            } else if (!moduleCtx.isSystemAuthority() && isReservedDomain(candidateDomain)) {
               diagnosticBag.addError(
-                  "Reserved system domain prohibited: User document cannot declare reserved system domain '" + declaredDomain
+                  "Reserved system domain prohibited: User document cannot declare reserved system domain '" + candidateDomain
                       + "'; domains with prefix 'stvn_' are strictly reserved for system artifacts",
                   strSpan.start(), strSpan.end(), strSpan.line(), strSpan.column(), null,
                   DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED
               );
+              reservedRejected = true;
+            }
+            if (!isDuplicateDomain) {
+              declaredDomain = candidateDomain;
+              domainValidForStem = posixValid && !reservedRejected;
             }
           }
         }
@@ -1858,13 +1902,18 @@ public final class StvnDefsLowerer {
         Span kfSpan = Span.ofContext(kf);
         if (seenKind) {
           diagnosticBag.addError(
-              "Duplicate metadata facet tag '#kind' declared in ':meta' block",
+              "Duplicate metadata facet tag '" + StvnVocabulary.FACET_KW_META_KIND
+                  + "' declared in '" + StvnVocabulary.KEYWORD_META + "' block",
               kfSpan.start(), kfSpan.end(), kfSpan.line(), kfSpan.column(), null,
               DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
           );
         } else if (currentTier > 3) {
           diagnosticBag.addError(
-              "Metadata facet '#kind' violates 3-tier monotonic progression (#name -> #domain -> #kind)",
+              "Metadata facet '" + StvnVocabulary.FACET_KW_META_KIND
+                  + "' violates 3-tier monotonic progression ("
+                  + StvnVocabulary.FACET_KW_META_NAME + " -> "
+                  + StvnVocabulary.FACET_KW_META_DOMAIN + " -> "
+                  + StvnVocabulary.FACET_KW_META_KIND + ")",
               kfSpan.start(), kfSpan.end(), kfSpan.line(), kfSpan.column(), null,
               DiagnosticBag.ERR_FACET_ORDER_VIOLATION
           );
@@ -1902,7 +1951,7 @@ public final class StvnDefsLowerer {
 
       if (dotParts != null && dotParts.length >= 1) {
         String stemName = dotParts[0];
-        if (declaredName != null && !declaredName.equals(stemName)) {
+        if (nameValidForStem && declaredName != null && !declaredName.equals(stemName)) {
           Span sp = nameNode != null ? Span.ofContext(nameNode) : kwMetaSpan(metaEntry);
           diagnosticBag.addWarning(
               "Declared " + StvnVocabulary.FACET_KW_META_NAME + " '" + declaredName
@@ -1911,7 +1960,7 @@ public final class StvnDefsLowerer {
               DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH
           );
         }
-        if (declaredDomain != null) {
+        if (domainValidForStem && declaredDomain != null) {
           Span sp = domainNode != null ? Span.ofContext(domainNode) : kwMetaSpan(metaEntry);
           if (dotParts.length == 1) {
             diagnosticBag.addWarning(
@@ -5448,6 +5497,7 @@ public final class StvnDefsLowerer {
       String primaryFacetErrorCode = null;
       Set<String> seenFacetNames = new HashSet<>();
       boolean seenFloatSizeOrExact = false;
+      boolean hasFloatSizeExactConflict = false;
       boolean seenMinBound = false;
       boolean seenMaxBound = false;
       boolean seenEnumFilter = false;
@@ -5681,6 +5731,7 @@ public final class StvnDefsLowerer {
         }
         if (baseKw.equals(StvnVocabulary.TYPE_FLOAT) && ("size".equals(facetName) || "exact".equals(facetName))) {
           if (seenFloatSizeOrExact) {
+            hasFloatSizeExactConflict = true;
             String peer = "size".equals(facetName) ? StvnVocabulary.FACET_KW_EXACT : StvnVocabulary.FACET_KW_SIZE;
             diagnosticBag.addError(
                 "Constraint violation (" + ownerLabel + "): facet '"
@@ -6147,7 +6198,7 @@ public final class StvnDefsLowerer {
 
         case StvnSchema.FloatSchema floatBase -> lowerFloatFacets(
             ownerLabel, effectiveBrand, floatBase, parentName, isNominalDerivation,
-            childExact, childSize, childSizeSpan, childMaxSize, childMaxSizeSpan,
+            childExact, hasFloatSizeExactConflict, childSize, childSizeSpan, childMaxSize, childMaxSizeSpan,
             minBoundCtx, minBoundName, minBoundPin, maxBoundCtx, maxBoundName, maxBoundPin, finalTraits, scope
         );
 
@@ -6638,6 +6689,7 @@ public final class StvnDefsLowerer {
         @Nullable String parentName,
         boolean isNominalDerivation,
         boolean childExact,
+        boolean hasFloatSizeExactConflict,
         @Nullable BigInteger childSize,
         @Nullable Span childSizeSpan,
         @Nullable BigInteger childMaxSize,
@@ -6658,17 +6710,20 @@ public final class StvnDefsLowerer {
         if (childSize.equals(new BigInteger("32"))) {
           rep = FloatRepresentation.IEEE_32;
         } else if (childSize.equals(StvnVocabulary.DEFAULT_FLOAT_BIT_WIDTH)) {
-          diagnosticBag.addWarning(
-              "Constraint violation (" + ownerLabel + "): facet '#size 64' is redundant; continuous '"
-                  + StvnVocabulary.TYPE_FLOAT + "' intrinsically defaults to 64-bit IEEE-754 double precision",
-              childSizeSpan.start(), childSizeSpan.end(), childSizeSpan.line(), childSizeSpan.column(),
-              DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
-          );
+          if (!hasFloatSizeExactConflict) {
+            diagnosticBag.addWarning(
+                "Constraint violation (" + ownerLabel + "): facet '" + StvnVocabulary.FACET_KW_SIZE
+                    + " 64' is redundant; continuous '"
+                    + StvnVocabulary.TYPE_FLOAT + "' intrinsically defaults to 64-bit IEEE-754 double precision",
+                childSizeSpan.start(), childSizeSpan.end(), childSizeSpan.line(), childSizeSpan.column(),
+                DiagnosticBag.WARN_REDUNDANT_METADATA_FACET
+            );
+          }
           rep = FloatRepresentation.IEEE_64;
         } else {
           diagnosticBag.addError(
               "Constraint violation (" + ownerLabel + "): continuous " + StvnVocabulary.TYPE_FLOAT
-                  + " #size must be 32 or 64, got " + childSize,
+                  + " " + StvnVocabulary.FACET_KW_SIZE + " must be 32 or 64, got " + childSize,
               childSizeSpan.start(), childSizeSpan.end(), childSizeSpan.line(), childSizeSpan.column(),
               null, DiagnosticBag.ERR_FLOAT_INVALID_SIZE
           );

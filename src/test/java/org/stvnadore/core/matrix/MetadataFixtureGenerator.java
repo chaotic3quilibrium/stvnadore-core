@@ -1550,6 +1550,42 @@ public final class MetadataFixtureGenerator {
         Optional.of("0")
     ));
 
+    // 9. Continuous :Float rejecting unsupported IEEE-754 #size bit-widths (16, 128) while preserving healthy sibling slots
+    list.add(new GeneratedFixture(
+        Path.of("invalid", "domain_mismatch", "inv_mismatch_float_invalid_size.stvn"),
+        """
+        // ==============================================================================
+        // STVN METADATA TEST FIXTURE (CANONICAL SUITE 2.0.0)
+        // ==============================================================================
+        // FIXTURE-ID:         inv_mismatch_float_invalid_size
+        // MATRIX-POSITION:    1.3.1
+        // TARGET-TYPE:        :Float
+        // OFFENDING-FACET:    #size
+        // COVERAGE-KIND:      TARGET_DOMAIN_MISMATCH
+        // EXPECT-DIAGNOSTIC:  FLOAT_INVALID_SIZE
+        // TARGET-TOKEN:       #size
+        // EXPECT-SEVERITY:    ERROR
+        // DESCRIPTION:        Continuous :Float #size must be 32 or 64; invalid sizes (16, 128) emit E010 FLOAT_INVALID_SIZE pinned to #size
+        // ==============================================================================
+        {
+          :meta {
+            #name "inv_mismatch_float_invalid_size"
+            #kind #BODY
+          }
+          :defs {
+            :HalfFloat { #size 16 } :Float
+            :QuadFloat { #size 128 } :Float
+            :ValidCheck { #minIncl 0.0 #maxExcl 10.0 } :Float
+          }
+          :type :Tuple( :HalfFloat :QuadFloat :ValidCheck )
+          :body ( 1.5 2.5 99.0 )
+        }
+        """,
+        CoverageKind.TARGET_DOMAIN_MISMATCH,
+        Optional.of("FLOAT_INVALID_SIZE"),
+        Optional.of("#size")
+    ));
+
     return list;
   }
 
@@ -2079,6 +2115,8 @@ public final class MetadataFixtureGenerator {
             :TrapDualScaleEpoch { #s #ms } :TimeEpoch
             :TrapReverseModes { #audited #offset } :DateTime
             :TrapExactThenSize { #exact #size 64 } :Float
+            :TrapSize32ThenExact { #size 32 #exact } :Float
+            :TrapSize64ThenExact { #size 64 #exact } :Float
             :TrapLowerBounds { #minExcl 0.0 #minIncl 1.0 } :Float
             :TrapUpperBounds { #maxExcl 10.0 #maxIncl 5.0 } :Float
             :TrapReverseFilter { #filterExcl [ #A ] #filterIncl [ #A #B ] } :BaseStatus

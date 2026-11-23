@@ -425,9 +425,8 @@ public class StvnDocumentIdentityValidationTest {
     var resEscape = StvnCompiler.compileToResult(badEscapeSource, "use_nested.json.stvn_i");
     assertTrue(resEscape.hasErrors());
     assertFalse(
-        resEscape.diagnostics().stream()
-            .anyMatch(d -> DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META.equals(d.symbolicId().orElse(null))),
-        "Syntax/escape error in #domain literal must not cascade WARN_DOCUMENT_DOMAIN_OMITTED_IN_META"
+        resEscape.hasWarnings(),
+        "Syntax/escape error in #domain literal must not emit secondary W001 or W002 warnings: " + resEscape.diagnostics()
     );
 
     String badPosixSource = """
@@ -447,9 +446,8 @@ public class StvnDocumentIdentityValidationTest {
     var resPosix = StvnCompiler.compileToResult(badPosixSource, "use_nested.json.stvn_i");
     assertTrue(resPosix.hasErrors());
     assertFalse(
-        resPosix.diagnostics().stream()
-            .anyMatch(d -> DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_META.equals(d.symbolicId().orElse(null))),
-        "Invalid POSIX #domain must not emit WARN_DOCUMENT_DOMAIN_OMITTED_IN_META"
+        resPosix.hasWarnings(),
+        "Invalid POSIX #domain must not emit secondary W001 or W002 warnings: " + resPosix.diagnostics()
     );
   }
 
@@ -580,6 +578,8 @@ public class StvnDocumentIdentityValidationTest {
     var result = StvnCompiler.compileToResult(source, "mod1.stvn_d");
     assertFalse(result.isSuccess());
     assertTrue(result.hasErrors());
+    assertFalse(result.hasWarnings(), "Duplicate #name facet must not emit secondary W001 stem warning: " + result.diagnostics());
+    assertEquals(1, result.diagnostics().size());
     var diag = result.diagnostics().getFirst();
     assertEquals(DiagnosticBag.ERR_DUPLICATE_METADATA_FACET, diag.errorCode().orElse(null));
     assertTrue(diag.message().contains("Duplicate metadata facet tag '#name'"));
@@ -1044,6 +1044,8 @@ public class StvnDocumentIdentityValidationTest {
         """;
     var result = StvnCompiler.compileToResult(source, "valid_file.stvn");
     assertTrue(result.hasErrors(), "Facet #name with dot must fail POSIX validation");
+    assertFalse(result.hasWarnings(), "Invalid POSIX #name must not emit secondary W001 warning: " + result.diagnostics());
+    assertEquals(1, result.diagnostics().size());
     var diag = result.diagnostics().getFirst();
     assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, diag.errorCode().orElse(null));
     assertTrue(diag.message().contains("does not match required atomic POSIX pattern"));
