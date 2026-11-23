@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "meta_order_keyword_pinning_disjoint_w001"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 4 5 32 39 "Metadata facet '#domain' violates 3-tier monotonic progression (#name -> #domain -> #kind)" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 5 5 60 65 "Metadata facet '#name' violates 3-tier monotonic progression (#name -> #domain -> #kind)" )
+    ( #W001 #WARN_DOCUMENT_NAME_MISMATCH #WARNING 5 11 66 89 "Declared #name 'vial_custody_manifest' does not match filename stem slot 0 'meta_order_keyword_pinning_disjoint_w001'" )
+    ( #W001 #WARN_DOCUMENT_NAME_MISMATCH #WARNING 4 13 40 55 "Declared #domain 'other_biobank' does not match filename stem slot 1 'cryo_biobank'" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 11 9 199 202 "Constraint violation (:CustodyTempKelvin): Value 500 is outside allowable range (must be < 300)" )
+  ]
+}

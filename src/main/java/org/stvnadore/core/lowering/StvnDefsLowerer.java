@@ -1802,13 +1802,16 @@ public final class StvnDefsLowerer {
               DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
           );
         } else if (currentTier > 1) {
+          Span nfKwSpan = nf.KW_META_NAME() != null && nf.KW_META_NAME().getSymbol() != null
+              ? Span.ofToken(nf.KW_META_NAME().getSymbol())
+              : nfSpan;
           diagnosticBag.addError(
               "Metadata facet '" + StvnVocabulary.FACET_KW_META_NAME
                   + "' violates 3-tier monotonic progression ("
                   + StvnVocabulary.FACET_KW_META_NAME + " -> "
                   + StvnVocabulary.FACET_KW_META_DOMAIN + " -> "
                   + StvnVocabulary.FACET_KW_META_KIND + ")",
-              nfSpan.start(), nfSpan.end(), nfSpan.line(), nfSpan.column(), null,
+              nfKwSpan.start(), nfKwSpan.end(), nfKwSpan.line(), nfKwSpan.column(), null,
               DiagnosticBag.ERR_FACET_ORDER_VIOLATION
           );
         }
@@ -1851,13 +1854,16 @@ public final class StvnDefsLowerer {
               DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
           );
         } else if (currentTier > 2) {
+          Span dfKwSpan = df.KW_META_DOMAIN() != null && df.KW_META_DOMAIN().getSymbol() != null
+              ? Span.ofToken(df.KW_META_DOMAIN().getSymbol())
+              : dfSpan;
           diagnosticBag.addError(
               "Metadata facet '" + StvnVocabulary.FACET_KW_META_DOMAIN
                   + "' violates 3-tier monotonic progression ("
                   + StvnVocabulary.FACET_KW_META_NAME + " -> "
                   + StvnVocabulary.FACET_KW_META_DOMAIN + " -> "
                   + StvnVocabulary.FACET_KW_META_KIND + ")",
-              dfSpan.start(), dfSpan.end(), dfSpan.line(), dfSpan.column(), null,
+              dfKwSpan.start(), dfKwSpan.end(), dfKwSpan.line(), dfKwSpan.column(), null,
               DiagnosticBag.ERR_FACET_ORDER_VIOLATION
           );
         }
@@ -1908,13 +1914,16 @@ public final class StvnDefsLowerer {
               DiagnosticBag.ERR_DUPLICATE_METADATA_FACET
           );
         } else if (currentTier > 3) {
+          Span kfKwSpan = kf.KW_META_KIND() != null && kf.KW_META_KIND().getSymbol() != null
+              ? Span.ofToken(kf.KW_META_KIND().getSymbol())
+              : kfSpan;
           diagnosticBag.addError(
               "Metadata facet '" + StvnVocabulary.FACET_KW_META_KIND
                   + "' violates 3-tier monotonic progression ("
                   + StvnVocabulary.FACET_KW_META_NAME + " -> "
                   + StvnVocabulary.FACET_KW_META_DOMAIN + " -> "
                   + StvnVocabulary.FACET_KW_META_KIND + ")",
-              kfSpan.start(), kfSpan.end(), kfSpan.line(), kfSpan.column(), null,
+              kfKwSpan.start(), kfKwSpan.end(), kfKwSpan.line(), kfKwSpan.column(), null,
               DiagnosticBag.ERR_FACET_ORDER_VIOLATION
           );
         }

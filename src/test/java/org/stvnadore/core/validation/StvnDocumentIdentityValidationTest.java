@@ -605,6 +605,8 @@ public class StvnDocumentIdentityValidationTest {
     var diag = result.diagnostics().getFirst();
     assertEquals(DiagnosticBag.ERR_FACET_ORDER_VIOLATION, diag.errorCode().orElse(null));
     assertTrue(diag.message().contains("3-tier monotonic progression"));
+    var normalized = source.replace("\r\n", "\n");
+    assertEquals("#name", normalized.substring(diag.startOffset(), diag.endOffset()));
   }
 
   @Test

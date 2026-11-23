@@ -1,0 +1,12 @@
+{
+  :meta {
+    #domain "cryo_biobank"
+    #name "vial_custody_manifest"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :CustodyTempKelvin { #minIncl 1 #maxExcl 300 } :Int
+  }
+  :type :CustodyTempKelvin
+  :body 500
+}

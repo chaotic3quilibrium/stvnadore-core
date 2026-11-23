@@ -1710,15 +1710,19 @@ public class StvnDiagnosticsTest {
 
     Assertions.assertEquals("E008", diags.get(0).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.ERR_FACET_ORDER_VIOLATION, diags.get(0).symbolicId().orElse(""));
-    Assertions.assertEquals("#domain \"stvn_reserved_trap\"", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
+    Assertions.assertEquals("#domain", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
 
     Assertions.assertEquals("E038", diags.get(1).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.ERR_RESERVED_DOMAIN_PROHIBITED, diags.get(1).symbolicId().orElse(""));
     Assertions.assertEquals("\"stvn_reserved_trap\"", input.substring(diags.get(1).startOffset(), diags.get(1).endOffset()));
+    Assertions.assertTrue(
+        diags.get(0).endOffset() <= diags.get(1).startOffset(),
+        ":meta #domain ordering E008 span must be strictly disjoint from E038 stringLiteral span"
+    );
 
     Assertions.assertEquals("E008", diags.get(2).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.ERR_FACET_ORDER_VIOLATION, diags.get(2).symbolicId().orElse(""));
-    Assertions.assertEquals("#name \"gauntlet_v4_stage1_wrong_stem\"", input.substring(diags.get(2).startOffset(), diags.get(2).endOffset()));
+    Assertions.assertEquals("#name", input.substring(diags.get(2).startOffset(), diags.get(2).endOffset()));
 
     Assertions.assertEquals("E008", diags.get(3).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.ERR_INVALID_METADATA_FACET, diags.get(3).symbolicId().orElse(""));
@@ -1727,6 +1731,10 @@ public class StvnDiagnosticsTest {
     Assertions.assertEquals("W001", diags.get(4).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH, diags.get(4).symbolicId().orElse(""));
     Assertions.assertEquals("\"gauntlet_v4_stage1_wrong_stem\"", input.substring(diags.get(4).startOffset(), diags.get(4).endOffset()));
+    Assertions.assertTrue(
+        diags.get(2).endOffset() <= diags.get(4).startOffset(),
+        ":meta #name ordering E008 span must be strictly disjoint from W001 stringLiteral span"
+    );
     Assertions.assertTrue(
         diags.stream().noneMatch(d ->
             DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH.equals(d.symbolicId().orElse(""))
@@ -1836,6 +1844,14 @@ public class StvnDiagnosticsTest {
         diags.size(),
         "Expected 7 errors (E008, E038, E008, E008, E033, E033, E012) and 1 #name stem warning (W001; #domain W001 suppressed by E038): " + diags
     );
+
+    Assertions.assertEquals("#domain", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
+    Assertions.assertEquals(40, diags.get(0).startOffset());
+    Assertions.assertEquals(47, diags.get(0).endOffset());
+    Assertions.assertEquals("#name", input.substring(diags.get(2).startOffset(), diags.get(2).endOffset()));
+    Assertions.assertEquals(73, diags.get(2).startOffset());
+    Assertions.assertEquals(78, diags.get(2).endOffset());
+    Assertions.assertTrue(diags.get(2).endOffset() <= diags.get(4).startOffset());
 
     Assertions.assertEquals("E033", diags.get(5).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.ERR_META_POSITION_INVALID, diags.get(5).symbolicId().orElse(""));

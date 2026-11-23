@@ -201,4 +201,46 @@ public class StvnCoordinateSpanPinningTest {
     assertEquals(strStart, diag.startOffset());
     assertEquals(strEnd, diag.endOffset());
   }
+
+  @Test
+  @DisplayName("TC-SPAN-11: :meta ERR_FACET_ORDER_VIOLATION pins strictly to facet keyword token disjoint from W001/W002 stringLiteral")
+  void testMetaOrderViolationKeywordPinningDisjointFromWarnings() {
+    var source = """
+        {
+          :meta {
+            #kind #DEFS
+            #domain "security"
+            #name "login"
+          }
+          :defs {
+            :Token :String
+          }
+        }
+        """;
+    var result = StvnCompiler.compileToResult(source, "auth.stvn_d");
+    assertTrue(result.hasErrors());
+    assertTrue(result.hasWarnings());
+    var diags = result.diagnostics();
+    assertEquals(4, diags.size(), () -> "Expected 2x E008 order errors + W001 + W002: " + diags);
+
+    var domainOrderErr = diags.get(0);
+    var nameOrderErr = diags.get(1);
+    var nameWarn = diags.get(2);
+    var domainWarn = diags.get(3);
+
+    assertEquals(DiagnosticBag.ERR_FACET_ORDER_VIOLATION, domainOrderErr.errorCode().orElse(null));
+    assertEquals("#domain", source.substring(domainOrderErr.startOffset(), domainOrderErr.endOffset()));
+
+    assertEquals(DiagnosticBag.ERR_FACET_ORDER_VIOLATION, nameOrderErr.errorCode().orElse(null));
+    assertEquals("#name", source.substring(nameOrderErr.startOffset(), nameOrderErr.endOffset()));
+
+    assertEquals(DiagnosticBag.WARN_DOCUMENT_NAME_MISMATCH, nameWarn.errorCode().orElse(null));
+    assertEquals("\"login\"", source.substring(nameWarn.startOffset(), nameWarn.endOffset()));
+
+    assertEquals(DiagnosticBag.WARN_DOCUMENT_DOMAIN_OMITTED_IN_FILENAME, domainWarn.errorCode().orElse(null));
+    assertEquals("\"security\"", source.substring(domainWarn.startOffset(), domainWarn.endOffset()));
+
+    assertTrue(domainOrderErr.endOffset() <= domainWarn.startOffset(), "#domain keyword E008 must not overlap W002 stringLiteral");
+    assertTrue(nameOrderErr.endOffset() <= nameWarn.startOffset(), "#name keyword E008 must not overlap W001 stringLiteral");
+  }
 }
