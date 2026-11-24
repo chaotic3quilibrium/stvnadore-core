@@ -1444,11 +1444,12 @@ public final class StvnDefsLowerer {
         int tier = getFacetTier(facetName);
         int subTier = getFacetSubTier(facetName);
         if (tier < lastTier || (tier == lastTier && subTier < lastSubTier)) {
+          Span kwSpan = resolveMetadataEntryKeywordSpan(entry);
           diagnosticBag.addError(
               "Facet order violation (" + ownerLabel + "): facet '" + StvnVocabulary.SIGIL_VALUE + facetName
                   + "' (Tier " + tier + ") violates canonical 5-tier order after '"
                   + StvnVocabulary.SIGIL_VALUE + lastFacetName + "'",
-              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              kwSpan.start(), kwSpan.end(), kwSpan.line(), kwSpan.column(), null,
               DiagnosticBag.ERR_FACET_ORDER_VIOLATION
           );
         }
@@ -5810,10 +5811,12 @@ public final class StvnDefsLowerer {
         int tier = getFacetTier(facetName);
         int subTier = getFacetSubTier(facetName);
         if (tier < lastTier || (tier == lastTier && subTier < lastSubTier)) {
+          Span kwSpan = resolveMetadataEntryKeywordSpan(entry);
           diagnosticBag.addError(
-              "Facet order violation (" + ownerLabel + "): facet '#" + facetName + "' (Tier " + tier
-                  + ") violates canonical 5-tier order after '#" + lastFacetName + "'",
-              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              "Facet order violation (" + ownerLabel + "): facet '" + StvnVocabulary.SIGIL_VALUE + facetName
+                  + "' (Tier " + tier + ") violates canonical 5-tier order after '"
+                  + StvnVocabulary.SIGIL_VALUE + lastFacetName + "'",
+              kwSpan.start(), kwSpan.end(), kwSpan.line(), kwSpan.column(), null,
               DiagnosticBag.ERR_FACET_ORDER_VIOLATION
           );
           orderViolationCount++;
@@ -8507,6 +8510,76 @@ public final class StvnDefsLowerer {
       if (mf.KW_FILTER_EXCL() != null) return "filterExcl";
     }
     return null;
+  }
+
+  private static Span resolveMetadataEntryKeywordSpan(StvnParser.MetadataEntryContext entry) {
+    TerminalNode kwNode = null;
+    if (entry.metadataBool() != null) {
+      var mb = entry.metadataBool();
+      kwNode = mb.KW_EQUATABLE() != null ? mb.KW_EQUATABLE() : mb.KW_COMPARABLE();
+    } else if (entry.metadataTrait() != null) {
+      kwNode = entry.metadataTrait().KW_PRESERVE_INDENT();
+    } else if (entry.metadataRange() != null) {
+      var mr = entry.metadataRange();
+      if (mr.KW_MIN_INCL() != null) {
+        kwNode = mr.KW_MIN_INCL();
+      } else if (mr.KW_MAX_INCL() != null) {
+        kwNode = mr.KW_MAX_INCL();
+      } else if (mr.KW_MIN_EXCL() != null) {
+        kwNode = mr.KW_MIN_EXCL();
+      } else {
+        kwNode = mr.KW_MAX_EXCL();
+      }
+    } else if (entry.metadataString() != null) {
+      kwNode = entry.metadataString().KW_REGEX();
+    } else if (entry.metadataFilter() != null) {
+      var mf = entry.metadataFilter();
+      kwNode = mf.KW_FILTER_INCL() != null ? mf.KW_FILTER_INCL() : mf.KW_FILTER_EXCL();
+    } else if (entry.metadataSize() != null) {
+      var ms = entry.metadataSize();
+      if (ms.KW_SIZE() != null) {
+        kwNode = ms.KW_SIZE();
+      } else if (ms.KW_MIN_SIZE() != null) {
+        kwNode = ms.KW_MIN_SIZE();
+      } else {
+        kwNode = ms.KW_MAX_SIZE();
+      }
+    } else if (entry.facetDirective() != null) {
+      kwNode = entry.facetDirective().KW_STRIP();
+    } else if (entry.facetUnsigned() != null) {
+      kwNode = entry.facetUnsigned().KW_UNSIGNED();
+    } else if (entry.facetExact() != null) {
+      kwNode = entry.facetExact().KW_EXACT();
+    } else if (entry.facetInvertible() != null) {
+      kwNode = entry.facetInvertible().KW_INVERTIBLE();
+    } else if (entry.facetTemporalScale() != null) {
+      var ts = entry.facetTemporalScale();
+      if (ts.KW_SCALE_NS() != null) {
+        kwNode = ts.KW_SCALE_NS();
+      } else if (ts.KW_SCALE_US() != null) {
+        kwNode = ts.KW_SCALE_US();
+      } else if (ts.KW_SCALE_MS() != null) {
+        kwNode = ts.KW_SCALE_MS();
+      } else {
+        kwNode = ts.KW_SCALE_S();
+      }
+    } else if (entry.facetTemporalMode() != null) {
+      var tm = entry.facetTemporalMode();
+      if (tm.KW_OFFSET() != null) {
+        kwNode = tm.KW_OFFSET();
+      } else if (tm.KW_ZONED() != null) {
+        kwNode = tm.KW_ZONED();
+      } else {
+        kwNode = tm.KW_AUDITED();
+      }
+    } else if (entry.metadataUnknownEntry() != null
+        && entry.metadataUnknownEntry().unknownFacetKeyword() != null) {
+      return Span.ofContext(entry.metadataUnknownEntry().unknownFacetKeyword());
+    }
+    if (kwNode != null && kwNode.getSymbol() != null && kwNode.getSymbol().getStartIndex() >= 0) {
+      return Span.ofToken(kwNode.getSymbol());
+    }
+    return Span.ofContext(entry);
   }
 
   private static boolean isTemporalScaleName(String facetName) {

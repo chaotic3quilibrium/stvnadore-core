@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 16 36 731 741 "Facet order violation (:BadOrderBounds): facet '#minIncl' (Tier 3) violates canonical 5-tier order after '#maxExcl'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 16 36 731 739 "Facet order violation (:BadOrderBounds): facet '#minIncl' (Tier 3) violates canonical 5-tier order after '#maxExcl'" )
   ]
 }

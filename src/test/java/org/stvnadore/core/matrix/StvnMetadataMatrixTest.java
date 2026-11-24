@@ -154,6 +154,20 @@ public class StvnMetadataMatrixTest {
             result.diagnostics().stream().map(d -> d.errorCode().orElse(null) + ": " + d.message()).toList());
 
     targetToken.ifPresent(token -> {
+      if (DiagnosticBag.ERR_FACET_ORDER_VIOLATION.equals(expectedDiagnostic)) {
+        var normalized = content.replace("\r\n", "\n");
+        boolean exactKeywordPinned = result.diagnostics().stream()
+            .filter(d -> DiagnosticBag.ERR_FACET_ORDER_VIOLATION.equals(d.errorCode().orElse(null)))
+            .anyMatch(d -> d.startOffset() >= 0
+                && d.endOffset() <= normalized.length()
+                && token.equals(normalized.substring(d.startOffset(), d.endOffset())));
+        Assertions.assertTrue(exactKeywordPinned,
+            () -> "ERR_FACET_ORDER_VIOLATION must pin strictly to exact keyword token '" + token
+                + "' in " + fixturePath + ", got: "
+                + result.diagnostics().stream()
+                    .map(d -> normalized.substring(d.startOffset(), d.endOffset()))
+                    .toList());
+      }
       boolean tokenFound = result.diagnostics().stream().anyMatch(d -> {
         if (d.message().contains(token)) return true;
         if (d.startOffset() >= 0 && d.endOffset() > d.startOffset() && d.endOffset() <= content.length()) {

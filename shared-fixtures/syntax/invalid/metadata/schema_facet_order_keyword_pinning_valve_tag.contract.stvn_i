@@ -1,0 +1,26 @@
+{
+  :meta {
+    #name "schema_facet_order_keyword_pinning_valve_tag"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 9 7 166 181 "Facet order violation (:DisorderedValveTag): facet '#preserveIndent' (Tier 4) violates canonical 5-tier order after '#regex'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 10 7 194 202 "Facet order violation (:DisorderedValveTag): facet '#maxIncl' (Tier 3) violates canonical 5-tier order after '#preserveIndent'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 11 7 220 228 "Facet order violation (:DisorderedValveTag): facet '#minIncl' (Tier 3) violates canonical 5-tier order after '#maxIncl'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 12 7 246 257 "Facet order violation (:DisorderedValveTag): facet '#comparable' (Tier 2) violates canonical 5-tier order after '#minIncl'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 13 7 271 279 "Facet order violation (:DisorderedValveTag): facet '#maxSize' (Tier 1) violates canonical 5-tier order after '#comparable'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 14 7 289 297 "Facet order violation (:DisorderedValveTag): facet '#minSize' (Tier 1) violates canonical 5-tier order after '#maxSize'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 18 7 369 377 "Facet order violation (:DisorderedSensorGain): facet '#minExcl' (Tier 3) violates canonical 5-tier order after '#maxExcl'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 19 7 388 398 "Facet order violation (:DisorderedSensorGain): facet '#equatable' (Tier 2) violates canonical 5-tier order after '#minExcl'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 20 7 411 416 "Facet order violation (:DisorderedSensorGain): facet '#size' (Tier 1) violates canonical 5-tier order after '#equatable'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 24 7 486 491 "Facet order violation (:DisorderedValvePort): facet '#size' (Tier 1) violates canonical 5-tier order after '#minIncl'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 25 7 501 510 "Facet order violation (:DisorderedValvePort): facet '#unsigned' (Tier 1) violates canonical 5-tier order after '#size'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 30 7 617 628 "Facet order violation (:DisorderedValveMode): facet '#comparable' (Tier 2) violates canonical 5-tier order after '#filterIncl'" )
+    ( #E012 #ERR_CONSTRAINT_VIOLATION #ERROR 34 9 693 698 "Constraint violation (:DisorderedValveTag): String length 3 violates #minSize constraint (6) (Size 3 outside allowable range [6, 12])" )
+  ]
+}

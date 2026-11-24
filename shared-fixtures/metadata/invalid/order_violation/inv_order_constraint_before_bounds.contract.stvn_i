@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 16 38 747 757 "Facet order violation (:BadOrderStr): facet '#minSize' (Tier 1) violates canonical 5-tier order after '#regex'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 16 38 747 755 "Facet order violation (:BadOrderStr): facet '#minSize' (Tier 1) violates canonical 5-tier order after '#regex'" )
   ]
 }

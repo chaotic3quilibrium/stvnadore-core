@@ -1,0 +1,35 @@
+{
+  :meta {
+    #name "schema_facet_order_keyword_pinning_valve_tag"
+    #kind #BODY
+  }
+  :defs {
+    :DisorderedValveTag {
+      #regex "^VLV-[A-Z0-9]{2,8}$"
+      #preserveIndent #TRUE
+      #maxIncl "VLV-ZZZZ"
+      #minIncl "VLV-0000"
+      #comparable #FALSE
+      #maxSize 12
+      #minSize 6
+    } :String
+    :DisorderedSensorGain {
+      #maxExcl 100.0
+      #minExcl 0.0
+      #equatable #TRUE
+      #size 32
+    } :Float
+    :DisorderedValvePort {
+      #minIncl 1024
+      #size 16
+      #unsigned
+    } :Int
+    :ValveMode :Enum [ #A #B #C ]
+    :DisorderedValveMode {
+      #filterIncl [ #A #B ]
+      #comparable #FALSE
+    } :ValveMode
+  }
+  :type :DisorderedValveTag
+  :body "VLV"
+}

@@ -19,7 +19,7 @@ import java.util.Optional;
  *   <li>Zero-whitespace lexical adjacency ({@code kw.endOffset() == val.startOffset()}) non-overlap.</li>
  *   <li>Duplicate {@code :meta} facet precedence ({@code ERR_DUPLICATE_METADATA_FACET} without
  *       stacking {@code ERR_FACET_ORDER_VIOLATION}) and non-poisoning Pass 3 {@code :body} execution.</li>
- *   <li>Preservation of schema {@code metadataMap} ({@code { ... }}) 5-tier {@code MetadataEntry} spans.</li>
+ *   <li>Uniform keyword-only 5-tier {@code ERR_FACET_ORDER_VIOLATION} pinning in schema {@code metadataMap} blocks.</li>
  * </ul>
  */
 @NullMarked
@@ -172,7 +172,7 @@ class StvnGauntletV10Stage1MetaOrderKeywordPinningTest {
   }
 
   @Test
-  @DisplayName("Stage 1 Duplicate Precedence & Scope Boundary: Duplicate :meta facets after higher tiers emit strictly ERR_DUPLICATE_METADATA_FACET and schema metadataMap retains MetadataEntry spans")
+  @DisplayName("Stage 1 Duplicate Precedence & Uniform Keyword Pinning: Duplicate :meta facets after higher tiers emit strictly ERR_DUPLICATE_METADATA_FACET and schema metadataMap pins ERR_FACET_ORDER_VIOLATION to facet keywords")
   void testDuplicateMetaPrecedenceAndSchemaMetadataMapBoundaryPreserved() {
     var dupMetaSource = """
         {
@@ -203,9 +203,9 @@ class StvnGauntletV10Stage1MetaOrderKeywordPinningTest {
     assertExactSlice(dupMetaSource, diags.get(1), "#name \"duplicate_late_name\"", "E008", DiagnosticBag.ERR_DUPLICATE_METADATA_FACET);
     // 3. Duplicate #domain after #kind -> full-facet ERR_DUPLICATE_METADATA_FACET (0 order error)
     assertExactSlice(dupMetaSource, diags.get(2), "#domain \"duplicate_late_domain\"", "E008", DiagnosticBag.ERR_DUPLICATE_METADATA_FACET);
-    // 4 & 5. Schema metadataMap 5-tier ordering -> full MetadataEntryContext spans preserved
+    // 4 & 5. Schema metadataMap 5-tier ordering -> keyword-only spans
     assertExactSlice(dupMetaSource, diags.get(3), "#unsigned", "E008", DiagnosticBag.ERR_FACET_ORDER_VIOLATION);
-    assertExactSlice(dupMetaSource, diags.get(4), "#size 16", "E008", DiagnosticBag.ERR_FACET_ORDER_VIOLATION);
+    assertExactSlice(dupMetaSource, diags.get(4), "#size", "E008", DiagnosticBag.ERR_FACET_ORDER_VIOLATION);
   }
 
   private static void assertExactSlice(

@@ -1,0 +1,12 @@
+{
+  :meta {
+    #name "standalone_orphan_type_filter_order_keyword_pinning"
+    #kind #BODY
+  }
+  :type {
+    #regex "^VLV$"
+    #filterIncl [ #A ]
+    #comparable #FALSE
+  }
+  :body 0
+}

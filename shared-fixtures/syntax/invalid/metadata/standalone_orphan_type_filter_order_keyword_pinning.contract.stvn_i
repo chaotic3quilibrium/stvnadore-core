@@ -1,0 +1,16 @@
+{
+  :meta {
+    #name "standalone_orphan_type_filter_order_keyword_pinning"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 8 5 129 140 "Facet order violation (<:type>): facet '#filterIncl' (Tier 4) violates canonical 5-tier order after '#regex'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 9 5 152 163 "Facet order violation (<:type>): facet '#comparable' (Tier 2) violates canonical 5-tier order after '#filterIncl'" )
+    ( #E002 #ERR_MALFORMED_SECTION_STRUCTURE #ERROR 6 3 98 103 "Incomplete ':type' section: declare a target schema type after ':type' (for example, ':type :Int')" )
+  ]
+}

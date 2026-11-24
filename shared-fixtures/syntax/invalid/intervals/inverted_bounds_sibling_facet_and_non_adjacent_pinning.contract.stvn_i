@@ -12,7 +12,7 @@
     ( #E009 #INVALID_NUMERIC_RANGE #ERROR 7 44 152 177 "Constraint violation (:TrapInvertedStringBounds): string lower bound ('Z') exceeds upper bound ('A')" )
     ( #E009 #INVALID_NUMERIC_RANGE #ERROR 8 28 215 237 "Constraint violation (:TrapInvertedSeqSize): #minSize (12) cannot exceed #maxSize (4)" )
     ( #E009 #INVALID_NUMERIC_RANGE #ERROR 9 29 281 306 "Constraint violation (:TrapInvertedEpoch): effective range is invalid (#minIncl 200 exceeds #maxExcl 100)" )
-    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 10 42 361 369 "Facet order violation (:TrapNonAdjacentBounds): facet '#size' (Tier 1) violates canonical 5-tier order after '#minIncl'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 10 42 361 366 "Facet order violation (:TrapNonAdjacentBounds): facet '#size' (Tier 1) violates canonical 5-tier order after '#minIncl'" )
     ( #E009 #INVALID_NUMERIC_RANGE #ERROR 10 51 370 380 "Constraint violation (:TrapNonAdjacentBounds): effective range is invalid (#minIncl 10 exceeds #maxExcl 5)" )
   ]
 }

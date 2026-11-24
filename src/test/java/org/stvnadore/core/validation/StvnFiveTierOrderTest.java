@@ -77,8 +77,9 @@ public class StvnFiveTierOrderTest {
     assertTrue(diag.message().contains("violates canonical 5-tier order after '#equatable'"),
         "Message must specify 5-tier order violation after #equatable: " + diag.message());
     int expectedStart = stvn.indexOf("#size");
-    int expectedEnd = expectedStart + "#size 32".length();
-    assertEquals(expectedStart, diag.startOffset(), "Diagnostic must pin strictly to '#size 32'");
+    int expectedEnd = expectedStart + "#size".length();
+    assertEquals(expectedStart, diag.startOffset(), "Diagnostic start must pin strictly to '#size'");
+    assertEquals(expectedEnd, diag.endOffset(), "Diagnostic end must pin strictly to '#size'");
   }
 
   @Test
@@ -102,6 +103,10 @@ public class StvnFiveTierOrderTest {
     var diag = diagOpt.get();
     assertTrue(diag.message().contains("violates canonical 5-tier order after '#minIncl'"),
         "Message must specify 5-tier order violation after #minIncl: " + diag.message());
+    int expectedStart = stvn.indexOf("#equatable");
+    int expectedEnd = expectedStart + "#equatable".length();
+    assertEquals(expectedStart, diag.startOffset(), "Diagnostic start must pin strictly to '#equatable'");
+    assertEquals(expectedEnd, diag.endOffset(), "Diagnostic end must pin strictly to '#equatable'");
   }
 
   @Test
@@ -125,6 +130,10 @@ public class StvnFiveTierOrderTest {
     var diag = diagOpt.get();
     assertTrue(diag.message().contains("violates canonical 5-tier order after '#regex'"),
         "Message must specify 5-tier order violation after #regex: " + diag.message());
+    int expectedStart = stvn.indexOf("#minSize");
+    int expectedEnd = expectedStart + "#minSize".length();
+    assertEquals(expectedStart, diag.startOffset(), "Diagnostic start must pin strictly to '#minSize'");
+    assertEquals(expectedEnd, diag.endOffset(), "Diagnostic end must pin strictly to '#minSize'");
   }
 
   @Test

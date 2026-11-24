@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 16 39 735 743 "Facet order violation (:BadOrderFloat): facet '#size' (Tier 1) violates canonical 5-tier order after '#equatable'" )
+    ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 16 39 735 740 "Facet order violation (:BadOrderFloat): facet '#size' (Tier 1) violates canonical 5-tier order after '#equatable'" )
   ]
 }
