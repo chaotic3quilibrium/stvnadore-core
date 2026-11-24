@@ -1,56 +1,56 @@
 // Multi-element :use formatting quartet with comments, #strip, and alias blocks
 {
   :meta {
-    #name "19_multiline_multi_target_use"
-    #domain "core_fmt"
-    #kind #BODY_INCLUDE
+    #name   "19_multiline_multi_target_use"
+    #domain   "core_fmt"
+    #kind   #BODY_INCLUDE
   }
 
   :defs {
     :package :propulsion/thruster {
-      :ThrustMillinewtons { #unsigned #minIncl 1 #maxExcl 500000 } :Int
-      :NozzleCode { #minSize 2 #maxSize 12 } :String
-      #RCS_PULSE :ThrustMillinewtons 250
+      :ThrustMillinewtons   { #unsigned #minIncl 1 #maxExcl 500000 }       :Int
+      :NozzleCode   { #minSize 2 #maxSize 12 }      :String
+      #RCS_PULSE   :ThrustMillinewtons   250
     }
 
     :package :propulsion/attitude {
-      :ThrustMillinewtons { #unsigned #size 64 #minIncl 1 #maxExcl 1000000 } :Int
-      :BusStatus :Enum[#NOMINAL #STANDBY #FAULT]
-      #RCS_PULSE :ThrustMillinewtons 500
+      :ThrustMillinewtons   { #unsigned #size 64 #minIncl 1 #maxExcl 1000000 }        :Int
+      :BusStatus   :Enum[#NOMINAL #STANDBY #FAULT]
+      #RCS_PULSE   :ThrustMillinewtons   500
     }
 
     :package :propulsion/guidance {
       // Single-line multi-element :use inside a package enclosure
-      :use [ :propulsion/thruster { #strip } :propulsion/attitude { :ThrustMillinewtons :AttitudeThrust :BusStatus :AttitudeBusStatus } ]
-      :GuidanceFrame :Tuple(:ThrustMillinewtons :NozzleCode :AttitudeThrust :AttitudeBusStatus)
+      :use [ :propulsion/thruster      { #strip } :propulsion/attitude      { :ThrustMillinewtons   :AttitudeThrust :BusStatus    :AttitudeBusStatus } ]
+      :GuidanceFrame   :Tuple(:ThrustMillinewtons     :NozzleCode   :AttitudeThrust   :AttitudeBusStatus)
     }
 
     // Multi-line multi-element :use directive at root :defs scope
     :use [ // Trailing comment on opening bracket
       // Element 1: unary #strip import
-      :propulsion/thruster { #strip } // Thruster strip comment
+      :propulsion/thruster   { #strip } // Thruster strip comment
       // Element 2: multi-line type and constant alias mapping
-      :propulsion/attitude {
+      :propulsion/attitude   {
         // Alias ThrustMillinewtons and RCS_PULSE to avoid collision
-        :ThrustMillinewtons :AttitudeThrust // Attitude type alias
-        :BusStatus :AttitudeBusStatus
-        #RCS_PULSE #ATTITUDE_PULSE // Attitude constant alias
+        :ThrustMillinewtons   :AttitudeThrust // Attitude type alias
+        :BusStatus   :AttitudeBusStatus
+        #RCS_PULSE   #ATTITUDE_PULSE // Attitude constant alias
       }
       // Element 3: inline single-line alias block
-      :propulsion/guidance { :GuidanceFrame :GuidanceFrame }
-      :org/stvnadore/prelude { :Port :TelemetryPort }
+      :propulsion/guidance   { :GuidanceFrame   :GuidanceFrame }
+      :org/stvnadore/prelude   { :Port   :TelemetryPort }
     ] // Trailing comment on closing bracket
 
     :Stage9Summary :Tuple(:ThrustMillinewtons :AttitudeThrust :AttitudeBusStatus :GuidanceFrame :TelemetryPort)
   }
 
-  :type :Stage9Summary
+  :type   :Stage9Summary
 
-  :body (
+  :body   (
     #RCS_PULSE // Preserved thruster constant
     #ATTITUDE_PULSE // Preserved attitude constant
     #NOMINAL
-    (1200 "NZ-01" 2400 #STANDBY)
+    (1200     "NZ-01"   2400   #STANDBY)
     9090
   )
 }

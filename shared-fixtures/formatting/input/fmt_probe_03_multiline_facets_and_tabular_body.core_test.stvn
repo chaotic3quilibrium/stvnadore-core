@@ -1,0 +1,54 @@
+{
+  // Formatting Probe 3: Multi-Line Metadata Facets, Inline Tuple Slot Schemas & Tabular Payloads
+  // Target Filename: fmt_probe_03_multiline_facets_and_tabular_body.core_test.stvn
+  :meta   {
+    #kind    #BODY
+    #domain  "core_test"
+    #name    "fmt_probe_03_multiline_facets_and_tabular_body"
+  }
+
+  :defs  {
+    // Group A: Multi-Line MetadataMap Facet Argument Alignment (#facet -> arg -> // comment)
+    :PacketHeaderTag {
+    #regex             "^PKT-[A-Z0-9-]+$" // identifier grammar
+        #maxIncl       "PKT-ZZZZ"         // lexical ceiling
+      #minSize         4                  // lower length bound
+    #preserveIndent    #TRUE              // verbatim margin
+        #minIncl       "PKT-0000"         // lexical floor
+      #maxSize         24                 // upper length bound
+    } :String
+
+    :ChannelStatus :Enum [ #ONLINE #STANDBY #FAULT ]
+
+    // Group B: Multi-Line :Tuple Schema With Aligned Inline Metadata '{ ... } -> :Type' + Comments
+    :TelemetryRow :Tuple (
+      :PacketHeaderTag                                     // col 1: packet tag
+    {#maxExcl 4096  #size 16  #unsigned}    :Int           // col 2: sequence id
+        { #minIncl 0.0  #size 32 }          :Float         // col 3: signal snr
+      :ChannelStatus                                       // col 4: link status
+    )
+
+    :IndexedOutcome :Union(:Int :String :Boolean :ChannelStatus :PacketHeaderTag :Float :Int :Int :Int :Int :Int :String)
+    :BatchPayload   :Tuple(:Seq(:TelemetryRow) :Seq(:Either(:String :Int)) :Seq(:IndexedOutcome))
+  }
+
+  :type :BatchPayload
+  :body (
+    // Group C: Tabular :Seq of Single-Line :Tuple Rows in :body
+    [
+    ("PKT-A1"          7     18.5   #ONLINE)
+    ("PKT-NORTH-02"    1024  9.25   #STANDBY)
+      ("PKT-CRYO"      88    31.0   #FAULT)
+    ]
+
+    // Group D: Multi-Line Sum Variant Tag Alignment (#Left/#Right and #1..#12)
+    [
+    #Left     "LINK_DROP"
+    #Right    200
+    ]
+    [
+    #1     42
+    #12    "TWELFTH_BRANCH"
+    ]
+  )
+}

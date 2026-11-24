@@ -1,0 +1,57 @@
+{
+  // Formatting Probe 2: :meta, :use Alias Pairs, #CONST Columns & :Map Entries
+  // Target Filename: fmt_probe_02_constants_meta_use_and_maps.core_test.stvn
+  :meta {
+    #name    "fmt_probe_02_constants_meta_use_and_maps"
+    #domain  "core_test"
+    #kind    #BODY
+  }
+
+  :defs {
+    :package :cooling/manifold {
+      :CoolantValveMode    :Enum[#CLOSED #THROTTLED #OPEN]
+      :ManifoldTempC       { #size 16 #minIncl -60 #maxExcl 150 }  :Int
+      :FlowTargetLpm       { #unsigned #size 16 #maxExcl 5000 }    :Int
+
+      // Group A: 3-Column #CONST Alignment (#CONST -> :NominalType -> Value + // Comments)
+      #DEFAULT_VALVE_MODE  :CoolantValveMode  #THROTTLED    // startup valve state
+      #IDLE_MANIFOLD_C     :ManifoldTempC     18            // standby loop temp
+      #PEAK_FLOW_LPM       :FlowTargetLpm     1250          // max pump setpoint
+    }
+
+    // Group B: 2-Column :use Alias Alignment (:Orig / #ORIG -> :Local / #LOCAL)
+    :use [
+      :cooling/manifold {
+        :CoolantValveMode    :ValveMode
+        :ManifoldTempC       :LoopTempC
+        :FlowTargetLpm       :LoopFlowLpm
+        #DEFAULT_VALVE_MODE  #INIT_VALVE_MODE
+        #IDLE_MANIFOLD_C     #STANDBY_TEMP_C
+        #PEAK_FLOW_LPM       #MAX_FLOW_LPM
+      }
+    ]
+
+    // Group C: 4-Column Mixed Constrained & Unconstrained #CONST Alignment
+    #MIN_SAFE_PRESSURE_KPA  { #unsigned #size 16 }  :Int     100
+    #MAX_SAFE_PRESSURE_KPA  { #unsigned #size 16 }  :Int     950
+    #FALLBACK_RETRY_LIMIT                           :Int     3
+    #LOOP_ENABLED_DEFAULT                           :Boolean #TRUE
+
+    :ZoneFlowMap           :Map(:String :LoopFlowLpm)
+    :ManifoldReport        :Tuple(:ValveMode :LoopTempC :Int :Boolean :ZoneFlowMap)
+  }
+
+  :type :ManifoldReport
+  :body (
+    #INIT_VALVE_MODE
+    #STANDBY_TEMP_C
+    #MAX_SAFE_PRESSURE_KPA
+    #LOOP_ENABLED_DEFAULT
+    // Group D: Multi-Line :Map Entries With Zero Bracket Padding & Aligned Values
+    {
+      ["zone_a"          120]
+      ["zone_north_rack" 480]
+      ["zone_cryo_bay"   #MAX_FLOW_LPM]
+    }
+  )
+}

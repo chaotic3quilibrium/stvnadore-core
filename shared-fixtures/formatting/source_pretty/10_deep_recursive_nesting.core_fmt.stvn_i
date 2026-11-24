@@ -38,19 +38,7 @@
 
       // Outer :Tuple (d=1) -> :Seq (d=2) -> :Tuple (d=3) with scrambled facets
       // and :Union (d=2) -> :Option (d=3) -> :Either (d=3) -> :Union (d=4)
-      :DeepNestedSchema :Tuple(
-        :Seq(:Tuple(
-          { #unsigned #size 16 #minIncl 1 } :Int
-          { #minSize 1 #maxSize 64 } :String
-        ))
-        :Union(
-          :Port
-          :Option(:Either(:Boolean :Union(
-            :Host
-            { #unsigned #size 64 } :Int
-          )))
-        )
-      )
+      :DeepNestedSchema :Tuple(:Seq(:Tuple({ #unsigned #size 16 #minIncl 1 } :Int { #minSize 1 #maxSize 64 } :String)) :Union(:Port :Option(:Either(:Boolean :Union(:Host { #unsigned #size 64 } :Int)))))
     }
   }
   :type :Seq(:Tuple(:com/acme/deep/layout1/GatewayPair :com/acme/deep/layout2/DeepNestedSchema :Map(:String :Tuple(:Seq(:Int) :Seq(:Int) :Seq(:Tuple(:Int :Boolean))))))
@@ -80,11 +68,8 @@
             30
           ]
           // Depth-5 authored single-line scalar seq
-          [40 50 60] // Trailing comment at depth 5
-          [
-            (1 #T)
-            (2 #F)
-          ]
+          [40    50   60] // Trailing comment at depth 5
+          [(1 #T) (2 #F)]
         )]
       }
     )

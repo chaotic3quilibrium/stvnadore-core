@@ -10,7 +10,7 @@
     // kind paragraph 1
 
     // kind paragraph 2
-    #kind #BODY_INCLUDE      // modular body-include kind
+    #kind   #BODY_INCLUDE    // modular body-include kind
 
     // footer note line 1
 
@@ -25,7 +25,7 @@
       // bit-width note 1
 
       // bit-width note 2
-      #size 16     // 16-bit width
+      #size  16    // 16-bit width
 
       // floor note 1
       // floor note 2

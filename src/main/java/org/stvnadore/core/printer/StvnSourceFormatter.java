@@ -1,5 +1,16 @@
 package org.stvnadore.core.printer;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.ToIntFunction;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -16,16 +27,6 @@ import org.stvnadore.core.parser.StvnSyntaxErrorSanitizer;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.StvnSyntaxCancellationException;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.ToIntFunction;
-
 /**
  * Non-destructive authoring source formatter for STVN 2.0.0 documents (Spec § 3.3, Operation 1).
  * <p>
@@ -38,11 +39,14 @@ import java.util.function.ToIntFunction;
  * blocks), {@code :package} blocks, {@code :use} and {@code :include} directives, {@code #CONST}
  * definitions and references, unreferenced {@code :defs}, user-authored short/long keywords
  * ({@code #T} vs. {@code #TRUE}, {@code #S} vs. {@code #Some}), fenced string tags
- * ({@code """[SQL]..."""}), and explicit vs. inferred sum tags—while normalizing:
+ * ({@code """[SQL]..."""}), and explicit vs. inferred sum tags—while enforcing:
  * <ul>
  *   <li>2-space structural indentation hierarchy ({@code indentWidth = 2}), including Layout 1
  *       and Layout 2 multi-line {@code :use} and {@code :include} directives</li>
- *   <li>Canonical horizontal spacing (§ 3.3)</li>
+ *   <li>Section-scoped container wrapping ({@link StvnSourceFormatterOptions}) across schema
+ *       declarations and payload containers</li>
+ *   <li>1-based target-column anchoring across tabular same-line gaps ({@code authoredSpaces >= 2})
+ *       and bidirectional peer-aware trailing {@code //} comment alignment (§ 3.3.1)</li>
  *   <li>Canonical root-section ordering ({@code :meta} -&gt; {@code :defs} -&gt; {@code :type} -&gt; {@code :body}, § 1.1)</li>
  *   <li>{@code :meta} key ordering ({@code #name} -&gt; {@code #domain} -&gt; {@code #kind})</li>
  *   <li>Canonical 5-tier decimal metadata facet ordering ({@code 1.1.1} through {@code 5.0}, § 6.1)</li>
@@ -61,7 +65,8 @@ public final class StvnSourceFormatter {
 
   /**
    * Formats a Pass 1 syntactically valid STVN 2.0.0 source string into its canonical
-   * non-destructive authoring representation (without a trailing newline).
+   * non-destructive authoring representation (without a trailing newline) using
+   * {@link StvnSourceFormatterOptions#DEFAULT}.
    *
    * @param source the raw STVN 2.0.0 authoring source text
    * @return the formatted STVN 2.0.0 authoring source text
@@ -70,7 +75,24 @@ public final class StvnSourceFormatter {
    * @since 2.0.0
    */
   public static String format(String source) {
+    return format(source, StvnSourceFormatterOptions.DEFAULT);
+  }
+
+  /**
+   * Formats a Pass 1 syntactically valid STVN 2.0.0 source string into its canonical
+   * non-destructive authoring representation (without a trailing newline) using explicit
+   * {@link StvnSourceFormatterOptions}.
+   *
+   * @param source  the raw STVN 2.0.0 authoring source text
+   * @param options section-scoped schema and payload container wrap policies
+   * @return the formatted STVN 2.0.0 authoring source text
+   * @throws NullPointerException            if {@code source} or {@code options} is {@code null}
+   * @throws StvnSyntaxCancellationException if Pass 1 lexical or syntactic validation fails
+   * @since 2.0.0
+   */
+  public static String format(String source, StvnSourceFormatterOptions options) {
     Objects.requireNonNull(source, "source must not be null");
+    Objects.requireNonNull(options, "options must not be null");
 
     StvnSyntaxErrorSanitizer.sanitizeNonFencedTabs(source, null, true);
 
@@ -105,13 +127,13 @@ public final class StvnSourceFormatter {
       }
     }
 
-    FormatterCursor cursor = new FormatterCursor(source, tokenStream.getTokens());
+    FormatterCursor cursor = new FormatterCursor(source, tokenStream.getTokens(), options);
     return cursor.formatDocument(docCtx);
   }
 
   /**
-   * Attempts to format a STVN 2.0.0 source string if Pass 1 lexical and syntactic validation
-   * succeeds with zero errors.
+   * Attempts to format a STVN 2.0.0 source string using {@link StvnSourceFormatterOptions#DEFAULT}
+   * if Pass 1 lexical and syntactic validation succeeds with zero errors.
    *
    * @param source the raw STVN 2.0.0 authoring source text, or {@code null}
    * @return {@code Optional.of(formatted)} when Pass 1 succeeds with 0 syntax errors,
@@ -119,11 +141,27 @@ public final class StvnSourceFormatter {
    * @since 2.0.0
    */
   public static Optional<String> tryFormat(@Nullable String source) {
+    return tryFormat(source, StvnSourceFormatterOptions.DEFAULT);
+  }
+
+  /**
+   * Attempts to format a STVN 2.0.0 source string using explicit {@link StvnSourceFormatterOptions}
+   * if Pass 1 lexical and syntactic validation succeeds with zero errors.
+   *
+   * @param source  the raw STVN 2.0.0 authoring source text, or {@code null}
+   * @param options section-scoped schema and payload container wrap policies
+   * @return {@code Optional.of(formatted)} when Pass 1 succeeds with 0 syntax errors,
+   *         or {@code Optional.empty()} if {@code source} is {@code null} or contains Pass 1 syntax errors
+   * @throws NullPointerException if {@code options} is {@code null}
+   * @since 2.0.0
+   */
+  public static Optional<String> tryFormat(@Nullable String source, StvnSourceFormatterOptions options) {
+    Objects.requireNonNull(options, "options must not be null");
     if (source == null) {
       return Optional.empty();
     }
     try {
-      return Optional.of(format(source));
+      return Optional.of(format(source, options));
     } catch (StvnSyntaxCancellationException e) {
       return Optional.empty();
     }
@@ -233,7 +271,8 @@ public final class StvnSourceFormatter {
   private record PartitionedCommentedBlock<T extends ParserRuleContext>(
       List<CommentedBlockSlice<T>> slices,
       List<CommentLine> footerComments,
-      boolean footerHadBlankLineBefore
+      boolean footerHadBlankLineBefore,
+      Map<Integer, Integer> peerTrailingCommentColCounts
   ) {}
 
   private record RootSectionSlice(
@@ -276,22 +315,66 @@ public final class StvnSourceFormatter {
     private final String source;
     private final List<Token> allTokens;
     private final List<Token> comments;
+    private final StvnSourceFormatterOptions options;
+    private final Set<Integer> lineStartTokenIndices;
+    private final Map<Integer, Integer> trailingCommentColByLine;
     private final StringBuilder sb = new StringBuilder();
     private int nextCommentIdx = 0;
     private int activeCommentEndIdxExclusive;
     private int lastEmittedLine = -1;
+    private boolean currentOutputLineAnchoredToInputLineStart = true;
+    private boolean inSingleLineMetadataMap = false;
 
-    FormatterCursor(String source, List<Token> allTokens) {
+    FormatterCursor(String source, List<Token> allTokens, StvnSourceFormatterOptions options) {
       this.source = source;
       this.allTokens = List.copyOf(allTokens);
+      this.options = options;
       List<Token> commentList = new ArrayList<>();
+      Set<Integer> lineStarts = new HashSet<>();
+      Map<Integer, Integer> trailingByLine = new HashMap<>();
+      int lastDefaultLine = -1;
       for (Token token : allTokens) {
-        if (token.getType() == StvnLexer.COMMENT) {
+        if (token.getChannel() == Token.DEFAULT_CHANNEL && token.getType() != Token.EOF) {
+          if (token.getLine() != lastDefaultLine) {
+            lineStarts.add(token.getTokenIndex());
+            lastDefaultLine = token.getLine();
+          }
+        } else if (token.getType() == StvnLexer.COMMENT) {
           commentList.add(token);
+          if (lastDefaultLine == token.getLine()) {
+            trailingByLine.put(token.getLine(), token.getCharPositionInLine());
+          }
         }
       }
       this.comments = List.copyOf(commentList);
+      this.lineStartTokenIndices = Set.copyOf(lineStarts);
+      this.trailingCommentColByLine = Map.copyOf(trailingByLine);
       this.activeCommentEndIdxExclusive = this.comments.size();
+    }
+
+    private int currentLineCol() {
+      return sb.length() - (sb.lastIndexOf("\n") + 1);
+    }
+
+    private void markLineAnchor(Token firstTokOnOutputLine) {
+      currentOutputLineAnchoredToInputLineStart =
+          lineStartTokenIndices.contains(firstTokOnOutputLine.getTokenIndex());
+    }
+
+    private void appendAlignableSpace(Token leftStop, Token rightStart) {
+      if (!inSingleLineMetadataMap
+          && currentOutputLineAnchoredToInputLineStart
+          && leftStop.getLine() == rightStart.getLine()
+          && !hasCommentsBetween(leftStop.getTokenIndex(), rightStart.getTokenIndex())) {
+        int authoredSpaces = rightStart.getStartIndex() - leftStop.getStopIndex() - 1;
+        if (authoredSpaces >= 2) {
+          int origTargetCol = rightStart.getCharPositionInLine();
+          int spaces = Math.max(1, origTargetCol - currentLineCol());
+          sb.append(" ".repeat(spaces));
+          return;
+        }
+      }
+      sb.append(' ');
     }
 
     String formatDocument(StvnParser.StvnDocumentContext docCtx) {
@@ -312,6 +395,7 @@ public final class StvnSourceFormatter {
       }
 
       // 2. Root '{'
+      markLineAnchor(openBrace);
       sb.append(StvnVocabulary.DELIM_OPEN_BRACE);
       lastEmittedLine = openBrace.getLine();
 
@@ -345,14 +429,16 @@ public final class StvnSourceFormatter {
               1,
               emittedInRoot
           );
-          startNewBlockChildLine(1, section.getStart().getLine(), emittedInRoot);
+          startNewBlockChildLine(1, section.getStart(), emittedInRoot);
           emittedInRoot = true;
 
           formatRootSection(section, 1, sectionLimit);
         }
 
         flushStandaloneCommentsBefore(closeBrace.getTokenIndex(), 1, emittedInRoot);
-        sb.append('\n').append(StvnVocabulary.DELIM_CLOSE_BRACE);
+        sb.append('\n');
+        markLineAnchor(closeBrace);
+        sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
         lastEmittedLine = closeBrace.getLine();
         appendTrailingCommentIfOnLine(closeBrace.getLine(), Integer.MAX_VALUE);
 
@@ -435,6 +521,7 @@ public final class StvnSourceFormatter {
           sb.append('\n');
         }
         sb.append('\n').append(indentStr(1));
+        markLineAnchor(slice.ctx().getStart());
 
         nextCommentIdx = slice.interiorCommentStartIdx();
         activeCommentEndIdxExclusive = slice.interiorCommentEndIdxExclusive();
@@ -444,7 +531,7 @@ public final class StvnSourceFormatter {
 
         if (slice.trailingSameLineComment() != null) {
           Token tc = slice.trailingSameLineComment();
-          sb.append(trailingCommentPadding(tc)).append(tc.getText());
+          sb.append(trailingCommentPadding(tc, null)).append(tc.getText());
         }
       }
 
@@ -460,7 +547,9 @@ public final class StvnSourceFormatter {
       nextCommentIdx = postCloseBraceCommentIdx;
       activeCommentEndIdxExclusive = comments.size();
 
-      sb.append('\n').append(StvnVocabulary.DELIM_CLOSE_BRACE);
+      sb.append('\n');
+      markLineAnchor(closeBrace);
+      sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
       lastEmittedLine = closeBrace.getLine();
       appendTrailingCommentIfOnLine(closeBrace.getLine(), Integer.MAX_VALUE);
 
@@ -504,32 +593,40 @@ public final class StvnSourceFormatter {
       );
       emitPartitionedCommentedBlock(partitioned, indent + 1, this::formatMetaElementInline);
 
-      sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
+      sb.append('\n').append(indentStr(indent));
+      markLineAnchor(closeBrace);
+      sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
       lastEmittedLine = closeBrace.getLine();
       appendTrailingCommentIfOnLine(closeBrace.getLine(), nextSectionLimit);
     }
 
     private void formatMetaElementInline(StvnParser.MetaElementContext ctx) {
       if (ctx.metaNameFacet() != null) {
-        sb.append(StvnVocabulary.FACET_KW_META_NAME)
-            .append(' ')
-            .append(formatStringLiteralText(ctx.metaNameFacet().stringLiteral()));
+        Token kw = ctx.metaNameFacet().KW_META_NAME().getSymbol();
+        StvnParser.StringLiteralContext val = ctx.metaNameFacet().stringLiteral();
+        sb.append(StvnVocabulary.FACET_KW_META_NAME);
+        appendAlignableSpace(kw, val.getStart());
+        sb.append(formatStringLiteralText(val));
       } else if (ctx.metaDomainFacet() != null) {
-        sb.append(StvnVocabulary.FACET_KW_META_DOMAIN)
-            .append(' ')
-            .append(formatStringLiteralText(ctx.metaDomainFacet().stringLiteral()));
+        Token kw = ctx.metaDomainFacet().KW_META_DOMAIN().getSymbol();
+        StvnParser.StringLiteralContext val = ctx.metaDomainFacet().stringLiteral();
+        sb.append(StvnVocabulary.FACET_KW_META_DOMAIN);
+        appendAlignableSpace(kw, val.getStart());
+        sb.append(formatStringLiteralText(val));
       } else if (ctx.metaKindFacet() != null) {
-        sb.append(StvnVocabulary.FACET_KW_META_KIND)
-            .append(' ')
-            .append(ctx.metaKindFacet().metaKindValue().getText());
+        Token kw = ctx.metaKindFacet().KW_META_KIND().getSymbol();
+        StvnParser.MetaKindValueContext val = ctx.metaKindFacet().metaKindValue();
+        sb.append(StvnVocabulary.FACET_KW_META_KIND);
+        appendAlignableSpace(kw, val.getStart());
+        sb.append(val.getText());
       } else if (ctx.metaUnknownFacet() != null) {
         StvnParser.MetaUnknownFacetContext unk = ctx.metaUnknownFacet();
         sb.append(unk.valueKeyword().getText());
         if (unk.value() != null) {
-          sb.append(' ');
+          appendAlignableSpace(unk.valueKeyword().getStop(), unk.value().getStart());
           formatValue(unk.value(), 2);
         } else if (unk.schemaType() != null) {
-          sb.append(' ');
+          appendAlignableSpace(unk.valueKeyword().getStop(), unk.schemaType().getStart());
           formatSchemaType(unk.schemaType(), 2);
         }
       }
@@ -561,14 +658,16 @@ public final class StvnSourceFormatter {
             indent + 1,
             emittedInDefs
         );
-        startNewBlockChildLine(indent + 1, el.getStart().getLine(), emittedInDefs);
+        startNewBlockChildLine(indent + 1, el.getStart(), emittedInDefs);
         emittedInDefs = true;
 
         formatDefsElement(el, indent + 1, nextLimit);
       }
 
       flushStandaloneCommentsBefore(closeBrace.getTokenIndex(), indent + 1, emittedInDefs);
-      sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
+      sb.append('\n').append(indentStr(indent));
+      markLineAnchor(closeBrace);
+      sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
       lastEmittedLine = closeBrace.getLine();
       appendTrailingCommentIfOnLine(closeBrace.getLine(), nextSectionLimit);
     }
@@ -619,14 +718,16 @@ public final class StvnSourceFormatter {
             indent + 1,
             emittedInPkg
         );
-        startNewBlockChildLine(indent + 1, el.getStart().getLine(), emittedInPkg);
+        startNewBlockChildLine(indent + 1, el.getStart(), emittedInPkg);
         emittedInPkg = true;
 
         formatPackageElement(el, indent + 1, childLimit);
       }
 
       flushStandaloneCommentsBefore(closeBrace.getTokenIndex(), indent + 1, emittedInPkg);
-      sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
+      sb.append('\n').append(indentStr(indent));
+      markLineAnchor(closeBrace);
+      sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
       lastEmittedLine = closeBrace.getLine();
       appendTrailingCommentIfOnLine(closeBrace.getLine(), nextTokenLimit);
     }
@@ -664,12 +765,14 @@ public final class StvnSourceFormatter {
               ? children.get(i + 1).getStart().getTokenIndex()
               : closeBrace.getTokenIndex();
           emitted = flushStandaloneCommentsBefore(child.getStart().getTokenIndex(), indent + 1, emitted);
-          startNewBlockChildLine(indent + 1, child.getStart().getLine(), emitted);
+          startNewBlockChildLine(indent + 1, child.getStart(), emitted);
           emitted = true;
           formatPackageElement(child, indent + 1, limit);
         }
         flushStandaloneCommentsBefore(closeBrace.getTokenIndex(), indent + 1, emitted);
-        sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
+        sb.append('\n').append(indentStr(indent));
+        markLineAnchor(closeBrace);
+        sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
         lastEmittedLine = closeBrace.getLine();
         appendTrailingCommentIfOnLine(closeBrace.getLine(), nextTokenLimit);
       }
@@ -685,7 +788,8 @@ public final class StvnSourceFormatter {
       if (lbrack.getLine() == rbrack.getLine() && !hasInteriorComments) {
         sb.append(StvnVocabulary.KEYWORD_USE).append(" [");
         for (int i = 0; i < elements.size(); i++) {
-          sb.append(' ').append(formatUseElementInline(elements.get(i)));
+          sb.append(' ');
+          appendUseElementInline(elements.get(i));
         }
         sb.append(" ]");
         lastEmittedLine = rbrack.getLine();
@@ -701,14 +805,22 @@ public final class StvnSourceFormatter {
         sb.append(StvnVocabulary.KEYWORD_USE)
             .append(" [ ")
             .append(elem.useTarget().getText());
+        Token prevEnd = elem.useTarget().getStop();
         if (elem.useOptionsBlock() != null) {
-          sb.append(' ').append(formatUseOptionsBlockInline(elem.useOptionsBlock()));
+          appendAlignableSpace(prevEnd, elem.useOptionsBlock().LBRACE().getSymbol());
+          sb.append(formatUseOptionsBlockInline(elem.useOptionsBlock()));
+          prevEnd = elem.useOptionsBlock().RBRACE().getSymbol();
         }
         if (elem.useAliasBlock() != null) {
           StvnParser.UseAliasBlockContext aliasBlock = elem.useAliasBlock();
           Token aliasOpen = aliasBlock.LBRACE().getSymbol();
           Token aliasClose = aliasBlock.RBRACE().getSymbol();
-          sb.append(" {");
+          if (elem.useOptionsBlock() != null) {
+            sb.append(' ');
+          } else {
+            appendAlignableSpace(prevEnd, aliasOpen);
+          }
+          sb.append(StvnVocabulary.DELIM_OPEN_BRACE);
           lastEmittedLine = aliasOpen.getLine();
 
           boolean emittedAlias = false;
@@ -727,9 +839,9 @@ public final class StvnSourceFormatter {
                 baseIndent + 2,
                 emittedAlias
             );
-            startNewBlockChildLine(baseIndent + 2, alias.getStart().getLine(), emittedAlias);
+            startNewBlockChildLine(baseIndent + 2, alias.getStart(), emittedAlias);
             emittedAlias = true;
-            sb.append(formatUseMapAliasInline(alias));
+            appendUseMapAliasInline(alias);
             lastEmittedLine = alias.getStop().getLine();
             appendTrailingCommentIfOnLine(alias.getStop().getLine(), aliasLimit);
           }
@@ -738,21 +850,21 @@ public final class StvnSourceFormatter {
           boolean sameLineClose = aliasClose.getLine() == rbrack.getLine()
               && !hasCommentsBetween(aliasClose.getTokenIndex(), rbrack.getTokenIndex());
           if (sameLineClose) {
-            sb.append('\n')
-                .append(indentStr(baseIndent + 1))
-                .append("} ]");
+            sb.append('\n').append(indentStr(baseIndent + 1));
+            markLineAnchor(aliasClose);
+            sb.append("} ]");
             lastEmittedLine = rbrack.getLine();
             appendTrailingCommentIfOnLine(rbrack.getLine(), nextTokenLimit);
           } else {
-            sb.append('\n')
-                .append(indentStr(baseIndent + 1))
-                .append(StvnVocabulary.DELIM_CLOSE_BRACE);
+            sb.append('\n').append(indentStr(baseIndent + 1));
+            markLineAnchor(aliasClose);
+            sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
             lastEmittedLine = aliasClose.getLine();
             appendTrailingCommentIfOnLine(aliasClose.getLine(), rbrack.getTokenIndex());
             flushStandaloneCommentsBefore(rbrack.getTokenIndex(), baseIndent + 1, true);
-            sb.append('\n')
-                .append(indentStr(baseIndent))
-                .append(StvnVocabulary.DELIM_CLOSE_BRACKET);
+            sb.append('\n').append(indentStr(baseIndent));
+            markLineAnchor(rbrack);
+            sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
             lastEmittedLine = rbrack.getLine();
             appendTrailingCommentIfOnLine(rbrack.getLine(), nextTokenLimit);
           }
@@ -760,9 +872,9 @@ public final class StvnSourceFormatter {
           lastEmittedLine = elem.getStop().getLine();
           appendTrailingCommentIfOnLine(lastEmittedLine, rbrack.getTokenIndex());
           flushStandaloneCommentsBefore(rbrack.getTokenIndex(), baseIndent + 1, false);
-          sb.append('\n')
-              .append(indentStr(baseIndent))
-              .append(StvnVocabulary.DELIM_CLOSE_BRACKET);
+          sb.append('\n').append(indentStr(baseIndent));
+          markLineAnchor(rbrack);
+          sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
           lastEmittedLine = rbrack.getLine();
           appendTrailingCommentIfOnLine(rbrack.getLine(), nextTokenLimit);
         }
@@ -786,12 +898,15 @@ public final class StvnSourceFormatter {
             baseIndent + 1,
             emittedElem
         );
-        startNewBlockChildLine(baseIndent + 1, elem.getStart().getLine(), emittedElem);
+        startNewBlockChildLine(baseIndent + 1, elem.getStart(), emittedElem);
         emittedElem = true;
 
         sb.append(elem.useTarget().getText());
+        Token prevEnd = elem.useTarget().getStop();
         if (elem.useOptionsBlock() != null) {
-          sb.append(' ').append(formatUseOptionsBlockInline(elem.useOptionsBlock()));
+          appendAlignableSpace(prevEnd, elem.useOptionsBlock().LBRACE().getSymbol());
+          sb.append(formatUseOptionsBlockInline(elem.useOptionsBlock()));
+          prevEnd = elem.useOptionsBlock().RBRACE().getSymbol();
         }
         if (elem.useAliasBlock() != null) {
           StvnParser.UseAliasBlockContext aliasBlock = elem.useAliasBlock();
@@ -799,12 +914,17 @@ public final class StvnSourceFormatter {
           Token aliasClose = aliasBlock.RBRACE().getSymbol();
           boolean singleLineAliasBlock = aliasOpen.getLine() == aliasClose.getLine()
               && !hasCommentsBetween(aliasOpen.getTokenIndex(), aliasClose.getTokenIndex());
+          if (elem.useOptionsBlock() != null) {
+            sb.append(' ');
+          } else {
+            appendAlignableSpace(prevEnd, aliasOpen);
+          }
           if (singleLineAliasBlock) {
-            sb.append(' ').append(formatUseAliasBlockInline(aliasBlock));
+            appendUseAliasBlockInline(aliasBlock);
             lastEmittedLine = aliasClose.getLine();
             appendTrailingCommentIfOnLine(aliasClose.getLine(), elemLimit);
           } else {
-            sb.append(" {");
+            sb.append(StvnVocabulary.DELIM_OPEN_BRACE);
             lastEmittedLine = aliasOpen.getLine();
 
             boolean emittedAlias = false;
@@ -823,17 +943,17 @@ public final class StvnSourceFormatter {
                   baseIndent + 2,
                   emittedAlias
               );
-              startNewBlockChildLine(baseIndent + 2, alias.getStart().getLine(), emittedAlias);
+              startNewBlockChildLine(baseIndent + 2, alias.getStart(), emittedAlias);
               emittedAlias = true;
-              sb.append(formatUseMapAliasInline(alias));
+              appendUseMapAliasInline(alias);
               lastEmittedLine = alias.getStop().getLine();
               appendTrailingCommentIfOnLine(alias.getStop().getLine(), aliasLimit);
             }
 
             flushStandaloneCommentsBefore(aliasClose.getTokenIndex(), baseIndent + 2, emittedAlias);
-            sb.append('\n')
-                .append(indentStr(baseIndent + 1))
-                .append(StvnVocabulary.DELIM_CLOSE_BRACE);
+            sb.append('\n').append(indentStr(baseIndent + 1));
+            markLineAnchor(aliasClose);
+            sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
             lastEmittedLine = aliasClose.getLine();
             appendTrailingCommentIfOnLine(aliasClose.getLine(), elemLimit);
           }
@@ -844,23 +964,29 @@ public final class StvnSourceFormatter {
       }
 
       flushStandaloneCommentsBefore(rbrack.getTokenIndex(), baseIndent + 1, emittedElem);
-      sb.append('\n')
-          .append(indentStr(baseIndent))
-          .append(StvnVocabulary.DELIM_CLOSE_BRACKET);
+      sb.append('\n').append(indentStr(baseIndent));
+      markLineAnchor(rbrack);
+      sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
       lastEmittedLine = rbrack.getLine();
       appendTrailingCommentIfOnLine(rbrack.getLine(), nextTokenLimit);
     }
 
-    private String formatUseElementInline(StvnParser.UseElementContext elem) {
-      StringBuilder out = new StringBuilder();
-      out.append(elem.useTarget().getText());
+    private void appendUseElementInline(StvnParser.UseElementContext elem) {
+      sb.append(elem.useTarget().getText());
+      Token prevEnd = elem.useTarget().getStop();
       if (elem.useOptionsBlock() != null) {
-        out.append(' ').append(formatUseOptionsBlockInline(elem.useOptionsBlock()));
+        appendAlignableSpace(prevEnd, elem.useOptionsBlock().LBRACE().getSymbol());
+        sb.append(formatUseOptionsBlockInline(elem.useOptionsBlock()));
+        prevEnd = elem.useOptionsBlock().RBRACE().getSymbol();
       }
       if (elem.useAliasBlock() != null) {
-        out.append(' ').append(formatUseAliasBlockInline(elem.useAliasBlock()));
+        if (elem.useOptionsBlock() != null) {
+          sb.append(' ');
+        } else {
+          appendAlignableSpace(prevEnd, elem.useAliasBlock().LBRACE().getSymbol());
+        }
+        appendUseAliasBlockInline(elem.useAliasBlock());
       }
-      return out.toString();
     }
 
     private void formatIncludeStmt(
@@ -877,12 +1003,7 @@ public final class StvnSourceFormatter {
       if (lbrack.getLine() == rbrack.getLine() && !hasInteriorComments) {
         sb.append(StvnVocabulary.KEYWORD_INCLUDE).append(" [");
         for (int i = 0; i < elements.size(); i++) {
-          if (i > 0) {
-            sb.append(' ');
-          } else {
-            sb.append(' ');
-          }
-          sb.append(formatStringLiteralText(elements.get(i).stringLiteral()));
+          sb.append(' ').append(formatStringLiteralText(elements.get(i).stringLiteral()));
         }
         sb.append(" ]");
         lastEmittedLine = rbrack.getLine();
@@ -900,7 +1021,9 @@ public final class StvnSourceFormatter {
         lastEmittedLine = elem.getStop().getLine();
         appendTrailingCommentIfOnLine(lastEmittedLine, rbrack.getTokenIndex());
         flushStandaloneCommentsBefore(rbrack.getTokenIndex(), baseIndent + 1, false);
-        sb.append('\n').append(indentStr(baseIndent)).append(StvnVocabulary.DELIM_CLOSE_BRACKET);
+        sb.append('\n').append(indentStr(baseIndent));
+        markLineAnchor(rbrack);
+        sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
         lastEmittedLine = rbrack.getLine();
         appendTrailingCommentIfOnLine(rbrack.getLine(), nextTokenLimit);
         return;
@@ -923,7 +1046,7 @@ public final class StvnSourceFormatter {
             baseIndent + 1,
             emittedElem
         );
-        startNewBlockChildLine(baseIndent + 1, elem.getStart().getLine(), emittedElem);
+        startNewBlockChildLine(baseIndent + 1, elem.getStart(), emittedElem);
         emittedElem = true;
 
         sb.append(formatStringLiteralText(elem.stringLiteral()));
@@ -932,9 +1055,9 @@ public final class StvnSourceFormatter {
       }
 
       flushStandaloneCommentsBefore(rbrack.getTokenIndex(), baseIndent + 1, emittedElem);
-      sb.append('\n')
-          .append(indentStr(baseIndent))
-          .append(StvnVocabulary.DELIM_CLOSE_BRACKET);
+      sb.append('\n').append(indentStr(baseIndent));
+      markLineAnchor(rbrack);
+      sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
       lastEmittedLine = rbrack.getLine();
       appendTrailingCommentIfOnLine(rbrack.getLine(), nextTokenLimit);
     }
@@ -958,27 +1081,36 @@ public final class StvnSourceFormatter {
       return b.toString();
     }
 
-    private String formatUseAliasBlockInline(StvnParser.UseAliasBlockContext ctx) {
+    private void appendUseAliasBlockInline(StvnParser.UseAliasBlockContext ctx) {
       List<StvnParser.UseMapAliasContext> aliases = ctx.useMapAlias();
       if (aliases.isEmpty()) {
-        return "{}";
+        sb.append("{}");
+        return;
       }
-      StringBuilder b = new StringBuilder("{ ");
+      sb.append("{ ");
       for (int i = 0; i < aliases.size(); i++) {
         if (i > 0) {
-          b.append(' ');
+          sb.append(' ');
         }
-        b.append(formatUseMapAliasInline(aliases.get(i)));
+        appendUseMapAliasInline(aliases.get(i));
       }
-      b.append(" }");
-      return b.toString();
+      sb.append(" }");
     }
 
-    private static String formatUseMapAliasInline(StvnParser.UseMapAliasContext ctx) {
+    private void appendUseMapAliasInline(StvnParser.UseMapAliasContext ctx) {
       if (!ctx.typeKeyword().isEmpty()) {
-        return ctx.typeKeyword(0).getText() + " " + ctx.typeKeyword(1).getText();
+        StvnParser.TypeKeywordContext left = ctx.typeKeyword(0);
+        StvnParser.TypeKeywordContext right = ctx.typeKeyword(1);
+        sb.append(left.getText());
+        appendAlignableSpace(left.getStop(), right.getStart());
+        sb.append(right.getText());
+        return;
       }
-      return ctx.valueKeyword(0).getText() + " " + ctx.valueKeyword(1).getText();
+      StvnParser.ValueKeywordContext left = ctx.valueKeyword(0);
+      StvnParser.ValueKeywordContext right = ctx.valueKeyword(1);
+      sb.append(left.getText());
+      appendAlignableSpace(left.getStop(), right.getStart());
+      sb.append(right.getText());
     }
 
     private void formatTypeDefinition(
@@ -986,7 +1118,8 @@ public final class StvnSourceFormatter {
         int indent,
         int nextTokenLimit
     ) {
-      sb.append(ctx.typeDefTarget().getText()).append(' ');
+      sb.append(ctx.typeDefTarget().getText());
+      appendAlignableSpace(ctx.typeDefTarget().getStop(), ctx.schemaType().getStart());
       formatSchemaType(ctx.schemaType(), indent);
       lastEmittedLine = ctx.getStop().getLine();
       appendTrailingCommentIfOnLine(ctx.getStop().getLine(), nextTokenLimit);
@@ -997,24 +1130,31 @@ public final class StvnSourceFormatter {
         int indent,
         int nextTokenLimit
     ) {
-      sb.append(ctx.valueKeyword().getText()).append(' ');
+      sb.append(ctx.valueKeyword().getText());
+      appendAlignableSpace(ctx.valueKeyword().getStop(), ctx.schemaType().getStart());
       formatSchemaType(ctx.schemaType(), indent);
-      sb.append(' ');
+      appendAlignableSpace(ctx.schemaType().getStop(), ctx.value().getStart());
       formatValue(ctx.value(), indent);
       lastEmittedLine = ctx.getStop().getLine();
       appendTrailingCommentIfOnLine(ctx.getStop().getLine(), nextTokenLimit);
     }
 
     private void formatTypeEntry(StvnParser.TypeEntryContext ctx, int indent, int nextSectionLimit) {
-      sb.append(StvnVocabulary.KEYWORD_TYPE).append(' ');
-      formatSchemaType(ctx.schemaType(), indent);
+      sb.append(StvnVocabulary.KEYWORD_TYPE);
+      if (ctx.schemaType() != null) {
+        appendAlignableSpace(ctx.KW_TYPE().getSymbol(), ctx.schemaType().getStart());
+        formatSchemaType(ctx.schemaType(), indent);
+      }
       lastEmittedLine = ctx.getStop().getLine();
       appendTrailingCommentIfOnLine(ctx.getStop().getLine(), nextSectionLimit);
     }
 
     private void formatBodyEntry(StvnParser.BodyEntryContext ctx, int indent, int nextSectionLimit) {
-      sb.append(StvnVocabulary.KEYWORD_BODY).append(' ');
-      formatValue(ctx.value(), indent);
+      sb.append(StvnVocabulary.KEYWORD_BODY);
+      if (ctx.value() != null) {
+        appendAlignableSpace(ctx.KW_BODY().getSymbol(), ctx.value().getStart());
+        formatValue(ctx.value(), indent);
+      }
       lastEmittedLine = ctx.getStop().getLine();
       appendTrailingCommentIfOnLine(ctx.getStop().getLine(), nextSectionLimit);
     }
@@ -1022,7 +1162,10 @@ public final class StvnSourceFormatter {
     private void formatSchemaType(StvnParser.SchemaTypeContext ctx, int indent) {
       if (ctx.metadataMap() != null) {
         formatMetadataMap(ctx.metadataMap(), indent);
-        sb.append(' ');
+        Token rightStart = ctx.typeKeyword() != null
+            ? ctx.typeKeyword().getStart()
+            : ctx.schemaConstructor().getStart();
+        appendAlignableSpace(ctx.metadataMap().RBRACE().getSymbol(), rightStart);
       }
       if (ctx.typeKeyword() != null) {
         sb.append(ctx.typeKeyword().getText());
@@ -1058,11 +1201,17 @@ public final class StvnSourceFormatter {
         sorted.sort(Comparator.<CommentedBlockSlice<StvnParser.MetadataEntryContext>>comparingInt(CommentedBlockSlice::rank)
             .thenComparingInt(CommentedBlockSlice::originalOrder));
         sb.append("{ ");
-        for (int i = 0; i < sorted.size(); i++) {
-          if (i > 0) {
-            sb.append(' ');
+        boolean prevSingleLineMeta = inSingleLineMetadataMap;
+        inSingleLineMetadataMap = true;
+        try {
+          for (int i = 0; i < sorted.size(); i++) {
+            if (i > 0) {
+              sb.append(' ');
+            }
+            formatMetadataEntry(sorted.get(i).ctx(), indent, false);
           }
-          formatMetadataEntryInline(sorted.get(i).ctx(), indent);
+        } finally {
+          inSingleLineMetadataMap = prevSingleLineMeta;
         }
         sb.append(" }");
         lastEmittedLine = closeBrace.getLine();
@@ -1078,79 +1227,157 @@ public final class StvnSourceFormatter {
         emitPartitionedCommentedBlock(
             partitioned,
             indent + 1,
-            entryCtx -> formatMetadataEntryInline(entryCtx, indent + 1)
+            entryCtx -> formatMetadataEntry(entryCtx, indent + 1, true)
         );
-        sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
+        sb.append('\n').append(indentStr(indent));
+        markLineAnchor(closeBrace);
+        sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
         lastEmittedLine = closeBrace.getLine();
       }
     }
 
-    private void formatMetadataEntryInline(StvnParser.MetadataEntryContext ctx, int indent) {
+    private void appendFacetArgSpace(Token kwToken, Token argStartToken, boolean alignable) {
+      if (alignable) {
+        appendAlignableSpace(kwToken, argStartToken);
+      } else {
+        sb.append(' ');
+      }
+    }
+
+    private void formatMetadataEntry(
+        StvnParser.MetadataEntryContext ctx,
+        int indent,
+        boolean alignable
+    ) {
       if (ctx.facetUnsigned() != null) {
         sb.append(StvnVocabulary.FACET_KW_UNSIGNED);
         if (ctx.facetUnsigned().standaloneFacetIllegalArg() != null) {
-          sb.append(' ').append(ctx.facetUnsigned().standaloneFacetIllegalArg().getText());
+          appendFacetArgSpace(
+              ctx.facetUnsigned().KW_UNSIGNED().getSymbol(),
+              ctx.facetUnsigned().standaloneFacetIllegalArg().getStart(),
+              alignable
+          );
+          sb.append(ctx.facetUnsigned().standaloneFacetIllegalArg().getText());
         }
       } else if (ctx.facetExact() != null) {
         sb.append(StvnVocabulary.FACET_KW_EXACT);
         if (ctx.facetExact().standaloneFacetIllegalArg() != null) {
-          sb.append(' ').append(ctx.facetExact().standaloneFacetIllegalArg().getText());
+          appendFacetArgSpace(
+              ctx.facetExact().KW_EXACT().getSymbol(),
+              ctx.facetExact().standaloneFacetIllegalArg().getStart(),
+              alignable
+          );
+          sb.append(ctx.facetExact().standaloneFacetIllegalArg().getText());
         }
       } else if (ctx.facetInvertible() != null) {
         sb.append(StvnVocabulary.FACET_KW_INVERTIBLE);
         if (ctx.facetInvertible().standaloneFacetIllegalArg() != null) {
-          sb.append(' ').append(ctx.facetInvertible().standaloneFacetIllegalArg().getText());
+          appendFacetArgSpace(
+              ctx.facetInvertible().KW_INVERTIBLE().getSymbol(),
+              ctx.facetInvertible().standaloneFacetIllegalArg().getStart(),
+              alignable
+          );
+          sb.append(ctx.facetInvertible().standaloneFacetIllegalArg().getText());
         }
       } else if (ctx.facetTemporalScale() != null) {
         sb.append(ctx.facetTemporalScale().getStart().getText());
         if (ctx.facetTemporalScale().standaloneFacetIllegalArg() != null) {
-          sb.append(' ').append(ctx.facetTemporalScale().standaloneFacetIllegalArg().getText());
+          appendFacetArgSpace(
+              ctx.facetTemporalScale().getStart(),
+              ctx.facetTemporalScale().standaloneFacetIllegalArg().getStart(),
+              alignable
+          );
+          sb.append(ctx.facetTemporalScale().standaloneFacetIllegalArg().getText());
         }
       } else if (ctx.facetTemporalMode() != null) {
         sb.append(ctx.facetTemporalMode().getStart().getText());
         if (ctx.facetTemporalMode().standaloneFacetIllegalArg() != null) {
-          sb.append(' ').append(ctx.facetTemporalMode().standaloneFacetIllegalArg().getText());
+          appendFacetArgSpace(
+              ctx.facetTemporalMode().getStart(),
+              ctx.facetTemporalMode().standaloneFacetIllegalArg().getStart(),
+              alignable
+          );
+          sb.append(ctx.facetTemporalMode().standaloneFacetIllegalArg().getText());
         }
       } else if (ctx.metadataSize() != null) {
-        sb.append(ctx.metadataSize().getStart().getText())
-            .append(' ')
-            .append(formatMetadataValueText(ctx.metadataSize().metadataValue()));
+        sb.append(ctx.metadataSize().getStart().getText());
+        appendFacetArgSpace(
+            ctx.metadataSize().getStart(),
+            ctx.metadataSize().metadataValue().getStart(),
+            alignable
+        );
+        sb.append(formatMetadataValueText(ctx.metadataSize().metadataValue()));
       } else if (ctx.metadataBool() != null) {
         sb.append(ctx.metadataBool().getStart().getText());
         if (ctx.metadataBool().metadataValue() != null) {
-          sb.append(' ').append(formatMetadataValueText(ctx.metadataBool().metadataValue()));
+          appendFacetArgSpace(
+              ctx.metadataBool().getStart(),
+              ctx.metadataBool().metadataValue().getStart(),
+              alignable
+          );
+          sb.append(formatMetadataValueText(ctx.metadataBool().metadataValue()));
         }
       } else if (ctx.metadataRange() != null) {
-        sb.append(ctx.metadataRange().getStart().getText())
-            .append(' ')
-            .append(formatMetadataValueText(ctx.metadataRange().metadataValue()));
+        sb.append(ctx.metadataRange().getStart().getText());
+        appendFacetArgSpace(
+            ctx.metadataRange().getStart(),
+            ctx.metadataRange().metadataValue().getStart(),
+            alignable
+        );
+        sb.append(formatMetadataValueText(ctx.metadataRange().metadataValue()));
       } else if (ctx.metadataFilter() != null) {
-        sb.append(ctx.metadataFilter().getStart().getText())
-            .append(' ')
-            .append(formatVariantListText(ctx.metadataFilter().variantList()));
+        sb.append(ctx.metadataFilter().getStart().getText());
+        appendFacetArgSpace(
+            ctx.metadataFilter().getStart(),
+            ctx.metadataFilter().variantList().getStart(),
+            alignable
+        );
+        sb.append(formatVariantListText(ctx.metadataFilter().variantList()));
       } else if (ctx.metadataTrait() != null) {
         StvnParser.MetadataTraitContext trait = ctx.metadataTrait();
         sb.append(StvnVocabulary.FACET_KW_PRESERVE_INDENT);
         if (trait.metadataValue() != null) {
-          sb.append(' ').append(formatMetadataValueText(trait.metadataValue()));
+          appendFacetArgSpace(
+              trait.KW_PRESERVE_INDENT().getSymbol(),
+              trait.metadataValue().getStart(),
+              alignable
+          );
+          sb.append(formatMetadataValueText(trait.metadataValue()));
         }
       } else if (ctx.metadataString() != null) {
-        sb.append(StvnVocabulary.FACET_KW_REGEX)
-            .append(' ')
-            .append(formatMetadataValueText(ctx.metadataString().metadataValue()));
+        sb.append(StvnVocabulary.FACET_KW_REGEX);
+        appendFacetArgSpace(
+            ctx.metadataString().KW_REGEX().getSymbol(),
+            ctx.metadataString().metadataValue().getStart(),
+            alignable
+        );
+        sb.append(formatMetadataValueText(ctx.metadataString().metadataValue()));
       } else if (ctx.facetDirective() != null) {
         sb.append(StvnVocabulary.FACET_KW_STRIP);
         if (ctx.facetDirective().standaloneFacetIllegalArg() != null) {
-          sb.append(' ').append(ctx.facetDirective().standaloneFacetIllegalArg().getText());
+          appendFacetArgSpace(
+              ctx.facetDirective().KW_STRIP().getSymbol(),
+              ctx.facetDirective().standaloneFacetIllegalArg().getStart(),
+              alignable
+          );
+          sb.append(ctx.facetDirective().standaloneFacetIllegalArg().getText());
         }
       } else if (ctx.metadataUnknownEntry() != null) {
         StvnParser.MetadataUnknownEntryContext unk = ctx.metadataUnknownEntry();
         sb.append(unk.unknownFacetKeyword().getText());
         if (unk.metadataUnknownArg() != null) {
-          sb.append(' ');
+          appendFacetArgSpace(
+              unk.unknownFacetKeyword().getStop(),
+              unk.metadataUnknownArg().getStart(),
+              alignable
+          );
           formatMetadataUnknownArg(unk.metadataUnknownArg(), indent);
         } else if (unk.schemaType() != null) {
-          sb.append(' ');
+          appendFacetArgSpace(
+              unk.unknownFacetKeyword().getStop(),
+              unk.schemaType().getStart(),
+              alignable
+          );
           formatSchemaType(unk.schemaType(), indent);
         }
       }
@@ -1210,79 +1437,126 @@ public final class StvnSourceFormatter {
       } else if (ctx.collectionType() != null) {
         StvnParser.CollectionTypeContext coll = ctx.collectionType();
         String head = coll.getStart().getText();
-        formatParameterizedSchemaConstructor(
+        boolean isMap = coll.COLL_MAP() != null;
+        formatSchemaParenConstructor(
             head,
             coll.LPAREN().getSymbol(),
             coll.RPAREN().getSymbol(),
             coll.schemaType(),
-            indent
+            indent,
+            isMap
         );
       } else if (ctx.productType() != null) {
         StvnParser.TupleTypeContext tup = (StvnParser.TupleTypeContext) ctx.productType();
-        sb.append(StvnVocabulary.TYPE_TUPLE);
-        formatSchemaGroup(
+        formatSchemaParenConstructor(
+            StvnVocabulary.TYPE_TUPLE,
             tup.LPAREN().getSymbol(),
             tup.RPAREN().getSymbol(),
             tup.schemaType(),
-            indent
+            indent,
+            true
         );
       } else if (ctx.sumType() != null) {
         StvnParser.SumTypeContext sum = ctx.sumType();
         if (sum.KW_ENUM() != null) {
-          sb.append(StvnVocabulary.TYPE_ENUM);
-          List<StvnParser.ValueKeywordContext> variants = sum.enumDef().valueKeyword();
-          sb.append(StvnVocabulary.DELIM_OPEN_BRACKET);
-          for (int i = 0; i < variants.size(); i++) {
-            if (i > 0) {
-              sb.append(' ');
-            }
-            sb.append(variants.get(i).getText());
-          }
-          sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
-          lastEmittedLine = sum.getStop().getLine();
+          formatEnumConstructor(sum, indent);
         } else if (sum.KW_OPTION() != null) {
-          formatParameterizedSchemaConstructor(
+          formatSchemaParenConstructor(
               StvnVocabulary.TYPE_OPTION,
               sum.LPAREN().getSymbol(),
               sum.RPAREN().getSymbol(),
               sum.schemaType(),
-              indent
+              indent,
+              false
           );
         } else if (sum.KW_EITHER() != null) {
-          formatParameterizedSchemaConstructor(
+          formatSchemaParenConstructor(
               StvnVocabulary.TYPE_EITHER,
               sum.LPAREN().getSymbol(),
               sum.RPAREN().getSymbol(),
               sum.schemaType(),
-              indent
+              indent,
+              true
           );
         } else if (sum.KW_UNION() != null) {
-          sb.append(StvnVocabulary.TYPE_UNION);
-          formatSchemaGroup(
+          formatSchemaParenConstructor(
+              StvnVocabulary.TYPE_UNION,
               sum.LPAREN().getSymbol(),
               sum.RPAREN().getSymbol(),
               sum.schemaType(),
-              indent
+              indent,
+              true
           );
         }
       }
     }
 
-    private void formatParameterizedSchemaConstructor(
+    private void formatEnumConstructor(StvnParser.SumTypeContext sum, int indent) {
+      StvnParser.EnumDefContext enumDef = sum.enumDef();
+      Token lbrack = enumDef.LBRACK().getSymbol();
+      Token rbrack = enumDef.RBRACK().getSymbol();
+      List<StvnParser.ValueKeywordContext> variants = enumDef.valueKeyword();
+      boolean hasComments = hasCommentsBetween(lbrack.getTokenIndex(), rbrack.getTokenIndex());
+      boolean multiLine = lbrack.getLine() < rbrack.getLine() || hasComments;
+
+      sb.append(StvnVocabulary.TYPE_ENUM).append(StvnVocabulary.DELIM_OPEN_BRACKET);
+      lastEmittedLine = lbrack.getLine();
+      if (!multiLine) {
+        for (int i = 0; i < variants.size(); i++) {
+          if (i > 0) {
+            sb.append(' ');
+          }
+          sb.append(variants.get(i).getText());
+        }
+        sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
+        lastEmittedLine = rbrack.getLine();
+        return;
+      }
+
+      int openLimit = variants.isEmpty()
+          ? rbrack.getTokenIndex()
+          : variants.get(0).getStart().getTokenIndex();
+      appendTrailingCommentIfOnLine(lbrack.getLine(), openLimit);
+      boolean emitted = false;
+      for (int i = 0; i < variants.size(); i++) {
+        StvnParser.ValueKeywordContext v = variants.get(i);
+        int limit = (i + 1 < variants.size())
+            ? variants.get(i + 1).getStart().getTokenIndex()
+            : rbrack.getTokenIndex();
+        emitted = flushStandaloneCommentsBefore(v.getStart().getTokenIndex(), indent + 1, emitted);
+        startNewBlockChildLine(indent + 1, v.getStart(), emitted);
+        emitted = true;
+        sb.append(v.getText());
+        lastEmittedLine = v.getStop().getLine();
+        appendTrailingCommentIfOnLine(v.getStop().getLine(), limit);
+      }
+      flushStandaloneCommentsBefore(rbrack.getTokenIndex(), indent + 1, emitted);
+      sb.append('\n').append(indentStr(indent));
+      markLineAnchor(rbrack);
+      sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
+      lastEmittedLine = rbrack.getLine();
+    }
+
+    private void formatSchemaParenConstructor(
         String keyword,
         Token openParen,
         Token closeParen,
         List<StvnParser.SchemaTypeContext> args,
-        int indent
+        int indent,
+        boolean expandableUnderPolicy
     ) {
-      boolean multiLine = isAuthoredMultiLineParameterizedConstructor(openParen, closeParen, args);
+      boolean multiLine = isAuthoredMultiLineParameterizedConstructor(openParen, closeParen, args)
+          || (expandableUnderPolicy
+              && options.schemaNestedWrapPolicy() == NestedContainerWrapPolicy.EXPAND_NESTED
+              && hasNestedSchemaConstructorOrMultiLineArg(args));
+
       sb.append(keyword).append(StvnVocabulary.DELIM_OPEN_PAREN);
       lastEmittedLine = openParen.getLine();
 
       if (!multiLine) {
         for (int i = 0; i < args.size(); i++) {
           if (i > 0) {
-            sb.append(' ');
+            appendAlignableSpace(args.get(i - 1).getStop(), args.get(i).getStart());
           }
           formatSchemaType(args.get(i), indent);
         }
@@ -1306,7 +1580,7 @@ public final class StvnSourceFormatter {
             indent + 1,
             emittedChild
         );
-        startNewBlockChildLine(indent + 1, child.getStart().getLine(), emittedChild);
+        startNewBlockChildLine(indent + 1, child.getStart(), emittedChild);
         emittedChild = true;
         formatSchemaType(child, indent + 1);
         lastEmittedLine = child.getStop().getLine();
@@ -1314,8 +1588,35 @@ public final class StvnSourceFormatter {
       }
 
       flushStandaloneCommentsBefore(closeParen.getTokenIndex(), indent + 1, emittedChild);
-      sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_PAREN);
+      sb.append('\n').append(indentStr(indent));
+      markLineAnchor(closeParen);
+      sb.append(StvnVocabulary.DELIM_CLOSE_PAREN);
       lastEmittedLine = closeParen.getLine();
+    }
+
+    private boolean hasNestedSchemaConstructorOrMultiLineArg(List<StvnParser.SchemaTypeContext> args) {
+      for (StvnParser.SchemaTypeContext arg : args) {
+        if (arg.schemaConstructor() != null && arg.schemaConstructor().atomicType() == null) {
+          return true;
+        }
+        if (arg.metadataMap() != null && !arg.metadataMap().metadataEntry().isEmpty()) {
+          return true;
+        }
+        if (isMultiLineMetadataMap(arg.metadataMap())) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private boolean isMultiLineMetadataMap(StvnParser.@Nullable MetadataMapContext ctx) {
+      if (ctx == null) {
+        return false;
+      }
+      Token openBrace = ctx.LBRACE().getSymbol();
+      Token closeBrace = ctx.RBRACE().getSymbol();
+      return openBrace.getLine() < closeBrace.getLine()
+          || hasCommentsBetween(openBrace.getTokenIndex(), closeBrace.getTokenIndex());
     }
 
     private boolean isAuthoredMultiLineParameterizedConstructor(
@@ -1343,142 +1644,6 @@ public final class StvnSourceFormatter {
       StvnParser.SchemaTypeContext last = args.get(args.size() - 1);
       return last.getStop().getLine() < closeParen.getLine()
           || hasCommentsBetween(last.getStop().getTokenIndex(), closeParen.getTokenIndex());
-    }
-
-    private void formatSchemaGroup(
-        Token openParen,
-        Token closeParen,
-        List<StvnParser.SchemaTypeContext> children,
-        int indent
-    ) {
-      boolean hasInteriorComments = hasCommentsBetween(openParen.getTokenIndex(), closeParen.getTokenIndex());
-      boolean multiLine = hasInteriorComments
-          || openParen.getLine() < closeParen.getLine()
-          || requiresMultiLineSchemaGroup(children);
-
-      sb.append(StvnVocabulary.DELIM_OPEN_PAREN);
-      lastEmittedLine = openParen.getLine();
-
-      if (!multiLine) {
-        for (int i = 0; i < children.size(); i++) {
-          if (i > 0) {
-            sb.append(' ');
-          }
-          formatSchemaType(children.get(i), indent);
-        }
-        sb.append(StvnVocabulary.DELIM_CLOSE_PAREN);
-        lastEmittedLine = closeParen.getLine();
-        return;
-      }
-
-      int openParenLimit = children.isEmpty()
-          ? closeParen.getTokenIndex()
-          : children.get(0).getStart().getTokenIndex();
-      appendTrailingCommentIfOnLine(openParen.getLine(), openParenLimit);
-      boolean emittedChild = false;
-      for (int i = 0; i < children.size(); i++) {
-        StvnParser.SchemaTypeContext child = children.get(i);
-        int childLimit = (i + 1 < children.size())
-            ? children.get(i + 1).getStart().getTokenIndex()
-            : closeParen.getTokenIndex();
-        emittedChild = flushStandaloneCommentsBefore(
-            child.getStart().getTokenIndex(),
-            indent + 1,
-            emittedChild
-        );
-        startNewBlockChildLine(indent + 1, child.getStart().getLine(), emittedChild);
-        emittedChild = true;
-        formatSchemaType(child, indent + 1);
-        lastEmittedLine = child.getStop().getLine();
-        appendTrailingCommentIfOnLine(child.getStop().getLine(), childLimit);
-      }
-
-      flushStandaloneCommentsBefore(closeParen.getTokenIndex(), indent + 1, emittedChild);
-      sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_PAREN);
-      lastEmittedLine = closeParen.getLine();
-    }
-
-    private boolean requiresMultiLineSchemaGroup(List<StvnParser.SchemaTypeContext> children) {
-      for (StvnParser.SchemaTypeContext child : children) {
-        if (isInlineFacetedOrMultiLineSchemaNode(child)) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    private boolean isInlineFacetedOrMultiLineSchemaNode(StvnParser.SchemaTypeContext ctx) {
-      if (ctx.metadataMap() != null && !ctx.metadataMap().metadataEntry().isEmpty()) {
-        return true;
-      }
-      return containsMultiLineSchemaConstruct(ctx);
-    }
-
-    private boolean isMultiLineMetadataMap(StvnParser.@Nullable MetadataMapContext ctx) {
-      if (ctx == null) {
-        return false;
-      }
-      Token openBrace = ctx.LBRACE().getSymbol();
-      Token closeBrace = ctx.RBRACE().getSymbol();
-      return openBrace.getLine() < closeBrace.getLine()
-          || hasCommentsBetween(openBrace.getTokenIndex(), closeBrace.getTokenIndex());
-    }
-
-    private boolean containsMultiLineSchemaConstruct(StvnParser.@Nullable SchemaTypeContext ctx) {
-      if (ctx == null) {
-        return false;
-      }
-      if (isMultiLineMetadataMap(ctx.metadataMap())) {
-        return true;
-      }
-      if (ctx.schemaConstructor() != null) {
-        StvnParser.SchemaConstructorContext sc = ctx.schemaConstructor();
-        if (sc.productType() != null) {
-          StvnParser.TupleTypeContext tup = (StvnParser.TupleTypeContext) sc.productType();
-          Token openParen = tup.LPAREN().getSymbol();
-          Token closeParen = tup.RPAREN().getSymbol();
-          return openParen.getLine() < closeParen.getLine()
-              || hasCommentsBetween(openParen.getTokenIndex(), closeParen.getTokenIndex())
-              || requiresMultiLineSchemaGroup(tup.schemaType());
-        }
-        if (sc.sumType() != null) {
-          StvnParser.SumTypeContext sum = sc.sumType();
-          if (sum.KW_UNION() != null) {
-            Token openParen = sum.LPAREN().getSymbol();
-            Token closeParen = sum.RPAREN().getSymbol();
-            return openParen.getLine() < closeParen.getLine()
-                || hasCommentsBetween(openParen.getTokenIndex(), closeParen.getTokenIndex())
-                || requiresMultiLineSchemaGroup(sum.schemaType());
-          }
-          if ((sum.KW_OPTION() != null || sum.KW_EITHER() != null)
-              && isAuthoredMultiLineParameterizedConstructor(
-                  sum.LPAREN().getSymbol(),
-                  sum.RPAREN().getSymbol(),
-                  sum.schemaType())) {
-            return true;
-          }
-          for (StvnParser.SchemaTypeContext child : sum.schemaType()) {
-            if (containsMultiLineSchemaConstruct(child)) {
-              return true;
-            }
-          }
-        }
-        if (sc.collectionType() != null) {
-          StvnParser.CollectionTypeContext coll = sc.collectionType();
-          if (isAuthoredMultiLineParameterizedConstructor(
-              coll.LPAREN().getSymbol(),
-              coll.RPAREN().getSymbol(),
-              coll.schemaType())) {
-            return true;
-          }
-          for (StvnParser.SchemaTypeContext child : coll.schemaType()) {
-            if (containsMultiLineSchemaConstruct(child)) {
-              return true;
-            }
-          }
-        }
-      }
-      return false;
     }
 
     private void formatValue(StvnParser.ValueContext ctx, int indent) {
@@ -1511,20 +1676,23 @@ public final class StvnSourceFormatter {
     private void formatExplicitOptionValue(StvnParser.ExplicitOptionValueContext opt, int indent) {
       sb.append(opt.getStart().getText());
       if (opt.value() != null) {
-        sb.append(' ');
+        appendAlignableSpace(opt.getStart(), opt.value().getStart());
         formatValue(opt.value(), indent);
       }
       lastEmittedLine = opt.getStop().getLine();
     }
 
     private void formatExplicitEitherValue(StvnParser.ExplicitEitherValueContext eith, int indent) {
-      sb.append(eith.getStart().getText()).append(' ');
+      sb.append(eith.getStart().getText());
+      appendAlignableSpace(eith.getStart(), eith.value().getStart());
       formatValue(eith.value(), indent);
       lastEmittedLine = eith.getStop().getLine();
     }
 
     private void formatExplicitUnionValue(StvnParser.ExplicitUnionValueContext un, int indent) {
-      sb.append(un.UNION_TAG_PREFIX().getText()).append(' ');
+      Token tagTok = un.UNION_TAG_PREFIX().getSymbol();
+      sb.append(tagTok.getText());
+      appendAlignableSpace(tagTok, un.value().getStart());
       formatValue(un.value(), indent);
       lastEmittedLine = un.getStop().getLine();
     }
@@ -1570,14 +1738,16 @@ public final class StvnSourceFormatter {
 
       boolean multiLine = hasInteriorComments
           || openDelim.getLine() < closeDelim.getLine()
-          || requiresMultiLinePayloadContainer(elements);
+          || containsFencedPayloadString(elements)
+          || (options.payloadNestedWrapPolicy() == NestedContainerWrapPolicy.EXPAND_NESTED
+              && requiresMultiLinePayloadContainer(elements));
       sb.append(openText);
       lastEmittedLine = openDelim.getLine();
 
       if (!multiLine) {
         for (int i = 0; i < elements.size(); i++) {
           if (i > 0) {
-            sb.append(' ');
+            appendAlignableSpace(elements.get(i - 1).getStop(), elements.get(i).getStart());
           }
           formatValue(elements.get(i), indent);
         }
@@ -1601,7 +1771,7 @@ public final class StvnSourceFormatter {
             indent + 1,
             emittedElem
         );
-        startNewBlockChildLine(indent + 1, el.getStart().getLine(), emittedElem);
+        startNewBlockChildLine(indent + 1, el.getStart(), emittedElem);
         emittedElem = true;
         formatValue(el, indent + 1);
         lastEmittedLine = el.getStop().getLine();
@@ -1609,7 +1779,9 @@ public final class StvnSourceFormatter {
       }
 
       flushStandaloneCommentsBefore(closeDelim.getTokenIndex(), indent + 1, emittedElem);
-      sb.append('\n').append(indentStr(indent)).append(closeText);
+      sb.append('\n').append(indentStr(indent));
+      markLineAnchor(closeDelim);
+      sb.append(closeText);
       lastEmittedLine = closeDelim.getLine();
     }
 
@@ -1625,8 +1797,33 @@ public final class StvnSourceFormatter {
         return;
       }
 
+      boolean multiLine = hasInteriorComments
+          || openBrace.getLine() < closeBrace.getLine()
+          || containsFencedMapString(entries)
+          || options.payloadNestedWrapPolicy() == NestedContainerWrapPolicy.EXPAND_NESTED;
+
       sb.append(StvnVocabulary.DELIM_OPEN_BRACE);
       lastEmittedLine = openBrace.getLine();
+
+      if (!multiLine) {
+        for (int i = 0; i < entries.size(); i++) {
+          StvnParser.MapEntryContext entry = entries.get(i);
+          if (i > 0) {
+            appendAlignableSpace(entries.get(i - 1).getStop(), entry.getStart());
+          }
+          StvnParser.ValueContext keyVal = entry.value(0);
+          StvnParser.ValueContext valVal = entry.value(1);
+          sb.append(StvnVocabulary.DELIM_OPEN_BRACKET);
+          formatValue(keyVal, indent);
+          appendAlignableSpace(keyVal.getStop(), valVal.getStart());
+          formatValue(valVal, indent);
+          sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
+        }
+        sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
+        lastEmittedLine = closeBrace.getLine();
+        return;
+      }
+
       int openBraceLimit = entries.isEmpty()
           ? closeBrace.getTokenIndex()
           : entries.get(0).getStart().getTokenIndex();
@@ -1643,7 +1840,7 @@ public final class StvnSourceFormatter {
             indent + 1,
             emittedEntry
         );
-        startNewBlockChildLine(indent + 1, entry.getStart().getLine(), emittedEntry);
+        startNewBlockChildLine(indent + 1, entry.getStart(), emittedEntry);
         emittedEntry = true;
 
         StvnParser.ValueContext keyVal = entry.value(0);
@@ -1660,13 +1857,16 @@ public final class StvnSourceFormatter {
           appendTrailingCommentIfOnLine(keyVal.getStop().getLine(), valVal.getStart().getTokenIndex());
           flushStandaloneCommentsBefore(valVal.getStart().getTokenIndex(), indent + 2, true);
           sb.append('\n').append(indentStr(indent + 2));
+          markLineAnchor(valVal.getStart());
           formatValue(valVal, indent + 2);
           lastEmittedLine = valVal.getStop().getLine();
           appendTrailingCommentIfOnLine(valVal.getStop().getLine(), entryClose.getTokenIndex());
           flushStandaloneCommentsBefore(entryClose.getTokenIndex(), indent + 2, true);
-          sb.append('\n').append(indentStr(indent + 1)).append(StvnVocabulary.DELIM_CLOSE_BRACKET);
+          sb.append('\n').append(indentStr(indent + 1));
+          markLineAnchor(entryClose);
+          sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
         } else {
-          sb.append(' ');
+          appendAlignableSpace(keyVal.getStop(), valVal.getStart());
           formatValue(valVal, indent + 1);
           sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
         }
@@ -1675,8 +1875,60 @@ public final class StvnSourceFormatter {
       }
 
       flushStandaloneCommentsBefore(closeBrace.getTokenIndex(), indent + 1, emittedEntry);
-      sb.append('\n').append(indentStr(indent)).append(StvnVocabulary.DELIM_CLOSE_BRACE);
+      sb.append('\n').append(indentStr(indent));
+      markLineAnchor(closeBrace);
+      sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
       lastEmittedLine = closeBrace.getLine();
+    }
+
+    private boolean containsFencedPayloadString(List<StvnParser.ValueContext> elements) {
+      for (StvnParser.ValueContext el : elements) {
+        if (containsFencedValue(el)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private boolean containsFencedMapString(List<StvnParser.MapEntryContext> entries) {
+      for (StvnParser.MapEntryContext entry : entries) {
+        if (containsFencedValue(entry.value(0)) || containsFencedValue(entry.value(1))) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private boolean containsFencedValue(StvnParser.@Nullable ValueContext ctx) {
+      if (ctx == null) {
+        return false;
+      }
+      if (ctx.stringLiteral() instanceof StvnParser.StringFencedContext
+          || ctx.stringLiteral() instanceof StvnParser.StringMalformedFencedContext) {
+        return true;
+      }
+      if (ctx.explicitOptionValue() != null) {
+        return containsFencedValue(ctx.explicitOptionValue().value());
+      }
+      if (ctx.explicitEitherValue() != null) {
+        return containsFencedValue(ctx.explicitEitherValue().value());
+      }
+      if (ctx.explicitUnionValue() != null) {
+        return containsFencedValue(ctx.explicitUnionValue().value());
+      }
+      if (ctx.collectionValue() != null) {
+        var coll = ctx.collectionValue();
+        if (coll.listLiteral() != null) {
+          return containsFencedPayloadString(coll.listLiteral().value());
+        }
+        if (coll.tupleLiteral() != null) {
+          return containsFencedPayloadString(coll.tupleLiteral().value());
+        }
+        if (coll.mapLiteral() != null) {
+          return containsFencedMapString(coll.mapLiteral().mapEntry());
+        }
+      }
+      return false;
     }
 
     private boolean requiresMultiLinePayloadContainer(List<StvnParser.ValueContext> elements) {
@@ -1732,6 +1984,7 @@ public final class StvnSourceFormatter {
 
       int prevAnchorStopLine = openBrace.getLine();
       List<CommentedBlockSlice<T>> slices = new ArrayList<>(rawEntries.size());
+      Map<Integer, Integer> peerColCounts = new HashMap<>();
 
       for (int i = 0; i < rawEntries.size(); i++) {
         T entry = rawEntries.get(i);
@@ -1774,6 +2027,7 @@ public final class StvnSourceFormatter {
           Token candidate = comments.get(nextCommentIdx);
           if (candidate.getTokenIndex() < nextLimit && candidate.getLine() == entryStopLine) {
             trailing = candidate;
+            peerColCounts.merge(candidate.getCharPositionInLine(), 1, Integer::sum);
             nextCommentIdx++;
           }
         }
@@ -1812,7 +2066,8 @@ public final class StvnSourceFormatter {
       return new PartitionedCommentedBlock<>(
           slices,
           List.copyOf(footerComments),
-          footerHadBlankLineBefore
+          footerHadBlankLineBefore,
+          Map.copyOf(peerColCounts)
       );
     }
 
@@ -1822,6 +2077,7 @@ public final class StvnSourceFormatter {
         Consumer<T> inlineEntryFormatter
     ) {
       List<CommentedBlockSlice<T>> sorted = partitioned.slices();
+      Map<Integer, Integer> peerCols = partitioned.peerTrailingCommentColCounts();
       for (int i = 0; i < sorted.size(); i++) {
         CommentedBlockSlice<T> item = sorted.get(i);
         if (i > 0 && item.hadBlankLineBefore()) {
@@ -1837,9 +2093,10 @@ public final class StvnSourceFormatter {
           sb.append('\n');
         }
         sb.append('\n').append(indentStr(entryIndent));
+        markLineAnchor(item.ctx().getStart());
         inlineEntryFormatter.accept(item.ctx());
         if (item.trailingComment() != null) {
-          sb.append(trailingCommentPadding(item.trailingComment()))
+          sb.append(trailingCommentPadding(item.trailingComment(), peerCols))
               .append(item.trailingComment().getText());
         }
       }
@@ -1881,26 +2138,50 @@ public final class StvnSourceFormatter {
       if (nextCommentIdx < activeCommentEndIdxExclusive) {
         Token candidate = comments.get(nextCommentIdx);
         if (candidate.getLine() == line && candidate.getTokenIndex() < maxTokenIndexExclusive) {
-          sb.append(trailingCommentPadding(candidate)).append(candidate.getText());
+          sb.append(trailingCommentPadding(candidate, null)).append(candidate.getText());
           lastEmittedLine = candidate.getLine();
           nextCommentIdx++;
         }
       }
     }
 
-    private String trailingCommentPadding(Token commentToken) {
+    private boolean isTrailingCommentColumnAnchored(
+        Token commentToken,
+        int authoredSpaces,
+        @Nullable Map<Integer, Integer> blockPeerColCounts
+    ) {
+      if (authoredSpaces >= 2) {
+        return true;
+      }
+      int line = commentToken.getLine();
+      int origCol = commentToken.getCharPositionInLine();
+      Integer prevLineCol = trailingCommentColByLine.get(line - 1);
+      if (prevLineCol != null && prevLineCol == origCol) {
+        return true;
+      }
+      Integer nextLineCol = trailingCommentColByLine.get(line + 1);
+      if (nextLineCol != null && nextLineCol == origCol) {
+        return true;
+      }
+      return blockPeerColCounts != null && blockPeerColCounts.getOrDefault(origCol, 0) >= 2;
+    }
+
+    private String trailingCommentPadding(
+        Token commentToken,
+        @Nullable Map<Integer, Integer> blockPeerColCounts
+    ) {
       int tokIdx = commentToken.getTokenIndex();
       for (int i = tokIdx - 1; i >= 0 && i < allTokens.size(); i--) {
         Token prev = allTokens.get(i);
         if (prev.getChannel() == Token.DEFAULT_CHANNEL) {
           if (prev.getLine() == commentToken.getLine()) {
             int authoredSpaces = commentToken.getStartIndex() - prev.getStopIndex() - 1;
-            if (authoredSpaces <= 1) {
+            if (!currentOutputLineAnchoredToInputLineStart
+                || !isTrailingCommentColumnAnchored(commentToken, authoredSpaces, blockPeerColCounts)) {
               return " ";
             }
-            int currentLineCol = sb.length() - (sb.lastIndexOf("\n") + 1);
-            int targetCol = commentToken.getCharPositionInLine();
-            int spaces = Math.max(authoredSpaces, targetCol - currentLineCol);
+            int origCommentCol = commentToken.getCharPositionInLine();
+            int spaces = Math.max(1, origCommentCol - currentLineCol());
             return " ".repeat(spaces);
           }
           break;
@@ -1928,11 +2209,12 @@ public final class StvnSourceFormatter {
       return emitted;
     }
 
-    private void startNewBlockChildLine(int indent, int childStartLine, boolean hasEmittedItemInBlock) {
-      if (hasEmittedItemInBlock && lastEmittedLine > 0 && childStartLine - lastEmittedLine >= 2) {
+    private void startNewBlockChildLine(int indent, Token childStartToken, boolean hasEmittedItemInBlock) {
+      if (hasEmittedItemInBlock && lastEmittedLine > 0 && childStartToken.getLine() - lastEmittedLine >= 2) {
         sb.append('\n');
       }
       sb.append('\n').append(indentStr(indent));
+      markLineAnchor(childStartToken);
     }
 
     private static String indentStr(int level) {

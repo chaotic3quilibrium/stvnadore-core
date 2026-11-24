@@ -1,0 +1,37 @@
+{
+  // Formatting Probe 1: Tabular Type-Alias Alignment in :defs and :package
+  // Target Filename: fmt_probe_01_type_alias_alignment.core_test.stvn
+  :meta   {
+    #kind #BODY
+    #domain "core_test"
+    #name "fmt_probe_01_type_alias_alignment"
+  }
+
+
+  :defs  {
+    // Group A: 2-Column Type-Alias Alignment (:Alias -> :TargetType at col 28)
+  :Flag                    :Boolean
+      :ChannelMode         :Enum [ #IDLE #ARMED #ACTIVE ]
+    :OptionalFlag          :Option ( :Flag )
+
+    // Group B: 3-Column Constrained Alignment (:Alias -> '{' at col 28 -> :BaseType at col 69)
+  :PosixCode               {  #maxSize 32  #minSize 2  }            :String
+      :RackSlot            {#maxExcl 64  #unsigned #size 8}         :Int
+    :RailVoltage           { #maxIncl 48.0 #size 32 #minIncl 0.0 }  :Float
+    :SampleEpoch           {#ms}                                    :TimeEpoch
+
+    // Group C: Mixed Constrained & Unconstrained Alignment Inside :package + Trailing Comments
+    :package  :rack/telemetry  {
+    :RawGain               {#size  32}                    :Float              // 32-bit sensor gain
+        :ReferenceGain                                    :Float              // 64-bit reference gain
+      :BoundedGainHistory  { #maxSize 16   #minSize 1 }   :Seq(:RawGain)      // bounded sample window
+    }
+
+    :use  [  :rack/telemetry {  #strip  }  ]
+
+    :ProbeSnapshot         :Tuple( :PosixCode :RackSlot :RailVoltage :SampleEpoch :ChannelMode :OptionalFlag :ReferenceGain :BoundedGainHistory )
+  }
+
+  :type :ProbeSnapshot
+  :body ( "RK-01" 7 12.5 1795456800123 #ACTIVE #TRUE 1.0 [ 0.5 0.75 ] )
+}

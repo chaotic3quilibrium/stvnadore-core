@@ -185,7 +185,7 @@ class StvnGauntletV7Batch2ParityTest {
         () -> "Formatter must handle optional metadataValue on incomplete trait: " + formatted);
     assertTrue(formatted.contains(":UnknownTagged { #customOpt #Some [1 2] } :String"),
         () -> "Formatter must delegate structured explicitOptionValue/collectionValue in metadataUnknownArg: " + formatted);
-    assertTrue(formatted.contains(":UnknownCol { #customMap {\n      [\"k\" 42]\n    } } :String"),
+    assertTrue(formatted.contains(":UnknownCol { #customMap {[\"k\" 42]} } :String"),
         () -> "Formatter must delegate structured collectionValue in metadataUnknownArg: " + formatted);
   }
 

@@ -446,7 +446,7 @@ class StvnEmptyCompositeAndMultiUseRegressionTest {
             :package :pkg/b {
               :B :String
             }
-            :use [ :pkg/a { #strip } :pkg/b { :B :AliasB } ]
+            :use [ :pkg/a    { #strip } :pkg/b      { :B   :AliasB } ]
             :use [
               // First package
               :pkg/a { :A :AliasA }

@@ -46,6 +46,19 @@ class StvnGoldenFormatterConformanceTest {
       "\"\"\"\\[([A-Za-z0-9_-]+)]\\n[\\s\\S]*?\\[\\1]\"\"\""
   );
   private static final String PRELUDE_CONST_PREFIX = "#org/stvnadore/prelude/";
+  private static final List<StvnSourceFormatterOptions> ALL_FORMATTER_OPTIONS = List.of(
+      new StvnSourceFormatterOptions(NestedContainerWrapPolicy.PRESERVE_AUTHORED, NestedContainerWrapPolicy.PRESERVE_AUTHORED),
+      new StvnSourceFormatterOptions(NestedContainerWrapPolicy.PRESERVE_AUTHORED, NestedContainerWrapPolicy.EXPAND_NESTED),
+      new StvnSourceFormatterOptions(NestedContainerWrapPolicy.EXPAND_NESTED, NestedContainerWrapPolicy.PRESERVE_AUTHORED),
+      new StvnSourceFormatterOptions(NestedContainerWrapPolicy.EXPAND_NESTED, NestedContainerWrapPolicy.EXPAND_NESTED)
+  );
+  private static final Set<String> PRETTY_WITH_INLINE_NESTED_SCHEMA_CONSTRUCTORS = Set.of(
+      "04_algebraic_sum_types.stvn",
+      "10_deep_recursive_nesting.core_fmt.stvn_i",
+      "12_multiline_parameterized_constructors_depth_fifteen.core_fmt.stvn_i",
+      "18_nested_sum_tag_capture_soundness.core_fmt.stvn",
+      "fmt_probe_03_multiline_facets_and_tabular_body.core_test.stvn"
+  );
 
   @Test
   @DisplayName("Formatting directories contain matching file inventories across input/, source_pretty/, pretty/, and compact/")
@@ -61,7 +74,7 @@ class StvnGoldenFormatterConformanceTest {
     Set<String> compactNames = listRegularFileNames(COMPACT_DIR);
 
     Assertions.assertFalse(inputNames.isEmpty(), "shared-fixtures/formatting/input must not be empty");
-    Assertions.assertEquals(20, inputNames.size(), "Expected 20 golden formatter quartets");
+    Assertions.assertEquals(23, inputNames.size(), "Expected 23 golden formatter quartets");
     Assertions.assertEquals(inputNames, sourcePrettyNames, "input/ and source_pretty/ file inventories must match identically");
     Assertions.assertEquals(inputNames, prettyNames, "input/ and pretty/ file inventories must match identically");
     Assertions.assertEquals(inputNames, compactNames, "input/ and compact/ file inventories must match identically");
@@ -101,7 +114,7 @@ class StvnGoldenFormatterConformanceTest {
     String expectedPretty = Files.readString(prettyPath, StandardCharsets.UTF_8);
     String expectedCompact = Files.readString(compactPath, StandardCharsets.UTF_8);
 
-    // GATE-09: Strict LF (\n) line endings across all 72 golden files
+    // GATE-09: Strict LF (\n) line endings across all 92 golden files
     Assertions.assertFalse(inputSource.contains("\r"), "CRLF prohibited in " + inputPath);
     Assertions.assertFalse(expectedSourcePretty.contains("\r"), "CRLF prohibited in " + sourcePrettyPath);
     Assertions.assertFalse(expectedPretty.contains("\r"), "CRLF prohibited in " + prettyPath);
@@ -129,13 +142,36 @@ class StvnGoldenFormatterConformanceTest {
         () -> "StvnSourceFormatter must be idempotent on source_pretty/" + fileName
     );
 
-    // 3. Fixed-Point Invariant: AstPrettyPrinter output (pretty) is a strict fixed point of StvnSourceFormatter
-    String sourceFormattedPretty = StvnSourceFormatter.format(expectedPretty) + "\n";
-    Assertions.assertEquals(
-        expectedPretty,
-        sourceFormattedPretty,
-        () -> "Golden pretty/" + fileName + " must be a strict fixed point of StvnSourceFormatter"
-    );
+    // 3. Fixed-Point & 4-Option Wrap-Policy Matrix Invariants
+    for (var opts : ALL_FORMATTER_OPTIONS) {
+      var formattedFromInputWithOpts = StvnSourceFormatter.format(inputSource, opts);
+      Assertions.assertEquals(
+          formattedFromInputWithOpts,
+          StvnSourceFormatter.format(formattedFromInputWithOpts, opts),
+          () -> "StvnSourceFormatter must be idempotent under " + opts + " on " + fileName
+      );
+      var formattedPretty = StvnSourceFormatter.format(expectedPretty, opts) + "\n";
+      Assertions.assertEquals(
+          formattedPretty,
+          StvnSourceFormatter.format(formattedPretty, opts) + "\n",
+          () -> "StvnSourceFormatter(pretty) must be idempotent under " + opts + " on " + fileName
+      );
+      if (opts.schemaNestedWrapPolicy() == NestedContainerWrapPolicy.PRESERVE_AUTHORED
+          || !PRETTY_WITH_INLINE_NESTED_SCHEMA_CONSTRUCTORS.contains(fileName)) {
+        Assertions.assertEquals(
+            expectedPretty,
+            formattedPretty,
+            () -> "Golden pretty/" + fileName + " must be a strict fixed point under " + opts
+        );
+      } else {
+        var expandedPrettyDoc = compileCleanDocument(formattedPretty, prettyPath);
+        Assertions.assertEquals(
+            expectedPretty,
+            AstPrettyPrinter.print(expandedPrettyDoc) + "\n",
+            () -> "AstPrettyPrinter(format(pretty, " + opts + ")) must converge to pretty/" + fileName
+        );
+      }
+    }
 
     // 4. Compile all 4 members of the quartet with 0 errors and 0 warnings
     StvnDocument inputDoc = compileCleanDocument(formattedInput, inputPath);

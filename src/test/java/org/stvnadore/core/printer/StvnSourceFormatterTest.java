@@ -49,7 +49,7 @@ class StvnSourceFormatterTest {
         {
           :defs {
             // Layout 1: target and opening brace on same line as :use [
-            :use [ :org/stvnadore/prelude/meta {
+            :use [ :org/stvnadore/prelude/meta     {
                 :StvnPosixId64 :StvnPosixId64
               }
             ]
@@ -217,11 +217,7 @@ class StvnSourceFormatterTest {
             :ActiveNodeState { #filterExcl [#DRAINING #STOPPED] } :NodeState
             #DEFAULT_PORT :Port 8080
           }
-          :type :Tuple(
-            :Port
-            :ActiveNodeState
-            { #maxSize 128 #regex #SHA256_LOWER_CASE_REGEX } :String
-          )
+          :type :Tuple(:Port :ActiveNodeState { #maxSize 128 #regex #SHA256_LOWER_CASE_REGEX } :String)
           :body (
             #DEFAULT_PORT // Preserved constant reference
             #DRAINING // Intentionally excluded variant triggering Pass 3 semantic error
@@ -231,6 +227,21 @@ class StvnSourceFormatterTest {
 
     Assertions.assertEquals(expected, formatted);
     Assertions.assertEquals(Optional.of(expected), StvnSourceFormatter.tryFormat(gauntletWithDrainingError));
+
+    var expandSchemaOpts = new StvnSourceFormatterOptions(
+        NestedContainerWrapPolicy.EXPAND_NESTED,
+        NestedContainerWrapPolicy.PRESERVE_AUTHORED
+    );
+    var expectedExpanded = expected.replace(
+        ":type :Tuple(:Port :ActiveNodeState { #maxSize 128 #regex #SHA256_LOWER_CASE_REGEX } :String)",
+        """
+        :type :Tuple(
+            :Port
+            :ActiveNodeState
+            { #maxSize 128 #regex #SHA256_LOWER_CASE_REGEX } :String
+          )"""
+    );
+    Assertions.assertEquals(expectedExpanded, StvnSourceFormatter.format(gauntletWithDrainingError, expandSchemaOpts));
   }
 
   @Test
@@ -359,7 +370,35 @@ class StvnSourceFormatterTest {
         }
         """;
 
-    String expected = """
+    String expectedDefault = """
+        {
+          :defs {
+            :package :com/acme/fmt/deep {
+              :use [ :org/stvnadore/prelude {
+                  :Port :Port
+                }
+              ]
+              :use [
+                :org/stvnadore/prelude/meta {
+                  :StvnPosixId64 :StvnPosixId64
+                }
+              ]
+              :DeepEndpoint :Tuple(:StvnPosixId64 :Option(:Either(:String :Seq(:Tuple({ #minIncl 1024 } :Port { #maxSize 64 } :String)))))
+            }
+          }
+          :type :Int
+          :body 1
+        }""";
+
+    String formattedDefault = StvnSourceFormatter.format(source);
+    Assertions.assertEquals(expectedDefault, formattedDefault);
+    Assertions.assertEquals(formattedDefault, StvnSourceFormatter.format(formattedDefault));
+
+    var expandSchemaOpts = new StvnSourceFormatterOptions(
+        NestedContainerWrapPolicy.EXPAND_NESTED,
+        NestedContainerWrapPolicy.PRESERVE_AUTHORED
+    );
+    String expectedExpanded = """
         {
           :defs {
             :package :com/acme/fmt/deep {
@@ -374,10 +413,13 @@ class StvnSourceFormatterTest {
               ]
               :DeepEndpoint :Tuple(
                 :StvnPosixId64
-                :Option(:Either(:String :Seq(:Tuple(
-                  { #minIncl 1024 } :Port
-                  { #maxSize 64 } :String
-                ))))
+                :Option(:Either(
+                  :String
+                  :Seq(:Tuple(
+                    { #minIncl 1024 } :Port
+                    { #maxSize 64 } :String
+                  ))
+                ))
               )
             }
           }
@@ -385,9 +427,9 @@ class StvnSourceFormatterTest {
           :body 1
         }""";
 
-    String formatted = StvnSourceFormatter.format(source);
-    Assertions.assertEquals(expected, formatted);
-    Assertions.assertEquals(formatted, StvnSourceFormatter.format(formatted));
+    String formattedExpanded = StvnSourceFormatter.format(source, expandSchemaOpts);
+    Assertions.assertEquals(expectedExpanded, formattedExpanded);
+    Assertions.assertEquals(formattedExpanded, StvnSourceFormatter.format(formattedExpanded, expandSchemaOpts));
   }
 
   @Test
@@ -508,7 +550,7 @@ class StvnSourceFormatterTest {
           }
           :defs {
             :use [ :org/stvnadore/prelude/meta { :StvnPosixId64 :StvnPosixId64 } ]
-            :use [ :org/stvnadore/prelude {                   // <-- Aligned trailing comment
+            :use [ :org/stvnadore/prelude  {                  // <-- Aligned trailing comment
                 :Port :Port                                   // <-- Aligned trailing comment
                 #SHA256_LOWER_CASE_REGEX #SHA256_LOWER_CASE_REGEX // <-- Aligned trailing comment
               }                                               // <-- Aligned trailing comment
@@ -905,7 +947,7 @@ class StvnSourceFormatterTest {
             // kind paragraph 1
 
             // kind paragraph 2
-            #kind #BODY_INCLUDE      // modular body-include kind
+            #kind   #BODY_INCLUDE    // modular body-include kind
 
             // footer note line 1
 
@@ -975,7 +1017,7 @@ class StvnSourceFormatterTest {
               // bit-width note 1
 
               // bit-width note 2
-              #size 16     // 16-bit width
+              #size  16    // 16-bit width
 
               // floor note 1
               // floor note 2

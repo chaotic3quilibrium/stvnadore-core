@@ -11,7 +11,7 @@
 
     :use [ :com/acme/align { #strip } ]
 
-    :use [ :org/stvnadore/prelude {                   // <-- Aligned trailing comment
+    :use [ :org/stvnadore/prelude  {                  // <-- Aligned trailing comment
         :Port :Port                                   // <-- Aligned trailing comment
         #SHA256_LOWER_CASE_REGEX #SHA256_LOWER_CASE_REGEX // <-- Aligned trailing comment
       }                                               // <-- Aligned trailing comment

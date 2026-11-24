@@ -1,9 +1,9 @@
 // Pure :include ingestion formatting quartet (single-line and multi-line comment preservation)
 {
   :meta {
-    #name "20_multiline_pure_include_and_comments"
-    #domain "core_fmt"
-    #kind #BODY_INCLUDE
+    #name   "20_multiline_pure_include_and_comments"
+    #domain   "core_fmt"
+    #kind   #BODY_INCLUDE
   }
 
   :defs {
@@ -17,15 +17,15 @@
     ] // Close multi-line include list
 
     :package :com/acme/gateway {
-      :GatewayRoute :Tuple(:Identifier :HostName :Port :Protocol :TimeoutMs)
+      :GatewayRoute   :Tuple(:Identifier     :HostName   :Port   :Protocol   :TimeoutMs)
     }
 
-    :use [ :com/acme/gateway { :GatewayRoute :ActiveRoute } ]
+    :use [ :com/acme/gateway    { :GatewayRoute   :ActiveRoute } ]
   }
 
-  :type :ActiveRoute
+  :type   :ActiveRoute
 
-  :body (
+  :body   (
     "edge_node_01"
     "api.internal"
     8443

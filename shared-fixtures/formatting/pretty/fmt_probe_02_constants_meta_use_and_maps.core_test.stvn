@@ -1,0 +1,26 @@
+{
+  :meta {
+    #name "fmt_probe_02_constants_meta_use_and_maps"
+    #domain "core_test"
+    #kind #BODY
+  }
+  :defs {
+    :cooling/manifold/FlowTargetLpm { #unsigned #size 16 #maxExcl 5000 } :Int
+    :ZoneFlowMap :Map(:String :cooling/manifold/FlowTargetLpm)
+    :cooling/manifold/CoolantValveMode :Enum[#CLOSED #THROTTLED #OPEN]
+    :cooling/manifold/ManifoldTempC { #size 16 #minIncl -60 #maxExcl 150 } :Int
+    :ManifoldReport :Tuple(:cooling/manifold/CoolantValveMode :cooling/manifold/ManifoldTempC :Int :Boolean :ZoneFlowMap)
+  }
+  :type :ManifoldReport
+  :body (
+    #THROTTLED
+    18
+    950
+    #TRUE
+    {
+      ["zone_a" 120]
+      ["zone_north_rack" 480]
+      ["zone_cryo_bay" 1250]
+    }
+  )
+}
