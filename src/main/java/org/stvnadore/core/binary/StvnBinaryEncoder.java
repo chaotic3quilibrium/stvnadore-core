@@ -3,6 +3,7 @@ package org.stvnadore.core.binary;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnCompiler;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.binary.exceptions.StvnSerializationException;
 import org.stvnadore.core.io.CanonicalStvnWriter;
@@ -223,6 +224,11 @@ public class StvnBinaryEncoder {
         ? meta
         : new StvnDocumentMeta(meta.name(), meta.domain(), Optional.of(StvnDocumentKind.DEFS), meta.sourceSpan());
     rejectModularBinaryKind(effectiveMeta);
+    if (StvnStringCharacterPolicy.containsUnpairedSurrogate(definitionsSourceText)) {
+      throw new IllegalArgumentException(
+          "Cannot encode ill-formed UTF-16 definitions text containing unpaired surrogate into STVN Binary UTF-8"
+      );
+    }
     byte[] defsUtf8 = definitionsSourceText.getBytes(StandardCharsets.UTF_8);
     int totalStringLength = 1 + defsUtf8.length;
     int prefixLen = getDerivedLengthPrefixSize(totalStringLength);
@@ -372,6 +378,11 @@ public class StvnBinaryEncoder {
 
     return switch (value) {
       case StvnValue.StvnString str -> {
+        if (StvnStringCharacterPolicy.containsUnpairedSurrogate(str.value())) {
+          throw new IllegalArgumentException(
+              "Cannot encode ill-formed UTF-16 string containing unpaired surrogate into STVN Binary UTF-8"
+          );
+        }
         byte[] utf8Bytes = str.value().getBytes(StandardCharsets.UTF_8);
         stringCache.put(str, utf8Bytes);
         int totalLength = 1 + utf8Bytes.length;
@@ -682,6 +693,11 @@ public class StvnBinaryEncoder {
   private int writeCachedOrEncodeOutlinedString(StvnValue cacheKey, String fallbackText) {
     byte[] utf8Bytes = stringCache.get(cacheKey);
     if (utf8Bytes == null) {
+      if (StvnStringCharacterPolicy.containsUnpairedSurrogate(fallbackText)) {
+        throw new IllegalArgumentException(
+            "Cannot encode ill-formed UTF-16 string containing unpaired surrogate into STVN Binary UTF-8"
+        );
+      }
       utf8Bytes = fallbackText.getBytes(StandardCharsets.UTF_8);
     }
     return writeRawOutlinedUtf8Bytes(utf8Bytes);

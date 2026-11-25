@@ -160,7 +160,7 @@ public final class StvnCompiler {
     StvnParser parser = null;
 
     try {
-      String sanitizedInput = StvnSyntaxErrorSanitizer.sanitizeNonFencedTabs(input, pass1Bag, config.strict());
+      String sanitizedInput = StvnSyntaxErrorSanitizer.sanitizeSourceHygiene(input, pass1Bag, config.strict());
       var lexer = new StvnLexer(CharStreams.fromString(sanitizedInput));
       lexer.removeErrorListeners();
 
@@ -352,8 +352,8 @@ public final class StvnCompiler {
     StvnParser parser = null;
 
     try {
-      // Pass 1: Non-fenced tab sanitization (1:1 space replacement), lexing, and parsing
-      String sanitizedInput = StvnSyntaxErrorSanitizer.sanitizeNonFencedTabs(input, diagnosticBag, config.strict());
+      // Pass 1: Source character & non-fenced tab hygiene sanitization, lexing, and parsing
+      String sanitizedInput = StvnSyntaxErrorSanitizer.sanitizeSourceHygiene(input, diagnosticBag, config.strict());
       var lexer = new StvnLexer(CharStreams.fromString(sanitizedInput));
       lexer.removeErrorListeners();
 
@@ -496,6 +496,8 @@ public final class StvnCompiler {
           }
           String sym = diag.symbolicId().or(() -> diag.errorCode()).orElse("");
           if (DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN.equals(sym)
+              || DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER.equals(sym)
+              || DiagnosticBag.ERR_UNPAIRED_SURROGATE.equals(sym)
               || DiagnosticBag.ERR_SECTION_ORDER_VIOLATION.equals(sym)
               || DiagnosticBag.ERR_META_POSITION_INVALID.equals(sym)
               || (DiagnosticBag.ERR_DOCUMENT_KIND_MISMATCH.equals(sym)

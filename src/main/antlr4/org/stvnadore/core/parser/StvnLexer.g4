@@ -46,14 +46,17 @@ lexer grammar StvnLexer;
                 int tagLen = p - (i + 4);
                 if (tagLen >= 1 && tagLen <= 256 && p < len && rem.charAt(p) == ']') {
                     int scan = p + 1;
-                    while (scan < len && (rem.charAt(scan) == ' ' || rem.charAt(scan) == '\r')) {
+                    while (scan < len && rem.charAt(scan) == ' ') {
                         scan++;
                     }
-                    if (scan < len && rem.charAt(scan) == '\n') {
+                    if (scan < len && (rem.charAt(scan) == '\r' || rem.charAt(scan) == '\n')) {
+                        int afterBreak = (rem.charAt(scan) == '\r' && scan + 1 < len && rem.charAt(scan + 1) == '\n')
+                            ? scan + 2
+                            : scan + 1;
                         String innerTag = rem.substring(i + 4, p);
-                        if (rem.indexOf("[" + innerTag + "]\"\"\"", scan + 1) >= 0) {
+                        if (rem.indexOf("[" + innerTag + "]\"\"\"", afterBreak) >= 0) {
                             nestedStack.push(innerTag);
-                            i = scan + 1;
+                            i = afterBreak;
                             continue;
                         }
                     }
@@ -86,6 +89,16 @@ lexer grammar StvnLexer;
             i++;
         }
         return false;
+    }
+
+    private static String stripTrailingSingleLineBreak(String text) {
+        if (text.endsWith("\r\n")) {
+            return text.substring(0, text.length() - 2);
+        }
+        if (text.endsWith("\n") || text.endsWith("\r")) {
+            return text.substring(0, text.length() - 1);
+        }
+        return text;
     }
 }
 
@@ -192,8 +205,9 @@ LITERAL_FLOAT : '-'? [0-9]+ '.' [0-9]+ ([eE] [-+]? [0-9]+)? ;
 LITERAL_STRING_SIMPLE : '"' (~["\\\r\n\t] | '\\' ~[\r\n])* '"' ;
 
 fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
+fragment FENCE_NEWLINE  : '\r\n' | '\r' | '\n' ;
 
-FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
+FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' ' '* FENCE_NEWLINE {
     String text = getText();
     int start = text.indexOf('[') + 1;
     int end = text.indexOf(']', start);
@@ -211,7 +225,7 @@ FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     }
 } ;
 
-PROHIBITED_FENCE_START : '"""->[' ~[\r\n]* '\n' {
+PROHIBITED_FENCE_START : '"""->[' ~[\r\n]* FENCE_NEWLINE {
     setType(MALFORMED_FENCE_OPEN);
     pushMode(MALFORMED_FENCED_STRING);
 } ;
@@ -220,8 +234,8 @@ MALFORMED_FENCE_INLINE : '"""' ~[\r\n]*? '"""' {
     setType(MALFORMED_FENCE_OPEN);
 } ;
 
-MALFORMED_FENCE_OPEN : '"""' ( ~[\r\n"] | '"' ~[\r\n"] | '""' ~[\r\n"] )* ('\n' | EOF) {
-    if (getText().endsWith("\n")) {
+MALFORMED_FENCE_OPEN : '"""' ( ~[\r\n"] | '"' ~[\r\n"] | '""' ~[\r\n"] )* (FENCE_NEWLINE | EOF) {
+    if (!stripTrailingSingleLineBreak(getText()).equals(getText())) {
         pushMode(MALFORMED_FENCED_STRING);
     }
 } ;
@@ -250,7 +264,7 @@ MALFORMED_FENCE_CONTENT : . ;
 
 mode MISMATCHED_FENCED_STRING;
 
-MISMATCHED_NESTED_OPEN : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
+MISMATCHED_NESTED_OPEN : '"""[' FENCE_TAG_CHAR+ ']' ' '* FENCE_NEWLINE {
     String text = getText();
     int closeBracket = text.indexOf(']');
     String innerTag = text.substring(4, closeBracket);

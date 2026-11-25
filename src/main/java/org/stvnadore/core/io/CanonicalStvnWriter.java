@@ -1,6 +1,7 @@
 package org.stvnadore.core.io;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnDefsCatalog;
 import org.stvnadore.core.ir.StvnDocument;
@@ -674,8 +675,8 @@ public final class CanonicalStvnWriter implements StvnTextPrinter {
         String text = s.value();
         boolean preserveIndent = s.schema() instanceof StvnSchema.StringSchema ss && ss.preserveIndent();
         if (preserveIndent
-            && text.indexOf('\r') < 0
-            && (text.indexOf('\n') >= 0 || text.indexOf('\t') >= 0)) {
+            && (text.indexOf('\n') >= 0 || text.indexOf('\t') >= 0)
+            && StvnStringCharacterPolicy.canRepresentVerbatimInFencedString(text, true)) {
           String fenceTag = StvnLiteralParser.chooseSafeFenceTag(text);
           layout.writeLiteral("\"\"\"[" + fenceTag + "]\n" + text + "[" + fenceTag + "]\"\"\"");
         } else {

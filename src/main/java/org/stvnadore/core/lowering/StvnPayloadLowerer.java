@@ -7,6 +7,7 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnDefsCatalog;
 import org.stvnadore.core.ir.StvnSchema;
@@ -442,10 +443,9 @@ public final class StvnPayloadLowerer {
                 literalSpan.start(), literalSpan.end())
         );
       }
-      int newlineIndex = rawText.indexOf('\n');
       int tagStart = rawText.indexOf('[');
       int tagEnd = rawText.indexOf(']', tagStart);
-      if (newlineIndex == -1 || tagStart == -1 || tagEnd == -1 || tagEnd <= tagStart || tagEnd > newlineIndex) {
+      if (tagStart == -1 || tagEnd == -1 || tagEnd <= tagStart) {
         throw new LoweringLiteralException(
             "Rule STR-04 violation: Malformed opening fence delimiter",
             literalSpan,
@@ -456,6 +456,7 @@ public final class StvnPayloadLowerer {
                 literalSpan.start(), literalSpan.end())
         );
       }
+      validateRawFenceHeaderCharacters(rawText, tagStart + 1, tagEnd, literalSpan, false);
       String openingTag = rawText.substring(tagStart + 1, tagEnd);
       if (!FENCE_TAG_PATTERN.matcher(openingTag).matches()) {
         String msg = "Rule STR-04 violation: Fenced string delimiter tag '" + openingTag
@@ -468,8 +469,30 @@ public final class StvnPayloadLowerer {
             new StvnMalformedLiteralException(msg, literalSpan.start(), literalSpan.end())
         );
       }
+      int scan = tagEnd + 1;
+      while (scan < rawText.length() && (rawText.charAt(scan) == ' ' || rawText.charAt(scan) == '\t')) {
+        scan++;
+      }
+      validateRawFenceHeaderCharacters(rawText, tagEnd + 1, scan, literalSpan, true);
+      int bodyStart = -1;
+      if (scan < rawText.length() && rawText.charAt(scan) == '\r') {
+        bodyStart = (scan + 1 < rawText.length() && rawText.charAt(scan + 1) == '\n') ? scan + 2 : scan + 1;
+      } else if (scan < rawText.length() && rawText.charAt(scan) == '\n') {
+        bodyStart = scan + 1;
+      }
+      if (bodyStart == -1) {
+        throw new LoweringLiteralException(
+            "Rule STR-04 violation: Malformed opening fence delimiter",
+            literalSpan,
+            "E025",
+            DiagnosticBag.ERR_FENCE_DELIMITER_MISMATCH,
+            new StvnMalformedLiteralException(
+                "Rule STR-04 violation: Malformed opening fence delimiter",
+                literalSpan.start(), literalSpan.end())
+        );
+      }
       String expectedClosing = "[" + openingTag + "]\"\"\"";
-      if (!rawText.endsWith(expectedClosing) || newlineIndex + 1 > rawText.length() - expectedClosing.length()) {
+      if (!rawText.endsWith(expectedClosing) || bodyStart > rawText.length() - expectedClosing.length()) {
         String msg = "Rule STR-04 violation: Missing or mismatched closing fence delimiter '" + expectedClosing + "'";
         throw new LoweringLiteralException(
             msg,
@@ -479,10 +502,10 @@ public final class StvnPayloadLowerer {
             new StvnMalformedLiteralException(msg, literalSpan.start(), literalSpan.end())
         );
       }
-      String payload = rawText.substring(newlineIndex + 1, rawText.length() - expectedClosing.length());
-      String lfNormalized = payload.indexOf('\r') >= 0
-          ? payload.replace("\r\n", "\n").replace('\r', '\n')
-          : payload;
+      int bodyEnd = rawText.length() - expectedClosing.length();
+      validateRawFencedBodyCharacters(rawText, bodyStart, bodyEnd, literalSpan);
+      String payload = rawText.substring(bodyStart, bodyEnd);
+      String lfNormalized = StvnStringCharacterPolicy.normalizeLineEndingsToLf(payload);
       return preserveIndent ? lfNormalized : trimCommonIndent(lfNormalized);
     }
 
@@ -555,6 +578,7 @@ public final class StvnPayloadLowerer {
         recordLiteralDiagnosticIdempotent(
             diagnosticBag, le.getMessage(), le.span(), le.getCause(), le.canonicalCode(), le.symbolicId()
         );
+        recordAllRawFencedHygieneDiagnostics(rawText, literalSpan, diagnosticBag);
         return Optional.empty();
       }
     }
@@ -613,7 +637,8 @@ public final class StvnPayloadLowerer {
           && existing.startOffset() == span.start()
           && existing.endOffset() == span.end()
           && Objects.equals(existing.sourcePath(), targetPath)
-          && symbolicId.equals(existing.symbolicId().orElse(""))) {
+          && (symbolicId.equals(existing.symbolicId().orElse(""))
+              || ("E001".equals(canonicalCode) && "E001".equals(existing.canonicalCode().orElse(""))))) {
         return existing;
       }
     }
@@ -662,7 +687,7 @@ public final class StvnPayloadLowerer {
       );
     }
     int end = rawText.length() - 1;
-    if (rawText.indexOf('\\') < 0) {
+    if (isCleanUnescapedAsciiSimpleString(rawText, 1, end)) {
       return new SimpleStringDecodeOutcome(rawText.substring(1, end), List.of());
     }
     StringBuilder sb = new StringBuilder(end - 1);
@@ -671,6 +696,80 @@ public final class StvnPayloadLowerer {
     while (i < end) {
       char c = rawText.charAt(i);
       if (c != '\\') {
+        if (c == '\t') {
+          int tabStart = i;
+          while (i < end && rawText.charAt(i) == '\t') {
+            i++;
+          }
+          Span tabSpan = literalSpan.subSpan(tabStart, i);
+          String msg = "STVN Syntax Error: Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead ("
+              + DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN + ")";
+          if (errors == null) {
+            errors = new ArrayList<>(2);
+          }
+          errors.add(new SimpleStringEscapeDiagnostic(
+              msg, tabSpan, "E001", DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN,
+              new StvnMalformedLiteralException(msg, tabSpan.start(), tabSpan.end())
+          ));
+          continue;
+        }
+        if (Character.isHighSurrogate(c)) {
+          if (i + 1 < end && Character.isLowSurrogate(rawText.charAt(i + 1))) {
+            int cp = Character.toCodePoint(c, rawText.charAt(i + 1));
+            if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(cp)) {
+              Span cpSpan = literalSpan.subSpan(i, i + 2);
+              String msg = formatForbiddenRawCharacterMessage(cp);
+              if (errors == null) {
+                errors = new ArrayList<>(2);
+              }
+              errors.add(new SimpleStringEscapeDiagnostic(
+                  msg, cpSpan, "E001", DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER,
+                  new StvnMalformedLiteralException(msg, cpSpan.start(), cpSpan.end())
+              ));
+            } else if (errors == null) {
+              sb.append(c).append(rawText.charAt(i + 1));
+            }
+            i += 2;
+          } else {
+            Span surrSpan = literalSpan.subSpan(i, i + 1);
+            String msg = formatRawUnpairedSurrogateMessage(c);
+            if (errors == null) {
+              errors = new ArrayList<>(2);
+            }
+            errors.add(new SimpleStringEscapeDiagnostic(
+                msg, surrSpan, "E001", DiagnosticBag.ERR_UNPAIRED_SURROGATE,
+                new StvnMalformedLiteralException(msg, surrSpan.start(), surrSpan.end())
+            ));
+            i++;
+          }
+          continue;
+        }
+        if (Character.isLowSurrogate(c)) {
+          Span surrSpan = literalSpan.subSpan(i, i + 1);
+          String msg = formatRawUnpairedSurrogateMessage(c);
+          if (errors == null) {
+            errors = new ArrayList<>(2);
+          }
+          errors.add(new SimpleStringEscapeDiagnostic(
+              msg, surrSpan, "E001", DiagnosticBag.ERR_UNPAIRED_SURROGATE,
+              new StvnMalformedLiteralException(msg, surrSpan.start(), surrSpan.end())
+          ));
+          i++;
+          continue;
+        }
+        if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(c)) {
+          Span cpSpan = literalSpan.subSpan(i, i + 1);
+          String msg = formatForbiddenRawCharacterMessage(c);
+          if (errors == null) {
+            errors = new ArrayList<>(2);
+          }
+          errors.add(new SimpleStringEscapeDiagnostic(
+              msg, cpSpan, "E001", DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER,
+              new StvnMalformedLiteralException(msg, cpSpan.start(), cpSpan.end())
+          ));
+          i++;
+          continue;
+        }
         if (errors == null) {
           sb.append(c);
         }
@@ -744,7 +843,9 @@ public final class StvnPayloadLowerer {
           int maxEnd = Math.min(end, i + 6);
           while (j < maxEnd) {
             char ch = rawText.charAt(j);
-            if (ch == '\\' || ch == '"' || ch == '\r' || ch == '\n' || ch == '\t') {
+            if (ch == '\\' || ch == '"' || ch == '\r' || ch == '\n' || ch == '\t'
+                || Character.isSurrogate(ch)
+                || StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(ch)) {
               break;
             }
             j++;
@@ -774,23 +875,91 @@ public final class StvnPayloadLowerer {
                   msg, escSpan, "E002", "STVN_SYNTAX_ERROR",
                   new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end())
               ));
-            } else if (errors == null) {
-              sb.append((char) codeUnit);
+              i = i + 6;
+            } else if (Character.isHighSurrogate((char) codeUnit)) {
+              int pairedLow = -1;
+              if (i + 12 <= end && rawText.charAt(i + 6) == '\\' && rawText.charAt(i + 7) == 'u') {
+                int candidateLow = parseFourHexDigits(rawText.substring(i + 8, i + 12));
+                if (candidateLow >= 0 && Character.isLowSurrogate((char) candidateLow)) {
+                  pairedLow = candidateLow;
+                }
+              }
+              if (pairedLow >= 0) {
+                if (errors == null) {
+                  sb.append((char) codeUnit).append((char) pairedLow);
+                }
+                i = i + 12;
+              } else {
+                Span escSpan = literalSpan.subSpan(i, i + 6);
+                String msg = "Unpaired high UTF-16 surrogate escape '\\u" + hex + "' ("
+                    + StvnStringCharacterPolicy.formatUnicodeScalarId(codeUnit)
+                    + "); follow immediately with a low surrogate escape ('\\uDC00'..'\\uDFFF') to form a valid Unicode scalar value";
+                if (errors == null) {
+                  errors = new ArrayList<>(2);
+                }
+                errors.add(new SimpleStringEscapeDiagnostic(
+                    msg, escSpan, "E001", DiagnosticBag.ERR_UNPAIRED_SURROGATE,
+                    new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end())
+                ));
+                i = i + 6;
+              }
+            } else if (Character.isLowSurrogate((char) codeUnit)) {
+              Span escSpan = literalSpan.subSpan(i, i + 6);
+              String msg = "Unpaired low UTF-16 surrogate escape '\\u" + hex + "' ("
+                  + StvnStringCharacterPolicy.formatUnicodeScalarId(codeUnit)
+                  + "); precede immediately with a high surrogate escape ('\\uD800'..'\\uDBFF') to form a valid Unicode scalar value";
+              if (errors == null) {
+                errors = new ArrayList<>(2);
+              }
+              errors.add(new SimpleStringEscapeDiagnostic(
+                  msg, escSpan, "E001", DiagnosticBag.ERR_UNPAIRED_SURROGATE,
+                  new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end())
+              ));
+              i = i + 6;
+            } else {
+              if (errors == null) {
+                sb.append((char) codeUnit);
+              }
+              i = i + 6;
             }
-            i = i + 6;
           }
         }
         default -> {
-          Span escSpan = literalSpan.subSpan(i, i + 2);
-          String msg = "Illegal escape sequence '\\" + next + "' in simple string literal";
-          if (errors == null) {
-            errors = new ArrayList<>(2);
+          if (next == '\t') {
+            Span tabSpan = literalSpan.subSpan(i + 1, i + 2);
+            String msg = "STVN Syntax Error: Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead ("
+                + DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN + ")";
+            if (errors == null) {
+              errors = new ArrayList<>(2);
+            }
+            errors.add(new SimpleStringEscapeDiagnostic(
+                msg, tabSpan, "E001", DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN,
+                new StvnMalformedLiteralException(msg, tabSpan.start(), tabSpan.end())
+            ));
+            i += 2;
+          } else if (Character.isSurrogate(next) || StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(next)) {
+            Span escSpan = literalSpan.subSpan(i, i + 1);
+            String escMsg = "Illegal backslash before forbidden raw character in simple string literal";
+            if (errors == null) {
+              errors = new ArrayList<>(2);
+            }
+            errors.add(new SimpleStringEscapeDiagnostic(
+                escMsg, escSpan, "E002", "STVN_SYNTAX_ERROR",
+                new StvnMalformedLiteralException(escMsg, escSpan.start(), escSpan.end())
+            ));
+            i += 1;
+          } else {
+            Span escSpan = literalSpan.subSpan(i, i + 2);
+            String msg = "Illegal escape sequence '\\" + next + "' in simple string literal";
+            if (errors == null) {
+              errors = new ArrayList<>(2);
+            }
+            errors.add(new SimpleStringEscapeDiagnostic(
+                msg, escSpan, "E002", "STVN_SYNTAX_ERROR",
+                new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end())
+            ));
+            i += 2;
           }
-          errors.add(new SimpleStringEscapeDiagnostic(
-              msg, escSpan, "E002", "STVN_SYNTAX_ERROR",
-              new StvnMalformedLiteralException(msg, escSpan.start(), escSpan.end())
-          ));
-          i += 2;
         }
       }
     }
@@ -798,6 +967,226 @@ public final class StvnPayloadLowerer {
       return new SimpleStringDecodeOutcome(null, List.copyOf(errors));
     }
     return new SimpleStringDecodeOutcome(sb.toString(), List.of());
+  }
+
+  private static boolean isCleanUnescapedAsciiSimpleString(String rawText, int from, int to) {
+    for (int k = from; k < to; k++) {
+      char c = rawText.charAt(k);
+      if (c < 0x20 || c >= 0x7F || c == '\\' || c == '"') {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static String formatForbiddenRawCharacterMessage(int codePoint) {
+    String scalarId = StvnStringCharacterPolicy.formatUnicodeScalarId(codePoint);
+    String charName = StvnStringCharacterPolicy.resolveUnicodeCharacterName(codePoint);
+    String escapeRec = StvnStringCharacterPolicy.formatRecommendedSimpleEscape(codePoint);
+    return "STVN Syntax Error: Forbidden raw control or format character " + scalarId
+        + " (" + charName + "); encode inside a double-quoted string using "
+        + escapeRec + " if intentional (" + DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER + ")";
+  }
+
+  private static String formatRawUnpairedSurrogateMessage(char codeUnit) {
+    String scalarId = StvnStringCharacterPolicy.formatUnicodeScalarId(codeUnit);
+    String charName = StvnStringCharacterPolicy.resolveUnicodeCharacterName(codeUnit);
+    return "STVN Syntax Error: Forbidden unpaired UTF-16 surrogate code unit " + scalarId
+        + " (" + charName + ") in STVN source text (" + DiagnosticBag.ERR_UNPAIRED_SURROGATE + ")";
+  }
+
+  private static void validateRawFenceHeaderCharacters(
+      String rawText,
+      int from,
+      int to,
+      Span literalSpan,
+      boolean checkTabs
+  ) {
+    for (int i = from; i < to; ) {
+      char c = rawText.charAt(i);
+      if ((checkTabs || c == '\t') && c == '\t') {
+        int tabEnd = i + 1;
+        while (tabEnd < to && rawText.charAt(tabEnd) == '\t') {
+          tabEnd++;
+        }
+        Span sp = literalSpan.subSpan(i, tabEnd);
+        String msg = "STVN Syntax Error: Tab character ('\\t', U+0009) is strictly forbidden in STVN syntax outside fenced string literals; use standard spaces instead ("
+            + DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN + ")";
+        throw new LoweringLiteralException(
+            msg, sp, "E001", DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN,
+            new StvnMalformedLiteralException(msg, sp.start(), sp.end())
+        );
+      }
+      if (Character.isHighSurrogate(c)) {
+        if (i + 1 < to && Character.isLowSurrogate(rawText.charAt(i + 1))) {
+          int cp = Character.toCodePoint(c, rawText.charAt(i + 1));
+          if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(cp)) {
+            Span sp = literalSpan.subSpan(i, i + 2);
+            String msg = formatForbiddenRawCharacterMessage(cp);
+            throw new LoweringLiteralException(
+                msg, sp, "E001", DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER,
+                new StvnMalformedLiteralException(msg, sp.start(), sp.end())
+            );
+          }
+          i += 2;
+        } else {
+          Span sp = literalSpan.subSpan(i, i + 1);
+          String msg = formatRawUnpairedSurrogateMessage(c);
+          throw new LoweringLiteralException(
+              msg, sp, "E001", DiagnosticBag.ERR_UNPAIRED_SURROGATE,
+              new StvnMalformedLiteralException(msg, sp.start(), sp.end())
+          );
+        }
+      } else if (Character.isLowSurrogate(c)) {
+        Span sp = literalSpan.subSpan(i, i + 1);
+        String msg = formatRawUnpairedSurrogateMessage(c);
+        throw new LoweringLiteralException(
+            msg, sp, "E001", DiagnosticBag.ERR_UNPAIRED_SURROGATE,
+            new StvnMalformedLiteralException(msg, sp.start(), sp.end())
+        );
+      } else if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(c)) {
+        Span sp = literalSpan.subSpan(i, i + 1);
+        String msg = formatForbiddenRawCharacterMessage(c);
+        throw new LoweringLiteralException(
+            msg, sp, "E001", DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER,
+            new StvnMalformedLiteralException(msg, sp.start(), sp.end())
+        );
+      } else {
+        i++;
+      }
+    }
+  }
+
+  static void validateRawFencedBodyCharacters(
+      String rawText,
+      int bodyStart,
+      int bodyEnd,
+      Span literalSpan
+  ) {
+    int curLine = literalSpan.line() + 1;
+    int curCol = 0;
+    for (int i = bodyStart; i < bodyEnd; ) {
+      char c = rawText.charAt(i);
+      if (c == '\r') {
+        i++;
+        if (i < bodyEnd && rawText.charAt(i) == '\n') {
+          i++;
+        }
+        curLine++;
+        curCol = 0;
+      } else if (c == '\n') {
+        i++;
+        curLine++;
+        curCol = 0;
+      } else if (Character.isHighSurrogate(c)) {
+        if (i + 1 < bodyEnd && Character.isLowSurrogate(rawText.charAt(i + 1))) {
+          int cp = Character.toCodePoint(c, rawText.charAt(i + 1));
+          if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(cp)) {
+            Span sp = new Span(literalSpan.start() + i, literalSpan.start() + i + 2, curLine, curCol);
+            String msg = formatForbiddenRawCharacterMessage(cp);
+            throw new LoweringLiteralException(
+                msg, sp, "E001", DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER,
+                new StvnMalformedLiteralException(msg, sp.start(), sp.end())
+            );
+          }
+          i += 2;
+          curCol += 2;
+        } else {
+          Span sp = new Span(literalSpan.start() + i, literalSpan.start() + i + 1, curLine, curCol);
+          String msg = formatRawUnpairedSurrogateMessage(c);
+          throw new LoweringLiteralException(
+              msg, sp, "E001", DiagnosticBag.ERR_UNPAIRED_SURROGATE,
+              new StvnMalformedLiteralException(msg, sp.start(), sp.end())
+          );
+        }
+      } else if (Character.isLowSurrogate(c)) {
+        Span sp = new Span(literalSpan.start() + i, literalSpan.start() + i + 1, curLine, curCol);
+        String msg = formatRawUnpairedSurrogateMessage(c);
+        throw new LoweringLiteralException(
+            msg, sp, "E001", DiagnosticBag.ERR_UNPAIRED_SURROGATE,
+            new StvnMalformedLiteralException(msg, sp.start(), sp.end())
+        );
+      } else if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(c)) {
+        Span sp = new Span(literalSpan.start() + i, literalSpan.start() + i + 1, curLine, curCol);
+        String msg = formatForbiddenRawCharacterMessage(c);
+        throw new LoweringLiteralException(
+            msg, sp, "E001", DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER,
+            new StvnMalformedLiteralException(msg, sp.start(), sp.end())
+        );
+      } else {
+        i++;
+        curCol++;
+      }
+    }
+  }
+
+  private static void recordAllRawFencedHygieneDiagnostics(
+      String rawText,
+      Span literalSpan,
+      DiagnosticBag diagnosticBag
+  ) {
+    int curLine = literalSpan.line();
+    int curCol = literalSpan.column();
+    int len = rawText.length();
+    for (int i = 0; i < len; ) {
+      char c = rawText.charAt(i);
+      if (c == '\r') {
+        i++;
+        if (i < len && rawText.charAt(i) == '\n') {
+          i++;
+        }
+        curLine++;
+        curCol = 0;
+      } else if (c == '\n') {
+        i++;
+        curLine++;
+        curCol = 0;
+      } else if (Character.isHighSurrogate(c)) {
+        if (i + 1 < len && Character.isLowSurrogate(rawText.charAt(i + 1))) {
+          int cp = Character.toCodePoint(c, rawText.charAt(i + 1));
+          if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(cp)) {
+            Span sp = new Span(literalSpan.start() + i, literalSpan.start() + i + 2, curLine, curCol);
+            String msg = formatForbiddenRawCharacterMessage(cp);
+            recordLiteralDiagnosticIdempotent(
+                diagnosticBag, msg, sp, new StvnMalformedLiteralException(msg, sp.start(), sp.end()),
+                "E001", DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER
+            );
+          }
+          i += 2;
+          curCol += 2;
+        } else {
+          Span sp = new Span(literalSpan.start() + i, literalSpan.start() + i + 1, curLine, curCol);
+          String msg = formatRawUnpairedSurrogateMessage(c);
+          recordLiteralDiagnosticIdempotent(
+              diagnosticBag, msg, sp, new StvnMalformedLiteralException(msg, sp.start(), sp.end()),
+              "E001", DiagnosticBag.ERR_UNPAIRED_SURROGATE
+          );
+          i++;
+          curCol++;
+        }
+      } else if (Character.isLowSurrogate(c)) {
+        Span sp = new Span(literalSpan.start() + i, literalSpan.start() + i + 1, curLine, curCol);
+        String msg = formatRawUnpairedSurrogateMessage(c);
+        recordLiteralDiagnosticIdempotent(
+            diagnosticBag, msg, sp, new StvnMalformedLiteralException(msg, sp.start(), sp.end()),
+            "E001", DiagnosticBag.ERR_UNPAIRED_SURROGATE
+        );
+        i++;
+        curCol++;
+      } else if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(c)) {
+        Span sp = new Span(literalSpan.start() + i, literalSpan.start() + i + 1, curLine, curCol);
+        String msg = formatForbiddenRawCharacterMessage(c);
+        recordLiteralDiagnosticIdempotent(
+            diagnosticBag, msg, sp, new StvnMalformedLiteralException(msg, sp.start(), sp.end()),
+            "E001", DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER
+        );
+        i++;
+        curCol++;
+      } else {
+        i++;
+        curCol++;
+      }
+    }
   }
 
   private static int parseFourHexDigits(String hex) {
@@ -2544,7 +2933,11 @@ public final class StvnPayloadLowerer {
       if ("E028".equals(d.canonicalCode().orElse(null))) {
         return false;
       }
-      return "STVN_SYNTAX_ERROR".equals(d.symbolicId().orElse(null))
+      String sym = d.symbolicId().orElse(null);
+      return "STVN_SYNTAX_ERROR".equals(sym)
+          || DiagnosticBag.ERR_UNPAIRED_SURROGATE.equals(sym)
+          || DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER.equals(sym)
+          || DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN.equals(sym)
           || d.cause() instanceof StvnMalformedLiteralException;
     }
 

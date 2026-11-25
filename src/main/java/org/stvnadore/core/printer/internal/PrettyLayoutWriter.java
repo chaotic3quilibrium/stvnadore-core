@@ -1,6 +1,7 @@
 package org.stvnadore.core.printer.internal;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
 import org.stvnadore.core.printer.PrinterOptions;
@@ -9,7 +10,6 @@ import java.io.IOException;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.Locale;
 
 /**
  * A layout writer that emits structured, indented pretty STVN tokens.
@@ -216,27 +216,7 @@ public final class PrettyLayoutWriter implements LayoutWriter {
   }
 
   static String escapeSimpleStringBody(String s) {
-    StringBuilder sb = new StringBuilder(s.length());
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      switch (c) {
-        case '\\' -> sb.append("\\\\");
-        case '"' -> sb.append("\\\"");
-        case '\n' -> sb.append("\\n");
-        case '\r' -> sb.append("\\r");
-        case '\t' -> sb.append("\\t");
-        case '\b' -> sb.append("\\b");
-        case '\f' -> sb.append("\\f");
-        default -> {
-          if (c < 0x20) {
-            sb.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
-          } else {
-            sb.append(c);
-          }
-        }
-      }
-    }
-    return sb.toString();
+    return StvnStringCharacterPolicy.escapeSimpleStringBody(s);
   }
 
   private String escapeString(String s) {

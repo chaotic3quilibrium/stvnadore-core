@@ -2,6 +2,7 @@ package org.stvnadore.core.printer.internal;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnDefsCatalog;
 import org.stvnadore.core.ir.StvnSchema;
@@ -347,64 +348,19 @@ public final class PatternPrinterDispatcher {
    * @return {@code true} if fenced emission is triggered and 100% round-trip lossless
    */
   public static boolean shouldEmitFencedPretty(String text, boolean preserveIndent) {
-    if (!containsSimpleEscapeTrigger(text) || containsForbiddenFencedControlChar(text)) {
-      return false;
-    }
-    if (preserveIndent) {
-      return true;
-    }
-    return !isAsciiSpacesOnly(text)
-        && !hasNonEmptyAsciiSpaceOnlyLine(text)
-        && StvnPayloadLowerer.trimCommonIndent(text).equals(text);
+    return containsSimpleEscapeTrigger(text)
+        && StvnStringCharacterPolicy.canRepresentVerbatimInFencedString(text, preserveIndent);
   }
 
   private static boolean shouldEmitFencedCompact(String text, boolean preserveIndent) {
-    return !containsForbiddenFencedControlChar(text)
-        && ((text.indexOf('\n') >= 0
-            && (preserveIndent
-                || (!isAsciiSpacesOnly(text)
-                    && !hasNonEmptyAsciiSpaceOnlyLine(text)
-                    && text.equals(StvnPayloadLowerer.trimCommonIndent(text)))))
-            || (preserveIndent && text.indexOf('\t') >= 0));
-  }
-
-  private static boolean hasNonEmptyAsciiSpaceOnlyLine(String text) {
-    int lineStart = 0;
-    int len = text.length();
-    for (int i = 0; i <= len; i++) {
-      if (i == len || text.charAt(i) == '\n') {
-        if (i > lineStart) {
-          boolean allSpaces = true;
-          for (int j = lineStart; j < i; j++) {
-            if (text.charAt(j) != ' ') {
-              allSpaces = false;
-              break;
-            }
-          }
-          if (allSpaces) {
-            return true;
-          }
-        }
-        lineStart = i + 1;
-      }
-    }
-    return false;
+    return ((text.indexOf('\n') >= 0) || (preserveIndent && text.indexOf('\t') >= 0))
+        && StvnStringCharacterPolicy.canRepresentVerbatimInFencedString(text, preserveIndent);
   }
 
   private static boolean containsSimpleEscapeTrigger(String text) {
     for (int i = 0; i < text.length(); i++) {
       char c = text.charAt(i);
       if (c == '\\' || c == '"' || c == '\n' || c == '\t') {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static boolean containsForbiddenFencedControlChar(String text) {
-    for (int i = 0; i < text.length(); i++) {
-      char c = text.charAt(i);
-      if (c < 0x20 && c != '\n' && c != '\t') {
         return true;
       }
     }

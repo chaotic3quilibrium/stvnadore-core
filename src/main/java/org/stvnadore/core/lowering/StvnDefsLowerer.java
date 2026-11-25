@@ -217,7 +217,8 @@ public final class StvnDefsLowerer {
     Objects.requireNonNull(input, "input must not be null");
     Objects.requireNonNull(config, "config must not be null");
 
-    var lexer = new StvnLexer(CharStreams.fromString(input));
+    String sanitized = StvnSyntaxErrorSanitizer.sanitizeSourceHygiene(input, null, config.strict());
+    var lexer = new StvnLexer(CharStreams.fromString(sanitized));
     lexer.removeErrorListeners();
 
     var tokens = new CommonTokenStream(lexer);
@@ -3161,7 +3162,8 @@ public final class StvnDefsLowerer {
 
             DiagnosticBag childBag = diagnosticBag.withSourcePath(resolvedVirtual);
             int childErrorsBeforePass1 = childBag.errorCount();
-            var lexer = new StvnLexer(CharStreams.fromString(content));
+            String sanitizedContent = StvnSyntaxErrorSanitizer.sanitizeSourceHygiene(content, childBag, false);
+            var lexer = new StvnLexer(CharStreams.fromString(sanitizedContent));
             lexer.removeErrorListeners();
             var childTokens = new CommonTokenStream(lexer);
             var parser = new StvnParser(childTokens);
@@ -3285,7 +3287,8 @@ public final class StvnDefsLowerer {
 
             DiagnosticBag childBag = diagnosticBag.withSourcePath(resolvedPath.toString());
             int childErrorsBeforePass1 = childBag.errorCount();
-            var lexer = new StvnLexer(CharStreams.fromString(content));
+            String sanitizedContent = StvnSyntaxErrorSanitizer.sanitizeSourceHygiene(content, childBag, false);
+            var lexer = new StvnLexer(CharStreams.fromString(sanitizedContent));
             lexer.removeErrorListeners();
             var childTokens = new CommonTokenStream(lexer);
             var parser = new StvnParser(childTokens);

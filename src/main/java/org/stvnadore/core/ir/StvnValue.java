@@ -2,6 +2,7 @@ package org.stvnadore.core.ir;
 
 import org.jspecify.annotations.NullMarked;
 import org.stvnadore.core.StvnDiagnostic;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -152,6 +153,38 @@ public sealed interface StvnValue permits
     public StvnString {
       Objects.requireNonNull(schema, "schema must not be null");
       Objects.requireNonNull(value, "value must not be null");
+    }
+
+    /**
+     * Projects {@link #value()} into a {@code CRLF} ({@code "\r\n"}, {@code U+000D U+000A})
+     * string by converting every {@code "\r\n"}, standalone {@code '\r'}, and standalone
+     * {@code '\n'} sequence uniformly to {@code "\r\n"} in {@code O(n)} time without doubling
+     * existing {@code "\r\n"} sequences.
+     * <p>
+     * If {@link #value()} contains neither {@code '\n'} nor {@code '\r'}, this method returns
+     * {@link #value()} directly with zero allocation.
+     * <p>
+     * <b>API Note:</b> This method is intentionally named {@code toUnvalidatedCrLfString()} for
+     * three reasons:
+     * <ol>
+     *   <li>The returned {@link String} is a derived downstream consumer projection that has
+     *       <b>not</b> been validated against the governing {@link StvnSchema.StringSchema}
+     *       constraints.</li>
+     *   <li>Expanding {@code '\n'} ({@code 1} Unicode scalar) to {@code "\r\n"} ({@code 2}
+     *       Unicode scalars) alters string length and byte content: it can exceed
+     *       {@code #maxSize}, violate {@code #minIncl}, {@code #maxIncl}, {@code #minExcl},
+     *       or {@code #maxExcl} UTF-8 lexical bounds or {@code #regex} patterns, and
+     *       <b>diverges</b> from the document's canonical STVN Binary payload and SHA-256
+     *       Content-Addressable Storage (CAS) preimage.</li>
+     *   <li>Authors whose schema-governed wire contract requires validated {@code "\r\n"}
+     *       scalars inside the IR value itself must write double-quoted escaped strings
+     *       ({@code "\r\n"} or {@code "\u005Cu000D\n"}) rather than fenced verbatim strings.</li>
+     * </ol>
+     *
+     * @return derived {@code CRLF}-projected string
+     */
+    public String toUnvalidatedCrLfString() {
+      return StvnStringCharacterPolicy.convertLineEndingsToCrLf(this.value);
     }
   }
 

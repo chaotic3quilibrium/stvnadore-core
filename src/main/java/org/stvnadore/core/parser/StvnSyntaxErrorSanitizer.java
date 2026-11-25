@@ -14,6 +14,7 @@ import org.antlr.v4.runtime.misc.IntervalSet;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.validation.DiagnosticBag;
 import org.stvnadore.core.validation.StvnSyntaxCancellationException;
@@ -87,7 +88,7 @@ public final class StvnSyntaxErrorSanitizer {
       if (c == '/' && i + 1 < len && chars[i + 1] == '/') {
         i += 2;
         col += 2;
-        while (i < len && chars[i] != '\n') {
+        while (i < len && chars[i] != '\n' && chars[i] != '\r') {
           if (chars[i] == '\t') {
             int tabStart = i;
             int tabStartCol = col;
@@ -97,8 +98,6 @@ public final class StvnSyntaxErrorSanitizer {
               col++;
             }
             recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
-          } else if (chars[i] == '\r') {
-            i++;
           } else {
             i++;
             col++;
@@ -107,7 +106,7 @@ public final class StvnSyntaxErrorSanitizer {
         continue;
       }
 
-      // 2. Triple-quoted string: check for Rule STR-04 opening fence '"""[TAG]' followed by [ \t\r]* '\n'
+      // 2. Triple-quoted string: check for Rule STR-04 opening fence '"""[TAG]' followed by [ \t]* ('\r\n' | '\r' | '\n')
       if (c == '"' && i + 2 < len && chars[i + 1] == '"' && chars[i + 2] == '"') {
         int tagOpen = i + 3;
         if (tagOpen < len && chars[tagOpen] == '[') {
@@ -119,13 +118,12 @@ public final class StvnSyntaxErrorSanitizer {
           if (tagLen >= 1 && tagLen <= 256 && p < len && chars[p] == ']') {
             int afterBracket = p + 1;
             int scan = afterBracket;
-            while (scan < len && (chars[scan] == ' ' || chars[scan] == '\t' || chars[scan] == '\r')) {
+            while (scan < len && (chars[scan] == ' ' || chars[scan] == '\t')) {
               scan++;
             }
-            if (scan < len && chars[scan] == '\n') {
+            if (scan < len && (chars[scan] == '\r' || chars[scan] == '\n')) {
               String fenceTag = source.substring(tagOpen + 1, p);
               String closeSeq = "[" + fenceTag + "]\"\"\"";
-              // Advance to after ']', sanitizing any forbidden tabs on the opening fence delimiter line
               int openPrefixLen = afterBracket - i;
               i = afterBracket;
               col += openPrefixLen;
@@ -139,19 +137,22 @@ public final class StvnSyntaxErrorSanitizer {
                     col++;
                   }
                   recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
-                } else if (chars[i] == '\r') {
-                  i++;
                 } else {
                   i++;
                   col++;
                 }
               }
-              // Consume '\n' at end of opening fence delimiter line
-              i++;
+              if (chars[i] == '\r') {
+                i++;
+                if (i < len && chars[i] == '\n') {
+                  i++;
+                }
+              } else {
+                i++;
+              }
               line++;
               col = 0;
 
-              // Inside Rule STR-04 fenced string verbatim body: preserve '\t' strictly when '[TAG]"""' closes the block
               if (source.indexOf(closeSeq, i) >= 0) {
                 int closeLen = closeSeq.length();
                 while (i < len) {
@@ -161,12 +162,17 @@ public final class StvnSyntaxErrorSanitizer {
                     break;
                   }
                   char bodyChar = chars[i];
-                  if (bodyChar == '\n') {
+                  if (bodyChar == '\r') {
+                    i++;
+                    if (i < len && chars[i] == '\n') {
+                      i++;
+                    }
+                    line++;
+                    col = 0;
+                  } else if (bodyChar == '\n') {
                     i++;
                     line++;
                     col = 0;
-                  } else if (bodyChar == '\r') {
-                    i++;
                   } else {
                     i++;
                     col++;
@@ -218,12 +224,17 @@ public final class StvnSyntaxErrorSanitizer {
           col++;
         }
         recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
+      } else if (c == '\r') {
+        i++;
+        if (i < len && chars[i] == '\n') {
+          i++;
+        }
+        line++;
+        col = 0;
       } else if (c == '\n') {
         i++;
         line++;
         col = 0;
-      } else if (c == '\r') {
-        i++;
       } else {
         i++;
         col++;
@@ -231,6 +242,445 @@ public final class StvnSyntaxErrorSanitizer {
     }
 
     return new String(chars);
+  }
+
+  /**
+   * Executes Pass 1 character hygiene across the entire raw STVN source stream:
+   * <ul>
+   *   <li>Rejects raw {@link StvnStringCharacterPolicy#isForbiddenRawSourceCodePoint(int)} scalars
+   *       anywhere in structural syntax, {@code //} comments, {@code "..."} simple strings, and
+   *       {@code """[TAG]...[TAG]"""} fenced string tags and verbatim bodies ({@code E001},
+   *       {@link DiagnosticBag#ERR_FORBIDDEN_RAW_CHARACTER}).</li>
+   *   <li>Rejects raw unpaired UTF-16 surrogate code units ({@code E001},
+   *       {@link DiagnosticBag#ERR_UNPAIRED_SURROGATE}) and neutralizes them 1:1 prior to ANTLR
+   *       {@code CharStreams.fromString} buffer construction.</li>
+   *   <li>Rejects horizontal tabs ({@code '\t'}, {@code U+0009}) outside closed Rule STR-04 fenced
+   *       string bodies ({@code E001}, {@link DiagnosticBag#ERR_TAB_CHARACTER_FORBIDDEN}).</li>
+   * </ul>
+   *
+   * @param source        the raw STVN document source text
+   * @param diagnosticBag the optional diagnostic accumulator bag
+   * @param strict        {@code true} to throw {@link StvnSyntaxCancellationException} on the first violation
+   * @return the 1:1 UTF-16 offset-preserving sanitized source text safe for ANTLR lexing
+   */
+  public static String sanitizeSourceHygiene(
+      String source,
+      @Nullable DiagnosticBag diagnosticBag,
+      boolean strict
+  ) {
+    if (!requiresSourceHygieneScan(source)) {
+      return source;
+    }
+
+    char[] chars = source.toCharArray();
+    boolean mutated = false;
+    int len = chars.length;
+    int i = 0;
+    int line = 1;
+    int col = 0;
+
+    while (i < len) {
+      char c = chars[i];
+
+      // 1. Single-line '//' comment (terminated by '\r\n', '\r', or '\n')
+      if (c == '/' && i + 1 < len && chars[i + 1] == '/') {
+        i += 2;
+        col += 2;
+        while (i < len && chars[i] != '\n' && chars[i] != '\r') {
+          char cc = chars[i];
+          if (cc == '\t') {
+            int tabStart = i;
+            int tabStartCol = col;
+            while (i < len && chars[i] == '\t') {
+              chars[i] = ' ';
+              mutated = true;
+              i++;
+              col++;
+            }
+            recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
+          } else if (Character.isHighSurrogate(cc)) {
+            if (i + 1 < len && Character.isLowSurrogate(chars[i + 1])) {
+              int cp = Character.toCodePoint(cc, chars[i + 1]);
+              if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(cp)) {
+                recordForbiddenRawCharacterDiagnostic(diagnosticBag, strict, cp, line, col, i, i + 2);
+                chars[i] = ' ';
+                chars[i + 1] = ' ';
+                mutated = true;
+              }
+              i += 2;
+              col += 2;
+            } else {
+              recordUnpairedSurrogateDiagnostic(diagnosticBag, strict, cc, line, col, i, i + 1);
+              chars[i] = ' ';
+              mutated = true;
+              i++;
+              col++;
+            }
+          } else if (Character.isLowSurrogate(cc)) {
+            recordUnpairedSurrogateDiagnostic(diagnosticBag, strict, cc, line, col, i, i + 1);
+            chars[i] = ' ';
+            mutated = true;
+            i++;
+            col++;
+          } else if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(cc)) {
+            recordForbiddenRawCharacterDiagnostic(diagnosticBag, strict, cc, line, col, i, i + 1);
+            chars[i] = ' ';
+            mutated = true;
+            i++;
+            col++;
+          } else {
+            i++;
+            col++;
+          }
+        }
+        continue;
+      }
+
+      // 2. Rule STR-04 fenced string: '"""[TAG]' followed by [ \t]* ('\r\n' | '\r' | '\n')
+      if (c == '"' && i + 2 < len && chars[i + 1] == '"' && chars[i + 2] == '"') {
+        int tagOpen = i + 3;
+        if (tagOpen < len && chars[tagOpen] == '[') {
+          int p = tagOpen + 1;
+          while (p < len && isFenceTagChar(chars[p])) {
+            p++;
+          }
+          int tagLen = p - (tagOpen + 1);
+          if (tagLen >= 1 && tagLen <= 256 && p < len && chars[p] == ']') {
+            int afterBracket = p + 1;
+            int scan = afterBracket;
+            while (scan < len && (chars[scan] == ' ' || chars[scan] == '\t')) {
+              scan++;
+            }
+            if (scan < len && (chars[scan] == '\r' || chars[scan] == '\n')) {
+              String fenceTag = source.substring(tagOpen + 1, p);
+              String closeSeq = "[" + fenceTag + "]\"\"\"";
+              int openPrefixLen = afterBracket - i;
+              i = afterBracket;
+              col += openPrefixLen;
+              while (i < scan) {
+                if (chars[i] == '\t') {
+                  int tabStart = i;
+                  int tabStartCol = col;
+                  while (i < scan && chars[i] == '\t') {
+                    chars[i] = ' ';
+                    mutated = true;
+                    i++;
+                    col++;
+                  }
+                  recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
+                } else {
+                  i++;
+                  col++;
+                }
+              }
+              if (chars[i] == '\r') {
+                i++;
+                if (i < len && chars[i] == '\n') {
+                  i++;
+                }
+              } else {
+                i++;
+              }
+              line++;
+              col = 0;
+
+              if (source.indexOf(closeSeq, i) >= 0) {
+                int closeLen = closeSeq.length();
+                while (i < len) {
+                  if (chars[i] == '[' && source.startsWith(closeSeq, i)) {
+                    i += closeLen;
+                    col += closeLen;
+                    break;
+                  }
+                  char bc = chars[i];
+                  if (bc == '\r') {
+                    i++;
+                    if (i < len && chars[i] == '\n') {
+                      i++;
+                    }
+                    line++;
+                    col = 0;
+                  } else if (bc == '\n') {
+                    i++;
+                    line++;
+                    col = 0;
+                  } else if (Character.isHighSurrogate(bc)) {
+                    if (i + 1 < len && Character.isLowSurrogate(chars[i + 1])) {
+                      int cp = Character.toCodePoint(bc, chars[i + 1]);
+                      if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(cp)) {
+                        recordForbiddenRawCharacterDiagnostic(diagnosticBag, strict, cp, line, col, i, i + 2);
+                      }
+                      i += 2;
+                      col += 2;
+                    } else {
+                      recordUnpairedSurrogateDiagnostic(diagnosticBag, strict, bc, line, col, i, i + 1);
+                      chars[i] = '\u0000';
+                      mutated = true;
+                      i++;
+                      col++;
+                    }
+                  } else if (Character.isLowSurrogate(bc)) {
+                    recordUnpairedSurrogateDiagnostic(diagnosticBag, strict, bc, line, col, i, i + 1);
+                    chars[i] = '\u0000';
+                    mutated = true;
+                    i++;
+                    col++;
+                  } else {
+                    if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(bc)) {
+                      recordForbiddenRawCharacterDiagnostic(diagnosticBag, strict, bc, line, col, i, i + 1);
+                    }
+                    i++;
+                    col++;
+                  }
+                }
+              }
+              continue;
+            }
+          }
+        }
+      }
+
+      // 3. Simple single-line double-quoted string '"..."'
+      if (c == '"' && !(i + 2 < len && chars[i + 1] == '"' && chars[i + 2] == '"')) {
+        i++;
+        col++;
+        while (i < len && chars[i] != '"' && chars[i] != '\n' && chars[i] != '\r') {
+          char sc = chars[i];
+          if (sc == '\\' && i + 1 < len && chars[i + 1] != '\n' && chars[i + 1] != '\r' && chars[i + 1] != '\t') {
+            char escapedNext = chars[i + 1];
+            if (Character.isSurrogate(escapedNext)
+                || StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(escapedNext)) {
+              i++;
+              col++;
+            } else {
+              i += 2;
+              col += 2;
+            }
+          } else if (sc == '\t') {
+            int tabStart = i;
+            int tabStartCol = col;
+            while (i < len && chars[i] == '\t') {
+              chars[i] = ' ';
+              mutated = true;
+              i++;
+              col++;
+            }
+            recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
+          } else if (Character.isHighSurrogate(sc)) {
+            if (i + 1 < len && Character.isLowSurrogate(chars[i + 1])) {
+              int cp = Character.toCodePoint(sc, chars[i + 1]);
+              if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(cp)) {
+                recordForbiddenRawCharacterDiagnostic(diagnosticBag, strict, cp, line, col, i, i + 2);
+              }
+              i += 2;
+              col += 2;
+            } else {
+              recordUnpairedSurrogateDiagnostic(diagnosticBag, strict, sc, line, col, i, i + 1);
+              chars[i] = '\u0000';
+              mutated = true;
+              i++;
+              col++;
+            }
+          } else if (Character.isLowSurrogate(sc)) {
+            recordUnpairedSurrogateDiagnostic(diagnosticBag, strict, sc, line, col, i, i + 1);
+            chars[i] = '\u0000';
+            mutated = true;
+            i++;
+            col++;
+          } else {
+            if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(sc)) {
+              recordForbiddenRawCharacterDiagnostic(diagnosticBag, strict, sc, line, col, i, i + 1);
+            }
+            i++;
+            col++;
+          }
+        }
+        if (i < len && chars[i] == '"') {
+          i++;
+          col++;
+        }
+        continue;
+      }
+
+      // 4. Structural syntax context
+      if (c == '\t') {
+        int tabStart = i;
+        int tabStartCol = col;
+        while (i < len && chars[i] == '\t') {
+          chars[i] = ' ';
+          mutated = true;
+          i++;
+          col++;
+        }
+        recordTabDiagnostic(diagnosticBag, strict, line, tabStartCol, tabStart, i);
+      } else if (c == '\r') {
+        i++;
+        if (i < len && chars[i] == '\n') {
+          i++;
+        }
+        line++;
+        col = 0;
+      } else if (c == '\n') {
+        i++;
+        line++;
+        col = 0;
+      } else if (Character.isHighSurrogate(c)) {
+        if (i + 1 < len && Character.isLowSurrogate(chars[i + 1])) {
+          int cp = Character.toCodePoint(c, chars[i + 1]);
+          if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(cp)) {
+            recordForbiddenRawCharacterDiagnostic(diagnosticBag, strict, cp, line, col, i, i + 2);
+            chars[i] = ' ';
+            chars[i + 1] = ' ';
+            mutated = true;
+          }
+          i += 2;
+          col += 2;
+        } else {
+          recordUnpairedSurrogateDiagnostic(diagnosticBag, strict, c, line, col, i, i + 1);
+          chars[i] = ' ';
+          mutated = true;
+          i++;
+          col++;
+        }
+      } else if (Character.isLowSurrogate(c)) {
+        recordUnpairedSurrogateDiagnostic(diagnosticBag, strict, c, line, col, i, i + 1);
+        chars[i] = ' ';
+        mutated = true;
+        i++;
+        col++;
+      } else if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(c)) {
+        recordForbiddenRawCharacterDiagnostic(diagnosticBag, strict, c, line, col, i, i + 1);
+        chars[i] = ' ';
+        mutated = true;
+        i++;
+        col++;
+      } else {
+        i++;
+        col++;
+      }
+    }
+
+    return mutated ? new String(chars) : source;
+  }
+
+  private static boolean requiresSourceHygieneScan(String source) {
+    int len = source.length();
+    for (int i = 0; i < len; ) {
+      char c = source.charAt(i);
+      if (c == '\t') {
+        return true;
+      }
+      if (c >= 0x20 && c < 0x7F) {
+        i++;
+        continue;
+      }
+      if (c == '\n' || c == '\r') {
+        i++;
+        continue;
+      }
+      if (Character.isHighSurrogate(c)) {
+        if (i + 1 >= len || !Character.isLowSurrogate(source.charAt(i + 1))) {
+          return true;
+        }
+        int cp = Character.toCodePoint(c, source.charAt(i + 1));
+        if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(cp)) {
+          return true;
+        }
+        i += 2;
+      } else if (Character.isLowSurrogate(c)) {
+        return true;
+      } else {
+        if (StvnStringCharacterPolicy.isForbiddenRawSourceCodePoint(c)) {
+          return true;
+        }
+        i++;
+      }
+    }
+    return false;
+  }
+
+  private static void recordForbiddenRawCharacterDiagnostic(
+      @Nullable DiagnosticBag diagnosticBag,
+      boolean strict,
+      int codePoint,
+      int line,
+      int column,
+      int startOffset,
+      int endOffset
+  ) {
+    String scalarId = StvnStringCharacterPolicy.formatUnicodeScalarId(codePoint);
+    String charName = StvnStringCharacterPolicy.resolveUnicodeCharacterName(codePoint);
+    String escapeRec = StvnStringCharacterPolicy.formatRecommendedSimpleEscape(codePoint);
+    String msg = (codePoint == 0xFEFF && startOffset == 0)
+        ? "STVN Syntax Error: Forbidden raw byte-order mark or format character " + scalarId
+            + " (" + charName + ") at offset 0; save STVN source text as UTF-8 without BOM, or encode inside a double-quoted string using "
+            + escapeRec + " if intentional (" + DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER + ")"
+        : "STVN Syntax Error: Forbidden raw control or format character " + scalarId
+            + " (" + charName + "); encode inside a double-quoted string using "
+            + escapeRec + " if intentional (" + DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER + ")";
+    if (strict) {
+      throw new StvnSyntaxCancellationException(
+          msg,
+          line,
+          column,
+          startOffset,
+          endOffset,
+          null,
+          "E001",
+          DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER
+      );
+    }
+    if (diagnosticBag != null) {
+      diagnosticBag.addErrorDual(
+          msg,
+          startOffset,
+          endOffset,
+          line,
+          column,
+          null,
+          "E001",
+          DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER
+      );
+    }
+  }
+
+  private static void recordUnpairedSurrogateDiagnostic(
+      @Nullable DiagnosticBag diagnosticBag,
+      boolean strict,
+      char codeUnit,
+      int line,
+      int column,
+      int startOffset,
+      int endOffset
+  ) {
+    String scalarId = StvnStringCharacterPolicy.formatUnicodeScalarId(codeUnit);
+    String charName = StvnStringCharacterPolicy.resolveUnicodeCharacterName(codeUnit);
+    String msg = "STVN Syntax Error: Forbidden unpaired UTF-16 surrogate code unit " + scalarId
+        + " (" + charName + ") in STVN source text (" + DiagnosticBag.ERR_UNPAIRED_SURROGATE + ")";
+    if (strict) {
+      throw new StvnSyntaxCancellationException(
+          msg,
+          line,
+          column,
+          startOffset,
+          endOffset,
+          null,
+          "E001",
+          DiagnosticBag.ERR_UNPAIRED_SURROGATE
+      );
+    }
+    if (diagnosticBag != null) {
+      diagnosticBag.addErrorDual(
+          msg,
+          startOffset,
+          endOffset,
+          line,
+          column,
+          null,
+          "E001",
+          DiagnosticBag.ERR_UNPAIRED_SURROGATE
+      );
+    }
   }
 
   private static boolean isFenceTagChar(char c) {
@@ -960,7 +1410,7 @@ public final class StvnSyntaxErrorSanitizer {
     if (tag.length() > 256) {
       return "Rule STR-04 violation: Fenced string delimiter tag length exceeds maximum of 256 characters, got " + tag.length();
     }
-    if (isValidFenceTag(tag) && tokenText.endsWith("\n")) {
+    if (isValidFenceTag(tag) && (tokenText.endsWith("\n") || tokenText.endsWith("\r"))) {
       if (closingTokenText != null && closingTokenText.startsWith("[") && closingTokenText.endsWith("]\"\"\"")) {
         String foundClosingTag = closingTokenText.substring(1, closingTokenText.length() - 4);
         return "Rule STR-04 violation: Unclosed fenced string: expected closing delimiter '[" + tag

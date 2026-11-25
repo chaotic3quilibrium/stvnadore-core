@@ -15,8 +15,10 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.misc.Interval;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.lowering.StvnDefsLowerer;
 import org.stvnadore.core.parser.StvnErrorListener;
@@ -94,7 +96,7 @@ public final class StvnSourceFormatter {
     Objects.requireNonNull(source, "source must not be null");
     Objects.requireNonNull(options, "options must not be null");
 
-    StvnSyntaxErrorSanitizer.sanitizeNonFencedTabs(source, null, true);
+    StvnSyntaxErrorSanitizer.sanitizeSourceHygiene(source, null, true);
 
     StvnLexer lexer = new StvnLexer(CharStreams.fromString(source));
     lexer.removeErrorListeners();
@@ -1966,7 +1968,8 @@ public final class StvnSourceFormatter {
       if (ctx instanceof StvnParser.StringFencedContext fencedCtx) {
         int start = fencedCtx.fencedString().getStart().getStartIndex();
         int stop = fencedCtx.fencedString().getStop().getStopIndex();
-        return source.substring(start, stop + 1).replace("\r\n", "\n").replace('\r', '\n');
+        String rawSlice = fencedCtx.fencedString().getStart().getInputStream().getText(Interval.of(start, stop));
+        return StvnStringCharacterPolicy.normalizeLineEndingsToLf(rawSlice);
       }
       return ctx.getText();
     }

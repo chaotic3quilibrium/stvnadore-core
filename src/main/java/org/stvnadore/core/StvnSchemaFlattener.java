@@ -156,7 +156,16 @@ public final class StvnSchemaFlattener {
       }
     };
 
-    var lexer = new StvnLexer(CharStreams.fromString(rootContent));
+    final String sanitizedRoot;
+    try {
+      sanitizedRoot = StvnSyntaxErrorSanitizer.sanitizeSourceHygiene(rootContent, null, true);
+    } catch (RuntimeException hygieneEx) {
+      throw new MalformedSchemaException(
+          hygieneEx.getMessage() != null ? hygieneEx.getMessage() : "Forbidden source character in schema",
+          hygieneEx
+      );
+    }
+    var lexer = new StvnLexer(CharStreams.fromString(sanitizedRoot));
     lexer.removeErrorListeners();
     lexer.addErrorListener(errorListener);
     var tokens = new CommonTokenStream(lexer);

@@ -5,6 +5,7 @@ import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 import org.stvnadore.core.StvnSchemaFlattener;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -88,6 +89,10 @@ public final class DiagnosticBag {
   public static final String ERR_ROOT_ENCLOSURE_MISSING = "ROOT_ENCLOSURE_MISSING";
   /** Error code emitted when a forbidden tab character ('\t', U+0009) is encountered in STVN syntax outside the verbatim body of a fenced multi-line string (E001). */
   public static final String ERR_TAB_CHARACTER_FORBIDDEN = "ERR_TAB_CHARACTER_FORBIDDEN";
+  /** Error code emitted when a forbidden raw control, bidirectional override/isolate, byte-order mark, or invisible format/line-separator character appears in STVN source text (E001). */
+  public static final String ERR_FORBIDDEN_RAW_CHARACTER = StvnStringCharacterPolicy.ERR_FORBIDDEN_RAW_CHARACTER;
+  /** Error code emitted when an unpaired UTF-16 high or low surrogate code unit or escape sequence appears in STVN source text (E001). */
+  public static final String ERR_UNPAIRED_SURROGATE = StvnStringCharacterPolicy.ERR_UNPAIRED_SURROGATE;
   /** Error code emitted when an empty metadata block '{}' is encountered on a type or constant definition. */
   public static final String ERR_EMPTY_METADATA_BLOCK = "ERR_EMPTY_METADATA_BLOCK";
   /** Error code emitted when an empty root document ':meta {}' section is encountered (SPEC § 3.10.1, E039). */
@@ -234,6 +239,8 @@ public final class DiagnosticBag {
 
   private static final Map<String, String> SYMBOLIC_TO_CANONICAL = Map.ofEntries(
       Map.entry(ERR_TAB_CHARACTER_FORBIDDEN, "E001"),
+      Map.entry(ERR_FORBIDDEN_RAW_CHARACTER, "E001"),
+      Map.entry(ERR_UNPAIRED_SURROGATE, "E001"),
       Map.entry("TAB_DISCIPLINE_VIOLATION", "E001"),
       Map.entry(ERR_ROOT_ENCLOSURE_MISSING, "E002"),
       Map.entry("SYNTAX_ERROR", "E002"),

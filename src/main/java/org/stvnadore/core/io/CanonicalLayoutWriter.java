@@ -1,6 +1,7 @@
 package org.stvnadore.core.io;
 
 import org.jspecify.annotations.NullMarked;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnSchema.FloatRepresentation;
 import org.stvnadore.core.printer.PrinterOptions;
@@ -273,10 +274,6 @@ public final class CanonicalLayoutWriter {
   }
 
   private String escapeString(String s) {
-    return s.replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t");
+    return StvnStringCharacterPolicy.escapeSimpleStringBody(s);
   }
 }

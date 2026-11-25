@@ -20,7 +20,7 @@
   * [1. Document Boundaries and File Types](#1-document-boundaries-and-file-types)
     * [1.1 Root Enclosure Rule](#11-root-enclosure-rule)
     * [1.2 File Extension Matrix](#12-file-extension-matrix)
-    * [1.3 Strict Zero-Tab Invariant](#13-strict-zero-tab-invariant)
+    * [1.3 Source Encoding, Unicode Scalar Domain & Strict Zero-Tab Invariant](#13-source-encoding-unicode-scalar-domain--strict-zero-tab-invariant)
   * [2. Concrete Syntax Examples](#2-concrete-syntax-examples)
     * [2.1 Canonical Hermetic Payload Document (`.stvn`)](#21-canonical-hermetic-payload-document-stvn)
     * [2.2 Hermetic Definitions Schema (`.stvn_d`)](#22-hermetic-definitions-schema-stvn_d)
@@ -67,13 +67,17 @@
         * [Discrete Interval Rules:](#discrete-interval-rules)
       * [5.1.3 Floating-Point & Precision Architecture (`:Float`)](#513-floating-point--precision-architecture-float)
       * [5.1.4 Metadata Facet Uniqueness Invariant](#514-metadata-facet-uniqueness-invariant)
-      * [5.1.5 String Cardinality Governance (MCT § 3.1.3)](#515-string-cardinality-governance-mct--313)
+      * [5.1.5 Simple Quoted Strings, USV Surrogate Soundness & String Cardinality Governance](#515-simple-quoted-strings-usv-surrogate-soundness--string-cardinality-governance)
       * [5.1.6 Boolean Domain (`:Boolean`)](#516-boolean-domain-boolean)
     * [5.2 Algebraic Sum Types](#52-algebraic-sum-types)
       * [5.2.1 Variant Syntax & Strict Product Demarcation](#521-variant-syntax--strict-product-demarcation)
     * [5.3 Polyglot Multi-Language Fenced Strings (Rule STR-04)](#53-polyglot-multi-language-fenced-strings-rule-str-04)
+      * [5.3.1 Simple Escaped String Lexical Escapes & Multi-Escape Recovery](#531-simple-escaped-string-lexical-escapes--multi-escape-recovery)
       * [Verbatim Tab Character Exemption](#verbatim-tab-character-exemption)
       * [Delimiter Invariant](#delimiter-invariant)
+      * [3-Case Line-Ending Normalization (`CRLF`, `CR`, `LF`)](#3-case-line-ending-normalization-crlf-cr-lf)
+      * [Verbatim Representability Domain vs. Simple Quoted Totality](#verbatim-representability-domain-vs-simple-quoted-totality)
+      * [Engineering Guidance on `\r` / `CRLF` Payloads](#engineering-guidance-on-r--crlf-payloads)
       * [Examples](#examples)
     * [5.4 Algebraic Product Types](#54-algebraic-product-types)
     * [5.5 Collection Types (Full Bounding Reduction)](#55-collection-types-full-bounding-reduction)
@@ -209,15 +213,30 @@ CAS envelopes are formalized as dot-separated `<name>.stvn_cas.stvn` (`#domain "
 
 Legacy extensions (`.stvn_incl`, `.stvn_inclf`, `.stvn_cas`, `.stvn_bin`, `.stvn_f`, `.stvn_df`, `.stvn_bf`, `.stvn_bdf`) are permanently excised. Encountering them emits fatal diagnostic `ERR_LEGACY_FILE_EXTENSION_PURGED`.
 
-### 1.3 Strict Zero-Tab Invariant
+### 1.3 Source Encoding, Unicode Scalar Domain & Strict Zero-Tab Invariant
 
-STVN strictly prohibits horizontal tab characters (`0x09`, `\t`) in structural whitespace, indentation whitespace, comments, and unescaped in single-line string literals. Raw, unescaped tab characters are permitted exclusively within the verbatim body content of fenced multi-line strings (`fencedString`, Rule STR-04, § 5.3).
+Every STVN source stream MUST be encoded in valid UTF-8 **without** a leading byte-order mark (`U+FEFF`) and MUST consist exclusively of well-formed Unicode Scalar Values (`U+0000`–`U+D7FF` and `U+E000`–`U+10FFFF`). Any raw unpaired UTF-16 surrogate code unit (`U+D800`–`U+DFFF`) encountered in an in-memory host character stream is a fatal Pass 1 error (`E001` / `ERR_UNPAIRED_SURROGATE`).
 
+#### Normative Raw Source Code-Point Policy
+
+Compilers MUST enforce the following character-hygiene taxonomy across the entire raw STVN source stream (structural whitespace, tokens, `//` comments, `"..."` simple strings, and `"""[TAG]...[TAG]"""` fenced string tags and verbatim bodies):
+
+| Code-Point Class | Hexadecimal Range(s) | Raw Source Policy | Governing Diagnostic |
+|:---|:---|:---|:---|
+| Horizontal Tab (`\t`) | `U+0009` | **Forbidden** outside closed Rule `STR-04` fenced string bodies; **permitted** raw strictly inside closed fenced string bodies (§ 5.3). | `E001` (`ERR_TAB_CHARACTER_FORBIDDEN`) |
+| Line Breaks (`\n`, `\r`) | `U+000A`, `U+000D` | **Permitted** as line breaks in structural whitespace, terminating `//` comments, and inside fenced strings (normalized to `U+000A`); **forbidden** raw inside `"..."` simple strings. | `E002` (`STVN_SYNTAX_ERROR`) inside `"..."` |
+| C0 Control Characters | `U+0000`–`U+0008`, `U+000B`–`U+000C`, `U+000E`–`U+001F` | **Forbidden raw everywhere** in source text. Encode inside `"..."` using `\b`, `\f`, or `\uXXXX`. | `E001` (`ERR_FORBIDDEN_RAW_CHARACTER`) |
+| `DEL` & C1 Control Characters | `U+007F`, `U+0080`–`U+009F` | **Forbidden raw everywhere** in source text. Encode inside `"..."` using `\uXXXX`. | `E001` (`ERR_FORBIDDEN_RAW_CHARACTER`) |
+| Bidirectional Text-Direction Controls (CVE-2021-42574) | `U+061C` (`ALM`), `U+200E`–`U+200F` (`LRM`, `RLM`), `U+202A`–`U+202E` (`LRE`, `RLE`, `PDF`, `LRO`, `RLO`), `U+2066`–`U+2069` (`LRI`, `RLI`, `FSI`, `PDI`) | **Forbidden raw everywhere** in source text to prevent Trojan Source visual reordering attacks. Encode inside `"..."` using `\uXXXX` when intentional. | `E001` (`ERR_FORBIDDEN_RAW_CHARACTER`) |
+| Invisible Format & Ambiguous Line Separators | `U+200B` (`ZWSP`), `U+2060` (`WORD JOINER`), `U+2028` (`LINE SEPARATOR`), `U+2029` (`PARAGRAPH SEPARATOR`), `U+FEFF` (`ZERO WIDTH NO-BREAK SPACE` / BOM, including offset `0`) | **Forbidden raw everywhere** in source text. Encode inside `"..."` using `\uXXXX` when intentional. | `E001` (`ERR_FORBIDDEN_RAW_CHARACTER`) |
+| Emoji Joiners (`ZWNJ`, `ZWJ`) | `U+200C`, `U+200D` | **Explicitly permitted raw** inside string literals (`"..."` and `"""[TAG]...[TAG]"""`) and `//` comments so multi-codepoint emoji grapheme clusters (such as `"👨‍💻"`, `U+1F468 U+200D U+1F4BB`) work naturally without escaping. | Permitted (`0` errors, `0` warnings) |
+| Printable & Assigned Unicode Scalars | All other scalars in `U+0020`–`U+D7FF`, `U+E000`–`U+10FFFF` | Permitted in string literals and `//` comments; structural identifiers and keywords remain restricted to ASCII grammar rules. | Standard Pass 1 lexical rules |
+
+```text
+Invariant: Every horizontal indentation character outside fenced string bodies must be a standard ASCII space (0x20), and every raw control, bidirectional override/isolate, BOM, or invisible format scalar outside U+200C/U+200D is rejected in Pass 1 with E001 pinned to [charOffset, charOffset + charCount).
 ```
-Invariant: Every horizontal indentation character outside fenced string bodies must be a standard ASCII space (0x20).
-```
 
-When a lexer encounters a tab character outside the verbatim body of a fenced string, the lexer produces a `TAB_CHARACTER` token. The compiler immediately halts compilation and emits `ERR_TAB_CHARACTER_FORBIDDEN` with exact source line and column offsets.
+When Pass 1 encounters a forbidden raw code point, the compiler emits `E001` (`ERR_FORBIDDEN_RAW_CHARACTER`) pinned to the exact character span `[charOffset, charOffset + Character.charCount(codePoint))` naming `U+XXXX` and its uppercase Unicode character name. When Pass 1 encounters a horizontal tab outside the verbatim body of a closed fenced string, the compiler emits `E001` (`ERR_TAB_CHARACTER_FORBIDDEN`) with exact line and column coordinates.
 
 ---
 
@@ -1146,17 +1165,19 @@ Under Value-Oriented Programming (VOP), metadata constraint blocks `{ ... }` rep
 3. **Fail-Closed Diagnostic:** Compilers must reject duplicate facet declarations immediately and emit diagnostic code `ERR_DUPLICATE_METADATA_FACET`.
 4. **Fault Isolation:** Diagnostic coordinates pin strictly to the second and subsequent duplicate facet entries. The initial valid facet entry and parent enclosure braces `{` and `}` retain zero error diagnostics.
 
-#### 5.1.5 String Cardinality Governance (MCT § 3.1.3)
+#### 5.1.5 Simple Quoted Strings, USV Surrogate Soundness & String Cardinality Governance
 
-Under Modern Canonical Type (MCT) specification § 3.1.3:
+Every lowered STVN `:String` value is a finite sequence of **Unicode Scalar Values (`USV`)** (`U+0000`–`U+D7FF` and `U+E000`–`U+10FFFF`), ensuring 1:1 portable totality across Java (`String`), Rust (`String`), TypeScript (`string`), and STVN Binary UTF-8:
 
-1. **`#size` Target Prohibition:** The `#size` facet represents memory bit-width. It applies strictly to binary numeric representations (`:Int` and `:Float`). Applying `#size` to `:String` is an invalid facet target error. The compiler halts and emits `ERR_INVALID_METADATA_FACET`.
-2. **Logical Character Bounds (`#minSize`, `#maxSize`):** String dimensions represent character counts. Authors must govern string cardinality using `#minSize` and `#maxSize` exclusively.
-3. **Exact Fixed-Length Strings:** Replaces legacy `:StringFixed<N>` by declaring identical lower and upper bounds:
+1. **Simple Quoted Totality (`"..."`):** Double-quoted escaped strings cover 100% of the Unicode Scalar Value domain. Basic Multilingual Plane (`BMP`) scalars outside the raw source character domain are represented via `\"`, `\\`, `\/`, `\b`, `\f`, `\n`, `\r`, `\t`, or `\uXXXX` (`[0-9a-fA-F]{4}`). Supplementary scalars (`U+10000`–`U+10FFFF`) may appear either as raw UTF-8 characters (for example, `"🚀"` or `"👨‍💻"`) or as an adjacent UTF-16 surrogate-pair escape (`\uD800`–`\uDBFF` immediately followed by `\uDC00`–`\uDFFF`, such as `"\uD83D\uDE80"` $\longrightarrow$ `U+1F680`).
+2. **Mandatory Surrogate-Pair Validation (`E001`):** Any unpaired high surrogate escape (`\uD800`–`\uDBFF` not immediately followed by a `\uDC00`–`\uDFFF` escape) or unpaired low surrogate escape (`\uDC00`–`\uDFFF` not preceded by a `\uD800`–`\uDBFF` escape) MUST be rejected with fatal diagnostic `E001` (`ERR_UNPAIRED_SURROGATE`) pinned strictly to the 6-character `\uXXXX` escape span.
+3. **IDE & Linter Escape Scrutiny Advisory:** Although escaped control, bidirectional, and invisible format scalars inside `"..."` are syntactically valid when required by wire protocols or test vectors, language servers and IDE linters (`org.stvnadore.core.StvnStringCharacterPolicy.isHazardousEscapedCodePoint`) SHOULD surface non-blocking `WARNING` diagnostics on escaped C0 controls (excluding `\t`, `\n`, and `\r`), `DEL` (`U+007F`), C1 controls (`U+0080`–`U+009F`), bidirectional controls (`U+061C`, `U+200E`–`U+200F`, `U+202A`–`U+202E`, `U+2066`–`U+2069`), and invisible/line-separator format scalars (`U+200B`, `U+2060`, `U+2028`, `U+2029`, `U+FEFF`). Tooling SHOULD additionally provide an enabled-by-default option warning on shorthand `\r` escapes in favor of explicit `\u000D` when a literal carriage return is intentional.
+4. **`#size` Target Prohibition (MCT § 3.1.3):** The `#size` facet represents memory bit-width and applies strictly to `:Int` and `:Float`. Applying `#size` to `:String` emits fatal diagnostic `E008` (`ERR_STRING_CARDINALITY_PROHIBITED` / `ERR_INVALID_METADATA_FACET`).
+5. **Logical Unicode Scalar Cardinality (`#minSize`, `#maxSize`):** `:String` cardinality bounds count **Unicode Scalar Values** (`codePointCount`, where `"🚀"` has length `1` and `"👨‍💻"` has length `3`), while `#minIncl`, `#minExcl`, `#maxIncl`, and `#maxExcl` compare canonical UTF-8 byte sequences lexicographically.
+6. **Exact Fixed-Length & Bounded Strings:**
    ```stvn
    :Sha256Digest { #minSize 64 #maxSize 64 #regex "^[0-9a-fA-F]{64}$" } :String
    ```
-4. **Bounded and Non-Empty Strings:**
   - Max-bounded string (replaces `:String<n>`): `{ #maxSize 128 } :String`
   - Non-empty string (replaces `:StringNonEmpty`): `{ #minSize 1 } :String`
   - Bounded non-empty string: `{ #minSize 1 #maxSize 64 } :String`
@@ -1218,7 +1239,7 @@ Every simple double-quoted string literal (`LITERAL_STRING_SIMPLE`) is restricte
      - If `4` non-delimiter characters are present and at least one is not in `[0-9a-fA-F]`, the compiler emits `Invalid hexadecimal digits in Unicode escape '\uXXXX'` pinned strictly to the 6-character sub-span `[i, i + 6)` (for example, `\u12G4` or `\uG123`) and resumes scanning at `i + 6`.
 
 3. **Cross-Pass Cascade Suppression & Slot Isolation:**
-   Any `LITERAL_STRING_SIMPLE` containing one or more `E002` escape errors across `:meta`, `:include`, `:defs`, `:type`, or `:body` suppresses secondary semantic cascades (`E005`, `E008`, `E009`, `E012`, `E013`, `E017`, `E018`, `E019`–`E024`, `E028`, `E030`, `E035`, `E038`, and warnings `W001`–`W003`). Pass 2 lowers affected schemas and constants to poisoned sentinels; Pass 3 (including `:DateTime` string literals and untagged or nested tagged `:Either`/`:Union` branches) lowers damaged value slots to `StvnErrorValue` while preserving container cardinality ($M == N$, § 7.2). When Pass 3 semantic validation is suspended due to header or `:type` errors on an eligible document, the primary `:body` section still reports lexical `E002` escape errors, whereas duplicate secondary root sections suppress inner diagnostics (§ 1.1).
+   Any `LITERAL_STRING_SIMPLE` or `fencedString` containing one or more `E001` (`ERR_FORBIDDEN_RAW_CHARACTER`, `ERR_UNPAIRED_SURROGATE`, `ERR_TAB_CHARACTER_FORBIDDEN`) or `E002` escape errors across `:meta`, `:include`, `:defs`, `:type`, or `:body` suppresses secondary semantic cascades (`E005`, `E008`, `E009`, `E012`, `E013`, `E017`, `E018`, `E019`–`E024`, `E028`, `E030`, `E035`, `E038`, and warnings `W001`–`W003`). Pass 2 lowers affected schemas and constants to poisoned sentinels; Pass 3 (including `:DateTime` string literals and untagged or nested tagged `:Either`/`:Union` branches) lowers damaged value slots to `StvnErrorValue` while preserving container cardinality ($M == N$, § 7.2). When Pass 3 semantic validation is suspended due to header or `:type` errors on an eligible document, the primary `:body` section still reports lexical `E001` and `E002` string diagnostics, whereas duplicate secondary root sections suppress inner diagnostics (§ 1.1).
 
 #### Verbatim Tab Character Exemption
 
@@ -1231,8 +1252,8 @@ Raw horizontal tab characters (`0x09`, `\t`) are permitted exclusively within th
 Every fenced string literal must adhere to **Rule STR-04**:
 
 1. **Opening Delimiter:**
-   `"""[TAG]\n`  
-   The legacy directional arrow `->` is permanently removed in Version 2.0.0. The opening delimiter must be followed by optional horizontal whitespace and a newline.
+   `"""[TAG]` followed by optional ASCII spaces (`0x20`) and a single mandatory line break (`\r\n`, standalone `\r`, or `\n`).  
+   The legacy directional arrow `->` is permanently removed in Version 2.0.0. Any characters after that first mandatory opening line break (including an immediate second `\r` or `\n`) belong to the verbatim fenced body.
 
 2. **Closing Delimiter:**
    `[TAG]"""`  
@@ -1249,6 +1270,32 @@ Every fenced string literal must adhere to **Rule STR-04**:
 
 6. **ASCII-Space Indentation Stripping & Inline Closing Fence Semantics:**
    Unless the governing `:String` schema declares `#preserveIndent #TRUE`, decoding strips the common leading ASCII space (`0x20`) margin across all non-blank lines (`1`-line and multi-line fenced bodies alike). Blank lines containing exclusively ASCII spaces (`0x20`) normalize to empty lines (`""`) and do not cap the common indentation margin. Raw horizontal tab characters (`0x09`, `\t`) inside the fenced body are verbatim payload bytes and **MUST NOT** be treated as structural margin whitespace. Inline string metadata facets (`#regex`, `#minIncl`, `#minExcl`, `#maxIncl`, `#maxExcl`) **MUST** always strip common leading ASCII-space indentation (`preserveIndent = false`), even when the owning `:String` declaration specifies `#preserveIndent #TRUE`. Placing `[TAG]"""` inline at the end of a pattern line (`"""[REGEX]\n  ^pattern$[REGEX]"""`) omits a trailing `\n`, whereas placing `[TAG]"""` on the subsequent line (`"""[REGEX]\n  ^pattern$\n[REGEX]"""`) retains the preceding `\n`.
+
+#### 3-Case Line-Ending Normalization (`CRLF`, `CR`, `LF`)
+
+Across **both** (1) the mandatory opening line break immediately following `"""[TAG]` (and any optional ASCII spaces `0x20`) and (2) every line break inside the verbatim fenced body up to `[TAG]"""`, compilers MUST normalize all three line-ending sequences identically to a single `LF` (`\n`, `U+000A`) prior to Rule `STR-04` indentation stripping:
+
+| Raw Source Line-Ending Sequence | Code-Point Sequence | Normalized IR Scalar | Preceding Tab (`\t`, `U+0009`) Preservation |
+|:---|:---|:---|:---|
+| Windows / Network `CRLF` (`\r\n`) | `U+000D U+000A` | Single `LF` (`\n`, `U+000A`) | `\t\r\n` normalizes to `\t\n` (`U+0009 U+000A`) |
+| Standalone `CR` (`\r` not followed by `\n`) | `U+000D` | Single `LF` (`\n`, `U+000A`) | `\t\r` normalizes to `\t\n` (`U+0009 U+000A`) |
+| Standalone `LF` (`\n` not preceded by `\r`) | `U+000A` | Single `LF` (`\n`, `U+000A`) | `\t\n` remains `\t\n` (`U+0009 U+000A`) |
+
+#### Verbatim Representability Domain vs. Simple Quoted Totality
+
+While `"..."` simple quoted strings are **total** over all Unicode Scalar Values, `"""[TAG]...[TAG]"""` fenced verbatim strings intentionally cover the **human-readable verbatim subset** (`StvnStringCharacterPolicy.canRepresentVerbatimInFencedString(value, preserveIndent)`). A `:String` value **cannot** be represented verbatim in a fenced string and MUST be serialized by pretty-printers, compact printers, and canonical writers as a `"..."` simple quoted string with visible escapes (`\r`, `\b`, `\f`, `\uXXXX`) whenever it contains:
+
+1. Any carriage return (`\r`, `U+000D`), because Rule `STR-04` normalizes all fenced line breaks to `\n` (`U+000A`);
+2. Any forbidden raw source code point (§ 1.3: C0 controls excluding `\t` and `\n`, `DEL` `U+007F`, C1 controls `U+0080`–`U+009F`, bidirectional controls, `U+200B`, `U+2060`, `U+2028`, `U+2029`, or `U+FEFF`);
+3. Any unpaired UTF-16 surrogate (prohibited across all STVN `:String` values); or
+4. Pure ASCII spaces, non-empty space-only blank lines, or positive common leading ASCII spaces across all non-blank lines when `#preserveIndent` is `#FALSE`.
+
+#### Engineering Guidance on `\r` / `CRLF` Payloads
+
+Protocol and application engineers handling `CRLF` (`\r\n`, `U+000D U+000A`) text payloads MUST choose explicitly between two architectural patterns:
+
+1. **Schema-Validated `CRLF` Wire Frames (Use `"..."` Simple Strings):** When a wire-level specification (such as HTTP/1.1 headers, SMTP/MIME framing, or cryptographic signing vectors) requires exact `\r\n` scalars *inside* the schema-validated IR value, STVN Binary payload, and SHA-256 Content-Addressable Storage (CAS) preimage, authors MUST write double-quoted escaped strings (`"line1\r\nline2\r\n"` or `"line1\u000D\nline2\u000D\n"`). All `#minSize`, `#maxSize`, lexical bound, and `#regex` constraints validate the exact `\r\n` scalars.
+2. **Human-Readable Fenced Payloads + Downstream Consumer Projection (`toUnvalidatedCrLfString()`):** When authors prefer clean, multi-line `"""[TAG]...[TAG]"""` blocks normalized canonically to `LF` (`\n`) inside the STVN document, schema constraints (`#maxSize`, `#regex`) and SHA-256 CAS fingerprints govern the canonical `LF` representation. Downstream Java consumers that emit text to a `CRLF`-requiring sink may call `StvnValue.StvnString.toUnvalidatedCrLfString()`, which converts `\r\n`, standalone `\r`, and standalone `\n` uniformly to `\r\n` in $O(n)$ time without doubling existing `\r\n` sequences. Because expanding `\n` (`1` scalar) to `\r\n` (`2` scalars) is an **unvalidated consumer projection**, the projected `String` can exceed `#maxSize`, violate `#minIncl`/`#maxIncl` or `#regex`, and diverges from the canonical STVN Binary payload and SHA-256 CAS preimage.
 
 #### Examples
 
@@ -3049,7 +3096,7 @@ STVN compilers and tooling MUST report diagnostic codes adhering to the standard
 
 | Diagnostic Code | Canonical Identifier                      | Category           | Severity | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 |:----------------|:------------------------------------------|:-------------------|:---------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `E001`          | `TAB_DISCIPLINE_VIOLATION`                | Lexical            | Fatal    | A literal tab character `\t` was encountered in the source text outside the verbatim body of a fenced multi-line string.                                                                                                                                                                                                                                                                                                                                    |
+| `E001`          | `TAB_DISCIPLINE_VIOLATION` / `ERR_FORBIDDEN_RAW_CHARACTER` / `ERR_UNPAIRED_SURROGATE` | Lexical            | Fatal    | Pass 1 source character hygiene or UTF-8 scalar totality violation: literal tab `\t` outside the verbatim body of a closed fenced string (`ERR_TAB_CHARACTER_FORBIDDEN`), forbidden raw C0/DEL/C1/bidi/invisible/BOM code point anywhere in source text (`ERR_FORBIDDEN_RAW_CHARACTER`, § 1.3), or unpaired UTF-16 high/low surrogate code unit or `\uXXXX` escape (`ERR_UNPAIRED_SURROGATE`, § 5.1.5). |
 | `E002`          | `ROOT_ENCLOSURE_MISSING`                  | Syntactic          | Fatal    | Syntactic, simple-string escape (`STVN_SYNTAX_ERROR`, § 5.3.1), or root-section structural violation: illegal or incomplete escape sequence inside `"..."` (emitted left-to-right per invalid escape), missing root enclosure `{ ... }`, incomplete root section (`ERR_MALFORMED_SECTION_STRUCTURE`), empty `:defs {}` section (`ERR_EMPTY_DEFS_BLOCK`), duplicate `:defs`/`:type`/`:body` section (`ERR_DUPLICATE_ROOT_SECTION`), or misplaced `:defs`/`:type` section (`ERR_SECTION_ORDER_VIOLATION`). |
 | `E003`          | `EMPTY_METADATA_BLOCK`                    | Syntactic          | Fatal    | An empty type or constant metadata annotation block `{}` was encountered (§ 3.5.1).                                                                                                                                                                                                                                                                                                                                                                         |
 | `E004`          | `EMPTY_DIRECTIVE_BLOCK`                   | Syntactic          | Fatal    | An empty `:include []` or `:use []` directive, or an empty `{}` block inside `:use`, was encountered (any `{ ... }` block inside `:include` is rejected as `E002`).                                                                                                                                                                                                                                                                                            |
@@ -3099,7 +3146,9 @@ The reference compiler emits canonical symbolic diagnostic strings defined in `D
 
 | Diagnostic Constant                           | String Literal Value                            | Severity | Governing Invariant & Error Condition                                                                                                                                          |
 |:----------------------------------------------|:------------------------------------------------|:---------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ERR_TAB_CHARACTER_FORBIDDEN`                 | `"ERR_TAB_CHARACTER_FORBIDDEN"`                 | Fatal    | Tab character (`\t`, U+0009) encountered in source text outside the verbatim body of a fenced multi-line string.                                                               |
+| `ERR_TAB_CHARACTER_FORBIDDEN`                 | `"ERR_TAB_CHARACTER_FORBIDDEN"`                 | Fatal    | Tab character (`\t`, U+0009) encountered in source text outside the verbatim body of a fenced multi-line string (`E001`, § 1.3).                                                |
+| `ERR_FORBIDDEN_RAW_CHARACTER`                 | `"ERR_FORBIDDEN_RAW_CHARACTER"`                 | Fatal    | Forbidden raw C0 control (excluding `\t`, `\n`, `\r`), `DEL` (`U+007F`), C1 control (`U+0080`–`U+009F`), bidirectional control (`U+061C`, `U+200E`–`U+200F`, `U+202A`–`U+202E`, `U+2066`–`U+2069`), or invisible/line-separator format character (`U+200B`, `U+2060`, `U+2028`, `U+2029`, `U+FEFF` BOM) encountered raw in source text (`E001`, § 1.3). |
+| `ERR_UNPAIRED_SURROGATE`                      | `"ERR_UNPAIRED_SURROGATE"`                      | Fatal    | Unpaired UTF-16 high surrogate (`U+D800`–`U+DBFF`) or low surrogate (`U+DC00`–`U+DFFF`) encountered either as a raw code unit or as an unpaired `\uXXXX` escape inside `"..."` (`E001`, § 1.3 & § 5.1.5). |
 | `ERR_EMPTY_METADATA_BLOCK`                    | `"ERR_EMPTY_METADATA_BLOCK"`                    | Fatal    | Empty metadata block `{}` declared on type or constant definition (§ 3.5.1).                                                                                                   |
 | `ERR_EMPTY_META_BLOCK`                        | `"ERR_EMPTY_META_BLOCK"`                        | Fatal    | Empty root document `':meta {}'` section declared (`E039`, § 3.10.1).                                                                                                          |
 | `ERR_EMPTY_DEFS_BLOCK`                        | `"ERR_EMPTY_DEFS_BLOCK"`                        | Fatal    | Empty root document `':defs {}'` section declared (`E002`).                                                                                                                    |
@@ -3250,14 +3299,17 @@ lexer grammar StvnLexer;
                 int tagLen = p - (i + 4);
                 if (tagLen >= 1 && tagLen <= 256 && p < len && rem.charAt(p) == ']') {
                     int scan = p + 1;
-                    while (scan < len && (rem.charAt(scan) == ' ' || rem.charAt(scan) == '\r')) {
+                    while (scan < len && rem.charAt(scan) == ' ') {
                         scan++;
                     }
-                    if (scan < len && rem.charAt(scan) == '\n') {
+                    if (scan < len && (rem.charAt(scan) == '\r' || rem.charAt(scan) == '\n')) {
+                        int afterBreak = (rem.charAt(scan) == '\r' && scan + 1 < len && rem.charAt(scan + 1) == '\n')
+                            ? scan + 2
+                            : scan + 1;
                         String innerTag = rem.substring(i + 4, p);
-                        if (rem.indexOf("[" + innerTag + "]\"\"\"", scan + 1) >= 0) {
+                        if (rem.indexOf("[" + innerTag + "]\"\"\"", afterBreak) >= 0) {
                             nestedStack.push(innerTag);
-                            i = scan + 1;
+                            i = afterBreak;
                             continue;
                         }
                     }
@@ -3290,6 +3342,16 @@ lexer grammar StvnLexer;
             i++;
         }
         return false;
+    }
+
+    private static String stripTrailingSingleLineBreak(String text) {
+        if (text.endsWith("\r\n")) {
+            return text.substring(0, text.length() - 2);
+        }
+        if (text.endsWith("\n") || text.endsWith("\r")) {
+            return text.substring(0, text.length() - 1);
+        }
+        return text;
     }
 }
 
@@ -3396,8 +3458,9 @@ LITERAL_FLOAT : '-'? [0-9]+ '.' [0-9]+ ([eE] [-+]? [0-9]+)? ;
 LITERAL_STRING_SIMPLE : '"' (~["\\\r\n\t] | '\\' ~[\r\n])* '"' ;
 
 fragment FENCE_TAG_CHAR : [a-zA-Z0-9_-] ;
+fragment FENCE_NEWLINE  : '\r\n' | '\r' | '\n' ;
 
-FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
+FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' ' '* FENCE_NEWLINE {
     String text = getText();
     int start = text.indexOf('[') + 1;
     int end = text.indexOf(']', start);
@@ -3415,7 +3478,7 @@ FENCE_START : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
     }
 } ;
 
-PROHIBITED_FENCE_START : '"""->[' ~[\r\n]* '\n' {
+PROHIBITED_FENCE_START : '"""->[' ~[\r\n]* FENCE_NEWLINE {
     setType(MALFORMED_FENCE_OPEN);
     pushMode(MALFORMED_FENCED_STRING);
 } ;
@@ -3424,8 +3487,8 @@ MALFORMED_FENCE_INLINE : '"""' ~[\r\n]*? '"""' {
     setType(MALFORMED_FENCE_OPEN);
 } ;
 
-MALFORMED_FENCE_OPEN : '"""' ( ~[\r\n"] | '"' ~[\r\n"] | '""' ~[\r\n"] )* ('\n' | EOF) {
-    if (getText().endsWith("\n")) {
+MALFORMED_FENCE_OPEN : '"""' ( ~[\r\n"] | '"' ~[\r\n"] | '""' ~[\r\n"] )* (FENCE_NEWLINE | EOF) {
+    if (!stripTrailingSingleLineBreak(getText()).equals(getText())) {
         pushMode(MALFORMED_FENCED_STRING);
     }
 } ;
@@ -3454,7 +3517,7 @@ MALFORMED_FENCE_CONTENT : . ;
 
 mode MISMATCHED_FENCED_STRING;
 
-MISMATCHED_NESTED_OPEN : '"""[' FENCE_TAG_CHAR+ ']' [ \r]* '\n' {
+MISMATCHED_NESTED_OPEN : '"""[' FENCE_TAG_CHAR+ ']' ' '* FENCE_NEWLINE {
     String text = getText();
     int closeBracket = text.indexOf(']');
     String innerTag = text.substring(4, closeBracket);

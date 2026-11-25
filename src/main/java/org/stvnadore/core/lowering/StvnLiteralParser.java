@@ -2,6 +2,7 @@ package org.stvnadore.core.lowering;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.stvnadore.core.StvnStringCharacterPolicy;
 import org.stvnadore.core.StvnVocabulary;
 import org.stvnadore.core.ir.StvnSchema.DateTimeMode;
 import org.stvnadore.core.ir.StvnValue;
@@ -280,27 +281,49 @@ public final class StvnLiteralParser {
             "Rule STR-04 violation: Unfenced block strings are prohibited; multi-line strings must use fenced syntax \"\"\"[TAG]"
         );
       }
-      int newlineIndex = rawText.indexOf('\n');
-      if (newlineIndex == -1) {
-        return new ParsedString("", StringStyle.SIMPLE, Optional.empty());
-      }
       int tagStart = rawText.indexOf('[');
       int tagEnd = rawText.indexOf(']', tagStart);
       if (tagStart == -1 || tagEnd == -1 || tagEnd <= tagStart) {
+        if (rawText.indexOf('\n') < 0 && rawText.indexOf('\r') < 0) {
+          return new ParsedString("", StringStyle.SIMPLE, Optional.empty());
+        }
         throw new IllegalArgumentException("Rule STR-04 violation: Malformed opening fence delimiter");
       }
       String openingTag = rawText.substring(tagStart + 1, tagEnd);
       validateFenceTag(openingTag);
+      int scan = tagEnd + 1;
+      while (scan < rawText.length() && rawText.charAt(scan) == ' ') {
+        scan++;
+      }
+      int bodyStart = -1;
+      if (scan < rawText.length() && rawText.charAt(scan) == '\r') {
+        bodyStart = (scan + 1 < rawText.length() && rawText.charAt(scan + 1) == '\n') ? scan + 2 : scan + 1;
+      } else if (scan < rawText.length() && rawText.charAt(scan) == '\n') {
+        bodyStart = scan + 1;
+      } else if (rawText.indexOf('\n') < 0 && rawText.indexOf('\r') < 0) {
+        return new ParsedString("", StringStyle.SIMPLE, Optional.empty());
+      } else {
+        throw new IllegalArgumentException("Rule STR-04 violation: Malformed opening fence delimiter");
+      }
       String expectedClosing = "[" + openingTag + "]\"\"\"";
-      if (!rawText.endsWith(expectedClosing) || newlineIndex + 1 > rawText.length() - expectedClosing.length()) {
+      if (!rawText.endsWith(expectedClosing) || bodyStart > rawText.length() - expectedClosing.length()) {
         throw new IllegalArgumentException(
             "Rule STR-04 violation: Missing or mismatched closing fence delimiter '" + expectedClosing + "'"
         );
       }
-      String payload = rawText.substring(newlineIndex + 1, rawText.length() - expectedClosing.length());
-      String lfNormalized = payload.indexOf('\r') >= 0
-          ? payload.replace("\r\n", "\n").replace('\r', '\n')
-          : payload;
+      int bodyEnd = rawText.length() - expectedClosing.length();
+      try {
+        StvnPayloadLowerer.validateRawFencedBodyCharacters(
+            rawText, bodyStart, bodyEnd, new StvnPayloadLowerer.Span(0, rawText.length(), 1, 0)
+        );
+      } catch (StvnPayloadLowerer.LoweringLiteralException lle) {
+        if (lle.getCause() instanceof org.stvnadore.core.validation.StvnMalformedLiteralException mle) {
+          throw mle;
+        }
+        throw lle;
+      }
+      String payload = rawText.substring(bodyStart, bodyEnd);
+      String lfNormalized = StvnStringCharacterPolicy.normalizeLineEndingsToLf(payload);
       String resolvedPayload = preserveIndent ? lfNormalized : trimIndent(lfNormalized);
       return new ParsedString(resolvedPayload, StringStyle.FENCED, Optional.of(openingTag));
     }
