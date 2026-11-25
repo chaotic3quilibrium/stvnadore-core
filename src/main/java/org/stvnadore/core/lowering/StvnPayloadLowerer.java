@@ -2935,6 +2935,7 @@ public final class StvnPayloadLowerer {
       }
       String sym = d.symbolicId().orElse(null);
       return "STVN_SYNTAX_ERROR".equals(sym)
+          || DiagnosticBag.ERR_BARE_BOOLEAN_PROHIBITED.equals(sym)
           || DiagnosticBag.ERR_UNPAIRED_SURROGATE.equals(sym)
           || DiagnosticBag.ERR_FORBIDDEN_RAW_CHARACTER.equals(sym)
           || DiagnosticBag.ERR_TAB_CHARACTER_FORBIDDEN.equals(sym)

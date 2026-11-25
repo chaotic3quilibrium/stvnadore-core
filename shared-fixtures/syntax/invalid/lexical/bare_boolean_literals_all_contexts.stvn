@@ -1,0 +1,22 @@
+{
+  :meta {
+    #name "bare_boolean_literals_all_contexts"
+    #kind #BODY
+  }
+  :defs {
+    :package :org/true/telemetry {
+      #NOMINAL_GAIN_DB :Float 3.5
+    }
+    :BlockNote { #preserveIndent true } :String
+    :RawMetric { #equatable false } :Int
+    #ENABLE_PUMP :Boolean True
+    :TelemetryFrame :Tuple(
+      :Int
+      :Int
+      :Float
+      :Boolean
+    )
+  }
+  :type :TelemetryFrame
+  :body ( 12 420 #org/true/telemetry/NOMINAL_GAIN_DB FALSE )
+}

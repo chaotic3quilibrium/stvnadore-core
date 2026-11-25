@@ -9,7 +9,7 @@
   }
   :type :ErrorContract
   :body [
-    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 8 35 176 187 "Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'" )
+    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 8 35 176 184 "Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'" )
     ( #E030 #UNDEFINED_TYPE #ERROR 10 16 245 264 "Undefined type: :MissingSiblingType" )
   ]
 }

@@ -703,4 +703,17 @@ public final class StvnVocabulary {
 
   /** Canonical FQNI for recursive IR value coproduct union ({@code :org/stvnadore/ir/IrValue}). */
   public static final String IR_TYPE_VALUE = ":org/stvnadore/ir/IrValue";
+
+  // ============================================================================
+  // 14. CANONICAL DIAGNOSTIC SYMBOLIC IDENTIFIERS
+  // ============================================================================
+
+  /**
+   * Symbolic diagnostic identifier emitted when a bare un-sigiled boolean word ({@code true} or
+   * {@code false}, case-insensitive) is encountered instead of {@code #TRUE}/{@code #FALSE} or
+   * {@code #T}/{@code #F} ({@code E002}).
+   *
+   * @since 2.0.0
+   */
+  public static final String ERR_BARE_BOOLEAN_PROHIBITED = "ERR_BARE_BOOLEAN_PROHIBITED";
 }

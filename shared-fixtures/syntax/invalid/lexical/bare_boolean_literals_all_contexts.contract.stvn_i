@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "bare_boolean_literals_all_contexts"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E002 #ERR_BARE_BOOLEAN_PROHIBITED #ERROR 10 34 197 201 "STVN Syntax Error: Bare boolean literal 'true' is prohibited in STVN syntax; use '#TRUE' (or '#T')" )
+    ( #E002 #ERR_BARE_BOOLEAN_PROHIBITED #ERROR 11 29 240 245 "STVN Syntax Error: Bare boolean literal 'false' is prohibited in STVN syntax; use '#FALSE' (or '#F')" )
+    ( #E002 #ERR_BARE_BOOLEAN_PROHIBITED #ERROR 12 27 279 283 "STVN Syntax Error: Bare boolean literal 'True' is prohibited in STVN syntax; use '#TRUE' (or '#T')" )
+    ( #E002 #ERR_BARE_BOOLEAN_PROHIBITED #ERROR 21 54 449 454 "STVN Syntax Error: Bare boolean literal 'FALSE' is prohibited in STVN syntax; use '#FALSE' (or '#F')" )
+  ]
+}

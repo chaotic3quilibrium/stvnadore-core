@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 16 18 725 735 "Discrete type ':Int' prohibits bound '#minExcl'; use half-open bound '#minIncl'" )
+    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 16 18 725 733 "Discrete type ':Int' prohibits bound '#minExcl'; use half-open bound '#minIncl'" )
   ]
 }

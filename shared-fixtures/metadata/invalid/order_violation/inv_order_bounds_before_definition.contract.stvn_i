@@ -10,6 +10,6 @@
   :type :ErrorContract
   :body [
     ( #E008 #ERR_FACET_ORDER_VIOLATION #ERROR 16 31 737 746 "Facet order violation (:BadOrderInt): facet '#unsigned' (Tier 1) violates canonical 5-tier order after '#minIncl'" )
-    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 16 20 726 736 "Constraint violation (:BadOrderInt): facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, \\infty)" )
+    ( #W003 #WARN_REDUNDANT_METADATA_FACET #WARNING 16 20 726 736 "Constraint violation (:BadOrderInt): facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, ∞)" )
   ]
 }

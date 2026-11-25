@@ -33,8 +33,8 @@ public class StvnDiscreteBoundsAccumulationTest {
     assertTrue(boundOpt.isPresent(), "Must accumulate ERR_DISCRETE_BOUND_KIND_PROHIBITED");
     var boundDiag = boundOpt.get();
     int maxInclStart = stvn.indexOf("#maxIncl");
-    int maxInclEnd = maxInclStart + "#maxIncl 50".length();
-    assertEquals(maxInclStart, boundDiag.startOffset(), "Prohibited bound must pin strictly to '#maxIncl 50'");
+    int maxInclEnd = maxInclStart + "#maxIncl".length();
+    assertEquals(maxInclStart, boundDiag.startOffset(), "Prohibited bound must pin strictly to '#maxIncl'");
     assertEquals(maxInclEnd, boundDiag.endOffset());
 
     var rangeOpt = diags.stream()
@@ -42,6 +42,10 @@ public class StvnDiscreteBoundsAccumulationTest {
         .findFirst();
     assertTrue(rangeOpt.isPresent(), "Must accumulate ERR_INVERTED_RANGE without short-circuiting");
     var rangeDiag = rangeOpt.get();
+    int minInclStart = stvn.indexOf("#minIncl 500");
+    int rangeExpectedEnd = maxInclStart + "#maxIncl 50".length();
+    assertEquals(minInclStart, rangeDiag.startOffset(), "Inverted range must still span '#minIncl 500 #maxIncl 50'");
+    assertEquals(rangeExpectedEnd, rangeDiag.endOffset());
     assertTrue(rangeDiag.message().contains("minimum 500 is greater than maximum 50"),
         "Range error message must detail bounds: " + rangeDiag.message());
   }

@@ -1893,7 +1893,7 @@ public class StvnDiagnosticsTest {
 
     Assertions.assertEquals("E011", diags.get(0).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.ERR_DISCRETE_BOUND_KIND_PROHIBITED, diags.get(0).symbolicId().orElse(""));
-    Assertions.assertEquals("#minExcl 10", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
+    Assertions.assertEquals("#minExcl", input.substring(diags.get(0).startOffset(), diags.get(0).endOffset()));
 
     Assertions.assertEquals("E040", diags.get(1).canonicalCode().orElse(""));
     Assertions.assertEquals(DiagnosticBag.ERR_NON_OVERRIDABLE_FACET, diags.get(1).symbolicId().orElse(""));

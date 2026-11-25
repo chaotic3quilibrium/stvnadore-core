@@ -66,9 +66,9 @@ public class StvnCoordinateSpanPinningTest {
     assertEquals(DiagnosticBag.ERR_DISCRETE_BOUND_KIND_PROHIBITED, diag.errorCode().orElse(null));
 
     int expectedStart = source.indexOf("#maxIncl");
-    int expectedEnd = source.indexOf("65535") + "65535".length();
+    int expectedEnd = expectedStart + "#maxIncl".length();
     assertEquals(expectedStart, diag.startOffset(), "Start offset must match '#maxIncl'");
-    assertEquals(expectedEnd, diag.endOffset(), "End offset must match end of '65535'");
+    assertEquals(expectedEnd, diag.endOffset(), "End offset must match end of '#maxIncl' keyword token");
   }
 
   @Test

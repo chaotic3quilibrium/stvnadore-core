@@ -9,7 +9,7 @@
   }
   :type :ErrorContract
   :body [
-    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 10 35 290 301 "Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'" )
+    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 10 35 290 298 "Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'" )
     ( #E009 #INVALID_NUMERIC_RANGE #ERROR 10 22 277 301 "Constraint violation (:LatencyWindow): effective range is invalid (minimum 500 is greater than maximum 50)" )
   ]
 }

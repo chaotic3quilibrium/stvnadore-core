@@ -218,7 +218,7 @@ class StvnGauntletV10Batch4SchemaFacetOrderKeywordPinningTest {
     assertExactSlice(source, diags.get(0), "#size 8", "E040", DiagnosticBag.ERR_NON_OVERRIDABLE_FACET);
     assertExactSlice(source, diags.get(1), "#minSize 2", "E008", DiagnosticBag.ERR_DUPLICATE_METADATA_FACET);
     assertExactSlice(source, diags.get(2), "#size 8", "E008", DiagnosticBag.ERR_STRING_CARDINALITY_PROHIBITED);
-    assertExactSlice(source, diags.get(3), "#maxIncl 10", "E011", DiagnosticBag.ERR_DISCRETE_BOUND_KIND_PROHIBITED);
+    assertExactSlice(source, diags.get(3), "#maxIncl", "E011", DiagnosticBag.ERR_DISCRETE_BOUND_KIND_PROHIBITED);
     assertExactSlice(source, diags.get(4), "#size 16", "E010", DiagnosticBag.ERR_FLOAT_INVALID_SIZE);
     assertExactSlice(source, diags.get(5), "#minExcl 1.0", "E008", DiagnosticBag.ERR_MUTUALLY_EXCLUSIVE);
     assertExactSlice(source, diags.get(6), "#minIncl 5 #maxExcl 5", "E009", DiagnosticBag.ERR_EMPTY_INTERVAL_DOMAIN);

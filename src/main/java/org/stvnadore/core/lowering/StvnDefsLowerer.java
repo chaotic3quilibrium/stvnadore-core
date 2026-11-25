@@ -1225,12 +1225,44 @@ public final class StvnDefsLowerer {
           || DiagnosticBag.ERR_FENCE_DELIMITER_MISMATCH.equals(sym)
           || DiagnosticBag.ERR_PROHIBITED_FENCE_ARROW.equals(sym)
           || DiagnosticBag.ERR_BARE_COLON_PROHIBITED.equals(sym)
-          || DiagnosticBag.ERR_BARE_HASH_PROHIBITED.equals(sym);
+          || DiagnosticBag.ERR_BARE_HASH_PROHIBITED.equals(sym)
+          || DiagnosticBag.ERR_BARE_BOOLEAN_PROHIBITED.equals(sym);
       if (isPass1Syntax && diag.startOffset() >= span.start() && diag.startOffset() <= span.end()) {
         return true;
       }
     }
     return false;
+  }
+
+  private static boolean hasBareBooleanErrorInSpan(DiagnosticBag diagnosticBag, Span span) {
+    Optional<String> targetPath = diagnosticBag.defaultSourcePath();
+    for (var diag : diagnosticBag.toList()) {
+      if (diag.severity() != org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity.ERROR
+          || !Objects.equals(diag.sourcePath(), targetPath)) {
+        continue;
+      }
+      String sym = diag.symbolicId().or(diag::errorCode).orElse("");
+      if (DiagnosticBag.ERR_BARE_BOOLEAN_PROHIBITED.equals(sym)
+          && diag.startOffset() >= span.start()
+          && diag.startOffset() <= span.end()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static int nextMetadataEntryOrBraceStart(
+      StvnParser.MetadataMapContext metaMap,
+      List<StvnParser.MetadataEntryContext> entries,
+      int entryIdx
+  ) {
+    if (entryIdx + 1 < entries.size() && entries.get(entryIdx + 1).getStart() != null) {
+      return entries.get(entryIdx + 1).getStart().getStartIndex();
+    }
+    if (metaMap.RBRACE() != null && metaMap.RBRACE().getSymbol().getStartIndex() >= 0) {
+      return metaMap.RBRACE().getSymbol().getStartIndex();
+    }
+    return Integer.MAX_VALUE;
   }
 
   private static boolean isMissingOrAbortedMetadataValue(StvnParser.@Nullable MetadataValueContext mv) {
@@ -1306,7 +1338,9 @@ public final class StvnDefsLowerer {
     int lastSubTier = -1;
     String lastFacetName = null;
 
-    for (var entry : metaMap.metadataEntry()) {
+    List<StvnParser.MetadataEntryContext> entries = metaMap.metadataEntry();
+    for (int entryIdx = 0; entryIdx < entries.size(); entryIdx++) {
+      var entry = entries.get(entryIdx);
       try {
         if (entry.metadataUnknownEntry() != null) {
           var unk = entry.metadataUnknownEntry();
@@ -1347,7 +1381,8 @@ public final class StvnDefsLowerer {
         }
         if ((entry.metadataBool() != null && entry.metadataBool().metadataValue() == null)
             || (entry.metadataTrait() != null && entry.metadataTrait().metadataValue() == null)) {
-          if (!hasDiagnosticAtOffset(diagnosticBag, entrySpan.start())) {
+          int nextBoundaryStart = nextMetadataEntryOrBraceStart(metaMap, entries, entryIdx);
+          if (!hasNonTabErrorInGap(diagnosticBag, entrySpan.start(), nextBoundaryStart)) {
             diagnosticBag.addError(
                 "Metadata facet '" + StvnVocabulary.SIGIL_VALUE + facetName
                     + "' requires an explicit boolean value ("
@@ -3922,6 +3957,10 @@ public final class StvnDefsLowerer {
               && DiagnosticBag.ERR_EMPTY_METADATA_BLOCK.equals(ps.primaryDiagnosticCode())
               && ps.bestEffortFallback().isPresent()
               && decl.ctx().value() != null) {
+            if (hasBareBooleanErrorInSpan(diagnosticBag, Span.ofContext(decl.ctx().value()))) {
+              StvnPayloadLowerer.scanLexicalSimpleStringEscapesInSubtree(decl.ctx().value(), diagnosticBag);
+              return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
+            }
             StvnSchema fallbackSchema = ps.bestEffortFallback().get();
             StvnValue fallbackVal = StvnPayloadLowerer.lowerConstantValue(
                 decl.displayName(),
@@ -3950,6 +3989,10 @@ public final class StvnDefsLowerer {
           if (circularConstants.contains(fqni)) {
             return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE));
           }
+          return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
+        }
+        if (hasBareBooleanErrorInSpan(diagnosticBag, Span.ofContext(decl.ctx().value()))) {
+          StvnPayloadLowerer.scanLexicalSimpleStringEscapesInSubtree(decl.ctx().value(), diagnosticBag);
           return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
         }
         StvnValue val = StvnPayloadLowerer.lowerConstantValue(
@@ -5599,7 +5642,8 @@ public final class StvnDefsLowerer {
         // 1b. Incomplete boolean trait facet check (#preserveIndent, #equatable, #comparable)
         if ((entry.metadataBool() != null && entry.metadataBool().metadataValue() == null)
             || (entry.metadataTrait() != null && entry.metadataTrait().metadataValue() == null)) {
-          if (!hasDiagnosticAtOffset(diagnosticBag, entrySpan.start())) {
+          int nextBoundaryStart = nextMetadataEntryOrBraceStart(metaMap, entries, entryIdx);
+          if (!hasNonTabErrorInGap(diagnosticBag, entrySpan.start(), nextBoundaryStart)) {
             diagnosticBag.addError(
                 "Metadata facet '" + StvnVocabulary.SIGIL_VALUE + facetName
                     + "' requires an explicit boolean value ("
@@ -5651,6 +5695,7 @@ public final class StvnDefsLowerer {
                 || baseKw.equals(StvnVocabulary.TYPE_DATE_TIME)
                 || (baseKw.equals(StvnVocabulary.TYPE_FLOAT) && effectiveExactFloat));
         if (isDiscreteBoundCandidate) {
+          Span kwSpan = resolveMetadataEntryKeywordSpan(entry);
           String illegalFacet = "maxIncl".equals(facetName)
               ? StvnVocabulary.FACET_KW_MAX_INCL
               : StvnVocabulary.FACET_KW_MIN_EXCL;
@@ -5666,7 +5711,7 @@ public final class StvnDefsLowerer {
                       : "Discrete exact float '{ #exact } " + StvnVocabulary.TYPE_FLOAT + "'"));
           diagnosticBag.addError(
               typeDesc + " prohibits bound '" + illegalFacet + "'; use half-open bound '" + suggested + "'",
-              entrySpan.start(), entrySpan.end(), entrySpan.line(), entrySpan.column(), null,
+              kwSpan.start(), kwSpan.end(), kwSpan.line(), kwSpan.column(), null,
               DiagnosticBag.ERR_DISCRETE_BOUND_KIND_PROHIBITED
           );
           if ("minExcl".equals(facetName)) {
@@ -6502,9 +6547,12 @@ public final class StvnDefsLowerer {
             boolean ancestorEstablishesUnsigned = isNominalDerivation && parentLedger.lockedUnsigned().orElse(false) && !childUnsigned;
             String ancName = parentName != null ? parentName : "ancestor";
             deferredMinW003 = ancestorEstablishesUnsigned
-                ? "Constraint violation (" + ownerLabel + "): facet '#minIncl 0' is redundant; ancestor '"
-                    + ancName + "' already establishes '#unsigned'"
-                : "Constraint violation (" + ownerLabel + "): facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, \\infty)";
+                ? "Constraint violation (" + ownerLabel + "): facet '"
+                    + StvnVocabulary.FACET_KW_MIN_INCL + " 0' is redundant; ancestor '"
+                    + ancName + "' already establishes '" + StvnVocabulary.FACET_KW_UNSIGNED + "'"
+                : "Constraint violation (" + ownerLabel + "): facet '"
+                    + StvnVocabulary.FACET_KW_MIN_INCL + " 0' is redundant; '"
+                    + StvnVocabulary.FACET_KW_UNSIGNED + "' already bounds the domain to [0, \u221E)";
             deferredMinSpan = bSpan;
             // Strip redundant #minIncl 0 from IR node!
           } else if (!effectiveUnsigned && isExactSignedMinBound(minVal, effectiveBitWidth)) {

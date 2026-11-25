@@ -6,6 +6,7 @@ import org.stvnadore.core.StvnDiagnostic;
 import org.stvnadore.core.StvnDiagnostic.DiagnosticSeverity;
 import org.stvnadore.core.StvnSchemaFlattener;
 import org.stvnadore.core.StvnStringCharacterPolicy;
+import org.stvnadore.core.StvnVocabulary;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -113,7 +114,7 @@ public final class DiagnosticBag {
   public static final String ERR_INCOMPLETE_TRAIT_FACET = "ERR_INCOMPLETE_TRAIT_FACET";
   /** Error code emitted when an unrecognized constraint facet tag is encountered in a metadata block. */
   public static final String ERR_UNRECOGNIZED_METADATA_FACET = "ERR_UNRECOGNIZED_METADATA_FACET";
-  /** Error code emitted when a discrete type (:Int or { #exact } :Float) declares #maxIncl or #minExcl. */
+  /** Error code emitted when a discrete type ({@code :Int}, {@code { #exact } :Float}, {@code :TimeEpoch}, or {@code :DateTime}) declares {@code #maxIncl} or {@code #minExcl} (E011). */
   public static final String ERR_DISCRETE_BOUND_KIND_PROHIBITED = "ERR_DISCRETE_BOUND_KIND_PROHIBITED";
   /** Error code emitted when two incompatible nominal types are unified or compared. */
   public static final String ERR_INCOMPATIBLE_NOMINAL_TYPE = "ERR_INCOMPATIBLE_NOMINAL_TYPE";
@@ -123,6 +124,8 @@ public final class DiagnosticBag {
   public static final String ERR_BARE_COLON_PROHIBITED = "ERR_BARE_COLON_PROHIBITED";
   /** Error code emitted when a standalone hash '#' is encountered (trap6_hash_comment). */
   public static final String ERR_BARE_HASH_PROHIBITED = "ERR_BARE_HASH_PROHIBITED";
+  /** Error code emitted when a bare un-sigiled boolean word ({@code true} or {@code false}, case-insensitive) is encountered instead of {@code #TRUE}/{@code #FALSE} or {@code #T}/{@code #F} (E002). */
+  public static final String ERR_BARE_BOOLEAN_PROHIBITED = StvnVocabulary.ERR_BARE_BOOLEAN_PROHIBITED;
   /** Error code emitted when a negative zero integer literal is encountered (prohibited on :Int). */
   public static final String ERR_INVALID_NUMERIC_LITERAL = "ERR_INVALID_NUMERIC_LITERAL";
   /** Error code emitted when a fenced string closing tag mismatches or is unclosed (Rule STR-04, E025). */
@@ -251,6 +254,7 @@ public final class DiagnosticBag {
       Map.entry("ERR_MALFORMED_SCHEMA", "E010"),
       Map.entry(ERR_BARE_COLON_PROHIBITED, "E002"),
       Map.entry(ERR_BARE_HASH_PROHIBITED, "E002"),
+      Map.entry(ERR_BARE_BOOLEAN_PROHIBITED, "E002"),
       Map.entry(ERR_RESERVED_KEYWORD_ON_LHS, "E027"),
       Map.entry(ERR_EMPTY_DEFS_BLOCK, "E002"),
       Map.entry(ERR_DUPLICATE_ROOT_SECTION, "E002"),

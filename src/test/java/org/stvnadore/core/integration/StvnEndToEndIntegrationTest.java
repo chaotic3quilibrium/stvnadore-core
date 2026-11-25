@@ -176,7 +176,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ true ]
                 }
                 """,
-            "STVN Syntax Error: unexpected extraneous symbol 'true'"),
+            "Bare boolean literal 'true' is prohibited in STVN syntax; use '#TRUE' (or '#T')"),
 
         TestProfile.create(
             "Enum Validation - Keywords Match Defined List",
@@ -1719,7 +1719,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "1.1" ]
                 }
                 """,
-            "Metadata facet '#preserveIndent' requires an explicit boolean value (#TRUE or #FALSE)"
+            "Bare boolean literal 'true' is prohibited in STVN syntax; use '#TRUE' (or '#T')"
         ),
 
         TestProfile.createError(
@@ -1733,7 +1733,7 @@ public class StvnEndToEndIntegrationTest {
                   :body [ "1.1" ]
                 }
                 """,
-            "Metadata facet '#preserveIndent' requires an explicit boolean value (#TRUE or #FALSE)"
+            "Bare boolean literal 'false' is prohibited in STVN syntax; use '#FALSE' (or '#F')"
         ),
 
         TestProfile.createError(

@@ -43,7 +43,8 @@ public class StvnRedundantFacetValidationTest {
     int expectedEnd = expectedStart + targetToken.length();
     assertEquals(expectedStart, diag.startOffset(), "Start offset must pinpoint '#minIncl 0'");
     assertEquals(expectedEnd, diag.endOffset(), "End offset must cover '#minIncl 0'");
-    assertTrue(diag.message().contains("facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, \\infty)"));
+    assertTrue(diag.message().contains("facet '#minIncl 0' is redundant; '#unsigned' already bounds the domain to [0, \u221E)"));
+    assertFalse(diag.message().contains("\\infty"));
   }
 
   @Test

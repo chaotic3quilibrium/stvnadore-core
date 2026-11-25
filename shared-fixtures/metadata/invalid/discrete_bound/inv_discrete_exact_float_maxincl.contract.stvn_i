@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 16 42 772 786 "Discrete exact float '{ #exact } :Float' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'" )
+    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 16 42 772 780 "Discrete exact float '{ #exact } :Float' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'" )
   ]
 }

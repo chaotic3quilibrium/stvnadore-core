@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 16 31 741 755 "Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'" )
+    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 16 31 741 749 "Discrete type ':Int' prohibits bound '#maxIncl'; use half-open bound '#maxExcl'" )
   ]
 }

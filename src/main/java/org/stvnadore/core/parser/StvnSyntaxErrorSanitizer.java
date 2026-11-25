@@ -869,6 +869,7 @@ public final class StvnSyntaxErrorSanitizer {
     boolean isBareColon = false;
     boolean isBareHash = false;
     boolean isRootMissing = false;
+    boolean isBareBoolean = false;
     String effectiveRawMsg = rawMsg != null ? rawMsg : "";
 
     if (offendingSymbol instanceof Token token) {
@@ -895,7 +896,9 @@ public final class StvnSyntaxErrorSanitizer {
             isRootMissing = true;
           }
           Token prevDefault = previousDefaultChannelToken(stream, idx);
+          isBareBoolean = isBareBooleanIdentifier(token, prevDefault, isRootMissing);
           if (prevDefault != null
+              && !isBareBoolean
               && token.getType() != StvnLexer.MALFORMED_FENCE_OPEN
               && token.getType() != StvnLexer.MALFORMED_FENCE_CLOSE
               && (prevDefault.getType() == StvnLexer.KW_PRESERVE_INDENT
@@ -1025,6 +1028,7 @@ public final class StvnSyntaxErrorSanitizer {
         e,
         isBareColon,
         isBareHash,
+        isBareBoolean,
         isRootMissing
     );
     coreMsg = purgeResidualAntlrJargon(coreMsg);
@@ -1039,6 +1043,7 @@ public final class StvnSyntaxErrorSanitizer {
         coreMsg,
         isBareColon,
         isBareHash,
+        isBareBoolean,
         isRootMissing,
         isClauseError
     );
@@ -1083,14 +1088,19 @@ public final class StvnSyntaxErrorSanitizer {
     boolean isBareColon = offendingToken != null && StvnVocabulary.SIGIL_TYPIC.equals(offendingToken.getText());
     boolean isBareHash = offendingToken != null && StvnVocabulary.SIGIL_VALUE.equals(offendingToken.getText());
     boolean isRootMissing = false;
+    boolean isBareBoolean = false;
     if (recognizer instanceof Parser parser && offendingToken != null) {
-      if (isFirstDefaultChannelToken(parser.getTokenStream(), offendingToken.getTokenIndex())
+      var stream = parser.getTokenStream();
+      int idx = offendingToken.getTokenIndex();
+      if (isFirstDefaultChannelToken(stream, idx)
           && offendingToken.getType() != StvnLexer.LBRACE
           && offendingToken.getType() != StvnLexer.TAB_CHARACTER
           && offendingToken.getType() != StvnLexer.MALFORMED_FENCE_OPEN
           && offendingToken.getType() != StvnLexer.MALFORMED_FENCE_CLOSE) {
         isRootMissing = true;
       }
+      Token prevDefault = stream != null ? previousDefaultChannelToken(stream, idx) : null;
+      isBareBoolean = isBareBooleanIdentifier(offendingToken, prevDefault, isRootMissing);
     }
     String msg = buildSanitizedCoreMessage(
         recognizer,
@@ -1099,9 +1109,33 @@ public final class StvnSyntaxErrorSanitizer {
         e,
         isBareColon,
         isBareHash,
+        isBareBoolean,
         isRootMissing
     );
     return purgeResidualAntlrJargon(msg);
+  }
+
+  private static boolean isBareBooleanIdentifier(
+      @Nullable Token token,
+      @Nullable Token prevDefaultToken,
+      boolean isRootMissing
+  ) {
+    if (isRootMissing || token == null || token.getType() != StvnLexer.IDENTIFIER) {
+      return false;
+    }
+    if (prevDefaultToken != null && prevDefaultToken.getType() == StvnLexer.FSLASH) {
+      return false;
+    }
+    String text = token.getText();
+    return text != null && ("true".equalsIgnoreCase(text) || "false".equalsIgnoreCase(text));
+  }
+
+  private static String formatBareBooleanCoreMessage(String rawTokenText) {
+    boolean isTrue = "true".equalsIgnoreCase(rawTokenText);
+    String canonicalForm = isTrue ? StvnVocabulary.VAL_TRUE : StvnVocabulary.VAL_FALSE;
+    String shortForm = isTrue ? StvnVocabulary.VAL_TRUE_SHORT : StvnVocabulary.VAL_FALSE_SHORT;
+    return "Bare boolean literal '" + rawTokenText
+        + "' is prohibited in STVN syntax; use '" + canonicalForm + "' (or '" + shortForm + "')";
   }
 
   private static String buildSanitizedCoreMessage(
@@ -1111,6 +1145,7 @@ public final class StvnSyntaxErrorSanitizer {
       @Nullable RecognitionException e,
       boolean isBareColon,
       boolean isBareHash,
+      boolean isBareBoolean,
       boolean isRootMissing
   ) {
     if (isBareColon) {
@@ -1118,6 +1153,9 @@ public final class StvnSyntaxErrorSanitizer {
     }
     if (isBareHash) {
       return "Standalone hash '#' is prohibited in STVN syntax; attach '#' directly to a value or facet identifier, or use '//' for comments";
+    }
+    if (isBareBoolean && offendingToken != null && offendingToken.getText() != null) {
+      return formatBareBooleanCoreMessage(offendingToken.getText());
     }
 
     if (recognizer instanceof Lexer) {
@@ -1320,6 +1358,7 @@ public final class StvnSyntaxErrorSanitizer {
       String coreMsg,
       boolean isBareColon,
       boolean isBareHash,
+      boolean isBareBoolean,
       boolean isRootMissing,
       boolean isClauseError
   ) {
@@ -1332,6 +1371,9 @@ public final class StvnSyntaxErrorSanitizer {
     }
     if (isBareHash) {
       return DiagnosticBag.ERR_BARE_HASH_PROHIBITED;
+    }
+    if (isBareBoolean || coreMsg.startsWith("Bare boolean literal '")) {
+      return DiagnosticBag.ERR_BARE_BOOLEAN_PROHIBITED;
     }
     if (coreMsg.contains("delimiter arrow '->' is prohibited")
         || (offendingToken != null && offendingToken.getText() != null && offendingToken.getText().startsWith("\"\"\"->["))) {

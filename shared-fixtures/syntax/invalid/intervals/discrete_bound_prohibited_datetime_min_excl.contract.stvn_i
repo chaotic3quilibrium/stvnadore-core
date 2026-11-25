@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 6 24 186 217 "Discrete temporal type ':DateTime' prohibits bound '#minExcl'; use half-open bound '#minIncl'" )
+    ( #E011 #ERR_DISCRETE_BOUND_KIND_PROHIBITED #ERROR 6 24 186 194 "Discrete temporal type ':DateTime' prohibits bound '#minExcl'; use half-open bound '#minIncl'" )
   ]
 }
