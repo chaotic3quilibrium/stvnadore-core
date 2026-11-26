@@ -1,0 +1,28 @@
+{
+  :meta {
+    #name "empty_container_pair_underflow_all_constructors"
+    #kind #BODY
+  }
+  :defs {
+    :FiberCoreId { #minIncl 0.0 } :Float
+    :PilotToneHistory { #minSize 1 #maxSize 8 } :Seq( :FiberCoreId )
+    :ActiveCoreSet { #minSize 1 #maxSize 8 } :Set( :Int )
+    :ChannelGainMap { #minSize 1 #maxSize 8 } :Map( :String :Int )
+    :BijectivePortMap { #invertible #minSize 1 #maxSize 8 } :Map( :String :Int )
+    :TelemetryPair :Tuple( :Int :String )
+  }
+  :type :Tuple(
+    :PilotToneHistory
+    :ActiveCoreSet
+    :ChannelGainMap
+    :BijectivePortMap
+    :TelemetryPair
+  )
+  :body (
+    []
+    [  ]
+    {}
+    {  }
+    ()
+  )
+}

@@ -3,6 +3,7 @@ package org.stvnadore.core.lowering;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.TerminalNode;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.stvnadore.core.StvnDiagnostic;
@@ -1725,6 +1726,44 @@ public final class StvnPayloadLowerer {
     }
   }
 
+  private static boolean isRealDelimiterToken(@Nullable Token tok) {
+    return tok != null
+        && tok.getType() != Token.EOF
+        && tok.getTokenIndex() >= 0
+        && tok.getStartIndex() >= 0
+        && tok.getStopIndex() >= tok.getStartIndex();
+  }
+
+  private static Span resolveContainerUnderflowSpan(
+      ParserRuleContext containerCtx,
+      @Nullable TerminalNode openNode,
+      @Nullable TerminalNode closeNode,
+      boolean emptyContainer
+  ) {
+    Token openTok = openNode != null ? openNode.getSymbol() : null;
+    Token closeTok = closeNode != null ? closeNode.getSymbol() : null;
+    if (emptyContainer) {
+      if (isRealDelimiterToken(openTok)
+          && isRealDelimiterToken(closeTok)
+          && closeTok.getStopIndex() >= openTok.getStartIndex()) {
+        return new Span(
+            openTok.getStartIndex(),
+            closeTok.getStopIndex() + 1,
+            openTok.getLine(),
+            openTok.getCharPositionInLine()
+        );
+      }
+      if (isRealDelimiterToken(openTok)) {
+        return Span.ofToken(openTok);
+      }
+      return Span.ofContext(containerCtx);
+    }
+    if (isRealDelimiterToken(closeTok)) {
+      return Span.ofToken(closeTok);
+    }
+    return Span.ofContext(containerCtx);
+  }
+
   /**
    * Unchecked carrier exception thrown by {@link #decodeStringLiteral} on lexical escape or fence errors.
    *
@@ -2978,9 +3017,31 @@ public final class StvnPayloadLowerer {
     }
 
     private boolean uniquelyMatchesContainerKind(StreamItem peek, StvnSchema rawSchema) {
-      StvnSchema schema = unwrapRecursiveBackEdge(rawSchema, nominalSchemaResolver);
+      return matchesContainerKindTransitively(peek, rawSchema, new LinkedHashSet<>());
+    }
+
+    private boolean matchesContainerKindTransitively(
+        StreamItem peek,
+        StvnSchema rawSchema,
+        Set<String> visitedAliases
+    ) {
       if (!(peek instanceof AtomicValueItem atom) || atom.ctx().collectionValue() == null) {
         return false;
+      }
+      StvnSchema schema = unwrapRecursiveBackEdge(rawSchema, nominalSchemaResolver);
+      if (schema.aliasName().isPresent() && !visitedAliases.add(schema.aliasName().get())) {
+        return false;
+      }
+      if (schema instanceof StvnSchema.OptionSchema opt) {
+        return matchesContainerKindTransitively(peek, opt.valueSchema(), new LinkedHashSet<>(visitedAliases));
+      }
+      if (schema instanceof StvnSchema.EitherSchema either
+          && !areIdenticalSchemas(either.leftSchema(), either.rightSchema())) {
+        return matchesContainerKindTransitively(peek, either.rightSchema(), new LinkedHashSet<>(visitedAliases));
+      }
+      if (schema instanceof StvnSchema.UnionSchema union) {
+        return union.branchSchemas().stream()
+            .anyMatch(b -> matchesContainerKindTransitively(peek, b, new LinkedHashSet<>(visitedAliases)));
       }
       var coll = atom.ctx().collectionValue();
       if (coll.listLiteral() != null) {
@@ -3909,20 +3970,22 @@ public final class StvnPayloadLowerer {
 
       BigInteger actualCount = BigInteger.valueOf(elements.size());
       if (actualCount.compareTo(minSize) < 0) {
-        Span closeSpan = ctx.RBRACK() != null ? Span.ofToken(ctx.RBRACK().getSymbol()) : Span.ofContext(ctx);
-        if (actualCount.signum() == 0 && minSize.compareTo(BigInteger.ONE) >= 0) {
+        boolean emptyContainer = actualCount.signum() == 0;
+        Span underflowSpan = resolveContainerUnderflowSpan(ctx, ctx.LBRACK(), ctx.RBRACK(), emptyContainer);
+        if (emptyContainer && minSize.compareTo(BigInteger.ONE) >= 0) {
           String msg = (isSet ? "Set" : "Sequence")
-              + " is marked as non-empty (#minSize " + minSize + ") but contains no elements";
+              + " is marked as non-empty (" + StvnVocabulary.FACET_KW_MIN_SIZE + " " + minSize
+              + ") but contains no elements";
           recordError(
-              diagnosticBag, msg, closeSpan,
-              new MalformedPayloadException(msg, closeSpan.start(), closeSpan.end()),
+              diagnosticBag, msg, underflowSpan,
+              new MalformedPayloadException(msg, underflowSpan.start(), underflowSpan.end()),
               "E017", DiagnosticBag.ERR_COLLECTION_EMPTY_VIOLATION, schemaContextMode);
         } else {
           String msg = "Constraint violation (" + label + "): Size " + actualCount
               + " outside allowable range [" + minSize + ", " + maxSize + "]";
           recordError(
-              diagnosticBag, msg, closeSpan,
-              new MalformedPayloadException(msg, closeSpan.start(), closeSpan.end()),
+              diagnosticBag, msg, underflowSpan,
+              new MalformedPayloadException(msg, underflowSpan.start(), underflowSpan.end()),
               "E012", DiagnosticBag.ERR_CONSTRAINT_VIOLATION, schemaContextMode);
         }
       } else if (actualCount.compareTo(maxSize) > 0) {
@@ -3987,11 +4050,11 @@ public final class StvnPayloadLowerer {
       }
 
       if (slot < expectedArity) {
-        Span closeSpan = ctx.RPAREN() != null ? Span.ofToken(ctx.RPAREN().getSymbol()) : Span.ofContext(ctx);
+        Span underflowSpan = resolveContainerUnderflowSpan(ctx, ctx.LPAREN(), ctx.RPAREN(), slot == 0);
         String msg = "Tuple arity mismatch: Expected " + expectedArity + " elements, got " + slot;
         recordError(
-            diagnosticBag, msg, closeSpan,
-            new MalformedPayloadException(msg, closeSpan.start(), closeSpan.end()),
+            diagnosticBag, msg, underflowSpan,
+            new MalformedPayloadException(msg, underflowSpan.start(), underflowSpan.end()),
             "E028", DiagnosticBag.ERR_TUPLE_ARITY_MISMATCH, schemaContextMode);
       } else if (slot > expectedArity && !excessSpans.isEmpty()) {
         Span firstExcess = excessSpans.getFirst();
@@ -4090,20 +4153,22 @@ public final class StvnPayloadLowerer {
       BigInteger maxSize = mapSchema.maxSize();
 
       if (actualCount.compareTo(minSize) < 0) {
-        Span closeSpan = ctx.RBRACE() != null ? Span.ofToken(ctx.RBRACE().getSymbol()) : Span.ofContext(ctx);
-        if (actualCount.signum() == 0 && minSize.compareTo(BigInteger.ONE) >= 0) {
+        boolean emptyContainer = actualCount.signum() == 0;
+        Span underflowSpan = resolveContainerUnderflowSpan(ctx, ctx.LBRACE(), ctx.RBRACE(), emptyContainer);
+        if (emptyContainer && minSize.compareTo(BigInteger.ONE) >= 0) {
           String msg = (mapSchema.invertible() ? "Invertible map" : "Map")
-              + " is marked as non-empty (#minSize " + minSize + ") but contains no elements";
+              + " is marked as non-empty (" + StvnVocabulary.FACET_KW_MIN_SIZE + " " + minSize
+              + ") but contains no elements";
           recordError(
-              diagnosticBag, msg, closeSpan,
-              new MalformedPayloadException(msg, closeSpan.start(), closeSpan.end()),
+              diagnosticBag, msg, underflowSpan,
+              new MalformedPayloadException(msg, underflowSpan.start(), underflowSpan.end()),
               "E017", DiagnosticBag.ERR_COLLECTION_EMPTY_VIOLATION, schemaContextMode);
         } else {
           String msg = "Constraint violation (" + label + "): Size " + actualCount
               + " outside allowable range [" + minSize + ", " + maxSize + "]";
           recordError(
-              diagnosticBag, msg, closeSpan,
-              new MalformedPayloadException(msg, closeSpan.start(), closeSpan.end()),
+              diagnosticBag, msg, underflowSpan,
+              new MalformedPayloadException(msg, underflowSpan.start(), underflowSpan.end()),
               "E012", DiagnosticBag.ERR_CONSTRAINT_VIOLATION, schemaContextMode);
         }
       } else if (actualCount.compareTo(maxSize) > 0 && !entrySpans.isEmpty()) {

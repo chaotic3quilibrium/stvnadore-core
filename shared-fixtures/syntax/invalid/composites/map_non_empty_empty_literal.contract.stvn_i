@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E017 #COLLECTION_EMPTY_VIOLATION #ERROR 9 10 223 224 "Map is marked as non-empty (#minSize 1) but contains no elements" )
+    ( #E017 #COLLECTION_EMPTY_VIOLATION #ERROR 9 9 222 224 "Map is marked as non-empty (#minSize 1) but contains no elements" )
   ]
 }

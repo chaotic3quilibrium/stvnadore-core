@@ -1,0 +1,18 @@
+{
+  :meta {
+    #name "empty_container_pair_underflow_all_constructors"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E017 #COLLECTION_EMPTY_VIOLATION #ERROR 22 5 600 602 "Sequence is marked as non-empty (#minSize 1) but contains no elements" )
+    ( #E017 #COLLECTION_EMPTY_VIOLATION #ERROR 23 5 607 611 "Set is marked as non-empty (#minSize 1) but contains no elements" )
+    ( #E017 #COLLECTION_EMPTY_VIOLATION #ERROR 24 5 616 618 "Map is marked as non-empty (#minSize 1) but contains no elements" )
+    ( #E017 #COLLECTION_EMPTY_VIOLATION #ERROR 25 5 623 627 "Invertible map is marked as non-empty (#minSize 1) but contains no elements" )
+    ( #E028 #TUPLE_ARITY_MISMATCH #ERROR 26 5 632 634 "Tuple arity mismatch: Expected 2 elements, got 0" )
+  ]
+}

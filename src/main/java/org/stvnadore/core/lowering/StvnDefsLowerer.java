@@ -3962,6 +3962,7 @@ public final class StvnDefsLowerer {
               return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
             }
             StvnSchema fallbackSchema = ps.bestEffortFallback().get();
+            int errorsBeforeFallback = diagnosticBag.errorCount();
             StvnValue fallbackVal = StvnPayloadLowerer.lowerConstantValue(
                 decl.displayName(),
                 decl.ctx().value(),
@@ -3970,7 +3971,8 @@ public final class StvnDefsLowerer {
                 this::findLoweredNominalSchema,
                 diagnosticBag
             );
-            if (!StvnPayloadLowerer.containsErrorValue(fallbackVal)) {
+            if (diagnosticBag.errorCount() == errorsBeforeFallback
+                && !StvnPayloadLowerer.containsErrorValue(fallbackVal)) {
               StvnDefsCatalog.StvnConstant lowered = new StvnDefsCatalog.StvnConstant(fqni, fallbackSchema, fallbackVal);
               loweredConstants.put(fqni, lowered);
               return Optional.of(lowered);
@@ -3995,6 +3997,7 @@ public final class StvnDefsLowerer {
           StvnPayloadLowerer.scanLexicalSimpleStringEscapesInSubtree(decl.ctx().value(), diagnosticBag);
           return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
         }
+        int errorsBeforeConst = diagnosticBag.errorCount();
         StvnValue val = StvnPayloadLowerer.lowerConstantValue(
             decl.displayName(),
             decl.ctx().value(),
@@ -4006,7 +4009,8 @@ public final class StvnDefsLowerer {
         if (circularConstants.contains(fqni) || checkAndEmitDirectCircularConstantStem(fqni, decl, scope)) {
           return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_CIRCULAR_TYPE));
         }
-        if (StvnPayloadLowerer.containsErrorValue(val)) {
+        if (diagnosticBag.errorCount() > errorsBeforeConst
+            || StvnPayloadLowerer.containsErrorValue(val)) {
           return Optional.of(registerPoisonedConstant(fqni, DiagnosticBag.ERR_MALFORMED_SCHEMA));
         }
         StvnDefsCatalog.StvnConstant lowered = new StvnDefsCatalog.StvnConstant(fqni, constSchema, val);

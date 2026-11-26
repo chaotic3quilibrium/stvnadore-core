@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E017 #COLLECTION_EMPTY_VIOLATION #ERROR 9 10 213 214 "Sequence is marked as non-empty (#minSize 1) but contains no elements" )
+    ( #E017 #COLLECTION_EMPTY_VIOLATION #ERROR 9 9 212 214 "Sequence is marked as non-empty (#minSize 1) but contains no elements" )
   ]
 }

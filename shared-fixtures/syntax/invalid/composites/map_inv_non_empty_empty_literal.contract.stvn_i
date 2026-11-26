@@ -9,6 +9,6 @@
   }
   :type :ErrorContract
   :body [
-    ( #E017 #COLLECTION_EMPTY_VIOLATION #ERROR 9 10 245 246 "Invertible map is marked as non-empty (#minSize 1) but contains no elements" )
+    ( #E017 #COLLECTION_EMPTY_VIOLATION #ERROR 9 9 244 246 "Invertible map is marked as non-empty (#minSize 1) but contains no elements" )
   ]
 }
