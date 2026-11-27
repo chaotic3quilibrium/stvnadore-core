@@ -60,17 +60,20 @@
       )
       {
         // Depth-3 map comment
-        ["route-alpha" ( // Depth-4 tuple comment on map entry line
-          // Depth-5 authored multi-line scalar seq
-          [
-            10
-            20
-            30
-          ]
-          // Depth-5 authored single-line scalar seq
-          [40    50   60] // Trailing comment at depth 5
-          [(1 #T) (2 #F)]
-        )]
+        [
+          "route-alpha"
+          ( // Depth-4 tuple comment on map entry line
+            // Depth-5 authored multi-line scalar seq
+            [
+              10
+              20
+              30
+            ]
+            // Depth-5 authored single-line scalar seq
+            [40  50   60] // Trailing comment at depth 5
+            [(1 #T) (2 #F)]
+          )
+        ]
       }
     )
   ]

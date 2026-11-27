@@ -47,8 +47,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -882,9 +884,16 @@ public final class StvnDefsLowerer {
 
   private record ScopeClaim<T>(
       String boundName,
-      T payload,
+      @Nullable T payload,
       String originKey,
-      ClaimKind kind
+      ClaimKind kind,
+      Span claimSpan
+  ) {}
+
+  private record AliasBinding(
+      String rawLhs,
+      String rhsName,
+      Span rhsSpan
   ) {}
 
   private record ScopeFrame(
@@ -2243,6 +2252,10 @@ public final class StvnDefsLowerer {
     private final Set<String> locallyDeclaredPackages = new LinkedHashSet<>();
     private final Set<String> importedPackages = new LinkedHashSet<>();
     private final List<StvnParser.UseElementContext> allDeclaredUseElements = new ArrayList<>();
+    private final Set<StvnParser.UseElementContext> duplicateUseElements =
+        Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Set<StvnParser.UseMapAliasContext> duplicateUseMapAliases =
+        Collections.newSetFromMap(new IdentityHashMap<>());
 
     // Active resolved bindings in the unit's global namespace (includes + local eviction)
     private final Map<String, ExportedTypeSymbol> importedTypePool = new LinkedHashMap<>();
@@ -2530,9 +2543,10 @@ public final class StvnDefsLowerer {
       Map<String, List<ScopeClaim<ExportedConstantSymbol>>> packagedConstClaims = new LinkedHashMap<>();
 
       Set<String> seenIncludeRawPaths = new HashSet<>();
+      Set<String> seenRootUseTargets = new HashSet<>();
       List<StvnParser.UseElementContext> rootUseElements = new ArrayList<>();
-      List<String> rootLocalUnpackagedTypes = new ArrayList<>();
-      List<String> rootLocalUnpackagedConsts = new ArrayList<>();
+      Map<String, Span> rootLocalUnpackagedTypes = new LinkedHashMap<>();
+      Map<String, Span> rootLocalUnpackagedConsts = new LinkedHashMap<>();
 
       for (var de : defsEntry.defsElement()) {
         if (de.includeStmt() != null) {
@@ -2547,7 +2561,7 @@ public final class StvnDefsLowerer {
         } else if (de.packageEnclosure() != null) {
           processPackageEnclosure(de.packageEnclosure(), typeClaims, constClaims, packagedTypeClaims, packagedConstClaims);
         } else if (de.useStmt() != null) {
-          validateUseStmt(de.useStmt());
+          validateUseStmt(de.useStmt(), seenRootUseTargets);
           rootUseElements.addAll(de.useStmt().useElement());
         } else if (de.typeDefinition() != null) {
           processRootTypeDef(de.typeDefinition(), typeClaims, packagedTypeClaims, rootLocalUnpackagedTypes);
@@ -2560,6 +2574,9 @@ public final class StvnDefsLowerer {
         collectImportedPackagesFromClaims(packagedTypeClaims.keySet(), false);
         collectImportedPackagesFromClaims(packagedConstClaims.keySet(), true);
         for (var useElem : allDeclaredUseElements) {
+          if (duplicateUseElements.contains(useElem)) {
+            continue;
+          }
           if (!isValidSyntacticUseTarget(useElem.useTarget(), diagnosticBag)) {
             continue;
           }
@@ -2585,22 +2602,22 @@ public final class StvnDefsLowerer {
       }
 
       // Resolve Appendix F eviction cascade across root namespace and packaged pools
-      List<String> collisions = new ArrayList<>();
-      resolveNamespaceClaims(typeClaims, importedTypePool, collisions);
-      resolveNamespaceClaims(constClaims, importedConstPool, collisions);
-      resolveNamespaceClaims(packagedTypeClaims, packagedImportPool, collisions);
-      resolveNamespaceClaims(packagedConstClaims, packagedConstImportPool, collisions);
+      Map<Span, LinkedHashSet<String>> includeCollisionsBySpan = new LinkedHashMap<>();
+      resolveNamespaceClaims(typeClaims, importedTypePool, includeCollisionsBySpan);
+      resolveNamespaceClaims(constClaims, importedConstPool, includeCollisionsBySpan);
+      resolveNamespaceClaims(packagedTypeClaims, packagedImportPool, includeCollisionsBySpan);
+      resolveNamespaceClaims(packagedConstClaims, packagedConstImportPool, includeCollisionsBySpan);
 
-      if (!collisions.isEmpty()) {
-        Span docSpan = Span.ofContext(doc);
-        List<String> uniqueCollisions = new ArrayList<>(new LinkedHashSet<>(collisions));
-        for (int i = 0; i < uniqueCollisions.size(); i++) {
+      if (!includeCollisionsBySpan.isEmpty()) {
+        for (var collisionEntry : includeCollisionsBySpan.entrySet()) {
+          Span offendingSpan = collisionEntry.getKey();
+          List<String> uniqueCollisions = new ArrayList<>(collisionEntry.getValue());
           String msg = "Namespace collision(s) detected: " + uniqueCollisions
               + "; enclose module declarations in '" + StvnVocabulary.KEYWORD_PACKAGE
               + "' and disambiguate local symbols with '" + StvnVocabulary.KEYWORD_USE + "'";
           diagnosticBag.addError(
               msg,
-              docSpan.start(), docSpan.end(), docSpan.line(), docSpan.column(),
+              offendingSpan.start(), offendingSpan.end(), offendingSpan.line(), offendingSpan.column(),
               new NamespaceCollisionException(msg),
               DiagnosticBag.ERR_NAMESPACE_COLLISION
           );
@@ -2620,16 +2637,22 @@ public final class StvnDefsLowerer {
             continue;
           }
           List<StvnParser.UseElementContext> pkgUseElements = new ArrayList<>();
-          List<String> pkgLocalSimpleTypes = new ArrayList<>();
-          List<String> pkgLocalSimpleConsts = new ArrayList<>();
+          Map<String, Span> pkgLocalSimpleTypes = new LinkedHashMap<>();
+          Map<String, Span> pkgLocalSimpleConsts = new LinkedHashMap<>();
           if (pkgEnc.packageElement() != null) {
             for (var pe : pkgEnc.packageElement()) {
               if (pe.useStmt() != null) {
                 pkgUseElements.addAll(pe.useStmt().useElement());
               } else if (pe.typeDefinition() != null) {
-                pkgLocalSimpleTypes.add(pe.typeDefinition().typeDefTarget().getText());
+                pkgLocalSimpleTypes.putIfAbsent(
+                    pe.typeDefinition().typeDefTarget().getText(),
+                    Span.ofContext(pe.typeDefinition().typeDefTarget())
+                );
               } else if (pe.constantDefinition() != null) {
-                pkgLocalSimpleConsts.add(pe.constantDefinition().valueKeyword().getText());
+                pkgLocalSimpleConsts.putIfAbsent(
+                    pe.constantDefinition().valueKeyword().getText(),
+                    Span.ofContext(pe.constantDefinition().valueKeyword())
+                );
               }
             }
           }
@@ -2696,7 +2719,7 @@ public final class StvnDefsLowerer {
         StvnParser.TypeDefinitionContext typeDef,
         Map<String, List<ScopeClaim<ExportedTypeSymbol>>> typeClaims,
         Map<String, List<ScopeClaim<ExportedTypeSymbol>>> packagedTypeClaims,
-        List<String> rootLocalUnpackagedTypes
+        Map<String, Span> rootLocalUnpackagedTypes
     ) {
       String typeName = typeDef.typeDefTarget().getText();
       Span targetSpan = Span.ofContext(typeDef.typeDefTarget());
@@ -2737,9 +2760,9 @@ public final class StvnDefsLowerer {
       }
 
       targetClaimsMap.computeIfAbsent(typeName, k -> new ArrayList<>())
-          .add(new ScopeClaim<>(typeName, null, "<local>", ClaimKind.LOCAL));
+          .add(new ScopeClaim<>(typeName, null, "<local>", ClaimKind.LOCAL, targetSpan));
       if (!typeName.contains("/")) {
-        rootLocalUnpackagedTypes.add(typeName);
+        rootLocalUnpackagedTypes.putIfAbsent(typeName, targetSpan);
       }
       localTypeAsts.put(typeName, new LocalTypeAstDecl(typeName, typeDef, null, null));
     }
@@ -2748,7 +2771,7 @@ public final class StvnDefsLowerer {
         StvnParser.ConstantDefinitionContext constDef,
         Map<String, List<ScopeClaim<ExportedConstantSymbol>>> constClaims,
         Map<String, List<ScopeClaim<ExportedConstantSymbol>>> packagedConstClaims,
-        List<String> rootLocalUnpackagedConsts
+        Map<String, Span> rootLocalUnpackagedConsts
     ) {
       String constName = constDef.valueKeyword().getText();
       if (!moduleCtx.isSystemAuthority() && isReservedConstant(constName)) {
@@ -2777,10 +2800,11 @@ public final class StvnDefsLowerer {
         return;
       }
 
+      Span constKwSpan = Span.ofContext(constDef.valueKeyword());
       targetClaimsMap.computeIfAbsent(constName, k -> new ArrayList<>())
-          .add(new ScopeClaim<>(constName, null, "<local>", ClaimKind.LOCAL));
+          .add(new ScopeClaim<>(constName, null, "<local>", ClaimKind.LOCAL, constKwSpan));
       if (!constName.contains("/")) {
-        rootLocalUnpackagedConsts.add(constName);
+        rootLocalUnpackagedConsts.putIfAbsent(constName, constKwSpan);
       }
       localConstAsts.put(constName, new LocalConstantAstDecl(constName, constName, constDef, null, null));
     }
@@ -2826,6 +2850,7 @@ public final class StvnDefsLowerer {
         return;
       }
 
+      Set<String> seenPkgUseTargets = new HashSet<>();
       for (var pe : pkgEnc.packageElement()) {
         if (pe.nestedPackageIllegal() != null) {
           var illegalNode = pe.nestedPackageIllegal();
@@ -2836,7 +2861,7 @@ public final class StvnDefsLowerer {
               DiagnosticBag.ERR_NESTED_PACKAGE_PROHIBITED
           );
         } else if (pe.useStmt() != null) {
-          validateUseStmt(pe.useStmt());
+          validateUseStmt(pe.useStmt(), seenPkgUseTargets);
         } else if (pe.typeDefinition() != null) {
           var typeDef = pe.typeDefinition();
           String localName = typeDef.typeDefTarget().getText();
@@ -2864,7 +2889,7 @@ public final class StvnDefsLowerer {
             continue;
           }
           packagedTypeClaims.computeIfAbsent(fqni, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(fqni, null, "<local>", ClaimKind.LOCAL));
+              .add(new ScopeClaim<>(fqni, null, "<local>", ClaimKind.LOCAL, targetSpan));
           localTypeAsts.put(fqni, new LocalTypeAstDecl(fqni, typeDef, pkgPath, pkgEnc));
         } else if (pe.constantDefinition() != null) {
           var constDef = pe.constantDefinition();
@@ -2882,7 +2907,7 @@ public final class StvnDefsLowerer {
             continue;
           }
           packagedConstClaims.computeIfAbsent(fqni, k -> new ArrayList<>())
-              .add(new ScopeClaim<>(fqni, null, "<local>", ClaimKind.LOCAL));
+              .add(new ScopeClaim<>(fqni, null, "<local>", ClaimKind.LOCAL, Span.ofContext(constDef.valueKeyword())));
           localConstAsts.put(fqni, new LocalConstantAstDecl(fqni, localName, constDef, pkgPath, pkgEnc));
         }
       }
@@ -2892,6 +2917,7 @@ public final class StvnDefsLowerer {
       if (pkgEnc.packageElement() == null) {
         return;
       }
+      Set<String> seenInvalidPkgUseTargets = new HashSet<>();
       for (var pe : pkgEnc.packageElement()) {
         if (pe.nestedPackageIllegal() != null) {
           var illegalNode = pe.nestedPackageIllegal();
@@ -2903,23 +2929,25 @@ public final class StvnDefsLowerer {
           );
         } else if (pe.useStmt() != null && pe.useStmt().useElement() != null) {
           for (var useElem : pe.useStmt().useElement()) {
-            validateUseElement(useElem);
+            validateUseElement(useElem, seenInvalidPkgUseTargets);
           }
         }
       }
     }
 
-    private void validateUseStmt(StvnParser.UseStmtContext useStmt) {
+    private void validateUseStmt(StvnParser.UseStmtContext useStmt, Set<String> seenTargetsInScope) {
       if (useStmt.useElement() == null) {
         return;
       }
       for (var useElem : useStmt.useElement()) {
-        validateUseElement(useElem);
+        validateUseElement(useElem, seenTargetsInScope);
       }
     }
 
-    private void validateUseElement(StvnParser.UseElementContext useElem) {
+    private void validateUseElement(StvnParser.UseElementContext useElem, Set<String> seenTargetsInScope) {
       allDeclaredUseElements.add(useElem);
+      boolean structurallyValidBody = isStructurallyValidUseDirectiveBody(useElem);
+
       if (useElem.useTarget() != null && useElem.useTarget().useTargetIllegal() != null) {
         var illegal = useElem.useTarget().useTargetIllegal();
         Span sp = Span.ofContext(illegal);
@@ -2930,6 +2958,20 @@ public final class StvnDefsLowerer {
         );
       } else if (isValidSyntacticUseTarget(useElem.useTarget(), diagnosticBag)) {
         String target = useElem.useTarget().getText();
+        if (structurallyValidBody && !seenTargetsInScope.add(target)) {
+          duplicateUseElements.add(useElem);
+          Span elemSpan = Span.ofContext(useElem);
+          String msg = "Duplicate '" + StvnVocabulary.KEYWORD_USE + "' target '" + target
+              + "' in the same scope; consolidate bindings into a single '"
+              + StvnVocabulary.KEYWORD_USE + "' entry";
+          diagnosticBag.addError(
+              msg,
+              elemSpan.start(), elemSpan.end(), elemSpan.line(), elemSpan.column(),
+              new DuplicateModuleImportException(msg),
+              DiagnosticBag.ERR_DUPLICATE_MODULE_IMPORT
+          );
+          return;
+        }
         boolean isHermetic = isHermeticUnit();
         if (isHermetic) {
           boolean isPrelude = !moduleCtx.bootstrapPreludeMode && StvnPrelude.isPreludePackageTarget(target);
@@ -2973,7 +3015,70 @@ public final class StvnDefsLowerer {
             sp.start(), sp.end(), sp.line(), sp.column(), null,
             DiagnosticBag.ERR_EMPTY_DIRECTIVE_BLOCK
         );
+      } else if (useElem.useAliasBlock() != null && useElem.useAliasBlock().useMapAlias() != null) {
+        String rawTarget = (useElem.useTarget() != null && useElem.useTarget().typeKeyword() != null)
+            ? useElem.useTarget().typeKeyword().getText()
+            : "";
+        Set<String> seenPairs = new HashSet<>();
+        for (var alias : useElem.useAliasBlock().useMapAlias()) {
+          String lhsText = null;
+          String rhsText = null;
+          boolean isConst = false;
+          if (alias.typeKeyword(0) != null && alias.typeKeyword(1) != null) {
+            lhsText = alias.typeKeyword(0).getText();
+            rhsText = alias.typeKeyword(1).getText();
+          } else if (alias.valueKeyword(0) != null && alias.valueKeyword(1) != null) {
+            lhsText = alias.valueKeyword(0).getText();
+            rhsText = alias.valueKeyword(1).getText();
+            isConst = true;
+          }
+          if (lhsText != null && rhsText != null) {
+            String canonicalLhs = canonicalizeUseAliasLhs(rawTarget, lhsText, isConst);
+            if (!seenPairs.add(canonicalLhs + "->" + rhsText)) {
+              duplicateUseMapAliases.add(alias);
+              Span aliasSpan = Span.ofContext(alias);
+              String msg = "Duplicate '" + StvnVocabulary.KEYWORD_USE + "' alias mapping '"
+                  + lhsText + " " + rhsText + "'"
+                  + (rawTarget.isEmpty() ? "" : " in '" + rawTarget + "'")
+                  + "; remove the redundant alias entry";
+              diagnosticBag.addError(
+                  msg,
+                  aliasSpan.start(), aliasSpan.end(), aliasSpan.line(), aliasSpan.column(),
+                  new DuplicateModuleImportException(msg),
+                  DiagnosticBag.ERR_DUPLICATE_MODULE_IMPORT
+              );
+            }
+          }
+        }
       }
+    }
+
+    private static boolean isStructurallyValidUseDirectiveBody(StvnParser.UseElementContext useElem) {
+      boolean hasOptions = useElem.useOptionsBlock() != null;
+      boolean hasAliases = useElem.useAliasBlock() != null;
+      if (!hasOptions && !hasAliases) {
+        return false;
+      }
+      if (hasOptions) {
+        if (useElem.useOptionsBlock().useOption().isEmpty()) {
+          return false;
+        }
+        for (var opt : useElem.useOptionsBlock().useOption()) {
+          if (opt.standaloneFacetIllegalArg() != null) {
+            return false;
+          }
+        }
+      }
+      return !hasAliases || !useElem.useAliasBlock().useMapAlias().isEmpty();
+    }
+
+    private static String canonicalizeUseAliasLhs(String targetPkg, String lhsText, boolean isConstant) {
+      if (lhsText.contains("/") || targetPkg.isEmpty() || lhsText.length() <= 1) {
+        return lhsText;
+      }
+      String pkgBody = targetPkg.startsWith(StvnVocabulary.SIGIL_TYPIC) ? targetPkg.substring(1) : targetPkg;
+      String sigil = isConstant ? StvnVocabulary.SIGIL_VALUE : StvnVocabulary.SIGIL_TYPIC;
+      return sigil + pkgBody + "/" + lhsText.substring(1);
     }
 
     private static boolean isValidSyntacticUseTarget(
@@ -3378,6 +3483,7 @@ public final class StvnDefsLowerer {
 
         projectIncludedModule(
             importedUnit,
+            elemSpan,
             typeClaims,
             constClaims,
             packagedTypeClaims,
@@ -3388,6 +3494,7 @@ public final class StvnDefsLowerer {
 
     private void projectIncludedModule(
         CompiledUnit importedUnit,
+        Span includeElemSpan,
         Map<String, List<ScopeClaim<ExportedTypeSymbol>>> typeClaims,
         Map<String, List<ScopeClaim<ExportedConstantSymbol>>> constClaims,
         Map<String, List<ScopeClaim<ExportedTypeSymbol>>> packagedTypeClaims,
@@ -3399,7 +3506,13 @@ public final class StvnDefsLowerer {
         Map<String, List<ScopeClaim<ExportedTypeSymbol>>> dest =
             originalFqni.contains("/") ? packagedTypeClaims : typeClaims;
         dest.computeIfAbsent(originalFqni, k -> new ArrayList<>())
-            .add(new ScopeClaim<>(originalFqni, sym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
+            .add(new ScopeClaim<>(
+                originalFqni,
+                sym,
+                sym.originModuleKey() + "::" + originalFqni,
+                ClaimKind.RAW_IMPORT,
+                includeElemSpan
+            ));
       }
 
       for (var entry : importedUnit.exportedConstants().entrySet()) {
@@ -3408,7 +3521,13 @@ public final class StvnDefsLowerer {
         Map<String, List<ScopeClaim<ExportedConstantSymbol>>> dest =
             originalFqni.contains("/") ? packagedConstClaims : constClaims;
         dest.computeIfAbsent(originalFqni, k -> new ArrayList<>())
-            .add(new ScopeClaim<>(originalFqni, sym, sym.originModuleKey() + "::" + originalFqni, ClaimKind.RAW_IMPORT));
+            .add(new ScopeClaim<>(
+                originalFqni,
+                sym,
+                sym.originModuleKey() + "::" + originalFqni,
+                ClaimKind.RAW_IMPORT,
+                includeElemSpan
+            ));
       }
     }
 
@@ -3427,7 +3546,7 @@ public final class StvnDefsLowerer {
     private static <T> void resolveNamespaceClaims(
         Map<String, List<ScopeClaim<T>>> claimsMap,
         Map<String, T> resolvedOut,
-        List<String> collisionsOut
+        Map<Span, LinkedHashSet<String>> collisionsBySpanOut
     ) {
       for (var entry : claimsMap.entrySet()) {
         String id = entry.getKey();
@@ -3435,7 +3554,7 @@ public final class StvnDefsLowerer {
 
         ScopeClaim<T> localClaim = null;
         List<ScopeClaim<T>> rhsClaims = new ArrayList<>();
-        List<ScopeClaim<T>> rawClaims = new ArrayList<>();
+        List<ScopeClaim<T>> activeImportClaims = new ArrayList<>();
         Set<String> seenRawOrigins = new HashSet<>();
 
         for (var c : claims) {
@@ -3443,9 +3562,10 @@ public final class StvnDefsLowerer {
             localClaim = c;
           } else if (c.kind() == ClaimKind.RENAMED_IMPORT_RHS) {
             rhsClaims.add(c);
+            activeImportClaims.add(c);
           } else if (c.kind() == ClaimKind.RAW_IMPORT) {
             if (seenRawOrigins.add(c.originKey())) {
-              rawClaims.add(c);
+              activeImportClaims.add(c);
             }
           }
         }
@@ -3453,17 +3573,22 @@ public final class StvnDefsLowerer {
         if (localClaim != null) {
           // Local definitions evict RAW_IMPORT claims cleanly (Appendix F Scenario 1),
           // but collide with explicit RENAMED_IMPORT_RHS targeting the same identifier.
-          if (!rhsClaims.isEmpty()) {
-            collisionsOut.add(id);
+          for (var rhsClaim : rhsClaims) {
+            collisionsBySpanOut.computeIfAbsent(rhsClaim.claimSpan(), k -> new LinkedHashSet<>()).add(id);
           }
         } else {
-          int activeCount = rawClaims.size() + rhsClaims.size();
-          if (activeCount > 1) {
-            collisionsOut.add(id);
-          } else if (rawClaims.size() == 1) {
-            resolvedOut.put(id, rawClaims.getFirst().payload());
-          } else if (rhsClaims.size() == 1) {
-            resolvedOut.put(id, rhsClaims.getFirst().payload());
+          if (activeImportClaims.size() > 1) {
+            activeImportClaims.sort(
+                Comparator.comparingInt((ScopeClaim<T> c) -> c.claimSpan().start())
+                    .thenComparingInt(c -> c.claimSpan().end())
+            );
+            for (int i = 1; i < activeImportClaims.size(); i++) {
+              collisionsBySpanOut
+                  .computeIfAbsent(activeImportClaims.get(i).claimSpan(), k -> new LinkedHashSet<>())
+                  .add(id);
+            }
+          } else if (activeImportClaims.size() == 1 && activeImportClaims.getFirst().payload() != null) {
+            resolvedOut.put(id, activeImportClaims.getFirst().payload());
           }
         }
       }
@@ -3472,8 +3597,8 @@ public final class StvnDefsLowerer {
     private ScopeFrame buildScopeFrame(
         @Nullable String packagePrefix,
         List<StvnParser.UseElementContext> useElements,
-        List<String> localSimpleTypes,
-        List<String> localSimpleConsts
+        Map<String, Span> localSimpleTypes,
+        Map<String, Span> localSimpleConsts
     ) {
       Map<String, List<ScopeClaim<String>>> typeAliasClaims = new LinkedHashMap<>();
       Map<String, List<ScopeClaim<String>>> constAliasClaims = new LinkedHashMap<>();
@@ -3513,94 +3638,154 @@ public final class StvnDefsLowerer {
       }
 
       for (var useElem : useElements) {
+        if (duplicateUseElements.contains(useElem)) {
+          continue;
+        }
         if (useElem.useTarget() == null || useElem.useTarget().useTargetIllegal() != null) {
           continue;
         }
         String target = useElem.useTarget().getText();
+        Span useElemSpan = Span.ofContext(useElem);
         boolean hasStrip = useElem.useOptionsBlock() != null
             && useElem.useOptionsBlock().useOption().stream()
                 .anyMatch(o -> o.KW_STRIP() != null && o.standaloneFacetIllegalArg() == null);
 
-        Map<String, String> typeRenameMap = new LinkedHashMap<>();
-        Map<String, String> constRenameMap = new LinkedHashMap<>();
+        List<AliasBinding> typeAliasBindings = new ArrayList<>();
+        List<AliasBinding> constAliasBindings = new ArrayList<>();
         if (useElem.useAliasBlock() != null && useElem.useAliasBlock().useMapAlias() != null) {
           for (var alias : useElem.useAliasBlock().useMapAlias()) {
+            if (duplicateUseMapAliases.contains(alias)) {
+              continue;
+            }
             if (alias.typeKeyword(0) != null && alias.typeKeyword(1) != null) {
-              typeRenameMap.put(alias.typeKeyword(0).getText(), alias.typeKeyword(1).getText());
+              typeAliasBindings.add(new AliasBinding(
+                  alias.typeKeyword(0).getText(),
+                  alias.typeKeyword(1).getText(),
+                  Span.ofContext(alias.typeKeyword(1))
+              ));
             } else if (alias.valueKeyword(0) != null && alias.valueKeyword(1) != null) {
-              constRenameMap.put(alias.valueKeyword(0).getText(), alias.valueKeyword(1).getText());
+              constAliasBindings.add(new AliasBinding(
+                  alias.valueKeyword(0).getText(),
+                  alias.valueKeyword(1).getText(),
+                  Span.ofContext(alias.valueKeyword(1))
+              ));
             }
           }
         }
 
+        Set<AliasBinding> matchedTypeBindings = Collections.newSetFromMap(new IdentityHashMap<>());
         for (var entry : availableTypeFqnis.entrySet()) {
           String fqni = entry.getKey();
           String origin = entry.getValue();
           if (fqni.equals(target) || fqni.startsWith(target + "/")) {
             String stripped = sliceTerminal(fqni);
-            if (typeRenameMap.containsKey(fqni)) {
-              String alias = typeRenameMap.get(fqni);
-              typeAliasClaims.computeIfAbsent(alias, k -> new ArrayList<>())
-                  .add(new ScopeClaim<>(alias, fqni, origin, ClaimKind.RENAMED_IMPORT_RHS));
-            } else if (typeRenameMap.containsKey(stripped)) {
-              String alias = typeRenameMap.get(stripped);
-              typeAliasClaims.computeIfAbsent(alias, k -> new ArrayList<>())
-                  .add(new ScopeClaim<>(alias, fqni, origin, ClaimKind.RENAMED_IMPORT_RHS));
-            } else if (hasStrip) {
-              typeAliasClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
-                  .add(new ScopeClaim<>(stripped, fqni, origin, ClaimKind.RAW_IMPORT));
+            boolean matchedExplicitAlias = false;
+            for (var binding : typeAliasBindings) {
+              if (binding.rawLhs().equals(fqni) || binding.rawLhs().equals(stripped)) {
+                matchedExplicitAlias = true;
+                matchedTypeBindings.add(binding);
+                typeAliasClaims.computeIfAbsent(binding.rhsName(), k -> new ArrayList<>())
+                    .add(new ScopeClaim<>(
+                        binding.rhsName(),
+                        fqni,
+                        origin,
+                        ClaimKind.RENAMED_IMPORT_RHS,
+                        binding.rhsSpan()
+                    ));
+              }
             }
+            if (!matchedExplicitAlias && hasStrip) {
+              typeAliasClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
+                  .add(new ScopeClaim<>(stripped, fqni, origin, ClaimKind.RAW_IMPORT, useElemSpan));
+            }
+          }
+        }
+        for (var binding : typeAliasBindings) {
+          if (!matchedTypeBindings.contains(binding)) {
+            String canonicalUnresolved = canonicalizeUseAliasLhs(target, binding.rawLhs(), false);
+            typeAliasClaims.computeIfAbsent(binding.rhsName(), k -> new ArrayList<>())
+                .add(new ScopeClaim<>(
+                    binding.rhsName(),
+                    null,
+                    "<unresolved>::" + canonicalUnresolved,
+                    ClaimKind.RENAMED_IMPORT_RHS,
+                    binding.rhsSpan()
+                ));
           }
         }
 
         String constTarget = StvnVocabulary.SIGIL_VALUE
             + (target.startsWith(StvnVocabulary.SIGIL_TYPIC) ? target.substring(1) : target);
+        Set<AliasBinding> matchedConstBindings = Collections.newSetFromMap(new IdentityHashMap<>());
         for (var entry : availableConstFqnis.entrySet()) {
           String fqni = entry.getKey();
           String origin = entry.getValue();
           if (fqni.equals(constTarget) || fqni.startsWith(constTarget + "/")) {
             String stripped = sliceTerminal(fqni);
-            if (constRenameMap.containsKey(fqni)) {
-              String alias = constRenameMap.get(fqni);
-              constAliasClaims.computeIfAbsent(alias, k -> new ArrayList<>())
-                  .add(new ScopeClaim<>(alias, fqni, origin, ClaimKind.RENAMED_IMPORT_RHS));
-            } else if (constRenameMap.containsKey(stripped)) {
-              String alias = constRenameMap.get(stripped);
-              constAliasClaims.computeIfAbsent(alias, k -> new ArrayList<>())
-                  .add(new ScopeClaim<>(alias, fqni, origin, ClaimKind.RENAMED_IMPORT_RHS));
-            } else if (hasStrip) {
-              constAliasClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
-                  .add(new ScopeClaim<>(stripped, fqni, origin, ClaimKind.RAW_IMPORT));
+            boolean matchedExplicitAlias = false;
+            for (var binding : constAliasBindings) {
+              if (binding.rawLhs().equals(fqni) || binding.rawLhs().equals(stripped)) {
+                matchedExplicitAlias = true;
+                matchedConstBindings.add(binding);
+                constAliasClaims.computeIfAbsent(binding.rhsName(), k -> new ArrayList<>())
+                    .add(new ScopeClaim<>(
+                        binding.rhsName(),
+                        fqni,
+                        origin,
+                        ClaimKind.RENAMED_IMPORT_RHS,
+                        binding.rhsSpan()
+                    ));
+              }
             }
+            if (!matchedExplicitAlias && hasStrip) {
+              constAliasClaims.computeIfAbsent(stripped, k -> new ArrayList<>())
+                  .add(new ScopeClaim<>(stripped, fqni, origin, ClaimKind.RAW_IMPORT, useElemSpan));
+            }
+          }
+        }
+        for (var binding : constAliasBindings) {
+          if (!matchedConstBindings.contains(binding)) {
+            String canonicalUnresolved = canonicalizeUseAliasLhs(target, binding.rawLhs(), true);
+            constAliasClaims.computeIfAbsent(binding.rhsName(), k -> new ArrayList<>())
+                .add(new ScopeClaim<>(
+                    binding.rhsName(),
+                    null,
+                    "<unresolved>::" + canonicalUnresolved,
+                    ClaimKind.RENAMED_IMPORT_RHS,
+                    binding.rhsSpan()
+                ));
           }
         }
       }
 
-      for (String localSimple : localSimpleTypes) {
+      for (var localEntry : localSimpleTypes.entrySet()) {
+        String localSimple = localEntry.getKey();
         typeAliasClaims.computeIfAbsent(localSimple, k -> new ArrayList<>())
-            .add(new ScopeClaim<>(localSimple, localSimple, "<local>", ClaimKind.LOCAL));
+            .add(new ScopeClaim<>(localSimple, localSimple, "<local>", ClaimKind.LOCAL, localEntry.getValue()));
       }
-      for (String localSimple : localSimpleConsts) {
+      for (var localEntry : localSimpleConsts.entrySet()) {
+        String localSimple = localEntry.getKey();
         constAliasClaims.computeIfAbsent(localSimple, k -> new ArrayList<>())
-            .add(new ScopeClaim<>(localSimple, localSimple, "<local>", ClaimKind.LOCAL));
+            .add(new ScopeClaim<>(localSimple, localSimple, "<local>", ClaimKind.LOCAL, localEntry.getValue()));
       }
 
-      List<String> scopeCollisions = new ArrayList<>();
+      Map<Span, LinkedHashSet<String>> scopeCollisionsBySpan = new LinkedHashMap<>();
       Map<String, String> resolvedTypes = new LinkedHashMap<>();
       Map<String, String> resolvedConsts = new LinkedHashMap<>();
-      resolveNamespaceClaims(typeAliasClaims, resolvedTypes, scopeCollisions);
-      resolveNamespaceClaims(constAliasClaims, resolvedConsts, scopeCollisions);
+      resolveNamespaceClaims(typeAliasClaims, resolvedTypes, scopeCollisionsBySpan);
+      resolveNamespaceClaims(constAliasClaims, resolvedConsts, scopeCollisionsBySpan);
 
-      if (!scopeCollisions.isEmpty() && doc != null) {
-        Span docSpan = Span.ofContext(doc);
-        List<String> uniqueCols = new ArrayList<>(new LinkedHashSet<>(scopeCollisions));
-        for (int i = 0; i < uniqueCols.size(); i++) {
-          String msg = "Namespace collision(s) detected: " + uniqueCols
-              + "; enclose module declarations in '" + StvnVocabulary.KEYWORD_PACKAGE
-              + "' and disambiguate local symbols with '" + StvnVocabulary.KEYWORD_USE + "'";
+      if (!scopeCollisionsBySpan.isEmpty() && doc != null) {
+        for (var collisionEntry : scopeCollisionsBySpan.entrySet()) {
+          Span offendingSpan = collisionEntry.getKey();
+          List<String> uniqueCols = new ArrayList<>(collisionEntry.getValue());
+          String msg = "Namespace collision(s) in '" + StvnVocabulary.KEYWORD_USE + "': " + uniqueCols
+              + "; replace '" + StvnVocabulary.FACET_KW_STRIP
+              + "' with explicit symbol aliases or rename colliding '"
+              + StvnVocabulary.KEYWORD_USE + "' aliases";
           diagnosticBag.addError(
               msg,
-              docSpan.start(), docSpan.end(), docSpan.line(), docSpan.column(),
+              offendingSpan.start(), offendingSpan.end(), offendingSpan.line(), offendingSpan.column(),
               new NamespaceCollisionException(msg),
               DiagnosticBag.ERR_NAMESPACE_COLLISION
           );

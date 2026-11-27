@@ -25,22 +25,28 @@
     ]
     "branch-two"
     {
-      ["root-key" [
-        (
-          #LOCK
-          [
+      [
+        "root-key"
+        [
+          (
+            #LOCK
             [
-              {
-                ["leaf-key" [
+              [
+                {
                   [
-                    (42 "deep-leaf")
+                    "leaf-key"
+                    [
+                      [
+                        (42 "deep-leaf")
+                      ]
+                    ]
                   ]
-                ]]
-              }
+                }
+              ]
             ]
-          ]
-        )
-      ]]
+          )
+        ]
+      ]
     }
   )
 }

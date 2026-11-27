@@ -66,22 +66,28 @@
     ]
     #Some #Right #2 "branch-two"
     {
-      ["root-key" [
-        #Some #Right (
-          #LOCK
-          [
-            #Some [
-              #Right {
-                ["leaf-key" #Some [
+      [
+        "root-key"
+        [
+          #Some #Right (
+            #LOCK
+            [
+              #Some [
+                #Right {
                   [
-                    #Some (42 "deep-leaf")
+                    "leaf-key"
+                    #Some [
+                      [
+                        #Some (42 "deep-leaf")
+                      ]
+                    ]
                   ]
-                ]]
-              }
+                }
+              ]
             ]
-          ]
-        )
-      ]]
+          )
+        ]
+      ]
     }
   )
 }

@@ -1845,21 +1845,22 @@ public final class StvnSourceFormatter {
         startNewBlockChildLine(indent + 1, entry.getStart(), emittedEntry);
         emittedEntry = true;
 
+        Token entryOpen = entry.LBRACK().getSymbol();
         StvnParser.ValueContext keyVal = entry.value(0);
         StvnParser.ValueContext valVal = entry.value(1);
         Token entryClose = entry.RBRACK().getSymbol();
 
         sb.append(StvnVocabulary.DELIM_OPEN_BRACKET);
-        formatValue(keyVal, indent + 1);
-
-        boolean valueOnNewLine = valVal.getStart().getLine() > keyVal.getStop().getLine()
-            || hasCommentsBetween(keyVal.getStop().getTokenIndex(), valVal.getStart().getTokenIndex());
-        if (valueOnNewLine) {
+        if (isMultiLineMapEntry(entry)) {
+          lastEmittedLine = entryOpen.getLine();
+          appendTrailingCommentIfOnLine(entryOpen.getLine(), keyVal.getStart().getTokenIndex());
+          boolean emittedKey = flushStandaloneCommentsBefore(keyVal.getStart().getTokenIndex(), indent + 2, false);
+          startNewBlockChildLine(indent + 2, keyVal.getStart(), emittedKey);
+          formatValue(keyVal, indent + 2);
           lastEmittedLine = keyVal.getStop().getLine();
           appendTrailingCommentIfOnLine(keyVal.getStop().getLine(), valVal.getStart().getTokenIndex());
           flushStandaloneCommentsBefore(valVal.getStart().getTokenIndex(), indent + 2, true);
-          sb.append('\n').append(indentStr(indent + 2));
-          markLineAnchor(valVal.getStart());
+          startNewBlockChildLine(indent + 2, valVal.getStart(), true);
           formatValue(valVal, indent + 2);
           lastEmittedLine = valVal.getStop().getLine();
           appendTrailingCommentIfOnLine(valVal.getStop().getLine(), entryClose.getTokenIndex());
@@ -1868,6 +1869,7 @@ public final class StvnSourceFormatter {
           markLineAnchor(entryClose);
           sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
         } else {
+          formatValue(keyVal, indent + 1);
           appendAlignableSpace(keyVal.getStop(), valVal.getStart());
           formatValue(valVal, indent + 1);
           sb.append(StvnVocabulary.DELIM_CLOSE_BRACKET);
@@ -1881,6 +1883,49 @@ public final class StvnSourceFormatter {
       markLineAnchor(closeBrace);
       sb.append(StvnVocabulary.DELIM_CLOSE_BRACE);
       lastEmittedLine = closeBrace.getLine();
+    }
+
+    private boolean isMultiLineMapEntry(StvnParser.MapEntryContext entry) {
+      Token entryOpen = entry.LBRACK().getSymbol();
+      Token entryClose = entry.RBRACK().getSymbol();
+      return entryOpen.getLine() < entryClose.getLine()
+          || hasCommentsBetween(entryOpen.getTokenIndex(), entryClose.getTokenIndex())
+          || willFormatValueMultiLine(entry.value(0))
+          || willFormatValueMultiLine(entry.value(1));
+    }
+
+    private boolean willFormatValueMultiLine(StvnParser.@Nullable ValueContext ctx) {
+      if (ctx == null) {
+        return false;
+      }
+      if (ctx.getStart().getLine() < ctx.getStop().getLine()
+          || hasCommentsBetween(ctx.getStart().getTokenIndex(), ctx.getStop().getTokenIndex())
+          || containsFencedValue(ctx)) {
+        return true;
+      }
+      if (ctx.explicitOptionValue() != null) {
+        return willFormatValueMultiLine(ctx.explicitOptionValue().value());
+      }
+      if (ctx.explicitEitherValue() != null) {
+        return willFormatValueMultiLine(ctx.explicitEitherValue().value());
+      }
+      if (ctx.explicitUnionValue() != null) {
+        return willFormatValueMultiLine(ctx.explicitUnionValue().value());
+      }
+      if (ctx.collectionValue() != null
+          && options.payloadNestedWrapPolicy() == NestedContainerWrapPolicy.EXPAND_NESTED) {
+        var coll = ctx.collectionValue();
+        if (coll.mapLiteral() != null) {
+          return !coll.mapLiteral().mapEntry().isEmpty();
+        }
+        if (coll.listLiteral() != null) {
+          return requiresMultiLinePayloadContainer(coll.listLiteral().value());
+        }
+        if (coll.tupleLiteral() != null) {
+          return requiresMultiLinePayloadContainer(coll.tupleLiteral().value());
+        }
+      }
+      return false;
     }
 
     private boolean containsFencedPayloadString(List<StvnParser.ValueContext> elements) {

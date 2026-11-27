@@ -1,0 +1,34 @@
+{
+  :meta {
+    #name "use_collision_and_duplicate_scope_errors"
+    #domain "core_test"
+    #kind #BODY
+  }
+  :defs {
+    :package :subsea/pump/primary {
+      :LaserDriveMa { #unsigned } :Int
+      :PumpMode :Enum[#IDLE #BOOST]
+    }
+    :package :subsea/pump/raman {
+      :LaserDriveMa { #unsigned } :Int
+      :PumpMode :Enum[#IDLE #BOOST]
+    }
+    :use [
+      :subsea/pump/primary { #strip }
+      :subsea/pump/primary { #strip }
+      :subsea/pump/raman { #strip }
+    ]
+    :package :subsea/control {
+      :use [
+        :subsea/pump/primary {
+          :LaserDriveMa :DriveMa
+          :LaserDriveMa :DriveMa
+          :PumpMode :DriveMa
+        }
+      ]
+      :ControlPair :Int
+    }
+  }
+  :type :Int
+  :body 42
+}

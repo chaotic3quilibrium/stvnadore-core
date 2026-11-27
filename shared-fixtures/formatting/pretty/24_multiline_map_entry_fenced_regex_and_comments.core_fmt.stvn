@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "24_multiline_map_entry_fenced_regex_and_comments"
+    #domain "core_fmt"
+    #kind #BODY
+  }
+  :type :Map(:String :String)
+  :body {
+    [
+      "regex"
+      """[RAW]
+        ^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.?\b){4}$[RAW]"""
+    ]
+    ["mode" "strict"]
+    ["profile" "subsea-v11"]
+  }
+}

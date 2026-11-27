@@ -74,7 +74,7 @@ class StvnGoldenFormatterConformanceTest {
     Set<String> compactNames = listRegularFileNames(COMPACT_DIR);
 
     Assertions.assertFalse(inputNames.isEmpty(), "shared-fixtures/formatting/input must not be empty");
-    Assertions.assertEquals(23, inputNames.size(), "Expected 23 golden formatter quartets");
+    Assertions.assertEquals(24, inputNames.size(), "Expected 24 golden formatter quartets");
     Assertions.assertEquals(inputNames, sourcePrettyNames, "input/ and source_pretty/ file inventories must match identically");
     Assertions.assertEquals(inputNames, prettyNames, "input/ and pretty/ file inventories must match identically");
     Assertions.assertEquals(inputNames, compactNames, "input/ and compact/ file inventories must match identically");

@@ -1,0 +1,22 @@
+{
+  :meta {
+    #name "24_multiline_map_entry_fenced_regex_and_comments"
+    #domain "core_fmt"
+    #kind #BODY
+  }
+  :type :Map(:String :String)
+  :body {
+    [
+      "regex"
+      """[REGEX]
+        ^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.?\b){4}$[REGEX]"""
+    ]
+    [ // entry header comment
+      // key comment
+      "mode" // inline key comment
+      // value comment
+      "strict" // inline value comment
+    ] // closing bracket comment
+    ["profile" "subsea-v11"]
+  }
+}

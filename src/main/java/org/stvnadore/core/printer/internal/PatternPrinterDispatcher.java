@@ -256,10 +256,23 @@ public final class PatternPrinterDispatcher {
             }
           }
           first = false;
+          boolean multiLineEntry = pretty
+              && (willEmitMultiLineInPretty(entry.key(), layout)
+                  || willEmitMultiLineInPretty(entry.value(), layout));
           layout.openGroup(StvnVocabulary.DELIM_OPEN_BRACKET);
-          dispatch(entry.key(), layout, options, StvnVocabulary.FENCE_TAG_RAW, catalog);
-          layout.appendSeparator();
-          dispatch(entry.value(), layout, options, StvnVocabulary.FENCE_TAG_RAW, catalog);
+          if (multiLineEntry) {
+            layout.indent();
+            layout.newline();
+            dispatch(entry.key(), layout, options, StvnVocabulary.FENCE_TAG_RAW, catalog);
+            layout.newline();
+            dispatch(entry.value(), layout, options, StvnVocabulary.FENCE_TAG_RAW, catalog);
+            layout.outdent();
+            layout.newline();
+          } else {
+            dispatch(entry.key(), layout, options, StvnVocabulary.FENCE_TAG_RAW, catalog);
+            layout.appendSeparator();
+            dispatch(entry.value(), layout, options, StvnVocabulary.FENCE_TAG_RAW, catalog);
+          }
           layout.closeGroup(StvnVocabulary.DELIM_CLOSE_BRACKET);
         }
         if (pretty && !entries.isEmpty()) {
@@ -334,6 +347,23 @@ public final class PatternPrinterDispatcher {
       case StvnValue.StvnOption opt -> opt.value().map(inner -> isStructuredOrFencedPayload(inner, layout)).orElse(false);
       case StvnValue.StvnEither eith -> isStructuredOrFencedPayload(eith.value(), layout);
       case StvnValue.StvnUnion un -> isStructuredOrFencedPayload(un.value(), layout);
+      default -> false;
+    };
+  }
+
+  private static boolean willEmitMultiLineInPretty(StvnValue val, LayoutWriter layout) {
+    return switch (val) {
+      case StvnValue.StvnMap map -> !map.entries().isEmpty();
+      case StvnValue.StvnSeq seq -> requiresMultiLinePayloadContainer(seq.elements(), layout);
+      case StvnValue.StvnSet set -> requiresMultiLinePayloadContainer(List.copyOf(set.elements()), layout);
+      case StvnValue.StvnTuple tup -> requiresMultiLinePayloadContainer(tup.elements(), layout);
+      case StvnValue.StvnString s -> {
+        boolean preserveIndent = s.schema() instanceof StvnSchema.StringSchema ss && ss.preserveIndent();
+        yield shouldEmitFencedPretty(s.value(), preserveIndent);
+      }
+      case StvnValue.StvnOption opt -> opt.value().map(inner -> willEmitMultiLineInPretty(inner, layout)).orElse(false);
+      case StvnValue.StvnEither eith -> willEmitMultiLineInPretty(eith.value(), layout);
+      case StvnValue.StvnUnion un -> willEmitMultiLineInPretty(un.value(), layout);
       default -> false;
     };
   }

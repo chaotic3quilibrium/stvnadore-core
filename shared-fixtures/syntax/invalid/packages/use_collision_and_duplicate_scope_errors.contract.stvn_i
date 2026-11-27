@@ -1,0 +1,17 @@
+{
+  :meta {
+    #name "use_collision_and_duplicate_scope_errors"
+    #domain "contract"
+    #kind #BODY_INCLUDE
+  }
+  :defs {
+    :include [ "../error_contract.stvn_d" ]
+  }
+  :type :ErrorContract
+  :body [
+    ( #E005 #DUPLICATE_MODULE_IMPORT #ERROR 18 7 406 437 "Duplicate ':use' target ':subsea/pump/primary' in the same scope; consolidate bindings into a single ':use' entry" )
+    ( #E005 #DUPLICATE_MODULE_IMPORT #ERROR 25 11 598 620 "Duplicate ':use' alias mapping ':LaserDriveMa :DriveMa' in ':subsea/pump/primary'; remove the redundant alias entry" )
+    ( #E006 #NAMESPACE_COLLISION #ERROR 19 7 444 473 "Namespace collision(s) in ':use': [:LaserDriveMa, :PumpMode]; replace '#strip' with explicit symbol aliases or rename colliding ':use' aliases" )
+    ( #E006 #NAMESPACE_COLLISION #ERROR 26 21 641 649 "Namespace collision(s) in ':use': [:DriveMa]; replace '#strip' with explicit symbol aliases or rename colliding ':use' aliases" )
+  ]
+}

@@ -834,6 +834,8 @@ public final class DiagnosticBag {
         return new CyclicDependencyException(message, List.of(), List.of());
       } else if (ERR_NAMESPACE_COLLISION.equals(errorCode)) {
         return new NamespaceCollisionException(message);
+      } else if (ERR_DUPLICATE_MODULE_IMPORT.equals(errorCode)) {
+        return new DuplicateModuleImportException(message);
       }
       return new MalformedSchemaException(message, startOffset, endOffset);
     } else if (cause instanceof java.util.regex.PatternSyntaxException) {

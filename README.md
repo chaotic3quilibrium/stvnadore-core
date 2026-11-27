@@ -246,7 +246,8 @@ STVN strictly segregates the lexical and semantic namespaces of types and values
 
 * **Type Constructors (`:`)**: The colon prefix sigil is reserved exclusively for type constructors, annotations, and module keywords (e.g., `:type`, `:defs`, `:Boolean`, `:String`, `:Tuple`, `:Union`).
 * **Value Tokens & Constants (`#`)**: The hash prefix sigil is reserved for literal values, sum type algebraic tags, enum constants, and value constants in `:defs` (e.g., `#TRUE`, `#Some`, `#Left`, `#HTTP`, `#MAX_RETRY`).
-* **Path-Delimited Identifiers**: Identifiers support forward-slash namespaces in both type space (`:net/http/Status`) and value space (`#net/http/OK`).
+* **Path-Delimited Identifiers**: Identifiers support forward-slash namespaces in both type space (`:net/http/Status`) and value space (`#net/http/OK`), modularized via `:package` enclosures and lexical `:use` projections (supporting 1-to-many VOP nominal rebranding while enforcing coordinate-pinned `E005` duplicate-import and `E006` collision diagnostics).
+* **Symmetric Source & IR Formatting (`StvnSourceFormatter` & `AstPrettyPrinter`)**: Enforces 2-space indentation, comment-preserving canonical `:meta` and 5-tier facet sorting, and strict bracket symmetry across single-line (`[key value]`) and multi-line (`[` / `key` / `value` / `]`) `:Map` entries.
 * **Typed Constants in `:defs`**: Immutably binds compile-time constants: `#PORT { #unsigned #size 16 } :Int 8080`.
 * **Bare Variant Syntax vs. Strict Product Demarcation**: Sum variants apply directly to trailing values without function parentheses (`#Some 42`). Parentheses `( ... )` in STVN are strictly and exclusively product constructors (`:Tuple`). Parenthesizing a scalar variant (e.g., `#Some ( 42 )` for `:Option( { #unsigned } :Int )`) triggers a fatal `MalformedPayloadException`.
 

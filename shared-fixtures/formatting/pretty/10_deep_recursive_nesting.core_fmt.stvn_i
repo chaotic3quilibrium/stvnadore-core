@@ -32,14 +32,17 @@
         "edge.acme.internal"
       )
       {
-        ["route-alpha" (
-          [10 20 30]
-          [40 50 60]
-          [
-            (1 #TRUE)
-            (2 #FALSE)
-          ]
-        )]
+        [
+          "route-alpha"
+          (
+            [10 20 30]
+            [40 50 60]
+            [
+              (1 #TRUE)
+              (2 #FALSE)
+            ]
+          )
+        ]
       }
     )
   ]
